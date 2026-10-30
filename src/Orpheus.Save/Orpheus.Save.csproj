@@ -3,6 +3,7 @@
   <!-- Двоичный контейнер сохранений, атомарная запись, миграции, IPlatformStorage. -->
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <OrpheusDeterministicRules>true</OrpheusDeterministicRules>
   </PropertyGroup>
 
   <ItemGroup>

@@ -3,6 +3,7 @@
   <!-- Ядро: тор, мир, правила. Без зависимостей (docs/07, 1.3). -->
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <OrpheusDeterministicRules>true</OrpheusDeterministicRules>
   </PropertyGroup>
 
 </Project>
