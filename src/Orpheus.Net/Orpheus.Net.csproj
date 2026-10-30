@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Протокол, снимки, предсказание, ITransport. LiteNetLib подключается задачей сети. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Orpheus.Core\Orpheus.Core.csproj" />
+  </ItemGroup>
+
+</Project>

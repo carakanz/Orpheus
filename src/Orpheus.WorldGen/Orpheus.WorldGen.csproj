@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Генератор мира docs/01: целочисленный шум, версии. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Orpheus.Core\Orpheus.Core.csproj" />
+  </ItemGroup>
+
+</Project>
