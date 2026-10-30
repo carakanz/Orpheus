@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Выделенный сервер. По docs/07 1.3 — net10.0; на машине пока SDK 9 (решение Продюсера 30.10). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>OrpheusServer</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Orpheus.Core\Orpheus.Core.csproj" />
+    <ProjectReference Include="..\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
+    <ProjectReference Include="..\Orpheus.Net\Orpheus.Net.csproj" />
+    <ProjectReference Include="..\Orpheus.Save\Orpheus.Save.csproj" />
+  </ItemGroup>
+
+</Project>
