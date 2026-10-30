@@ -132,13 +132,20 @@ if (-not (Test-Path $Exe)) { Fail "нет $Exe после сборки" }
 if ($Smoke) {
     Say 'smoke: Orpheus.exe -batchmode -nographics --smoke'
     if (Test-Path $SmokeLog) { Remove-Item -Force $SmokeLog }
-    $sp = Start-Process -FilePath $Exe -ArgumentList @('-batchmode', '-nographics', '--smoke', '-logFile', "`"$SmokeLog`"") -PassThru -NoNewWindow
+    $sp = Start-Process -FilePath $Exe -ArgumentList @('-batchmode', '-nographics', '--smoke', '-logFile', "`"$SmokeLog`"") -PassThru -NoNewWindow `
+        -RedirectStandardOutput (Join-Path $LogDir 'smoke.stdout.txt')
     $null = $sp.Handle
     if (-not $sp.WaitForExit(60 * 1000)) { try { $sp.Kill() } catch { }; Fail 'smoke: Orpheus.exe не вышел за 60 с' }
     $sp.WaitForExit()
     Select-String -Path $SmokeLog -Pattern '^\[smoke\]' | ForEach-Object { Write-Host "  $($_.Line)" }
     if ($sp.ExitCode -ne 0) { Fail "smoke: код выхода $($sp.ExitCode), лог: $SmokeLog" }
     if (-not (Select-String -Path $SmokeLog -Pattern '^\[smoke\] done' -Quiet)) { Fail "smoke: нет строки '[smoke] done' в $SmokeLog" }
+    # ошибки до старта SmokeExit (загрузка движка и сцены) компонент не видит — ищем их в логе
+    $bad = @(Select-String -Path $SmokeLog -Pattern '(?i)exception|error' | Where-Object { $_.Line -notmatch '^\[smoke\]' })
+    if ($bad.Count -gt 0) {
+        $bad | Select-Object -First 10 | ForEach-Object { Write-Host "  $($_.Line)" -ForegroundColor Red }
+        Fail "smoke: в логе $($bad.Count) строк с ошибками, лог: $SmokeLog"
+    }
     Say 'smoke: код 0'
 }
 

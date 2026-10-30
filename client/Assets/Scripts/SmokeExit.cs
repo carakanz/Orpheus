@@ -29,6 +29,7 @@ namespace Orpheus.Client
                 return;
             }
             Application.logMessageReceived += OnLog;
+            Application.targetFrameRate = 60; // без окна кадры не ждут vsync — не крутить ядро впустую
             _start = Time.realtimeSinceStartup;
             Debug.Log($"[smoke] start: Unity {Application.unityVersion}, backend {Backend()}, wait {_seconds:0.#} s");
             CheckScene();
