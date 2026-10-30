@@ -1,1 +1,4 @@
 path,status,owner,notes
+client/Assets/Art/_TEMP/TEMP_tile_meadow.png,placeholder,К,тайл луга 128x128 (00 5.1)
+client/Assets/Art/_TEMP/TEMP_tile_rock.png,placeholder,К,тайл скалы 128x128 (00 5.1)
+client/Assets/Art/_TEMP/TEMP_char_orpheus.png,placeholder,К,"персонаж-заглушка 128x192, опора внизу по центру (00 5.1)"

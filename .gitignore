@@ -4,3 +4,26 @@ bin/
 obj/
 .vs/
 *.user
+
+# Unity (клиент, задача 0-002)
+client/[Ll]ibrary/
+client/[Tt]emp/
+client/[Oo]bj/
+client/[Bb]uild/
+client/[Bb]uilds/
+client/[Ll]ogs/
+client/[Uu]ser[Ss]ettings/
+client/MemoryCaptures/
+client/*.csproj
+client/*.sln
+client/*.slnx
+client/.vs/
+client/.idea/
+client/Assets/Plugins/Orpheus/
+client/Assets/Plugins/Orpheus.meta
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+crashlytics-build.properties
+# Сборки клиента (tools/build_client.ps1 → build/client-win/)
+/[Bb]uild/
