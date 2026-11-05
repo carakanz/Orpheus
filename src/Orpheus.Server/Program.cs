@@ -1,32 +1,37 @@
 using System;
-using System.Diagnostics;
+using System.Text;
 using System.Threading;
 
 namespace Orpheus.Server
 {
     /// <summary>
-    /// Заготовка выделенного сервера (задача 0-001): цикл тактов 30 Гц без сети и мира.
-    /// Ключ <c>--ticks N</c> — остановиться после N тактов; без него — до Ctrl+C.
+    /// Выделенный сервер без графики (docs/07, 2.3 и 11.2). Сети пока нет: мир, такт 30 Гц, боты без сети,
+    /// режим симуляции, журнал ввода, повтор и хэш (задача 0-006). Ключи — <see cref="ServerOptions"/>.
+    /// Код выхода: 0 — хорошо, 1 — повтор разошёлся, 2 — ошибка ключей или данных.
     /// </summary>
     public static class Program
     {
-        public const int TickRate = 30; // docs/07, 2.4
-
         public static int Main(string[] args)
         {
-            long maxTicks = long.MaxValue;
-            for (int i = 0; i < args.Length; i++)
+            try
             {
-                if (args[i] == "--ticks" && i + 1 < args.Length && long.TryParse(args[i + 1], out long n) && n >= 0)
-                {
-                    maxTicks = n;
-                    i++;
-                }
-                else
-                {
-                    Console.Error.WriteLine($"Неизвестный ключ: {args[i]}. Есть только --ticks N.");
-                    return 2;
-                }
+                Console.OutputEncoding = new UTF8Encoding(false);
+            }
+            catch (System.IO.IOException)
+            {
+                // консоли нет — выводим как есть
+            }
+
+            ServerOptions options;
+            try
+            {
+                options = ServerOptions.Parse(args);
+            }
+            catch (ArgumentException e)
+            {
+                Console.Error.WriteLine(e.Message);
+                Console.Error.WriteLine(ServerOptions.Usage);
+                return 2;
             }
 
             using var stop = new CancellationTokenSource();
@@ -36,27 +41,7 @@ namespace Orpheus.Server
                 stop.Cancel();
             };
 
-            Console.WriteLine($"Orpheus server: hello. Такт {TickRate} Гц, сети пока нет.");
-            var clock = Stopwatch.StartNew();
-            long tick = 0;
-            while (tick < maxTicks && !stop.IsCancellationRequested)
-            {
-                tick++;
-                if (tick % TickRate == 0)
-                {
-                    Console.WriteLine($"такт {tick}");
-                }
-
-                long nextTickMs = tick * 1000 / TickRate;
-                long waitMs = nextTickMs - clock.ElapsedMilliseconds;
-                if (waitMs > 0)
-                {
-                    stop.Token.WaitHandle.WaitOne((int)waitMs);
-                }
-            }
-
-            Console.WriteLine($"Orpheus server: стоп на такте {tick}.");
-            return 0;
+            return ServerRun.Run(options, Console.Out, stop.Token).ExitCode;
         }
     }
 }
