@@ -353,6 +353,75 @@ namespace Orpheus.Tests
             return StateHash.World(sim.World);
         }
 
+        /// <summary>
+        /// Правки мира в симуляции (замечание П: в CLI хэш мира постоянен — правок из ввода ещё нет):
+        /// боты + правки по зерну каждые 30 тактов. Два прогона — одни хэши на каждом 300-м такте, хэш мира
+        /// растёт с правками; одна другая правка на такте 1500 — хэши расходятся с первой точки после неё.
+        /// </summary>
+        [Fact]
+        public void D00_Sim_EditsInSimulation_SameHashes_WorldHashMoves_OneEditDiverges()
+        {
+            List<StateHashResult> a = RunWithEdits(mutateAtTick: -1);
+            List<StateHashResult> b = RunWithEdits(mutateAtTick: -1);
+            List<StateHashResult> c = RunWithEdits(mutateAtTick: 1500);
+            Assert.Equal(10, a.Count);
+            var worlds = new HashSet<ulong>();
+            for (int i = 0; i < a.Count; i++)
+            {
+                Assert.Equal(a[i].Total, b[i].Total);
+                worlds.Add(a[i].World);
+                if (a[i].Tick < 1500)
+                {
+                    Assert.Equal(a[i].Total, c[i].Total);
+                }
+                else
+                {
+                    Assert.NotEqual(a[i].World, c[i].World);
+                    Assert.NotEqual(a[i].Total, c[i].Total);
+                }
+            }
+
+            Assert.Equal(a.Count, worlds.Count); // хэш мира на каждой точке новый
+        }
+
+        private static List<StateHashResult> RunWithEdits(long mutateAtTick)
+        {
+            WorldModel world = WorldGenModule.Current.Generate(MapShape.World(1024), Seed);
+            var sim = new Simulation(world);
+            var bots = new SimBot[8];
+            for (int i = 0; i < bots.Length; i++)
+            {
+                bots[i] = SimBot.Create(WanderBot.Name, sim.AddEntity(ServerRun.SpawnPoint(world.Shape, i)), i, Seed);
+            }
+
+            var rng = new Orpheus.Core.Rng.DetRandom(Seed ^ 0xED17);
+            var hashes = new List<StateHashResult>();
+            while (sim.Tick < 3000)
+            {
+                foreach (SimBot bot in bots)
+                {
+                    int slot = sim.SlotOf(bot.EntityId);
+                    sim.SetInputAt(slot, bot.Think(sim.Tick + 1, sim.Entities[slot]));
+                }
+
+                if ((sim.Tick + 1) % 30 == 0)
+                {
+                    var tile = new TileCoord(rng.NextInt(1024), rng.NextInt(1024));
+                    ushort obj = sim.Tick + 1 == mutateAtTick ? ObjectId.StoneWall : ObjectId.WoodWall;
+                    sim.RequestEdit(tile, FloorId.Grass, obj, BuildRecord.OfPlayer(1, FloorId.Grass));
+                }
+
+                sim.Step();
+                sim.RefillPools();
+                if (sim.Tick % Simulation.HashInterval == 0)
+                {
+                    hashes.Add(StateHash.Compute(sim));
+                }
+            }
+
+            return hashes;
+        }
+
         // ---------- Порядок такта ----------
 
         [Fact]
