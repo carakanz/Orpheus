@@ -4,8 +4,8 @@ using Orpheus.Core.Geometry;
 namespace Orpheus.Core.World
 {
     /// <summary>
-    /// Плоский мир до генератора 0-007: все чанки созданы, пол — трава, объектов нет.
-    /// Версия 0 — «генератора ещё нет» (как <c>WorldGenModule.GeneratorVersion</c>).
+    /// Плоский мир для тестов такта и движения: все чанки созданы, пол — трава, объектов нет.
+    /// Версия 0 — «не генератор» (у генератора сборки, <c>StubGenerator</c>, версия ≥ 1).
     /// Зерно в мир пишется, но на содержимое не влияет.
     /// </summary>
     public sealed class FlatWorldGenerator : IWorldGenerator

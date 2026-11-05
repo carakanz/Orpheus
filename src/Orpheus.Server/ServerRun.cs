@@ -7,6 +7,7 @@ using Orpheus.Core.Bots;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
+using Orpheus.WorldGen;
 
 namespace Orpheus.Server
 {
@@ -51,8 +52,8 @@ namespace Orpheus.Server
         /// <summary>Файл снимка генерации в папке мира (docs/07, 6.3).</summary>
         public const string BaseFileName = "world.base";
 
-        /// <summary>Генератор при <c>--create</c>. До 0-007 — плоский мир; 0-007 подставит свой.</summary>
-        public static IWorldGenerator Generator { get; set; } = FlatWorldGenerator.Instance;
+        /// <summary>Генератор при <c>--create</c> и при повторе без папки мира: генератор сборки (<see cref="WorldGenModule.Current"/>, 0-007).</summary>
+        public static IWorldGenerator Generator { get; set; } = WorldGenModule.Current;
 
         public static ServerResult Run(ServerOptions o, TextWriter? console, CancellationToken stop = default)
         {

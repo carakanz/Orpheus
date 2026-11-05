@@ -8,6 +8,7 @@ using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Server;
+using Orpheus.WorldGen;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -65,7 +66,10 @@ namespace Orpheus.Tests
             ServerResult rec = Run("--world", world, "--create", "--seed", "42", "--size", "1024", "--sim",
                 "--bots", "8:wander", "--ticks", "54000", "--hash", "--record", journal);
             Assert.Equal(0, rec.ExitCode);
-            Assert.True(File.Exists(Path.Combine(world, ServerRun.BaseFileName)));
+            // Мир — генератора сборки (StubGenerator 0-007): луга, скалы, деревья; боты упираются в них.
+            WorldModel created = WorldSnapshot.LoadBase(File.ReadAllBytes(Path.Combine(world, ServerRun.BaseFileName)));
+            Assert.Equal(WorldGenModule.GeneratorVersion, created.GeneratorVersion);
+            Assert.True(WorldGenModule.GeneratorVersion >= 1);
             _out.WriteLine($"журнал 54 000 тактов, 8 ботов: {new FileInfo(journal).Length} байт");
 
             // Повтор: мир загружается из папки, ввод — из журнала, ботов нет.
