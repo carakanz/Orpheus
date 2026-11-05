@@ -25,5 +25,8 @@ client/Assets/Plugins/Orpheus.meta
 *.pdb.meta
 *.mdb.meta
 crashlytics-build.properties
-# Сборки клиента (tools/build_client.ps1 → build/client-win/)
+# рабочая папка сборки (tools/build_client.ps1 → build/client-win/)
 /[Bb]uild/
+
+# рабочие копии агентов
+.claude/
