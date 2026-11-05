@@ -97,18 +97,28 @@ namespace Orpheus.Core.Sim
                 throw new ArgumentNullException(nameof(sim));
             }
 
-            WorldModel world = sim.World;
+            return Compute(sim.World, sim.Tick, sim.Entities);
+        }
+
+        /// <summary>Хэш канонического вида из частей: мир, номер такта, сущности по номеру (для тестов полноты и инструментов).</summary>
+        public static StateHashResult Compute(WorldModel world, long tick, ReadOnlySpan<SimEntity> entities)
+        {
+            if (world == null)
+            {
+                throw new ArgumentNullException(nameof(world));
+            }
+
             ulong worldHash = World(world);
 
-            var h = new Hasher64(world.Seed);
-            h.Add(sim.Tick);
+            // Зерно хэшера постоянное: каждое поле заголовка входит в хэш ровно своей строкой.
+            var h = new Hasher64(0);
+            h.Add(tick);
             h.Add(world.Seed);
             h.Add(world.Shape.Width);
             h.Add(world.Shape.Height);
             h.Add(world.Shape.Wraps ? 1 : 0);
             h.Add(world.GeneratorVersion);
 
-            ReadOnlySpan<SimEntity> entities = sim.Entities;
             h.Add(entities.Length);
             for (int i = 0; i < entities.Length; i++)
             {
@@ -116,7 +126,7 @@ namespace Orpheus.Core.Sim
             }
 
             h.Add(worldHash);
-            return new StateHashResult(sim.Tick, h.Value, worldHash);
+            return new StateHashResult(tick, h.Value, worldHash);
         }
 
         /// <summary>Хэш одной сущности со всеми полями.</summary>

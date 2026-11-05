@@ -180,43 +180,177 @@ namespace Orpheus.Tests
             _out.WriteLine($"ввод сущности #{victim} изменён на такте {victimTick}; повтор: расхождение на такте {rep.DivergedTick}, сущность #{rep.DivergedEntity}");
         }
 
-        [Fact]
-        public void D00_Sim_Hash_CoversEntityFieldsChangedTilesAndTick()
+        // ---------- Полнота хэша: каждое поле канонического вида (07 11.5) ----------
+
+        private static readonly SimEntity HashBaseEntity = new SimEntity
         {
-            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(64), Seed);
-            var sim = new Simulation(world);
-            int id = sim.AddEntity(new WorldPos(10 * U, 10 * U));
-            ulong h0 = StateHash.Compute(sim).Total;
-            ulong w0 = StateHash.World(world);
+            Id = 3,
+            Kind = SimEntity.KindCharacter,
+            Mover = new Mover(new WorldPos(1000, 2000), 512) { Carry = new Int2(4, -3) },
+            Input = new InputFrame(Input8.East, 0x0010),
+        };
 
-            // Ввод входит в хэш (после такта); движение меняет позицию и остаток.
-            sim.SetInput(id, new InputFrame(Input8.East));
+        /// <summary>Поле сущности → копия базовой сущности, где изменено только оно.</summary>
+        public static IEnumerable<object[]> EntityFields() => new[]
+        {
+            EntityCase("Id", e => { e.Id = 4; return e; }),
+            EntityCase("Kind", e => { e.Kind = 2; return e; }),
+            EntityCase("Position.X", e => { e.Mover.Position = new WorldPos(1001, 2000); return e; }),
+            EntityCase("Position.Y", e => { e.Mover.Position = new WorldPos(1000, 2001); return e; }),
+            EntityCase("Carry.X", e => { e.Mover.Carry = new Int2(5, -3); return e; }),
+            EntityCase("Carry.Y", e => { e.Mover.Carry = new Int2(4, -2); return e; }),
+            EntityCase("UnitsPerTickX10", e => { e.Mover.UnitsPerTickX10 = 513; return e; }),
+            EntityCase("Input.Direction", e => { e.Input = new InputFrame(Input8.West, 0x0010); return e; }),
+            EntityCase("Input.Buttons", e => { e.Input = new InputFrame(Input8.East, 0x0011); return e; }),
+        };
+
+        [Theory]
+        [MemberData(nameof(EntityFields))]
+        public void D00_Sim_Hash_EveryEntityFieldCounts(string field, Func<SimEntity> mutated)
+        {
+            SimEntity changed = mutated();
+            Assert.NotEqual(StateHash.Entity(HashBaseEntity), StateHash.Entity(changed));
+
+            // И в общем хэше: сущность с другим полем — другое состояние.
+            Assert.NotEqual(TotalWith(HashBaseEntity), TotalWith(changed));
+            _out.WriteLine($"{field}: ок");
+        }
+
+        /// <summary>Поле заголовка или мира → (мир, тактов до хэша): меняется ровно одно.</summary>
+        public static IEnumerable<object[]> HeaderFields() => new[]
+        {
+            new object[] { "Tick", 1, Seed, 64, 64, true, 0 },
+            new object[] { "Seed", 0, Seed + 1, 64, 64, true, 0 },
+            new object[] { "Shape.Width", 0, Seed, 128, 64, true, 0 },
+            new object[] { "Shape.Height", 0, Seed, 64, 128, true, 0 },
+            new object[] { "Shape.Wraps", 0, Seed, 64, 64, false, 0 },
+            new object[] { "GeneratorVersion", 0, Seed, 64, 64, true, 1 },
+        };
+
+        [Theory]
+        [MemberData(nameof(HeaderFields))]
+        public void D00_Sim_Hash_EveryHeaderFieldCounts(string field, int ticks, ulong seed, int width, int height, bool wraps, int generatorVersion)
+        {
+            ulong baseline = HeaderHash(0, Seed, 64, 64, true, 0);
+            Assert.Equal(baseline, HeaderHash(0, Seed, 64, 64, true, 0));
+            Assert.NotEqual(baseline, HeaderHash(ticks, seed, width, height, wraps, generatorVersion));
+            _out.WriteLine($"{field}: ок");
+        }
+
+        private static readonly BuildRecord HashBaseRecord = new BuildRecord(7, 900, (byte)BuildFlags.DoorOpen, FloorId.Grass, 1234);
+
+        /// <summary>Поле изменённого чанка (слои, запись постройки, координата, ревизия) → правки другого мира.</summary>
+        public static IEnumerable<object[]> TileFields()
+        {
+            BuildRecord r = HashBaseRecord;
+            return new[]
+            {
+                TileCase("Floor", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Dirt, ObjectId.Door, r)),
+                TileCase("Object (младший байт)", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Gate, r)),
+                TileCase("Object (старший байт: поворот)", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.MakeAnchor(ObjectId.Door, 1), r)),
+                TileCase("Record.Owner", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door,
+                    new BuildRecord(8, r.Integrity, r.Flags, r.NaturalFloor, r.DebrisEndTick))),
+                TileCase("Record.Integrity", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door,
+                    new BuildRecord(r.Owner, 901, r.Flags, r.NaturalFloor, r.DebrisEndTick))),
+                TileCase("Record.Flags", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door,
+                    new BuildRecord(r.Owner, r.Integrity, (byte)BuildFlags.DoorKeepOpen, r.NaturalFloor, r.DebrisEndTick))),
+                TileCase("Record.NaturalFloor", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door,
+                    new BuildRecord(r.Owner, r.Integrity, r.Flags, FloorId.Dirt, r.DebrisEndTick))),
+                TileCase("Record.DebrisEndTick", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door,
+                    new BuildRecord(r.Owner, r.Integrity, r.Flags, r.NaturalFloor, 1235))),
+                TileCase("Record есть / нет", sim => sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door)),
+                TileCase("Record на другом тайле (индекс)", sim =>
+                {
+                    sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door);
+                    sim.RequestEdit(new TileCoord(6, 5), FloorId.Grass, ObjectId.Door, r);
+                }, sameLayersAsBase: true),
+                TileCase("Chunk.X", sim => sim.RequestEdit(new TileCoord(5 + 32, 5), FloorId.Grass, ObjectId.Door, r)),
+                TileCase("Chunk.Y", sim => sim.RequestEdit(new TileCoord(5, 5 + 32), FloorId.Grass, ObjectId.Door, r)),
+                TileCase("Revision", sim =>
+                {
+                    sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door, r);
+                    sim.Step();
+                    sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door, r);
+                }),
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(TileFields))]
+        public void D00_Sim_Hash_EveryChangedTileFieldCounts(string field, Action<Simulation> edits, bool sameLayersAsBase)
+        {
+            ulong baseline = WorldHashAfter(sim =>
+            {
+                sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door, HashBaseRecord);
+                if (sameLayersAsBase)
+                {
+                    sim.RequestEdit(new TileCoord(6, 5), FloorId.Grass, ObjectId.Door);
+                }
+            });
+            Assert.Equal(baseline, WorldHashAfter(sim =>
+            {
+                sim.RequestEdit(new TileCoord(5, 5), FloorId.Grass, ObjectId.Door, HashBaseRecord);
+                if (sameLayersAsBase)
+                {
+                    sim.RequestEdit(new TileCoord(6, 5), FloorId.Grass, ObjectId.Door);
+                }
+            }));
+            Assert.NotEqual(baseline, WorldHashAfter(edits));
+            _out.WriteLine($"{field}: ок");
+        }
+
+        [Fact]
+        public void D00_Sim_Hash_UnchangedChunksOutWorldHashInTotal_NoWorldFlagsYet()
+        {
+            // Неизменённые после генерации чанки — это снимок генерации (зерно и версия — в заголовке): в хэш не идут.
+            WorldModel a = FlatWorldGenerator.Instance.Generate(MapShape.World(64), Seed);
+            WorldModel b = FlatWorldGenerator.Instance.Generate(MapShape.World(64), Seed);
+            b.FindChunk(new ChunkCoord(1, 1))!.SetBaseTile(0, FloorId.Dirt, ObjectId.Empty);
+            Assert.Equal(StateHash.World(a), StateHash.World(b));
+
+            // Хэш мира входит в общий: правка тайла меняет общий хэш при тех же сущностях и такте.
+            var sa = new Simulation(a);
+            var sb = new Simulation(FlatWorldGenerator.Instance.Generate(MapShape.World(64), Seed));
+            sa.Step();
+            sb.RequestEdit(new TileCoord(1, 1), FloorId.Dirt, ObjectId.Empty);
+            sb.Step();
+            Assert.NotEqual(StateHash.Compute(sa).World, StateHash.Compute(sb).World);
+            Assert.NotEqual(StateHash.Compute(sa).Total, StateHash.Compute(sb).Total);
+
+            // Флагов мира в коде ещё нет (07 5.2 — с сюжетом): строка «флаги — число 0» в хэше есть,
+            // табличный случай «флаг мира» добавится вместе с самими флагами.
+        }
+
+        private static object[] EntityCase(string field, Func<SimEntity, SimEntity> change) =>
+            new object[] { field, new Func<SimEntity>(() => change(HashBaseEntity)) };
+
+        private static object[] TileCase(string field, Action<Simulation> edits, bool sameLayersAsBase = false) =>
+            new object[] { field, edits, sameLayersAsBase };
+
+        private static ulong TotalWith(SimEntity e)
+        {
+            var world = new WorldModel(MapShape.World(64), Seed);
+            return StateHash.Compute(world, 0, new[] { e }).Total;
+        }
+
+        private static ulong HeaderHash(int ticks, ulong seed, int width, int height, bool wraps, int generatorVersion)
+        {
+            var shape = new MapShape(width, height, wraps);
+            var sim = new Simulation(new WorldModel(shape, seed, generatorVersion));
+            for (int i = 0; i < ticks; i++)
+            {
+                sim.Step();
+            }
+
+            return StateHash.Compute(sim).Total;
+        }
+
+        private static ulong WorldHashAfter(Action<Simulation> edits)
+        {
+            var sim = new Simulation(FlatWorldGenerator.Instance.Generate(MapShape.World(128), Seed));
+            edits(sim);
             sim.Step();
-            ulong h1 = StateHash.Compute(sim).Total;
-            Assert.NotEqual(h0, h1);
-
-            // Кнопки — тоже поле сущности.
-            var e = sim.GetEntity(id);
-            var withButton = e;
-            withButton.Input = new InputFrame(e.Input.Direction, 1);
-            Assert.NotEqual(StateHash.Entity(e), StateHash.Entity(withButton));
-            var withCarry = e;
-            withCarry.Mover.Carry = new Int2(e.Mover.Carry.X + 1, e.Mover.Carry.Y);
-            Assert.NotEqual(StateHash.Entity(e), StateHash.Entity(withCarry));
-
-            // Мир: неизменённые после генерации чанки в хэш не идут; правка — идёт.
-            Assert.Equal(w0, StateHash.World(world));
-            sim.RequestEdit(new TileCoord(40, 40), FloorId.Grass, ObjectId.StoneWall);
-            sim.Step();
-            ulong w1 = StateHash.World(world);
-            Assert.NotEqual(w0, w1);
-
-            // Та же правка, но запись постройки другая — другой хэш мира.
-            WorldModel world2 = FlatWorldGenerator.Instance.Generate(MapShape.World(64), Seed);
-            var sim2 = new Simulation(world2);
-            sim2.RequestEdit(new TileCoord(40, 40), FloorId.Grass, ObjectId.StoneWall, BuildRecord.OfPlayer(3, FloorId.Grass));
-            sim2.Step();
-            Assert.NotEqual(w1, StateHash.World(world2));
+            return StateHash.World(sim.World);
         }
 
         // ---------- Порядок такта ----------
@@ -275,40 +409,54 @@ namespace Orpheus.Tests
             Assert.Equal(2u, world.FindChunk(new ChunkCoord(1, 0))!.Revision);
         }
 
+        /// <summary>
+        /// Порядок фаз (ввод → движение → правки) виден по одному такту: сущность в 20 unit от грани тайла
+        /// (12, 10) шагает на восток на 51 unit, в этом же такте запрошена стена на (12, 10).
+        /// <list type="bullet">
+        /// <item>правильно: ввод уже действует, стены в начале такта нет — центр сдвинулся ровно на 51;</item>
+        /// <item>«правки до движения»: стена уже стоит — круг упирается, сдвиг 20;</item>
+        /// <item>«движение до ввода»: в фазе движения ввода ещё нет — сдвиг 0.</item>
+        /// </list>
+        /// Мутации переставленных фаз в <see cref="Simulation.Step"/> роняют этот тест (проверено, откачено).
+        /// </summary>
         [Fact]
         public void D00_Sim_TickOrder_InputThenMovementThenEdits()
         {
+            const int gap = 20;
+            int startX = 12 * U - Collision.RadiusUnits - gap;
+            int y = 10 * U + U / 2;
+
             WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(64), Seed);
             var sim = new Simulation(world);
+            int id = sim.AddEntity(new WorldPos(startX, y));
 
-            // Сущность у тайла (12, 10): центр в 11,1 тайла; круг 0,4 — до тайла 0,5 тайла.
-            int id = sim.AddEntity(new WorldPos(11 * U + 26, 10 * U + U / 2));
-
-            // Ввод на такт применяется в этом же такте: без SetInput стоит.
-            sim.Step();
-            Assert.Equal(11 * U + 26, sim.GetEntity(id).Mover.Position.X);
-
-            // Стена запрошена в такте, где сущность идёт к ней: движение — по миру начала такта (стены ещё нет).
             sim.SetInput(id, new InputFrame(Input8.East));
             sim.RequestEdit(new TileCoord(12, 10), FloorId.Grass, ObjectId.StoneWall);
             sim.Step();
-            int x1 = sim.GetEntity(id).Mover.Position.X;
-            Assert.Equal(11 * U + 26 + 51, x1);
+
+            int moved = sim.GetEntity(id).Mover.Position.X - startX;
+            Assert.NotEqual(0, moved);   // «движение до ввода» дало бы 0
+            Assert.NotEqual(gap, moved); // «правки до движения» дали бы упор через 20
+            Assert.Equal(51, moved);
             Assert.Equal(ObjectId.StoneWall, world.GetObject(new TileCoord(12, 10)));
-
-            // Дальше стена держит: круг встаёт вплотную (центр на 102 unit левее грани).
-            for (int i = 0; i < 10; i++)
-            {
-                sim.Step();
-            }
-
-            Assert.Equal(12 * U - Collision.RadiusUnits, sim.GetEntity(id).Mover.Position.X);
-
-            // Ввод держится, пока не придёт новый; стойка — останавливает.
             Assert.Equal(Input8.East, sim.GetEntity(id).Input.Direction);
-            sim.SetInput(id, InputFrame.None);
-            sim.Step();
-            Assert.Equal(InputFrame.None, sim.GetEntity(id).Input);
+
+            // Контроль сценария: если стена стоит до такта, тот же шаг упирается ровно через 20 unit.
+            WorldModel walled = FlatWorldGenerator.Instance.Generate(MapShape.World(64), Seed);
+            var control = new Simulation(walled);
+            control.RequestEdit(new TileCoord(12, 10), FloorId.Grass, ObjectId.StoneWall);
+            control.Step();
+            int cid = control.AddEntity(new WorldPos(startX, y));
+            control.SetInput(cid, new InputFrame(Input8.East));
+            control.Step();
+            Assert.Equal(gap, control.GetEntity(cid).Mover.Position.X - startX);
+
+            // Ввод держится, пока не придёт новый; стойка — останавливает в этом же такте.
+            int x1 = control.GetEntity(cid).Mover.Position.X;
+            control.SetInput(cid, InputFrame.None);
+            control.Step();
+            Assert.Equal(InputFrame.None, control.GetEntity(cid).Input);
+            Assert.Equal(x1, control.GetEntity(cid).Mover.Position.X);
         }
 
         [Fact]
