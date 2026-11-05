@@ -9,7 +9,8 @@ namespace Orpheus.Core.World
     /// <item>биты 0…9 — id объекта (0…1023, 0 = пусто);</item>
     /// <item>биты 10…11 — поворот якоря (0…3): «якорь хранит id и поворот» (3.3);</item>
     /// <item>значение 0xF000 + смещение — «часть» многотайлового объекта: по 4 бита на ось
-    /// (младшие 4 бита — dx, следующие 4 — dy, 0…15), якорь — левый верхний тайл (`05`, 1.3).</item>
+    /// (младшие 4 бита — dx, следующие 4 — dy, 0…15, не оба нуля), якорь — левый верхний тайл (`05`, 1.3),
+    /// то есть якорь лежит в (x − dx, y − dy) по тору.</item>
     /// </list>
     /// <para>
     /// Части лежат в диапазоне 0xF000…0xF0FF и не пересекаются с id (≤ 0xFFF), поэтому «часть»
@@ -54,8 +55,11 @@ namespace Orpheus.Core.World
         /// <summary>Маска оси смещения: 0xF.</summary>
         public const int PartAxisMask = (1 << PartAxisBits) - 1;
 
-        /// <summary>Наибольший размер многотайлового объекта по оси: 16 тайлов (смещение 0…15).</summary>
-        public const int MaxMultiTileSpan = 1 << PartAxisBits;
+        /// <summary>Наибольшее смещение части до якоря по оси: 15 (объект до 16 × 16 тайлов).</summary>
+        public const int MaxPartOffset = PartAxisMask;
+
+        /// <summary>Наибольшее сырое значение «части»: 0xF0FF.</summary>
+        public const ushort MaxPart = PartMarker | 0xFF;
 
         // ---------- Эталонные id (для ядра и тестов; точные рецепты — `06`) ----------
 
@@ -91,7 +95,7 @@ namespace Orpheus.Core.World
         /// <summary>Наибольший описанный id.</summary>
         public const ushort MaxKnownId = 23;
 
-        /// <summary>Размер таблицы свойств (сырое значение 0…0xFFF: id + поворот).</summary>
+        /// <summary>Размер таблицы свойств по сырому значению якоря: 0…0xFFF (id + поворот).</summary>
         public const int TableSize = 0x1000;
 
         /// <summary>Свойства объекта.</summary>
@@ -111,6 +115,9 @@ namespace Orpheus.Core.World
 
             /// <summary>Якорь многотайлового объекта: у якоря лежит запись постройки, части записей не имеют.</summary>
             MultiTile = 8,
+
+            /// <summary>Часть многотайлового объекта (0xF000 + смещение): свойства объекта — у якоря.</summary>
+            Part = 16,
         }
 
         private static readonly Properties[] PropertiesTable = BuildTable();
@@ -144,12 +151,6 @@ namespace Orpheus.Core.World
             Set(Rock, Properties.Solid | Properties.Natural);
             Set(Ore, Properties.Solid | Properties.Natural);
             Set(Stump, Properties.Solid | Properties.Natural);
-
-            // Части многотайлового объекта (0xF000…0xF0FF): занимают тайл, по ним не ходят.
-            for (int raw = PartMarker; raw <= 0xF0FF; raw++)
-            {
-                table[raw] = Properties.Solid;
-            }
 
             return table;
 
@@ -192,35 +193,54 @@ namespace Orpheus.Core.World
         /// <summary>Сырое значение «части»: 0xF000 + смещение до якоря (dx, dy — 0…15, не оба нуля).</summary>
         public static ushort MakePart(int dx, int dy)
         {
-            if (dx < 1 || dx > MaxMultiTileSpan)
+            if (dx < 0 || dx > MaxPartOffset)
             {
-                throw new ArgumentOutOfRangeException(nameof(dx), dx, $"Смещение по X — 1…{MaxMultiTileSpan} до якоря.");
+                throw new ArgumentOutOfRangeException(nameof(dx), dx, $"Смещение по X до якоря — 0…{MaxPartOffset}.");
             }
 
-            if (dy < 0 || dy > MaxMultiTileSpan)
+            if (dy < 0 || dy > MaxPartOffset)
             {
-                throw new ArgumentOutOfRangeException(nameof(dy), dy, $"Смещение по Y — 0…{MaxMultiTileSpan} до якоря.");
+                throw new ArgumentOutOfRangeException(nameof(dy), dy, $"Смещение по Y до якоря — 0…{MaxPartOffset}.");
             }
 
-            return (ushort)(PartMarker | ((dy & PartAxisMask) << PartAxisBits) | (dx & PartAxisMask));
+            if (dx == 0 && dy == 0)
+            {
+                throw new ArgumentException("Часть со смещением (0, 0) — это сам якорь.", nameof(dx));
+            }
+
+            return (ushort)(PartMarker | (dy << PartAxisBits) | dx);
         }
 
-        /// <summary>true — тайл «часть» многотайлового объекта (0xF000…).</summary>
-        public static bool IsPart(ushort raw) => (raw & PartMask) == PartMarker;
+        /// <summary>true — тайл «часть» многотайлового объекта (0xF001…0xF0FF).</summary>
+        public static bool IsPart(ushort raw) => (raw & PartMask) == PartMarker && raw != PartMarker;
 
-        /// <summary>Смещение по X от части до якоря (1…16).</summary>
+        /// <summary>Смещение по X от части до якоря (0…15).</summary>
         public static int PartOffsetX(ushort raw) => raw & PartAxisMask;
 
-        /// <summary>Смещение по Y от части до якоря (0…16).</summary>
+        /// <summary>Смещение по Y от части до якоря (0…15).</summary>
         public static int PartOffsetY(ushort raw) => (raw >> PartAxisBits) & PartAxisMask;
+
+        /// <summary>
+        /// Сырое значение допустимо в слое: якорь или одиночный объект (0…0xFFF) либо часть (0xF001…0xF0FF).
+        /// </summary>
+        public static bool IsValidRaw(ushort raw) => raw < TableSize || IsPart(raw);
 
         // ---------- Свойства ----------
 
         /// <summary>
-        /// Свойства сырого значения: для якоря и одиночного объекта — по id, для «части» — свойства части
-        /// (твёрдая, занимает тайл). Сырое значение вне таблицы (0xF100…0xFFFF) — <see cref="Properties.None"/>.
+        /// Свойства сырого значения: для якоря и одиночного объекта — по id; для «части» —
+        /// <see cref="Properties.Part"/> (настоящие свойства — у якоря, его тайл даёт смещение).
+        /// Недопустимое сырое значение — <see cref="Properties.None"/>.
         /// </summary>
-        public static Properties Of(ushort raw) => raw < TableSize ? Table[raw] : Properties.None;
+        public static Properties Of(ushort raw)
+        {
+            if (raw < TableSize)
+            {
+                return PropertiesTable[raw];
+            }
+
+            return IsPart(raw) ? Properties.Part : Properties.None;
+        }
 
         /// <summary>Объект мешает ходить.</summary>
         public static bool IsSolid(ushort raw) => (Of(raw) & Properties.Solid) != 0;

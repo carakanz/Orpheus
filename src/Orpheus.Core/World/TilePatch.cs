@@ -1,31 +1,36 @@
 using System;
+using System.IO;
 using Orpheus.Core.Geometry;
 
 namespace Orpheus.Core.World
 {
     /// <summary>
     /// Пачка правок одного чанка за такт — одно сообщение в канал 1 (docs/07, 3.7):
-    /// заголовок (карта 1, чанк x и y по 2, новая ревизия 4 = 9 байт), число правок (2) и сами правки
-    /// по 5…13 байт. Клиент применяет пачку, только если его ревизия чанка — ровно предыдущая.
+    /// заголовок как у чанка по сети (карта 1, чанк x и y по 2, новая ревизия 4 = 9 байт, 3.6),
+    /// число правок (2) и правки по 5…13 байт (<see cref="TileEdit"/>).
+    /// Клиент применяет пачку, только если его ревизия чанка — ровно предыдущая (<see cref="Chunk.ApplyPatch"/>).
     /// </summary>
     public readonly struct TilePatch
     {
-        /// <summary>Заголовок по сети: карта (1) + чанк x (2) + чанк y (2) + ревизия (4) = 9 байт (docs/07, 3.6).</summary>
+        /// <summary>Заголовок: карта (1) + чанк x (2) + чанк y (2) + ревизия (4) = 9 байт (docs/07, 3.6).</summary>
         public const int HeaderBytes = 9;
 
-        /// <summary>Поле «число правок» в пачке: 2 байта.</summary>
+        /// <summary>Поле «число правок»: 2 байта.</summary>
         public const int CountBytes = 2;
 
-        /// <summary>Карта: 0 — поверхность, 1..K — отдельная карта данжа (docs/07, 3.10).</summary>
+        /// <summary>Наибольшее число правок в пачке: по одной на тайл чанка (вторая на тот же тайл — «занято»).</summary>
+        public const int MaxEdits = World.Chunk.TileCount;
+
+        /// <summary>Карта: 0 — поверхность, 1…K — отдельная карта данжа (docs/07, 3.10).</summary>
         public readonly byte MapId;
 
-        /// <summary>Чанк, к которому относится пачка.</summary>
+        /// <summary>Чанк пачки.</summary>
         public readonly ChunkCoord Chunk;
 
-        /// <summary>Новая ревизия чанка после пачки.</summary>
+        /// <summary>Ревизия чанка после пачки.</summary>
         public readonly uint Revision;
 
-        /// <summary>Правки в порядке их прохождения (3.7: «по порядку», конфликт — первая выигрывает).</summary>
+        /// <summary>Принятые сервером правки по порядку.</summary>
         public readonly TileEdit[] Edits;
 
         public TilePatch(byte mapId, ChunkCoord chunk, uint revision, TileEdit[] edits)
@@ -36,36 +41,74 @@ namespace Orpheus.Core.World
             Edits = edits ?? Array.Empty<TileEdit>();
         }
 
-        /// <summary>Число правок в пачке.</summary>
-        public readonly int EditCount => Edits.Length;
+        /// <summary>Размер пачки в байтах.</summary>
+        public int WireBytes => HeaderBytes + CountBytes + EditBytes(Edits, default);
 
-        /// <summary>Размер пачки в байтах: 9 + 2 + сумма правок.</summary>
-        public readonly int WireBytes => SizeOf(Edits, Edits.Length);
-
-        /// <summary>Размер пачки из <paramref name="count"/> первых правок массива <paramref name="edits"/>.</summary>
-        public static int SizeOf(TileEdit[] edits, int count)
+        /// <summary>
+        /// Сумма байт правок: только принятых, если <paramref name="results"/> не пуст.
+        /// </summary>
+        public static int EditBytes(ReadOnlySpan<TileEdit> edits, ReadOnlySpan<EditResult> results)
         {
-            if (edits == null)
+            int bytes = 0;
+            for (int i = 0; i < edits.Length; i++)
             {
-                throw new ArgumentNullException(nameof(edits));
-            }
-
-            if (count < 0 || count > edits.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count), count, "Число правок — от 0 до длины массива.");
-            }
-
-            int bytes = HeaderBytes + CountBytes;
-            for (int i = 0; i < count; i++)
-            {
-                bytes += edits[i].WireBytes;
+                if (results.IsEmpty || results[i] == EditResult.Applied)
+                {
+                    bytes += edits[i].WireBytes;
+                }
             }
 
             return bytes;
         }
 
-        /// <summary>Записать пачку в <paramref name="dest"/> и вернуть число байт.</summary>
-        public readonly int Write(Span<byte> dest)
+        /// <summary>
+        /// Сервер: записать пачку из принятых правок такта (исход <see cref="EditResult.Applied"/>)
+        /// прямо в буфер отправки, без выделений. Возвращает число байт; 0 — принятых правок нет, пачки нет.
+        /// </summary>
+        public static int WriteAccepted(
+            Span<byte> dest, byte mapId, ChunkCoord chunk, uint revision,
+            ReadOnlySpan<TileEdit> edits, ReadOnlySpan<EditResult> results)
+        {
+            if (results.Length < edits.Length)
+            {
+                throw new ArgumentException($"Нужно {edits.Length} исходов, есть {results.Length}.", nameof(results));
+            }
+
+            int accepted = 0;
+            for (int i = 0; i < edits.Length; i++)
+            {
+                if (results[i] == EditResult.Applied)
+                {
+                    accepted++;
+                }
+            }
+
+            if (accepted == 0)
+            {
+                return 0;
+            }
+
+            int total = HeaderBytes + CountBytes + EditBytes(edits, results);
+            if (dest.Length < total)
+            {
+                throw new ArgumentException($"Нужно {total} байт, есть {dest.Length}.", nameof(dest));
+            }
+
+            WriteHeader(dest, mapId, chunk, revision, accepted);
+            int at = HeaderBytes + CountBytes;
+            for (int i = 0; i < edits.Length; i++)
+            {
+                if (results[i] == EditResult.Applied)
+                {
+                    at += edits[i].Write(dest.Slice(at));
+                }
+            }
+
+            return at;
+        }
+
+        /// <summary>Записать пачку целиком и вернуть число байт.</summary>
+        public int Write(Span<byte> dest)
         {
             int total = WireBytes;
             if (dest.Length < total)
@@ -73,34 +116,32 @@ namespace Orpheus.Core.World
                 throw new ArgumentException($"Нужно {total} байт, есть {dest.Length}.", nameof(dest));
             }
 
-            dest[0] = MapId;
-            WriteUInt16(dest.Slice(1), (ushort)Chunk.X);
-            WriteUInt16(dest.Slice(3), (ushort)Chunk.Y);
-            WriteUInt32(dest.Slice(5), Revision);
-            WriteUInt16(dest.Slice(9), (ushort)Edits.Length);
-
+            WriteHeader(dest, MapId, Chunk, Revision, Edits.Length);
             int at = HeaderBytes + CountBytes;
             for (int i = 0; i < Edits.Length; i++)
             {
                 at += Edits[i].Write(dest.Slice(at));
             }
 
-            return total;
+            return at;
         }
 
-        /// <summary>Прочитать пачку из <paramref name="src"/> и вернуть число прочитанных байт.</summary>
+        /// <summary>Клиент: прочитать пачку и вернуть число прочитанных байт.</summary>
         public static int Read(ReadOnlySpan<byte> src, out TilePatch patch)
         {
             if (src.Length < HeaderBytes + CountBytes)
             {
-                throw new ArgumentException(
-                    $"Нужно не меньше {HeaderBytes + CountBytes} байт заголовка, есть {src.Length}.", nameof(src));
+                throw new InvalidDataException($"Пачка правок: заголовок {HeaderBytes + CountBytes} байт, есть {src.Length}.");
             }
 
             byte mapId = src[0];
-            var chunk = new ChunkCoord(ReadUInt16(src, 1), ReadUInt16(src, 3));
-            uint revision = ReadUInt32(src, 5);
-            int count = ReadUInt16(src, 9);
+            var chunk = new ChunkCoord(Bytes.ReadUInt16(src, 1), Bytes.ReadUInt16(src, 3));
+            uint revision = Bytes.ReadUInt32(src, 5);
+            int count = Bytes.ReadUInt16(src, 9);
+            if (count > MaxEdits)
+            {
+                throw new InvalidDataException($"Пачка правок: {count} правок, больше {MaxEdits}.");
+            }
 
             var edits = new TileEdit[count];
             int at = HeaderBytes + CountBytes;
@@ -113,26 +154,16 @@ namespace Orpheus.Core.World
             return at;
         }
 
-        internal static void WriteUInt16(Span<byte> dest, ushort value)
+        private static void WriteHeader(Span<byte> dest, byte mapId, ChunkCoord chunk, uint revision, int count)
         {
-            dest[0] = (byte)value;
-            dest[1] = (byte)(value >> 8);
+            dest[0] = mapId;
+            Bytes.WriteUInt16(dest.Slice(1), (ushort)chunk.X);
+            Bytes.WriteUInt16(dest.Slice(3), (ushort)chunk.Y);
+            Bytes.WriteUInt32(dest.Slice(5), revision);
+            Bytes.WriteUInt16(dest.Slice(9), (ushort)count);
         }
 
-        internal static void WriteUInt32(Span<byte> dest, uint value)
-        {
-            dest[0] = (byte)value;
-            dest[1] = (byte)(value >> 8);
-            dest[2] = (byte)(value >> 16);
-            dest[3] = (byte)(value >> 24);
-        }
-
-        internal static int ReadUInt16(ReadOnlySpan<byte> src, int at) => src[at] | (src[at + 1] << 8);
-
-        internal static uint ReadUInt32(ReadOnlySpan<byte> src, int at) =>
-            (uint)(src[at] | (src[at + 1] << 8) | (src[at + 2] << 16) | (src[at + 3] << 24));
-
-        public override readonly string ToString() =>
-            $"patch chunk({Chunk.X}, {Chunk.Y}) rev {Revision}, {Edits.Length} правок, {WireBytes} байт";
-}
+        public override string ToString() =>
+            $"пачка chunk({Chunk.X}, {Chunk.Y}) рев. {Revision}: {Edits.Length} правок, {WireBytes} байт";
+    }
 }

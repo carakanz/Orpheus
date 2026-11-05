@@ -33,7 +33,7 @@ namespace Orpheus.Core.World
         /// <summary>Новый объект (сырое значение <see cref="ObjectId"/>; 0 — объекта нет).</summary>
         public readonly ushort Obj;
 
-        /// <summary>Есть запись постройки (вставать ей в этом же тайле).</summary>
+        /// <summary>Есть запись постройки. Правка задаёт тайл целиком: записи нет — прежняя снимается.</summary>
         public readonly bool HasRecord;
 
         /// <summary>Запись постройки (значима, только если <see cref="HasRecord"/>).</summary>
@@ -146,5 +146,8 @@ namespace Orpheus.Core.World
 
         /// <summary>Отказ: индекс тайла вне чанка (0…1023).</summary>
         InvalidIndex = 2,
+
+        /// <summary>Отказ: сырое значение объекта недопустимо (<see cref="ObjectId.IsValidRaw"/>).</summary>
+        InvalidObject = 3,
     }
 }

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using Orpheus.Core.Geometry;
@@ -7,66 +6,90 @@ using Orpheus.Core.Geometry;
 namespace Orpheus.Core.World
 {
     /// <summary>
-    /// «Снимок генерации + изменённые чанки» (docs/07, 3.4): базовый снимок — все чанки сжатыми
-    /// плюс версия генератора, зерно и SHA-256 содержимого; в сохранении — только чанки,
-    /// изменённые после генерации, целиком и сжатыми. Загрузка: чанки снимка, поверх — изменённые.
-    /// <para>
-    /// Формат — свой двоичный (без <c>System.Text.Json</c> и без рефлексии), little-endian:
-    /// </para>
+    /// «Снимок генерации + изменённые чанки» (docs/07, 3.4). Снимок генерации (<c>world.base</c>) — все чанки
+    /// сжатыми, версия генератора, зерно и SHA-256 содержимого. Изменения — чанки, изменённые после генерации,
+    /// целиком и сжатыми, в том же формате. Загрузка: чанки снимка, поверх — изменённые.
+    /// <para>Формат — свой двоичный, младший байт первым, без рефлексии и без JSON:</para>
     /// <list type="bullet">
-    /// <item>магия «ORPW» (4) и версия формата (1);</item>
-    /// <item>вид (1): 0 — снимок генерации, 1 — изменённые чанки;</item>
-    /// <item>версия генератора (4), зерно (8), ширина (4), высота (4), «тор» (1);</item>
-    /// <item>число чанков (4) и SHA-256 блока чанков (32);</item>
-    /// <item>блок чанков в порядке отсортированных ключей: чанк x (4), чанк y (4), ревизия (4),
-    /// длина сжатого блока (4) и сам сжатый блок (Deflate, <see cref="Chunk.CompressBlob"/>).</item>
+    /// <item>«ORPW» (4), версия формата (1), вид (1: 0 — снимок генерации, 1 — изменения);</item>
+    /// <item>версия генератора (4), зерно (8), ширина (4), высота (4), тор (1), число чанков (4);</item>
+    /// <item>SHA-256 содержимого (32);</item>
+    /// <item>чанки по отсортированным ключам: x (4), y (4), ревизия (4), длина (4), сжатый блок (Deflate-6).</item>
     /// </list>
-    /// Атомарную запись в файл делает карточка сохранений (<c>IPlatformStorage</c>), здесь —
-    /// байты в <c>byte[]</c> и <see cref="Stream"/>. Порядок чанков фиксирован (отсортированные
-    /// ключи, ORP006), поэтому один и тот же мир даёт побайтно один и тот же снимок и один SHA-256.
+    /// <para>
+    /// SHA-256 считается по несжатому содержимому — по каждому чанку x, y, ревизия и блок <see cref="Chunk.WriteBlob"/>.
+    /// Так хэш не зависит от версии zlib: «удалили world.base — генерация повторилась, хэш совпал» (3.13 п. 5)
+    /// работает и при другом сжатии. Атомарная запись в файл — карточка сохранений (<c>IPlatformStorage</c>),
+    /// здесь — только байты.
+    /// </para>
     /// </summary>
     public static class WorldSnapshot
     {
-        /// <summary>Магия файла снимка: «ORPW».</summary>
-        public const uint Magic = 0x5750524F; // «O», «R», «P», «W» в обратном порядке байтов little-endian
+        /// <summary>Метка «ORPW».</summary>
+        public static ReadOnlySpan<byte> Magic => new byte[] { (byte)'O', (byte)'R', (byte)'P', (byte)'W' };
 
-        /// <summary>Версия формата снимка (мигрирует вместе с полем, docs/07, 6.7).</summary>
+        /// <summary>Версия формата.</summary>
         public const byte FormatVersion = 1;
 
-        /// <summary>Длина SHA-256 содержимого: 32 байта.</summary>
-        public const int HashBytes = 32;
-
-        /// <summary>Байт заголовка до хэша: магия 4 + версия 1 + вид 1 + версия генератора 4 + зерно 8 + карта 9 + число чанков 4.</summary>
-        public const int HeaderBytes = 4 + 1 + 1 + 4 + 8 + 4 + 4 + 1 + 4;
-
-        /// <summary>Снимок генерации (world.base): все созданные чанки.</summary>
+        /// <summary>Вид: снимок генерации.</summary>
         public const byte KindBase = 0;
 
-        /// <summary>Изменённые чанки сохранения: только грязные.</summary>
+        /// <summary>Вид: изменённые чанки.</summary>
         public const byte KindChanges = 1;
+
+        /// <summary>Заголовок до хэша: 4 + 1 + 1 + 4 + 8 + 4 + 4 + 1 + 4 = 31 байт.</summary>
+        public const int HeaderBytes = 31;
+
+        /// <summary>SHA-256: 32 байта.</summary>
+        public const int HashBytes = 32;
+
+        /// <summary>Заголовок чанка в блоке: x, y, ревизия, длина — по 4 байта.</summary>
+        public const int ChunkHeaderBytes = 16;
+
+        private const int MaxBlobBytes = Chunk.MinBlobBytes + Chunk.BuildEntryBytes * Chunk.TileCount;
 
         // ---------- Запись ----------
 
-        /// <summary>Снимок генерации в байтах (все созданные чанки, сжатые, с ревизиями).</summary>
-        public static byte[] WriteBase(WorldModel model) => WriteToArray(model, KindBase);
+        /// <summary>Снимок генерации: все созданные чанки.</summary>
+        public static byte[] WriteBase(WorldModel model) => ToArray(model, KindBase);
 
-        /// <summary>Изменённые чанки сохранения в байтах: только грязные (docs/07, 3.4).</summary>
-        public static byte[] WriteChanges(WorldModel model) => WriteToArray(model, KindChanges);
+        /// <summary>Изменённые после генерации чанки (<see cref="Chunk.ChangedSinceBase"/>).</summary>
+        public static byte[] WriteChanges(WorldModel model) => ToArray(model, KindChanges);
 
         /// <summary>Снимок генерации в поток.</summary>
-        public static void WriteBase(WorldModel model, Stream output) => Write(model, output, KindBase);
+        public static void WriteBase(WorldModel model, Stream output) => Write(model, KindBase, output);
 
         /// <summary>Изменённые чанки в поток.</summary>
-        public static void WriteChanges(WorldModel model, Stream output) => Write(model, output, KindChanges);
+        public static void WriteChanges(WorldModel model, Stream output) => Write(model, KindChanges, output);
 
-        private static byte[] WriteToArray(WorldModel model, byte kind)
+        /// <summary>SHA-256 содержимого всего мира — тот же, что пишется в снимок генерации.</summary>
+        public static byte[] ContentHash(WorldModel model)
         {
-            using var output = new MemoryStream(model.ChunkCount * 320);
-            Write(model, output, kind);
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            var blob = new byte[MaxBlobBytes];
+            Span<byte> head = stackalloc byte[12];
+            ReadOnlySpan<ChunkCoord> keys = model.GetChunkCoords();
+            for (int i = 0; i < keys.Length; i++)
+            {
+                AppendToHash(hash, keys[i], model.FindChunk(keys[i])!, blob, head);
+            }
+
+            return hash.GetHashAndReset();
+        }
+
+        private static byte[] ToArray(WorldModel model, byte kind)
+        {
+            using var output = new MemoryStream();
+            Write(model, kind, output);
             return output.ToArray();
         }
 
-        private static void Write(WorldModel model, Stream output, byte kind)
+        private static void Write(WorldModel model, byte kind, Stream output)
         {
             if (model == null)
             {
@@ -78,406 +101,265 @@ namespace Orpheus.Core.World
                 throw new ArgumentNullException(nameof(output));
             }
 
-            using var payload = new MemoryStream(model.ChunkCount * 320);
-            int chunkCount = WriteChunkBlock(model, payload, kind == KindChanges);
+            ReadOnlySpan<ChunkCoord> all = model.GetChunkCoords();
+            ChunkCoord[] keys = kind == KindBase ? all.ToArray() : model.GetChangedSinceBase();
 
-            byte[] hash;
-            payload.Position = 0;
-            using (var sha = SHA256.Create())
-            {
-                hash = sha.ComputeHash(payload);
-            }
-
-            payload.Position = 0;
-            Span<byte> scratch = stackalloc byte[8];
-            WriteUInt32(scratch, Magic);
-            output.Write(scratch.Slice(0, 4));
-            output.WriteByte(FormatVersion);
-            output.WriteByte(kind);
-            WriteInt32(output, model.GeneratorVersion);
-            WriteInt64(output, unchecked((long)model.Seed));
-            WriteInt32(output, model.Shape.Width);
-            WriteInt32(output, model.Shape.Height);
-            output.WriteByte(model.Shape.Wraps ? (byte)1 : (byte)0);
-            WriteInt32(output, chunkCount);
-            output.Write(hash);
-            payload.WriteTo(output);
-        }
-
-        /// <summary>
-        /// Блок чанков в порядке отсортированных ключей: x (4), y (4), ревизия (4), длина (4), сжатый блок.
-        /// Свежую копию не пересобирают («свежесть копии», 3.3), отставшую — собирают сразу.
-        /// </summary>
-        private static int WriteChunkBlock(WorldModel model, Stream payload, bool onlyDirty)
-        {
-            ChunkCoord[] keys = model.ChunkCoords();
-            int n = 0;
-            Span<byte> scratch = stackalloc byte[8];
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            using var body = new MemoryStream(keys.Length * 256 + 64);
+            var blob = new byte[MaxBlobBytes];
+            Span<byte> head = stackalloc byte[ChunkHeaderBytes];
             for (int i = 0; i < keys.Length; i++)
             {
-                Chunk? chunk = model.FindChunk(keys[i]);
-                if (chunk == null || (onlyDirty && !chunk.IsDirty))
-                {
-                    continue;
-                }
+                Chunk chunk = model.FindChunk(keys[i])!;
+                AppendToHash(hash, keys[i], chunk, blob, head);
 
-                // «Свежесть копии» (3.3): свежую не пересобирают, отставшую собирают сразу.
+                // Свежесть копии (3.3): свежую берём как есть, отставшую собираем сразу.
                 byte[]? compressed = chunk.FreshCopy;
                 if (compressed == null)
                 {
                     chunk.RebuildCompressed();
-                    compressed = chunk.FreshCopy;
+                    compressed = chunk.FreshCopy!;
                 }
 
-                WriteInt32(payload, keys[i].X);
-                WriteInt32(payload, keys[i].Y);
-                WriteUInt32(scratch, chunk.Revision);
-                payload.Write(scratch.Slice(0, 4));
-                WriteUInt32(scratch, (uint)compressed.Length);
-                payload.Write(scratch.Slice(0, 4));
-                payload.Write(compressed, 0, compressed.Length);
-                n++;
+                WriteChunkHead(head, keys[i], chunk.Revision);
+                Bytes.WriteUInt32(head.Slice(12), (uint)compressed.Length);
+                body.Write(head);
+                body.Write(compressed, 0, compressed.Length);
             }
 
-            return n;
+            Span<byte> header = stackalloc byte[HeaderBytes];
+            Magic.CopyTo(header);
+            header[4] = FormatVersion;
+            header[5] = kind;
+            Bytes.WriteUInt32(header.Slice(6), (uint)model.GeneratorVersion);
+            Bytes.WriteUInt64(header.Slice(10), model.Seed);
+            Bytes.WriteUInt32(header.Slice(18), (uint)model.Shape.Width);
+            Bytes.WriteUInt32(header.Slice(22), (uint)model.Shape.Height);
+            header[26] = model.Shape.Wraps ? (byte)1 : (byte)0;
+            Bytes.WriteUInt32(header.Slice(27), (uint)keys.Length);
+            output.Write(header);
+            output.Write(hash.GetHashAndReset());
+            body.Position = 0;
+            body.CopyTo(output);
         }
 
         // ---------- Чтение ----------
 
-        /// <summary>Прочитать снимок (или изменённые чанки) из байтов: магия, версия и SHA-256 проверяются.</summary>
-        public static SnapshotData Read(byte[] data)
+        /// <summary>Мир из снимка генерации (генератор не нужен).</summary>
+        public static WorldModel LoadBase(byte[] data)
         {
             if (data == null)
             {
                 throw new ArgumentNullException(nameof(data));
             }
 
-            using var input = new MemoryStream(data, 0, data.Length, false);
-            return Read(input);
-        }
-
-        /// <summary>Прочитать снимок (или изменённые чанки) из потока.</summary>
-        public static SnapshotData Read(Stream input)
-        {
-            if (input == null)
-            {
-                throw new ArgumentNullException(nameof(input));
-            }
-
-            Span<byte> scratch = stackalloc byte[8];
-            ReadFully(input, scratch.Slice(0, 4));
-            uint magic = (uint)(scratch[0] | (scratch[1] << 8) | (scratch[2] << 16) | (scratch[3] << 24));
-            if (magic != Magic)
-            {
-                throw new InvalidDataException("Это не снимок мира Orpheus: магия не та.");
-            }
-
-            int versionByte = input.ReadByte();
-            if (versionByte != FormatVersion)
-            {
-                throw new InvalidDataException($"Версия формата снимка {versionByte}, сборка понимает {FormatVersion}.");
-            }
-
-            int kindByte = input.ReadByte();
-            if (kindByte != KindBase && kindByte != KindChanges)
-            {
-                throw new InvalidDataException($"Неизвестный вид снимка {kindByte}.");
-            }
-
-            int generatorVersion = ReadInt32(input);
-            ulong seed = unchecked((ulong)ReadInt64(input));
-            var shape = new MapShape(ReadInt32(input), ReadInt32(input), ReadByte(input) != 0);
-            int chunkCount = ReadInt32(input);
-
-            byte[] storedHash = new byte[HashBytes];
-            ReadFully(input, storedHash);
-
-            using var payload = new MemoryStream(Math.Max(chunkCount * 256, 256));
-            input.CopyTo(payload);
-            byte[] payloadBytes = payload.ToArray();
-            using (var sha = SHA256.Create())
-            {
-                byte[] actual = sha.ComputeHash(payloadBytes);
-                for (int i = 0; i < HashBytes; i++)
-                {
-                    if (actual[i] != storedHash[i])
-                    {
-                        throw new InvalidDataException("Снимок повреждён: SHA-256 содержимого не совпал.");
-                    }
-                }
-            }
-
-            var chunks = new List<ChunkRecord>(chunkCount);
-            ParseChunkBlock(payloadBytes, chunkCount, chunks);
-            return new SnapshotData((byte)kindByte, generatorVersion, seed, shape, chunks);
-        }
-
-        /// <summary>Создать мир из снимка генерации (чанки создаются сразу, генератор не нужен).</summary>
-        public static WorldModel Load(SnapshotData baseSnapshot)
-        {
-            if (!baseSnapshot.IsBase)
-            {
-                throw new InvalidDataException("Ожидается снимок генерации (world.base), пришёл блок изменённых чанков.");
-            }
-
-            var model = new WorldModel(baseSnapshot.Shape, baseSnapshot.Seed, baseSnapshot.GeneratorVersion);
-            ApplyRecords(model, baseSnapshot.Chunks);
-            model.ClearAllDirty();
+            Header h = ReadHeader(data, KindBase);
+            var model = new WorldModel(h.Shape, h.Seed, h.GeneratorVersion);
+            ReadChunks(data, h, model, changedSinceBase: false);
             return model;
         }
 
-        /// <summary>
-        /// Загрузка целиком (docs/07, 3.4): мир из снимка генерации, поверх — изменённые чанки
-        /// (изменений нет — <paramref name="changes"/> = null).
-        /// </summary>
-        public static WorldModel LoadWithChanges(SnapshotData baseSnapshot, byte[]? changes)
-        {
-            WorldModel model = Load(baseSnapshot);
-            if (changes != null && changes.Length > 0)
-            {
-                ApplyChanges(model, Read(changes));
-            }
-
-            return model;
-        }
+        /// <summary>Мир из снимка генерации в потоке.</summary>
+        public static WorldModel LoadBase(Stream input) => LoadBase(ReadAll(input));
 
         /// <summary>Положить изменённые чанки поверх мира (загрузка: снимок + изменения).</summary>
-        public static void ApplyChanges(WorldModel model, SnapshotData changes)
-        {
-            if (changes.Kind == KindBase)
-            {
-                throw new InvalidDataException("Ожидаются изменённые чанки, пришёл снимок генерации.");
-            }
-
-            if (changes.Shape != model.Shape)
-            {
-                throw new InvalidDataException($"Изменённые чанки для карты {changes.Shape}, мир — {model.Shape}.");
-            }
-
-            if (changes.Seed != model.Seed)
-            {
-                throw new InvalidDataException("Зерно изменённых чанков не совпадает с зерном мира.");
-            }
-
-            ApplyRecords(model, changes.Chunks);
-            model.ClearAllDirty();
-        }
-
-        private static void ApplyRecords(WorldModel model, List<ChunkRecord> records)
-        {
-            for (int i = 0; i < records.Count; i++)
-            {
-                ChunkRecord record = records[i];
-                Chunk chunk = model.GetChunk(record.Chunk);
-                Chunk.DecompressBlob(record.Compressed, chunk);
-                chunk.SetRevision(record.Revision);
-            }
-        }
-
-        private static void ParseChunkBlock(byte[] payloadBytes, int chunkCount, List<ChunkRecord> chunks)
-        {
-            ReadOnlySpan<byte> src = payloadBytes;
-            int at = 0;
-            for (int i = 0; i < chunkCount; i++)
-            {
-                if (src.Length - at < 16)
-                {
-                    throw new InvalidDataException($"Блок чанков оборван на чанке № {i}.");
-                }
-
-                var chunk = new ChunkCoord(ReadInt32At(src, at), ReadInt32At(src, at + 4));
-                uint revision = TilePatch.ReadUInt32(src, at + 8);
-                int length = (int)TilePatch.ReadUInt32(src, at + 12);
-                at += 16;
-                if (length < 0 || src.Length - at < length)
-                {
-                    throw new InvalidDataException($"Длина сжатого чанка {chunk} не влезает в блок.");
-                }
-
-                chunks.Add(new ChunkRecord(chunk, revision, src.Slice(at, length).ToArray()));
-                at += length;
-            }
-
-            if (at != src.Length)
-            {
-                throw new InvalidDataException("В конце блока чанков остались лишние байты.");
-            }
-        }
-
-        // ---------- Хэш содержимого (проверка «тот ли мир», docs/07, 3.4 и 3.13 п. 4) ----------
-
-        /// <summary>
-        /// SHA-256 содержимого мира в каноническом порядке: чанки по отсортированным ключам,
-        /// у каждого — координаты, ревизия и несжатый блок (слои + записи построек).
-        /// Один и тот же мир на любой машине даёт один и тот же хэш.
-        /// </summary>
-        public static byte[] ContentHash(WorldModel model)
+        public static void ApplyChanges(WorldModel model, byte[] data)
         {
             if (model == null)
             {
                 throw new ArgumentNullException(nameof(model));
             }
 
-            using var content = new MemoryStream(model.ChunkCount * Chunk.LayerBytes);
-            Span<byte> scratch = stackalloc byte[8];
-            ChunkCoord[] keys = model.ChunkCoords();
-            for (int i = 0; i < keys.Length; i++)
+            if (data == null)
             {
-                Chunk? chunk = model.FindChunk(keys[i]);
-                if (chunk == null)
-                {
-                    continue;
-                }
-
-                WriteInt32(content, keys[i].X);
-                WriteInt32(content, keys[i].Y);
-                WriteUInt32(scratch, chunk.Revision);
-                content.Write(scratch.Slice(0, 4));
-
-                var blob = new byte[chunk.BlobBytes];
-                chunk.WriteBlob(blob);
-                content.Write(blob, 0, blob.Length);
+                throw new ArgumentNullException(nameof(data));
             }
 
-            content.Position = 0;
-            using var sha = SHA256.Create();
-            return sha.ComputeHash(content);
-        }
-
-        /// <summary>Хэш как строка шестнадцатеричных цифр (для журнала и сверки между машинами).</summary>
-        public static string ToHex(byte[] hash)
-        {
-            if (hash == null)
+            Header h = ReadHeader(data, KindChanges);
+            if (h.Shape != model.Shape || h.Seed != model.Seed || h.GeneratorVersion != model.GeneratorVersion)
             {
-                throw new ArgumentNullException(nameof(hash));
+                throw new InvalidDataException(
+                    $"Изменения от другого мира: {h.Shape}, зерно {h.Seed}, v{h.GeneratorVersion}; мир — {model.Shape}, зерно {model.Seed}, v{model.GeneratorVersion}.");
             }
 
-            var chars = new char[hash.Length * 2];
-            for (int i = 0; i < hash.Length; i++)
+            ReadChunks(data, h, model, changedSinceBase: true);
+        }
+
+        /// <summary>Загрузка целиком (3.4): снимок генерации, поверх — изменения (null — изменений нет).</summary>
+        public static WorldModel Load(byte[] baseData, byte[]? changes)
+        {
+            WorldModel model = LoadBase(baseData);
+            if (changes != null)
             {
-                chars[i * 2] = HexDigit(hash[i] >> 4);
-                chars[i * 2 + 1] = HexDigit(hash[i] & 0xF);
+                ApplyChanges(model, changes);
             }
 
-            return new string(chars);
-
-            static char HexDigit(int value) => (char)(value < 10 ? '0' + value : 'a' + (value - 10));
+            return model;
         }
 
-        // ---------- Поток: мелкие целые ----------
-
-        private static void WriteUInt32(Span<byte> scratch, uint value) => TilePatch.WriteUInt32(scratch, value);
-
-        private static void WriteInt32(Stream stream, int value)
+        /// <summary>SHA-256 содержимого, записанный в заголовке снимка (сверка с перегенерацией, 3.4).</summary>
+        public static byte[] StoredHash(byte[] data)
         {
-            Span<byte> scratch = stackalloc byte[4];
-            TilePatch.WriteUInt32(scratch, unchecked((uint)value));
-            stream.Write(scratch);
-        }
-
-        private static void WriteInt64(Stream stream, long value)
-        {
-            Span<byte> scratch = stackalloc byte[8];
-            for (int i = 0; i < 8; i++)
+            if (data == null || data.Length < HeaderBytes + HashBytes)
             {
-                scratch[i] = (byte)(value >> (8 * i));
+                throw new InvalidDataException("Снимок короче заголовка.");
             }
 
-            stream.Write(scratch);
+            return data.AsSpan(HeaderBytes, HashBytes).ToArray();
         }
 
-        private static int ReadByte(Stream stream)
+        private readonly struct Header
         {
-            int b = stream.ReadByte();
-            if (b < 0)
-            {
-                throw new EndOfStreamException("Файл снимка оборвался.");
-            }
-
-            return b;
-        }
-
-        private static int ReadInt32(Stream stream)
-        {
-            Span<byte> scratch = stackalloc byte[4];
-            ReadFully(stream, scratch);
-            return unchecked((int)TilePatch.ReadUInt32(scratch, 0));
-        }
-
-        private static long ReadInt64(Stream stream)
-        {
-            Span<byte> scratch = stackalloc byte[8];
-            ReadFully(stream, scratch);
-            long value = 0;
-            for (int i = 0; i < 8; i++)
-            {
-                value |= (long)scratch[i] << (8 * i);
-            }
-
-            return value;
-        }
-
-        private static int ReadInt32At(ReadOnlySpan<byte> src, int at) => unchecked((int)TilePatch.ReadUInt32(src, at));
-
-        private static void ReadFully(Stream stream, Span<byte> dest)
-        {
-            int filled = 0;
-            while (filled < dest.Length)
-            {
-                int read = stream.Read(dest.Slice(filled));
-                if (read <= 0)
-                {
-                    throw new EndOfStreamException("Файл снимка оборвался.");
-                }
-
-                filled += read;
-            }
-        }
-
-        /// <summary>Запись одного чанка из снимка: координата, ревизия и сжатый блок.</summary>
-        public readonly struct ChunkRecord
-        {
-            public readonly ChunkCoord Chunk;
-            public readonly uint Revision;
-            public readonly byte[] Compressed;
-
-            public ChunkRecord(ChunkCoord chunk, uint revision, byte[] compressed)
-            {
-                Chunk = chunk;
-                Revision = revision;
-                Compressed = compressed;
-            }
-
-            public override readonly string ToString() =>
-                $"chunk({Chunk.X}, {Chunk.Y}) rev {Revision}, {Compressed.Length} байт";
-        }
-
-        /// <summary>Прочитанный снимок: вид, версия генератора, зерно, карта и чанки.</summary>
-        public readonly struct SnapshotData
-        {
-            public readonly byte Kind;
-            public readonly int GeneratorVersion;
-            public readonly ulong Seed;
             public readonly MapShape Shape;
-            public readonly List<ChunkRecord> Chunks;
+            public readonly ulong Seed;
+            public readonly int GeneratorVersion;
+            public readonly int ChunkCount;
 
-            public SnapshotData(byte kind, int generatorVersion, ulong seed, MapShape shape, List<ChunkRecord> chunks)
+            public Header(MapShape shape, ulong seed, int generatorVersion, int chunkCount)
             {
-                Kind = kind;
-                GeneratorVersion = generatorVersion;
-                Seed = seed;
                 Shape = shape;
-                Chunks = chunks;
+                Seed = seed;
+                GeneratorVersion = generatorVersion;
+                ChunkCount = chunkCount;
+            }
+        }
+
+        private static Header ReadHeader(ReadOnlySpan<byte> data, byte expectedKind)
+        {
+            if (data.Length < HeaderBytes + HashBytes)
+            {
+                throw new InvalidDataException("Снимок короче заголовка.");
             }
 
-            /// <summary>Это снимок генерации (world.base).</summary>
-            public readonly bool IsBase => Kind == KindBase;
+            if (!data.Slice(0, 4).SequenceEqual(Magic))
+            {
+                throw new InvalidDataException("Это не снимок мира Orpheus: нет метки ORPW.");
+            }
 
-            /// <summary>Число чанков в блоке.</summary>
-            public readonly int ChunkCount => Chunks.Count;
+            if (data[4] != FormatVersion)
+            {
+                throw new InvalidDataException($"Версия формата снимка {data[4]}, сборка понимает {FormatVersion}.");
+            }
 
-            public override readonly string ToString() =>
-                $"снимок {(IsBase ? "генерации" : "изменений")}: {Shape}, зерно {Seed}, генератор v{GeneratorVersion}, чанков {Chunks.Count}";
+            if (data[5] != expectedKind)
+            {
+                throw new InvalidDataException(expectedKind == KindBase
+                    ? "Ожидается снимок генерации, пришли изменённые чанки."
+                    : "Ожидаются изменённые чанки, пришёл снимок генерации.");
+            }
+
+            int version = (int)Bytes.ReadUInt32(data, 6);
+            ulong seed = Bytes.ReadUInt64(data, 10);
+            int width = (int)Bytes.ReadUInt32(data, 18);
+            int height = (int)Bytes.ReadUInt32(data, 22);
+            bool wraps = data[26] != 0;
+            int count = (int)Bytes.ReadUInt32(data, 27);
+            MapShape shape;
+            try
+            {
+                shape = new MapShape(width, height, wraps);
+            }
+            catch (ArgumentOutOfRangeException e)
+            {
+                throw new InvalidDataException("Снимок: недопустимая форма карты. " + e.Message);
+            }
+
+            if (version < 0 || count < 0 || count > shape.ChunksX * shape.ChunksY)
+            {
+                throw new InvalidDataException($"Снимок: версия {version}, чанков {count} — повреждён.");
+            }
+
+            return new Header(shape, seed, version, count);
+        }
+
+        private static void ReadChunks(byte[] data, Header h, WorldModel model, bool changedSinceBase)
+        {
+            // Сначала всё разобрать и проверить хэш, потом трогать мир: повреждённые изменения не портят загруженный снимок.
+            var coords = new ChunkCoord[h.ChunkCount];
+            var revisions = new uint[h.ChunkCount];
+            var blobs = new byte[h.ChunkCount][];
+            var compressed = new byte[h.ChunkCount][];
+
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            Span<byte> head = stackalloc byte[12];
+            int at = HeaderBytes + HashBytes;
+            for (int i = 0; i < h.ChunkCount; i++)
+            {
+                if (data.Length - at < ChunkHeaderBytes)
+                {
+                    throw new InvalidDataException($"Снимок оборван на чанке № {i}.");
+                }
+
+                var c = new ChunkCoord((int)Bytes.ReadUInt32(data, at), (int)Bytes.ReadUInt32(data, at + 4));
+                uint revision = Bytes.ReadUInt32(data, at + 8);
+                uint length = Bytes.ReadUInt32(data, at + 12);
+                at += ChunkHeaderBytes;
+                if ((uint)c.X >= (uint)h.Shape.ChunksX || (uint)c.Y >= (uint)h.Shape.ChunksY || length > data.Length - at)
+                {
+                    throw new InvalidDataException($"Снимок: чанк № {i} {c} вне карты или длиннее файла.");
+                }
+
+                compressed[i] = data.AsSpan(at, (int)length).ToArray();
+                at += (int)length;
+                try
+                {
+                    blobs[i] = Chunk.Decompress(compressed[i]);
+                }
+                catch (InvalidDataException e)
+                {
+                    throw new InvalidDataException($"Снимок: сжатый чанк {c} повреждён. " + e.Message);
+                }
+
+                coords[i] = c;
+                revisions[i] = revision;
+                WriteChunkHead(head, c, revision);
+                hash.AppendData(head.ToArray());
+                hash.AppendData(blobs[i]);
+            }
+
+            if (at != data.Length)
+            {
+                throw new InvalidDataException("Снимок: после чанков лишние байты.");
+            }
+
+            if (!hash.GetHashAndReset().AsSpan().SequenceEqual(data.AsSpan(HeaderBytes, HashBytes)))
+            {
+                throw new InvalidDataException("Снимок повреждён: SHA-256 содержимого не совпал.");
+            }
+
+            for (int i = 0; i < coords.Length; i++)
+            {
+                model.GetOrCreateChunk(coords[i]).Load(blobs[i], compressed[i], revisions[i], changedSinceBase);
+            }
+        }
+
+        // ---------- Общее ----------
+
+        private static void WriteChunkHead(Span<byte> head, ChunkCoord c, uint revision)
+        {
+            Bytes.WriteUInt32(head, (uint)c.X);
+            Bytes.WriteUInt32(head.Slice(4), (uint)c.Y);
+            Bytes.WriteUInt32(head.Slice(8), revision);
+        }
+
+        private static void AppendToHash(IncrementalHash hash, ChunkCoord c, Chunk chunk, byte[] blob, Span<byte> head)
+        {
+            WriteChunkHead(head, c, chunk.Revision);
+            hash.AppendData(head.Slice(0, 12).ToArray());
+            int n = chunk.WriteBlob(blob);
+            hash.AppendData(blob, 0, n);
+        }
+
+        private static byte[] ReadAll(Stream input)
+        {
+            if (input == null)
+            {
+                throw new ArgumentNullException(nameof(input));
+            }
+
+            using var copy = new MemoryStream();
+            input.CopyTo(copy);
+            return copy.ToArray();
         }
     }
 }

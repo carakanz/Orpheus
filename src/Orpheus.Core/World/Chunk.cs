@@ -7,239 +7,252 @@ using Orpheus.Core.Geometry;
 namespace Orpheus.Core.World
 {
     /// <summary>
-    /// Чанк 32 × 32 тайла (docs/00, 5.1; docs/07, 3.3): два плотных массива — пол (1024 байта)
-    /// и объект (2048 байта) = 3072 байта на чанк, плюс словарь записей построек
-    /// «индекс тайла → <see cref="BuildRecord"/>» (8 байт на запись, только у тайлов с постройками игроков).
+    /// Чанк 32 × 32 тайла (docs/00, 5.1; docs/07, 3.3).
     /// <para>
-    /// Ревизия (<see cref="Revision"/>) — счётчик: +1 на каждую пачку правок (<see cref="ApplyEdits"/>),
-    /// одна пачка за такт = одна операция (docs/07, 3.7).
+    /// Слои — один плотный массив 3072 байта плоскостями, как чанк идёт по сети (docs/07, 3.6):
+    /// пол [0, 1024), младшие байты объекта [1024, 2048), старшие байты объекта [2048, 3072).
+    /// Плоскости, а не пары байтов: старшие байты почти везде нули и сжимаются в ничто.
     /// </para>
     /// <para>
-    /// Сжатая копия чанка помечена ревизией, с которой собрана (<see cref="CopyRevision"/>).
-    /// «Свежесть копии» (docs/07, 3.3): копией пользуются, только если её ревизия равна ревизии чанка,
-    /// иначе её пересобирают (<see cref="RebuildCompressed"/>). Копия — Deflate
-    /// (<see cref="CompressionLevel.Optimal"/>, один раз на ревизию).
+    /// Записи построек — <c>Dictionary&lt;ushort, BuildRecord&gt;</c> «индекс тайла → запись»,
+    /// только у тайлов с постройками; словарь создаётся при первой записи (у чанка дикой природы его нет).
     /// </para>
-    /// Индекс тайла в чанке: <c>(x &amp; 31) | ((y &amp; 31) &lt;&lt; 5)</c>, строками сверху вниз.
+    /// <para>
+    /// Ревизия — +1 на каждую пачку правок (<see cref="ApplyEdits"/>): пачка правок за такт = одна операция (3.7).
+    /// Сжатая копия помечена ревизией, с которой собрана; пользуются ею, только если ревизии равны
+    /// («свежесть копии», 3.3).
+    /// </para>
+    /// Индекс тайла в чанке: <c>(x &amp; 31) | ((y &amp; 31) &lt;&lt; 5)</c> — строками сверху вниз.
     /// </summary>
     public sealed class Chunk
     {
         /// <summary>Тайлов в чанке: 32 × 32 = 1024.</summary>
         public const int TileCount = Torus.ChunkSize * Torus.ChunkSize;
 
-        /// <summary>Байт слоя «пол»: 1 байт на тайл.</summary>
-        public const int FloorLayerBytes = TileCount;
-
-        /// <summary>Байт слоя «объект»: 2 байта на тайл (сырое значение <see cref="ObjectId"/>).</summary>
-        public const int ObjectLayerBytes = TileCount * 2;
-
-        /// <summary>Байт плотных слоёв чанка: 1024 + 2048 = 3072 (docs/07, 3.3).</summary>
-        public const int LayerBytes = FloorLayerBytes + ObjectLayerBytes;
-
         /// <summary>Наибольший индекс тайла в чанке: 1023.</summary>
         public const int MaxIndex = TileCount - 1;
+
+        /// <summary>Байт слоя «пол»: 1 на тайл.</summary>
+        public const int FloorLayerBytes = TileCount;
+
+        /// <summary>Байт слоя «объект»: 2 на тайл, двумя плоскостями.</summary>
+        public const int ObjectLayerBytes = TileCount * 2;
+
+        /// <summary>Байт плотных слоёв: 1024 + 2048 = 3072 (docs/07, 3.3).</summary>
+        public const int LayerBytes = FloorLayerBytes + ObjectLayerBytes;
+
+        /// <summary>Начало плоскости младших байтов объекта.</summary>
+        public const int ObjectLowOffset = FloorLayerBytes;
+
+        /// <summary>Начало плоскости старших байтов объекта.</summary>
+        public const int ObjectHighOffset = FloorLayerBytes + TileCount;
 
         /// <summary>Поле «число записей построек» в блоке чанка: 2 байта.</summary>
         public const int BuildCountBytes = 2;
 
-        /// <summary>Байт на запись постройки в блоке чанка: индекс (2) + запись (8) = 10.</summary>
+        /// <summary>Байт на запись постройки в блоке чанка: индекс тайла (2) + запись (8).</summary>
         public const int BuildEntryBytes = 2 + BuildRecord.SizeBytes;
 
-        private readonly byte[] _floor;
-        private readonly byte[] _obj;
-        private readonly Dictionary<ushort, BuildRecord> _builds;
+        /// <summary>Блок чанка без записей построек: 3072 + 2.</summary>
+        public const int MinBlobBytes = LayerBytes + BuildCountBytes;
+
+        private readonly byte[] _layers = new byte[LayerBytes];
+        private Dictionary<ushort, BuildRecord>? _builds;
 
         private uint _revision;
-        private uint _copyRevision;
         private byte[]? _copy;
+        private uint _copyRevision;
 
         private bool _dirty;
-        private int _dirtyMin;
-        private int _dirtyMax;
-
-        public Chunk()
-        {
-            _floor = new byte[FloorLayerBytes];
-            _obj = new byte[ObjectLayerBytes];
-            _builds = new Dictionary<ushort, BuildRecord>();
-            _dirtyMin = -1;
-            _dirtyMax = -1;
-        }
+        private bool _changedSinceBase;
+        private int _dirtyMinX = Torus.ChunkSize;
+        private int _dirtyMinY = Torus.ChunkSize;
+        private int _dirtyMaxX = -1;
+        private int _dirtyMaxY = -1;
 
         /// <summary>Ревизия чанка: +1 на каждую пачку правок (docs/07, 3.3).</summary>
         public uint Revision => _revision;
 
-        /// <summary>Чанк меняли после сохранения/отправки (для <c>DirtyChunks</c> и сохранения).</summary>
+        /// <summary>Чанк менялся после последнего <see cref="ClearDirty"/> (сохранение, отправка).</summary>
         public bool IsDirty => _dirty;
 
-        /// <summary>Меньший индекс грязного тайла, −1 если чанк чистый (прямоугольник правки для фоновых комнат, 3.3).</summary>
-        public int DirtyTileMin => _dirtyMin;
+        /// <summary>
+        /// Чанк менялся после генерации (docs/07, 3.4): такие чанки целиком идут в каждое сохранение
+        /// поверх снимка генерации. Сбрасывается только при записи базового содержимого (<see cref="ResetAsBase"/>).
+        /// </summary>
+        public bool ChangedSinceBase => _changedSinceBase;
 
-        /// <summary>Больший индекс грязного тайла, −1 если чанк чистый.</summary>
-        public int DirtyTileMax => _dirtyMax;
+        /// <summary>Прямоугольник изменённых тайлов с последнего <see cref="ClearDirty"/> (в тайлах чанка); пусто — Width ≤ 0.</summary>
+        public int DirtyMinX => _dirtyMinX;
 
-        /// <summary>Число записей построек в чанке.</summary>
-        public int BuildCount => _builds.Count;
+        /// <inheritdoc cref="DirtyMinX"/>
+        public int DirtyMinY => _dirtyMinY;
 
-        /// <summary>Записи построек: индекс тайла → запись (только у тайлов с постройками).</summary>
-        public IReadOnlyDictionary<ushort, BuildRecord> Builds => _builds;
+        /// <inheritdoc cref="DirtyMinX"/>
+        public int DirtyMaxX => _dirtyMaxX;
 
-        /// <summary>Слой пола (1024 байта) для чтения.</summary>
-        public ReadOnlySpan<byte> FloorBytes => _floor;
+        /// <inheritdoc cref="DirtyMinX"/>
+        public int DirtyMaxY => _dirtyMaxY;
 
-        /// <summary>Слой объекта (2048 байта, пары байтов) для чтения.</summary>
-        public ReadOnlySpan<byte> ObjectBytes => _obj;
+        /// <summary>Число записей построек.</summary>
+        public int BuildCount => _builds == null ? 0 : _builds.Count;
 
-        /// <summary>Размер несжатого блока чанка (слои + записи построек): 3072 + 2 + 10·n.</summary>
-        public int BlobBytes => LayerBytes + BuildCountBytes + BuildEntryBytes * _builds.Count;
+        /// <summary>Плотные слои (3072 байта, плоскостями) только для чтения.</summary>
+        public ReadOnlySpan<byte> Layers => _layers;
 
-        /// <summary>Ревизия, с которой собрана сжатая копия (0 — копии нет).</summary>
+        /// <summary>Размер несжатого блока: слои + число записей + записи (3072 + 2 + 10·n).</summary>
+        public int BlobBytes => MinBlobBytes + BuildEntryBytes * BuildCount;
+
+        /// <summary>Ревизия, с которой собрана сжатая копия (смысл есть, только если копия есть).</summary>
         public uint CopyRevision => _copyRevision;
 
-        /// <summary>Копия свежая: она собрана с текущей ревизией (правило 3.3).</summary>
+        /// <summary>Копия есть и собрана с текущей ревизией (правило 3.3).</summary>
         public bool HasFreshCopy => _copy != null && _copyRevision == _revision;
 
-        /// <summary>Свежая сжатая копия чанка и null, если копия отстала (её надо пересобрать).</summary>
+        /// <summary>Свежая сжатая копия или null, если её нет или она отстала.</summary>
         public byte[]? FreshCopy => HasFreshCopy ? _copy : null;
 
-        // ---------- Чтение тайлов ----------
+        // ---------- Чтение ----------
 
-        /// <summary>Пол тайла по индексу 0…1023.</summary>
+        /// <summary>Индекс тайла в чанке по координатам тайла (берутся младшие 5 бит).</summary>
+        public static int IndexOf(int tileX, int tileY) => (tileX & (Torus.ChunkSize - 1)) | ((tileY & (Torus.ChunkSize - 1)) << Torus.ChunkBits);
+
+        /// <summary>Пол тайла 0…1023.</summary>
         public byte GetFloor(int index)
         {
             CheckIndex(index);
-            return _floor[index];
+            return _layers[index];
         }
 
-        /// <summary>Объект тайла по индексу 0…1023 (сырое значение <see cref="ObjectId"/>).</summary>
+        /// <summary>Объект тайла 0…1023 (сырое значение <see cref="ObjectId"/>).</summary>
         public ushort GetObject(int index)
         {
             CheckIndex(index);
-            int at = index * 2;
-            return (ushort)(_obj[at] | (_obj[at + 1] << 8));
+            return (ushort)(_layers[ObjectLowOffset + index] | (_layers[ObjectHighOffset + index] << 8));
         }
 
         /// <summary>Запись постройки тайла.</summary>
-        public bool TryGetBuild(ushort index, out BuildRecord record) => _builds.TryGetValue(index, out record);
+        public bool TryGetBuild(int index, out BuildRecord record)
+        {
+            CheckIndex(index);
+            if (_builds == null)
+            {
+                record = default;
+                return false;
+            }
 
-        // ---------- Базовое содержимое (генерация и снимок) ----------
+            return _builds.TryGetValue((ushort)index, out record);
+        }
+
+        /// <summary>Индексы тайлов с записями построек по возрастанию (обход словаря запрещён, ORP006).</summary>
+        public int GetBuildIndices(Span<ushort> dest)
+        {
+            int count = BuildCount;
+            if (dest.Length < count)
+            {
+                throw new ArgumentException($"Нужно место на {count} индексов, есть {dest.Length}.", nameof(dest));
+            }
+
+            if (count == 0)
+            {
+                return 0;
+            }
+
+            // Без обхода словаря: перебор индексов 0…1023 по порядку.
+            int n = 0;
+            for (int i = 0; i < TileCount && n < count; i++)
+            {
+                if (_builds!.ContainsKey((ushort)i))
+                {
+                    dest[n++] = (ushort)i;
+                }
+            }
+
+            return n;
+        }
+
+        // ---------- Базовое содержимое (генерация, загрузка) ----------
 
         /// <summary>
-        /// Записать тайл как базовое содержимое чанка: пол и объект, без правки и без роста ревизии
-        /// (так заполняет мир генератор и загрузка снимка, docs/07, 3.4).
+        /// Записать тайл как содержимое генерации: без ревизии, без «грязи», без «изменён после генерации»
+        /// (так мир заполняет генератор, docs/07, 3.4). Сжатая копия становится несвежей.
         /// </summary>
-        public void WriteBase(int index, byte floor, ushort obj)
+        public void SetBaseTile(int index, byte floor, ushort obj)
         {
             CheckIndex(index);
-            _floor[index] = floor;
-            _obj[index * 2] = (byte)obj;
-            _obj[index * 2 + 1] = (byte)(obj >> 8);
-        }
-
-        /// <summary>Запись постройки базового содержимого (мир, реестры, загрузка снимка).</summary>
-        public void WriteBaseBuild(ushort index, BuildRecord record)
-        {
-            CheckIndex(index);
-            _builds[index] = record;
-        }
-
-        /// <summary>Снять запись постройки базового содержимого.</summary>
-        public bool RemoveBaseBuild(ushort index) => _builds.Remove(index);
-
-        /// <summary>Поставить ревизию (загрузка снимка и изменённых чанков, docs/07, 3.4).</summary>
-        public void SetRevision(uint revision)
-        {
-            _revision = revision;
+            WriteTile(index, floor, obj);
             _copy = null;
-            _copyRevision = 0;
+        }
+
+        /// <summary>Запись постройки в содержимом генерации (постройки мира).</summary>
+        public void SetBaseBuild(int index, BuildRecord record)
+        {
+            CheckIndex(index);
+            Builds()[(ushort)index] = record;
+            _copy = null;
+        }
+
+        /// <summary>Чанк — содержимое генерации: ревизия 0, не грязный, не изменён после генерации.</summary>
+        public void ResetAsBase()
+        {
+            _revision = 0;
+            _changedSinceBase = false;
+            _copy = null;
+            ClearDirty();
         }
 
         // ---------- Правки (docs/07, 3.7) ----------
 
         /// <summary>
-        /// Применить пачку правок одного чанка за такт: одна операция, ревизия +1 (3.7).
-        /// Правки идут по порядку массива; две правки на один тайл в одной пачке — первая применяется,
-        /// вторая получает «занято» (конфликт, 3.7). Снятый объект (объект 0) снимает и запись постройки.
+        /// Пачка правок этого чанка за такт — одна операция: правки применяются по порядку, ревизия +1,
+        /// если прошла хоть одна. Тайл после правки — ровно пол, объект и запись из правки (записи нет —
+        /// прежняя снимается). Вторая правка того же тайла в пачке получает <see cref="EditResult.Busy"/> —
+        /// «побеждает пришедший первым» (3.7). Без выделений памяти.
         /// </summary>
-        /// <param name="edits">Правки в порядке их прохождения.</param>
-        /// <param name="count">Сколько первых правок применить.</param>
-        /// <param name="results">Массив не короче <paramref name="count"/> — исход каждой правки (можно null).</param>
-        /// <returns>Новая ревизия чанка (поднялась ровно на 1, если применилась хотя бы одна правка).</returns>
-        public uint ApplyEdits(TileEdit[] edits, int count, EditResult[]? results)
+        /// <param name="edits">Правки в порядке прихода запросов.</param>
+        /// <param name="results">Исход каждой правки; длина ≥ числа правок.</param>
+        /// <returns>Ревизия чанка после пачки.</returns>
+        public uint ApplyEdits(ReadOnlySpan<TileEdit> edits, Span<EditResult> results)
         {
-            if (edits == null)
+            if (results.Length < edits.Length)
             {
-                throw new ArgumentNullException(nameof(edits));
+                throw new ArgumentException($"Нужно место на {edits.Length} исходов, есть {results.Length}.", nameof(results));
             }
 
-            if (count < 0 || count > edits.Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(count), count, "Число правок — от 0 до длины массива.");
-            }
-
-            if (results != null && results.Length < count)
-            {
-                throw new ArgumentException($"Нужно место на {count} исходов, есть {results.Length}.", nameof(results));
-            }
-
-            var applied = count > 0 ? new ushort[count] : Array.Empty<ushort>();
-            int appliedCount = 0;
-
-            for (int i = 0; i < count; i++)
+            // Занятые в этой пачке тайлы — 1024 бита на стеке.
+            Span<ulong> taken = stackalloc ulong[TileCount / 64];
+            taken.Clear();
+            int applied = 0;
+            for (int i = 0; i < edits.Length; i++)
             {
                 TileEdit edit = edits[i];
                 int index = edit.Index;
                 if (index > MaxIndex)
                 {
-                    if (results != null)
-                    {
-                        results[i] = EditResult.InvalidIndex;
-                    }
-
+                    results[i] = EditResult.InvalidIndex;
                     continue;
                 }
 
-                bool busy = false;
-                for (int j = 0; j < appliedCount; j++)
+                if (!ObjectId.IsValidRaw(edit.Obj))
                 {
-                    if (applied[j] == index)
-                    {
-                        busy = true;
-                        break;
-                    }
-                }
-
-                if (busy)
-                {
-                    if (results != null)
-                    {
-                        results[i] = EditResult.Busy;
-                    }
-
+                    results[i] = EditResult.InvalidObject;
                     continue;
                 }
 
-                _floor[index] = edit.Floor;
-                _obj[index * 2] = (byte)edit.Obj;
-                _obj[index * 2 + 1] = (byte)(edit.Obj >> 8);
-                if (edit.Obj == ObjectId.Empty)
+                ulong bit = 1UL << (index & 63);
+                if ((taken[index >> 6] & bit) != 0)
                 {
-                    _builds.Remove(index);
-                }
-                else if (edit.HasRecord)
-                {
-                    _builds[index] = edit.Record;
+                    results[i] = EditResult.Busy;
+                    continue;
                 }
 
-                MarkDirty(index);
-                applied[appliedCount++] = (ushort)index;
-                if (results != null)
-                {
-                    results[i] = EditResult.Applied;
-                }
+                taken[index >> 6] |= bit;
+                Apply(edit);
+                results[i] = EditResult.Applied;
+                applied++;
             }
 
-            if (appliedCount > 0)
+            if (applied > 0)
             {
                 _revision++;
             }
@@ -248,59 +261,97 @@ namespace Orpheus.Core.World
         }
 
         /// <summary>
-        /// Отметить чанк грязным и расширить прямоугольник изменённых тайлов
-        /// (для сохранения и отправки; основной поток копирует прямоугольник вокруг правки, 3.3).
+        /// Применить пачку с сервера (клиент): только если ревизия чанка — ровно предыдущая (3.7, «Порядок»).
+        /// false — разрыв ревизий, чанк не тронут: клиент просит чанк целиком.
+        /// </summary>
+        public bool ApplyPatch(in TilePatch patch)
+        {
+            if (patch.Revision != unchecked(_revision + 1))
+            {
+                return false;
+            }
+
+            TileEdit[] edits = patch.Edits;
+            for (int i = 0; i < edits.Length; i++)
+            {
+                if (edits[i].Index > MaxIndex || !ObjectId.IsValidRaw(edits[i].Obj))
+                {
+                    throw new InvalidDataException($"Пачка {patch}: правка № {i} вне чанка или с недопустимым объектом.");
+                }
+            }
+
+            for (int i = 0; i < edits.Length; i++)
+            {
+                Apply(edits[i]);
+            }
+
+            _revision = patch.Revision;
+            return true;
+        }
+
+        /// <summary>
+        /// Отметить тайл изменённым: чанк грязный (сохранение, отправка), изменён после генерации,
+        /// прямоугольник правок растёт (по нему фоновый поток считает комнаты, 3.3).
         /// </summary>
         public void MarkDirty(int index)
         {
             CheckIndex(index);
             _dirty = true;
-            if (_dirtyMin < 0 || index < _dirtyMin)
+            _changedSinceBase = true;
+            int x = index & (Torus.ChunkSize - 1);
+            int y = index >> Torus.ChunkBits;
+            if (x < _dirtyMinX)
             {
-                _dirtyMin = index;
+                _dirtyMinX = x;
             }
 
-            if (_dirtyMax < 0 || index > _dirtyMax)
+            if (x > _dirtyMaxX)
             {
-                _dirtyMax = index;
+                _dirtyMaxX = x;
+            }
+
+            if (y < _dirtyMinY)
+            {
+                _dirtyMinY = y;
+            }
+
+            if (y > _dirtyMaxY)
+            {
+                _dirtyMaxY = y;
             }
         }
 
-        /// <summary>Чанк сохранён и отправлен: больше не грязный (прямоугольник правок забывается).</summary>
+        /// <summary>Чанк сохранён и разослан: «грязь» и прямоугольник правок сбрасываются.</summary>
         public void ClearDirty()
         {
             _dirty = false;
-            _dirtyMin = -1;
-            _dirtyMax = -1;
+            _dirtyMinX = Torus.ChunkSize;
+            _dirtyMinY = Torus.ChunkSize;
+            _dirtyMaxX = -1;
+            _dirtyMaxY = -1;
         }
 
         // ---------- Сжатая копия (docs/07, 3.3) ----------
 
         /// <summary>
-        /// Пересобрать сжатую копию чанка (Deflate, <see cref="CompressionLevel.Optimal"/>, один раз на ревизию)
-        /// и пометить её текущей ревизией. Копия — слои (3072 байта) + записи построек, отсортированные по индексу.
+        /// Пересобрать сжатую копию (Deflate уровня 6) и пометить её текущей ревизией. Возвращает длину копии.
+        /// Уровень 6: в .NET Standard 2.1 числового уровня нет, <see cref="CompressionLevel.Optimal"/> — это
+        /// уровень zlib по умолчанию, 6 (и в .NET, и в Mono Unity).
         /// </summary>
-        /// <returns>Длина сжатой копии в байтах.</returns>
         public int RebuildCompressed()
         {
-            _copy = CompressBlob(this);
+            _copy = Compress();
             _copyRevision = _revision;
             return _copy.Length;
         }
 
-        /// <summary>Сжать несжатый блок чанка (слои + записи построек) Deflate-ом уровня <see cref="CompressionLevel.Optimal"/>.</summary>
-        public static byte[] CompressBlob(Chunk chunk)
+        /// <summary>Сжать блок чанка (<see cref="WriteBlob"/>) Deflate-6, не трогая копию.</summary>
+        public byte[] Compress()
         {
-            if (chunk == null)
-            {
-                throw new ArgumentNullException(nameof(chunk));
-            }
-
-            var blob = new byte[chunk.BlobBytes];
-            chunk.WriteBlob(blob);
-
-            using var output = new MemoryStream(Math.Min(blob.Length, 1024));
-            using (var deflate = new DeflateStream(output, CompressionLevel.Optimal, true))
+            var blob = new byte[BlobBytes];
+            WriteBlob(blob);
+            using var output = new MemoryStream(512);
+            using (var deflate = new DeflateStream(output, CompressionLevel.Optimal, leaveOpen: true))
             {
                 deflate.Write(blob, 0, blob.Length);
             }
@@ -308,33 +359,36 @@ namespace Orpheus.Core.World
             return output.ToArray();
         }
 
-        /// <summary>Развернуть сжатый блок чанка в чанк <paramref name="target"/> (слои + записи; ревизия и грязь не меняются).</summary>
-        public static void DecompressBlob(byte[] compressed, Chunk target)
+        /// <summary>
+        /// Загрузка (снимок, изменения, чанк по сети): содержимое — несжатый блок <paramref name="blob"/>,
+        /// копия — <paramref name="compressed"/> (из неё блок и развёрнут, поэтому она сразу свежая).
+        /// Чанк не грязный; «изменён после генерации» — как сказано.
+        /// </summary>
+        public void Load(ReadOnlySpan<byte> blob, byte[]? compressed, uint revision, bool changedSinceBase)
         {
-            if (compressed == null)
-            {
-                throw new ArgumentNullException(nameof(compressed));
-            }
-
-            if (target == null)
-            {
-                throw new ArgumentNullException(nameof(target));
-            }
-
-            using (var input = new MemoryStream(compressed, 0, compressed.Length, false))
-            using (var deflate = new DeflateStream(input, CompressionMode.Decompress))
-            using (var output = new MemoryStream(LayerBytes + 4096))
-            {
-                deflate.CopyTo(output);
-                target.ReadBlob(output.ToArray());
-            }
+            ReadBlob(blob);
+            _revision = revision;
+            _copy = compressed;
+            _copyRevision = revision;
+            _changedSinceBase = changedSinceBase;
+            ClearDirty();
         }
 
-        // ---------- Блок чанка (слои + записи) для снимка и сети ----------
+        /// <summary>Развернуть сжатый блок чанка.</summary>
+        public static byte[] Decompress(byte[] compressed)
+        {
+            using var input = new MemoryStream(compressed, false);
+            using var deflate = new DeflateStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream(LayerBytes + 64);
+            deflate.CopyTo(output);
+            return output.ToArray();
+        }
+
+        // ---------- Блок чанка: слои + записи (сеть 3.6, снимок 3.4) ----------
 
         /// <summary>
-        /// Записать несжатый блок чанка: пол (1024), объект (2048), число записей (2),
-        /// записи «индекс (2) + запись (8)» в порядке индекса. Возвращает число байт.
+        /// Несжатый блок: слои (3072, плоскостями), число записей (2), записи «индекс (2) + запись (8)»
+        /// по возрастанию индекса. Возвращает число байт.
         /// </summary>
         public int WriteBlob(Span<byte> dest)
         {
@@ -344,85 +398,75 @@ namespace Orpheus.Core.World
                 throw new ArgumentException($"Нужно {total} байт, есть {dest.Length}.", nameof(dest));
             }
 
-            _floor.CopyTo(dest);
-            _obj.CopyTo(dest.Slice(FloorLayerBytes));
-
-            int at = LayerBytes;
-            TilePatch.WriteUInt16(dest.Slice(at), (ushort)_builds.Count);
-            at += BuildCountBytes;
-            foreach (ushort index in SortedBuildKeys())
+            _layers.CopyTo(dest);
+            int count = BuildCount;
+            Bytes.WriteUInt16(dest.Slice(LayerBytes), (ushort)count);
+            int at = MinBlobBytes;
+            for (int i = 0; i < TileCount && count > 0; i++)
             {
-                TilePatch.WriteUInt16(dest.Slice(at), index);
-                _builds[index].Write(dest.Slice(at + 2));
-                at += BuildEntryBytes;
+                if (_builds!.TryGetValue((ushort)i, out BuildRecord record))
+                {
+                    Bytes.WriteUInt16(dest.Slice(at), (ushort)i);
+                    record.Write(dest.Slice(at + 2));
+                    at += BuildEntryBytes;
+                    count--;
+                }
             }
 
             return total;
         }
 
-        /// <summary>Прочитать несжатый блок чанка (см. <see cref="WriteBlob"/>): содержимое заменяется, копия и грязь сбрасываются.</summary>
+        /// <summary>Заменить содержимое блоком (<see cref="WriteBlob"/>). Ревизия и флаги не меняются; копия несвежая.</summary>
         public void ReadBlob(ReadOnlySpan<byte> src)
         {
-            if (src.Length < LayerBytes + BuildCountBytes)
+            if (src.Length < MinBlobBytes)
             {
-                throw new ArgumentException(
-                    $"Нужно не меньше {LayerBytes + BuildCountBytes} байт, есть {src.Length}.", nameof(src));
+                throw new InvalidDataException($"Блок чанка: нужно не меньше {MinBlobBytes} байт, есть {src.Length}.");
             }
 
-            src.Slice(0, FloorLayerBytes).CopyTo(_floor);
-            src.Slice(FloorLayerBytes, ObjectLayerBytes).CopyTo(_obj);
-
-            int at = LayerBytes;
-            int count = TilePatch.ReadUInt16(src, at);
-            at += BuildCountBytes;
-            if (src.Length < at + BuildEntryBytes * (long)count)
+            int count = Bytes.ReadUInt16(src, LayerBytes);
+            int expected = MinBlobBytes + BuildEntryBytes * count;
+            if (src.Length != expected)
             {
-                throw new ArgumentException(
-                    $"Нужно {at + BuildEntryBytes * (long)count} байт на {count} записей, есть {src.Length}.", nameof(src));
+                throw new InvalidDataException($"Блок чанка: на {count} записей нужно {expected} байт, есть {src.Length}.");
             }
 
-            _builds.Clear();
+            src.Slice(0, LayerBytes).CopyTo(_layers);
+            _builds?.Clear();
+            int at = MinBlobBytes;
             for (int i = 0; i < count; i++)
             {
-                ushort index = (ushort)TilePatch.ReadUInt16(src, at);
-                _builds[index] = BuildRecord.Read(src.Slice(at + 2));
+                int index = Bytes.ReadUInt16(src, at);
+                if (index > MaxIndex)
+                {
+                    throw new InvalidDataException($"Блок чанка: запись постройки с индексом {index}.");
+                }
+
+                Builds()[(ushort)index] = BuildRecord.Read(src.Slice(at + 2));
                 at += BuildEntryBytes;
             }
 
             _copy = null;
-            _copyRevision = 0;
-            ClearDirty();
         }
 
-        // ---------- Сравнение содержимого (приёмка 3.13 п. 6: побайтное совпадение) ----------
-
-        /// <summary>Совпадают ли слои, записи построек и ревизия с чанком <paramref name="other"/> (побайтно).</summary>
+        /// <summary>Побайтное равенство содержимого и ревизии (приёмка 3.13 п. 6).</summary>
         public bool ContentEquals(Chunk other)
         {
-            if (other == null)
+            if (other == null || _revision != other._revision || BuildCount != other.BuildCount)
             {
                 return false;
             }
 
-            if (_revision != other._revision || _builds.Count != other._builds.Count)
+            if (!((ReadOnlySpan<byte>)_layers).SequenceEqual(other._layers))
             {
                 return false;
             }
 
-            if (!ToRawBytes().AsSpan().SequenceEqual(other.ToRawBytes()))
+            for (int i = 0; i < TileCount && _builds != null; i++)
             {
-                return false;
-            }
-
-            ushort[] keys = SortedBuildKeys();
-            for (int i = 0; i < keys.Length; i++)
-            {
-                if (!_builds.TryGetValue(keys[i], out BuildRecord mine))
-                {
-                    return false;
-                }
-
-                if (!other._builds.TryGetValue(keys[i], out BuildRecord theirs) || mine != theirs)
+                bool mine = _builds.TryGetValue((ushort)i, out BuildRecord a);
+                bool theirs = other.TryGetBuild(i, out BuildRecord b);
+                if (mine != theirs || (mine && a != b))
                 {
                     return false;
                 }
@@ -431,53 +475,36 @@ namespace Orpheus.Core.World
             return true;
         }
 
-        /// <summary>Плотные слои одним массивом: пол (1024) + объект (2048) = 3072 байта.</summary>
-        public byte[] ToRawBytes()
-        {
-            var raw = new byte[LayerBytes];
-            _floor.CopyTo(raw, 0);
-            _obj.CopyTo(raw, FloorLayerBytes);
-            return raw;
-        }
+        // ---------- Внутреннее ----------
 
-        /// <summary>Записать плотные слои в <paramref name="dest"/> (нужно 3072 байта).</summary>
-        public void WriteLayers(Span<byte> dest)
+        private void Apply(in TileEdit edit)
         {
-            if (dest.Length < LayerBytes)
+            int index = edit.Index;
+            WriteTile(index, edit.Floor, edit.Obj);
+            if (edit.HasRecord)
             {
-                throw new ArgumentException($"Нужно {LayerBytes} байт, есть {dest.Length}.", nameof(dest));
+                Builds()[(ushort)index] = edit.Record;
+            }
+            else
+            {
+                _builds?.Remove((ushort)index);
             }
 
-            _floor.CopyTo(dest);
-            _obj.CopyTo(dest.Slice(FloorLayerBytes));
+            MarkDirty(index);
         }
 
-        /// <summary>Прочитать плотные слои из <paramref name="src"/> (нужно 3072 байта); записи построек не меняются.</summary>
-        public void ReadLayers(ReadOnlySpan<byte> src)
+        private void WriteTile(int index, byte floor, ushort obj)
         {
-            if (src.Length < LayerBytes)
-            {
-                throw new ArgumentException($"Нужно {LayerBytes} байт, есть {src.Length}.", nameof(src));
-            }
-
-            src.Slice(0, FloorLayerBytes).CopyTo(_floor);
-            src.Slice(FloorLayerBytes, ObjectLayerBytes).CopyTo(_obj);
-            _copy = null;
-            _copyRevision = 0;
+            _layers[index] = floor;
+            _layers[ObjectLowOffset + index] = (byte)obj;
+            _layers[ObjectHighOffset + index] = (byte)(obj >> 8);
         }
 
-        /// <summary>Индексы записей построек, отсортированные (обход словаря запрещён правилом ORP006).</summary>
-        public ushort[] SortedBuildKeys()
-        {
-            var keys = new ushort[_builds.Count];
-            _builds.Keys.CopyTo(keys, 0);
-            Array.Sort(keys);
-            return keys;
-        }
+        private Dictionary<ushort, BuildRecord> Builds() => _builds ??= new Dictionary<ushort, BuildRecord>();
 
         private static void CheckIndex(int index)
         {
-            if (index < 0 || index > MaxIndex)
+            if ((uint)index > MaxIndex)
             {
                 throw new ArgumentOutOfRangeException(nameof(index), index, $"Индекс тайла в чанке — 0…{MaxIndex}.");
             }

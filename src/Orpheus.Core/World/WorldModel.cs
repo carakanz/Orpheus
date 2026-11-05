@@ -5,276 +5,233 @@ using Orpheus.Core.Geometry;
 namespace Orpheus.Core.World
 {
     /// <summary>
-    /// Мир целиком в памяти (docs/07, 3.3): форма карты + словарь «координата чанка → чанк»,
-    /// чанк создаётся по требованию. Пол и объект читаются по координате тайла, правки идут
-    /// пачками на чанк (<see cref="ApplyEdits"/>, docs/07, 3.7).
+    /// Мир целиком в памяти (docs/07, 3.3): форма карты + словарь «координата чанка → чанк».
+    /// Чанк создаётся по требованию — при первой записи; чтение несозданного чанка даёт пустой тайл
+    /// и чанк не создаёт. Координаты сворачиваются тором (<see cref="Torus.Wrap(in MapShape, TileCoord)"/>):
+    /// тайл за краем — тайл с другого края.
     /// <para>
-    /// Обход — только по отсортированным ключам (<see cref="ChunkCoords"/>, <see cref="DirtyChunks"/>):
-    /// обход словаря запрещён правилом ORP006, чтобы порядок не зависел от вставки и от процесса.
+    /// Обход — только по отсортированным ключам (<see cref="GetChunkCoords"/>, <see cref="GetDirtyChunks"/>),
+    /// никогда по обходу словаря (ORP006): порядок не зависит от истории вставок.
     /// </para>
-    /// Координаты тайла и чанка сворачиваются тором (<see cref="Torus.Wrap"/>), поэтому мир на торе
-    /// не имеет края: тайл за краем — тайл с другого края.
     /// </summary>
     public sealed class WorldModel
     {
-        /// <summary>Маска индекса тайла в чанке по оси: 31.</summary>
-        public const int TileIndexMask = Torus.ChunkSize - 1;
-
+        // Ёмкость — все чанки карты сразу: поверхность целиком в памяти (3.3), словарь не перестраивается.
         private readonly Dictionary<ChunkCoord, Chunk> _chunks;
 
-        public WorldModel(MapShape shape, ulong seed, int generatorVersion = 1)
+        // Отсортированные ключи: пересобираются при появлении нового чанка, а не на каждый обход.
+        private ChunkCoord[] _sortedKeys = Array.Empty<ChunkCoord>();
+        private bool _keysStale;
+
+        public WorldModel(MapShape shape, ulong seed = 0, int generatorVersion = 0)
         {
             if (generatorVersion < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(generatorVersion), generatorVersion, "Версия генератора — не отрицательная.");
+                throw new ArgumentOutOfRangeException(nameof(generatorVersion), generatorVersion, "Версия генератора не отрицательная.");
             }
 
             Shape = shape;
             Seed = seed;
             GeneratorVersion = generatorVersion;
-            _chunks = new Dictionary<ChunkCoord, Chunk>();
+            _chunks = new Dictionary<ChunkCoord, Chunk>(shape.ChunksX * shape.ChunksY);
         }
 
-        /// <summary>Форма карты (мир — тор, данж — плоская карта).</summary>
+        /// <summary>Форма карты: мир — тор, данж — плоская карта.</summary>
         public MapShape Shape { get; }
 
-        /// <summary>Зерно мира (пишется в снимок генерации, docs/07, 3.4).</summary>
+        /// <summary>Зерно мира (пишется в снимок генерации, 3.4).</summary>
         public ulong Seed { get; }
 
-        /// <summary>Версия генератора (3.4): растёт при любом изменении результата хотя бы одного тайла.</summary>
+        /// <summary>Версия генератора (3.4).</summary>
         public int GeneratorVersion { get; }
 
-        /// <summary>Созданных чанков (чанк создаётся по требованию).</summary>
+        /// <summary>Создано чанков.</summary>
         public int ChunkCount => _chunks.Count;
 
-        /// <summary>Всего чанков на карте: ChunksX · ChunksY (4096² → 128 × 128 = 16 384).</summary>
+        /// <summary>Всего чанков на карте (4096² → 128 × 128 = 16 384).</summary>
         public int TotalChunks => Shape.ChunksX * Shape.ChunksY;
 
-        /// <summary>Байт плотных слоёв во всей карте, если материализованы все чанки: 3072 · чанков.</summary>
-        public long FullLayersBytes => (long)TotalChunks * Chunk.LayerBytes;
+        /// <summary>Байт плотных слоёв всей карты: 3072 · чанков (4096² → 48 МБ).</summary>
+        public long FullLayerBytes => (long)TotalChunks * Chunk.LayerBytes;
 
-        /// <summary>
-        /// Чанк по координате, создаётся по требованию (пустой, ревизия 0).
-        /// Координата сворачивается тором: на торе чанк за краем — чанк с другого края.
-        /// </summary>
-        public Chunk GetChunk(ChunkCoord chunk)
+        // ---------- Чанки ----------
+
+        /// <summary>Чанк по координате (свёрнутой); нет — создаётся пустым.</summary>
+        public Chunk GetOrCreateChunk(ChunkCoord coord)
         {
-            ChunkCoord key = Torus.Wrap(Shape, chunk);
-            if (!_chunks.TryGetValue(key, out Chunk? chunkRef))
+            ChunkCoord key = CheckedWrap(coord);
+            if (!_chunks.TryGetValue(key, out Chunk? chunk))
             {
-                chunkRef = new Chunk();
-                _chunks[key] = chunkRef;
+                chunk = new Chunk();
+                _chunks.Add(key, chunk);
+                _keysStale = true;
             }
 
-            return chunkRef;
+            return chunk;
         }
 
-        /// <summary>Чанк, если он уже создан (null — чанка нет).</summary>
-        public Chunk? FindChunk(ChunkCoord chunk)
+        /// <summary>Чанк, если создан; иначе null.</summary>
+        public Chunk? FindChunk(ChunkCoord coord) =>
+            _chunks.TryGetValue(CheckedWrap(coord), out Chunk? chunk) ? chunk : null;
+
+        /// <summary>Создать все чанки карты (генератор заполняет весь мир, 3.3: «вся поверхность в памяти»).</summary>
+        public void CreateAllChunks()
         {
-            ChunkCoord key = Torus.Wrap(Shape, chunk);
-            return _chunks.TryGetValue(key, out Chunk? chunkRef) ? chunkRef : null;
-        }
-
-        /// <summary>Чанк уже создан.</summary>
-        public bool HasChunk(ChunkCoord chunk) => _chunks.ContainsKey(Torus.Wrap(Shape, chunk));
-
-        // ---------- Тайлы ----------
-
-        /// <summary>Индекс тайла в чанке (0…1023) по координате тайла: строками сверху вниз.</summary>
-        public static int IndexOf(TileCoord tile) => (tile.X & TileIndexMask) | ((tile.Y & TileIndexMask) << Torus.ChunkBits);
-
-        /// <summary>Координата тайла в мире по чанку и индексу в нём (свёрнутая).</summary>
-        public TileCoord TileOf(ChunkCoord chunk, int index)
-        {
-            if (index < 0 || index > Chunk.MaxIndex)
+            for (int y = 0; y < Shape.ChunksY; y++)
             {
-                throw new ArgumentOutOfRangeException(nameof(index), index, $"Индекс тайла в чанке — 0…{Chunk.MaxIndex}.");
-            }
-
-            TileCoord corner = Torus.CornerOf(Torus.Wrap(Shape, chunk));
-            return Torus.Wrap(Shape, new TileCoord(corner.X + (index & TileIndexMask), corner.Y + ((index >> Torus.ChunkBits) & TileIndexMask)));
-        }
-
-        /// <summary>Пол тайла (чанк создаётся по требованию).</summary>
-        public byte GetFloor(TileCoord tile) => GetChunk(Torus.ChunkOf(Shape, tile)).GetFloor(IndexOf(Torus.Wrap(Shape, tile)));
-
-        /// <summary>Объект тайла (чанк создаётся по требованию).</summary>
-        public ushort GetObject(TileCoord tile) => GetChunk(Torus.ChunkOf(Shape, tile)).GetObject(IndexOf(Torus.Wrap(Shape, tile)));
-
-        /// <summary>Запись постройки тайла (null, если чанка или записи нет).</summary>
-        public BuildRecord? BuildAt(TileCoord tile)
-        {
-            Chunk? chunk = FindChunk(Torus.ChunkOf(Shape, tile));
-            if (chunk == null)
-            {
-                return null;
-            }
-
-            return chunk.TryGetBuild((ushort)IndexOf(Torus.Wrap(Shape, tile)), out BuildRecord record) ? record : (BuildRecord?)null;
-        }
-
-        // ---------- Правки (docs/07, 3.7) ----------
-
-        /// <summary>
-        /// Пачка правок одного чанка за такт = одна операция: ревизия +1 (3.7).
-        /// Две правки на один тайл в одной пачке — первая применяется, вторая получает <see cref="EditResult.Busy"/>.
-        /// Пустая пачка ревизию не поднимает.
-        /// </summary>
-        public uint ApplyEdits(ChunkCoord chunk, TileEdit[] edits, int count, EditResult[]? results) =>
-            GetChunk(chunk).ApplyEdits(edits, count, results);
-
-        /// <summary>
-        /// Пачка правок по глобальным координатам тайлов: правки раскладываются по чанкам
-        /// (за один такт на чанк — своя пачка, своя ревизия), порядок чанков — по отсортированным ключам.
-        /// </summary>
-        /// <param name="tiles">Координаты тайлов правок (в порядке прохождения).</param>
-        /// <param name="edits">Правки: <see cref="TileEdit.Index"/> заполняется по <paramref name="tiles"/>.</param>
-        /// <param name="results">Исход каждой правки (не короче числа правок).</param>
-        /// <returns>Число чанков, у которых поднялась ревизия.</returns>
-        public int ApplyTileEdits(TileCoord[] tiles, TileEdit[] edits, EditResult[] results)
-        {
-            if (tiles == null)
-            {
-                throw new ArgumentNullException(nameof(tiles));
-            }
-
-            if (edits == null)
-            {
-                throw new ArgumentNullException(nameof(edits));
-            }
-
-            if (edits.Length < tiles.Length)
-            {
-                throw new ArgumentException($"Правок ({edits.Length}) меньше, чем тайлов ({tiles.Length}).", nameof(edits));
-            }
-
-            if (results == null || results.Length < tiles.Length)
-            {
-                throw new ArgumentException("Нужно место на исход каждой правки.", nameof(results));
-            }
-
-            int count = tiles.Length;
-            var local = new TileEdit[count];
-            var chunks = new ChunkCoord[count];
-            for (int i = 0; i < count; i++)
-            {
-                TileCoord wrapped = Torus.Wrap(Shape, tiles[i]);
-                chunks[i] = Torus.ChunkOf(Shape, wrapped);
-                ushort index = (ushort)IndexOf(wrapped);
-                local[i] = edits[i].HasRecord
-                    ? new TileEdit(index, edits[i].Floor, edits[i].Obj, edits[i].Record)
-                    : new TileEdit(index, edits[i].Floor, edits[i].Obj);
-            }
-
-            // Порядок чанков фиксирован: отсортированные ключи (ORP006), а не порядок правок.
-            var order = new ChunkCoord[count];
-            var keys = new ChunkCoord[count];
-            int keyCount = 0;
-            for (int i = 0; i < count; i++)
-            {
-                bool seen = false;
-                for (int j = 0; j < keyCount; j++)
+                for (int x = 0; x < Shape.ChunksX; x++)
                 {
-                    if (keys[j] == chunks[i])
-                    {
-                        seen = true;
-                        break;
-                    }
-                }
-
-                if (!seen)
-                {
-                    keys[keyCount++] = chunks[i];
+                    GetOrCreateChunk(new ChunkCoord(x, y));
                 }
             }
+        }
 
-            Array.Sort(keys, 0, keyCount, ChunkCoordOrder.Instance);
-            for (int i = 0; i < keyCount; i++)
+        /// <summary>Координаты созданных чанков, отсортированные (Y, затем X). Массив — внутренний, не менять.</summary>
+        public ReadOnlySpan<ChunkCoord> GetChunkCoords()
+        {
+            if (_keysStale)
             {
-                order[i] = keys[i];
+                var keys = new ChunkCoord[_chunks.Count];
+                _chunks.Keys.CopyTo(keys, 0);
+                Array.Sort(keys, ChunkCoordOrder.Instance);
+                _sortedKeys = keys;
+                _keysStale = false;
             }
 
-            int touched = 0;
-            for (int i = 0; i < keyCount; i++)
-            {
-                ChunkCoord target = order[i];
-                var batch = new TileEdit[count];
-                var batchSource = new int[count];
-                int n = 0;
-                for (int j = 0; j < count; j++)
-                {
-                    if (chunks[j] == target)
-                    {
-                        batch[n] = local[j];
-                        batchSource[n] = j;
-                        n++;
-                    }
-                }
-
-                var batchResults = new EditResult[n];
-                GetChunk(target).ApplyEdits(batch, n, batchResults);
-                for (int k = 0; k < n; k++)
-                {
-                    results[batchSource[k]] = batchResults[k];
-                }
-
-                touched++;
-            }
-
-            return touched;
+            return _sortedKeys;
         }
 
-        // ---------- Обход (по отсортированным ключам) ----------
+        /// <summary>Грязные чанки (менялись с последнего <see cref="Chunk.ClearDirty"/>): для сохранения и отправки.</summary>
+        public ChunkCoord[] GetDirtyChunks() => Select(changedSinceBase: false);
 
-        /// <summary>Координаты всех созданных чанков, отсортированные (X, затем Y).</summary>
-        public ChunkCoord[] ChunkCoords()
-        {
-            var keys = new ChunkCoord[_chunks.Count];
-            _chunks.Keys.CopyTo(keys, 0);
-            Array.Sort(keys, ChunkCoordOrder.Instance);
-            return keys;
-        }
+        /// <summary>Чанки, изменённые после генерации: они идут в сохранение поверх снимка (3.4).</summary>
+        public ChunkCoord[] GetChangedSinceBase() => Select(changedSinceBase: true);
 
-        /// <summary>
-        /// Координаты грязных чанков (для сохранения и отправки), отсортированные.
-        /// Обход — по отсортированному массиву ключей, никогда по обходу словаря (ORP006).
-        /// </summary>
-        public ChunkCoord[] DirtyChunks()
-        {
-            var keys = new ChunkCoord[_chunks.Count];
-            _chunks.Keys.CopyTo(keys, 0);
-            Array.Sort(keys, ChunkCoordOrder.Instance);
-
-            var dirty = new ChunkCoord[keys.Length];
-            int n = 0;
-            for (int i = 0; i < keys.Length; i++)
-            {
-                if (_chunks[keys[i]].IsDirty)
-                {
-                    dirty[n++] = keys[i];
-                }
-            }
-
-            Array.Resize(ref dirty, n);
-            return dirty;
-        }
-
-        /// <summary>Отметить чанки сохранёнными и отправленными.</summary>
-        public void ClearDirty(ChunkCoord chunk)
-        {
-            Chunk? found = FindChunk(chunk);
-            found?.ClearDirty();
-        }
-
-        /// <summary>Отметить все чанки сохранёнными и отправленными.</summary>
+        /// <summary>Сбросить «грязь» у всех чанков (сохранение собрано).</summary>
         public void ClearAllDirty()
         {
-            ChunkCoord[] keys = ChunkCoords();
+            ReadOnlySpan<ChunkCoord> keys = GetChunkCoords();
             for (int i = 0; i < keys.Length; i++)
             {
                 _chunks[keys[i]].ClearDirty();
             }
+        }
+
+        // ---------- Тайлы ----------
+
+        /// <summary>Пол тайла; несозданный чанк — пусто (0).</summary>
+        public byte GetFloor(TileCoord tile)
+        {
+            TileCoord t = CheckedWrap(tile);
+            Chunk? chunk = FindChunk(Torus.ChunkOf(Shape, t));
+            return chunk == null ? FloorId.Empty : chunk.GetFloor(Chunk.IndexOf(t.X, t.Y));
+        }
+
+        /// <summary>Объект тайла (сырое значение <see cref="ObjectId"/>); несозданный чанк — пусто (0).</summary>
+        public ushort GetObject(TileCoord tile)
+        {
+            TileCoord t = CheckedWrap(tile);
+            Chunk? chunk = FindChunk(Torus.ChunkOf(Shape, t));
+            return chunk == null ? ObjectId.Empty : chunk.GetObject(Chunk.IndexOf(t.X, t.Y));
+        }
+
+        /// <summary>Запись постройки тайла.</summary>
+        public bool TryGetBuild(TileCoord tile, out BuildRecord record)
+        {
+            TileCoord t = CheckedWrap(tile);
+            Chunk? chunk = FindChunk(Torus.ChunkOf(Shape, t));
+            if (chunk == null)
+            {
+                record = default;
+                return false;
+            }
+
+            return chunk.TryGetBuild(Chunk.IndexOf(t.X, t.Y), out record);
+        }
+
+        /// <summary>
+        /// Тайл якоря: для «части» многотайлового объекта — тайл со смещением назад (по тору, через шов),
+        /// для остального — сам тайл.
+        /// </summary>
+        public TileCoord AnchorOf(TileCoord tile)
+        {
+            ushort raw = GetObject(tile);
+            if (!ObjectId.IsPart(raw))
+            {
+                return Torus.Wrap(Shape, tile);
+            }
+
+            return Torus.Wrap(Shape, new TileCoord(tile.X - ObjectId.PartOffsetX(raw), tile.Y - ObjectId.PartOffsetY(raw)));
+        }
+
+        /// <summary>Тайл генерации: без ревизии и «грязи» (заполнение мира, 3.4).</summary>
+        public void SetBaseTile(TileCoord tile, byte floor, ushort obj)
+        {
+            TileCoord t = CheckedWrap(tile);
+            GetOrCreateChunk(Torus.ChunkOf(Shape, t)).SetBaseTile(Chunk.IndexOf(t.X, t.Y), floor, obj);
+        }
+
+        // ---------- Правки (3.7) ----------
+
+        /// <summary>
+        /// Пачка правок одного чанка за такт — одна операция: ревизия +1 (<see cref="Chunk.ApplyEdits"/>).
+        /// Возвращает новую ревизию чанка.
+        /// </summary>
+        public uint ApplyEdits(ChunkCoord chunk, ReadOnlySpan<TileEdit> edits, Span<EditResult> results) =>
+            GetOrCreateChunk(chunk).ApplyEdits(edits, results);
+
+        /// <summary>Клиент: пачка с сервера (false — разрыв ревизий, нужен чанк целиком).</summary>
+        public bool ApplyPatch(in TilePatch patch) => GetOrCreateChunk(patch.Chunk).ApplyPatch(patch);
+
+        // ---------- Внутреннее ----------
+
+        private ChunkCoord[] Select(bool changedSinceBase)
+        {
+            ReadOnlySpan<ChunkCoord> keys = GetChunkCoords();
+            int n = 0;
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (Matches(_chunks[keys[i]], changedSinceBase))
+                {
+                    n++;
+                }
+            }
+
+            var result = new ChunkCoord[n];
+            n = 0;
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (Matches(_chunks[keys[i]], changedSinceBase))
+                {
+                    result[n++] = keys[i];
+                }
+            }
+
+            return result;
+        }
+
+        private static bool Matches(Chunk chunk, bool changedSinceBase) =>
+            changedSinceBase ? chunk.ChangedSinceBase : chunk.IsDirty;
+
+        // На плоской карте Wrap прижимает к краю — для данных мира это ошибка, а не «тайл у края».
+        private ChunkCoord CheckedWrap(ChunkCoord c)
+        {
+            if (!Shape.Wraps && ((uint)c.X >= (uint)Shape.ChunksX || (uint)c.Y >= (uint)Shape.ChunksY))
+            {
+                throw new ArgumentOutOfRangeException(nameof(c), c, $"Чанк вне карты {Shape}.");
+            }
+
+            return Torus.Wrap(Shape, c);
+        }
+
+        private TileCoord CheckedWrap(TileCoord t)
+        {
+            if (!Shape.Wraps && ((uint)t.X >= (uint)Shape.Width || (uint)t.Y >= (uint)Shape.Height))
+            {
+                throw new ArgumentOutOfRangeException(nameof(t), t, $"Тайл вне карты {Shape}.");
+            }
+
+            return Torus.Wrap(Shape, t);
         }
     }
 }

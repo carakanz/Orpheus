@@ -8,7 +8,7 @@ namespace Orpheus.Core.World
     /// 0 — пусто: пола нет (проход, провал).
     /// <para>
     /// Свойства id — статическая таблица <see cref="Properties"/> по индексу id, без рефлексии:
-    /// «твёрдый» (по тайлу стоят — сушая опора), «проходимый» (через тайл проходят),
+    /// «твёрдый» (опора: на тайле стоят постройки и существа), «проходимый» (через тайл проходят),
     /// «природный» (его записывают в <see cref="BuildRecord.NaturalFloor"/>, когда сверху встаёт постройка),
     /// «построенный» (снимают молотом за 0,5 с, `05`, 1.3).
     /// </para>
@@ -50,7 +50,7 @@ namespace Orpheus.Core.World
         {
             None = 0,
 
-            /// <summary>По тайлу стоят: сушая опора (wood floor, stone, grass). Вода и лава — не твёрдые.</summary>
+            /// <summary>Опора: на тайле стоят постройки и существа (земля, камень, построенный пол). Вода и лава — не опора, на них — только настил.</summary>
             Solid = 1,
 
             /// <summary>Через тайл проходят: вода — да, лава и скала — нет.</summary>
@@ -82,7 +82,7 @@ namespace Orpheus.Core.World
         /// <summary>Свойства id; неизвестный id (выше <see cref="MaxKnown"/>) — <see cref="Properties.None"/>.</summary>
         public static Properties Of(byte id) => id <= MaxKnown ? Table[id] : Properties.None;
 
-        /// <summary>По тайлу можно стоять (сушая опора).</summary>
+        /// <summary>Пол — опора (на нём можно строить без настила).</summary>
         public static bool IsSolid(byte id) => (Of(id) & Properties.Solid) != 0;
 
         /// <summary>Через тайл можно пройти.</summary>

@@ -1,68 +1,118 @@
 using System;
-using System.Collections.Generic;
 using Orpheus.Core.Geometry;
 
 namespace Orpheus.Core.World
 {
     /// <summary>
-    /// Окно чанков, которое сервер отдаёт клиенту (= docs/07 3.7).
-    /// Вход 6×4 (24 чанка) вокруг чанка игрока, выход = вход + рамка в 1 чанк
-    /// с каждой стороны = блок 8×6 (48 чанков). Блок смещается на 1 чанк
-    /// (гистерезис): игрок во второй половине своего чанка — блок сдвинут на −1,
-    /// в первой половине — без сдвига, поэтому окно не перещёлкивается на каждом шаге.
-    /// Всё, что уходит клиенту, лежит внутри блока 8×6, включая швы тора;
-    /// дублей нет (свёртка <see cref="Torus.Wrap"/>), размер ≤ 48.
+    /// Окно чанков у клиента (docs/07, 3.5): чанки, которые есть у клиента.
+    /// <list type="bullet">
+    /// <item><b>Вход:</b> блок 6 × 4 чанка, центр которого ближе всего к персонажу. Центр блока чётной ширины —
+    /// граница чанков, поэтому центр — ближайшая к персонажу граница по каждой оси. От персонажа до края
+    /// блока — не меньше 2,5 чанка (80 тайлов) по X и 1,5 чанка (48 тайлов) по Y.</item>
+    /// <item><b>Выход:</b> чанк выбрасывается, когда вышел из блока 8 × 6 с тем же центром (на чанк шире
+    /// с каждой стороны) — гистерезис: бег вдоль границы чанков не гоняет одни и те же чанки.</item>
+    /// </list>
+    /// Окно никогда не выходит из блока 8 × 6, поэтому в нём не больше 48 чанков (приёмка 3.13 п. 9).
+    /// На торе координаты свёрнуты; окно шире карты выдаёт каждый чанк один раз. На плоской карте
+    /// чанки за краем пропускаются. Без выделений памяти.
     /// </summary>
     public static class ChunkWindow
     {
-        /// <summary>Ширина блока выхода: 6 + рамка по边у = 8 чанков.</summary>
-        public const int OutputWidth = 8;
+        /// <summary>Ширина блока входа, чанков.</summary>
+        public const int Width = 6;
 
-        /// <summary>Высота блока выхода: 4 + рамка по边у = 6 чанков.</summary>
-        public const int OutputHeight = 6;
+        /// <summary>Высота блока входа, чанков.</summary>
+        public const int Height = 4;
 
-        /// <summary>Край блока выхода (8×6) относительно чанка игрока без сдвига.</summary>
-        private const int MinDX = -3;
-        private const int MaxDX = 4;
-        private const int MinDY = -2;
-        private const int MaxDY = 3;
+        /// <summary>Ширина блока выхода, чанков.</summary>
+        public const int KeepWidth = 8;
+
+        /// <summary>Высота блока выхода, чанков.</summary>
+        public const int KeepHeight = 6;
+
+        /// <summary>Наибольший размер окна: 8 × 6 = 48 чанков.</summary>
+        public const int MaxChunks = KeepWidth * KeepHeight;
 
         /// <summary>
-        /// Окно для одного игрока: блок 8×6 вокруг его чанка со сдвигом 0/−1
-        /// (игрок во второй половине чанка — сдвиг −1). Порядок — по строкам сверху вниз.
+        /// Центр блока — ближайшая к персонажу граница чанков (номер чанка справа и снизу от неё).
+        /// Блок входа — чанки [cx − 3, cx + 2] × [cy − 2, cy + 1].
         /// </summary>
-        public static List<ChunkCoord> Compute(MapShape map, TileCoord playerTile)
+        public static ChunkCoord BlockCenter(in MapShape map, WorldPos character)
         {
-            ChunkCoord baseChunk = Torus.ChunkOf(map, playerTile);
-            Int2 rel = Torus.Delta(map, Torus.CornerOf(baseChunk), playerTile);
-            int shiftX = rel.X >= Torus.ChunkSize / 2 ? -1 : 0;
-            int shiftY = rel.Y >= Torus.ChunkSize / 2 ? -1 : 0;
-
-            var list = new List<ChunkCoord>(OutputWidth * OutputHeight);
-            for (int dy = MinDY; dy <= MaxDY; dy++)
-            {
-                for (int dx = MinDX; dx <= MaxDX; dx++)
-                {
-                    list.Add(Torus.Wrap(map, new ChunkCoord(baseChunk.X + dx + shiftX, baseChunk.Y + dy + shiftY)));
-                }
-            }
-
-            return list;
+            const int half = (Torus.ChunkSize / 2) << Torus.SubTileBits;
+            const int shift = Torus.ChunkBits + Torus.SubTileBits;
+            WorldPos p = Torus.Wrap(map, character);
+            var center = new ChunkCoord((p.X + half) >> shift, (p.Y + half) >> shift);
+            return map.Wraps ? Torus.Wrap(map, center) : center;
         }
 
-        /// <summary>Вход окна: блок 6×4 вокруг чанка игрока (24 чанка).</summary>
-        public static List<ChunkCoord> Input6x4(MapShape map, ChunkCoord center)
+        /// <summary>
+        /// Новое окно по позиции персонажа и текущему окну: (текущее ∩ блок 8 × 6) ∪ блок 6 × 4.
+        /// <paramref name="current"/> — отсортированный набор (<see cref="ChunkSets"/>), как его вернул прошлый вызов;
+        /// результат в <paramref name="next"/> (≥ <see cref="MaxChunks"/>) тоже отсортирован. Возвращает число чанков.
+        /// </summary>
+        public static int Update(in MapShape map, WorldPos character, ReadOnlySpan<ChunkCoord> current, Span<ChunkCoord> next)
         {
-            var list = new List<ChunkCoord>(24);
-            for (int dy = -1; dy <= 2; dy++)
+            if (next.Length < MaxChunks)
             {
-                for (int dx = -2; dx <= 3; dx++)
+                throw new ArgumentException($"Нужно место на {MaxChunks} чанков, есть {next.Length}.", nameof(next));
+            }
+
+            ChunkCoord center = BlockCenter(map, character);
+            int n = 0;
+
+            // Остаются чанки текущего окна внутри блока 8 × 6: x ∈ [cx − 4, cx + 3], y ∈ [cy − 3, cy + 2].
+            for (int i = 0; i < current.Length; i++)
+            {
+                Int2 d = Torus.Delta(map, center, current[i]);
+                if (d.X >= -KeepWidth / 2 && d.X < KeepWidth / 2 && d.Y >= -KeepHeight / 2 && d.Y < KeepHeight / 2)
                 {
-                    list.Add(Torus.Wrap(map, new ChunkCoord(center.X + dx, center.Y + dy)));
+                    next[n++] = current[i];
                 }
             }
 
-            return list;
+            int kept = n;
+            AxisRange(center.X, Width, map.ChunksX, map.Wraps, out int startX, out int countX);
+            AxisRange(center.Y, Height, map.ChunksY, map.Wraps, out int startY, out int countY);
+            for (int j = 0; j < countY; j++)
+            {
+                for (int i = 0; i < countX; i++)
+                {
+                    ChunkCoord c = Torus.Wrap(map, new ChunkCoord(startX + i, startY + j));
+                    if (!ChunkSets.Contains(next.Slice(0, kept), c))
+                    {
+                        next[n++] = c;
+                    }
+                }
+            }
+
+            ChunkSets.Sort(next.Slice(0, n));
+            return n;
+        }
+
+        // Блок длины span с центром на границе center: [center − span/2, center + span/2 − 1].
+        // Тор: не длиннее карты (каждый чанк один раз). Плоская карта: обрезка по краям.
+        private static void AxisRange(int center, int span, int size, bool wraps, out int start, out int count)
+        {
+            start = center - span / 2;
+            if (wraps)
+            {
+                count = span < size ? span : size;
+                return;
+            }
+
+            int end = start + span;
+            if (start < 0)
+            {
+                start = 0;
+            }
+
+            if (end > size)
+            {
+                end = size;
+            }
+
+            count = end > start ? end - start : 0;
         }
     }
 }

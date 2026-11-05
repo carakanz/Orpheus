@@ -51,7 +51,7 @@ namespace Orpheus.Core.World
             new BuildRecord(WorldOwner, integrity, 0, naturalFloor, 0);
 
         /// <summary>Запись игрока № <paramref name="playerIndex"/> с полной прочностью.</summary>
-        public static BuildRecord OfPlayer(byte playerIndex, byte naturalFloor) =>
+        public static BuildRecord OfPlayer(ushort playerIndex, byte naturalFloor) =>
             new BuildRecord(playerIndex, MaxIntegrity, 0, naturalFloor, 0);
 
         /// <summary>Постройку поставил мир, не игрок.</summary>
@@ -110,8 +110,7 @@ namespace Orpheus.Core.World
         public override readonly bool Equals(object? obj) => obj is BuildRecord other && Equals(other);
 
         public override readonly int GetHashCode() =>
-            unchecked((Owner * 73856093) ^ (Integrity * 19349663) ^ (Flags * 83545207) ^
-                (NaturalFloor * 2654435761) ^ (DebrisEndTick * 40503));
+            (Owner | (Integrity << 16)) ^ (Flags << 3) ^ (NaturalFloor << 11) ^ (DebrisEndTick << 7);
 
         public static bool operator ==(BuildRecord a, BuildRecord b) => a.Equals(b);
         public static bool operator !=(BuildRecord a, BuildRecord b) => !a.Equals(b);
