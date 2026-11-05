@@ -3,6 +3,7 @@
   <!-- Протокол, снимки, предсказание, ITransport. LiteNetLib подключается задачей сети. -->
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
+    <OrpheusDeterministicRules>true</OrpheusDeterministicRules>
   </PropertyGroup>
 
   <ItemGroup>

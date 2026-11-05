@@ -8,6 +8,7 @@ namespace Orpheus.Core.Geometry
     /// <summary>
     /// Позиция существа в 1/256 тайла (как в Factorio): x ∈ [0, W·256) на заворачиваемой карте.
     /// </summary>
+    [TorusCoordinate]
     public readonly struct WorldPos : IEquatable<WorldPos>
     {
         public readonly int X;
@@ -28,6 +29,7 @@ namespace Orpheus.Core.Geometry
     }
 
     /// <summary>Целочисленные координаты тайла: (x, y) ∈ [0, W) × [0, H).</summary>
+    [TorusCoordinate]
     public readonly struct TileCoord : IEquatable<TileCoord>
     {
         public readonly int X;
@@ -48,6 +50,7 @@ namespace Orpheus.Core.Geometry
     }
 
     /// <summary>Координаты чанка 32 × 32 тайла (docs/00, 5.1): чанк = тайл >> 5.</summary>
+    [TorusCoordinate]
     public readonly struct ChunkCoord : IEquatable<ChunkCoord>
     {
         public readonly int X;
