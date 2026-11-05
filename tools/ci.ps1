@@ -1,13 +1,16 @@
 ﻿# Проверка ядра Orpheus: сборка решения и все тесты (docs/07, 11.2).
 # Запуск: tools\ci.cmd (обёртка для cmd) или powershell -NoProfile -File tools/ci.ps1 (или pwsh tools/ci.ps1).
 # Выход 0 — зелёный; иначе код ошибки. Лимит времени — 60 с (0 — без лимита).
+# Тяжёлые тесты ([Trait("Category", "Big")], имена D0N_*_Big*: миры 4096² и больше) CI пропускает;
+# ночной прогон гоняет всё: tools\ci.cmd -All -TimeLimitSec 0.
 #
 # Кодировка: консоль переводится в UTF-8, поэтому перенаправление (tools\ci.cmd > log.txt 2>&1)
 # и -LogFile дают UTF-8 без BOM — кириллица в логе CI читается без подбора кодировки.
 param(
     [string]$Configuration = 'Debug',
     [int]$TimeLimitSec = 60,
-    [string]$LogFile = ''
+    [string]$LogFile = '',
+    [switch]$All
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,7 +56,11 @@ function Invoke-Step([string]$name, [string]$color, [string[]]$dotnetArgs) {
 }
 
 Invoke-Step 'build' 'Cyan' @('build', $sln, '-c', $Configuration, '--nologo', '-v', 'minimal')
-Invoke-Step 'test' 'Cyan' @('test', $sln, '-c', $Configuration, '--no-build', '--nologo', '-v', 'minimal')
+$testArgs = @('test', $sln, '-c', $Configuration, '--no-build', '--nologo', '-v', 'minimal')
+if (-not $All) {
+    $testArgs += @('--filter', 'Category!=Big')
+}
+Invoke-Step ($(if ($All) { 'test (все, с Big)' } else { 'test (без Category=Big)' })) 'Cyan' $testArgs
 
 $sec = [math]::Round($total.Elapsed.TotalSeconds, 1)
 if ($TimeLimitSec -gt 0 -and $total.Elapsed.TotalSeconds -gt $TimeLimitSec) {
