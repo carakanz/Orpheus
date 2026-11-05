@@ -186,6 +186,34 @@ namespace Orpheus.Core.Sim
             _out.Write(_buffer, 0, size);
         }
 
+        /// <summary>
+        /// Точка сверки из готовых хэшей (копия или обрезка журнала): номера и хэши сущностей по номеру.
+        /// </summary>
+        public void WriteCheckpoint(in StateHashResult hash, ReadOnlySpan<int> entityIds, ReadOnlySpan<ulong> entityHashes)
+        {
+            if (entityIds.Length != entityHashes.Length)
+            {
+                throw new ArgumentException("Номеров и хэшей сущностей должно быть поровну.", nameof(entityHashes));
+            }
+
+            int size = 1 + 4 + 8 + 8 + 2 + entityIds.Length * HashEntryBytes;
+            Span<byte> b = Reserve(size);
+            b[0] = (byte)JournalRecord.Checkpoint;
+            Bytes.WriteUInt32(b.Slice(1), CheckedTick(hash.Tick));
+            Bytes.WriteUInt64(b.Slice(5), hash.Total);
+            Bytes.WriteUInt64(b.Slice(13), hash.World);
+            Bytes.WriteUInt16(b.Slice(21), CheckedCount(entityIds.Length));
+            int at = 23;
+            for (int i = 0; i < entityIds.Length; i++)
+            {
+                Bytes.WriteUInt32(b.Slice(at), (uint)entityIds[i]);
+                Bytes.WriteUInt64(b.Slice(at + 4), entityHashes[i]);
+                at += HashEntryBytes;
+            }
+
+            _out.Write(_buffer, 0, size);
+        }
+
         /// <summary>Конец записи: последний выполненный такт.</summary>
         public void WriteEnd(long lastTick)
         {
