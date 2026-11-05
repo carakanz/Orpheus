@@ -31,6 +31,12 @@ namespace Orpheus.Core.Geometry
         /// <summary>Сторона чанка в тайлах.</summary>
         public const int ChunkSize = 1 << ChunkBits;
 
+        /// <summary>Верхняя граница <see cref="ToUnits"/> в единицах: 2³¹ − 128 (крупнейшее float, которое безопасно округляется в int32).</summary>
+        public const float MaxUnitsAsFloat = 2147483520f;
+
+        /// <summary>Нижняя граница <see cref="ToUnits"/> в единицах: −2³¹.</summary>
+        public const float MinUnitsAsFloat = -2147483648f;
+
         // ---------- Заворот ----------
 
         /// <summary>Сворачивает X позиции (1/256 тайла) в [0, W·256).</summary>
@@ -90,8 +96,31 @@ namespace Orpheus.Core.Geometry
         public static WorldPos Step(in MapShape map, WorldPos p, float dxTiles, float dyTiles) =>
             Offset(map, p, new Int2(ToUnits(dxTiles), ToUnits(dyTiles)));
 
-        /// <summary>Тайлы (float) → 1/256 тайла с округлением к ближайшему.</summary>
-        public static int ToUnits(float tiles) => (int)MathF.Round(tiles * SubTilesPerTile);
+        /// <summary>
+        /// Тайлы (float) → 1/256 тайла с округлением к ближайшему (половина — к чётному).
+        /// Защита от нечисловых и гигантских величин (docs/07, 3.2): NaN → 0, ±∞ и всё, что не
+        /// помещается в int32, прижимается к границе int32 — всегда одинаково, без исключения в такте.
+        /// </summary>
+        public static int ToUnits(float tiles)
+        {
+            if (float.IsNaN(tiles))
+            {
+                return 0;
+            }
+
+            float units = tiles * SubTilesPerTile;
+            if (units >= MaxUnitsAsFloat)
+            {
+                return int.MaxValue;
+            }
+
+            if (units <= MinUnitsAsFloat)
+            {
+                return int.MinValue;
+            }
+
+            return (int)MathF.Round(units);
+        }
 
         // ---------- Тайлы и чанки ----------
 

@@ -372,5 +372,88 @@ namespace Orpheus.Tests
             Assert.Equal(new[] { new ChunkCoord(2, 0), new ChunkCoord(3, 0), new ChunkCoord(2, 1), new ChunkCoord(3, 1) },
                 buf.Slice(0, n).ToArray());
         }
+
+        // ---------- Защита ToUnits и дробная скорость (замечание проверки 0-001, шаг 6) ----------
+
+        [Fact]
+        public void D00_Torus_ToUnits_Guards_NonFinite_And_Overflow()
+        {
+            // NaN → 0, ±∞ и всё, что не влезает в int32, — прижим к границе: один и тот же
+            // результат на любой платформе, без исключения в такте (docs/07, 3.2).
+            Assert.Equal(0, Torus.ToUnits(float.NaN));
+            Assert.Equal(0, Torus.ToUnits(float.NaN * 0f));
+            Assert.Equal(int.MaxValue, Torus.ToUnits(float.PositiveInfinity));
+            Assert.Equal(int.MinValue, Torus.ToUnits(float.NegativeInfinity));
+            Assert.Equal(int.MaxValue, Torus.ToUnits(float.MaxValue));
+            Assert.Equal(int.MinValue, Torus.ToUnits(float.MinValue));
+            Assert.Equal(int.MaxValue, Torus.ToUnits(1e30f));
+            Assert.Equal(int.MinValue, Torus.ToUnits(-1e30f));
+
+            // Границы прижима: ровно на границе — предельное значение, чуть ниже — обычное округление.
+            Assert.Equal(int.MaxValue, Torus.ToUnits(Torus.MaxUnitsAsFloat / U));
+            Assert.Equal(2147481600, Torus.ToUnits(8388600f));
+            Assert.Equal(int.MinValue, Torus.ToUnits(Torus.MinUnitsAsFloat / U));
+            Assert.Equal(-2147481600, Torus.ToUnits(-8388600f));
+
+            // Мелочи: 1/256 тайла и округление половины к чётному.
+            Assert.Equal(1, Torus.ToUnits(1f / U));
+            Assert.Equal(0, Torus.ToUnits(0.001f));
+            Assert.Equal(2, Torus.ToUnits(0.005859375f));
+
+            // Шаг на нечисловых величинах не бросает и совпадает с Offset(ToUnits(...)).
+            var map = MapShape.World(1024);
+            int wu = 1024 * U;
+            var p = new WorldPos(1000, 1000);
+            Assert.Equal(p, Torus.Step(map, p, float.NaN, float.NaN));
+            Assert.Equal(
+                Torus.Offset(map, p, new Int2(int.MaxValue, int.MinValue)),
+                Torus.Step(map, p, float.PositiveInfinity, float.NegativeInfinity));
+            Assert.Equal(Torus.Step(map, p, float.PositiveInfinity, 0f), Torus.Step(map, p, float.MaxValue, 0f));
+            Assert.InRange(Torus.Step(map, p, float.PositiveInfinity, 0f).X, 0, wu - 1);
+        }
+
+        [Fact]
+        public void D00_Torus_Step_FractionalSpeed_CompletesLap()
+        {
+            // Бег 6 тайлов/с при 30 Гц: 0,2 тайла за такт = 51,2 единицы → 51 за такт.
+            // За 5200 тактов — 265 200 единиц = 1,0117 оборота тора по X.
+            var map = MapShape.World(1024);
+            int wu = 1024 * U;
+            int perStep = Torus.ToUnits(0.2f);
+            Assert.Equal(51, perStep);
+
+            WorldPos p = Torus.CornerOf(new TileCoord(0, 0));
+            var start = p;
+            int wraps = 0;
+            for (int tick = 1; tick <= 5200; tick++)
+            {
+                WorldPos prev = p;
+                p = Torus.Step(map, p, 0.2f, 0f);
+                Assert.Equal((prev.X + perStep) % wu, p.X);
+                Assert.Equal(0, p.Y);
+                Assert.InRange(p.X, 0, wu - 1);
+                Assert.Equal(new TileCoord(p.X >> 8, 0), Torus.TileOf(map, p));
+                if (p.X < prev.X)
+                {
+                    wraps++;
+                }
+            }
+
+            // Один заворот шва, и бегун вернулся на свою широту в тайл 11.
+            Assert.Equal(1, wraps);
+            Assert.Equal(new WorldPos(3056, 0), p);
+            Assert.Equal(new TileCoord(11, 0), Torus.TileOf(map, p));
+            // Кратчайший путь от старта до финиша — ровно пройденный остаток оборота.
+            Assert.Equal(3056, Torus.DeltaX(map, start.X, p.X));
+
+            // Дробная скорость в обе оси: симметричный бег по диагонали не «накапливает» дробь.
+            var q = Torus.CornerOf(new TileCoord(500, 500));
+            for (int tick = 0; tick < 300; tick++)
+            {
+                q = Torus.Step(map, q, 0.1f, -0.1f); // 3 тайла/с: 25,6 → 26 единиц за такт
+            }
+
+            Assert.Equal(new WorldPos(500 * U + 26 * 300, 500 * U - 26 * 300), q);
+        }
     }
 }

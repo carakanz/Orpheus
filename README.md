@@ -29,7 +29,8 @@
 Нужен .NET SDK 9 (или новее).
 
 ```powershell
-powershell -File tools/ci.ps1        # сборка + все тесты; код выхода ≠ 0 при ошибке, лимит 60 с
+tools\ci.cmd                       # сборка + все тесты: код выхода ≠ 0 при ошибке, лимит 60 с
+powershell -File tools/ci.ps1      # то же напрямую; -LogFile ci.log — лог в UTF-8 без BOM
 dotnet build Orpheus.sln             # только сборка
 dotnet test Orpheus.sln              # только тесты
 dotnet test Orpheus.sln --filter D00_Torus   # тесты тора
