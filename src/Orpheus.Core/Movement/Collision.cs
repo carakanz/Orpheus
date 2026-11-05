@@ -18,7 +18,8 @@ namespace Orpheus.Core.Movement
     /// <para>
     /// Обход по осям раздельно: <see cref="MoveX"/> («сверху» всегда X), потом <see cref="MoveY"/>.
     /// Упор в стену по одной оси не мешает движению по другой — персонаж скользит вдоль стены;
-    /// в углу обе оси упёрты — стоит. Зазор в один тайл (256 unit) круг 204 unit проходит.
+    /// в углу обе оси упёрты — стоит. Зазор в один тайл (256 unit) круг 204 unit проходит;
+    /// в «диагональный зазор» между тайлами, касающимися углами, — нет (ширина зазора 0).
     /// </para>
     /// <para>
     /// Пересечение круга с квадратом тайла — целочисленное: ближайшая точка квадрата к центру круга
@@ -57,8 +58,9 @@ namespace Orpheus.Core.Movement
 
         /// <summary>
         /// Сдвиг по X на <paramref name="dx"/> unit (только X, со сдвигом через <see cref="Torus.Offset"/>)
-        /// с откатом в стену: если круг вошёл в твёрдый тайл, позиция прижимается к его грани
-        /// на расстоянии радиуса — касание, не пересечение.
+        /// с откатом в стену: если круг вошёл в твёрдый тайл, позиция откатывается до касания
+        /// (гранью — на радиус от грани, углом — ближе, см. <see cref="ContactReach"/>), но не дальше
+        /// точки, где круг стоял до шага: итог по оси всегда между стартом и целью.
         /// </summary>
         public static WorldPos MoveX(in MapShape map, WorldPos pos, int dx, TileSolid solid) =>
             dx == 0 ? pos : MoveOnAxis(map, pos, dx, true, solid);
@@ -79,20 +81,26 @@ namespace Orpheus.Core.Movement
         private static WorldPos MoveOnAxis(in MapShape map, WorldPos pos, int d, bool alongX, TileSolid solid)
         {
             WorldPos q = Torus.Offset(map, pos, alongX ? new Int2(d, 0) : new Int2(0, d));
-            int push = AxisPush(map, q, d, alongX, solid);
+            int push = AxisPush(map, pos, q, d, alongX, solid);
             if (push == 0)
             {
                 return q;
             }
 
-            return alongX
-                ? Torus.Wrap(map, new WorldPos(q.X + push, q.Y))
-                : Torus.Wrap(map, new WorldPos(q.X, q.Y + push));
+            return Torus.Offset(map, q, alongX ? new Int2(push, 0) : new Int2(0, push));
         }
 
         // Наименьший (d > 0) или наибольший (d < 0) сдвиг вдоль оси, при котором круг ни с одним
         // твёрдым тайлом не пересекается: 0 — места хватит, откат не нужен.
-        private static int AxisPush(in MapShape map, WorldPos q, int d, bool alongX, TileSolid solid)
+        // Упор — точное касание: если круг задевает тайл гранью (поперёк оси тайл под центром,
+        // across = 0), центр встаёт на радиус от грани; если углом (across > 0), центр встаёт
+        // на ContactReach(across) = ⌈√(r² − across²)⌉ от грани — ближе, чем на радиус. Так упор
+        // не уводит круг за точку, где он стоял до шага (pos): от тайла, которого круг в pos не
+        // касался, он был не ближе ContactReach (поперёк оси при сдвиге по оси ничего не меняется),
+        // значит, откат по оси не больше пройденного. Итог — между стартом и целью.
+        // Тайл, который круг касался уже в pos (блок поставили на персонажа, спавн в стене), упора
+        // не даёт: из такого тайла можно выйти, а откат от него увёл бы назад, за старт.
+        private static int AxisPush(in MapShape map, WorldPos pos, WorldPos q, int d, bool alongX, TileSolid solid)
         {
             int x0 = (q.X - RadiusUnits) >> Torus.SubTileBits;
             int x1 = (q.X + RadiusUnits) >> Torus.SubTileBits;
@@ -112,15 +120,16 @@ namespace Orpheus.Core.Movement
                     TileCoord t = Torus.Wrap(map, new TileCoord(tx, ty));
                     int near = alongX ? Torus.DeltaX(map, q.X, t.X << Torus.SubTileBits)
                                       : Torus.DeltaY(map, q.Y, t.Y << Torus.SubTileBits);
-                    int across = alongX ? Torus.DeltaY(map, q.Y, t.Y << Torus.SubTileBits)
-                                        : Torus.DeltaX(map, q.X, t.X << Torus.SubTileBits);
-                    if (!OverlapsDist(AxisDist(near), AxisDist(across)) || !solid(map, t))
+                    int across = AxisDist(alongX ? Torus.DeltaY(map, q.Y, t.Y << Torus.SubTileBits)
+                                                 : Torus.DeltaX(map, q.X, t.X << Torus.SubTileBits));
+                    if (!OverlapsDist(AxisDist(near), across) || !solid(map, t) || OverlapsTile(map, pos.X, pos.Y, t))
                     {
                         continue;
                     }
 
-                    // грань тайла со стороны движения + радиус: касание, пересечения нет
-                    int cand = d > 0 ? near - RadiusUnits : near + Torus.SubTilesPerTile + RadiusUnits;
+                    // грань тайла со стороны движения + досягаемость касания: пересечения нет
+                    int reach = ContactReach(across);
+                    int cand = d > 0 ? near - reach : near + Torus.SubTilesPerTile + reach;
                     if (d > 0 ? cand < best : cand > best)
                     {
                         best = cand;
@@ -129,6 +138,28 @@ namespace Orpheus.Core.Movement
             }
 
             return best;
+        }
+
+        /// <summary>
+        /// Наименьшее целое h ≥ 0, при котором h² + across² ≥ r²: на таком расстоянии вдоль оси
+        /// от грани тайла круг его не пересекает (касание — не пересечение). across = 0 → r = 102;
+        /// across ≥ r → 0. Целочисленно, без квадратного корня (docs/07, 11.5).
+        /// </summary>
+        public static int ContactReach(int across)
+        {
+            if (across >= RadiusUnits)
+            {
+                return 0;
+            }
+
+            long rest = RadiusSquared - (long)across * across;
+            int h = RadiusUnits;
+            while (h > 0 && (long)(h - 1) * (h - 1) >= rest)
+            {
+                h--;
+            }
+
+            return h;
         }
 
         // ---------- Пересечение круга с тайлом ----------
