@@ -348,6 +348,7 @@ namespace Orpheus.Tests
 
             var pending = new EntityInput[16];
             ulong sink = 0;
+            long inTick = 0;
             void Ticks(int n)
             {
                 for (int k = 0; k < n; k++)
@@ -360,29 +361,38 @@ namespace Orpheus.Tests
 
                     sim.CopyPendingInputs(pending);
 
-                    // Правки — каждый 7-й такт, в разные чанки (без записей построек: словарь записей
-                    // выделяется при первой постройке в чанке — хвост backlog [такт сервера]).
+                    // Правки — каждый 7-й такт, в разные чанки; каждая вторая — постройка с записью:
+                    // первая постройка в чанке берёт словарь записей из пула (backlog [такт сервера]).
                     if (sim.Tick % 7 == 0)
                     {
                         int t = (int)(sim.Tick % 1000);
                         sim.RequestEdit(new TileCoord(t, t / 3), FloorId.Dirt, ObjectId.Rock);
-                        sim.RequestEdit(new TileCoord(t + 1, t / 3), FloorId.Dirt, ObjectId.Empty);
+                        sim.RequestEdit(new TileCoord(t * 5 + 1, t / 3), FloorId.Grass, ObjectId.WoodWall, BuildRecord.OfPlayer(1, FloorId.Grass));
                     }
 
+                    // В такте (шаг и хэш) — ни байта; пополнение пула — между тактами, вне замера.
+                    long before = GC.GetAllocatedBytesForCurrentThread();
                     sim.Step();
                     if (sim.Tick % Simulation.HashInterval == 0)
                     {
                         sink ^= StateHash.Compute(sim).Total;
                     }
+
+                    inTick += GC.GetAllocatedBytesForCurrentThread() - before;
+                    sim.RefillPools();
                 }
             }
 
             Ticks(900); // прогрев: JIT, статические таблицы
-            long before = GC.GetAllocatedBytesForCurrentThread();
+            inTick = 0;
+            int misses = world.BuildMaps.Misses;
+            long total = GC.GetAllocatedBytesForCurrentThread();
             Ticks(3000);
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            _out.WriteLine($"3000 тактов: выделено {allocated} байт (хэш {sink:x16})");
-            Assert.Equal(0, allocated);
+            total = GC.GetAllocatedBytesForCurrentThread() - total;
+            _out.WriteLine($"3000 тактов: в такте выделено {inTick} байт, с пополнением пула {total} байт (хэш {sink:x16})");
+            Assert.Equal(0, inTick);
+            Assert.Equal(misses, world.BuildMaps.Misses);
+            Assert.True(total > 0, "постройки в новых чанках должны были брать словари из пула");
         }
 
         // ---------- Журнал, боты, ключи ----------

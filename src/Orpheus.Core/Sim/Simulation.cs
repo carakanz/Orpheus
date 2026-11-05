@@ -67,6 +67,7 @@ namespace Orpheus.Core.Sim
         private readonly EditResult[] _results = new EditResult[TilePatch.MaxEdits];
         private int _editCount;
 
+        private readonly int _buildMapReserve;
         private readonly SimEvent[] _events;
         private int _eventCount;
         private bool _eventsOverflow;
@@ -74,7 +75,9 @@ namespace Orpheus.Core.Sim
         /// <param name="world">Мир; такт меняет его только правками фазы 3.</param>
         /// <param name="maxEntities">Ёмкость списка сущностей.</param>
         /// <param name="maxEditsPerTick">Ёмкость очереди правок на такт; лишние запросы получают отказ.</param>
-        public Simulation(WorldModel world, int maxEntities = 64, int maxEditsPerTick = 4096)
+        /// <param name="reserveBuildMaps">Запас словарей записей построек (<see cref="BuildMapPool"/>): столько чанков
+        /// могут получить первую постройку без выделения в такте; пополняет <see cref="RefillPools"/>.</param>
+        public Simulation(WorldModel world, int maxEntities = 64, int maxEditsPerTick = 4096, int reserveBuildMaps = DefaultBuildMapReserve)
         {
             if (maxEntities <= 0)
             {
@@ -97,7 +100,18 @@ namespace Orpheus.Core.Sim
 
             // Событий на такт: исход каждой правки + ревизия каждого чанка — не больше 2 × правок.
             _events = new SimEvent[maxEditsPerTick * 2];
+            _buildMapReserve = reserveBuildMaps;
+            RefillPools();
         }
+
+        /// <summary>Запас словарей построек по умолчанию: 16 чанков с первой постройкой подряд *(прикидка)*.</summary>
+        public const int DefaultBuildMapReserve = 16;
+
+        /// <summary>
+        /// Пополнить пулы до запаса — <b>вне такта</b> (между тактами; сервер зовёт после каждого <see cref="Step"/>):
+        /// здесь выделяется память, если в такте пул отдал словари. Полон — ничего не делает.
+        /// </summary>
+        public void RefillPools() => _world.BuildMaps.Reserve(_buildMapReserve);
 
         /// <summary>Мир.</summary>
         public WorldModel World => _world;

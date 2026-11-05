@@ -181,6 +181,7 @@ namespace Orpheus.Server
                 }
 
                 sim.Step();
+                sim.RefillPools(); // вне такта: запас словарей построек (backlog [такт сервера])
 
                 bool checkpoint = tick % Simulation.HashInterval == 0;
                 if (checkpoint && (o.Hash || record != null || replay != null))
