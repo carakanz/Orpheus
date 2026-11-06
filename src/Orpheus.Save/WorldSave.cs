@@ -146,8 +146,12 @@ namespace Orpheus.Save
                 sim.Tick, sim.NextEntityId, coords, revisions, compressed, raw, sim.Entities.ToArray());
         }
 
-        /// <summary>Собрать файл сохранения (любой поток). Дата — мс Unix UTC от вызывающего.</summary>
-        public static byte[] Build(WorldSaveData d, ulong number, long dateUnixMs)
+        /// <summary>
+        /// Собрать файл сохранения (любой поток). Дата — мс Unix UTC от вызывающего.
+        /// <paramref name="padKb"/> — отладочное наполнение раздела «ОТЛАДКА» в КБ (приёмка 0.4, ключ сервера
+        /// <c>--debug-save-pad</c>): грузчик его пропускает, в обычной игре 0.
+        /// </summary>
+        public static byte[] Build(WorldSaveData d, ulong number, long dateUnixMs, int padKb = 0)
         {
             if (d == null)
             {
@@ -196,12 +200,35 @@ namespace Orpheus.Save
             }
 
             var header = new SaveHeader(SaveModule.FormatVersion, SaveModule.BuildVersion, number, d.Tick, dateUnixMs);
-            return SaveContainer.Write(header, new[]
+            var sections = new List<SaveSection>
             {
                 new SaveSection(SaveSections.World, worldSection),
                 new SaveSection(SaveSections.Chunks, c.ToArray()),
                 new SaveSection(SaveSections.Creatures, e.ToArray()),
-            });
+            };
+
+            if (padKb > 0)
+            {
+                sections.Add(new SaveSection(SaveSections.DebugPad, PadRecord(padKb, number)));
+            }
+
+            return SaveContainer.Write(header, sections.ToArray());
+        }
+
+        /// <summary>Записи раздела «ОТЛАДКА»: байты детерминированного узора по номеру поколения (приёмка 0.4).</summary>
+        private static byte[] PadRecord(int padKb, ulong number)
+        {
+            var w = new RecordWriter(padKb * 1024 + 16);
+            var bytes = new byte[padKb * 1024];
+            ulong s = number * 0x9E3779B97F4A7C15UL;
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                s = s * 6364136223846793005UL + 1442695040888963407UL;
+                bytes[i] = (byte)(s >> 33);
+            }
+
+            w.WriteBytes(1, bytes);
+            return w.ToArray();
         }
 
         /// <summary>

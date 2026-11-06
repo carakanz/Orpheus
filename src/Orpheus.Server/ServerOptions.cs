@@ -35,13 +35,16 @@ namespace Orpheus.Server
         public const string Usage =
             "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень] [--port P]\n" +
-            "              [--autosave <сек>] [--debug-save-crash <зерно>]";
+            "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-pad <КБ>]";
 
         /// <summary>Автосохранение по умолчанию: раз в 2 мин мира (docs/07, 6.4).</summary>
         public const int DefaultAutosaveSeconds = 120;
 
         /// <summary>Наибольший интервал автосохранения: 30 мин (6.4).</summary>
         public const int MaxAutosaveSeconds = 30 * 60;
+
+        /// <summary>Предел отладочного наполнения сохранения (приёмка 0.4): 512 КБ.</summary>
+        public const int MaxDebugSavePadKb = 512;
 
         public string? WorldDir { get; set; }
         public bool Create { get; set; }
@@ -60,6 +63,9 @@ namespace Orpheus.Server
         public int? Port { get; set; }
         public int AutosaveSeconds { get; set; } = DefaultAutosaveSeconds;
         public ulong? DebugSaveCrashSeed { get; set; }
+
+        /// <summary>Отладочное наполнение сохранения в КБ (приёмка 0.4, docs/08 3.0): 0 — обычной игрой не пишется.</summary>
+        public int DebugSavePadKb { get; set; }
 
         /// <summary>Разобрать ключи; ошибка — <see cref="ArgumentException"/> с понятным текстом.</summary>
         public static ServerOptions Parse(string[] args)
@@ -131,6 +137,14 @@ namespace Orpheus.Server
                         break;
                     case "--debug-save-crash":
                         o.DebugSaveCrashSeed = ParseSeed(Value(args, ref i));
+                        break;
+                    case "--debug-save-pad":
+                        o.DebugSavePadKb = ParseInt(a, Value(args, ref i));
+                        if (o.DebugSavePadKb < 0 || o.DebugSavePadKb > MaxDebugSavePadKb)
+                        {
+                            throw new ArgumentException($"--debug-save-pad: 0…{MaxDebugSavePadKb} КБ, а не {o.DebugSavePadKb}.");
+                        }
+
                         break;
                     default:
                         throw new ArgumentException($"Неизвестный ключ: {a}.");

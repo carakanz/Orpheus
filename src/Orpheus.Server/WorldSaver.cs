@@ -30,6 +30,7 @@ namespace Orpheus.Server
         private readonly JsonLog _log;
         private readonly long _intervalTicks;
         private readonly SaveCrashHook? _crash;
+        private readonly int _padKb;
 
         private Task<SaveOutcome>? _pending;
         private long _lastSavedTick;
@@ -37,7 +38,8 @@ namespace Orpheus.Server
 
         /// <param name="startSaved">Состояние старта уже лежит в поколении (мир загружен из сохранения): при остановке
         /// без единого такта новое поколение не пишется.</param>
-        public WorldSaver(WorldFolder folder, byte[] baseSha256, string name, JsonLog log, int intervalSeconds, long startTick, bool startSaved, SaveCrashHook? crash)
+        /// <param name="padKb">Отладочное наполнение сохранения в КБ (приёмка 0.4, <c>--debug-save-pad</c>): 0 в обычной игре.</param>
+        public WorldSaver(WorldFolder folder, byte[] baseSha256, string name, JsonLog log, int intervalSeconds, long startTick, bool startSaved, SaveCrashHook? crash, int padKb = 0)
         {
             _folder = folder;
             _baseSha = baseSha256;
@@ -47,6 +49,7 @@ namespace Orpheus.Server
             _lastSavedTick = startTick;
             _lastTickSaved = startSaved;
             _crash = crash;
+            _padKb = padKb;
         }
 
         /// <summary>Сохранений записано за запуск.</summary>
@@ -120,7 +123,7 @@ namespace Orpheus.Server
                 var w = Stopwatch.StartNew();
                 try
                 {
-                    byte[] bytes = WorldSave.Build(data, number, date);
+                    byte[] bytes = WorldSave.Build(data, number, date, _padKb);
                     List<string> deleted = folder.WriteGeneration(number, bytes);
                     crash?.OnDone(number);
                     return new SaveOutcome(number, tick, reason, bytes.Length, data.ChunkCoords.Length, captureMs, w.Elapsed.TotalMilliseconds, deleted, null);

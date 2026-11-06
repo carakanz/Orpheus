@@ -21,6 +21,14 @@ namespace Orpheus.Save
         public const uint Marks = 10;
         public const uint BuildLog = 11;
 
+        /// <summary>
+        /// Отладочное наполнение (ключ сервера <c>--debug-save-pad</c>, приёмка 0.4 — docs/08 3.0): раздел из
+        /// байтов, который грузчик пропускает как незнакомый. Нужен, чтобы файл поколения был длиннее куска
+        /// атомарной записи (хранилище «ПК» пишет кусками по 512 байта): иначе обрыв процесса физически не
+        /// попадает в середину файла и приёмка 0.4 ничего не проверяет. В обычной игре не пишется.
+        /// </summary>
+        public const uint DebugPad = 90;
+
         /// <summary>Имя раздела для лога и <c>orpheus-save dump</c>.</summary>
         public static string Name(uint id) => id switch
         {
@@ -35,6 +43,7 @@ namespace Orpheus.Save
             Characters => "ПЕРСОНАЖИ",
             Marks => "МЕТКИ",
             BuildLog => "ЖУРНАЛ ПОСТРОЕК",
+            DebugPad => "ОТЛАДКА",
             _ => "раздел " + id,
         };
 
