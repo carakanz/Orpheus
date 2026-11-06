@@ -6,8 +6,9 @@ using UnityEngine;
 namespace Orpheus.Client
 {
     /// <summary>
-    /// Режим <c>--screenshot &lt;путь&gt;</c> (карточка 0-010, шаг 8): персонаж ставится в 60 тайлах к востоку от центра
-    /// (для зерна по умолчанию там в кадре и поле скал, и луга с деревьями), зум ×0,6 — самый широкий обзор (67 тайлов);
+    /// Режим <c>--screenshot &lt;путь&gt;</c> (карточка 0-010, шаг 8; сеть — 0-012): в офлайне персонаж ставится
+    /// в 60 тайлах к востоку от центра (для зерна по умолчанию там в кадре и поле скал, и луга с деревьями),
+    /// в сети — создаётся после входа и снимает там, где поселил сервер; зум ×0,6 — самый широкий обзор (67 тайлов);
     /// через полсекунды кадр уходит в PNG через <see cref="ScreenCapture"/>, игра выходит.
     /// Нужен вывод на экран — запускать без <c>-batchmode -nographics</c>; окно открыто ~1 с.
     /// </summary>
@@ -21,7 +22,7 @@ namespace Orpheus.Client
         int _frame;
         bool _requested;
 
-        public ScreenshotRun(GameBoot g, string path)
+        public ScreenshotRun(GameBoot g, string path, bool netMode = false)
         {
             _g = g;
             _path = Path.GetFullPath(path);
@@ -36,9 +37,15 @@ namespace Orpheus.Client
                 File.Delete(_path);
             }
 
+            _g.SetZoom(GameBoot.MinZoom);
+            if (netMode)
+            {
+                Debug.Log($"[screenshot] сеть: снимок → {_path} (персонаж там, где поселил сервер)");
+                return;
+            }
+
             int c = g.Map.Width / 2;
             _g.Teleport(_g.TileCenter(FindFree(new TileCoord(c + 60, c))));
-            _g.SetZoom(GameBoot.MinZoom);
             Debug.Log($"[screenshot] персонаж в {_g.Player.Position}, снимок → {_path}");
         }
 

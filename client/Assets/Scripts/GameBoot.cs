@@ -60,6 +60,15 @@ namespace Orpheus.Client
         public float Zoom { get; private set; } = 1f;
         public double GenerationMs { get; private set; }
 
+        /// <summary>Сетевой режим (0-012); null — офлайн (локальный такт).</summary>
+        public NetGame? Net { get; private set; }
+
+        // Действия ввода — для сетевого режима (тот же клавишно-геймпадный ввод).
+        public InputAction Move => _move;
+        public InputAction ZoomAxis => _zoom;
+        public InputAction ZoomIn => _zoomIn;
+        public InputAction ZoomOut => _zoomOut;
+
         /// <summary>Ввод скриптом (smoke): если задан, клавиатура и геймпад не читаются.</summary>
         public InputFrame? ScriptedInput { get; set; }
 
@@ -82,6 +91,22 @@ namespace Orpheus.Client
                 Debug.LogWarning("[boot] аргументы: " + Args.Error + " — взято значение по умолчанию");
             }
 
+            CreateInput();
+
+            // Сетевой режим (0-012): мир присылает сервер, поэтому здесь только связь; окно — сразу с HUD-текстом.
+            if (Args.Connect != null)
+            {
+                if (Args.Error != null)
+                {
+                    Application.Quit(1);
+                    return;
+                }
+
+                Net = new NetGame(this, Args);
+                Net.StartConnect();
+                return;
+            }
+
             Map = MapShape.World(Args.Size);
             var sw = Stopwatch.StartNew();
             World = new StubGenerator().Generate(Map, Args.Seed, out GenStats stats);
@@ -99,7 +124,6 @@ namespace Orpheus.Client
             View.UpdateWindow(Player.Position);
             PlaceCharacterAndCamera();
 
-            CreateInput();
             if (Args.Smoke)
             {
                 _smoke = new SmokeRun(this);
@@ -117,6 +141,7 @@ namespace Orpheus.Client
             _zoomIn?.Dispose();
             _zoomOut?.Dispose();
             _smoke?.Dispose();
+            Net?.Shutdown();
         }
 
         /// <summary>Центр тайла как позиция существа.</summary>
@@ -175,6 +200,12 @@ namespace Orpheus.Client
 
         void Update()
         {
+            if (Net != null)
+            {
+                Net.Frame();
+                return;
+            }
+
             _smoke?.BeforeFrame();
 
             // 1. Кадр ввода.

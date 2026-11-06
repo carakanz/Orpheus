@@ -716,12 +716,36 @@
       <HintPath>Library\PackageCache\com.unity.collections@4920e8897b5a\Unity.Collections.LowLevel.ILSupport\Unity.Collections.LowLevel.ILSupport.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="LiteNetLib">
+      <HintPath>Assets\Plugins\Orpheus\LiteNetLib.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Orpheus.WorldGen">
+      <HintPath>Assets\Plugins\Orpheus\Orpheus.WorldGen.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Orpheus.Core">
+      <HintPath>Assets\Plugins\Orpheus\Orpheus.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="nunit.framework">
       <HintPath>Library\PackageCache\com.unity.ext.nunit@0198eae3b53e\net472\unity-custom\nunit.framework.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Orpheus.Platform.Pc">
+      <HintPath>Assets\Plugins\Orpheus\Orpheus.Platform.Pc.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Orpheus.Save">
+      <HintPath>Assets\Plugins\Orpheus\Orpheus.Save.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Mono.Cecil">
       <HintPath>Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff\Mono.Cecil.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Orpheus.Net">
+      <HintPath>Assets\Plugins\Orpheus\Orpheus.Net.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="mscorlib">

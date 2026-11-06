@@ -18,3 +18,8 @@ UnityProjects/
 *.tmp
 # playable-сборка (прогон tools\playable.cmd)
 playable/
+# Сборки: build_client.ps1 → build/client-win, dotnet publish → build/*
+build/
+# DLL ядра в клиенте — наезжают tools/build_client.ps1 (0-002); .meta (настройки импорта) — в репозитории
+client/Assets/Plugins/Orpheus/*.dll
+client/Assets/Plugins/Orpheus/*.pdb
