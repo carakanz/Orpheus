@@ -18,6 +18,8 @@
     <ProjectReference Include="..\..\src\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
     <ProjectReference Include="..\..\src\Orpheus.Net\Orpheus.Net.csproj" />
     <ProjectReference Include="..\..\src\Orpheus.Save\Orpheus.Save.csproj" />
+    <!-- Сервер (exe): тесты D00_Sim_* гоняют его цикл такта в процессе теста через ServerRun.Run. -->
+    <ProjectReference Include="..\..\src\Orpheus.Server\Orpheus.Server.csproj" />
     <!-- Анализатор как обычная библиотека: тесты D00_Analyzer_* создают DeterminismAnalyzer напрямую. -->
     <ProjectReference Include="..\..\src\Orpheus.Analyzers\Orpheus.Analyzers.csproj" />
   </ItemGroup>

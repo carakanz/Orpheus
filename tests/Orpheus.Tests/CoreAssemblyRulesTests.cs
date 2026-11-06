@@ -73,6 +73,21 @@ namespace Orpheus.Tests
             }
         }
 
+        /// <summary>
+        /// backlog [инструменты]: cmd читает .cmd в OEM-кодировке до chcp, и кириллица в UTF-8 рвётся
+        /// на «команды» — так из строки rem с примером перенаправления появлялся log.txt. Только ASCII.
+        /// </summary>
+        [Fact]
+        public void D00_Tools_CiCmdIsAsciiOnly()
+        {
+            string path = Path.Combine(FindRepoRoot(), "tools", "ci.cmd");
+            byte[] bytes = File.ReadAllBytes(path);
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                Assert.True(bytes[i] < 0x80, $"tools\\ci.cmd: не-ASCII байт 0x{bytes[i]:X2} на позиции {i}");
+            }
+        }
+
         private static bool IsBuildOutput(string file)
         {
             string sep = Path.DirectorySeparatorChar.ToString();

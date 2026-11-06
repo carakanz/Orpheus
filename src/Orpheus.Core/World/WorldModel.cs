@@ -45,6 +45,9 @@ namespace Orpheus.Core.World
         /// <summary>Версия генератора (3.4).</summary>
         public int GeneratorVersion { get; }
 
+        /// <summary>Запас словарей записей построек для чанков (пополнять вне такта).</summary>
+        public BuildMapPool BuildMaps { get; } = new BuildMapPool();
+
         /// <summary>Создано чанков.</summary>
         public int ChunkCount => _chunks.Count;
 
@@ -62,7 +65,7 @@ namespace Orpheus.Core.World
             ChunkCoord key = CheckedWrap(coord);
             if (!_chunks.TryGetValue(key, out Chunk? chunk))
             {
-                chunk = new Chunk();
+                chunk = new Chunk(BuildMaps);
                 _chunks.Add(key, chunk);
                 _keysStale = true;
             }

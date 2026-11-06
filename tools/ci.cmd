@@ -1,6 +1,7 @@
 @echo off
-rem Обёртка CI для cmd: tools\ci.cmd (и перенаправление tools\ci.cmd > log.txt 2>&1 даёт UTF-8).
-rem Параметры ci.ps1 передаются как есть: tools\ci.cmd -TimeLimitSec 120 -LogFile ci.log
+rem Orpheus CI wrapper for cmd: runs tools\ci.ps1 with the same parameters.
+rem ASCII only: cmd reads this file in the OEM code page before chcp, so UTF-8 text here
+rem breaks into stray commands (that is how log.txt used to appear). Docs: header of ci.ps1.
 chcp 65001 >nul
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ci.ps1" %*
 exit /b %ERRORLEVEL%

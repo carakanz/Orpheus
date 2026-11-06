@@ -58,6 +58,7 @@ namespace Orpheus.Core.World
 
         private readonly byte[] _layers = new byte[LayerBytes];
         private Dictionary<ushort, BuildRecord>? _builds;
+        private readonly BuildMapPool? _buildMaps;
 
         private uint _revision;
         private byte[]? _copy;
@@ -69,6 +70,17 @@ namespace Orpheus.Core.World
         private int _dirtyMinY = Torus.ChunkSize;
         private int _dirtyMaxX = -1;
         private int _dirtyMaxY = -1;
+
+        /// <summary>Чанк без пула словарей построек: словарь создаётся при первой постройке.</summary>
+        public Chunk()
+        {
+        }
+
+        /// <summary>Чанк мира: словарь записей построек при первой постройке берётся из <paramref name="buildMaps"/>.</summary>
+        public Chunk(BuildMapPool? buildMaps)
+        {
+            _buildMaps = buildMaps;
+        }
 
         /// <summary>Ревизия чанка: +1 на каждую пачку правок (docs/07, 3.3).</summary>
         public uint Revision => _revision;
@@ -500,7 +512,8 @@ namespace Orpheus.Core.World
             _layers[ObjectHighOffset + index] = (byte)(obj >> 8);
         }
 
-        private Dictionary<ushort, BuildRecord> Builds() => _builds ??= new Dictionary<ushort, BuildRecord>();
+        private Dictionary<ushort, BuildRecord> Builds() =>
+            _builds ??= _buildMaps != null ? _buildMaps.Rent() : new Dictionary<ushort, BuildRecord>();
 
         private static void CheckIndex(int index)
         {

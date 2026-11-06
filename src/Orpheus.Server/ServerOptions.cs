@@ -1,0 +1,193 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using Orpheus.Core.Bots;
+
+namespace Orpheus.Server
+{
+    /// <summary>Группа ботов из <c>--bots N:сценарий</c>.</summary>
+    public readonly struct BotGroup
+    {
+        public readonly int Count;
+        public readonly string Script;
+
+        public BotGroup(int count, string script)
+        {
+            Count = count;
+            Script = script;
+        }
+
+        public override string ToString() => $"{Count}:{Script}";
+    }
+
+    /// <summary>
+    /// Ключи сервера по docs/07, 11.2:
+    /// <c>--world &lt;папка&gt; --create --seed N --size 1024|4096 --sim --bots 8:wander --ticks N --hash
+    /// --record &lt;путь&gt; | --replay &lt;путь&gt;</c>; плюс <c>--logs &lt;папка&gt;</c>, <c>--log кат=уровень</c>
+    /// (11.6) и <c>--port</c> (сети пока нет — ключ принимается и пишется в лог).
+    /// </summary>
+    public sealed class ServerOptions
+    {
+        public const string Usage =
+            "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander[,N:...]]\n" +
+            "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень] [--port P]";
+
+        public string? WorldDir { get; set; }
+        public bool Create { get; set; }
+        public ulong Seed { get; set; }
+        public bool SeedGiven { get; set; }
+        public int Size { get; set; } = 1024;
+        public bool SizeGiven { get; set; }
+        public bool Sim { get; set; }
+        public List<BotGroup> Bots { get; } = new List<BotGroup>();
+        public long Ticks { get; set; } = long.MaxValue;
+        public bool Hash { get; set; }
+        public string? RecordPath { get; set; }
+        public string? ReplayPath { get; set; }
+        public string? LogsDir { get; set; }
+        public List<string> LogLevels { get; } = new List<string>();
+        public int? Port { get; set; }
+
+        /// <summary>Разобрать ключи; ошибка — <see cref="ArgumentException"/> с понятным текстом.</summary>
+        public static ServerOptions Parse(string[] args)
+        {
+            var o = new ServerOptions();
+            for (int i = 0; i < args.Length; i++)
+            {
+                string a = args[i];
+                switch (a)
+                {
+                    case "--world":
+                        o.WorldDir = Value(args, ref i);
+                        break;
+                    case "--create":
+                        o.Create = true;
+                        break;
+                    case "--seed":
+                        o.Seed = ParseSeed(Value(args, ref i));
+                        o.SeedGiven = true;
+                        break;
+                    case "--size":
+                        o.Size = ParseInt(a, Value(args, ref i));
+                        o.SizeGiven = true;
+                        if (o.Size != 1024 && o.Size != 4096)
+                        {
+                            throw new ArgumentException($"--size: размер мира 1024 или 4096 (docs/00, 5.1), а не {o.Size}.");
+                        }
+
+                        break;
+                    case "--sim":
+                        o.Sim = true;
+                        break;
+                    case "--bots":
+                        ParseBots(Value(args, ref i), o.Bots);
+                        break;
+                    case "--ticks":
+                        o.Ticks = ParseLong(a, Value(args, ref i));
+                        if (o.Ticks < 0)
+                        {
+                            throw new ArgumentException("--ticks: число тактов не отрицательное.");
+                        }
+
+                        break;
+                    case "--hash":
+                        o.Hash = true;
+                        break;
+                    case "--record":
+                        o.RecordPath = Value(args, ref i);
+                        break;
+                    case "--replay":
+                        o.ReplayPath = Value(args, ref i);
+                        break;
+                    case "--logs":
+                        o.LogsDir = Value(args, ref i);
+                        break;
+                    case "--log":
+                        o.LogLevels.Add(Value(args, ref i));
+                        break;
+                    case "--port":
+                        o.Port = ParseInt(a, Value(args, ref i));
+                        break;
+                    default:
+                        throw new ArgumentException($"Неизвестный ключ: {a}.");
+                }
+            }
+
+            if (o.ReplayPath != null && o.RecordPath != null)
+            {
+                throw new ArgumentException("--record и --replay вместе нельзя.");
+            }
+
+            if (o.ReplayPath != null && o.Bots.Count > 0)
+            {
+                throw new ArgumentException("--replay берёт ввод из журнала: --bots не нужен.");
+            }
+
+            if (o.ReplayPath != null && !o.Sim)
+            {
+                throw new ArgumentException("--replay — только в режиме симуляции (--sim).");
+            }
+
+            if (o.WorldDir == null && !o.Create && o.ReplayPath == null)
+            {
+                throw new ArgumentException("Нужен --world <папка> (или --create для мира только в памяти).");
+            }
+
+            return o;
+        }
+
+        private static string Value(string[] args, ref int i)
+        {
+            if (i + 1 >= args.Length)
+            {
+                throw new ArgumentException($"{args[i]}: нет значения.");
+            }
+
+            return args[++i];
+        }
+
+        private static int ParseInt(string key, string s) =>
+            int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v)
+                ? v
+                : throw new ArgumentException($"{key}: «{s}» — не целое число.");
+
+        private static long ParseLong(string key, string s) =>
+            long.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out long v)
+                ? v
+                : throw new ArgumentException($"{key}: «{s}» — не целое число.");
+
+        private static ulong ParseSeed(string s)
+        {
+            if (ulong.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out ulong u))
+            {
+                return u;
+            }
+
+            if (long.TryParse(s, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long l))
+            {
+                return unchecked((ulong)l);
+            }
+
+            throw new ArgumentException($"--seed: «{s}» — не целое число.");
+        }
+
+        private static void ParseBots(string s, List<BotGroup> into)
+        {
+            foreach (string part in s.Split(','))
+            {
+                string[] kv = part.Split(':');
+                if (kv.Length != 2 || !int.TryParse(kv[0], NumberStyles.None, CultureInfo.InvariantCulture, out int n) || n <= 0)
+                {
+                    throw new ArgumentException($"--bots: «{part}» — нужно N:сценарий, например 8:wander.");
+                }
+
+                if (Array.IndexOf(SimBot.Scripts, kv[1]) < 0)
+                {
+                    throw new ArgumentException($"--bots: сценария «{kv[1]}» нет; есть: {string.Join(", ", SimBot.Scripts)}.");
+                }
+
+                into.Add(new BotGroup(n, kv[1]));
+            }
+        }
+    }
+}
