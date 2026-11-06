@@ -21,7 +21,9 @@ namespace Orpheus.Client
     /// (480 тактов, шов — через 24 тайла) — на полосе без препятствий; если на шве такой нет — без коллизии (пишется в лог).</item>
     /// <item>Каждый кадр: позиция персонажа и камеры, восстановленная относительно нарисованного чанка, сдвигается
     /// не больше чем на 6 т/с × 1/30 с × 1,1 = 0,22 тайла (рывок), совпадает с интерполяцией ядра; в окне ≤ 48 чанков
-    /// и нет дыр в блоке 6 × 4.</item>
+    /// и нет дыр в блоке 6 × 4. Шаг персонажа на бегу за кадр ≤ 6 т/с × 1/60 с × 1,1 = 0,11 тайла — доказательство
+    /// интерполяции (без неё шаг = 0,203). Место каждого узла окна сверяется с узлом центра блока по смещению из
+    /// индексов блока (i·32, −j·32), независимо от <c>ChunkToUnity</c> — доказательство отсутствия дыр у шва.</item>
     /// <item>После каждого отрезка позиция по ядру — ровно старт + 96 тайлов, нарисованная — та же; начало переезжало
     /// и на шве, и по расстоянию.</item>
     /// </list>
@@ -34,6 +36,13 @@ namespace Orpheus.Client
 
         /// <summary>Рывок в кадре: 6 т/с × 1/30 с × 1,1 (docs/08, 3.0, приёмка 0.2).</summary>
         public const float MaxJumpTiles = 6f / 30f * 1.1f;
+
+        /// <summary>
+        /// Шаг персонажа на бегу за кадр: 6 т/с × 1/60 с × 1,1 = 0,11 тайла. Кадр smoke — 1/60 с, персонаж шагает
+        /// по кадрам ввода (07, 2.4), поэтому без интерполяции шаг за кадр = 6 т/с × 1/30 с = 0,203 > 0,11 —
+        /// проверка ловит отсутствие интерполяции (замечание П по M3).
+        /// </summary>
+        public const float MaxStepTiles = 6f / 60f * 1.1f;
 
         /// <summary>Длина отрезка: 96 тайлов = 3 чанка = 480 тактов базового бега.</summary>
         public const int LegTiles = 96;
@@ -70,7 +79,7 @@ namespace Orpheus.Client
         bool _measure;
         WorldPos _prevChar, _prevCam;
         float _maxJumpChar, _maxJumpCam;
-        int _maxDrift;
+        int _maxDrift, _maxStep;
         int _holes;
         int _maxWindow;
         int _rebases, _seamRebases;
@@ -322,6 +331,24 @@ namespace Orpheus.Client
                     Fail($"кадр {_frames}: рывок персонажа {jc:0.000} т, камеры {jm:0.000} т (предел {MaxJumpTiles:0.000}), " +
                          $"якорь {_g.Origin.Anchor}");
                 }
+
+                // Шаг на бегу за кадр (только бег, без остановки в конце отрезка): доказательство интерполяции.
+                if (_phase == 1)
+                {
+                    Int2 st = Torus.Delta(_map, _prevChar, ch);
+                    int axis = Math.Max(Math.Abs(st.X), Math.Abs(st.Y));
+                    if (axis > _maxStep)
+                    {
+                        _maxStep = axis;
+                    }
+
+                    float step = axis / (float)Torus.SubTilesPerTile;
+                    if (step > MaxStepTiles)
+                    {
+                        Fail($"кадр {_frames}: шаг персонажа {step:0.000} т за кадр (предел {MaxStepTiles:0.000} — " +
+                             $"признак отсутствия интерполяции), Δ {st.X},{st.Y}/256");
+                    }
+                }
             }
 
             _prevChar = ch;
@@ -364,8 +391,18 @@ namespace Orpheus.Client
                 Fail($"кадр {_frames}: чанков в окне {n} > {ChunkWindow.MaxChunks}");
             }
 
-            // Дыры: блок входа 6 × 4 вокруг персонажа целиком в окне, узлы активны и стоят в Δ от якоря.
+            // Дыры: блок входа 6 × 4 вокруг персонажа целиком в окне, узлы активны и стоят ровно в сетке
+            // относительно узла центра блока. Сверка — по смещению из индексов блока (i·32, −j·32), независимо от
+            // ChunkToUnity: узел, вставленный по другую сторону шва, даёт расхождение в целый мир (замечание П по M2).
             ChunkCoord center = ChunkWindow.BlockCenter(_map, _g.Player.Position);
+            if (!_g.View.TryGetNode(center, out WorldView.ChunkNode centerNode) || !centerNode.Root.activeSelf)
+            {
+                _holes++;
+                Fail($"кадр {_frames}: нет узла центра блока {center} в окне");
+                return;
+            }
+
+            Vector3 centerPos = centerNode.Root.transform.position;
             for (int j = -ChunkWindow.Height / 2; j < ChunkWindow.Height / 2; j++)
             {
                 for (int i = -ChunkWindow.Width / 2; i < ChunkWindow.Width / 2; i++)
@@ -376,10 +413,15 @@ namespace Orpheus.Client
                         _holes++;
                         Fail($"кадр {_frames}: дыра — нет чанка {c} в окне");
                     }
-                    else if ((node.Root.transform.position - _g.Origin.ChunkToUnity(c)).sqrMagnitude > 1e-6f)
+                    else
                     {
-                        _holes++;
-                        Fail($"кадр {_frames}: чанк {c} стоит в {node.Root.transform.position}, а не в Δ от якоря");
+                        Vector3 expected = centerPos + new Vector3(i * Torus.ChunkSize, -j * Torus.ChunkSize, 0f);
+                        if ((node.Root.transform.position - expected).sqrMagnitude > 1e-6f)
+                        {
+                            _holes++;
+                            Fail($"кадр {_frames}: чанк {c} стоит в {node.Root.transform.position}, " +
+                                 $"а узел центра {center} в {centerPos}: ждали {(i * Torus.ChunkSize, -j * Torus.ChunkSize)} относительно него");
+                        }
                     }
                 }
             }
@@ -454,7 +496,9 @@ namespace Orpheus.Client
             Debug.Log($"[smoke] window: max {_maxWindow} чанков (предел {ChunkWindow.MaxChunks}), дыр {_holes}, " +
                       $"узлов создано {_g.View.NodesCreated}, заливок {_g.View.Fills}");
             Debug.Log($"[smoke] seam: рывок персонажа max {_maxJumpChar:0.000} т/кадр, камеры {_maxJumpCam:0.000} " +
-                      $"(предел {MaxJumpTiles:0.000}); нарисовано − ядро max {_maxDrift}/256 т; переездов начала {_rebases}, на шве {_seamRebases}; " +
+                      $"(предел {MaxJumpTiles:0.000}); шаг на бегу max {_maxStep}/256 т/кадр (предел " +
+                      $"{(int)(MaxStepTiles * Torus.SubTilesPerTile)}/256); нарисовано − ядро max {_maxDrift}/256 т; " +
+                      $"переездов начала {_rebases}, на шве {_seamRebases}; " +
                       $"коллизия {(lanes ? "по миру" : "частично выключена")}");
             Debug.Log($"[smoke] tiles: проверено {_tilesChecked}, расхождений {_tileMismatches}, образцов {_samples}");
             if (_samples < 4)
