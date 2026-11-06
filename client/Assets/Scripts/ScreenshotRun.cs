@@ -16,15 +16,20 @@ namespace Orpheus.Client
     {
         const int CaptureFrame = 30;
         const int TimeoutFrames = 600;
+        const double NetWaitSec = 2.6; // время скрипта движения: 0,5 с стой + 2,1 с восток (~13 тайлов)
+        const double NetTimeoutSec = 15;
 
         readonly GameBoot _g;
         readonly string _path;
+        readonly bool _netMode;
+        readonly double _startT = Time.realtimeSinceStartupAsDouble;
         int _frame;
         bool _requested;
 
         public ScreenshotRun(GameBoot g, string path, bool netMode = false)
         {
             _g = g;
+            _netMode = netMode;
             _path = Path.GetFullPath(path);
             string? dir = Path.GetDirectoryName(_path);
             if (!string.IsNullOrEmpty(dir))
@@ -73,8 +78,11 @@ namespace Orpheus.Client
         public void AfterFrame()
         {
             _frame++;
-            if (_frame == CaptureFrame)
+            bool ready = _g.Net == null || _g.Net.InGameSeconds >= NetWaitSec;
+            if (!_requested && _frame >= CaptureFrame && ready)
             {
+                // Сеть: кадр ждём входа — персонаж к этому моменту уже проходит скрипт движения (0,5 с стой + восток).
+                Debug.Log($"[screenshot] захват на кадре {_frame}, в игре {_g.Net?.InGameSeconds:0.0} с");
                 ScreenCapture.CaptureScreenshot(_path);
                 _requested = true;
                 return;
@@ -86,9 +94,9 @@ namespace Orpheus.Client
                 Application.Quit(0);
                 _requested = false;
             }
-            else if (_frame > TimeoutFrames)
+            else if (_netMode ? Time.realtimeSinceStartupAsDouble - _startT > NetTimeoutSec : _frame > TimeoutFrames)
             {
-                Debug.LogWarning("[screenshot] файл не появился");
+                Debug.LogWarning($"[screenshot] файл не появился (кадр {_frame}, в игре {_g.Net?.InGameSeconds:0.0} с)");
                 Application.Quit(1);
             }
         }

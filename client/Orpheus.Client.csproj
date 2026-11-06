@@ -70,6 +70,7 @@
     <Compile Include="Assets\Scripts\LocalCharacter.cs" />
     <Compile Include="Assets\Scripts\FloatingOrigin.cs" />
     <Compile Include="Assets\Scripts\SmokeRun.cs" />
+    <Compile Include="Assets\Scripts\LocalPrediction.cs" />
     <Compile Include="Assets\Scripts\WorldView.cs" />
     <Compile Include="Assets\Scripts\ScreenshotRun.cs" />
   </ItemGroup>

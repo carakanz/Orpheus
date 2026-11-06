@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net.Sockets;
 using Orpheus.Core.Geometry;
+using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net;
 using Orpheus.Net.Protocol;
@@ -19,11 +20,12 @@ using Debug = UnityEngine.Debug;
 namespace Orpheus.Client
 {
     /// <summary>
-    /// Сетевой режим клиента (карточка 0-012): вход на сервер по UDP, мир перегенерируется по зерну из
-    /// «входа принят», рисование — по снимкам 30 Гц с задержкой <see cref="InterpDelayUs"/> и интерполяцией
-    /// между парой снимков (docs/07, 2.9). Свой персонаж — тоже из снимков (предсказания пока нет, 2.6 —
-    /// следующая задача); ввод летит на сервер пакетиками 60 Гц, как у ботов (Temp: <c>BotRun</c>).
-    /// Кадр ведётся из <see cref="GameBoot.Update"/>: poll → состояние → ввод → интерполяция → окно → камера → HUD.
+    /// Сетевой режим клиента (карточка 0-012; предсказание — 0-013): вход на сервер по UDP, мир перегенерируется
+    /// по зерну из «входа принят», чужие сущности — по снимкам 30 Гц с задержкой <see cref="InterpDelayUs"/>
+    /// и интерполяцией между парой снимков (docs/07, 2.9). Свой персонаж ведёт <see cref="LocalPrediction"/>:
+    /// шаг вперёд ядром, сверка по AckFrame, гашение расхождений (2.6) — он в своём «сейчас», без задержки показа.
+    /// Ввод летит на сервер пакетиками 60 Гц, как у ботов (Temp: <c>BotRun</c>).
+    /// Кадр ведётся из <see cref="GameBoot.Update"/>: poll → состояние → ввод → предсказание → интерполяция → окно → камера → HUD.
     /// </summary>
     public sealed class NetGame
     {
@@ -62,7 +64,9 @@ namespace Orpheus.Client
         FloatingOrigin? _origin;
         WorldView? _view;
         WorldPos _localPos;
-        bool _hasLocal;
+        WorldPos _spawnPos;
+        Simulation? _netRules;
+        LocalPrediction? _pred;
         int _localId;
         ScreenshotRun? _screenshot;
         double _inputAccum;
@@ -114,6 +118,9 @@ namespace Orpheus.Client
         public bool InGame => _view != null && _client?.State == NetClientState.InGame;
 
         /// <summary>Один кадр: разбор связи, состояние, ввод, интерполяция, окно, камера, HUD, smoke/снимок.</summary>
+        /// <summary>Секунд с входа в игру (0 до входа).</summary>
+        public double InGameSeconds => InGame ? (NowUs() - _inGameSinceUs) / 1_000_000.0 : 0.0;
+
         public void Frame()
         {
             long now = NowUs();
@@ -173,8 +180,8 @@ namespace Orpheus.Client
 
             if (_view != null && state == NetClientState.InGame)
             {
-                SendInput();
-                Render();
+                SendInput(now);
+                Render(now);
                 if (_screenshot == null && _args.ScreenshotPath != null)
                 {
                     _screenshot = new ScreenshotRun(_g, _args.ScreenshotPath, netMode: true);
@@ -206,10 +213,16 @@ namespace Orpheus.Client
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
             _view.UpdateWindow(spawn);
             _localPos = spawn;
+            _spawnPos = spawn;
+
+            // Проходимость — тот же IsBlocked ядра, что в такте сервера; предсказание стартует из точки поселения.
+            _netRules = new Simulation(_world, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
+            _pred = new LocalPrediction(_map, _netRules.Solid, spawn);
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height} зерно 0x{accept.WorldSeed:X}, " +
                       $"такт {accept.ServerTick}; генерация {sw.Elapsed.TotalMilliseconds:0} мс " +
                       $"(деревьев {stats.Trees}, скал {stats.Rocks})");
-            _g.Character.gameObject.SetActive(false); // пока нет ни одного снимка
+            _g.Character.gameObject.SetActive(true);
+            _g.Character.position = _origin.ToUnity(spawn);
             _inGameSinceUs = NowUs();
             _hudTimeUs = _inGameSinceUs;
             _hudSnaps = _client!.SnapshotsApplied;
@@ -234,6 +247,12 @@ namespace Orpheus.Client
             }
 
             _lastSnapshotUs = _pollUs;
+
+            // Сверка своего персонажа (2.6): своя сущность в снимке — первой,AckFrame — применённый кадр ввода.
+            if (_pred != null && s.TryFind(_localId, out SnapshotEntity me))
+            {
+                _pred.Reconcile(s.AckFrame, me.Position, _pollUs);
+            }
         }
 
         /// <summary>Пара снимков (a, b), между которыми попадает время <paramref name="targetUs"/>; b — индекс возврата.</summary>
@@ -329,14 +348,16 @@ namespace Orpheus.Client
 
         // ---------- кадр: ввод, персонаж, чужие сущности, камера, окно ----------
 
-        void SendInput()
+        void SendInput(long now)
         {
             NetClient c = _client!;
             _inputAccum += (double)Time.unscaledDeltaTime;
             int sent = 0;
             while (_inputAccum >= InputInterval && sent < MaxSendsPerFrame)
             {
-                c.SendFrame(GameBoot.ToFrame(_g.Move.ReadValue<Vector2>()));
+                InputFrame frame = _args.NetSmokeSeconds > 0 ? ScriptedSmokeFrame(now) : GameBoot.ToFrame(_g.Move.ReadValue<Vector2>());
+                c.SendFrame(frame);
+                _pred!.Sent(c.Frame, frame);
                 _inputAccum -= InputInterval;
                 sent++;
             }
@@ -347,7 +368,15 @@ namespace Orpheus.Client
             }
         }
 
-        void Render()
+        /// <summary>Скрипт net-smoke: стоять 0,5 с, 2 с на восток, 2 с на север, дальше стоять.</summary>
+        InputFrame ScriptedSmokeFrame(long now)
+        {
+            double t = (now - _inGameSinceUs) / 1_000_000.0;
+            Vector2 v = t < 0.5 ? Vector2.zero : t < 2.5 ? Vector2.right : t < 4.5 ? Vector2.up : Vector2.zero;
+            return GameBoot.ToFrame(v);
+        }
+
+        void Render(long now)
         {
             long target = _lastSnapshotUs - InterpDelayUs;
             const float sub = FloatingOrigin.UnitsPerTile;
@@ -378,13 +407,11 @@ namespace Orpheus.Client
                 }
             }
 
-            // Свой персонаж.
-            if (InterpDelta(_localId, target, out WorldPos me, out float dx, out float dy))
-            {
-                _localPos = me;
-                _g.Character.gameObject.SetActive(true);
-                _g.Character.position = _origin!.ToUnity(me) + new Vector3(dx / sub, -dy / sub, 0f);
-            }
+            // Свой персонаж: предсказание + гашение (2.6, 2.9), не интерполяция снимков.
+            _pred!.RenderDelta(now, out WorldPos me, out float dx, out float dy);
+            _localPos = me;
+            _g.Character.gameObject.SetActive(true);
+            _g.Character.position = _origin!.ToUnity(me) + new Vector3(dx / sub, -dy / sub, 0f);
 
             _view!.UpdateWindow(_localPos);
             _g.Camera.transform.position = _g.Character.position + GameBoot.CameraOffset;
@@ -460,7 +487,9 @@ namespace Orpheus.Client
             _g.DebugText.text =
                 $"в игре  сервер {_host}:{_port}  seed 0x{c.Accept.WorldSeed:X}  {_map.Width}×{_map.Height}  " +
                 $"такт {c.ServerTick}  tile {t.X},{t.Y}  сущ {Math.Min(_seen.Count + 1, 99)}  окно {_view!.Count}/{ChunkWindow.MaxChunks}  " +
-                $"снимки {snapsPerSec:0.0}/с  rtt {(rtt >= 0 ? rtt + " мс" : "—")}  ввод {c.InputsSent}  zoom x{_g.Zoom:0.00}  {fps:0} fps";
+                $"снимки {snapsPerSec:0.0}/с  rtt {(rtt >= 0 ? rtt + " мс" : "—")}  ввод {c.InputsSent}  " +
+                $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} расх {_pred?.MaxDevUnits ?? 0}u  " +
+                $"zoom x{_g.Zoom:0.00}  {fps:0} fps";
         }
 
         void NetSmokeCheck(long now, NetClientState state)
@@ -479,9 +508,22 @@ namespace Orpheus.Client
             if (InGame && (now - _inGameSinceUs) / 1_000_000 >= Math.Max(2, _args.NetSmokeSeconds)
                 && _client!.SnapshotsApplied >= 10)
             {
+                // Предсказание (0-013): скрипт шёл на восток/север — персонаж обязан уйти от спавна, сверка — не «прыгать».
+                Int2 d = Torus.Delta(_map, _spawnPos, _localPos);
+                int moved = Math.Max(Math.Abs(d.X), Math.Abs(d.Y));
+                LocalPrediction p = _pred!;
+                if (moved < 2 * 256 || p.MaxDevUnits > 128)
+                {
+                    Fail($"[smoke] FAILED: предсказание — сдвиг {moved} unit (нужно ≥ {2 * 256}), " +
+                         $"макс.расхождение {p.MaxDevUnits} unit (нужно ≤ 128)");
+                    return;
+                }
+
                 Debug.Log($"[smoke] done: вход #{_client.EntityId}, снимков {_client.SnapshotsApplied} " +
                           $"(устаревших {_client.SnapshotsStale}, потерь тактов {_client.SnapshotsMissed}), " +
-                          $"ввода отправлено {_client.InputsSent}, плохих сообщений {_client.BadMessages}");
+                          $"ввода отправлено {_client.InputsSent}, плохих сообщений {_client.BadMessages}; " +
+                          $"предсказание: сверок {p.Reconciled}, правок {p.Resynced}, " +
+                          $"макс.расхождение {p.MaxDevUnits} unit, сдвиг {moved / 256.0:0.0} т");
                 Quit(0);
             }
             else if ((now - _startUs) / 1_000_000 >= _args.NetSmokeSeconds + LoginTimeoutSec)
