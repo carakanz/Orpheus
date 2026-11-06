@@ -13,14 +13,16 @@ namespace Orpheus.Core.World
     /// <list type="bullet">
     /// <item>«ORPW» (4), версия формата (1), вид (1: 0 — снимок генерации, 1 — изменения);</item>
     /// <item>версия генератора (4), зерно (8), ширина (4), высота (4), тор (1), число чанков (4);</item>
-    /// <item>SHA-256 содержимого (32);</item>
-    /// <item>чанки по отсортированным ключам: x (4), y (4), ревизия (4), длина (4), сжатый блок (Deflate-6).</item>
+    /// <item>SHA-256 заголовка и содержимого (32);</item>
+    /// <item>чанки строго по возрастанию (Y, затем X): x (4), y (4), ревизия (4), длина (4), сжатый блок (Deflate-6).</item>
     /// </list>
     /// <para>
-    /// SHA-256 считается по несжатому содержимому — по каждому чанку x, y, ревизия и блок <see cref="Chunk.WriteBlob"/>.
-    /// Так хэш не зависит от версии zlib: «удалили world.base — генерация повторилась, хэш совпал» (3.13 п. 5)
-    /// работает и при другом сжатии. Атомарная запись в файл — карточка сохранений (<c>IPlatformStorage</c>),
-    /// здесь — только байты.
+    /// SHA-256 считается по заголовку (31 байт: метка, версия, вид, версия генератора, зерно, форма, число чанков —
+    /// backlog [сохранения], с версии формата 2) и по несжатому содержимому — по каждому чанку x, y, ревизия
+    /// и блок <see cref="Chunk.WriteBlob"/>. Так перевёрнутый бит зерна не грузится молча, а хэш не зависит
+    /// от версии zlib: «удалили world.base — генерация повторилась, хэш совпал» (3.13 п. 5) работает и при
+    /// другом сжатии. Чанк дважды или не по порядку — отказ (backlog [сохранения]). Атомарная запись в файл —
+    /// <c>Orpheus.Save</c> (<c>IPlatformStorage</c>), здесь — только байты.
     /// </para>
     /// </summary>
     public static class WorldSnapshot
@@ -28,8 +30,8 @@ namespace Orpheus.Core.World
         /// <summary>Метка «ORPW».</summary>
         public static ReadOnlySpan<byte> Magic => new byte[] { (byte)'O', (byte)'R', (byte)'P', (byte)'W' };
 
-        /// <summary>Версия формата.</summary>
-        public const byte FormatVersion = 1;
+        /// <summary>Версия формата: 2 — SHA-256 покрывает и заголовок (0-009).</summary>
+        public const byte FormatVersion = 2;
 
         /// <summary>Вид: снимок генерации.</summary>
         public const byte KindBase = 0;
@@ -46,7 +48,7 @@ namespace Orpheus.Core.World
         /// <summary>Заголовок чанка в блоке: x, y, ревизия, длина — по 4 байта.</summary>
         public const int ChunkHeaderBytes = 16;
 
-        private const int MaxBlobBytes = Chunk.MinBlobBytes + Chunk.BuildEntryBytes * Chunk.TileCount;
+        private const int MaxBlobBytes = Chunk.MaxBlobBytes;
 
         // ---------- Запись ----------
 
@@ -74,6 +76,9 @@ namespace Orpheus.Core.World
             var blob = new byte[MaxBlobBytes];
             Span<byte> head = stackalloc byte[12];
             ReadOnlySpan<ChunkCoord> keys = model.GetChunkCoords();
+            var header = new byte[HeaderBytes];
+            WriteHeader(header, model, KindBase, keys.Length);
+            hash.AppendData(header);
             for (int i = 0; i < keys.Length; i++)
             {
                 AppendToHash(hash, keys[i], model.FindChunk(keys[i])!, blob, head);
@@ -104,7 +109,10 @@ namespace Orpheus.Core.World
             ReadOnlySpan<ChunkCoord> all = model.GetChunkCoords();
             ChunkCoord[] keys = kind == KindBase ? all.ToArray() : model.GetChangedSinceBase();
 
+            var header = new byte[HeaderBytes];
+            WriteHeader(header, model, kind, keys.Length);
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            hash.AppendData(header);
             using var body = new MemoryStream(keys.Length * 256 + 64);
             var blob = new byte[MaxBlobBytes];
             Span<byte> head = stackalloc byte[ChunkHeaderBytes];
@@ -127,16 +135,6 @@ namespace Orpheus.Core.World
                 body.Write(compressed, 0, compressed.Length);
             }
 
-            Span<byte> header = stackalloc byte[HeaderBytes];
-            Magic.CopyTo(header);
-            header[4] = FormatVersion;
-            header[5] = kind;
-            Bytes.WriteUInt32(header.Slice(6), (uint)model.GeneratorVersion);
-            Bytes.WriteUInt64(header.Slice(10), model.Seed);
-            Bytes.WriteUInt32(header.Slice(18), (uint)model.Shape.Width);
-            Bytes.WriteUInt32(header.Slice(22), (uint)model.Shape.Height);
-            header[26] = model.Shape.Wraps ? (byte)1 : (byte)0;
-            Bytes.WriteUInt32(header.Slice(27), (uint)keys.Length);
             output.Write(header);
             output.Write(hash.GetHashAndReset());
             body.Position = 0;
@@ -281,6 +279,7 @@ namespace Orpheus.Core.World
             var compressed = new byte[h.ChunkCount][];
 
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            hash.AppendData(data, 0, HeaderBytes);
             Span<byte> head = stackalloc byte[12];
             int at = HeaderBytes + HashBytes;
             for (int i = 0; i < h.ChunkCount; i++)
@@ -297,6 +296,12 @@ namespace Orpheus.Core.World
                 if ((uint)c.X >= (uint)h.Shape.ChunksX || (uint)c.Y >= (uint)h.Shape.ChunksY || length > data.Length - at)
                 {
                     throw new InvalidDataException($"Снимок: чанк № {i} {c} вне карты или длиннее файла.");
+                }
+
+                // Строго по возрастанию: повтор чанка или чужой порядок — отказ (backlog [сохранения]).
+                if (i > 0 && ChunkCoordOrder.Compare(coords[i - 1], c) >= 0)
+                {
+                    throw new InvalidDataException($"Снимок: чанк № {i} {c} повторён или не по порядку (после {coords[i - 1]}).");
                 }
 
                 compressed[i] = data.AsSpan(at, (int)length).ToArray();
@@ -334,6 +339,19 @@ namespace Orpheus.Core.World
         }
 
         // ---------- Общее ----------
+
+        private static void WriteHeader(Span<byte> header, WorldModel model, byte kind, int count)
+        {
+            Magic.CopyTo(header);
+            header[4] = FormatVersion;
+            header[5] = kind;
+            Bytes.WriteUInt32(header.Slice(6), (uint)model.GeneratorVersion);
+            Bytes.WriteUInt64(header.Slice(10), model.Seed);
+            Bytes.WriteUInt32(header.Slice(18), (uint)model.Shape.Width);
+            Bytes.WriteUInt32(header.Slice(22), (uint)model.Shape.Height);
+            header[26] = model.Shape.Wraps ? (byte)1 : (byte)0;
+            Bytes.WriteUInt32(header.Slice(27), (uint)count);
+        }
 
         private static void WriteChunkHead(Span<byte> head, ChunkCoord c, uint revision)
         {

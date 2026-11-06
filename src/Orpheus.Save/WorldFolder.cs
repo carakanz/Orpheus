@@ -1,0 +1,349 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+
+namespace Orpheus.Save
+{
+    /// <summary>Повреждённый файл, перенесённый из папки мира (docs/07, 6.5 п. 5).</summary>
+    public readonly struct DamagedFile
+    {
+        public readonly string Name;
+        public readonly string MovedTo;
+        public readonly string Reason;
+
+        public DamagedFile(string name, string movedTo, string reason)
+        {
+            Name = name;
+            MovedTo = movedTo;
+            Reason = reason;
+        }
+    }
+
+    /// <summary>Итог проверки папки мира при старте.</summary>
+    public sealed class WorldRecovery
+    {
+        /// <summary>Новейшее целое поколение; null — поколений нет (свежий мир — только снимок генерации).</summary>
+        public SaveFile? Latest { get; internal set; }
+
+        /// <summary>Номер новейшего целого поколения по имени файла (0 — нет).</summary>
+        public ulong LatestNumber { get; internal set; }
+
+        /// <summary>Имя файла, из которого взято поколение (после продвижения <c>.tmp</c> — уже <c>.save</c>).</summary>
+        public string? LatestName { get; internal set; }
+
+        /// <summary>Новейшим оказался целый <c>.tmp</c>: данные были на носителе, переименование пропало — продвинут в <c>.save</c>.</summary>
+        public bool PromotedTmp { get; internal set; }
+
+        /// <summary>Битые файлы новее взятого — перенесены в <see cref="WorldFolder.DamagedDir"/>.</summary>
+        public List<DamagedFile> Damaged { get; } = new List<DamagedFile>();
+
+        /// <summary>Сколько файлов поколений проверено (SHA-256 и CRC).</summary>
+        public int Checked { get; internal set; }
+    }
+
+    /// <summary>
+    /// Папка мира (docs/07, 6.3 и 6.5): <c>world.base</c>, поколения <c>world.NNNNNN.save</c>, замок <c>world.lock</c>,
+    /// битые — <c>backups/damaged/</c>. Всё — через <see cref="IPlatformStorage"/>.
+    /// <list type="bullet">
+    /// <item><b>Запись поколения</b> (<see cref="WriteGeneration"/>): новый файл со следующим номером атомарно
+    /// (<see cref="IPlatformStorage.WriteAtomic"/>: <c>.tmp</c>, сброс, переименование со сбросом) — поверх
+    /// последнего целого файла сервер не пишет никогда; только после этого удаляются поколения старше трёх последних.</item>
+    /// <item><b>Старт</b> (<see cref="Recover"/>): <c>.tmp</c> не удаляется вслепую — все <c>world.*.save</c> и
+    /// <c>world.*.save.tmp</c> перебираются от большего номера к меньшему, каждый проверяется (метка, CRC разделов,
+    /// SHA-256); первый целый берётся, целый <c>.tmp</c> продвигается в <c>.save</c>; битые новее него переносятся
+    /// в <c>backups/damaged/</c> (не удаляются). Все поколения битые — отказ без переносов: мир не должен молча
+    /// откатиться к снимку генерации.</item>
+    /// </list>
+    /// Расхождение с карточкой 0-009 («битые — в <c>corrupt/</c>»): папка взята из документа (6.5 п. 5, 6.8, 6.10 п. 2) —
+    /// <c>backups/damaged/</c>; записано в карточке.
+    /// </summary>
+    public sealed class WorldFolder
+    {
+        public const string BaseFileName = "world.base";
+        public const string LockFileName = "world.lock";
+        public const string BackupsDir = "backups";
+        public const string DamagedDirName = "damaged";
+        public const string GenerationPrefix = "world.";
+        public const string GenerationSuffix = ".save";
+        public const string TmpSuffix = ".tmp";
+
+        /// <summary>Сколько последних поколений хранится (6.6).</summary>
+        public const int KeepGenerations = 3;
+
+        private readonly IPlatformStorage _storage;
+        private ulong _maxNumber;
+
+        public WorldFolder(IPlatformStorage storage, string directory)
+        {
+            _storage = storage ?? throw new ArgumentNullException(nameof(storage));
+            Dir = directory ?? throw new ArgumentNullException(nameof(directory));
+        }
+
+        /// <summary>Папка мира.</summary>
+        public string Dir { get; }
+
+        public IPlatformStorage Storage => _storage;
+
+        /// <summary>Папка битых: <c>backups/damaged</c>.</summary>
+        public string DamagedDir => Path.Combine(Dir, BackupsDir, DamagedDirName);
+
+        public string BasePath => Path.Combine(Dir, BaseFileName);
+
+        /// <summary>Номер следующего поколения: больше всех, что видели в папке.</summary>
+        public ulong NextNumber => _maxNumber + 1;
+
+        /// <summary>Имя поколения: <c>world.000127.save</c> (номер больше 999 999 — просто длиннее).</summary>
+        public static string GenerationFileName(ulong number) =>
+            GenerationPrefix + number.ToString("D6", CultureInfo.InvariantCulture) + GenerationSuffix;
+
+        /// <summary>Разобрать имя поколения: <c>world.N.save</c> или <c>world.N.save.tmp</c>.</summary>
+        public static bool TryParseGeneration(string name, out ulong number, out bool tmp)
+        {
+            number = 0;
+            tmp = name.EndsWith(GenerationSuffix + TmpSuffix, StringComparison.Ordinal);
+            string core = tmp ? name.Substring(0, name.Length - TmpSuffix.Length) : name;
+            if (!core.StartsWith(GenerationPrefix, StringComparison.Ordinal) || !core.EndsWith(GenerationSuffix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string digits = core.Substring(GenerationPrefix.Length, core.Length - GenerationPrefix.Length - GenerationSuffix.Length);
+            if (digits.Length == 0 || digits.Length > 19)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < digits.Length; i++)
+            {
+                if (digits[i] < '0' || digits[i] > '9')
+                {
+                    return false;
+                }
+            }
+
+            return ulong.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out number) && number > 0;
+        }
+
+        // ---------- Замок ----------
+
+        /// <summary>Взять замок мира; занят — <see cref="IOException"/> «мир уже открыт» (6.10 п. 7).</summary>
+        public IDisposable Lock()
+        {
+            _storage.CreateDirectory(Dir);
+            IDisposable? handle = _storage.TryLock(Path.Combine(Dir, LockFileName));
+            if (handle == null)
+            {
+                throw new IOException($"Мир уже открыт: {Dir} держит другой сервер ({LockFileName}).");
+            }
+
+            return handle;
+        }
+
+        // ---------- Снимок генерации ----------
+
+        public bool HasBase => _storage.FileExists(BasePath);
+
+        /// <summary>Записать снимок генерации (один раз при создании, атомарно). Уже есть — отказ: мир не перезаписывается.</summary>
+        public void CreateBase(ReadOnlySpan<byte> data)
+        {
+            _storage.CreateDirectory(Dir);
+            if (HasBase)
+            {
+                throw new IOException($"Мир уже есть: {BasePath}. Создать заново — другая папка.");
+            }
+
+            _storage.WriteAtomic(BasePath, data);
+        }
+
+        public byte[] ReadBase()
+        {
+            if (!HasBase)
+            {
+                throw new IOException($"Нет мира: {BasePath}.");
+            }
+
+            return _storage.ReadAllBytes(BasePath);
+        }
+
+        // ---------- Поколения ----------
+
+        /// <summary>Номера поколений <c>.save</c> в папке по возрастанию (без проверки содержимого).</summary>
+        public ulong[] ListGenerations()
+        {
+            var numbers = new List<ulong>();
+            string[] names = _storage.ListFiles(Dir);
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (TryParseGeneration(names[i], out ulong n, out bool tmp) && !tmp)
+                {
+                    numbers.Add(n);
+                }
+            }
+
+            numbers.Sort();
+            return numbers.ToArray();
+        }
+
+        /// <summary>Проверка папки при старте (6.5 п. 5). Описание — в заголовке класса.</summary>
+        public WorldRecovery Recover()
+        {
+            var result = new WorldRecovery();
+            var candidates = new List<(ulong Number, bool Tmp, string Name)>();
+            string[] names = _storage.ListFiles(Dir);
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (TryParseGeneration(names[i], out ulong n, out bool tmp))
+                {
+                    candidates.Add((n, tmp, names[i]));
+                    if (n > _maxNumber)
+                    {
+                        _maxNumber = n;
+                    }
+                }
+            }
+
+            // От большего номера к меньшему; при равном — сначала .save, потом .tmp.
+            candidates.Sort((a, b) => a.Number != b.Number ? b.Number.CompareTo(a.Number) : a.Tmp.CompareTo(b.Tmp));
+
+            var damaged = new List<(string Name, string Reason)>();
+            int chosen = -1;
+            SaveFile? file = null;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                string path = Path.Combine(Dir, candidates[i].Name);
+                byte[] data = _storage.ReadAllBytes(path);
+                SaveFile f = data.Length > SaveContainer.MaxFileBytes
+                    ? DamagedBySize(data.Length)
+                    : SaveContainer.Read(data);
+                result.Checked++;
+                if (f.Status == SaveCheckStatus.TooNew)
+                {
+                    throw new InvalidDataException($"{candidates[i].Name}: {f.Error}");
+                }
+
+                if (f.IsOk)
+                {
+                    chosen = i;
+                    file = f;
+                    break;
+                }
+
+                damaged.Add((candidates[i].Name, f.Error ?? "повреждён"));
+            }
+
+            if (chosen < 0)
+            {
+                if (candidates.Count > 0)
+                {
+                    throw new InvalidDataException(
+                        $"Все поколения мира повреждены ({candidates.Count}): {Describe(damaged)}. " +
+                        "Файлы не тронуты; восстановите мир из резервной копии (6.6).");
+                }
+
+                return result;
+            }
+
+            for (int i = 0; i < damaged.Count; i++)
+            {
+                string to = MoveToDamaged(damaged[i].Name);
+                result.Damaged.Add(new DamagedFile(damaged[i].Name, to, damaged[i].Reason));
+            }
+
+            (ulong number, bool isTmp, string name) = candidates[chosen];
+            if (isTmp)
+            {
+                string final = name.Substring(0, name.Length - TmpSuffix.Length);
+
+                _storage.MoveDurable(Path.Combine(Dir, name), Path.Combine(Dir, final), replaceExisting: false);
+                name = final;
+                result.PromotedTmp = true;
+            }
+
+            result.Latest = file;
+            result.LatestNumber = number;
+            result.LatestName = name;
+            return result;
+        }
+
+        /// <summary>
+        /// Записать поколение <paramref name="number"/> атомарно, затем удалить поколения старше трёх последних.
+        /// Возвращает имена удалённых. Номер должен быть больше всех в папке (<see cref="NextNumber"/>).
+        /// </summary>
+        public List<string> WriteGeneration(ulong number, ReadOnlySpan<byte> data)
+        {
+            if (number <= _maxNumber)
+            {
+                throw new ArgumentOutOfRangeException(nameof(number), number, $"Номер поколения должен быть больше {_maxNumber}: поверх прежних не пишем.");
+            }
+
+            _storage.CreateDirectory(Dir);
+            _storage.WriteAtomic(Path.Combine(Dir, GenerationFileName(number)), data);
+            _maxNumber = number;
+            return Prune();
+        }
+
+        /// <summary>Удалить поколения <c>.save</c> старше <see cref="KeepGenerations"/> последних. Ошибка удаления — не беда: пропускаем.</summary>
+        public List<string> Prune()
+        {
+            var deleted = new List<string>();
+            ulong[] numbers = ListGenerations();
+            for (int i = 0; i < numbers.Length - KeepGenerations; i++)
+            {
+                string name = GenerationFileName(numbers[i]);
+                string path = Path.Combine(Dir, name);
+                if (!_storage.FileExists(path))
+                {
+                    continue; // имя без ведущих нулей, положенное руками, — не трогаем
+                }
+
+                try
+                {
+                    _storage.Delete(path);
+                    deleted.Add(name);
+                }
+                catch (IOException)
+                {
+                    // файл держит копирование — удалим в следующий раз
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+
+            return deleted;
+        }
+
+        private string MoveToDamaged(string name)
+        {
+            string dir = DamagedDir;
+            _storage.CreateDirectory(dir);
+            string target = Path.Combine(dir, name);
+            for (int k = 1; _storage.FileExists(target); k++)
+            {
+                target = Path.Combine(dir, name + "." + k.ToString(CultureInfo.InvariantCulture));
+            }
+
+            _storage.MoveDurable(Path.Combine(Dir, name), target, replaceExisting: false);
+            return target;
+        }
+
+        private static SaveFile DamagedBySize(int length)
+        {
+            SaveFile f = SaveContainer.Read(Array.Empty<byte>());
+            f.Error = $"Файл {length} байт — больше предела {SaveContainer.MaxFileBytes}.";
+            return f;
+        }
+
+        private static string Describe(List<(string Name, string Reason)> damaged)
+        {
+            var parts = new string[damaged.Count];
+            for (int i = 0; i < damaged.Count; i++)
+            {
+                parts[i] = damaged[i].Name + " — " + damaged[i].Reason;
+            }
+
+            return string.Join("; ", parts);
+        }
+    }
+}

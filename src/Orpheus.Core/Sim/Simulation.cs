@@ -182,6 +182,54 @@ namespace Orpheus.Core.Sim
             return id;
         }
 
+        /// <summary>
+        /// Загрузка сохранения (docs/07, 6.4: состояние на границе такта): номер такта и сущности со всеми
+        /// полями. Только в пустую симуляцию до первого такта. Сущности — строго по возрастанию номера;
+        /// следующий номер — больше всех загруженных (номера не переиспользуются). Ввод сущности — тот,
+        /// по которому она шла в такте сохранения; ждущих кадров нет.
+        /// </summary>
+        public void Restore(long tick, ReadOnlySpan<SimEntity> entities, int nextId)
+        {
+            if (Tick != 0 || _entityCount != 0 || _editCount != 0)
+            {
+                throw new InvalidOperationException("Загрузка — только в пустую симуляцию до первого такта.");
+            }
+
+            if (tick < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(tick), tick, "Такт не отрицательный.");
+            }
+
+            if (entities.Length > _entities.Length)
+            {
+                throw new ArgumentException($"Сущностей {entities.Length}, ёмкость симуляции {_entities.Length}.", nameof(entities));
+            }
+
+            int maxId = 0;
+            for (int i = 0; i < entities.Length; i++)
+            {
+                if (entities[i].Id <= maxId)
+                {
+                    throw new ArgumentException($"Сущность № {i}: номер {entities[i].Id} не больше предыдущего {maxId}.", nameof(entities));
+                }
+
+                maxId = entities[i].Id;
+            }
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                _entities[i] = entities[i];
+                _hasPending[i] = false;
+            }
+
+            _entityCount = entities.Length;
+            _nextId = Math.Max(nextId, maxId + 1);
+            Tick = tick;
+        }
+
+        /// <summary>Следующий номер сущности (пишется в сохранение: номера не переиспользуются).</summary>
+        public int NextEntityId => _nextId;
+
         /// <summary>Место сущности в списке по номеру; нет — −1.</summary>
         public int SlotOf(int entityId)
         {
