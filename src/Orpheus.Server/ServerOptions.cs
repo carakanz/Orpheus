@@ -24,13 +24,14 @@ namespace Orpheus.Server
     /// Ключи сервера по docs/07, 11.2:
     /// <c>--world &lt;папка&gt; --create --seed N --size 1024|4096 --sim --bots 8:wander --ticks N --hash
     /// --record &lt;путь&gt; | --replay &lt;путь&gt;</c>; плюс <c>--logs &lt;папка&gt;</c>, <c>--log кат=уровень</c>
-    /// (11.6) и <c>--port</c> (сети пока нет — ключ принимается и пишется в лог).
+    /// (11.6), <c>--port P</c> — слушать UDP (0-008; 0 — порт выдаст ОС) и <c>--max-players N</c>.
     /// </summary>
     public sealed class ServerOptions
     {
         public const string Usage =
             "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander[,N:...]]\n" +
-            "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень] [--port P]";
+            "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень]\n" +
+            "              [--port P [--max-players N]]";
 
         public string? WorldDir { get; set; }
         public bool Create { get; set; }
@@ -47,6 +48,12 @@ namespace Orpheus.Server
         public string? LogsDir { get; set; }
         public List<string> LogLevels { get; } = new List<string>();
         public int? Port { get; set; }
+
+        /// <summary>Мест для игроков по сети (по умолчанию 16).</summary>
+        public int MaxPlayers { get; set; } = 16;
+
+        /// <summary>Для тестов: зовётся в потоке такта после каждого такта (и рассылки снимков). Не ключ.</summary>
+        public Action<Orpheus.Core.Sim.Simulation>? AfterTick { get; set; }
 
         /// <summary>Разобрать ключи; ошибка — <see cref="ArgumentException"/> с понятным текстом.</summary>
         public static ServerOptions Parse(string[] args)
@@ -107,6 +114,19 @@ namespace Orpheus.Server
                         break;
                     case "--port":
                         o.Port = ParseInt(a, Value(args, ref i));
+                        if (o.Port < 0 || o.Port > 65535)
+                        {
+                            throw new ArgumentException($"--port: {o.Port} вне 0…65535.");
+                        }
+
+                        break;
+                    case "--max-players":
+                        o.MaxPlayers = ParseInt(a, Value(args, ref i));
+                        if (o.MaxPlayers <= 0 || o.MaxPlayers > 255)
+                        {
+                            throw new ArgumentException($"--max-players: {o.MaxPlayers} вне 1…255.");
+                        }
+
                         break;
                     default:
                         throw new ArgumentException($"Неизвестный ключ: {a}.");
@@ -126,6 +146,11 @@ namespace Orpheus.Server
             if (o.ReplayPath != null && !o.Sim)
             {
                 throw new ArgumentException("--replay — только в режиме симуляции (--sim).");
+            }
+
+            if (o.Port.HasValue && (o.Sim || o.RecordPath != null || o.ReplayPath != null))
+            {
+                throw new ArgumentException("--port — только в обычном режиме: игроки по сети с --sim, --record и --replay — следующими задачами.");
             }
 
             if (o.WorldDir == null && !o.Create && o.ReplayPath == null)

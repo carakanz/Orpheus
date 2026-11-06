@@ -182,6 +182,29 @@ namespace Orpheus.Core.Sim
             return id;
         }
 
+        /// <summary>
+        /// Убрать сущность (игрок ушёл; точка подключения сети, 0-008) — <b>вне такта</b>. Список остаётся по номеру,
+        /// номер не переиспользуется. Нет такой — false.
+        /// </summary>
+        public bool RemoveEntity(int entityId)
+        {
+            int slot = SlotOf(entityId);
+            if (slot < 0)
+            {
+                return false;
+            }
+
+            int tail = _entityCount - slot - 1;
+            Array.Copy(_entities, slot + 1, _entities, slot, tail);
+            Array.Copy(_pending, slot + 1, _pending, slot, tail);
+            Array.Copy(_hasPending, slot + 1, _hasPending, slot, tail);
+            _entityCount--;
+            _entities[_entityCount] = default;
+            _pending[_entityCount] = default;
+            _hasPending[_entityCount] = false;
+            return true;
+        }
+
         /// <summary>Место сущности в списке по номеру; нет — −1.</summary>
         public int SlotOf(int entityId)
         {
