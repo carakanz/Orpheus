@@ -22,6 +22,8 @@
     <ProjectReference Include="..\..\src\Orpheus.Server\Orpheus.Server.csproj" />
     <!-- Анализатор как обычная библиотека: тесты D00_Analyzer_* создают DeterminismAnalyzer напрямую. -->
     <ProjectReference Include="..\..\src\Orpheus.Analyzers\Orpheus.Analyzers.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
+    <ProjectReference Include="..\..\tools\orpheus-save\orpheus-save.csproj" />
   </ItemGroup>
 
 </Project>

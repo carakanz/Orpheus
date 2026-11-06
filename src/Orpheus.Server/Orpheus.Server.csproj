@@ -12,6 +12,7 @@
     <ProjectReference Include="..\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
     <ProjectReference Include="..\Orpheus.Net\Orpheus.Net.csproj" />
     <ProjectReference Include="..\Orpheus.Save\Orpheus.Save.csproj" />
+    <ProjectReference Include="..\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
   </ItemGroup>
 
 </Project>

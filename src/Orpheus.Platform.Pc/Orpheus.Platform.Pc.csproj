@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Платформенный слой «ПК» (docs/07, 1.6): IPlatformStorage с атомарной записью (6.5). Здесь и только здесь
+    P/Invoke сохранений: FlushFileBuffers, MoveFileExW (Windows), rename/open/fsync (Linux, macOS).
+    netstandard2.1 — его же берёт клиент Unity (IL2CPP) для режима «сервер в потоке».
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Orpheus.Save\Orpheus.Save.csproj" />
+  </ItemGroup>
+
+</Project>

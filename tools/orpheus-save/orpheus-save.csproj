@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- orpheus-save dump <файл> (docs/07, 6.3): сохранение текстом — заголовок, разделы, CRC, SHA-256, поля. Не ядро. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>orpheus-save</AssemblyName>
+    <RootNamespace>Orpheus.Tools.SaveTool</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Orpheus.Core\Orpheus.Core.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.Save\Orpheus.Save.csproj" />
+  </ItemGroup>
+
+</Project>
