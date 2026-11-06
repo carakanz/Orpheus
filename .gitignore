@@ -16,3 +16,5 @@ Unity6Runner/
 UnityProjects/
 # Временное
 *.tmp
+# playable-сборка (прогон tools\playable.cmd)
+playable/
