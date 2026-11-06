@@ -608,8 +608,11 @@ namespace Orpheus.Tests
 
             Assert.Equal(f.Hash, d.Hash);         // мир на сервере — тот же
             Assert.True(f.Pos.SequenceEqual(d.Pos), string.Join("\n", Diagnostics)); // и что видят клиенты — то же
-            Assert.InRange(d.Deltas, 200, 300);   // 29 тактов из 30 — дельты
-            Assert.True(d.Full >= 10, $"{d.Full}");
+            // Счётчики сервера — по всем шести игрокам: 29 тактов из 30 — дельты, контрольный кадр раз в 30 тактов.
+            Assert.InRange(d.Deltas, d.Sent * 8 / 10, d.Sent * 29 / 30 + scripts.Length);
+            Assert.True(d.Full >= scripts.Length * 300 / 30, $"{d.Full}");
+            Assert.Equal(0, d.Unmerged);           // без потерь каждая дельта находит базу
+            Assert.Equal(0, f.Deltas);
             Assert.True(d.MaxErr <= 4, $"{d.MaxErr}"); // каждая склейка = позиция сервера в такт снимка
             Assert.True(d.Bytes * 3 < f.Bytes * 2, $"байт: с дельтами {d.Bytes}, полными {f.Bytes}");
             _out.WriteLine($"байт/снимок: дельты {d.DeltaBytes / (double)d.Deltas:0.#}, " +

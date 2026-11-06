@@ -168,10 +168,11 @@ namespace Orpheus.Net.Protocol
             IsDelta = false;
         }
 
-        /// <summary>Номер сущности в заголовке не читая всего снимка — такт (для отбрасывания старых).</summary>
+        /// <summary>Такт из заголовка, не читая всего снимка (для отбрасывания старых); годится и для дельты (0-014).</summary>
         public static uint PeekTick(ReadOnlySpan<byte> src)
         {
-            BitReader r = Codec.Begin(src, MessageType.Snapshot);
+            MessageType t = Codec.TypeOf(src);
+            BitReader r = Codec.Begin(src, t == MessageType.SnapshotDelta ? MessageType.SnapshotDelta : MessageType.Snapshot);
             return r.ReadUInt32();
         }
 
@@ -234,7 +235,7 @@ namespace Orpheus.Net.Protocol
     /// <summary>
     /// Дельта снимка (docs/07, 4.3; карточка 0-014): полный снимок раз в секунду («контрольный кадр»),
     /// между ними — только удалённые id (16 бит) и изменившиеся сущности (бит как в полном).
-    /// Клиент подтверждаетApplied-снимок полем <c>LastSnapshot</c> ввода — сервер строит дельту от него.
+    /// Клиент подтверждает применённый снимок полем <c>LastSnapshot</c> ввода — сервер строит дельту от него.
     /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, такт базы u32, число удалённых u8,
     /// число изменённых u8; затем удалённые id (по 16 бит), затем сущности (<see cref="SnapshotLayout"/>).</para>
     /// </summary>
@@ -243,7 +244,7 @@ namespace Orpheus.Net.Protocol
         /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + база 4 + два числа по 1.</summary>
         public const int HeaderBytes = 15;
 
-        /// <summary>Бит на удалённый id (номера сущений на практике ≤ 65535; больше — сервер шлёт полный).</summary>
+        /// <summary>Бит на удалённый id (номера сущностей на практике ≤ 65535; больше — сервер шлёт полный).</summary>
         public const int RemovedIdBits = 16;
 
         private const int RemovedOffset = 13;

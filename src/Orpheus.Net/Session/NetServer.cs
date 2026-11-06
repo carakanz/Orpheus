@@ -66,6 +66,7 @@ namespace Orpheus.Net.Session
             public const int Depth = 32; // 1 с снимков 30 Гц: клиент, подтверждая, всегда внутри
 
             public readonly uint[] Tick = new uint[Depth];
+            public readonly bool[] Valid = new bool[Depth];
             public readonly int[] Count = new int[Depth];
             public readonly SnapshotEntity[][] Ents = new SnapshotEntity[Depth][];
             public int Head;
@@ -83,7 +84,7 @@ namespace Orpheus.Net.Session
             {
                 for (int i = 0; i < Depth; i++)
                 {
-                    if (Tick[i] == tick)
+                    if (Valid[i] && Tick[i] == tick)
                     {
                         return i;
                     }
@@ -95,6 +96,7 @@ namespace Orpheus.Net.Session
             public void Push(uint tick, SnapshotEntity[] src, int count)
             {
                 Tick[Head] = tick;
+                Valid[Head] = true;
                 Count[Head] = count;
                 Array.Copy(src, Ents[Head], count);
                 Head = (Head + 1) % Depth;
