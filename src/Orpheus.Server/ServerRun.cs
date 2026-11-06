@@ -152,9 +152,11 @@ namespace Orpheus.Server
                 if (opened.Folder != null && replay == null)
                 {
                     SaveCrashHook? crash = null;
-                    if (o.DebugSaveCrashSeed.HasValue)
+                    if (o.DebugSaveCrashSeed.HasValue || o.DebugSavePlan != null)
                     {
-                        crash = new SaveCrashHook(o.DebugSaveCrashSeed.Value, Console.Error);
+                        crash = o.DebugSavePlan != null
+                            ? SaveCrashHook.Fixed(o.DebugSavePlan, Console.Error)
+                            : new SaveCrashHook(o.DebugSaveCrashSeed!.Value, Console.Error);
                         crash.Attach(opened.Storage!);
                         crash.Line($"loaded {result.LoadedNumber} {sim.Tick} {StateHash.Compute(sim).Total:x16}");
                         log.Warn(sim.Tick, "save", "отладочный крючок: процесс замрёт посреди записи", ("plan", crash.Plan));

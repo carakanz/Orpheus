@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -199,10 +200,10 @@ namespace Orpheus.Server
         public const string Marker = "ORPHEUS-DEBUG";
 
         private readonly TextWriter _out;
-        private readonly int _saveIndex;
-        private readonly PcWriteStage _stage;
-        private readonly bool _afterPrune;
-        private readonly double _offsetFraction;
+        private int _saveIndex;
+        private PcWriteStage _stage;
+        private bool _afterPrune;
+        private double _offsetFraction;
         private int _begun;
         private ulong _target;
 
@@ -215,6 +216,59 @@ namespace Orpheus.Server
             _stage = p < 0.6 ? PcWriteStage.Writing : p < 0.7 ? PcWriteStage.Written : p < 0.8 ? PcWriteStage.Flushed : PcWriteStage.Moved;
             _afterPrune = p >= 0.9;
             _offsetFraction = rng.NextDouble();
+        }
+
+        private SaveCrashHook(TextWriter output) => _out = output;
+
+        /// <summary>
+        /// План по ключу сервера <c>--debug-save-plan &lt;миг&gt;[:&lt;процент файла&gt;][@&lt;номер сохранения&gt;]</c> — миг
+        /// обрыва задаёт тест явно, а не жребием: приёмка 0.4 обязана проверить каждый из них. Миги:
+        /// <c>writing</c> (писали файл, процент — до какого смещения успели), <c>written</c> (отдан ОС, не сброшен),
+        /// <c>flushed</c> (сброшен, не переименован), <c>moved</c> (переименован, старые поколения не удалены),
+        /// <c>pruned</c> (старые удалены).
+        /// </summary>
+        public static SaveCrashHook Fixed(string spec, TextWriter output)
+        {
+            string s = (spec ?? string.Empty).Trim().ToLowerInvariant();
+            int saveIndex = 1;
+            int at = s.IndexOf('@');
+            if (at >= 0)
+            {
+                if (!int.TryParse(s.Substring(at + 1), NumberStyles.None, CultureInfo.InvariantCulture, out saveIndex) || saveIndex < 1)
+                {
+                    throw new ArgumentException($"--debug-save-plan: сохранение «{s.Substring(at + 1)}» — целое от 1.");
+                }
+
+                s = s.Substring(0, at);
+            }
+
+            int pctAt = s.IndexOf(':');
+            string stage = pctAt < 0 ? s : s.Substring(0, pctAt);
+            double fraction = 0.5;
+            if (pctAt >= 0)
+            {
+                if (!int.TryParse(s.Substring(pctAt + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int pct) || pct < 0 || pct > 100)
+                {
+                    throw new ArgumentException($"--debug-save-plan: смещение «{s.Substring(pctAt + 1)}» — целое 0…100.");
+                }
+
+                fraction = pct / 100d;
+            }
+
+            var hook = new SaveCrashHook(output);
+            hook._saveIndex = saveIndex;
+            hook._afterPrune = stage == "pruned";
+            hook._stage = stage switch
+            {
+                "writing" => PcWriteStage.Writing,
+                "written" => PcWriteStage.Written,
+                "flushed" => PcWriteStage.Flushed,
+                "moved" => PcWriteStage.Moved,
+                "pruned" => PcWriteStage.Moved,
+                _ => throw new ArgumentException($"--debug-save-plan: мига «{stage}» нет; есть writing, written, flushed, moved, pruned."),
+            };
+            hook._offsetFraction = fraction;
+            return hook;
         }
 
         /// <summary>Описание плана для лога.</summary>

@@ -35,7 +35,7 @@ namespace Orpheus.Server
         public const string Usage =
             "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень] [--port P]\n" +
-            "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-pad <КБ>]";
+            "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]";
 
         /// <summary>Автосохранение по умолчанию: раз в 2 мин мира (docs/07, 6.4).</summary>
         public const int DefaultAutosaveSeconds = 120;
@@ -66,6 +66,9 @@ namespace Orpheus.Server
 
         /// <summary>Отладочное наполнение сохранения в КБ (приёмка 0.4, docs/08 3.0): 0 — обычной игрой не пишется.</summary>
         public int DebugSavePadKb { get; set; }
+
+        /// <summary>Заданный миг обрыва для приёмки 0.4 (<c>--debug-save-plan</c>), синтаксис — <see cref="SaveCrashHook.Fixed"/>.</summary>
+        public string? DebugSavePlan { get; set; }
 
         /// <summary>Разобрать ключи; ошибка — <see cref="ArgumentException"/> с понятным текстом.</summary>
         public static ServerOptions Parse(string[] args)
@@ -145,6 +148,9 @@ namespace Orpheus.Server
                             throw new ArgumentException($"--debug-save-pad: 0…{MaxDebugSavePadKb} КБ, а не {o.DebugSavePadKb}.");
                         }
 
+                        break;
+                    case "--debug-save-plan":
+                        o.DebugSavePlan = Value(args, ref i);
                         break;
                     default:
                         throw new ArgumentException($"Неизвестный ключ: {a}.");
