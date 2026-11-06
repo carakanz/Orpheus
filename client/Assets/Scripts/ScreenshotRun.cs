@@ -6,8 +6,9 @@ using UnityEngine;
 namespace Orpheus.Client
 {
     /// <summary>
-    /// Режим <c>--screenshot &lt;путь&gt;</c> (карточка 0-010, шаг 8): персонаж ставится у края стартовой зоны
-    /// (видны луга, скалы, деревья), через полсекунды кадр уходит в PNG через <see cref="ScreenCapture"/>, игра выходит.
+    /// Режим <c>--screenshot &lt;путь&gt;</c> (карточка 0-010, шаг 8): персонаж ставится в 60 тайлах к востоку от центра
+    /// (для зерна по умолчанию там в кадре и поле скал, и луга с деревьями), зум ×0,6 — самый широкий обзор (67 тайлов);
+    /// через полсекунды кадр уходит в PNG через <see cref="ScreenCapture"/>, игра выходит.
     /// Нужен вывод на экран — запускать без <c>-batchmode -nographics</c>; окно открыто ~1 с.
     /// </summary>
     public sealed class ScreenshotRun
@@ -35,9 +36,9 @@ namespace Orpheus.Client
                 File.Delete(_path);
             }
 
-            // Стартовая зона — 32 × 32 чистого луга в центре; на 20 тайлов восточнее и 8 южнее в кадре и она, и мир.
             int c = g.Map.Width / 2;
-            _g.Teleport(_g.TileCenter(FindFree(new TileCoord(c + 20, c + 8))));
+            _g.Teleport(_g.TileCenter(FindFree(new TileCoord(c + 60, c))));
+            _g.SetZoom(GameBoot.MinZoom);
             Debug.Log($"[screenshot] персонаж в {_g.Player.Position}, снимок → {_path}");
         }
 

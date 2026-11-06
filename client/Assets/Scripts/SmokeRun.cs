@@ -4,6 +4,7 @@ using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
+using Orpheus.WorldGen;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using Collision = Orpheus.Core.Movement.Collision;
@@ -16,12 +17,13 @@ namespace Orpheus.Client
     /// <item>Мир из ядра нарисован верно: каждый тайл каждого чанка окна в Tilemap совпадает с миром ядра; несколько
     /// тайлов разных видов — строками <c>[smoke] sample</c> для сверки с картинкой <c>gen_preview</c> того же зерна
     /// (<c>tools/check_smoke_tiles.py</c>).</item>
-    /// <item>Прогон по прямой скриптовым вводом через шов: по X на восток и обратно, по Y на юг и обратно, по 64 тайла
-    /// (320 тактов) — на полосе без препятствий; если на шве такой нет — без коллизии (пишется в лог).</item>
+    /// <item>Прогон по прямой скриптовым вводом через шов: по X на восток и обратно, по Y на юг и обратно, по 96 тайлов
+    /// (480 тактов, шов — через 24 тайла) — на полосе без препятствий; если на шве такой нет — без коллизии (пишется в лог).</item>
     /// <item>Каждый кадр: позиция персонажа и камеры, восстановленная относительно нарисованного чанка, сдвигается
     /// не больше чем на 6 т/с × 1/30 с × 1,1 = 0,22 тайла (рывок), совпадает с интерполяцией ядра; в окне ≤ 48 чанков
     /// и нет дыр в блоке 6 × 4.</item>
-    /// <item>После каждого отрезка позиция по ядру — ровно старт + 64 тайла, нарисованная — та же.</item>
+    /// <item>После каждого отрезка позиция по ядру — ровно старт + 96 тайлов, нарисованная — та же; начало переезжало
+    /// и на шве, и по расстоянию.</item>
     /// </list>
     /// Время кадра фиксировано (<see cref="Time.captureDeltaTime"/> = 1/60 с): проверка не зависит от скорости машины.
     /// Код выхода 0 — все проверки прошли и в логе нет ошибок; 1 — иначе.
@@ -33,8 +35,14 @@ namespace Orpheus.Client
         /// <summary>Рывок в кадре: 6 т/с × 1/30 с × 1,1 (docs/08, 3.0, приёмка 0.2).</summary>
         public const float MaxJumpTiles = 6f / 30f * 1.1f;
 
-        /// <summary>Длина отрезка: 64 тайла = 2 чанка = 320 тактов базового бега.</summary>
-        public const int LegTiles = 64;
+        /// <summary>Длина отрезка: 96 тайлов = 3 чанка = 480 тактов базового бега.</summary>
+        public const int LegTiles = 96;
+
+        /// <summary>
+        /// Старт отрезка — за <see cref="BeforeSeam"/> тайлов до шва: шов на трети пути, дальше ещё 2 чанка —
+        /// начало переезжает и на шве, и при уходе от якоря дальше чанка (обе ветки <see cref="FloatingOrigin.NeedsRebase"/>).
+        /// </summary>
+        public const int BeforeSeam = 24;
 
         /// <summary>Допуск «нарисовано = ядро» — 2/256 тайла (округление float → 1/256).</summary>
         public const int MatchUnits = 2;
@@ -113,7 +121,8 @@ namespace Orpheus.Client
         void PlanLegs()
         {
             int w = _map.Width;
-            int half = LegTiles / 2;
+            int before = w - BeforeSeam;
+            int after = LegTiles - BeforeSeam;
             bool laneX = FindLane(horizontal: true, out int row);
             bool laneY = FindLane(horizontal: false, out int col);
             if (!laneX) row = w / 2;
@@ -124,26 +133,25 @@ namespace Orpheus.Client
             _laneY = laneY;
             _legs = new[]
             {
-                new Leg { Name = "X+ через шов", Dir = Input8.East, Start = _g.TileCenter(new TileCoord(w - half, row)), Teleport = true },
-                new Leg { Name = "X- через шов", Dir = Input8.West, Start = _g.TileCenter(new TileCoord(half, row)) },
-                new Leg { Name = "Y+ через шов", Dir = Input8.South, Start = _g.TileCenter(new TileCoord(col, w - half)), Teleport = true },
-                new Leg { Name = "Y- через шов", Dir = Input8.North, Start = _g.TileCenter(new TileCoord(col, half)) },
+                new Leg { Name = "X+ через шов", Dir = Input8.East, Start = _g.TileCenter(new TileCoord(before, row)), Teleport = true },
+                new Leg { Name = "X- через шов", Dir = Input8.West, Start = _g.TileCenter(new TileCoord(after, row)) },
+                new Leg { Name = "Y+ через шов", Dir = Input8.South, Start = _g.TileCenter(new TileCoord(col, before)), Teleport = true },
+                new Leg { Name = "Y- через шов", Dir = Input8.North, Start = _g.TileCenter(new TileCoord(col, after)) },
             };
         }
 
         bool _laneX, _laneY;
 
-        // Полоса: строка (или столбец), где тайлы от W − 33 до 33 через шов проходимы — круг 0,4 по центру тайла
+        // Полоса: строка (или столбец), где тайлы от W − BeforeSeam − 1 до LegTiles − BeforeSeam + 1 через шов проходимы — круг 0,4 по центру тайла
         // соседних строк не касается. Поиск от середины мира наружу — повторяемо для зерна.
         bool FindLane(bool horizontal, out int lane)
         {
             int w = _map.Width;
-            int reach = LegTiles / 2 + 1;
             for (int k = 0; k < w; k++)
             {
                 int l = (w / 2 + ((k & 1) == 0 ? k / 2 : -(k / 2 + 1))) & (w - 1);
                 bool clear = true;
-                for (int s = -reach; s <= reach && clear; s++)
+                for (int s = -BeforeSeam - 1; s <= LegTiles - BeforeSeam + 1 && clear; s++)
                 {
                     int along = s & (w - 1);
                     var t = horizontal ? new TileCoord(along, l) : new TileCoord(l, along);
@@ -257,9 +265,9 @@ namespace Orpheus.Client
                 Fail($"{leg.Name}: позиция ядра {core} / нарисованная {drawn}, ожидалась {expected}");
             }
 
-            if (seamRebases == 0)
+            if (seamRebases == 0 || rebases - seamRebases == 0)
             {
-                Fail($"{leg.Name}: начало не переехало на шве");
+                Fail($"{leg.Name}: начало переезжало на шве {seamRebases} раз, по расстоянию {rebases - seamRebases} — нужно оба");
             }
 
             CheckTiles(leg.Name);
@@ -415,7 +423,7 @@ namespace Orpheus.Client
                         if (obj == ObjectId.Tree && !tree) tree = Sample(t, "tree", floor, obj, f, o);
                         else if (obj == ObjectId.Rock && !rock) rock = Sample(t, "rock", floor, obj, f, o);
                         else if (obj == ObjectId.Empty && floor == FloorId.Stone && !stone) stone = Sample(t, "stone", floor, obj, f, o);
-                        else if (obj == ObjectId.Empty && floor == FloorId.Grass && !grass && ly > 0 && lx > 0)
+                        else if (obj == ObjectId.Empty && floor == FloorId.Grass && !grass && !StubGenerator.InStartZone(_map, t.X, t.Y))
                             grass = Sample(t, "grass", floor, obj, f, o);
                     }
                 }
