@@ -59,11 +59,28 @@ namespace Orpheus.Server
         public void AfterTick(Simulation sim)
         {
             Poll(sim.Tick);
-            if (_pending == null && sim.Tick - _lastSavedTick >= _intervalTicks)
+            if (sim.Tick - _lastSavedTick < _intervalTicks)
+            {
+                return;
+            }
+
+            if (_pending != null && WaitForPrevious)
+            {
+                _pending.Wait();
+                Poll(sim.Tick);
+            }
+
+            if (_pending == null)
             {
                 Start(sim, "автосохранение");
             }
         }
+
+        /// <summary>
+        /// Режим симуляции: пора сохранять, а прошлая запись не кончилась — дождаться её, а не отложить. Такты там
+        /// идут без часов, и без ожидания точки сохранения зависели бы от скорости диска; так они ровно через интервал.
+        /// </summary>
+        public bool WaitForPrevious { get; set; }
 
         /// <summary>Остановка сервера: дождаться фоновой записи, затем сохранить текущий такт (если он новее записанного).</summary>
         public void SaveOnStop(Simulation sim)

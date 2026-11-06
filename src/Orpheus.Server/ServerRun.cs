@@ -160,7 +160,10 @@ namespace Orpheus.Server
                         log.Warn(sim.Tick, "save", "отладочный крючок: процесс замрёт посреди записи", ("plan", crash.Plan));
                     }
 
-                    saver = new WorldSaver(opened.Folder, opened.BaseSha!, opened.Name, log, o.AutosaveSeconds, sim.Tick, opened.Loaded != null, crash);
+                    saver = new WorldSaver(opened.Folder, opened.BaseSha!, opened.Name, log, o.AutosaveSeconds, sim.Tick, opened.Loaded != null, crash)
+                    {
+                        WaitForPrevious = o.Sim,
+                    };
                 }
 
                 Loop(o, sim, bots, record, replay, saver, log, result, stop);
