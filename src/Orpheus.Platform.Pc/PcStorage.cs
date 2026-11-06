@@ -275,16 +275,16 @@ namespace Orpheus.Platform.Pc
         public virtual FileStream CreateTmp(string path, FileOptions options) =>
             new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1, options);
 
-        public virtual bool FlushFileBuffers(SafeFileHandle file, string path) => NativeFlushFileBuffers(file);
+        public virtual bool FlushFileBuffers(SafeFileHandle file, string path) => FlushFileBuffers(file);
 
-        public virtual bool MoveFileEx(string from, string to, uint flags) => NativeMoveFileExW(from, to, flags);
+        public virtual bool MoveFileEx(string from, string to, uint flags) => MoveFileExW(from, to, flags);
 
         [DllImport("kernel32.dll", EntryPoint = "MoveFileExW", CharSet = CharSet.Unicode, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool NativeMoveFileExW(string existingFileName, string newFileName, uint flags);
+        private static extern bool MoveFileExW(string existingFileName, string newFileName, uint flags);
 
         [DllImport("kernel32.dll", EntryPoint = "FlushFileBuffers", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool NativeFlushFileBuffers(SafeFileHandle file);
+        private static extern bool FlushFileBuffers(SafeFileHandle file);
     }
 }

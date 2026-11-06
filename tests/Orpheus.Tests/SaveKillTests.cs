@@ -50,6 +50,12 @@ namespace Orpheus.Tests
         /// <summary>Обрывов за приёмку 0.4; <c>ORPHEUS_KILL_RUNS</c> — меньше, для быстрого прогона на разработке.</summary>
         private const int KillRunsDefault = 1000;
 
+        /// <summary>
+        /// Обрывов в быстром CI (0-016): 40 ≈ 8 с (100 — 21 с). Тысяча — ночью (<c>Category=Big</c>). Зёрна — те же 1…40,
+        /// что открывают ночной прогон: жребий даёт все миги (смещение в файле, «записано», «сброшено», «переименовано»).
+        /// </summary>
+        private const int KillRunsFast = 40;
+
         private static readonly string ServerApp = Path.Combine(AppContext.BaseDirectory, "OrpheusServer.exe");
         private static readonly string ServerDll = Path.Combine(AppContext.BaseDirectory, "OrpheusServer.dll");
 
@@ -209,9 +215,9 @@ namespace Orpheus.Tests
         /// «Три последних поколения» (6.5 п. 5) обязаны считаться по папке, а не только в конце удачной
         /// записи: обрыв сразу после переименования (<c>moved@1</c>) не даёт чистке начаться, и при
         /// повторных обрывах папка бы росла бесконечно. Старт после восстановления удаляет лишние.
+        /// В быстром CI (0-016): без него удаление прунинга на старте видно только ночью.
         /// </summary>
         [Fact]
-        [Trait("Category", "Big")]
         public void D00_Save_Kill_StartPrune_KeepsThreeNewestGenerations()
         {
             string world = World("prune");
@@ -233,14 +239,24 @@ namespace Orpheus.Tests
             Assert.Empty(DamagedFiles(world));
         }
 
-        // ---------- Приёмка 0.4: 1000 случайных обрывов ----------
+        // ---------- Приёмка 0.4: случайные обрывы — 40 в быстром CI, 1000 ночью ----------
+
+        [Fact]
+        public void D00_Save_Kill_RandomMoments_Fast_WorldLoadsLastIntactGeneration() =>
+            RandomKills(KillRunsFast, "random-fast");
 
         [Fact]
         [Trait("Category", "Big")]
-        public void D00_Save_Kill_RandomMoments_ThousandTimes_WorldLoadsLastIntactGeneration()
+        public void D00_Save_Kill_RandomMoments_ThousandTimes_WorldLoadsLastIntactGeneration() =>
+            RandomKills(KillRuns(), "random");
+
+        /// <summary>
+        /// <paramref name="runs"/> обрывов по зёрнам 1…<paramref name="runs"/>; после каждого — свидетель обязан
+        /// загрузить последнее целое поколение (номер, такт и хэш — как в <c>save-begin</c>).
+        /// </summary>
+        private void RandomKills(int runs, string tag)
         {
-            int runs = KillRuns();
-            string world = World("random");
+            string world = World(tag);
 
             // Известные хэши поколений: что сохранили — то и берём (номер → такт и хэш из save-begin).
             var known = new Dictionary<ulong, (long Tick, string Hash)>();
@@ -320,36 +336,55 @@ namespace Orpheus.Tests
             psi.ArgumentList.Add(_logs);
 
             using var process = Process.Start(psi) ?? throw new InvalidOperationException("не запустился " + Host);
-            bool sawCrash = false;
-            while (true)
+            try
             {
-                string? line = process.StandardError.ReadLine();
-                if (line == null)
+                // Чтение stderr — с тем же сроком, что и ожидание выхода: зависший сервер с открытым stderr
+                // иначе подвесил бы ReadLine навсегда.
+                var deadline = Stopwatch.StartNew();
+                bool sawCrash = false;
+                while (true)
                 {
-                    break;
+                    var read = process.StandardError.ReadLineAsync();
+                    int left = (int)Math.Max(0, RunTimeoutMs - deadline.ElapsedMilliseconds);
+                    Assert.True(read.Wait(left), $"сервер молчит {RunTimeoutMs} мс: {string.Join(" | ", log)}");
+                    string? line = read.Result;
+                    if (line == null)
+                    {
+                        break;
+                    }
+
+                    log.Add(line);
+                    if (line.StartsWith(SaveCrashHook.Marker, StringComparison.Ordinal) && line.Contains("crash-point", StringComparison.Ordinal))
+                    {
+                        sawCrash = true;
+                        break;
+                    }
                 }
 
-                log.Add(line);
-                if (line.StartsWith(SaveCrashHook.Marker, StringComparison.Ordinal) && line.Contains("crash-point", StringComparison.Ordinal))
+                if (killOnCrash)
                 {
-                    sawCrash = true;
-                    break;
+                    Assert.True(sawCrash, $"крючок не объявился: {string.Join(" | ", log)}");
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit();
+                }
+                else
+                {
+                    Assert.True(process.WaitForExit(RunTimeoutMs), $"сервер не завершился за {RunTimeoutMs} мс");
+                }
+
+                stdout = process.StandardOutput.ReadToEnd();
+                return process.ExitCode;
+            }
+            finally
+            {
+                // Проверка упала (нет маркера, таймаут, молчание) — дочерний сервер не остаётся висеть:
+                // крючок после crash-point ждёт вечно (0-016, замечание 5 проверки 0-009).
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit();
                 }
             }
-
-            if (killOnCrash)
-            {
-                Assert.True(sawCrash, $"крючок не объявился: {string.Join(" | ", log)}");
-                process.Kill(entireProcessTree: true);
-                process.WaitForExit();
-            }
-            else
-            {
-                Assert.True(process.WaitForExit(RunTimeoutMs), $"сервер не завершился за {RunTimeoutMs} мс");
-            }
-
-            stdout = process.StandardOutput.ReadToEnd();
-            return process.ExitCode;
         }
 
         /// <param name="plan">Миг обрыва: план (<see cref="SaveCrashHook.Fixed"/>) — или, при <paramref name="planBySeed"/>,
