@@ -10,6 +10,8 @@ using Orpheus.Core.World;
 using Orpheus.Net;
 using Orpheus.Net.Session;
 using Orpheus.Net.Transport;
+using Orpheus.Platform.Pc;
+using Orpheus.Save;
 using Orpheus.WorldGen;
 
 namespace Orpheus.Server
@@ -20,8 +22,23 @@ namespace Orpheus.Server
         /// <summary>0 — всё хорошо; 1 — повтор разошёлся с записью; 2 — ошибка ключей или данных.</summary>
         public int ExitCode { get; set; }
 
-        /// <summary>Выполнено тактов.</summary>
+        /// <summary>Выполнено тактов в этом запуске.</summary>
         public long Ticks { get; set; }
+
+        /// <summary>Такт, с которого начат запуск (0 — новый мир, иначе — такт загруженного сохранения).</summary>
+        public long StartTick { get; set; }
+
+        /// <summary>Номер загруженного поколения (0 — сохранений не было или не грузились).</summary>
+        public ulong LoadedNumber { get; set; }
+
+        /// <summary>Сохранений записано за запуск.</summary>
+        public int SavesWritten { get; set; }
+
+        /// <summary>Номер последнего записанного поколения.</summary>
+        public ulong LastSavedNumber { get; set; }
+
+        /// <summary>Хэш состояния в конце запуска (после сохранения при остановке).</summary>
+        public ulong FinalHash { get; set; }
 
         /// <summary>Хэши на каждом 300-м такте (если <c>--hash</c> или повтор).</summary>
         public List<StateHashResult> Hashes { get; } = new List<StateHashResult>();
@@ -70,6 +87,13 @@ namespace Orpheus.Server
     /// Запуск сервера без сети (docs/07, 11.2): мир (создать или загрузить), сущности, источник ввода
     /// (боты или журнал), цикл такта — по часам (обычный режим) или подряд (<c>--sim</c>), хэш на каждом
     /// 300-м такте, запись и повтор журнала ввода, лог JSON-строками.
+    /// <para>
+    /// Папка мира (0-009, docs/07 6.3–6.5): замок <c>world.lock</c> на всё время работы; <c>--create</c> пишет
+    /// <c>world.base</c> атомарно (уже есть — отказ); без <c>--create</c> — снимок генерации, проверка поколений
+    /// и <c>.tmp</c> (<see cref="WorldFolder.Recover"/>), новейшее целое поколение поверх. Автосохранение и
+    /// сохранение при остановке — <see cref="WorldSaver"/>; при повторе журнала мир берётся из снимка генерации
+    /// и не сохраняется (повтор не меняет папку мира).
+    /// </para>
     /// </summary>
     public static class ServerRun
     {
@@ -104,9 +128,18 @@ namespace Orpheus.Server
                 : null;
             try
             {
-                WorldModel world = OpenWorld(o, replay?.Header, log);
+                using OpenedWorld opened = OpenWorld(o, replay?.Header, log);
+                WorldModel world = opened.World;
                 int players = o.Port.HasValue ? o.MaxPlayers : 0;
-                var sim = new Simulation(world, maxEntities: Math.Max(64, CountBots(o) + players + 1));
+                int loadedEntities = opened.Loaded?.Entities.Length ?? 0;
+                var sim = new Simulation(world, maxEntities: Math.Max(64, Math.Max(CountBots(o), loadedEntities) + players + 1));
+                if (opened.Loaded != null)
+                {
+                    opened.Loaded.RestoreInto(sim);
+                    result.LoadedNumber = opened.Loaded.Number;
+                }
+
+                result.StartTick = sim.Tick;
 
                 SimBot[] bots = Array.Empty<SimBot>();
                 if (replay != null)
@@ -135,11 +168,31 @@ namespace Orpheus.Server
                     ("entities", sim.EntityCount), ("bots", BotsText(o)),
                     ("record", o.RecordPath), ("replay", o.ReplayPath));
 
+                WorldSaver? saver = null;
+                if (opened.Folder != null && replay == null)
+                {
+                    SaveCrashHook? crash = null;
+                    if (o.DebugSaveCrashSeed.HasValue || o.DebugSavePlan != null)
+                    {
+                        crash = o.DebugSavePlan != null
+                            ? SaveCrashHook.Fixed(o.DebugSavePlan, Console.Error)
+                            : new SaveCrashHook(o.DebugSaveCrashSeed!.Value, Console.Error);
+                        crash.Attach(opened.Storage!);
+                        crash.Line($"loaded {result.LoadedNumber} {sim.Tick} {StateHash.Compute(sim).Total:x16}");
+                        log.Warn(sim.Tick, "save", "отладочный крючок: процесс замрёт посреди записи", ("plan", crash.Plan));
+                    }
+
+                    saver = new WorldSaver(opened.Folder, opened.BaseSha!, opened.Name, log, o.AutosaveSeconds, sim.Tick, opened.Loaded != null, crash, o.DebugSavePadKb)
+                    {
+                        WaitForPrevious = o.Sim,
+                    };
+                }
+
                 using LiteNetTransport? transport = o.Port.HasValue ? LiteNetTransport.Listen(o.Port.Value, o.MaxPlayers) : null;
                 NetServer? net = transport != null ? CreateNetServer(o, sim, bots.Length, transport, log, result) : null;
                 try
                 {
-                    Loop(o, sim, bots, record, replay, net, log, result, stop);
+                    Loop(o, sim, bots, record, replay, net, saver, log, result, stop);
                 }
                 finally
                 {
@@ -159,6 +212,14 @@ namespace Orpheus.Server
                 }
 
                 record?.WriteEnd(sim.Tick);
+                if (saver != null && result.ExitCode == 0)
+                {
+                    saver.SaveOnStop(sim);
+                    result.SavesWritten = saver.Written;
+                    result.LastSavedNumber = saver.LastNumber;
+                }
+
+                result.FinalHash = StateHash.Compute(sim).Total;
             }
             finally
             {
@@ -196,8 +257,9 @@ namespace Orpheus.Server
 
         private static void Loop(
             ServerOptions o, Simulation sim, SimBot[] bots, InputJournalWriter? record, InputJournalReader? replay,
-            NetServer? net, JsonLog log, ServerResult result, CancellationToken stop)
+            NetServer? net, WorldSaver? saver, JsonLog log, ServerResult result, CancellationToken stop)
         {
+            long startTick = sim.Tick;
             var pending = new EntityInput[sim.EntityCount + 1];
             JournalRecord next = replay?.Next() ?? JournalRecord.None;
             bool replayEnded = false;
@@ -209,7 +271,7 @@ namespace Orpheus.Server
 
             long allocated0 = GC.GetAllocatedBytesForCurrentThread();
             var watch = Stopwatch.StartNew();
-            while (sim.Tick < o.Ticks && !stop.IsCancellationRequested && !replayEnded)
+            while (sim.Tick - startTick < o.Ticks && !stop.IsCancellationRequested && !replayEnded)
             {
                 long tick = sim.Tick + 1;
 
@@ -255,6 +317,7 @@ namespace Orpheus.Server
                 sim.Step();
                 net?.SendSnapshots(); // полный снимок каждый такт — 30 Гц (2.4, 4.3)
                 sim.RefillPools(); // вне такта: запас словарей построек (backlog [такт сервера])
+                saver?.AfterTick(sim); // граница такта: автосохранение (0-009)
                 o.AfterTick?.Invoke(sim);
 
                 bool checkpoint = tick % Simulation.HashInterval == 0;
@@ -274,7 +337,7 @@ namespace Orpheus.Server
                 {
                     if (replay.Tick == tick && !Verify(sim, replay, log, result))
                     {
-                        result.Ticks = sim.Tick;
+                        result.Ticks = sim.Tick - startTick;
                         result.Seconds = watch.Elapsed.TotalSeconds;
                         return;
                     }
@@ -303,9 +366,9 @@ namespace Orpheus.Server
             }
 
             result.Seconds = watch.Elapsed.TotalSeconds;
-            result.Ticks = sim.Tick;
-            result.AllocatedBytesPerTick = sim.Tick > 0
-                ? (GC.GetAllocatedBytesForCurrentThread() - allocated0) / (double)sim.Tick
+            result.Ticks = sim.Tick - startTick;
+            result.AllocatedBytesPerTick = result.Ticks > 0
+                ? (GC.GetAllocatedBytesForCurrentThread() - allocated0) / (double)result.Ticks
                 : 0;
 
             if (replay != null)
@@ -314,7 +377,7 @@ namespace Orpheus.Server
             }
 
             log.Info(sim.Tick, "perf", o.Sim ? "симуляция закончена" : "сервер остановлен",
-                ("ticks", sim.Tick), ("seconds", result.Seconds), ("ticksPerSecond", sim.Tick / Math.Max(result.Seconds, 1e-9)),
+                ("ticks", result.Ticks), ("seconds", result.Seconds), ("ticksPerSecond", result.Ticks / Math.Max(result.Seconds, 1e-9)),
                 ("speedX", result.SpeedX), ("allocatedBytesPerTick", result.AllocatedBytesPerTick));
         }
 
@@ -350,7 +413,21 @@ namespace Orpheus.Server
 
         // ---------- Мир ----------
 
-        private static WorldModel OpenWorld(ServerOptions o, JournalHeader? replay, JsonLog log)
+        /// <summary>Открытый мир: модель, папка с замком, SHA-256 снимка генерации, загруженное поколение.</summary>
+        private sealed class OpenedWorld : IDisposable
+        {
+            public WorldModel World = null!;
+            public PcStorage? Storage;
+            public WorldFolder? Folder;
+            public IDisposable? Lock;
+            public byte[]? BaseSha;
+            public LoadedWorldState? Loaded;
+            public string Name = string.Empty;
+
+            public void Dispose() => Lock?.Dispose();
+        }
+
+        private static OpenedWorld OpenWorld(ServerOptions o, JournalHeader? replay, JsonLog log)
         {
             ulong seed = o.Seed;
             int size = o.Size;
@@ -365,43 +442,90 @@ namespace Orpheus.Server
                 size = replay.Shape.Width;
             }
 
-            WorldModel world;
-            var watch = Stopwatch.StartNew();
-            if (o.Create || o.WorldDir == null)
+            var opened = new OpenedWorld();
+            try
             {
-                world = Generator.Generate(MapShape.World(size), seed);
                 if (o.WorldDir != null)
                 {
-                    Directory.CreateDirectory(o.WorldDir);
-                    string path = Path.Combine(o.WorldDir, BaseFileName);
-                    using (FileStream f = CreateFile(path))
+                    opened.Storage = new PcStorage();
+                    opened.Folder = new WorldFolder(opened.Storage, Path.GetFullPath(o.WorldDir));
+                    opened.Lock = opened.Folder.Lock(); // второй сервер на ту же папку — «мир уже открыт» (6.10 п. 7)
+                    opened.Name = new DirectoryInfo(opened.Folder.Dir).Name;
+                }
+
+                var watch = Stopwatch.StartNew();
+                if (o.Create || opened.Folder == null)
+                {
+                    opened.World = Generator.Generate(MapShape.World(size), seed);
+                    if (opened.Folder != null)
                     {
-                        WorldSnapshot.WriteBase(world, f);
+                        byte[] baseBytes = WorldSnapshot.WriteBase(opened.World);
+                        opened.Folder.CreateBase(baseBytes);
+                        opened.BaseSha = WorldSnapshot.StoredHash(baseBytes);
+                        log.Info(0, "save", "мир создан", ("path", opened.Folder.BasePath), ("ms", watch.Elapsed.TotalMilliseconds));
+                    }
+                }
+                else
+                {
+                    WorldFolder folder = opened.Folder;
+                    if (!folder.HasBase)
+                    {
+                        throw new IOException($"Нет мира: {folder.BasePath}. Создать — ключ --create.");
                     }
 
-                    log.Info(0, "save", "мир создан", ("path", path), ("ms", watch.Elapsed.TotalMilliseconds));
+                    byte[] baseBytes = folder.ReadBase();
+                    opened.World = WorldSnapshot.LoadBase(baseBytes);
+                    opened.BaseSha = WorldSnapshot.StoredHash(baseBytes);
+                    if (replay == null)
+                    {
+                        LoadLatest(opened, log);
+                    }
+
+                    log.Info(opened.Loaded?.Tick ?? 0, "save", "мир загружен", ("path", folder.Dir), ("ms", watch.Elapsed.TotalMilliseconds),
+                        ("number", opened.Loaded?.Number ?? 0), ("tick", opened.Loaded?.Tick ?? 0),
+                        ("chunks", opened.Loaded?.ChunkCount ?? 0), ("entities", opened.Loaded?.Entities.Length ?? 0));
                 }
-            }
-            else
-            {
-                string path = Path.Combine(o.WorldDir, BaseFileName);
-                if (!File.Exists(path))
+
+                WorldModel world = opened.World;
+                if (replay != null && (world.Seed != replay.Seed || world.Shape != replay.Shape || world.GeneratorVersion != replay.GeneratorVersion))
                 {
-                    throw new IOException($"Нет мира: {path}. Создать — ключ --create.");
+                    throw new InvalidDataException(
+                        $"Журнал записан на мире зерно {replay.Seed}, {replay.Shape}, генератор {replay.GeneratorVersion}; " +
+                        $"мир — зерно {world.Seed}, {world.Shape}, генератор {world.GeneratorVersion}.");
                 }
 
-                world = WorldSnapshot.LoadBase(File.ReadAllBytes(path));
-                log.Info(0, "save", "мир загружен", ("path", path), ("ms", watch.Elapsed.TotalMilliseconds));
+                return opened;
             }
-
-            if (replay != null && (world.Seed != replay.Seed || world.Shape != replay.Shape || world.GeneratorVersion != replay.GeneratorVersion))
+            catch
             {
-                throw new InvalidDataException(
-                    $"Журнал записан на мире зерно {replay.Seed}, {replay.Shape}, генератор {replay.GeneratorVersion}; " +
-                    $"мир — зерно {world.Seed}, {world.Shape}, генератор {world.GeneratorVersion}.");
+                opened.Dispose();
+                throw;
+            }
+        }
+
+        /// <summary>Проверка поколений и .tmp (6.5 п. 5), новейшее целое — поверх снимка генерации.</summary>
+        private static void LoadLatest(OpenedWorld opened, JsonLog log)
+        {
+            WorldRecovery rec = opened.Folder!.Recover();
+            foreach (DamagedFile d in rec.Damaged)
+            {
+                log.Warn(0, "save", "повреждённое поколение перенесено", ("file", d.Name), ("to", d.MovedTo), ("reason", d.Reason));
             }
 
-            return world;
+            if (rec.PromotedTmp)
+            {
+                log.Warn(0, "save", "целый .tmp без переименования (обрыв после сброса) — продвинут", ("file", rec.LatestName));
+            }
+
+            foreach (string name in rec.Pruned)
+            {
+                log.Info(0, "save", "поколение старше трёх последних — удалено при старте", ("file", name));
+            }
+
+            if (rec.Latest != null)
+            {
+                opened.Loaded = WorldSave.Load(rec.Latest, opened.World, opened.BaseSha!);
+            }
         }
 
         private static FileStream CreateFile(string path)
@@ -436,7 +560,8 @@ namespace Orpheus.Server
             {
                 for (int k = 0; k < g.Count; k++, index++)
                 {
-                    int id = sim.AddEntity(SpawnPoint(sim.Shape, index));
+                    // Загруженный мир: боты берут сущности из сохранения по порядку, недостающих — ставят.
+                    int id = index < sim.EntityCount ? sim.Entities[index].Id : sim.AddEntity(SpawnPoint(sim.Shape, index));
                     bots[index] = SimBot.Create(g.Script, id, index, sim.World.Seed);
                 }
             }

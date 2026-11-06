@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -55,6 +56,12 @@ namespace Orpheus.Core.World
 
         /// <summary>Блок чанка без записей построек: 3072 + 2.</summary>
         public const int MinBlobBytes = LayerBytes + BuildCountBytes;
+
+        /// <summary>
+        /// Наибольший блок чанка — запись постройки у каждого тайла: 3074 + 10 · 1024 = 13 314 байт.
+        /// Предел при распаковке (backlog [сохранения]): больше — блок испорчен, дальше не разворачиваем.
+        /// </summary>
+        public const int MaxBlobBytes = MinBlobBytes + BuildEntryBytes * TileCount;
 
         private readonly byte[] _layers = new byte[LayerBytes];
         private Dictionary<ushort, BuildRecord>? _builds;
@@ -362,10 +369,19 @@ namespace Orpheus.Core.World
         {
             var blob = new byte[BlobBytes];
             WriteBlob(blob);
+            return CompressBlob(blob);
+        }
+
+        /// <summary>
+        /// Сжать готовый блок чанка Deflate-6 — без самого чанка: сохранение копирует блок на границе такта
+        /// и сжимает его в фоновом потоке (docs/07, 6.4).
+        /// </summary>
+        public static byte[] CompressBlob(ReadOnlySpan<byte> blob)
+        {
             using var output = new MemoryStream(512);
             using (var deflate = new DeflateStream(output, CompressionLevel.Optimal, leaveOpen: true))
             {
-                deflate.Write(blob, 0, blob.Length);
+                deflate.Write(blob);
             }
 
             return output.ToArray();
@@ -386,14 +402,46 @@ namespace Orpheus.Core.World
             ClearDirty();
         }
 
-        /// <summary>Развернуть сжатый блок чанка.</summary>
+        /// <summary>
+        /// Развернуть сжатый блок чанка. Предел — <see cref="MaxBlobBytes"/> (backlog [сохранения]): «бомба»
+        /// из пары сотен байт, разворачивающаяся в гигабайты, отвергается на первом лишнем байте.
+        /// </summary>
         public static byte[] Decompress(byte[] compressed)
         {
+            if (compressed == null)
+            {
+                throw new ArgumentNullException(nameof(compressed));
+            }
+
             using var input = new MemoryStream(compressed, false);
             using var deflate = new DeflateStream(input, CompressionMode.Decompress);
-            using var output = new MemoryStream(LayerBytes + 64);
-            deflate.CopyTo(output);
-            return output.ToArray();
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(MaxBlobBytes + 1);
+            try
+            {
+                int total = 0;
+                while (true)
+                {
+                    int n = deflate.Read(buffer, total, MaxBlobBytes + 1 - total);
+                    if (n == 0)
+                    {
+                        break;
+                    }
+
+                    total += n;
+                    if (total > MaxBlobBytes)
+                    {
+                        throw new InvalidDataException($"Сжатый чанк разворачивается больше чем в {MaxBlobBytes} байт — испорчен.");
+                    }
+                }
+
+                var result = new byte[total];
+                Buffer.BlockCopy(buffer, 0, result, 0, total);
+                return result;
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
         }
 
         // ---------- Блок чанка: слои + записи (сеть 3.6, снимок 3.4) ----------
