@@ -203,6 +203,36 @@ namespace Orpheus.Tests
             Assert.False(Directory.Exists(Path.Combine(world, WorldFolder.BackupsDir, WorldFolder.DamagedDirName)));
         }
 
+        // ---------- Приёмка 0.4: старт прунит до трёх последних ----------
+
+        /// <summary>
+        /// «Три последних поколения» (6.5 п. 5) обязаны считаться по папке, а не только в конце удачной
+        /// записи: обрыв сразу после переименования (<c>moved@1</c>) не даёт чистке начаться, и при
+        /// повторных обрывах папка бы росла бесконечно. Старт после восстановления удаляет лишние.
+        /// </summary>
+        [Fact]
+        [Trait("Category", "Big")]
+        public void D00_Save_Kill_StartPrune_KeepsThreeNewestGenerations()
+        {
+            string world = World("prune");
+
+            for (int n = 1; n <= 4; n++)
+            {
+                var log = new List<string>();
+                RunServer(world, RunArgs(40, create: n == 1, plan: "moved@1"), killOnCrash: true, log, out _);
+                Assert.Equal(Enumerable.Range(1, n).Select(i => (ulong)i).ToArray(), Generations(world));
+            }
+
+            var witness = new List<string>();
+            Assert.Equal(0, RunServer(world, WitnessArgs(), killOnCrash: false, witness, out _));
+            (ulong number, long tick, string hash) = LoadedLine(witness);
+
+            Assert.Equal(new ulong[] { 2, 3, 4 }, Generations(world));
+            Assert.Equal(4UL, number);
+            Assert.Empty(TmpFiles(world));
+            Assert.Empty(DamagedFiles(world));
+        }
+
         // ---------- Приёмка 0.4: 1000 случайных обрывов ----------
 
         [Fact]
@@ -244,7 +274,8 @@ namespace Orpheus.Tests
                 Assert.Equal(known[number].Tick, tick);
                 Assert.Equal(known[number].Hash, hash);
                 Assert.Empty(TmpFiles(world));
-                Assert.InRange(Generations(world).Length, 1, WorldFolder.KeepGenerations + 1);
+                // «Три последних» — и после обрыва: старт прунит папку (см. D00_Save_Kill_StartPrune...).
+                Assert.InRange(Generations(world).Length, 1, WorldFolder.KeepGenerations);
 
                 loaded++;
             }

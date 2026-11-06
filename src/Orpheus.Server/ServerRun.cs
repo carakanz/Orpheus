@@ -443,6 +443,11 @@ namespace Orpheus.Server
                 log.Warn(0, "save", "целый .tmp без переименования (обрыв после сброса) — продвинут", ("file", rec.LatestName));
             }
 
+            foreach (string name in rec.Pruned)
+            {
+                log.Info(0, "save", "поколение старше трёх последних — удалено при старте", ("file", name));
+            }
+
             if (rec.Latest != null)
             {
                 opened.Loaded = WorldSave.Load(rec.Latest, opened.World, opened.BaseSha!);

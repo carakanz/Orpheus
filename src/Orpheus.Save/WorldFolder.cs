@@ -40,6 +40,9 @@ namespace Orpheus.Save
 
         /// <summary>Сколько файлов поколений проверено (SHA-256 и CRC).</summary>
         public int Checked { get; internal set; }
+
+        /// <summary>Поколения <c>.save</c> старше трёх последних — удалены при старте (см. <see cref="WorldFolder.KeepGenerations"/>).</summary>
+        public List<string> Pruned { get; } = new List<string>();
     }
 
     /// <summary>
@@ -263,6 +266,10 @@ namespace Orpheus.Save
             result.Latest = file;
             result.LatestNumber = number;
             result.LatestName = name;
+
+            // «Три последних» считаем по папке, а не только по удачной записи: после обрыва prune не
+            // успевает, и при повторных обрывах папка растёт (продвинутые .tmp, ручные правки).
+            result.Pruned.AddRange(Prune());
             return result;
         }
 
