@@ -303,26 +303,7 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            b.CopyTo(_scratch);
-            for (int i = 0; i < _delta.RemovedCount; i++)
-            {
-                RemoveFromScratch(_delta.Removed[i]);
-            }
-
-            for (int i = 0; i < _delta.ChangedCount; i++)
-            {
-                SnapshotEntity e = _delta.Changed[i];
-                int at = IndexInScratch(e.Id);
-                if (at >= 0)
-                {
-                    _scratch.Entities[at] = e;
-                }
-                else if (_scratch.Count < Snapshot.MaxEntities)
-                {
-                    _scratch.Entities[_scratch.Count++] = e;
-                }
-            }
-
+            _scratch.Count = _delta.ApplyTo(b.Entities, b.Count, _scratch.Entities);
             _scratch.Tick = tick;
             _scratch.AckFrame = _delta.AckFrame;
             _scratch.IsDelta = true;
@@ -353,34 +334,6 @@ namespace Orpheus.Net.Session
             }
 
             SnapshotApplied?.Invoke(_latest);
-        }
-
-        private int IndexInScratch(int id)
-        {
-            for (int i = 0; i < _scratch.Count; i++)
-            {
-                if (_scratch.Entities[i].Id == id)
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
-
-        private void RemoveFromScratch(int id)
-        {
-            int at = IndexInScratch(id);
-            if (at < 0)
-            {
-                return;
-            }
-
-            _scratch.Count--;
-            for (int i = at; i < _scratch.Count; i++)
-            {
-                _scratch.Entities[i] = _scratch.Entities[i + 1];
-            }
         }
     }
 }
