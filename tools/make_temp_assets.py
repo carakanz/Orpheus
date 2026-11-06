@@ -6,7 +6,8 @@
   3) строка в art/manifest.csv со статусом placeholder.
 На самой картинке — пурпурный уголок #FF00FF 8 x 8 px в левом верхнем углу.
 
-Размеры — по docs/00_vision.md, 5.1: тайл 128 x 128, персонаж 128 x 192.
+Размеры — по docs/00_vision.md, 5.1: тайл 128 x 128, персонаж 128 x 192; объекты на тайле
+(дерево, скала) — 128 x 192: нижний квадрат — сам тайл, верх заходит на тайл выше (наклон, 00 5.1).
 Картинки детерминированы (фиксированное зерно): повторный запуск даёт те же байты.
 
 Запуск из корня репозитория:  python tools/make_temp_assets.py
@@ -40,7 +41,7 @@ def jitter(rng: random.Random, color: tuple, amount: int) -> tuple:
 
 
 def make_meadow(rng: random.Random) -> Image.Image:
-    """Тайл луга: зелёный фон с пятнами и травинками."""
+    """Пол «луг» (FloorId.Grass): зелёный фон с пятнами и травинками."""
     img = Image.new("RGBA", (128, 128), (86, 140, 62, 255))
     d = ImageDraw.Draw(img)
     for _ in range(60):
@@ -53,8 +54,8 @@ def make_meadow(rng: random.Random) -> Image.Image:
     return img
 
 
-def make_rock(rng: random.Random) -> Image.Image:
-    """Тайл скалы: серый камень с плитами и трещинами."""
+def make_stone(rng: random.Random) -> Image.Image:
+    """Пол «камень» (FloorId.Stone, поле скал генератора): серые плиты с трещинами."""
     img = Image.new("RGBA", (128, 128), (112, 110, 106, 255))
     d = ImageDraw.Draw(img)
     for _ in range(14):
@@ -70,6 +71,41 @@ def make_rock(rng: random.Random) -> Image.Image:
             y += rng.randint(-14, 14)
             pts.append((x, y))
         d.line(pts, fill=(58, 56, 54, 255), width=2)
+    return img
+
+
+def make_tree(rng: random.Random) -> Image.Image:
+    """Объект «дерево» 1 x 1,5 тайла: ствол в нижнем тайле, крона заходит на тайл выше (00 5.1, наклон)."""
+    img = Image.new("RGBA", (128, 192), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    outline = (20, 36, 18, 255)
+    # тень у основания (нижний тайл — строки 64..191, центр тайла — y = 128)
+    d.ellipse([28, 150, 100, 178], fill=(0, 0, 0, 80))
+    # ствол
+    d.rectangle([56, 104, 72, 166], fill=(96, 64, 38, 255), outline=(52, 34, 20, 255))
+    # крона: несколько кругов
+    for _ in range(9):
+        cx, cy, r = 64 + rng.randint(-24, 24), 70 + rng.randint(-34, 22), rng.randint(20, 30)
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=jitter(rng, (46, 108, 40), 14), outline=outline)
+    for _ in range(40):
+        x, y = 64 + rng.randint(-40, 40), 70 + rng.randint(-46, 34)
+        if img.getpixel((max(0, min(127, x)), max(0, min(191, y))))[3] > 0:
+            d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=jitter(rng, (78, 146, 60), 18))
+    return img
+
+
+def make_rock_object(rng: random.Random) -> Image.Image:
+    """Объект «скала» 1 x 1,5 тайла: валун в нижнем тайле, верх заходит на тайл выше."""
+    img = Image.new("RGBA", (128, 192), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    outline = (36, 34, 32, 255)
+    d.ellipse([16, 150, 112, 182], fill=(0, 0, 0, 90))
+    pts = [(14, 170), (10, 128), (30, 92), (58, 70), (92, 78), (116, 112), (118, 168)]
+    d.polygon(pts, fill=(84, 80, 76, 255), outline=outline)
+    d.polygon([(30, 92), (58, 70), (92, 78), (70, 104), (40, 112)], fill=(118, 114, 108, 255), outline=outline)
+    for _ in range(5):
+        x, y = rng.randint(30, 100), rng.randint(110, 160)
+        d.line([x, y, x + rng.randint(-14, 14), y + rng.randint(4, 14)], fill=(48, 46, 44, 255), width=2)
     return img
 
 
@@ -101,9 +137,11 @@ def make_character(rng: random.Random) -> Image.Image:
 
 # имя файла → (генератор, примечание для манифеста)
 ASSETS = {
-    "TEMP_tile_meadow.png": (make_meadow, "тайл луга 128x128 (00 5.1)"),
-    "TEMP_tile_rock.png": (make_rock, "тайл скалы 128x128 (00 5.1)"),
+    "TEMP_tile_meadow.png": (make_meadow, "пол «луг» 128x128 (00 5.1)"),
+    "TEMP_tile_stone.png": (make_stone, "пол «камень» 128x128 (00 5.1)"),
     "TEMP_char_orpheus.png": (make_character, "персонаж-заглушка 128x192, опора внизу по центру (00 5.1)"),
+    "TEMP_obj_tree.png": (make_tree, "объект «дерево» 128x192, опора — центр нижнего тайла (00 5.1)"),
+    "TEMP_obj_rock.png": (make_rock_object, "объект «скала» 128x192, опора — центр нижнего тайла (00 5.1)"),
 }
 
 

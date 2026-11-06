@@ -87,6 +87,25 @@ namespace Orpheus.Editor
             Debug.Log("[setup] Renderer2D: сортировка по оси Y");
         }
 
+        static Text AddLabel(Transform parent, string name, string text, int size, Color color, float y)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            var label = go.AddComponent<Text>();
+            label.text = text;
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.fontSize = size;
+            label.color = color;
+            label.alignment = TextAnchor.UpperLeft;
+            label.raycastTarget = false;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var rt = label.rectTransform;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(24f, y);
+            rt.sizeDelta = new Vector2(1800f, size * 1.5f);
+            return label;
+        }
+
         static Sprite LoadSprite(string file)
         {
             string path = TempArt + file;
@@ -113,45 +132,44 @@ namespace Orpheus.Editor
             return tile;
         }
 
-        /// <summary>Камера, Tilemap 3 × 3, персонаж-заглушка, надпись «Orpheus — TEMP ASSETS».</summary>
+        /// <summary>
+        /// Сцена Boot (карточка 0-010): камера, общий Grid для узлов чанков, персонаж-заглушка, надписи
+        /// «Orpheus — TEMP ASSETS» и строка отладки, объект Game с <see cref="GameBoot"/> — он строит мир при запуске.
+        /// </summary>
         public static void CreateBootScene()
         {
-            Tile meadow = MakeTile("Meadow", LoadSprite("TEMP_tile_meadow.png"));
-            Tile rock = MakeTile("Rock", LoadSprite("TEMP_tile_rock.png"));
+            Tile meadow = MakeTile("FloorMeadow", LoadSprite("TEMP_tile_meadow.png"));
+            Tile stone = MakeTile("FloorStone", LoadSprite("TEMP_tile_stone.png"));
+            Tile tree = MakeTile("ObjTree", LoadSprite("TEMP_obj_tree.png"));
+            Tile rock = MakeTile("ObjRock", LoadSprite("TEMP_obj_rock.png"));
             Sprite orpheus = LoadSprite("TEMP_char_orpheus.png");
             AssetDatabase.SaveAssets();
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
-            camGo.transform.position = new Vector3(0f, 0.25f, -10f);
+            camGo.transform.position = GameBoot.CameraOffset;
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true;
-            cam.orthographicSize = 2.5f;
+            cam.orthographicSize = GameBoot.ReferenceHalfHeight;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.08f, 0.07f, 0.10f);
             cam.nearClipPlane = 0.3f;
             cam.farClipPlane = 100f;
 
+            // Общий Grid; узлы чанков (по два Tilemap) создаёт WorldView при запуске (07, 1.2).
             var gridGo = new GameObject("Grid");
             gridGo.AddComponent<Grid>().cellSize = Vector3.one;
-            var groundGo = new GameObject("Ground");
-            groundGo.transform.SetParent(gridGo.transform, false);
-            var tilemap = groundGo.AddComponent<Tilemap>();
-            var tilemapRenderer = groundGo.AddComponent<TilemapRenderer>();
-            tilemapRenderer.sortingOrder = 0;
-            // 3 × 3: скалы по углам, луг крестом; заливка одним вызовом, как в 07, 1.2
-            var cells = new TileBase[9];
-            for (int y = 0; y < 3; y++)
-                for (int x = 0; x < 3; x++)
-                    cells[y * 3 + x] = (x != 1 && y != 1) ? rock : meadow;
-            tilemap.SetTilesBlock(new BoundsInt(-1, -1, 0, 3, 3, 1), cells);
 
+            // Персонаж: опора спрайта (низ по центру) — у ног, на 0,4 тайла ниже центра круга коллизии (00 5.1).
             var heroGo = new GameObject("Orpheus_Placeholder");
-            heroGo.transform.position = new Vector3(0f, -0.4f, 0f);
-            var sr = heroGo.AddComponent<SpriteRenderer>();
+            var spriteGo = new GameObject("Sprite");
+            spriteGo.transform.SetParent(heroGo.transform, false);
+            spriteGo.transform.localPosition = new Vector3(0f, -0.4f, 0f);
+            var sr = spriteGo.AddComponent<SpriteRenderer>();
             sr.sprite = orpheus;
-            sr.sortingOrder = 10;
+            sr.sortingOrder = WorldView.ObjectOrder; // сортируется по Y вместе с объектами
+            sr.spriteSortPoint = SpriteSortPoint.Pivot;
 
             var canvasGo = new GameObject("HUD");
             var canvas = canvasGo.AddComponent<Canvas>();
@@ -160,21 +178,18 @@ namespace Orpheus.Editor
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 1f;
-            var labelGo = new GameObject("TempLabel");
-            labelGo.transform.SetParent(canvasGo.transform, false);
-            var label = labelGo.AddComponent<Text>();
-            label.text = "Orpheus — TEMP ASSETS";
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            label.fontSize = 40;
-            label.color = new Color(1f, 0f, 1f); // #FF00FF — цвет пометки заглушек
-            label.alignment = TextAnchor.UpperLeft;
-            label.raycastTarget = false;
-            var rt = label.rectTransform;
-            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(24f, -24f);
-            rt.sizeDelta = new Vector2(900f, 60f);
+            AddLabel(canvasGo.transform, "TempLabel", "Orpheus — TEMP ASSETS", 40, new Color(1f, 0f, 1f), -24f); // #FF00FF — цвет пометки заглушек
+            Text debug = AddLabel(canvasGo.transform, "DebugText", "", 24, new Color(1f, 1f, 1f, 0.85f), -76f);
 
-            new GameObject("Boot").AddComponent<SmokeExit>();
+            var game = new GameObject("Game").AddComponent<GameBoot>();
+            game.TileMeadow = meadow;
+            game.TileStone = stone;
+            game.TileTree = tree;
+            game.TileRock = rock;
+            game.Grid = gridGo.transform;
+            game.Character = heroGo.transform;
+            game.Camera = cam;
+            game.DebugText = debug;
 
             if (!AssetDatabase.IsValidFolder("Assets/Scenes")) AssetDatabase.CreateFolder("Assets", "Scenes");
             if (!EditorSceneManager.SaveScene(scene, BootScenePath))
