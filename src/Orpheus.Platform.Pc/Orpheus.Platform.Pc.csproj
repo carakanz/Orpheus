@@ -9,6 +9,11 @@
     <TargetFramework>netstandard2.1</TargetFramework>
   </PropertyGroup>
 
+  <!-- Тест флагов сброса (0-016) подменяет системные вызовы записи через внутренний шов PcFileCalls. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Orpheus.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Orpheus.Save\Orpheus.Save.csproj" />
   </ItemGroup>
