@@ -39,8 +39,11 @@ namespace Orpheus.Net.Session
         private readonly byte[] _buf = new byte[NetSettings.MaxUnreliablePayload];
         private Snapshot _latest = new Snapshot();
         private Snapshot _scratch = new Snapshot();
+        private Snapshot _base = new Snapshot();
+        private readonly SnapshotDeltaMessage _delta = new SnapshotDeltaMessage();
         private SnapshotLayout _layout;
         private bool _hasSnapshot;
+        private bool _hasBase;
         private InputMessage _input;
 
         public NetClient(ITransport transport, int serverPeer, string name, NetVersion version)
@@ -97,8 +100,17 @@ namespace Orpheus.Net.Session
         /// <summary>Пропущено тактов между принятыми снимками (потери).</summary>
         public long SnapshotsMissed { get; private set; }
 
+        /// <summary>Дельт применено (0-014).</summary>
+        public long DeltasApplied { get; private set; }
+
+        /// <summary>Дельт отброшено (база не совпала с <c>BaselineTick</c> — ждём полный кадр).</summary>
+        public long DeltasUnmerged { get; private set; }
+
         /// <summary>Испорченных сообщений.</summary>
         public long BadMessages { get; private set; }
+
+        /// <summary>Последняя отвергнутая схема (диагностика в тестах и логах).</summary>
+        public string? LastBadMessage { get; private set; }
 
         /// <summary>Часов принято.</summary>
         public long ClocksReceived { get; private set; }
@@ -196,6 +208,9 @@ namespace Orpheus.Net.Session
                     case MessageType.Snapshot when State == NetClientState.InGame:
                         OnSnapshot(data);
                         break;
+                    case MessageType.SnapshotDelta when State == NetClientState.InGame:
+                        OnDelta(data);
+                        break;
                     case MessageType.Clock when State == NetClientState.InGame:
                         ClockMessage c = ClockMessage.Read(data);
                         ClocksReceived++;
@@ -209,12 +224,14 @@ namespace Orpheus.Net.Session
                         break; // снимок обогнал «вход принят» (другой канал) — пропускаем
                     default:
                         BadMessages++;
+                        LastBadMessage = $"тип {data[0]} в состоянии {State}";
                         break;
                 }
             }
-            catch (ProtocolException)
+            catch (ProtocolException e)
             {
                 BadMessages++;
+                LastBadMessage = e.Message;
             }
         }
 
@@ -240,6 +257,61 @@ namespace Orpheus.Net.Session
             }
 
             _scratch.Read(data, _layout);
+            _scratch.IsDelta = false;
+            CommitSnapshot();
+        }
+
+        /// <summary>
+        /// Дельта (0-014): склеить с базовым полным кадром в новый полный; база не совпала — отбросить
+        /// и ждать контрольный кадр (сервер увидит старый <c>LastSnapshot</c> и отошлёт полный).
+        /// </summary>
+        private void OnDelta(ReadOnlySpan<byte> data)
+        {
+            uint tick = Snapshot.PeekTick(data);
+            if (_hasSnapshot && (int)(tick - _latest.Tick) <= 0)
+            {
+                SnapshotsStale++;
+                return;
+            }
+
+            _delta.Read(data, _layout);
+            if (!_hasBase || _base.Tick != _delta.BaselineTick)
+            {
+                DeltasUnmerged++;
+                return;
+            }
+
+            _base.CopyTo(_scratch);
+            for (int i = 0; i < _delta.RemovedCount; i++)
+            {
+                RemoveFromScratch(_delta.Removed[i]);
+            }
+
+            for (int i = 0; i < _delta.ChangedCount; i++)
+            {
+                SnapshotEntity e = _delta.Changed[i];
+                int at = IndexInScratch(e.Id);
+                if (at >= 0)
+                {
+                    _scratch.Entities[at] = e;
+                }
+                else if (_scratch.Count < Snapshot.MaxEntities)
+                {
+                    _scratch.Entities[_scratch.Count++] = e;
+                }
+            }
+
+            _scratch.Tick = tick;
+            _scratch.AckFrame = _delta.AckFrame;
+            _scratch.IsDelta = true;
+            DeltasApplied++;
+            CommitSnapshot();
+        }
+
+        /// <summary>Собранный в <see cref="_scratch"/> полный снимок становится <see cref="Latest"/> и базой.</summary>
+        private void CommitSnapshot()
+        {
+            uint tick = _scratch.Tick;
             if (_hasSnapshot)
             {
                 SnapshotsMissed += tick - _latest.Tick - 1;
@@ -249,6 +321,8 @@ namespace Orpheus.Net.Session
             _latest = _scratch;
             _scratch = t;
             _hasSnapshot = true;
+            _hasBase = true;
+            _latest.CopyTo(_base);
             SnapshotsApplied++;
             if ((int)(tick - ServerTick) > 0)
             {
@@ -256,6 +330,34 @@ namespace Orpheus.Net.Session
             }
 
             SnapshotApplied?.Invoke(_latest);
+        }
+
+        int IndexInScratch(int id)
+        {
+            for (int i = 0; i < _scratch.Count; i++)
+            {
+                if (_scratch.Entities[i].Id == id)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        void RemoveFromScratch(int id)
+        {
+            int at = IndexInScratch(id);
+            if (at < 0)
+            {
+                return;
+            }
+
+            _scratch.Count--;
+            for (int i = at; i < _scratch.Count; i++)
+            {
+                _scratch.Entities[i] = _scratch.Entities[i + 1];
+            }
         }
     }
 }

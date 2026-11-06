@@ -81,6 +81,15 @@ namespace Orpheus.Server
 
         /// <summary>Сеть: наибольший снимок, байт.</summary>
         public int MaxSnapshotBytes { get; set; }
+
+        /// <summary>Сеть: дельт отправлено (0-014).</summary>
+        public long DeltasSent { get; set; }
+
+        /// <summary>Сеть: байт в дельтах (0-014).</summary>
+        public long DeltaBytes { get; set; }
+
+        /// <summary>Сеть: контрольных полных кадров отправлено (0-014).</summary>
+        public long FullFramesSent { get; set; }
     }
 
     /// <summary>
@@ -204,9 +213,14 @@ namespace Orpheus.Server
                         result.SnapshotsSent = net.SnapshotsSent;
                         result.SnapshotsTruncated = net.SnapshotsTruncated;
                         result.MaxSnapshotBytes = net.MaxSnapshotBytes;
+                        result.DeltasSent = net.DeltasSent;
+                        result.DeltaBytes = net.DeltaBytes;
+                        result.FullFramesSent = net.FullSent;
                         log.Info(sim.Tick, "net", "сеть: итог", ("logins", net.LoginsAccepted), ("rejected", net.LoginsRejected),
                             ("disconnects", net.Disconnects), ("snapshots", net.SnapshotsSent), ("snapshotBytes", net.SnapshotBytes),
                             ("maxSnapshotBytes", net.MaxSnapshotBytes), ("truncated", net.SnapshotsTruncated),
+                            ("deltas", net.DeltasSent), ("deltaBytes", net.DeltaBytes), ("fullFrames", net.FullSent),
+                            ("maxDeltaBytes", net.MaxDeltaBytes),
                             ("inputs", net.InputsAccepted), ("inputsDropped", net.InputsDropped));
                     }
                 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -161,6 +162,93 @@ namespace Orpheus.Tests
             }
 
             Assert.Equal(a, Encode(b => back.Write(b, layout)));
+        }
+
+        // ---------- Дельта снимка: кодек (карточка 0-014, docs/07 4.3) ----------
+
+        [Theory]
+        [InlineData(1024)]
+        [InlineData(4096)]
+        public void D00_Net_Codec_SnapshotDelta_RoundTripBytes(int size)
+        {
+            var layout = new SnapshotLayout(MapShape.World(size));
+            var rng = new DetRandom(5);
+            int removedN = 12;
+            int changedN = 30;
+            var pos = new WorldPos[changedN];
+            var buf = new byte[NetSettings.MaxUnreliablePayload];
+
+            var w = new SnapshotDeltaWriter(buf, layout, 123_456, 246_912, 123_400);
+            for (int i = 0; i < removedN; i++)
+            {
+                Assert.True(w.TryAddRemoved(i * 7 + 1));
+            }
+
+            for (int i = 0; i < changedN; i++)
+            {
+                pos[i] = new WorldPos(rng.NextInt(size * U - 1), rng.NextInt(size * U - 1));
+                Assert.True(w.TryAdd(i * 11, (byte)(i % 3), pos[i], (byte)(i % 9)));
+            }
+
+            int len = w.Finish();
+            Assert.Equal(SnapshotDeltaMessage.HeaderBytes + (removedN * SnapshotDeltaMessage.RemovedIdBits + changedN * layout.EntityBits + 7) / 8, len);
+
+            var d = new SnapshotDeltaMessage();
+            d.Read(new ReadOnlySpan<byte>(buf, 0, len), layout);
+            Assert.Equal(123_456u, d.Tick);
+            Assert.Equal(246_912u, d.AckFrame);
+            Assert.Equal(123_400u, d.BaselineTick);
+            Assert.Equal(removedN, d.RemovedCount);
+            Assert.Equal(changedN, d.ChangedCount);
+            for (int i = 0; i < removedN; i++)
+            {
+                Assert.Equal(i * 7 + 1, d.Removed[i]);
+            }
+
+            for (int i = 0; i < changedN; i++)
+            {
+                Assert.Equal(i * 11, d.Changed[i].Id);
+                Assert.Equal((byte)(i % 3), d.Changed[i].Kind);
+                Assert.Equal(SnapshotLayout.Quantize(pos[i]), d.Changed[i].Position); // на проводе — квант 1/32
+                Assert.Equal((byte)(i % 9), d.Changed[i].Direction);
+            }
+
+            // Тот же буфер, прочитанный как полный снимок, — не снимок (тип 7).
+            Assert.Equal((byte)MessageType.SnapshotDelta, buf[0]);
+        }
+
+        [Fact]
+        public void D00_Net_Codec_SnapshotDelta_Budget_StopsAtLimit()
+        {
+            var layout = new SnapshotLayout(MapShape.World(1024));
+            var buf = new byte[NetSettings.MaxUnreliablePayload];
+            const int limit = 60;
+
+            // Заголовок + 255 удалённых id: 15 + 510 байт — в 1200 лезут, в 100 — нет.
+            Assert.True(SnapshotDeltaWriter.FitsHeader(Snapshot.MaxEntities, layout));
+            Assert.False(SnapshotDeltaWriter.FitsHeader(Snapshot.MaxEntities, layout, 100));
+
+            var w = new SnapshotDeltaWriter(buf, layout, 1, 2, 3, limit);
+            int n = 0;
+            while (w.TryAdd(n, 1, new WorldPos(0, 0), 0))
+            {
+                n++;
+            }
+
+            Assert.True(n >= 3, $"сущностей в 60 байт: {n}");
+            Assert.InRange(w.Finish(), SnapshotDeltaMessage.HeaderBytes, limit);
+        }
+
+        [Fact]
+        public void D00_Net_Codec_SnapshotDelta_OutsideMap_Throws()
+        {
+            var layout = new SnapshotLayout(MapShape.World(1024));
+            var buf = new byte[64];
+            var w = new SnapshotDeltaWriter(buf, layout, 1, 2, 3);
+            Assert.True(w.TryAdd(5, 1, new WorldPos(0, 0), 9)); // код направления > 8
+            int len = w.Finish();
+            var d = new SnapshotDeltaMessage();
+            Assert.Throws<ProtocolException>(() => d.Read(new ReadOnlySpan<byte>(buf, 0, len), layout));
         }
 
         [Fact]
@@ -508,6 +596,158 @@ namespace Orpheus.Tests
             Assert.Equal(1, h.Bots[1].Client.Latest.Count);
         }
 
+        // ---------- Дельты снимков на связи в памяти (карточка 0-014, docs/07 4.3) ----------
+
+        [Fact]
+        public void D00_Net_Loopback_Deltas_SameWorldAsFullFrames_FewerBytes()
+        {
+            // 6 ботов: двое ходят (меняются каждый такт), четверо стоят — дельта должна быть сильно меньше полного.
+            var scripts = new[] { "wander", "wander", "idle", "idle", "idle", "idle" };
+            var d = RunWithKeyframes(scripts, keyframePeriod: 30, ticks: 300);
+            var f = RunWithKeyframes(scripts, keyframePeriod: 1, ticks: 300);
+
+            Assert.Equal(f.Hash, d.Hash);         // мир на сервере — тот же
+            Assert.True(f.Pos.SequenceEqual(d.Pos), string.Join("\n", Diagnostics)); // и что видят клиенты — то же
+            Assert.InRange(d.Deltas, 200, 300);   // 29 тактов из 30 — дельты
+            Assert.True(d.Full >= 10, $"{d.Full}");
+            Assert.True(d.MaxErr <= 4, $"{d.MaxErr}"); // каждая склейка = позиция сервера в такт снимка
+            Assert.True(d.Bytes * 3 < f.Bytes * 2, $"байт: с дельтами {d.Bytes}, полными {f.Bytes}");
+            _out.WriteLine($"байт/снимок: дельты {d.DeltaBytes / (double)d.Deltas:0.#}, " +
+                           $"полный {f.Bytes / (double)f.Sent:0.#}, всего с дельтами {d.Bytes / (double)d.Sent:0.#} " +
+                           $"(контрольных кадров {d.Full}, максимальная дельта {d.MaxDelta} байт)");
+        }
+
+        private static (ulong Hash, long[] Pos, long Bytes, long Sent, long Deltas, long DeltaBytes, long Full,
+                        long Unmerged, int MaxErr, int MaxDelta) RunWithKeyframes(string[] scripts, uint keyframePeriod, int ticks)
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
+            var h = new LoopbackHarness(world, scripts.Length, scripts: scripts);
+            h.Server.KeyframePeriod = keyframePeriod;
+            h.Run(ticks);
+
+            var pos = new long[scripts.Length];
+            for (int i = 0; i < scripts.Length; i++)
+            {
+                NetClient c = h.Bots[i].Client;
+                Assert.Equal(NetClientState.InGame, c.State);
+                Assert.True(c.Latest.TryFind(c.EntityId, out SnapshotEntity e), "нет своей сущности в снимке");
+                pos[i] = ((long)e.Position.X << 32) | (uint)e.Position.Y;
+                Diagnostics.Add($"  период {keyframePeriod} бот{i} #{c.EntityId}: t{c.Latest.Tick} n{c.Latest.Count} " +
+                                $"[{Ids(c.Latest)}] примен {c.SnapshotsApplied} дельт {c.DeltasApplied} несклеено {c.DeltasUnmerged} " +
+                                $"устар {c.SnapshotsStale} плохих {c.BadMessages} [{c.LastBadMessage}]");
+            }
+
+            Diagnostics.Add($"  период {keyframePeriod}: полных {h.Server.FullSent} дельт {h.Server.DeltasSent} " +
+                            $"обрезано {h.Server.SnapshotsTruncated} такт {h.Sim.Tick}");
+
+            var r = (StateHash.Compute(h.Sim).Total, pos, h.Server.SnapshotBytes, h.Server.SnapshotsSent,
+                     h.Server.DeltasSent, h.Server.DeltaBytes, h.Server.FullSent, SumUnmerged(h.Bots),
+                     h.MaxErrorUnits, h.Server.MaxDeltaBytes);
+            h.Dispose();
+            return r;
+        }
+
+        private static long SumUnmerged(List<NetBot> bots)
+        {
+            long n = 0;
+            foreach (NetBot b in bots)
+            {
+                n += b.Client.DeltasUnmerged;
+            }
+
+            return n;
+        }
+
+        /// <summary>Диагностика склейки (0-014): строки наружу, когда тест падает.</summary>
+        private static readonly List<string> Diagnostics = new List<string>();
+
+        private static string Ids(Snapshot s)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < s.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(',');
+                }
+
+                sb.Append(s.Entities[i].Id).Append(':').Append(s.Entities[i].Position.X).Append(',').Append(s.Entities[i].Position.Y);
+            }
+
+            return sb.ToString();
+        }
+
+        [Fact]
+        public void D00_Net_Loopback_Deltas_Loss1pct_RecoversByFullFrame()
+        {
+            var sim = NetSimSettings.FromRtt(100, 10, 1.0, 77);
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
+            using var h = new LoopbackHarness(world, 2, sim: sim);
+            h.Run(600);
+
+            foreach (NetBot b in h.Bots)
+            {
+                NetClient c = b.Client;
+                Assert.Equal(NetClientState.InGame, c.State);
+                Assert.True(c.SnapshotsApplied > 550, $"{c.SnapshotsApplied}");
+                Assert.True(c.SnapshotsMissed > 0, "потерянных снимков нет — тест не про потери");
+                Assert.True(c.DeltasApplied > 300, $"{c.DeltasApplied}");
+                Assert.True(c.DeltasUnmerged < c.SnapshotsApplied / 4, $"{c.DeltasUnmerged} при {c.SnapshotsApplied}");
+                Assert.True(c.Latest.Count == 2, $"t{c.Latest.Tick} n{c.Latest.Count} [{Ids(c.Latest)}] примен {c.SnapshotsApplied} " +
+                                                 $"дельт {c.DeltasApplied} несклеено {c.DeltasUnmerged} устар {c.SnapshotsStale} " +
+                                                 $"плохих {c.BadMessages} [{c.LastBadMessage}]; полных {h.Server.FullSent} дельт {h.Server.DeltasSent}");
+            }
+
+            // Каждое состояние после склейки — точная позиция сервера в такт снимка; отставание — меньше контрольного кадра.
+            Assert.True(h.MaxErrorUnits <= 4, $"{h.MaxErrorUnits}");
+            Assert.True(h.MaxLagTicks <= 20, $"{h.MaxLagTicks}");
+            Assert.True(h.Server.FullSent >= 20, $"{h.Server.FullSent}");
+            Assert.Equal(0, h.Server.SnapshotsTruncated);
+            _out.WriteLine($"потерь {h.Bots[0].Client.SnapshotsMissed}, дельт {h.Bots[0].Client.DeltasApplied}, " +
+                           $"не склеено {h.Bots[0].Client.DeltasUnmerged}, полных кадров {h.Server.FullSent}, " +
+                           $"отставание ≤ {h.MaxLagTicks} тактов");
+        }
+
+        [Fact]
+        public void D00_Net_Loopback_Deltas_Leave_RemovalReachesOthers()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 3);
+            using var h = new LoopbackHarness(world, 3);
+            h.Run(60);
+            int gone = h.Bots[0].Client.EntityId;
+            h.Bots[0].Client.Disconnect();
+            h.Run(20);
+
+            for (int i = 1; i < 3; i++)
+            {
+                NetClient c = h.Bots[i].Client;
+                Assert.Equal(2, c.Latest.Count);
+                Assert.False(c.Latest.TryFind(gone, out _), "удалённая сущность осталась после склейки");
+                Assert.True(c.DeltasApplied > 10, $"{c.DeltasApplied}");
+            }
+        }
+
+        [Fact]
+        public void D00_Net_Loopback_Deltas_EightPlayers_WithinBudget()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
+            using var h = new LoopbackHarness(world, 8);
+            h.Run(200);
+
+            Assert.Equal(0, h.Server.SnapshotsTruncated);
+            Assert.InRange(h.Server.MaxSnapshotBytes, 1, NetSettings.SnapshotBudget);
+            Assert.InRange(h.Server.MaxDeltaBytes, 1, NetSettings.SnapshotBudget);
+            foreach (NetBot b in h.Bots)
+            {
+                NetClient c = b.Client;
+                Assert.Equal(8, c.Latest.Count);
+                Assert.Equal(c.EntityId, c.Latest.Entities[0].Id); // своя сущность — первой и после склейки
+                Assert.True(c.DeltasApplied > 150, $"{c.DeltasApplied}");
+            }
+
+            _out.WriteLine($"8 игроков: максимальная дельта {h.Server.MaxDeltaBytes} байт, полный {h.Server.MaxSnapshotBytes}");
+        }
+
         /// <summary>
         /// Сервер и боты на связи в памяти, виртуальное время: кадр 60 Гц у ботов, такт 30 Гц у сервера.
         /// Сверяет каждый принятый снимок со своей позицией на сервере в том же такте.
@@ -518,7 +758,7 @@ namespace Orpheus.Tests
             private readonly Dictionary<long, WorldPos> _history = new Dictionary<long, WorldPos>();
             private long _frame;
 
-            public LoopbackHarness(WorldModel world, int bots, int maxPlayers = 16, NetVersion? clientVersion = null, NetSimSettings? sim = null)
+            public LoopbackHarness(WorldModel world, int bots, int maxPlayers = 16, NetVersion? clientVersion = null, NetSimSettings? sim = null, string[]? scripts = null)
             {
                 Sim = new Simulation(world, maxEntities: 64);
                 _serverTransport = LoopbackTransport.CreateServer(maxPlayers + 8);
@@ -535,7 +775,8 @@ namespace Orpheus.Tests
 
                     var c = new NetClient(t, LoopbackTransport.ServerPeer, $"bot{i}", clientVersion ?? NetModule.Version);
                     c.SnapshotApplied = snap => Check(c, snap);
-                    Bots.Add(new NetBot(c, "wander", i));
+                    string script = scripts != null && scripts.Length > 0 ? scripts[i % scripts.Length] : "wander";
+                    Bots.Add(new NetBot(c, script, i));
                 }
             }
 

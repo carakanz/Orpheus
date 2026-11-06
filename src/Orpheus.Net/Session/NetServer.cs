@@ -52,6 +52,53 @@ namespace Orpheus.Net.Session
             public uint LastFrame;
             public bool HasFrame;
             public uint LastSnapshotAck;
+
+            /// <summary>Кольцо отправленных снимков для дельт (0-014); создаётся при входе в игру.</summary>
+            public SentRing? Ring;
+        }
+
+        /// <summary>
+        /// Кольцо «что клиент имеет»: состояние (сущности), отправленное игроку на такте tick.
+        /// Дельта строится от записи с тактом = подтверждение клиента (<c>LastSnapshot</c> ввода).
+        /// </summary>
+        private sealed class SentRing
+        {
+            public const int Depth = 32; // 1 с снимков 30 Гц: клиент, подтверждая, всегда внутри
+
+            public readonly uint[] Tick = new uint[Depth];
+            public readonly int[] Count = new int[Depth];
+            public readonly SnapshotEntity[][] Ents = new SnapshotEntity[Depth][];
+            public int Head;
+
+            public SentRing()
+            {
+                for (int i = 0; i < Depth; i++)
+                {
+                    Ents[i] = new SnapshotEntity[Snapshot.MaxEntities];
+                }
+            }
+
+            /// <summary>Индекс записи с тактом <paramref name="tick"/>; нет (клиент подтвердил старое) — −1.</summary>
+            public int Find(uint tick)
+            {
+                for (int i = 0; i < Depth; i++)
+                {
+                    if (Tick[i] == tick)
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+
+            public void Push(uint tick, SnapshotEntity[] src, int count)
+            {
+                Tick[Head] = tick;
+                Count[Head] = count;
+                Array.Copy(src, Ents[Head], count);
+                Head = (Head + 1) % Depth;
+            }
         }
 
         private readonly ITransport _transport;
@@ -62,7 +109,16 @@ namespace Orpheus.Net.Session
         private readonly SnapshotLayout _layout;
         private readonly List<Player> _players = new List<Player>();
         private readonly byte[] _buf = new byte[NetSettings.MaxUnreliablePayload];
+        private readonly SnapshotEntity[] _cur = new SnapshotEntity[Snapshot.MaxEntities];
+        private readonly SnapshotEntity[] _applied = new SnapshotEntity[Snapshot.MaxEntities];
+        private readonly SnapshotEntity[] _merged = new SnapshotEntity[Snapshot.MaxEntities];
+        private readonly int[] _removedIds = new int[Snapshot.MaxEntities];
         private int _spawned;
+
+        /// <summary>
+        /// Контрольный полный кадр — раз в столько тактов (30 = 1 с; 0-014, 4.3). 1 — всегда полный (эталон для тестов).
+        /// </summary>
+        public uint KeyframePeriod { get; set; } = 30;
 
         /// <param name="transport">Транспорт сервера (слушает).</param>
         /// <param name="sim">Такт; сущности игроков добавляются и убираются вне такта.</param>
@@ -112,6 +168,18 @@ namespace Orpheus.Net.Session
         /// <summary>Снимков, обрезанных по бюджету 1200 байт (4.3: ошибка в лог).</summary>
         public long SnapshotsTruncated { get; private set; }
 
+        /// <summary>Дельт отправлено / байт (0-014).</summary>
+        public long DeltasSent { get; private set; }
+
+        /// <inheritdoc cref="DeltasSent"/>
+        public long DeltaBytes { get; private set; }
+
+        /// <summary>Полных (контрольных) кадров отправлено.</summary>
+        public long FullSent { get; private set; }
+
+        /// <summary>Наибольшая дельта, байт.</summary>
+        public int MaxDeltaBytes { get; private set; }
+
         /// <summary>Пакетов ввода принято / отброшено (старые, испорченные).</summary>
         public long InputsAccepted { get; private set; }
 
@@ -137,7 +205,11 @@ namespace Orpheus.Net.Session
         /// <summary>До такта: события транспорта, вход, ввод.</summary>
         public void Poll(long nowMicros) => _transport.Poll(nowMicros, this);
 
-        /// <summary>После такта: полный снимок каждому игроку в игре.</summary>
+        /// <summary>
+        /// После такта: снимок каждому игроку в игре — контрольный полный раз в <see cref="KeyframePeriod"/>,
+        /// между ними дельта к подтверждённому клиентом снимку (0-014, 4.3). Кольцо отправленных состояний
+        /// на игрока хранит, что клиент имеет; состояние после дельты — база следующей.
+        /// </summary>
         public void SendSnapshots()
         {
             ReadOnlySpan<SimEntity> entities = _sim.Entities;
@@ -156,30 +228,96 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                var w = new SnapshotWriter(_buf, _layout, tick, pl.LastFrame);
-                WorldPos self = entities[selfSlot].Mover.Position;
-                bool truncated = !Add(ref w, entities[selfSlot]);
-                for (int i = 0; i < entities.Length && !truncated; i++)
+                int curCount = BuildView(entities, selfSlot, _cur);
+                SentRing ring = pl.Ring ??= new SentRing();
+                int bi = ring.Find(pl.LastSnapshotAck);
+                bool keyframe = tick % KeyframePeriod == 0;
+
+                int len;
+                bool truncated = false;
+                if (bi >= 0 && !keyframe)
                 {
-                    if (i == selfSlot)
+                    SnapshotEntity[] baseEnts = ring.Ents[bi];
+                    int baseCount = ring.Count[bi];
+
+                    int removedN = 0;
+                    bool removedFits = true;
+                    for (int i = 0; i < baseCount; i++)
                     {
-                        continue;
+                        int id = baseEnts[i].Id;
+                        if (IndexIn(_cur, curCount, id) < 0)
+                        {
+                            // Дельта умеет нести id до 2^16 и не больше 255 удалений за такт — иначе полный кадр.
+                            if (id >= 1 << SnapshotDeltaMessage.RemovedIdBits || removedN == Snapshot.MaxEntities)
+                            {
+                                removedFits = false;
+                                break;
+                            }
+
+                            _removedIds[removedN++] = id;
+                        }
                     }
 
-                    Int2 d = Torus.Delta(_sim.Shape, self, entities[i].Mover.Position);
-                    if (Math.Abs(d.X) <= InterestHalfWidthUnits && Math.Abs(d.Y) <= InterestHalfHeightUnits)
+                    int changedN = 0;
+                    for (int i = 0; i < curCount; i++)
                     {
-                        truncated = !Add(ref w, entities[i]);
+                        if (DiffersFrom(baseEnts, baseCount, _cur[i]) && changedN < Snapshot.MaxEntities)
+                        {
+                            _applied[changedN++] = _cur[i];
+                        }
+                    }
+
+                    if (removedFits && SnapshotDeltaWriter.FitsHeader(removedN, _layout))
+                    {
+                        var w = new SnapshotDeltaWriter(_buf, _layout, tick, pl.LastFrame, pl.LastSnapshotAck);
+                        for (int i = 0; i < removedN; i++)
+                        {
+                            w.TryAddRemoved(_removedIds[i]);
+                        }
+
+                        int applied = 0;
+                        for (int i = 0; i < changedN; i++)
+                        {
+                            SnapshotEntity e = _applied[i];
+                            if (!w.TryAdd(e.Id, e.Kind, e.Position, e.Direction))
+                            {
+                                truncated = true;
+                                break;
+                            }
+
+                            _applied[applied++] = e;
+                        }
+
+                        len = w.Finish();
+                        int mergedCount = BuildMerged(baseEnts, baseCount, _cur, curCount, _applied, applied, _merged);
+                        ring.Push(tick, _merged, mergedCount);
+                        DeltasSent++;
+                        DeltaBytes += len;
+                        if (len > MaxDeltaBytes)
+                        {
+                            MaxDeltaBytes = len;
+                        }
+                    }
+                    else
+                    {
+                        len = WriteFull(tick, pl, curCount, out truncated);
+                        ring.Push(tick, _cur, curCount);
+                        FullSent++;
                     }
                 }
+                else
+                {
+                    len = WriteFull(tick, pl, curCount, out truncated);
+                    ring.Push(tick, _cur, curCount);
+                    FullSent++;
+                }
 
-                int len = w.Finish();
                 if (truncated)
                 {
                     SnapshotsTruncated++;
                     if (SnapshotsTruncated == 1 || SnapshotsTruncated % 300 == 0)
                     {
-                        Log?.Invoke(NetLogLevel.Error, $"снимок для #{pl.EntityId} больше {NetSettings.SnapshotBudget} байт: обрезан до {w.Count} сущностей (всего обрезано {SnapshotsTruncated})");
+                        Log?.Invoke(NetLogLevel.Error, $"снимок для #{pl.EntityId} больше {NetSettings.SnapshotBudget} байт: обрезан (всего обрезано {SnapshotsTruncated})");
                     }
                 }
 
@@ -191,6 +329,107 @@ namespace Orpheus.Net.Session
                     MaxSnapshotBytes = len;
                 }
             }
+        }
+
+        /// <summary>Полный снимок из <see cref="_cur"/>; возвращает длину, truncated — если не всё влезло.</summary>
+        private int WriteFull(uint tick, Player pl, int curCount, out bool truncated)
+        {
+            var w = new SnapshotWriter(_buf, _layout, tick, pl.LastFrame);
+            truncated = false;
+            for (int i = 0; i < curCount; i++)
+            {
+                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction))
+                {
+                    truncated = true;
+                    break;
+                }
+            }
+
+            return w.Finish();
+        }
+
+        /// <summary>Интерес-окно вокруг себя (свой — первым), позиции квантованы; число сущностей.</summary>
+        private int BuildView(ReadOnlySpan<SimEntity> entities, int selfSlot, SnapshotEntity[] cur)
+        {
+            WorldPos self = entities[selfSlot].Mover.Position;
+            int n = 0;
+            cur[n++] = Quantize(entities[selfSlot]);
+            for (int i = 0; i < entities.Length && n < Snapshot.MaxEntities; i++)
+            {
+                if (i == selfSlot)
+                {
+                    continue;
+                }
+
+                Int2 d = Torus.Delta(_sim.Shape, self, entities[i].Mover.Position);
+                if (Math.Abs(d.X) <= InterestHalfWidthUnits && Math.Abs(d.Y) <= InterestHalfHeightUnits)
+                {
+                    cur[n++] = Quantize(entities[i]);
+                }
+            }
+
+            return n;
+        }
+
+        private static SnapshotEntity Quantize(in SimEntity e) => new SnapshotEntity
+        {
+            Id = e.Id,
+            Kind = e.Kind,
+            Position = SnapshotLayout.Quantize(e.Mover.Position),
+            Direction = e.Input.DirectionCode,
+        };
+
+        private static bool DiffersFrom(SnapshotEntity[] ents, int count, SnapshotEntity e)
+        {
+            int at = IndexIn(ents, count, e.Id);
+            return at < 0 || ents[at].Kind != e.Kind || ents[at].Position != e.Position || ents[at].Direction != e.Direction;
+        }
+
+        /// <summary>
+        /// Что будет у клиента после дельты: базовые сущности, применённые изменения (первый <paramref name="appliedCount"/>
+        /// из <paramref name="applied"/>, в порядке <paramref name="cur"/>), удалённые — прочь; обрезанные изменения → старая версия.
+        /// </summary>
+        private static int BuildMerged(SnapshotEntity[] baseEnts, int baseCount, SnapshotEntity[] cur, int curCount,
+                                       SnapshotEntity[] applied, int appliedCount, SnapshotEntity[] merged)
+        {
+            int mn = 0;
+            int ci = 0;
+            for (int i = 0; i < curCount; i++)
+            {
+                SnapshotEntity e = cur[i];
+                int at = IndexIn(baseEnts, baseCount, e.Id);
+                bool changed = at < 0 || baseEnts[at].Kind != e.Kind || baseEnts[at].Position != e.Position || baseEnts[at].Direction != e.Direction;
+                if (changed)
+                {
+                    if (ci < appliedCount)
+                    {
+                        merged[mn++] = applied[ci++];
+                    }
+                    else if (at >= 0)
+                    {
+                        merged[mn++] = baseEnts[at];
+                    }
+                }
+                else
+                {
+                    merged[mn++] = e;
+                }
+            }
+
+            return mn;
+        }
+
+        private static int IndexIn(SnapshotEntity[] ents, int count, int id)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (ents[i].Id == id)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         /// <summary>Часы всем в игре (2.4: после перегрузки, когда такты не догнаны).</summary>

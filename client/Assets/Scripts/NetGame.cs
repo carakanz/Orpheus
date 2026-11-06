@@ -487,7 +487,8 @@ namespace Orpheus.Client
             _g.DebugText.text =
                 $"в игре  сервер {_host}:{_port}  seed 0x{c.Accept.WorldSeed:X}  {_map.Width}×{_map.Height}  " +
                 $"такт {c.ServerTick}  tile {t.X},{t.Y}  сущ {Math.Min(_seen.Count + 1, 99)}  окно {_view!.Count}/{ChunkWindow.MaxChunks}  " +
-                $"снимки {snapsPerSec:0.0}/с  rtt {(rtt >= 0 ? rtt + " мс" : "—")}  ввод {c.InputsSent}  " +
+                $"снимки {snapsPerSec:0.0}/с  дельт {c.DeltasApplied} (не склеено {c.DeltasUnmerged})  " +
+                $"rtt {(rtt >= 0 ? rtt + " мс" : "—")}  ввод {c.InputsSent}  " +
                 $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} расх {_pred?.MaxDevUnits ?? 0}u  " +
                 $"zoom x{_g.Zoom:0.00}  {fps:0} fps";
         }
@@ -519,9 +520,17 @@ namespace Orpheus.Client
                     return;
                 }
 
+                if (_client.DeltasApplied == 0 || _client.DeltasUnmerged * 10 > _client.SnapshotsApplied)
+                {
+                    Fail($"[smoke] FAILED: дельты (0-014): применено {_client.DeltasApplied}, " +
+                         $"не склеено {_client.DeltasUnmerged} при снимках {_client.SnapshotsApplied}");
+                    return;
+                }
+
                 Debug.Log($"[smoke] done: вход #{_client.EntityId}, снимков {_client.SnapshotsApplied} " +
                           $"(устаревших {_client.SnapshotsStale}, потерь тактов {_client.SnapshotsMissed}), " +
                           $"ввода отправлено {_client.InputsSent}, плохих сообщений {_client.BadMessages}; " +
+                          $"дельт {_client.DeltasApplied} (не склеено {_client.DeltasUnmerged}); " +
                           $"предсказание: сверок {p.Reconciled}, правок {p.Resynced}, " +
                           $"макс.расхождение {p.MaxDevUnits} unit, сдвиг {moved / 256.0:0.0} т");
                 Quit(0);

@@ -90,6 +90,10 @@ namespace Orpheus.Net.Protocol
         public uint Tick;
         public uint AckFrame;
         public int Count;
+
+        /// <summary>true — объект получен склейкой дельты (0-014), не из полного кадра.</summary>
+        public bool IsDelta;
+
         public readonly SnapshotEntity[] Entities = new SnapshotEntity[MaxEntities];
 
         /// <summary>Сущность по номеру; нет — false.</summary>
@@ -114,6 +118,7 @@ namespace Orpheus.Net.Protocol
             into.Tick = Tick;
             into.AckFrame = AckFrame;
             into.Count = Count;
+            into.IsDelta = IsDelta;
             Array.Copy(Entities, into.Entities, Count);
         }
 
@@ -160,6 +165,7 @@ namespace Orpheus.Net.Protocol
             Tick = tick;
             AckFrame = ack;
             Count = count;
+            IsDelta = false;
         }
 
         /// <summary>Номер сущности в заголовке не читая всего снимка — такт (для отбрасывания старых).</summary>
@@ -221,6 +227,150 @@ namespace Orpheus.Net.Protocol
         public int Finish()
         {
             Snapshot.PatchCount(_dest, _count);
+            return _w.BytesWritten;
+        }
+    }
+
+    /// <summary>
+    /// Дельта снимка (docs/07, 4.3; карточка 0-014): полный снимок раз в секунду («контрольный кадр»),
+    /// между ними — только удалённые id (16 бит) и изменившиеся сущности (бит как в полном).
+    /// Клиент подтверждаетApplied-снимок полем <c>LastSnapshot</c> ввода — сервер строит дельту от него.
+    /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, такт базы u32, число удалённых u8,
+    /// число изменённых u8; затем удалённые id (по 16 бит), затем сущности (<see cref="SnapshotLayout"/>).</para>
+    /// </summary>
+    public sealed class SnapshotDeltaMessage
+    {
+        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + база 4 + два числа по 1.</summary>
+        public const int HeaderBytes = 15;
+
+        /// <summary>Бит на удалённый id (номера сущений на практике ≤ 65535; больше — сервер шлёт полный).</summary>
+        public const int RemovedIdBits = 16;
+
+        private const int RemovedOffset = 13;
+        private const int ChangedOffset = 14;
+
+        public uint Tick;
+        public uint AckFrame;
+        public uint BaselineTick;
+        public int RemovedCount;
+        public int ChangedCount;
+        public readonly int[] Removed = new int[Snapshot.MaxEntities];
+        public readonly SnapshotEntity[] Changed = new SnapshotEntity[Snapshot.MaxEntities];
+
+        /// <summary>Прочитать дельту в этот объект.</summary>
+        public void Read(ReadOnlySpan<byte> src, in SnapshotLayout layout)
+        {
+            BitReader r = Codec.Begin(src, MessageType.SnapshotDelta);
+            uint tick = r.ReadUInt32();
+            uint ack = r.ReadUInt32();
+            uint baseline = r.ReadUInt32();
+            int removed = r.ReadByte();
+            int changed = r.ReadByte();
+            for (int i = 0; i < removed; i++)
+            {
+                Removed[i] = (int)r.ReadBits(RemovedIdBits);
+            }
+
+            for (int i = 0; i < changed; i++)
+            {
+                ref SnapshotEntity e = ref Changed[i];
+                e.Id = (int)r.ReadBits(SnapshotLayout.IdBits);
+                e.Kind = (byte)r.ReadBits(SnapshotLayout.KindBits);
+                int qx = (int)r.ReadBits(layout.BitsX);
+                int qy = (int)r.ReadBits(layout.BitsY);
+                e.Position = new WorldPos(
+                    (qx << SnapshotLayout.QuantShift) | (1 << (SnapshotLayout.QuantShift - 1)),
+                    (qy << SnapshotLayout.QuantShift) | (1 << (SnapshotLayout.QuantShift - 1)));
+                e.Direction = (byte)r.ReadBits(SnapshotLayout.DirectionBits);
+                if (e.Direction > InputFrame.MaxDirectionCode || e.Position.X >= layout.Shape.WidthUnits || e.Position.Y >= layout.Shape.HeightUnits)
+                {
+                    throw new ProtocolException($"Дельта: сущность {e} вне карты или с кодом направления > 8.");
+                }
+            }
+
+            r.ExpectEnd();
+            Tick = tick;
+            AckFrame = ack;
+            BaselineTick = baseline;
+            RemovedCount = removed;
+            ChangedCount = changed;
+        }
+
+        internal static void PatchRemoved(Span<byte> dest, int count) => dest[RemovedOffset] = (byte)count;
+
+        internal static void PatchChanged(Span<byte> dest, int count) => dest[ChangedOffset] = (byte)count;
+    }
+
+    /// <summary>
+    /// Запись дельты без выделений: сначала удалённые id (вместимость считает вызывающий через
+    /// <see cref="FitsHeader"/>), затем изменённые сущности; <see cref="TryAdd"/> отказывает по бюджету —
+    /// сервер шлёт то, что влезло (клиент склеит, остальное дошлёт следующая дельта).
+    /// </summary>
+    public ref struct SnapshotDeltaWriter
+    {
+        private readonly Span<byte> _dest;
+        private readonly SnapshotLayout _layout;
+        private readonly int _limitBits;
+        private BitWriter _w;
+        private int _removed;
+        private int _changed;
+
+        public SnapshotDeltaWriter(Span<byte> dest, in SnapshotLayout layout, uint tick, uint ackFrame, uint baselineTick, int limitBytes = NetSettings.SnapshotBudget)
+        {
+            _dest = dest;
+            _layout = layout;
+            _limitBits = Math.Min(limitBytes, dest.Length) * 8;
+            _w = new BitWriter(dest);
+            _removed = 0;
+            _changed = 0;
+            _w.WriteByte((byte)MessageType.SnapshotDelta);
+            _w.WriteUInt32(tick);
+            _w.WriteUInt32(ackFrame);
+            _w.WriteUInt32(baselineTick);
+            _w.WriteByte(0); // число удалённых — в Finish
+            _w.WriteByte(0); // число изменённых — в Finish
+        }
+
+        /// <summary>Лезут ли заголовок и <paramref name="removedCount"/> удалённых id в бюджет (байт).</summary>
+        public static bool FitsHeader(int removedCount, in SnapshotLayout layout, int limitBytes = NetSettings.SnapshotBudget) =>
+            (SnapshotDeltaMessage.HeaderBytes * 8 + removedCount * SnapshotDeltaMessage.RemovedIdBits) / 8 <= limitBytes;
+
+        /// <summary>Записать удалённый id; не влез — false.</summary>
+        public bool TryAddRemoved(int id)
+        {
+            if (_removed == Snapshot.MaxEntities || id >= 1 << SnapshotDeltaMessage.RemovedIdBits ||
+                _w.BitPosition + SnapshotDeltaMessage.RemovedIdBits > _limitBits)
+            {
+                return false;
+            }
+
+            _w.WriteBits((uint)id, SnapshotDeltaMessage.RemovedIdBits);
+            _removed++;
+            return true;
+        }
+
+        /// <summary>Добавить изменившуюся сущность; не влезла — false (ничего не записано).</summary>
+        public bool TryAdd(int id, byte kind, WorldPos position, byte direction)
+        {
+            if (_changed == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
+            {
+                return false;
+            }
+
+            _w.WriteBits((uint)id, SnapshotLayout.IdBits);
+            _w.WriteBits(kind, SnapshotLayout.KindBits);
+            _w.WriteBits((uint)(position.X >> SnapshotLayout.QuantShift), _layout.BitsX);
+            _w.WriteBits((uint)(position.Y >> SnapshotLayout.QuantShift), _layout.BitsY);
+            _w.WriteBits(direction, SnapshotLayout.DirectionBits);
+            _changed++;
+            return true;
+        }
+
+        /// <summary>Закрыть дельту: записать числа; вернуть длину в байтах.</summary>
+        public int Finish()
+        {
+            SnapshotDeltaMessage.PatchRemoved(_dest, _removed);
+            SnapshotDeltaMessage.PatchChanged(_dest, _changed);
             return _w.BytesWritten;
         }
     }
