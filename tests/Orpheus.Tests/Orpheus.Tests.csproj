@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Тесты ядра: dotnet test без Unity. По docs/07 1.3 — net10.0; пока net9.0 (решение Продюсера 30.10). -->
   <PropertyGroup>
@@ -20,6 +20,8 @@
     <ProjectReference Include="..\..\src\Orpheus.Save\Orpheus.Save.csproj" />
     <!-- Сервер (exe): тесты D00_Sim_* гоняют его цикл такта в процессе теста через ServerRun.Run. -->
     <ProjectReference Include="..\..\src\Orpheus.Server\Orpheus.Server.csproj" />
+    <!-- Боты по сети (exe): тесты D00_Net_Udp_* гоняют BotRun.Run в процессе теста. -->
+    <ProjectReference Include="..\..\src\Orpheus.Bots\Orpheus.Bots.csproj" />
     <!-- Анализатор как обычная библиотека: тесты D00_Analyzer_* создают DeterminismAnalyzer напрямую. -->
     <ProjectReference Include="..\..\src\Orpheus.Analyzers\Orpheus.Analyzers.csproj" />
   </ItemGroup>

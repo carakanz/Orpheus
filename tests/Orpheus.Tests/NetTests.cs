@@ -1,0 +1,836 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
+using Orpheus.Bots;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
+using Orpheus.Core.Rng;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
+using Orpheus.Net;
+using Orpheus.Net.Protocol;
+using Orpheus.Net.Session;
+using Orpheus.Net.Transport;
+using Orpheus.Server;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace Orpheus.Tests
+{
+    /// <summary>
+    /// Сеть (карточка 0-008; docs/07 2.10, 4.3, 11.3, 2.13 п. 1): кодек, бюджет снимка, имитатор связи,
+    /// вход и снимки на связи в памяти и по UDP.
+    /// </summary>
+    public class NetTests
+    {
+        private const int U = Torus.SubTilesPerTile;
+        private const long FrameMicros = 1_000_000 / 60;
+        private const long TickMicros = 1_000_000 / Simulation.TickRate;
+
+        private readonly ITestOutputHelper _out;
+
+        public NetTests(ITestOutputHelper output)
+        {
+            _out = output;
+        }
+
+        // ---------- Кодек: туда-обратно побайтно ----------
+
+        [Fact]
+        public void D00_Net_Codec_Login_RoundTripBytes()
+        {
+            var m = new LoginMessage { Version = new NetVersion(0, 4, 2), Name = "Орфей" };
+            byte[] a = Encode(b => m.Write(b));
+            LoginMessage back = LoginMessage.Read(a);
+            Assert.Equal(m.Version, back.Version);
+            Assert.Equal(m.Name, back.Name);
+            Assert.Equal(a, Encode(b => back.Write(b)));
+            Assert.Equal(1 + 6 + 1 + 10, a.Length); // «Орфей» — 10 байт UTF-8
+        }
+
+        [Fact]
+        public void D00_Net_Codec_LoginAccept_RoundTripBytes()
+        {
+            var m = new LoginAcceptMessage
+            {
+                EntityId = 123456, ServerTick = 4_000_000_000, MapWidth = 4096, MapHeight = 4096, Wraps = true,
+                WorldSeed = 0xDEADBEEF_CAFEBABE, TickRate = 30,
+            };
+            byte[] a = Encode(b => m.Write(b));
+            Assert.Equal(LoginAcceptMessage.Bytes, a.Length);
+            LoginAcceptMessage back = LoginAcceptMessage.Read(a);
+            Assert.Equal(m.EntityId, back.EntityId);
+            Assert.Equal(m.ServerTick, back.ServerTick);
+            Assert.Equal(m.MapWidth, back.MapWidth);
+            Assert.Equal(m.MapHeight, back.MapHeight);
+            Assert.Equal(m.Wraps, back.Wraps);
+            Assert.Equal(m.WorldSeed, back.WorldSeed);
+            Assert.Equal(m.TickRate, back.TickRate);
+            Assert.Equal(a, Encode(b => back.Write(b)));
+        }
+
+        [Fact]
+        public void D00_Net_Codec_LoginReject_RoundTripBytes()
+        {
+            var m = new LoginRejectMessage { Reason = LoginRejectReason.VersionMismatch, ServerVersion = new NetVersion(0, 4, 2) };
+            byte[] a = Encode(b => m.Write(b));
+            Assert.Equal(LoginRejectMessage.Bytes, a.Length);
+            LoginRejectMessage back = LoginRejectMessage.Read(a);
+            Assert.Equal(m.Reason, back.Reason);
+            Assert.Equal(m.ServerVersion, back.ServerVersion);
+            Assert.Equal(a, Encode(b => back.Write(b)));
+            Assert.Equal("Версии не совпадают: у сервера 0.4.2, у тебя 0.4.1", back.Describe(new NetVersion(0, 4, 1)));
+        }
+
+        [Fact]
+        public void D00_Net_Codec_Input_Is38Bytes_RoundTripBytes()
+        {
+            var m = new InputMessage
+            {
+                FirstFrame = 0xFFFF_FFF0,
+                Frame0 = new WireFrame { Direction = 1, Power = 255, Aim = 0x1234, Buttons = 0x8001 },
+                Frame1 = new WireFrame { Direction = 0, Power = 0, Aim = 65535, Buttons = 0 },
+                Frame2 = new WireFrame { Direction = 8, Power = 17, Aim = 1, Buttons = 0xFFFF },
+                Frame3 = new WireFrame { Direction = 5, Power = 200, Aim = 40000, Buttons = 0x0102 },
+                PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = -5,
+            };
+            byte[] a = Encode(b => m.Write(b));
+            Assert.Equal(38, a.Length);
+            Assert.Equal(InputMessage.Bytes, a.Length);
+            InputMessage back = InputMessage.Read(a);
+            for (int i = 0; i < InputMessage.FrameCount; i++)
+            {
+                Assert.Equal(m[i], back[i]);
+            }
+
+            Assert.Equal(m.FirstFrame, back.FirstFrame);
+            Assert.Equal(m.FirstFrame + 3, back.LastFrame);
+            Assert.Equal(m.PictureTime, back.PictureTime);
+            Assert.Equal(m.LastSnapshot, back.LastSnapshot);
+            Assert.Equal(m.Lead, back.Lead);
+            Assert.Equal(a, Encode(b => back.Write(b)));
+            Assert.Equal(new InputFrame(Input8.West, 0x0102), back.Frame3.ToInputFrame()); // код 5 = направление 4 (запад)
+        }
+
+        [Fact]
+        public void D00_Net_Codec_Clock_RoundTripBytes()
+        {
+            var m = new ClockMessage { ServerTick = 123_456_789 };
+            byte[] a = Encode(b => m.Write(b));
+            Assert.Equal(ClockMessage.Bytes, a.Length);
+            Assert.Equal(m.ServerTick, ClockMessage.Read(a).ServerTick);
+            Assert.Equal(a, Encode(b => ClockMessage.Read(a).Write(b)));
+        }
+
+        [Theory]
+        [InlineData(1024)]
+        [InlineData(4096)]
+        public void D00_Net_Codec_Snapshot_RoundTripBytes(int size)
+        {
+            var layout = new SnapshotLayout(MapShape.World(size));
+            var rng = new DetRandom(7);
+            var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, Count = 40 };
+            for (int i = 0; i < snap.Count; i++)
+            {
+                snap.Entities[i] = new SnapshotEntity
+                {
+                    Id = i == 0 ? int.MaxValue : i * 37,
+                    Kind = (byte)(i % 3),
+                    Position = SnapshotLayout.Quantize(new WorldPos(rng.NextInt(size * U), rng.NextInt(size * U))),
+                    Direction = (byte)(i % 9),
+                };
+            }
+
+            byte[] a = Encode(b => snap.Write(b, layout));
+            Assert.Equal(layout.SizeFor(snap.Count), a.Length);
+            var back = new Snapshot();
+            back.Read(a, layout);
+            Assert.Equal(snap.Tick, back.Tick);
+            Assert.Equal(snap.AckFrame, back.AckFrame);
+            Assert.Equal(snap.Count, back.Count);
+            for (int i = 0; i < snap.Count; i++)
+            {
+                Assert.Equal(snap.Entities[i].Id, back.Entities[i].Id);
+                Assert.Equal(snap.Entities[i].Kind, back.Entities[i].Kind);
+                Assert.Equal(snap.Entities[i].Position, back.Entities[i].Position);
+                Assert.Equal(snap.Entities[i].Direction, back.Entities[i].Direction);
+            }
+
+            Assert.Equal(a, Encode(b => back.Write(b, layout)));
+        }
+
+        [Fact]
+        public void D00_Net_Codec_BitWriter_RandomFields_RoundTrip()
+        {
+            var rng = new DetRandom(11);
+            var widths = new int[2000];
+            var values = new uint[2000];
+            byte[] buf = new byte[2000 * 4];
+            var w = new BitWriter(buf);
+            for (int i = 0; i < widths.Length; i++)
+            {
+                widths[i] = rng.NextInt(33);
+                values[i] = widths[i] == 0 ? 0 : (uint)rng.Next() & (widths[i] == 32 ? uint.MaxValue : (1u << widths[i]) - 1);
+                w.WriteBits(values[i], widths[i]);
+            }
+
+            int bytes = w.BytesWritten;
+            var r = new BitReader(new ReadOnlySpan<byte>(buf, 0, bytes));
+            for (int i = 0; i < widths.Length; i++)
+            {
+                Assert.Equal(values[i], r.ReadBits(widths[i]));
+            }
+
+            r.ExpectEnd();
+        }
+
+        [Fact]
+        public void D00_Net_Codec_BrokenMessages_ThrowProtocolException()
+        {
+            byte[] input = Encode(b => new InputMessage { FirstFrame = 5 }.Write(b));
+            Assert.Throws<ProtocolException>(() => InputMessage.Read(input.AsSpan(0, 37).ToArray()));
+            Assert.Throws<ProtocolException>(() => InputMessage.Read(Append(input, 0)));
+            Assert.Throws<ProtocolException>(() => LoginMessage.Read(input));
+            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { 0 }));
+            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { 200 }));
+            Assert.Throws<ProtocolException>(() => Codec.TypeOf(Array.Empty<byte>()));
+            byte[] badDir = Encode(b => new InputMessage { Frame3 = new WireFrame { Direction = 9 } }.Write(b));
+            Assert.Throws<ProtocolException>(() => InputMessage.Read(badDir).Frame3.ToInputFrame());
+            Assert.Throws<ArgumentException>(() => Encode(b => new LoginMessage { Name = new string('я', 17) }.Write(b))); // 34 байта
+        }
+
+        // ---------- Бюджет снимка ----------
+
+        [Theory]
+        [InlineData(1024)]
+        [InlineData(4096)]
+        public void D00_Net_Snapshot_EightPlayers_Within1200Bytes(int size)
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(Math.Min(size, 1024)), 1);
+            var layout = new SnapshotLayout(MapShape.World(size));
+            int bytes = layout.SizeFor(8);
+            _out.WriteLine($"{size}²: сущность {layout.EntityBits} бит, снимок 8 игроков — {bytes} байт, в бюджет 1200 влезает {layout.MaxEntitiesInBudget}");
+            Assert.True(bytes <= NetSettings.SnapshotBudget, $"{bytes} байт");
+
+            // Через сервер: 8 клиентов на связи в памяти, все рядом — каждый снимок ≤ 1200 и несёт всех восьмерых.
+            using var h = new LoopbackHarness(world, 8, maxPlayers: 8);
+            h.Run(30);
+            Assert.Equal(8, h.Server.PlayersInGame);
+            Assert.True(h.Server.MaxSnapshotBytes <= NetSettings.SnapshotBudget);
+            foreach (NetBot b in h.Bots)
+            {
+                Assert.Equal(8, b.Client.Latest.Count);
+            }
+
+            _out.WriteLine($"через сервер: наибольший снимок {h.Server.MaxSnapshotBytes} байт");
+            Assert.Equal(0, h.Server.SnapshotsTruncated);
+        }
+
+        [Fact]
+        public void D00_Net_Snapshot_OverBudget_TruncatedTo1200()
+        {
+            var layout = new SnapshotLayout(MapShape.World(4096));
+            byte[] buf = new byte[NetSettings.MaxUnreliablePayload];
+            var w = new SnapshotWriter(buf, layout, 1, 1);
+            int added = 0;
+            while (w.TryAdd(added + 1, 1, new WorldPos(added * 100, added * 50), 0))
+            {
+                added++;
+            }
+
+            int len = w.Finish();
+            Assert.Equal(layout.MaxEntitiesInBudget, added);
+            Assert.True(len <= NetSettings.SnapshotBudget, $"{len}");
+            var back = new Snapshot();
+            back.Read(new ReadOnlySpan<byte>(buf, 0, len), layout);
+            Assert.Equal(added, back.Count);
+        }
+
+        // ---------- Имитатор связи ----------
+
+        [Fact]
+        public void D00_Net_Sim_LossAndDelay_10000Packets_WithinTolerance()
+        {
+            var s = new NetSimSettings { DelayMs = 50, JitterMs = 10, LossPpm = 50_000, Seed = 42 };
+            List<(int Seq, long At)> got = SimRun(s, 10_000, out NetSimStats stats, out double meanDelayMs, out double sigmaMs);
+            double lossRate = 1 - got.Count / 10_000.0;
+            _out.WriteLine($"потери {lossRate:P2} (задано 5 %), задержка средняя {meanDelayMs:F2} мс (50), σ {sigmaMs:F2} мс (10)");
+
+            // Биномиальное σ при n = 10 000, p = 0,05 — 0,22 %: допуск ±1 % (4,5σ).
+            Assert.InRange(lossRate, 0.04, 0.06);
+            Assert.InRange(meanDelayMs, 49.0, 51.0);
+            Assert.InRange(sigmaMs, 9.0, 11.0);
+            Assert.Equal(stats.Packets - stats.Lost, got.Count);
+        }
+
+        [Fact]
+        public void D00_Net_Sim_SameSeed_SameDelivery_OtherSeed_Differs()
+        {
+            var s = new NetSimSettings { DelayMs = 30, JitterMs = 15, LossPpm = 20_000, DuplicatePpm = 10_000, ReorderPpm = 10_000, Seed = 1 };
+            List<(int, long)> a = SimRun(s, 10_000, out _, out _, out _);
+            List<(int, long)> b = SimRun(s, 10_000, out _, out _, out _);
+            Assert.Equal(a, b);
+            s.Seed = 2;
+            List<(int, long)> c = SimRun(s, 10_000, out _, out _, out _);
+            Assert.NotEqual(a, c);
+        }
+
+        [Fact]
+        public void D00_Net_Sim_DuplicatesAndReorder()
+        {
+            var s = new NetSimSettings { DelayMs = 20, DuplicatePpm = 30_000, ReorderPpm = 50_000, ReorderMs = 40, Seed = 5 };
+            List<(int Seq, long At)> got = SimRun(s, 10_000, out NetSimStats stats, out _, out _);
+            int dups = got.Count - 10_000;
+            int inversions = 0;
+            for (int i = 1; i < got.Count; i++)
+            {
+                if (got[i].Seq < got[i - 1].Seq)
+                {
+                    inversions++;
+                }
+            }
+
+            _out.WriteLine($"дублей {dups} (≈300), перестановок {inversions}, переставлено имитатором {stats.Reordered} (≈500)");
+            Assert.InRange(dups, 220, 380);
+            Assert.InRange(stats.Reordered, 400, 600);
+            Assert.True(inversions > 300, $"{inversions}");
+        }
+
+        [Fact]
+        public void D00_Net_Sim_ReliableChannel_NoLossInOrder()
+        {
+            var s = new NetSimSettings { DelayMs = 50, JitterMs = 20, LossPpm = 100_000, DuplicatePpm = 100_000, ReorderPpm = 100_000, Seed = 9 };
+            List<(int Seq, long At)> got = SimRun(s, 2_000, out NetSimStats stats, out _, out _, NetChannel.Facts);
+            Assert.Equal(2_000, got.Count);
+            for (int i = 0; i < got.Count; i++)
+            {
+                Assert.Equal(i, got[i].Seq);
+            }
+
+            Assert.InRange(stats.Retransmits, 150, 300); // ≈ 10 % + повторные
+        }
+
+        [Fact]
+        public void D00_Net_Sim_BurstJitter_SharedPerWindow()
+        {
+            var s = new NetSimSettings { DelayMs = 100, JitterMs = 20, BurstJitter = true, BurstMs = 250, Seed = 3 };
+            List<(int Seq, long At)> got = SimRun(s, 10_000, out _, out _, out double sigma);
+            _out.WriteLine($"σ пачками {sigma:F1} мс (задано 20, 40 пачек)");
+            Assert.Equal(10_000, got.Count);
+            Assert.InRange(sigma, 12, 28);
+
+            // Внутри пачки (250 мс = 250 пакетов по 1 мс) добавка одна: задержка пакетов пачки одинакова
+            // с точностью до шага опроса (1 мс); между пачками — разная.
+            var minDelay = new long[40];
+            var maxDelay = new long[40];
+            Array.Fill(minDelay, long.MaxValue);
+            foreach ((int seq, long at) in got)
+            {
+                int window = seq / 250;
+                long delay = at - seq * 1000L;
+                minDelay[window] = Math.Min(minDelay[window], delay);
+                maxDelay[window] = Math.Max(maxDelay[window], delay);
+            }
+
+            var distinct = new HashSet<long>();
+            for (int w = 0; w < 40; w++)
+            {
+                Assert.True(maxDelay[w] - minDelay[w] <= 1000, $"пачка {w}: {minDelay[w]}…{maxDelay[w]} мкс");
+                distinct.Add(minDelay[w] / 1000);
+            }
+
+            Assert.True(distinct.Count > 10, $"{distinct.Count}");
+        }
+
+        /// <summary>
+        /// Сервер шлёт <paramref name="n"/> пакетов по одному в миллисекунду виртуального времени клиенту, обёрнутому
+        /// имитатором; возвращает (номер, время прихода) в порядке прихода.
+        /// </summary>
+        private static List<(int Seq, long At)> SimRun(
+            NetSimSettings s, int n, out NetSimStats stats, out double meanDelayMs, out double sigmaMs, NetChannel channel = NetChannel.Unreliable)
+        {
+            using LoopbackTransport server = LoopbackTransport.CreateServer(4);
+            using var client = new NetSimTransport(LoopbackTransport.ConnectTo(server), s);
+            var serverSide = new Recorder();
+            var clientSide = new Recorder();
+            server.Poll(0, serverSide);
+            client.Poll(0, clientSide);
+            int peer = serverSide.Connected[0];
+            byte[] buf = new byte[12];
+            long now = 0;
+            for (int i = 0; i < n; i++, now += 1000)
+            {
+                BitConverter.TryWriteBytes(buf, i);
+                BitConverter.TryWriteBytes(buf.AsSpan(4), now);
+                server.Send(peer, channel, buf);
+                clientSide.Now = now;
+                client.Poll(now, clientSide);
+            }
+
+            for (long end = now + 10_000_000; now < end; now += 1000)
+            {
+                clientSide.Now = now;
+                client.Poll(now, clientSide);
+            }
+
+            stats = client.ReceiveStats;
+            double sum = 0;
+            double sum2 = 0;
+            foreach ((int _, long at, long sent) in clientSide.Received)
+            {
+                double d = (at - sent) / 1000.0;
+                sum += d;
+                sum2 += d * d;
+            }
+
+            int c = clientSide.Received.Count;
+            meanDelayMs = c > 0 ? sum / c : 0;
+            sigmaMs = c > 0 ? Math.Sqrt(Math.Max(0, sum2 / c - meanDelayMs * meanDelayMs)) : 0;
+            var result = new List<(int, long)>(c);
+            foreach ((int seq, long at, long _) in clientSide.Received)
+            {
+                result.Add((seq, at));
+            }
+
+            return result;
+        }
+
+        private sealed class Recorder : ITransportHandler
+        {
+            public long Now;
+            public readonly List<int> Connected = new List<int>();
+            public readonly List<(int Seq, long At, long Sent)> Received = new List<(int, long, long)>();
+
+            public void OnConnected(int peer) => Connected.Add(peer);
+
+            public void OnDisconnected(int peer, NetDisconnectReason reason, ReadOnlySpan<byte> payload)
+            {
+            }
+
+            public void OnReceive(int peer, NetChannel channel, ReadOnlySpan<byte> data) =>
+                Received.Add((BitConverter.ToInt32(data), Now, BitConverter.ToInt64(data.Slice(4))));
+        }
+
+        // ---------- Вход и снимки на связи в памяти ----------
+
+        [Fact]
+        public void D00_Net_Loopback_TwoBots_LoginMove_SeeEachOther()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
+            using var h = new LoopbackHarness(world, 2);
+            h.Run(300); // 10 с
+            Assert.Equal(2, h.Server.PlayersInGame);
+            foreach (NetBot b in h.Bots)
+            {
+                NetClient c = b.Client;
+                Assert.Equal(NetClientState.InGame, c.State);
+                Assert.InRange(c.SnapshotsApplied, 295, 300);
+                Assert.Equal(0, c.SnapshotsMissed);
+                Assert.Equal(2, c.Latest.Count);
+                Assert.Equal(c.EntityId, c.Latest.Entities[0].Id); // своя — первой
+                int other = h.Bots[0] == b ? h.Bots[1].Client.EntityId : h.Bots[0].Client.EntityId;
+                Assert.True(c.Latest.TryFind(other, out _), "не видит второго бота");
+            }
+
+            // Двигались: позиция ушла от точки появления.
+            for (int i = 0; i < 2; i++)
+            {
+                h.Bots[i].Client.Latest.TryFind(h.Bots[i].Client.EntityId, out SnapshotEntity e);
+                Assert.NotEqual(SnapshotLayout.Quantize(ServerRun.SpawnPoint(world.Shape, i)), e.Position);
+            }
+
+            // Сверка по такту: позиция в снимке = позиция на сервере в том же такте (квантование 1/32).
+            Assert.True(h.CheckedByTick > 500, $"{h.CheckedByTick}");
+            Assert.True(h.MaxErrorUnits <= 4, $"{h.MaxErrorUnits}");
+        }
+
+        [Fact]
+        public void D00_Net_Loopback_Rtt100Loss1_DeterministicBySeed()
+        {
+            var s = NetSimSettings.FromRtt(100, 10, 1.0, 77);
+            ulong a = RunWithSim(s, out LoopbackHarness h1);
+            ulong b = RunWithSim(s, out _);
+            Assert.Equal(a, b);
+            foreach (NetBot bot in h1.Bots)
+            {
+                Assert.Equal(NetClientState.InGame, bot.Client.State);
+                Assert.True(bot.Client.SnapshotsApplied > 550, $"{bot.Client.SnapshotsApplied}");
+            }
+
+            Assert.True(h1.MaxErrorUnits <= 4, $"{h1.MaxErrorUnits}");
+            _out.WriteLine($"хэш {a:x16}; снимков у бота 0: {h1.Bots[0].Client.SnapshotsApplied}, пропущено {h1.Bots[0].Client.SnapshotsMissed}, " +
+                           $"отставание снимка ≤ {h1.MaxLagTicks} тактов");
+        }
+
+        private static ulong RunWithSim(NetSimSettings s, out LoopbackHarness h)
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
+            h = new LoopbackHarness(world, 2, sim: s);
+            h.Run(600);
+            ulong hash = StateHash.Compute(h.Sim).Total;
+            h.Dispose();
+            return hash;
+        }
+
+        [Fact]
+        public void D00_Net_Loopback_VersionMismatch_Rejected()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            using var h = new LoopbackHarness(world, 1, clientVersion: new NetVersion(9, 9, 9));
+            h.Run(10);
+            NetClient c = h.Bots[0].Client;
+            Assert.Equal(NetClientState.Rejected, c.State);
+            Assert.Equal(LoginRejectReason.VersionMismatch, c.Reject!.Value.Reason);
+            Assert.Equal($"Версии не совпадают: у сервера {NetModule.Version}, у тебя 9.9.9", c.RejectText);
+            Assert.Equal(0, h.Server.PlayersInGame);
+            Assert.Equal(0, h.Sim.EntityCount);
+        }
+
+        [Fact]
+        public void D00_Net_Loopback_Leave_RemovesEntity_ServerFull_Rejected()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            using var h = new LoopbackHarness(world, 3, maxPlayers: 2);
+            h.Run(10);
+            Assert.Equal(2, h.Server.PlayersInGame);
+            Assert.Equal(NetClientState.Rejected, h.Bots[2].Client.State);
+            Assert.Equal(LoginRejectReason.ServerFull, h.Bots[2].Client.Reject!.Value.Reason);
+
+            h.Bots[0].Client.Disconnect();
+            h.Run(2);
+            Assert.Equal(1, h.Server.PlayersInGame);
+            Assert.Equal(1, h.Sim.EntityCount);
+            Assert.Equal(h.Bots[1].Client.EntityId, h.Sim.Entities[0].Id);
+            Assert.Equal(1, h.Bots[1].Client.Latest.Count);
+        }
+
+        /// <summary>
+        /// Сервер и боты на связи в памяти, виртуальное время: кадр 60 Гц у ботов, такт 30 Гц у сервера.
+        /// Сверяет каждый принятый снимок со своей позицией на сервере в том же такте.
+        /// </summary>
+        private sealed class LoopbackHarness : IDisposable
+        {
+            private readonly LoopbackTransport _serverTransport;
+            private readonly Dictionary<long, WorldPos> _history = new Dictionary<long, WorldPos>();
+            private long _frame;
+
+            public LoopbackHarness(WorldModel world, int bots, int maxPlayers = 16, NetVersion? clientVersion = null, NetSimSettings? sim = null)
+            {
+                Sim = new Simulation(world, maxEntities: 64);
+                _serverTransport = LoopbackTransport.CreateServer(maxPlayers + 8);
+                Server = new NetServer(_serverTransport, Sim, n => ServerRun.SpawnPoint(world.Shape, n), maxPlayers, NetModule.Version);
+                for (int i = 0; i < bots; i++)
+                {
+                    ITransport t = LoopbackTransport.ConnectTo(_serverTransport);
+                    if (sim.HasValue)
+                    {
+                        NetSimSettings s = sim.Value;
+                        s.Seed += (ulong)i;
+                        t = new NetSimTransport(t, s);
+                    }
+
+                    var c = new NetClient(t, LoopbackTransport.ServerPeer, $"bot{i}", clientVersion ?? NetModule.Version);
+                    c.SnapshotApplied = snap => Check(c, snap);
+                    Bots.Add(new NetBot(c, "wander", i));
+                }
+            }
+
+            public Simulation Sim { get; }
+            public NetServer Server { get; }
+            public List<NetBot> Bots { get; } = new List<NetBot>();
+            public int CheckedByTick { get; private set; }
+            public int MaxErrorUnits { get; private set; }
+            public long MaxLagTicks { get; private set; }
+
+            /// <summary><paramref name="ticks"/> тактов сервера (по два кадра ботов на такт).</summary>
+            public void Run(int ticks)
+            {
+                for (int t = 0; t < ticks; t++)
+                {
+                    for (int f = 0; f < 2; f++, _frame++)
+                    {
+                        long now = _frame * FrameMicros;
+                        foreach (NetBot b in Bots)
+                        {
+                            b.Frame(now);
+                        }
+                    }
+
+                    Server.Poll(_frame * FrameMicros);
+                    Sim.Step();
+                    Server.SendSnapshots();
+                    foreach (SimEntity e in Sim.Entities)
+                    {
+                        _history[Key(e.Id, Sim.Tick)] = e.Mover.Position;
+                    }
+                }
+            }
+
+            private void Check(NetClient c, Snapshot snap)
+            {
+                MaxLagTicks = Math.Max(MaxLagTicks, Sim.Tick - snap.Tick);
+                if (snap.TryFind(c.EntityId, out SnapshotEntity mine) && _history.TryGetValue(Key(c.EntityId, snap.Tick), out WorldPos truth))
+                {
+                    Int2 d = Torus.Delta(Sim.Shape, truth, mine.Position);
+                    MaxErrorUnits = Math.Max(MaxErrorUnits, Math.Max(Math.Abs(d.X), Math.Abs(d.Y)));
+                    CheckedByTick++;
+                }
+            }
+
+            private static long Key(int id, long tick) => ((long)id << 32) | (uint)tick;
+
+            public void Dispose()
+            {
+                foreach (NetBot b in Bots)
+                {
+                    b.Client.Transport.Dispose();
+                }
+
+                _serverTransport.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 11.6 «без выделений в такте»: сервер по сети в установившейся игре (8 игроков, ввод 60 Гц, снимок 30 Гц) —
+        /// разбор ввода и сборка снимков не выделяют памяти (транспорт — заглушка: свой расход у LiteNetLib).
+        /// </summary>
+        [Fact]
+        public void D00_Net_Server_SteadyState_NoAllocations()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            var sim = new Simulation(world, maxEntities: 64);
+            var t = new ScriptedTransport();
+            var server = new NetServer(t, sim, n => ServerRun.SpawnPoint(world.Shape, n), 8, NetModule.Version);
+            byte[] login = Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b));
+            for (int peer = 1; peer <= 8; peer++)
+            {
+                t.Connect(peer);
+                t.Push(peer, NetChannel.Facts, login);
+            }
+
+            server.Poll(0);
+            Assert.Equal(8, server.PlayersInGame);
+
+            // Пакеты ввода заранее: на каждый кадр — свой номер.
+            const int Ticks = 300;
+            var inputs = new byte[Ticks * 2][];
+            for (int f = 0; f < inputs.Length; f++)
+            {
+                var m = new InputMessage { FirstFrame = (uint)f + 1, Frame3 = WireFrame.From(new InputFrame(Input8.FromIndex(f / 60 % 8))) };
+                inputs[f] = Encode(b => m.Write(b));
+            }
+
+            void Tick(int k)
+            {
+                for (int peer = 1; peer <= 8; peer++)
+                {
+                    t.Push(peer, NetChannel.Unreliable, inputs[2 * k]);
+                    t.Push(peer, NetChannel.Unreliable, inputs[2 * k + 1]);
+                }
+
+                server.Poll(k);
+                sim.Step();
+                server.SendSnapshots();
+            }
+
+            Tick(0); // прогрев
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int k = 1; k < Ticks; k++)
+            {
+                Tick(k);
+            }
+
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.Equal(8 * Ticks, server.SnapshotsSent);
+            Assert.Equal(8 * 2 * Ticks, server.InputsAccepted);
+            Assert.Equal(0, allocated);
+        }
+
+        /// <summary>Транспорт-заглушка: <see cref="Poll"/> раздаёт заранее положенные события, отправки считает и выбрасывает.</summary>
+        private sealed class ScriptedTransport : ITransport
+        {
+            private readonly List<(int Peer, NetChannel Channel, byte[]? Data)> _queue = new List<(int, NetChannel, byte[]?)>(64);
+
+            public long Sent;
+
+            public void Connect(int peer) => _queue.Add((peer, NetChannel.Unreliable, null));
+
+            public void Push(int peer, NetChannel channel, byte[] data) => _queue.Add((peer, channel, data));
+
+            public void Poll(long nowMicros, ITransportHandler handler)
+            {
+                for (int i = 0; i < _queue.Count; i++)
+                {
+                    (int peer, NetChannel ch, byte[]? data) = _queue[i];
+                    if (data == null)
+                    {
+                        handler.OnConnected(peer);
+                    }
+                    else
+                    {
+                        handler.OnReceive(peer, ch, data);
+                    }
+                }
+
+                _queue.Clear();
+            }
+
+            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data) => Sent++;
+
+            public void Disconnect(int peer, ReadOnlySpan<byte> payload)
+            {
+            }
+
+            public int RoundTripMs(int peer) => 0;
+
+            public void Dispose()
+            {
+            }
+        }
+
+        // ---------- По UDP (127.0.0.1) ----------
+
+        [Fact]
+        public void D00_Net_Udp_BotsLogIn_Snapshots30Hz_VersionMismatchRejected()
+        {
+            UdpRun run = RunUdp(bots: 2, seconds: 3, rttMs: 0, lossPercent: 0, extra: o2 => { });
+            BotReport r = run.Report;
+            Assert.Equal(2, r.InGame);
+            Assert.Equal(0, r.Disconnects);
+            foreach (BotStats b in r.Bots)
+            {
+                _out.WriteLine($"бот {b.Index}: #{b.EntityId}, {b.SnapshotsPerSecond:F1} снимков/с, пропущено {b.SnapshotsMissed}, RTT {b.RttMs} мс");
+                Assert.InRange(b.SnapshotsPerSecond, 27, 33);
+            }
+
+            Assert.True(run.MaxErrorUnits <= 4, $"{run.MaxErrorUnits}");
+
+            // Отказ входа при несовпадении версии — по UDP.
+            UdpRun bad = RunUdp(bots: 1, seconds: 2, rttMs: 0, lossPercent: 0, extra: o2 => o2.Version = new NetVersion(9, 9, 9));
+            Assert.Equal(1, bad.Report.Rejected);
+            Assert.Equal($"Версии не совпадают: у сервера {NetModule.Version}, у тебя 9.9.9", bad.Report.Bots[0].RejectText);
+            Assert.Equal(1, bad.Server.LoginsRejected);
+        }
+
+        /// <summary>
+        /// Карточка 0-008, приёмка: 2 бота × 60 с, RTT 100 мс, потеря 1 % по UDP 127.0.0.1 — 0 отключений;
+        /// позиция в снимке против сервера в том же такте ≤ 0,5 тайла. Ночной прогон: <c>tools\ci.cmd -All -TimeLimitSec 0</c>.
+        /// </summary>
+        [Fact]
+        [Trait("Category", "Big")]
+        public void D00_Net_Udp_Big_TwoBots60s_Rtt100_Loss1_NoDisconnects()
+        {
+            UdpRun run = RunUdp(bots: 2, seconds: 60, rttMs: 100, lossPercent: 1, extra: o2 => { });
+            BotReport r = run.Report;
+            foreach (BotStats b in r.Bots)
+            {
+                _out.WriteLine($"бот {b.Index}: #{b.EntityId}, {b.SecondsInGame:F1} с в игре, {b.SnapshotsPerSecond:F1} снимков/с, пропущено {b.SnapshotsMissed}, " +
+                               $"старых {b.SnapshotsStale}, RTT {b.RttMs} мс, имитатор: потеряно {b.SimSendLost}/{b.SimSent} и {b.SimReceiveLost}/{b.SimReceived}, задержка {b.SimMeanDelayMs:F1} мс");
+            }
+
+            _out.WriteLine($"сверка по такту: {run.Checked} снимков, ошибка ≤ {run.MaxErrorUnits} unit; отставание снимка от такта сервера при приёме: " +
+                           $"≤ {run.MaxLagTicks} тактов ({run.MaxLagTicks * 0.2:F1} тайла при 6 т/с), среднее {run.MeanLagTicks:F2}");
+            Assert.Equal(2, r.InGame);
+            Assert.Equal(0, r.Disconnects);
+            Assert.True(run.Checked > 2 * 60 * 25, $"{run.Checked}");
+            Assert.True(run.MaxErrorUnits <= U / 2, $"{run.MaxErrorUnits}");
+        }
+
+        private sealed class UdpRun
+        {
+            public BotReport Report = null!;
+            public ServerResult Server = null!;
+            public int Checked;
+            public int MaxErrorUnits;
+            public long MaxLagTicks;
+            public double MeanLagTicks;
+        }
+
+        private UdpRun RunUdp(int bots, double seconds, int rttMs, double lossPercent, Action<BotOptions> extra)
+        {
+            int port = FreeUdpPort();
+            ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", "42", "--size", "1024", "--port", port.ToString() });
+            var history = new ConcurrentDictionary<long, WorldPos>();
+            long serverTick = 0;
+            so.AfterTick = sim =>
+            {
+                foreach (SimEntity e in sim.Entities)
+                {
+                    history[((long)e.Id << 32) | (uint)sim.Tick] = e.Mover.Position;
+                }
+
+                Volatile.Write(ref serverTick, sim.Tick);
+            };
+
+            using var stopServer = new CancellationTokenSource();
+            Task<ServerResult> server = Task.Run(() => ServerRun.Run(so, null, stopServer.Token));
+
+            var run = new UdpRun();
+            long lagSum = 0;
+            var shape = MapShape.World(1024);
+            var bo = BotOptions.Parse(new[]
+            {
+                "--connect", $"127.0.0.1:{port}", "--count", bots.ToString(), "--script", "wander",
+                "--rtt", rttMs.ToString(), "--loss", lossPercent.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "--seconds", seconds.ToString(System.Globalization.CultureInfo.InvariantCulture), "--seed", "7",
+            });
+            bo.OnSnapshot = (index, snap, entityId) =>
+            {
+                long lag = Volatile.Read(ref serverTick) - snap.Tick;
+                lagSum += lag;
+                run.MaxLagTicks = Math.Max(run.MaxLagTicks, lag);
+                if (snap.TryFind(entityId, out SnapshotEntity mine) && history.TryGetValue(((long)entityId << 32) | snap.Tick, out WorldPos truth))
+                {
+                    Int2 d = Torus.Delta(shape, truth, mine.Position);
+                    run.MaxErrorUnits = Math.Max(run.MaxErrorUnits, Math.Max(Math.Abs(d.X), Math.Abs(d.Y)));
+                    run.Checked++;
+                }
+            };
+            extra(bo);
+            try
+            {
+                run.Report = BotRun.Run(bo, null);
+            }
+            finally
+            {
+                Thread.Sleep(300); // отключения ботов доходят до сервера
+                stopServer.Cancel();
+                run.Server = server.GetAwaiter().GetResult();
+            }
+
+            run.MeanLagTicks = run.Checked > 0 ? lagSum / (double)run.Checked : 0;
+            Assert.Equal(0, run.Server.ExitCode);
+            return run;
+        }
+
+        private static int FreeUdpPort()
+        {
+            using var s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            s.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+            return ((IPEndPoint)s.LocalEndPoint!).Port;
+        }
+
+        // ---------- Вспомогательное ----------
+
+        private delegate int Writer(Span<byte> dest);
+
+        private static byte[] Encode(Writer write)
+        {
+            byte[] buf = new byte[NetSettings.MaxUnreliablePayload];
+            int n = write(buf);
+            return buf.AsSpan(0, n).ToArray();
+        }
+
+        private static byte[] Append(byte[] a, byte b)
+        {
+            byte[] r = new byte[a.Length + 1];
+            a.CopyTo(r, 0);
+            r[a.Length] = b;
+            return r;
+        }
+    }
+}

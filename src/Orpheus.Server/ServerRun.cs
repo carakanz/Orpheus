@@ -7,6 +7,9 @@ using Orpheus.Core.Bots;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
+using Orpheus.Net;
+using Orpheus.Net.Session;
+using Orpheus.Net.Transport;
 using Orpheus.WorldGen;
 
 namespace Orpheus.Server
@@ -40,6 +43,27 @@ namespace Orpheus.Server
 
         /// <summary>Повтор: точек сверки проверено.</summary>
         public int CheckpointsVerified { get; set; }
+
+        /// <summary>Сеть: порт, который слушал сервер (−1 — сети не было).</summary>
+        public int Port { get; set; } = -1;
+
+        /// <summary>Сеть: входов принято.</summary>
+        public int LoginsAccepted { get; set; }
+
+        /// <summary>Сеть: входов отклонено.</summary>
+        public int LoginsRejected { get; set; }
+
+        /// <summary>Сеть: отключений игроков, бывших в игре.</summary>
+        public int Disconnects { get; set; }
+
+        /// <summary>Сеть: снимков отправлено.</summary>
+        public long SnapshotsSent { get; set; }
+
+        /// <summary>Сеть: снимков, обрезанных по бюджету 1200 байт.</summary>
+        public long SnapshotsTruncated { get; set; }
+
+        /// <summary>Сеть: наибольший снимок, байт.</summary>
+        public int MaxSnapshotBytes { get; set; }
     }
 
     /// <summary>
@@ -75,18 +99,14 @@ namespace Orpheus.Server
 
         private static void RunCore(ServerOptions o, JsonLog log, ServerResult result, CancellationToken stop)
         {
-            if (o.Port.HasValue)
-            {
-                log.Warn(0, "net", "сети пока нет: --port принят и не используется", ("port", o.Port.Value));
-            }
-
             InputJournalReader? replay = o.ReplayPath != null
                 ? new InputJournalReader(new FileStream(o.ReplayPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16))
                 : null;
             try
             {
                 WorldModel world = OpenWorld(o, replay?.Header, log);
-                var sim = new Simulation(world, maxEntities: Math.Max(64, CountBots(o) + 1));
+                int players = o.Port.HasValue ? o.MaxPlayers : 0;
+                var sim = new Simulation(world, maxEntities: Math.Max(64, CountBots(o) + players + 1));
 
                 SimBot[] bots = Array.Empty<SimBot>();
                 if (replay != null)
@@ -115,7 +135,29 @@ namespace Orpheus.Server
                     ("entities", sim.EntityCount), ("bots", BotsText(o)),
                     ("record", o.RecordPath), ("replay", o.ReplayPath));
 
-                Loop(o, sim, bots, record, replay, log, result, stop);
+                using LiteNetTransport? transport = o.Port.HasValue ? LiteNetTransport.Listen(o.Port.Value, o.MaxPlayers) : null;
+                NetServer? net = transport != null ? CreateNetServer(o, sim, bots.Length, transport, log, result) : null;
+                try
+                {
+                    Loop(o, sim, bots, record, replay, net, log, result, stop);
+                }
+                finally
+                {
+                    if (net != null)
+                    {
+                        result.LoginsAccepted = net.LoginsAccepted;
+                        result.LoginsRejected = net.LoginsRejected;
+                        result.Disconnects = net.Disconnects;
+                        result.SnapshotsSent = net.SnapshotsSent;
+                        result.SnapshotsTruncated = net.SnapshotsTruncated;
+                        result.MaxSnapshotBytes = net.MaxSnapshotBytes;
+                        log.Info(sim.Tick, "net", "сеть: итог", ("logins", net.LoginsAccepted), ("rejected", net.LoginsRejected),
+                            ("disconnects", net.Disconnects), ("snapshots", net.SnapshotsSent), ("snapshotBytes", net.SnapshotBytes),
+                            ("maxSnapshotBytes", net.MaxSnapshotBytes), ("truncated", net.SnapshotsTruncated),
+                            ("inputs", net.InputsAccepted), ("inputsDropped", net.InputsDropped));
+                    }
+                }
+
                 record?.WriteEnd(sim.Tick);
             }
             finally
@@ -124,11 +166,37 @@ namespace Orpheus.Server
             }
         }
 
+        // ---------- Сеть ----------
+
+        private static NetServer CreateNetServer(ServerOptions o, Simulation sim, int firstPlayer, LiteNetTransport transport, JsonLog log, ServerResult result)
+        {
+            var net = new NetServer(transport, sim, n => SpawnPoint(sim.Shape, firstPlayer + n), o.MaxPlayers, NetModule.Version);
+            net.Log = (level, msg) =>
+            {
+                switch (level)
+                {
+                    case NetLogLevel.Error:
+                        log.Error(sim.Tick, "net", msg);
+                        break;
+                    case NetLogLevel.Warn:
+                        log.Warn(sim.Tick, "net", msg);
+                        break;
+                    default:
+                        log.Info(sim.Tick, "net", msg);
+                        break;
+                }
+            };
+            result.Port = transport.LocalPort;
+            log.Info(sim.Tick, "net", "слушаю UDP", ("port", transport.LocalPort), ("maxPlayers", o.MaxPlayers),
+                ("version", NetModule.Version.ToString()), ("mtu", NetSettings.Mtu));
+            return net;
+        }
+
         // ---------- Цикл ----------
 
         private static void Loop(
             ServerOptions o, Simulation sim, SimBot[] bots, InputJournalWriter? record, InputJournalReader? replay,
-            JsonLog log, ServerResult result, CancellationToken stop)
+            NetServer? net, JsonLog log, ServerResult result, CancellationToken stop)
         {
             var pending = new EntityInput[sim.EntityCount + 1];
             JournalRecord next = replay?.Next() ?? JournalRecord.None;
@@ -144,6 +212,9 @@ namespace Orpheus.Server
             while (sim.Tick < o.Ticks && !stop.IsCancellationRequested && !replayEnded)
             {
                 long tick = sim.Tick + 1;
+
+                // Сеть: события транспорта, вход, ввод игроков — в потоке такта, до такта (2.10).
+                net?.Poll(watch.Elapsed.Ticks / (TimeSpan.TicksPerMillisecond / 1000));
 
                 // Источник ввода: боты или журнал.
                 for (int i = 0; i < bots.Length; i++)
@@ -182,7 +253,9 @@ namespace Orpheus.Server
                 }
 
                 sim.Step();
+                net?.SendSnapshots(); // полный снимок каждый такт — 30 Гц (2.4, 4.3)
                 sim.RefillPools(); // вне такта: запас словарей построек (backlog [такт сервера])
+                o.AfterTick?.Invoke(sim);
 
                 bool checkpoint = tick % Simulation.HashInterval == 0;
                 if (checkpoint && (o.Hash || record != null || replay != null))
@@ -224,6 +297,7 @@ namespace Orpheus.Server
                     if (dropped > 0)
                     {
                         log.Warn(tick, "perf", "перегрузка: такты не догоняются", ("dropped", dropped));
+                        net?.BroadcastClock(); // 2.4: «часы после фриза»
                     }
                 }
             }

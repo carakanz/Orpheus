@@ -1,0 +1,261 @@
+using System;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Sim;
+using Orpheus.Net.Protocol;
+using Orpheus.Net.Transport;
+
+namespace Orpheus.Net.Session
+{
+    /// <summary>Состояние клиента.</summary>
+    public enum NetClientState : byte
+    {
+        /// <summary>Ждём «открыто» от транспорта.</summary>
+        Connecting,
+
+        /// <summary>Вход отправлен, ждём ответа.</summary>
+        LoggingIn,
+
+        /// <summary>В игре: шлём ввод, получаем снимки.</summary>
+        InGame,
+
+        /// <summary>Сервер отказал во входе (<see cref="NetClient.RejectText"/>).</summary>
+        Rejected,
+
+        /// <summary>Соединение закрыто.</summary>
+        Disconnected,
+    }
+
+    /// <summary>
+    /// Клиент без графики (docs/07, 11.3): подключение, вход, ввод 60 Гц пакетами по 4 кадра, приём полных снимков 30 Гц.
+    /// Предсказания пока нет — клиент только применяет снимки: <see cref="Latest"/> — новейший по такту, старые и
+    /// дубли (перестановка, имитатор) отбрасываются. Времени внутри нет: темп задаёт вызывающий.
+    /// </summary>
+    public sealed class NetClient : ITransportHandler
+    {
+        private readonly ITransport _transport;
+        private readonly int _serverPeer;
+        private readonly string _name;
+        private readonly NetVersion _version;
+        private readonly byte[] _buf = new byte[NetSettings.MaxUnreliablePayload];
+        private Snapshot _latest = new Snapshot();
+        private Snapshot _scratch = new Snapshot();
+        private SnapshotLayout _layout;
+        private bool _hasSnapshot;
+        private InputMessage _input;
+
+        public NetClient(ITransport transport, int serverPeer, string name, NetVersion version)
+        {
+            _transport = transport ?? throw new ArgumentNullException(nameof(transport));
+            _serverPeer = serverPeer;
+            _name = name;
+            _version = version;
+        }
+
+        public NetClientState State { get; private set; } = NetClientState.Connecting;
+
+        /// <summary>Транспорт клиента.</summary>
+        public ITransport Transport => _transport;
+
+        /// <summary>Номер соединения с сервером в транспорте.</summary>
+        public int ServerPeer => _serverPeer;
+
+        /// <summary>Ответ на вход (в игре).</summary>
+        public LoginAcceptMessage Accept { get; private set; }
+
+        /// <summary>Своя сущность; не в игре — 0.</summary>
+        public int EntityId => Accept.EntityId;
+
+        /// <summary>Форма карты из входа.</summary>
+        public MapShape Shape => _layout.Shape;
+
+        /// <summary>Отказ входа: текст для игрока.</summary>
+        public string? RejectText { get; private set; }
+
+        /// <summary>Отказ входа: сообщение сервера.</summary>
+        public LoginRejectMessage? Reject { get; private set; }
+
+        /// <summary>Почему закрыто соединение.</summary>
+        public NetDisconnectReason? DisconnectReason { get; private set; }
+
+        /// <summary>Новейший снимок (по такту). До первого — <see cref="HasSnapshot"/> = false.</summary>
+        public Snapshot Latest => _latest;
+
+        public bool HasSnapshot => _hasSnapshot;
+
+        /// <summary>Такт сервера: из новейшего снимка или часов.</summary>
+        public uint ServerTick { get; private set; }
+
+        /// <summary>Номер текущего кадра ввода (последнего отправленного).</summary>
+        public uint Frame => _input.LastFrame;
+
+        /// <summary>Снимков принято (новее прежнего) / отброшено (старее или дубль).</summary>
+        public long SnapshotsApplied { get; private set; }
+
+        /// <inheritdoc cref="SnapshotsApplied"/>
+        public long SnapshotsStale { get; private set; }
+
+        /// <summary>Пропущено тактов между принятыми снимками (потери).</summary>
+        public long SnapshotsMissed { get; private set; }
+
+        /// <summary>Испорченных сообщений.</summary>
+        public long BadMessages { get; private set; }
+
+        /// <summary>Часов принято.</summary>
+        public long ClocksReceived { get; private set; }
+
+        /// <summary>Пакетов ввода отправлено.</summary>
+        public long InputsSent { get; private set; }
+
+        /// <summary>Каждый принятый (более новый) снимок — после того, как стал <see cref="Latest"/>.</summary>
+        public Action<Snapshot>? SnapshotApplied { get; set; }
+
+        /// <summary>Разобрать пришедшее.</summary>
+        public void Poll(long nowMicros) => _transport.Poll(nowMicros, this);
+
+        /// <summary>
+        /// Новый кадр ввода (60 Гц): номер +1, пакет из трёх прошлых и текущего — по каналу 0. Не в игре — ничего.
+        /// </summary>
+        public void SendFrame(InputFrame frame)
+        {
+            if (State != NetClientState.InGame)
+            {
+                return;
+            }
+
+            _input.Frame0 = _input.Frame1;
+            _input.Frame1 = _input.Frame2;
+            _input.Frame2 = _input.Frame3;
+            _input.Frame3 = WireFrame.From(frame);
+            _input.FirstFrame++;
+            _input.LastSnapshot = _hasSnapshot ? _latest.Tick : 0;
+            _input.PictureTime = _input.LastSnapshot * 2;
+            _input.Lead = 0;
+            int len = _input.Write(_buf);
+            _transport.Send(_serverPeer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
+            InputsSent++;
+        }
+
+        /// <summary>Выйти.</summary>
+        public void Disconnect() => _transport.Disconnect(_serverPeer, ReadOnlySpan<byte>.Empty);
+
+        // ---------- События транспорта ----------
+
+        void ITransportHandler.OnConnected(int peer)
+        {
+            if (peer != _serverPeer || State != NetClientState.Connecting)
+            {
+                return;
+            }
+
+            int len = new LoginMessage { Version = _version, Name = _name }.Write(_buf);
+            _transport.Send(_serverPeer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+            State = NetClientState.LoggingIn;
+        }
+
+        void ITransportHandler.OnDisconnected(int peer, NetDisconnectReason reason, ReadOnlySpan<byte> payload)
+        {
+            if (peer != _serverPeer)
+            {
+                return;
+            }
+
+            DisconnectReason = reason;
+            if (State == NetClientState.LoggingIn && payload.Length > 0)
+            {
+                try
+                {
+                    LoginRejectMessage r = LoginRejectMessage.Read(payload);
+                    Reject = r;
+                    RejectText = r.Describe(_version);
+                    State = NetClientState.Rejected;
+                    return;
+                }
+                catch (ProtocolException)
+                {
+                    BadMessages++;
+                }
+            }
+
+            State = NetClientState.Disconnected;
+        }
+
+        void ITransportHandler.OnReceive(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+        {
+            if (peer != _serverPeer)
+            {
+                return;
+            }
+
+            try
+            {
+                switch (Codec.TypeOf(data))
+                {
+                    case MessageType.LoginAccept when State == NetClientState.LoggingIn:
+                        OnAccept(LoginAcceptMessage.Read(data));
+                        break;
+                    case MessageType.Snapshot when State == NetClientState.InGame:
+                        OnSnapshot(data);
+                        break;
+                    case MessageType.Clock when State == NetClientState.InGame:
+                        ClockMessage c = ClockMessage.Read(data);
+                        ClocksReceived++;
+                        if ((int)(c.ServerTick - ServerTick) > 0)
+                        {
+                            ServerTick = c.ServerTick;
+                        }
+
+                        break;
+                    case MessageType.Snapshot:
+                        break; // снимок обогнал «вход принят» (другой канал) — пропускаем
+                    default:
+                        BadMessages++;
+                        break;
+                }
+            }
+            catch (ProtocolException)
+            {
+                BadMessages++;
+            }
+        }
+
+        private void OnAccept(in LoginAcceptMessage m)
+        {
+            Accept = m;
+            _layout = new SnapshotLayout(new MapShape(m.MapWidth, m.MapHeight, m.Wraps));
+            ServerTick = m.ServerTick;
+
+            // Кадры 60 Гц: два на такт; первый пакет несёт кадры «до входа» — пустые.
+            _input = default;
+            _input.FirstFrame = m.ServerTick * 2;
+            State = NetClientState.InGame;
+        }
+
+        private void OnSnapshot(ReadOnlySpan<byte> data)
+        {
+            uint tick = Snapshot.PeekTick(data);
+            if (_hasSnapshot && (int)(tick - _latest.Tick) <= 0)
+            {
+                SnapshotsStale++;
+                return;
+            }
+
+            _scratch.Read(data, _layout);
+            if (_hasSnapshot)
+            {
+                SnapshotsMissed += tick - _latest.Tick - 1;
+            }
+
+            Snapshot t = _latest;
+            _latest = _scratch;
+            _scratch = t;
+            _hasSnapshot = true;
+            SnapshotsApplied++;
+            if ((int)(tick - ServerTick) > 0)
+            {
+                ServerTick = tick;
+            }
+
+            SnapshotApplied?.Invoke(_latest);
+        }
+    }
+}
