@@ -1,0 +1,31 @@
+# Исходники и проекты .NET — LF, UTF-8 без BOM (правило проекта, docs/07 1.1).
+*.cs        text eol=lf
+*.csproj    text eol=lf
+*.props     text eol=lf
+*.targets   text eol=lf
+*.json      text eol=lf
+*.shader    text eol=lf
+*.asmdef    text eol=lf
+*.meta      text eol=lf
+
+# Единичные файлы Unity (сцены, префабы) — текст: диффы должны читаться.
+*.unity     text
+*.asset     text
+*.prefab    text
+*.mat       text
+
+# Windows-скрипты и решение — CRLF.
+*.cmd       text eol=crlf
+*.bat       text eol=crlf
+*.sln       text eol=crlf
+
+# Двоичное.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.psd       binary
+*.tga       binary
+*.dll       binary
+*.exe       binary
+*.a         binary
+*.lib       binary
