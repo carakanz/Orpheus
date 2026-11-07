@@ -1621,6 +1621,22 @@ namespace Orpheus.Tests
             Assert.True(run.Checked > 2 * 60 * 25, $"{run.Checked}");
             Assert.True(run.MaxErrorUnits <= U / 2, $"{run.MaxErrorUnits}");
 
+            // 0. Сервер укладывается в такт (0-030 по проверке 0-032): доля простоев потока такта — промежуток между началами
+            // соседних тактов больше такта + 5 мс — по метрикам самого сервера. Проверяется только на спокойной машине
+            // (загрузка < CalmMachinePercent): под нагрузкой простои — планировщик ОС, а не сервер; число пишется всегда.
+            MetricsSample sm = run.Server.Metrics!;
+            string stalls = $"сервер: такт ср. {sm.TickMeanMs:F3} мс, p99 {sm.TickP99Ms:F3}, max {sm.TickMaxMs:F2}; простоев {sm.Stalls} из {sm.Gaps} " +
+                            $"({sm.StallPercent:F2} %, порог {ServerStallMaxPercent} %), промежуток max {sm.MaxGapMs:F1} мс; {run.Cpu}";
+            _out.WriteLine(stalls);
+            if (run.Cpu.Known && run.Cpu.MeanPercent < CalmMachinePercent)
+            {
+                Assert.True(sm.StallPercent <= ServerStallMaxPercent, "сервер не укладывается в такт — " + stalls);
+            }
+            else
+            {
+                _out.WriteLine($"простои сервера НЕ проверены: загрузка машины ≥ {CalmMachinePercent} % или неизвестна");
+            }
+
             // 1. Транспорт (зонд): отправка сразу после такта (ITransport.Flush, 0-015). Без Flush LiteNetLib держит снимок до
             // UpdateTime (15 мс): медленных — большинство при любой фазе часов. Загрузка машины задерживает потоки LiteNetLib
             // лишь изредка (замер 0-032).
@@ -1638,6 +1654,12 @@ namespace Orpheus.Tests
                         $"отставание > 2 тактов от отправки у {t.BotCleanOver2} из {t.BotClean} снимков без простоя ботов (порог {BotLagOver2MaxShare:P1}), " +
                         $"максимум {t.BotCleanMaxLag}; {run.Cpu}");
         }
+
+        /// <summary>Простои такта сервера: наибольшая доля, % (0-030). Простой раз в 10 тактов (backlog по 0-032) — 10 %.</summary>
+        private const double ServerStallMaxPercent = 2;
+
+        /// <summary>Загрузка машины, ниже которой проверяются простои сервера, % (0-030).</summary>
+        private const double CalmMachinePercent = 50;
 
         /// <summary>Зонд: «медленный» снимок — транспорт вёз дольше, мс (0-032).</summary>
         private const double ProbeSlowMs = 5;

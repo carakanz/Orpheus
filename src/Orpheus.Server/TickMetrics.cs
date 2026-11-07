@@ -58,10 +58,12 @@ namespace Orpheus.Server
 
         private readonly long _tickMicros;
         private readonly long[] _partTs = new long[PartCount];
+        private readonly long[] _partAlloc = new long[PartCount];
         private long _tickStart;
         private long _mark;
         private long _prevStart = -1;
         private long _alloc0;
+        private long _allocMark;
 
         /// <param name="tickMicros">Длина такта по часам, мкс; 0 — часов нет (<c>--sim</c>), простои не считаются.</param>
         public TickMetrics(long tickMicros)
@@ -97,26 +99,32 @@ namespace Orpheus.Server
             _tickStart = now;
             _mark = now;
             Array.Clear(_partTs, 0, PartCount);
-            _alloc0 = GC.GetAllocatedBytesForCurrentThread();
+            Array.Clear(_partAlloc, 0, PartCount);
+            _alloc0 = _allocMark = GC.GetAllocatedBytesForCurrentThread();
         }
 
         /// <summary>Закончилась часть <paramref name="part"/>: время с прошлой отметки — ей.</summary>
         public void Mark(TickPart part)
         {
             long now = Stopwatch.GetTimestamp();
+            long alloc = GC.GetAllocatedBytesForCurrentThread();
             _partTs[(int)part] += now - _mark;
+            _partAlloc[(int)part] += alloc - _allocMark;
             _mark = now;
+            _allocMark = alloc;
         }
 
         /// <summary>Конец такта: до ожидания часов (и до отладочной заморозки).</summary>
         public void EndTick()
         {
             long now = Stopwatch.GetTimestamp();
-            long alloc = GC.GetAllocatedBytesForCurrentThread() - _alloc0;
+            long allocNow = GC.GetAllocatedBytesForCurrentThread();
+            long alloc = allocNow - _alloc0;
             _partTs[(int)TickPart.Other] += now - _mark; // неразмеченный хвост — в «прочее»
+            _partAlloc[(int)TickPart.Other] += allocNow - _allocMark;
             long total = Micros(now - _tickStart);
-            Window.AddTick(total, _partTs, alloc);
-            Total.AddTick(total, _partTs, alloc);
+            Window.AddTick(total, _partTs, _partAlloc, alloc);
+            Total.AddTick(total, _partTs, _partAlloc, alloc);
         }
 
         /// <summary>Начать новое окно.</summary>
@@ -132,6 +140,7 @@ namespace Orpheus.Server
         private readonly int[] _hist = new int[TickMetrics.Bins];
         private readonly long[] _partSumTs = new long[TickMetrics.PartCount];
         private readonly long[] _partMaxTs = new long[TickMetrics.PartCount];
+        private readonly long[] _partAlloc = new long[TickMetrics.PartCount];
 
         /// <summary>Тактов.</summary>
         public long Ticks { get; private set; }
@@ -186,6 +195,11 @@ namespace Orpheus.Server
                 seen += _hist[i];
                 if (seen >= rank)
                 {
+                    if (i == _hist.Length - 1)
+                    {
+                        return MaxMs; // за краем гистограммы — только наибольшее известно точно
+                    }
+
                     return Math.Min((i + 1) * (double)TickMetrics.BinMicros, MaxMicros) / 1000.0;
                 }
             }
@@ -204,7 +218,10 @@ namespace Orpheus.Server
         public double PartShare(TickPart part) =>
             SumMicros > 0 ? TickMetrics.Micros(_partSumTs[(int)part]) / (double)SumMicros : 0;
 
-        internal void AddTick(long micros, long[] partTs, long allocated)
+        /// <summary>Байт, выделенных потоком такта в части, в среднем на такт.</summary>
+        public double PartAllocatedPerTick(TickPart part) => Ticks > 0 ? _partAlloc[(int)part] / (double)Ticks : 0;
+
+        internal void AddTick(long micros, long[] partTs, long[] partAlloc, long allocated)
         {
             Ticks++;
             SumMicros += micros;
@@ -218,6 +235,7 @@ namespace Orpheus.Server
             for (int i = 0; i < TickMetrics.PartCount; i++)
             {
                 _partSumTs[i] += partTs[i];
+                _partAlloc[i] += partAlloc[i];
                 if (partTs[i] > _partMaxTs[i])
                 {
                     _partMaxTs[i] = partTs[i];
@@ -258,6 +276,7 @@ namespace Orpheus.Server
             Array.Clear(_hist, 0, _hist.Length);
             Array.Clear(_partSumTs, 0, _partSumTs.Length);
             Array.Clear(_partMaxTs, 0, _partMaxTs.Length);
+            Array.Clear(_partAlloc, 0, _partAlloc.Length);
         }
     }
 }

@@ -19,6 +19,9 @@ namespace Orpheus.Server
 
         /// <summary>Доля в сумме тактов, %.</summary>
         public double Percent { get; set; }
+
+        /// <summary>Байт, выделенных потоком такта в этой части, в среднем на такт (11.6: должно быть 0).</summary>
+        public double AllocatedBytesPerTick { get; set; }
     }
 
     /// <summary>Выборка метрик сервера: окно (раз в N с) или весь запуск (0-030, docs/07 11.6).</summary>
@@ -104,6 +107,10 @@ namespace Orpheus.Server
             {
                 d.Add((p.Name + "Ms", R(p.MeanMs)));
                 d.Add((p.Name + "MaxMs", R(p.MaxMs)));
+                if (p.AllocatedBytesPerTick > 0)
+                {
+                    d.Add((p.Name + "AllocBytesPerTick", R(p.AllocatedBytesPerTick)));
+                }
             }
 
             d.Add(("stalls", Stalls));
@@ -399,6 +406,7 @@ namespace Orpheus.Server
                     MeanMs = t.PartMeanMs(part),
                     MaxMs = t.PartMaxMs(part),
                     Percent = 100 * t.PartShare(part),
+                    AllocatedBytesPerTick = t.PartAllocatedPerTick(part),
                 };
             }
 
