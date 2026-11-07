@@ -129,6 +129,9 @@ namespace Orpheus.Net.Session
         /// <summary>Предсказанная позиция после последнего кадра.</summary>
         public WorldPos Position => _mover.Position;
 
+        /// <summary>Предсказанный уворот после последнего кадра (0-029).</summary>
+        public Dodge Dodge => _mover.Dodge;
+
         /// <summary>Предсказанный остаток скорости после последнего кадра.</summary>
         public Int2 Carry => _mover.Carry;
 

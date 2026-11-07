@@ -4,6 +4,7 @@ using Orpheus.Core.Bots;
 using Orpheus.Net;
 using Orpheus.Net.Hosting;
 using Orpheus.Net.Protocol;
+using Orpheus.Net.Session;
 using Orpheus.Net.Transport;
 
 namespace Orpheus.Bots
@@ -23,7 +24,7 @@ namespace Orpheus.Bots
     public sealed class BotOptions
     {
         public const string Usage =
-            "Orpheus.Bots --connect host:port [--count N] [--script idle|wander] [--rtt мс] [--jitter мс] [--burst]\n" +
+            "Orpheus.Bots --connect host:port [--count N] [--script idle|wander|dodge] [--rtt мс] [--jitter мс] [--burst]\n" +
             "             [--loss %] [--dup %] [--reorder %] [--seed N] [--minutes M | --seconds S] [--report <json>]\n" +
             "             [--name префикс] [--version x.y.z] [--host-token <32 hex>] [--open-for-friends]\n" +
             "Orpheus.Bots --launch <OrpheusServer> --world <папка> [--create-seed N] [--mode single|host] [--open-address A]\n" +
@@ -99,9 +100,9 @@ namespace Orpheus.Bots
                         break;
                     case "--script":
                         o.Script = Value(args, ref i);
-                        if (Array.IndexOf(SimBot.Scripts, o.Script) < 0)
+                        if (Array.IndexOf(SimBot.Scripts, o.Script) < 0 && o.Script != DodgeBot.Name)
                         {
-                            throw new ArgumentException($"--script: сценария «{o.Script}» нет; есть: {string.Join(", ", SimBot.Scripts)}.");
+                            throw new ArgumentException($"--script: сценария «{o.Script}» нет; есть: {string.Join(", ", SimBot.Scripts)}, {DodgeBot.Name}.");
                         }
 
                         break;

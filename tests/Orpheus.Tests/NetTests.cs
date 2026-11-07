@@ -163,7 +163,8 @@ namespace Orpheus.Tests
             var snap = new Snapshot
             {
                 Tick = 99_999, AckFrame = 200_003, Count = 40,
-                Self = new SelfState(new WorldPos(size * U - 1, rng.NextInt(size * U)), new Int2(-9, 7)), // без кванта (0-019)
+                Self = new SelfState(new WorldPos(size * U - 1, rng.NextInt(size * U)), new Int2(-9, 7),
+                    new Dodge { Elapsed = 255, DashLeft = 15, Cooldown = 24, Direction = 8 }), // без кванта (0-019); уворот — пределы полей (0-029)
             };
             for (int i = 0; i < snap.Count; i++)
             {

@@ -123,8 +123,10 @@ namespace Orpheus.Tests
         /// 11.6 «без выделений в такте»: сервер по сети в установившейся игре (8 игроков, ввод 60 Гц, снимок 30 Гц) —
         /// разбор ввода и сборка снимков не выделяют памяти (транспорт — заглушка: свой расход у LiteNetLib).
         /// </summary>
-        [Fact]
-        public void D00_Net_Server_SteadyState_NoAllocations()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)] // манекен шипа 0-029: замахи, угрозы, решение удара с копией персонажа, «замах начат», «удар решён»
+        public void D00_Net_Server_SteadyState_NoAllocations(bool dummy)
         {
             var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
             var sim = new Simulation(world, maxEntities: 64);
@@ -139,6 +141,10 @@ namespace Orpheus.Tests
 
             server.Poll(0);
             Assert.Equal(8, server.PlayersInGame);
+            if (dummy)
+            {
+                server.SetDummy(new Orpheus.Core.Combat.MeleeDummy(1000, ServerRun.SpawnPoint(world.Shape, 0), Orpheus.Core.Trig.Angle16.FromRaw(0), 4));
+            }
 
             // Пакеты ввода заранее: на каждый кадр — свой номер. Проход — 300 тактов; прогрев — те же проходы
             // (смена направления каждые 60 кадров, все ветви приёма и снимка) до замера.
@@ -172,6 +178,11 @@ namespace Orpheus.Tests
             Assert.Equal(8 * Passes * Ticks, server.SnapshotsSent);
             Assert.Equal(Passes * Ticks, t.Flushes); // один сброс отправки на такт, а не на каждый снимок (0-015)
             Assert.Equal(8 * 2 * Passes * Ticks, server.InputsAccepted);
+            if (dummy)
+            {
+                Assert.True(server.ThreatsResolved > 8 * 10, $"решено {server.ThreatsResolved}");
+            }
+
             Assert.Equal(0, allocated);
         }
 

@@ -100,6 +100,56 @@ namespace Orpheus.Tests
             return v;
         }
 
+        /// <summary>Кодек: «замах начат» (13) и «удар решён» (14) — туда и обратно, размер, испорченные флаги.</summary>
+        [Fact]
+        public void D00_Net_Codec_SwingAndResult_RoundTrip()
+        {
+            var buf = new byte[64];
+            var swing = new SwingStartMessage
+            {
+                AttackerId = 0x7FFF0001, StartFrame = uint.MaxValue - 3, WindupFrames = 24, Origin = new WorldPos(262_143, 5),
+                Axis = 32768, ReachUnits = 384, HalfArcSteps = 8192,
+            };
+            int n = swing.Write(buf);
+            Assert.Equal(SwingStartMessage.Bytes, n);
+            Assert.Equal(MessageType.SwingStart, Codec.TypeOf(buf.AsSpan(0, n)));
+            SwingStartMessage s2 = SwingStartMessage.Read(buf.AsSpan(0, n));
+            Assert.Equal(swing.ToString(), s2.ToString());
+            Assert.Equal(swing.ReachUnits, s2.ReachUnits);
+            Assert.Equal(swing.HalfArcSteps, s2.HalfArcSteps);
+            Assert.Equal(20u, s2.ContactFrame); // через переполнение
+
+            var res = new MeleeResultMessage { AttackerId = 7, StartFrame = 1234, Hit = true, ByLastKnown = true, WaitedFrames = 6, MissingFrames = 3, DecidedAtFrame = 1264 };
+            n = res.Write(buf);
+            Assert.Equal(MeleeResultMessage.Bytes, n);
+            MeleeResultMessage r2 = MeleeResultMessage.Read(buf.AsSpan(0, n));
+            Assert.Equal(res.ToString(), r2.ToString());
+            Assert.Equal(res.DecidedAtFrame, r2.DecidedAtFrame);
+            buf[9] = 4; // флаги вне 0…3
+            Assert.Throws<ProtocolException>(() => MeleeResultMessage.Read(buf.AsSpan(0, n)));
+        }
+
+        /// <summary>
+        /// Правка берёт уворот сервера (протокол 5): клиент нажал уворот, а сервер кадр с нажатием не шагнул (шагнул сам
+        /// без кнопок) — после правки рывка в предсказании нет, позиция серверная.
+        /// </summary>
+        [Fact]
+        public void D07_S2_6_Reconcile_TakesServerDodge()
+        {
+            MapShape map = MapShape.World(1024);
+            WorldModel world = FlatWorldGenerator.Instance.Generate(map, 42);
+            var simulation = new Simulation(world, maxEntities: 2);
+            WorldPos at = ServerRun.SpawnPoint(map, 0);
+            var pred = new LocalPrediction(map, simulation.Solid, at);
+            pred.Reconcile(100, new SelfState(at, default), 0); // начало: сервер на кадре 100
+            pred.Sent(101, new InputFrame(Core.Movement.Input8.North, InputButtons.Dodge));
+            Assert.True(pred.Dodge.Dashing);
+            pred.Reconcile(101, new SelfState(at, default), 1000); // сервер шагнул 101 сам: стоит, уворота нет
+            Assert.Equal(1, pred.Resynced);
+            Assert.False(pred.Dodge.Dashing);
+            Assert.Equal(at, pred.Position);
+        }
+
         /// <summary>Без задержки: все 100 уворотов засчитаны, сервер не ждёт дольше W, по последнему известному — ни одного.</summary>
         [Fact]
         public void D07_S2_13_P3_DodgeShip_NoLatency_AllCounted()
