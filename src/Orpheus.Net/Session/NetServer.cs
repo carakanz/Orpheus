@@ -28,6 +28,10 @@ namespace Orpheus.Net.Session
     /// пакет со старыми кадрами (переставленный или дубль) отбрасывается. Четыре кадра в пакете пока только
     /// подстраховка от потерь.
     /// </para>
+    /// <para>
+    /// Обрыв (2.13 п. 6, 0-015): нового кадра нет <see cref="InputStaleTicks"/> тактов (0,2 с) — сервер подставляет пустой
+    /// ввод, персонаж стоит; соединение держится до обычного тайм-аута транспорта.
+    /// </para>
     /// </summary>
     public sealed class NetServer : ITransportHandler
     {
@@ -52,6 +56,12 @@ namespace Orpheus.Net.Session
             public uint LastFrame;
             public bool HasFrame;
             public uint LastSnapshotAck;
+
+            /// <summary>Такт сервера, на котором пришёл последний новый кадр ввода (или вход).</summary>
+            public long LastInputTick;
+
+            /// <summary>Ввод подменён пустым по обрыву; снимается новым кадром.</summary>
+            public bool Stopped;
 
             /// <summary>Кольцо отправленных снимков для дельт (0-014); создаётся при входе в игру.</summary>
             public SentRing? Ring;
@@ -121,6 +131,11 @@ namespace Orpheus.Net.Session
         private readonly DeltaFields[] _updFields = new DeltaFields[Snapshot.MaxEntities];
         private readonly int[] _addCur = new int[Snapshot.MaxEntities];
         private int _spawned;
+
+        /// <summary>
+        /// Нового кадра ввода нет столько тактов (6 = 0,2 с, 2.13 п. 6) — ввод игрока пустой: движение 0, кнопки 0.
+        /// </summary>
+        public const int InputStaleTicks = 6;
 
         /// <summary>
         /// Контрольный полный кадр — раз в столько тактов (30 = 1 с; 0-014, 4.3). 1 — всегда полный (эталон для тестов).
@@ -193,6 +208,9 @@ namespace Orpheus.Net.Session
         /// <inheritdoc cref="InputsAccepted"/>
         public long InputsDropped { get; private set; }
 
+        /// <summary>Сколько раз ввод игрока подменён пустым: нового кадра нет <see cref="InputStaleTicks"/> тактов.</summary>
+        public long InputStops { get; private set; }
+
         /// <summary>Входов принято / отклонено.</summary>
         public int LoginsAccepted { get; private set; }
 
@@ -209,8 +227,54 @@ namespace Orpheus.Net.Session
             return p != null && p.State == PlayerState.InGame ? p.EntityId : -1;
         }
 
-        /// <summary>До такта: события транспорта, вход, ввод.</summary>
-        public void Poll(long nowMicros) => _transport.Poll(nowMicros, this);
+        /// <summary>
+        /// Последний принятый кадр ввода игрока с сущностью <paramref name="entityId"/> (идёт в снимок как
+        /// <c>AckFrame</c>); нет такого игрока или кадров ещё не было — false.
+        /// </summary>
+        public bool TryGetLastFrame(int entityId, out uint frame)
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if (p.State == PlayerState.InGame && p.EntityId == entityId && p.HasFrame)
+                {
+                    frame = p.LastFrame;
+                    return true;
+                }
+            }
+
+            frame = 0;
+            return false;
+        }
+
+        /// <summary>До такта: события транспорта, вход, ввод; затем стоп тем, от кого ввода нет 0,2 с.</summary>
+        public void Poll(long nowMicros)
+        {
+            _transport.Poll(nowMicros, this);
+            StopStaleInputs();
+        }
+
+        /// <summary>
+        /// 2.13 п. 6: от игрока нет нового кадра <see cref="InputStaleTicks"/> тактов — пустой ввод на ближайший такт.
+        /// Зовётся после приёма пакетов такта: если сервер сам стоял (заморозка, п. 5), пакеты, пришедшие за это
+        /// время, уже приняты и стопа не будет.
+        /// </summary>
+        private void StopStaleInputs()
+        {
+            long tick = _sim.Tick;
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if (p.State != PlayerState.InGame || p.Stopped || tick - p.LastInputTick < InputStaleTicks)
+                {
+                    continue;
+                }
+
+                p.Stopped = true;
+                InputStops++;
+                _sim.SetInput(p.EntityId, InputFrame.None);
+            }
+        }
 
         /// <summary>
         /// После такта: снимок каждому игроку в игре (0-014, 4.3). База — снимок, который клиент подтвердил
@@ -556,6 +620,7 @@ namespace Orpheus.Net.Session
             p.State = PlayerState.InGame;
             p.EntityId = id;
             p.Name = m.Name;
+            p.LastInputTick = _sim.Tick;
             LoginsAccepted++;
             int len = new LoginAcceptMessage
             {
@@ -583,6 +648,8 @@ namespace Orpheus.Net.Session
             p.LastFrame = m.LastFrame;
             p.HasFrame = true;
             p.LastSnapshotAck = m.LastSnapshot;
+            p.LastInputTick = _sim.Tick;
+            p.Stopped = false;
             _sim.SetInput(p.EntityId, frame);
             InputsAccepted++;
         }

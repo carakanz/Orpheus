@@ -331,7 +331,7 @@ namespace Orpheus.Server
                 }
 
                 sim.Step();
-                net?.SendSnapshots(); // полный снимок каждый такт — 30 Гц (2.4, 4.3)
+                net?.SendSnapshots(); // снимок каждому игроку каждый такт — 30 Гц: дельта к подтверждённой базе или полный (2.4, 4.3; 0-014)
                 sim.RefillPools(); // вне такта: запас словарей построек (backlog [такт сервера])
                 saver?.AfterTick(sim); // граница такта: автосохранение (0-009)
                 o.AfterTick?.Invoke(sim);

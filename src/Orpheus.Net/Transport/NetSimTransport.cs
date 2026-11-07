@@ -90,6 +90,9 @@ namespace Orpheus.Net.Transport
         /// <summary>Переотправок надёжных (потеря на надёжном канале).</summary>
         public long Retransmits;
 
+        /// <summary>Выброшено из очереди: соединение закрылось раньше срока доставки (0-015).</summary>
+        public long Discarded;
+
         /// <summary>Сумма задержек отданных пакетов, мкс.</summary>
         public long DelaySumMicros;
 
@@ -106,6 +109,10 @@ namespace Orpheus.Net.Transport
     /// Канал 0 (ненадёжный): пакеты теряются, дублируются, переставляются. Каналы 1–4 (надёжные): потеря — это
     /// переотправка (пакет приходит позже на 2 × задержка + 25 мс), порядок внутри канала сохраняется, дублей нет —
     /// как у настоящего надёжного канала. События «открыто» и «закрыто» проходят без задержки.
+    /// </para>
+    /// <para>
+    /// «Закрыто» (своё <see cref="Disconnect"/> или от обёрнутого транспорта) выбрасывает пакеты этого соединения,
+    /// ещё ждущие в очередях: LiteNetLib переиспользует номера соединений, и застрявший пакет иначе ушёл бы новому.
     /// </para>
     /// </summary>
     public sealed class NetSimTransport : ITransport, ITransportHandler
@@ -218,6 +225,7 @@ namespace Orpheus.Net.Transport
         {
             FlushOutbound();
             _inner.Disconnect(peer, payload);
+            Forget(peer);
         }
 
         public int RoundTripMs(int peer)
@@ -234,9 +242,17 @@ namespace Orpheus.Net.Transport
 
         void ITransportHandler.OnDisconnected(int peer, NetDisconnectReason reason, ReadOnlySpan<byte> payload)
         {
+            Forget(peer);
+            _handler?.OnDisconnected(peer, reason, payload);
+        }
+
+        /// <summary>Соединение закрыто: его пакеты из очередей — выбросить, сроки надёжных каналов — забыть.</summary>
+        private void Forget(int peer)
+        {
             _reliableDueIn.Remove(peer);
             _reliableDueOut.Remove(peer);
-            _handler?.OnDisconnected(peer, reason, payload);
+            _send.Stats.Discarded += _outbound.RemovePeer(peer, _pool);
+            _receive.Stats.Discarded += _inbound.RemovePeer(peer, _pool);
         }
 
         void ITransportHandler.OnReceive(int peer, NetChannel channel, ReadOnlySpan<byte> data) =>
@@ -423,33 +439,73 @@ namespace Orpheus.Net.Transport
                 _items[Count] = default;
                 if (Count > 0)
                 {
-                    int i = 0;
-                    while (true)
-                    {
-                        int child = 2 * i + 1;
-                        if (child >= Count)
-                        {
-                            break;
-                        }
-
-                        if (child + 1 < Count && Less(_items[child + 1], _items[child]))
-                        {
-                            child++;
-                        }
-
-                        if (!Less(_items[child], last))
-                        {
-                            break;
-                        }
-
-                        _items[i] = _items[child];
-                        i = child;
-                    }
-
-                    _items[i] = last;
+                    SiftDown(0, last);
                 }
 
                 return top;
+            }
+
+            /// <summary>
+            /// Выбросить все пакеты соединения <paramref name="peer"/> (буферы — в <paramref name="pool"/>), кучу
+            /// перестроить; возвращает, сколько выброшено. Порядок оставшихся — тот же (срок, номер постановки).
+            /// </summary>
+            public int RemovePeer(int peer, Stack<byte[]> pool)
+            {
+                int kept = 0;
+                for (int i = 0; i < Count; i++)
+                {
+                    if (_items[i].Peer != peer)
+                    {
+                        _items[kept++] = _items[i];
+                    }
+                    else if (_items[i].Data.Length == NetSettings.Mtu)
+                    {
+                        pool.Push(_items[i].Data);
+                    }
+                }
+
+                int removed = Count - kept;
+                if (removed == 0)
+                {
+                    return 0;
+                }
+
+                Array.Clear(_items, kept, removed);
+                Count = kept;
+                for (int i = Count / 2 - 1; i >= 0; i--)
+                {
+                    SiftDown(i, _items[i]);
+                }
+
+                return removed;
+            }
+
+            /// <summary>Поставить <paramref name="item"/> на место <paramref name="i"/> и просеять вниз.</summary>
+            private void SiftDown(int i, Pending item)
+            {
+                while (true)
+                {
+                    int child = 2 * i + 1;
+                    if (child >= Count)
+                    {
+                        break;
+                    }
+
+                    if (child + 1 < Count && Less(_items[child + 1], _items[child]))
+                    {
+                        child++;
+                    }
+
+                    if (!Less(_items[child], item))
+                    {
+                        break;
+                    }
+
+                    _items[i] = _items[child];
+                    i = child;
+                }
+
+                _items[i] = item;
             }
 
             private static bool Less(in Pending a, in Pending b) => a.Due < b.Due || (a.Due == b.Due && a.Seq < b.Seq);
