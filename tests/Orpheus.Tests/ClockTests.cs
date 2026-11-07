@@ -69,7 +69,7 @@ namespace Orpheus.Tests
             /// <summary>После такта сервера.</summary>
             public Action? AfterTick;
 
-            public Rig(int clients, NetSimSettings? s)
+            public Rig(int clients, NetSimSettings? s, Func<int, ITransport, ITransport>? wrap = null)
             {
                 WorldModel world = FlatWorldGenerator.Instance.Generate(Map, 42);
                 Sim = new Simulation(world, maxEntities: 8);
@@ -83,6 +83,11 @@ namespace Orpheus.Tests
                         NetSimSettings si = s.Value;
                         si.Seed += (ulong)i * 7919;
                         t = new NetSimTransport(t, si);
+                    }
+
+                    if (wrap != null)
+                    {
+                        t = wrap(i, t);
                     }
 
                     var c = new Client { T = t, C = new NetClient(t, LoopbackTransport.ServerPeer, $"c{i}", NetModule.Version), NextFrameAt = 3000 + i * 5000 };
@@ -280,6 +285,13 @@ namespace Orpheus.Tests
             var y0 = new int[2];
             var movedNorthAt = new long[] { -1, -1 };
             long tickAtUnfreeze = -1;
+
+            // Перестройка очереди (з. 1 проверки): 1 с после первого кадра «север» — Y меняется каждый такт, сервер не шагает
+            // сам и не останавливает ввод. Без перестройки пакеты с номерами «назад» отбрасываются: сервер шагает сам и встаёт.
+            var prevY = new int[2];
+            var stillTicks = new int[2];
+            var watched = new int[2];
+            long selfAt = -1, stopsAt = -1, selfAfter = -1, stopsAfter = -1;
             rig.AfterTick = () =>
             {
                 if (rig.Now < unfreezeAt)
@@ -298,10 +310,33 @@ namespace Orpheus.Tests
 
                 for (int i = 0; i < 2; i++)
                 {
-                    if (movedNorthAt[i] < 0 && rig.Sim.GetEntity(rig.Clients[i].C.EntityId).Mover.Position.Y != y0[i])
+                    int y = rig.Sim.GetEntity(rig.Clients[i].C.EntityId).Mover.Position.Y;
+                    if (movedNorthAt[i] >= 0 && watched[i] < Simulation.TickRate)
+                    {
+                        watched[i]++;
+                        if (y == prevY[i])
+                        {
+                            stillTicks[i]++;
+                        }
+                    }
+
+                    if (movedNorthAt[i] < 0 && y != y0[i])
                     {
                         movedNorthAt[i] = rig.Sim.Tick - tickAtUnfreeze;
                     }
+
+                    prevY[i] = y;
+                }
+
+                if (selfAt < 0 && movedNorthAt[0] >= 0 && movedNorthAt[1] >= 0)
+                {
+                    selfAt = rig.Server.FramesSelfStepped;
+                    stopsAt = rig.Server.InputStops;
+                }
+                else if (selfAfter < 0 && watched[0] == Simulation.TickRate && watched[1] == Simulation.TickRate)
+                {
+                    selfAfter = rig.Server.FramesSelfStepped;
+                    stopsAfter = rig.Server.InputStops;
                 }
             };
 
@@ -314,25 +349,212 @@ namespace Orpheus.Tests
                 LocalPrediction p = rig.Clients[i].P!;
                 _out.WriteLine($"клиент {i}: состояние {c.State}, «часы» {c.ClocksReceived}, эпох {c.EpochResets}, перестановок по серверу {c.Clock.ServerResets}, " +
                                $"ошибка на первом снимке после разморозки {firstErr[i]:F2} кадра, ввод «север» применён через {movedNorthAt[i]} тактов, " +
-                               $"перенумераций {c.FrameRenumbers}; предсказание: правок {p.Resynced}, пропущено ack {p.IgnoredAcks}, наиб. {p.MaxDevUnits} u");
+                               $"тактов без движения за 1 с после — {stillTicks[i]} из {watched[i]}, перенумераций {c.FrameRenumbers}; предсказание: правок {p.Resynced}, пропущено ack {p.IgnoredAcks}, наиб. {p.MaxDevUnits} u");
                 Assert.Equal(NetClientState.InGame, c.State);
                 Assert.True(c.ClocksReceived >= 1);
                 Assert.True(seenAfter[i]);
                 Assert.True(Math.Abs(firstErr[i]) <= 1.0, $"клиент {i}: ошибка часов на первом снимке после разморозки {firstErr[i]:F2} кадра");
                 Assert.InRange(movedNorthAt[i], 0, 30);
+                Assert.Equal(Simulation.TickRate, watched[i]);
+                Assert.Equal(0, stillTicks[i]);
             }
 
             _out.WriteLine($"сервер: отключений {sv.Disconnects}, перестроек очереди {sv.InputRebases}, до заморозки перескок {skippedBefore}, " +
-                           $"выброшено {trimmedBefore}; эпоха {sv.ClockEpoch}");
+                           $"выброшено {trimmedBefore}; эпоха {sv.ClockEpoch}; за 1 с после «севера» сам {selfAfter - selfAt}, стопов {stopsAfter - stopsAt}; " +
+                           $"пакетов отброшено {sv.InputsDropped}");
             Assert.Equal(0, sv.Disconnects);
             Assert.Equal(2, sv.PlayersInGame);
-            Assert.True(sv.InputRebases >= 2, $"{sv.InputRebases}");
+            Assert.InRange(sv.InputRebases, 2, 6); // по одной на клиента (+ дубли при потерях); без перестройки — сотни
+            Assert.True(selfAt >= 0 && selfAfter >= 0);
+            Assert.Equal(0, selfAfter - selfAt);
+            Assert.Equal(0, stopsAfter - stopsAt);
             Assert.Equal(1, sv.ClockEpoch);
             if (lossPercent == 0)
             {
                 Assert.Equal(0, skippedBefore); // ровная связь — выбросов очереди нет
                 Assert.Equal(0, trimmedBefore);
             }
+        }
+
+        /// <summary>
+        /// Транспорт клиента, который задерживает «часы» (канал 2): переотправка после потери — снимок с новой эпохой
+        /// приходит раньше них.
+        /// </summary>
+        private sealed class HoldClockTransport : ITransport, ITransportHandler
+        {
+            private readonly ITransport _inner;
+            private readonly long _delayUs;
+            private readonly List<(long At, int Peer, byte[] Data)> _held = new List<(long, int, byte[])>();
+            private ITransportHandler _handler = null!;
+            private long _now;
+
+            public HoldClockTransport(ITransport inner, long delayUs)
+            {
+                _inner = inner;
+                _delayUs = delayUs;
+            }
+
+            public int Held { get; private set; }
+
+            public int Released { get; private set; }
+
+            public void Poll(long nowMicros, ITransportHandler handler)
+            {
+                _handler = handler;
+                _now = nowMicros;
+                _inner.Poll(nowMicros, this);
+                for (int k = 0; k < _held.Count; k++)
+                {
+                    if (_held[k].At <= nowMicros)
+                    {
+                        Released++;
+                        handler.OnReceive(_held[k].Peer, NetChannel.Facts, _held[k].Data);
+                        _held.RemoveAt(k--);
+                    }
+                }
+            }
+
+            public void OnConnected(int peer) => _handler.OnConnected(peer);
+
+            public void OnDisconnected(int peer, NetDisconnectReason reason, ReadOnlySpan<byte> payload) => _handler.OnDisconnected(peer, reason, payload);
+
+            public void OnReceive(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+            {
+                if (Codec.TypeOf(data) == MessageType.Clock)
+                {
+                    Held++;
+                    _held.Add((_now + _delayUs, peer, data.ToArray()));
+                    return;
+                }
+
+                _handler.OnReceive(peer, channel, data);
+            }
+
+            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data) => _inner.Send(peer, channel, data);
+
+            public void Flush() => _inner.Flush();
+
+            public void Disconnect(int peer, ReadOnlySpan<byte> payload) => _inner.Disconnect(peer, payload);
+
+            public int RoundTripMs(int peer) => _inner.RoundTripMs(peer);
+
+            public void Dispose() => _inner.Dispose();
+        }
+
+        /// <summary>
+        /// Опоздавшие «часы» (проверка 0-025 з. 3): «часы» после разморозки потерялись и пришли переотправкой на 200 мс
+        /// позже снимка с новой эпохой — клиент их не применяет: часы не уходят назад, перенумерация одна (по эпохе), без
+        /// перестановки вперёд следом. Мутация «часы — без условий» краснит.
+        /// </summary>
+        [Fact]
+        public void D07_S2_4_ClientClock_LateClockAfterNewEpochSnapshot_Ignored()
+        {
+            HoldClockTransport? hold = null;
+            using var rig = new Rig(1, NetSimSettings.FromRtt(100, 0, 0, 5), (_, t) => hold = new HoldClockTransport(t, 200_000));
+            rig.Script = (_, _) => East;
+            long releasedAt = -1;
+            double worstAfter = 0;
+            int afterRelease = 0;
+            rig.OnSnapshot = (_, _) =>
+            {
+                if (releasedAt >= 0)
+                {
+                    afterRelease++;
+                    worstAfter = Math.Max(worstAfter, Math.Abs(rig.Clients[0].C.Clock.Estimate(rig.Now) - rig.TruthTicks) * 2);
+                }
+            };
+
+            rig.RunUntil(5_000_000);
+            rig.Freeze(2000);
+            rig.RunUntil(7_000_000);
+            while (hold!.Released == 0 && rig.Now < 8_000_000)
+            {
+                rig.RunUntil(rig.Now + 1000);
+            }
+
+            NetClient c = rig.Clients[0].C;
+            long epochResets = c.EpochResets;
+            double errAtRelease = (c.Clock.Estimate(rig.Now) - rig.TruthTicks) * 2;
+            releasedAt = rig.Now;
+            rig.RunUntil(rig.Now + 2_000_000);
+            _out.WriteLine($"«часы» задержаны {hold.Held}, отданы {hold.Released}; эпох {epochResets} → {c.EpochResets}, «часов» принято {c.ClocksReceived}, " +
+                           $"пропущено {c.ClocksStale}; ошибка в миг опоздавших «часов» {errAtRelease:F2} кадра, после — наиб. {worstAfter:F2} за {afterRelease} снимков; " +
+                           $"перестановок по серверу {c.Clock.ServerResets}, вперёд {c.Clock.StepsForward}, назад {c.Clock.StepsBack}, перенумераций {c.FrameRenumbers}");
+            Assert.Equal(1, hold.Released);
+            Assert.Equal(1, epochResets); // часы переставлены по снимку с новой эпохой — до «часов»
+            Assert.True(Math.Abs(errAtRelease) <= 1.0, $"опоздавшие «часы» сдвинули оценку: ошибка {errAtRelease:F2} кадра");
+            Assert.Equal(1, c.ClocksStale);
+            Assert.Equal(1, c.FrameRenumbers);
+            Assert.Equal(0, c.Clock.StepsForward);
+            Assert.Equal(0, c.Clock.StepsBack);
+            Assert.True(afterRelease > 30, $"{afterRelease}");
+            Assert.True(worstAfter <= 1.0, $"ошибка после опоздавших «часов» {worstAfter:F2} кадра");
+        }
+
+        /// <summary>
+        /// Один опоздавший снимок (проверка 0-025 з. 5): ровная связь RTT 100, снимок на 150 / 400 / 1000 мс позже — часы назад
+        /// не переставляются (назад — только когда отстало всё окно из 15), ошибка следующих снимков ≤ 1 кадра. Мутация
+        /// «назад — по одному образцу» краснит.
+        /// </summary>
+        [Theory]
+        [InlineData(150)]
+        [InlineData(400)]
+        [InlineData(1000)]
+        public void D07_S2_4_ClientClock_OneLateSnapshot_NoStepBack(int lateMs)
+        {
+            // Снимки 30 Гц и ответы на пинг раз в 1 с, owd 50 мс; правда — кадр сервера t / такт. Снимок 200 опоздал, а
+            // шедшие за ним до его прихода потерялись — он новейший и попадает в часы (старее принятого клиент отбросил бы).
+            const long owdUs = 50_000;
+            var events = new List<(long At, bool Pong, uint Tick)>();
+            int lostUntil = 200 + (int)Math.Ceiling(lateMs * 1000.0 / ClientClock.TickUs);
+            for (uint tick = 1; tick <= 400; tick++)
+            {
+                long sentUs = (long)(tick * ClientClock.TickUs);
+                if (tick % 30 == 0)
+                {
+                    events.Add((sentUs + owdUs, true, tick));
+                }
+
+                if (tick > 200 && tick <= lostUntil)
+                {
+                    continue;
+                }
+
+                events.Add((sentUs + owdUs + (tick == 200 ? lateMs * 1000L : 0), false, tick));
+            }
+
+            events.Sort((a, b) => a.At.CompareTo(b.At));
+            var clock = new ClientClock();
+            clock.SeedRtt(2 * owdUs);
+            clock.Start(0, owdUs);
+            uint last = 0;
+            double worst = 0;
+            bool lateSeen = false;
+            foreach ((long at, bool pong, uint tick) in events)
+            {
+                if (pong)
+                {
+                    clock.OnPong(tick, 2 * owdUs, at);
+                }
+                else if (tick > last)
+                {
+                    last = tick;
+                    clock.OnSample(tick, at);
+                    if (lateSeen)
+                    {
+                        worst = Math.Max(worst, Math.Abs(clock.Estimate(at) - at / ClientClock.TickUs) * 2);
+                    }
+
+                    lateSeen |= tick == 200;
+                }
+            }
+
+            _out.WriteLine($"снимок опоздал на {lateMs} мс (потеряно за ним {lostUntil - 200}): перестановок вперёд {clock.StepsForward}, назад {clock.StepsBack}, " +
+                           $"наиб. ошибка снимков после — {worst:F2} кадра");
+            Assert.True(lateSeen);
+            Assert.Equal(0, clock.StepsBack);
+            Assert.Equal(0, clock.StepsForward);
+            Assert.True(worst <= 1.0, $"{worst:F2}");
         }
 
         /// <summary>

@@ -170,6 +170,12 @@ namespace Orpheus.Net.Session
         /// <summary>Часов принято.</summary>
         public long ClocksReceived { get; private set; }
 
+        /// <summary>
+        /// «Часов» пропущено как опоздавших: их такт не новее принятого снимка (снимок с новой эпохой пришёл раньше них —
+        /// часы уже переставлены по нему).
+        /// </summary>
+        public long ClocksStale { get; private set; }
+
         /// <summary>Пакетов ввода отправлено.</summary>
         public long InputsSent { get; private set; }
 
@@ -320,6 +326,15 @@ namespace Orpheus.Net.Session
                     case MessageType.Clock when State == NetClientState.InGame:
                         ClockMessage c = ClockMessage.Read(data);
                         ClocksReceived++;
+                        if (_hasSnapshot && (int)(c.ServerTick - _latest.Tick) <= 0)
+                        {
+                            // Опоздавшие «часы» (переотправка по каналу 2 после потери): уже принят снимок этого такта или новее —
+                            // он отправлен после «часов» и несёт новую эпоху, часы переставлены по нему. Применить — увести
+                            // оценку назад на задержку переотправки (проверка 0-025 з. 3).
+                            ClocksStale++;
+                            break;
+                        }
+
                         _clock.OnServerReset(c.ServerTick, _nowUs); // 2.4 «часы после фриза»: сразу
                         ClockReset?.Invoke();
                         break;
