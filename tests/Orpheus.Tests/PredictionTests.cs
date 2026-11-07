@@ -751,14 +751,14 @@ namespace Orpheus.Tests
             private readonly NetTests.ScriptedTransport _t = new NetTests.ScriptedTransport();
             private InputMessage _input;
 
-            public ScriptedPlayer()
+            public ScriptedPlayer(int leadInTicks = LeadInTicks)
             {
                 WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
                 Sim = new Simulation(world, maxEntities: 4);
                 Server = new NetServer(_t, Sim, _ => ServerRun.SpawnPoint(world.Shape, 0), 4, NetModule.Version);
                 // Номера кадров игрока идут с 1, а сервер применяет кадры не дальше своего такта (2.7, 0-033): сначала 2 с сервера —
                 // номера отстают от времени сервера на 120 кадров, как у клиента с задержкой, и пачки не упираются в «будущее».
-                for (int k = 0; k < LeadInTicks; k++)
+                for (int k = 0; k < leadInTicks; k++)
                 {
                     Tick();
                 }
@@ -808,6 +808,9 @@ namespace Orpheus.Tests
 
             public List<byte[]> Held { get; } = new List<byte[]>();
 
+            /// <summary>Номера следующих кадров — на <paramref name="frames"/> вперёд (часы клиента впереди, опережение L).</summary>
+            public void Skip(uint frames) => _input.FirstFrame += frames;
+
             public void Release()
             {
                 foreach (byte[] b in Held)
@@ -827,6 +830,81 @@ namespace Orpheus.Tests
         }
 
         private static readonly InputFrame RunEast = new InputFrame(new Input8(1, 0), 0x0005);
+
+        /// <summary>
+        /// 2.7 «Опоздавший кадр» (0-033): пакеты с кадром нажатия уворота задержаны — сервер шагнул эти кадры сам; пакеты
+        /// пришли — нажатие «липкое»: рывок начинается в первом ещё не шагнутом кадре, один раз (копии кадра в следующих
+        /// пакетах — не новые нажатия). Мутация «без липких» краснит.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_Server_LatePress_IsSticky()
+        {
+            var p = new ScriptedPlayer();
+            var walk = new InputFrame(new Input8(1, 0));
+            var dodge = new InputFrame(new Input8(0, 1), InputButtons.Dodge);
+            for (int k = 0; k < 10; k++)
+            {
+                p.Send(walk);
+                p.Send(walk);
+                p.Tick();
+            }
+
+            long selfBefore = p.Server.FramesSelfStepped;
+            for (int k = 0; k < 4; k++)
+            {
+                p.Send(k == 0 ? dodge : walk, deliver: false); // кадр нажатия — первый задержанный
+                p.Send(walk, deliver: false);
+                p.Tick();
+            }
+
+            Assert.True(p.Server.FramesSelfStepped - selfBefore >= 2, "сервер не шагнул задержанные кадры сам");
+            Assert.False(p.Sim.GetEntity(p.Id).Mover.Dodge.Dashing);
+            p.Release();
+            p.Tick();
+            Assert.Equal(1, p.Server.StickyPresses);
+            Assert.True(p.Server.FramesLate >= 2);
+            Assert.True(p.Sim.GetEntity(p.Id).Mover.Dodge.Dashing, $"рывка нет: {p.Sim.GetEntity(p.Id).Mover.Dodge}");
+            for (int k = 0; k < 40; k++)
+            {
+                p.Send(walk);
+                p.Send(walk);
+                p.Tick();
+            }
+
+            Assert.Equal(1, p.Server.StickyPresses); // копии опоздавшего кадра не нажимают ещё раз
+        }
+
+        /// <summary>
+        /// 2.7 «Применение ввода» (0-033): кадры «из будущего» (номера впереди времени сервера — опережение L) ждут своего
+        /// такта: сервер шагает их по 2 за такт, не дальше своего кадра + 2, хотя запас кадров позволил бы 6. Мутация «без
+        /// потолка» краснит.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_Server_FutureFrames_WaitForTheirTick()
+        {
+            var p = new ScriptedPlayer(leadInTicks: 0);
+            for (int k = 0; k < 10; k++)
+            {
+                p.Tick(); // запас кадров копится до потолка
+            }
+
+            p.Skip(30);
+            for (int k = 0; k < 40; k++)
+            {
+                p.Send(new InputFrame(new Input8(1, 0))); // номера 31…70 при кадре сервера 24 — впереди
+            }
+
+            long before = p.Server.FramesApplied;
+            for (int k = 0; k < NetServer.InputStaleTicks - 1; k++) // дольше без пакетов — стоп по обрыву (2.13 п. 6)
+            {
+                long was = p.Server.FramesApplied;
+                p.Tick();
+                Assert.True(p.Server.FramesApplied - was <= MovementTick.FramesPerTick, $"такт {k}: шагнуто {p.Server.FramesApplied - was}");
+            }
+
+            Assert.InRange(p.Server.FramesApplied - before, 1, 8); // кадры 31… — с такта, где кадр сервера дошёл до них; без потолка — по 6 за такт из запаса 20
+            Assert.Equal(0, p.Server.FramesTrimmed);
+        }
 
         /// <summary>
         /// Блокирующее замечание проверки 0-019: всплеск задержки (500 / 900 мс без пакетов, потом всё пачкой) — очередь

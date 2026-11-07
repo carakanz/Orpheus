@@ -181,6 +181,54 @@ namespace Orpheus.Tests
             Assert.InRange(r.Server.MaxThreatWaitFrames, 0, 6);
         }
 
+        /// <summary>Кадр решения удара (`07` 2.7, 4.6): s + max(d, min(D, 30) + min(d, 18)).</summary>
+        [Fact]
+        public void D07_S2_7_ResolveFrame_Formula()
+        {
+            Assert.Equal(24, ThreatTiming.ResolveOffset(24, 0)); // D = 0: конец замаха
+            Assert.Equal(24, ThreatTiming.ResolveOffset(24, 6)); // замах 0,4 с виден 0,3 с — решение в конце
+            Assert.Equal(31, ThreatTiming.ResolveOffset(24, 13)); // D 217 мс: 13 + 18
+            Assert.Equal(48, ThreatTiming.ResolveOffset(24, 30));
+            Assert.Equal(48, ThreatTiming.ResolveOffset(24, 45)); // D учитывается не больше 500 мс
+            Assert.Equal(17, ThreatTiming.ResolveOffset(12, 5)); // короткий замах: показ не короче d
+            Assert.Equal(90, ThreatTiming.ResolveOffset(90, 30)); // тяжёлый 1,5 с: решение в конце замаха
+            Assert.Equal(3u, ThreatTiming.ResolveFrame(uint.MaxValue - 20, 24, 0)); // через переполнение
+        }
+
+        /// <summary>
+        /// Опережение L по отчёту сервера (`07` 2.7; 0-033 шаг 6): при RTT ≤ 100 мс с обычным разбросом L = 0 — чистое время
+        /// персонажа; при 150 — не больше 2 кадров (таблица 2.7: «≤ 150 мс — 0–35 мс»); растёт с RTT; не больше 24 кадров
+        /// (400 мс) и D_p не больше 30 кадров (500 мс) даже при RTT 1000; значок «высокая задержка» — при D_p > 150 мс.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_Lead_ZeroAtLowRtt_GrowsWithRtt_Bounded()
+        {
+            int[] rtts = { 0, 50, 100, 150, 200, 250, 300, 400, 600, 1000 };
+            var leads = new int[rtts.Length];
+            for (int i = 0; i < rtts.Length; i++)
+            {
+                ShipRun r = Run(rtts[i] == 0 ? (NetSimSettings?)null : Sim(rtts[i], 10, false, 29), swings: 6);
+                leads[i] = r.Client.LeadFrames;
+                _out.WriteLine($"RTT {rtts[i]}: L {r.Client.LeadFrames} (≤ {r.Client.MaxLeadFrames}) кадров, запас {r.Client.LeadMargin}, D_p {r.Client.DelayFrames}, значок {r.Client.HighLatency}; {r.Bot.Summary()}");
+                Assert.InRange(r.Client.MaxLeadFrames, 0, InputMessage.MaxLeadFrames);
+                Assert.InRange(r.Client.DelayFrames, 0, ThreatTiming.MaxDelayFrames);
+                Assert.InRange(r.Bot.MaxDelayFrames, 0, ThreatTiming.MaxDelayFrames);
+                Assert.Equal(rtts[i] >= 200, r.Client.HighLatency);
+                if (rtts[i] <= 100)
+                {
+                    Assert.Equal(0, r.Client.MaxLeadFrames);
+                }
+
+                if (i > 0)
+                {
+                    Assert.True(leads[i] >= leads[i - 1], $"L при RTT {rtts[i]} ({leads[i]}) меньше, чем при {rtts[i - 1]} ({leads[i - 1]})");
+                }
+            }
+
+            Assert.InRange(leads[3], 0, 2);
+            Assert.True(leads[6] >= 4, $"L при RTT 300: {leads[6]}");
+        }
+
         /// <summary>
         /// Таблица шипа (0-033, шаг 5): RTT 100 / 200 / 250 / 300 (σ 10, потери 1 %) и 300 пачками σ 20, 100 замахов, показ
         /// честный. Критерий 2.13 п. 3: ≥ 95 из 100 на каждой строке. Ожидание сервера ≤ W, отключений нет, все 100 замахов в
