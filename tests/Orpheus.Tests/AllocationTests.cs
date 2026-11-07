@@ -468,6 +468,54 @@ namespace Orpheus.Tests
             Assert.Equal(4 * 34 * 300L, traffic.PeerOut(0)); // 4 прохода (3 прогрева + замер), k % 9 == 0 — 34 раза из 300
         }
 
+        // ---------- Локальная связь (0-031) ----------
+
+        /// <summary>
+        /// Локальная связь «сервера в потоке» (0-031, backlog П 0-008 з. 9): в установившемся режиме — 0 байт на пакет. Сервер и
+        /// клиент шлют друг другу пакеты всех размеров снимков, дельт и чанков (16 Б … 9 КБ, каналы 0–4) и разбирают их; буферы
+        /// идут из пула получателя и возвращаются после разбора — пул после прогрева не растёт.
+        /// </summary>
+        [Fact]
+        public void D07_S1_6_LoopbackTransport_NoAllocationsPerPacket()
+        {
+            using LoopbackTransport server = LoopbackTransport.CreateServer(4);
+            using LoopbackTransport client = LoopbackTransport.ConnectTo(server);
+            var serverSink = new SinkHandler();
+            var clientSink = new SinkHandler();
+            server.Poll(0, serverSink);
+            client.Poll(0, clientSink);
+            int[] sizes = { 16, 60, 64, 65, 300, 1100, NetSettings.MaxUnreliablePayload, 2000, 9000 };
+            var payload = new byte[9000];
+            long now = 0;
+            long packets = 0;
+            Action pass = () =>
+            {
+                for (int k = 0; k < 300; k++)
+                {
+                    for (int s = 0; s < sizes.Length; s++)
+                    {
+                        var channel = sizes[s] <= NetSettings.MaxUnreliablePayload ? NetChannel.Unreliable : NetChannel.Bulk;
+                        server.Send(1, channel, new ReadOnlySpan<byte>(payload, 0, sizes[s]));
+                        client.Send(LoopbackTransport.ServerPeer, (NetChannel)(s % 4), new ReadOnlySpan<byte>(payload, 0, Math.Min(sizes[s], 1000)));
+                        packets += 2;
+                    }
+
+                    server.Poll(++now, serverSink);
+                    client.Poll(now, clientSink);
+                }
+            };
+
+            long bytes = AllocatedInPass(pass);
+            int pooledAfterFirst = server.PooledBuffers + client.PooledBuffers;
+            long again = AllocatedInPass(pass, 0);
+            _out.WriteLine($"300 × {sizes.Length} пакетов в каждую сторону: {bytes} байт (повтор {again}); пакетов всего {packets}, " +
+                           $"в пулах {pooledAfterFirst} буферов; принято сервером {serverSink.Bytes} Б, клиентом {clientSink.Bytes} Б");
+            Assert.Equal(0, bytes);
+            Assert.Equal(0, again);
+            Assert.Equal(pooledAfterFirst, server.PooledBuffers + client.PooledBuffers);
+            Assert.True(clientSink.Bytes > 0 && serverSink.Bytes > 0);
+        }
+
         /// <summary>Транспорт-заглушка: каждый опрос — одно сообщение 16 байт от соединения 1.</summary>
         private sealed class EchoTransport : ITransport
         {
