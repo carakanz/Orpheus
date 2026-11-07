@@ -197,7 +197,7 @@ namespace Orpheus.Server
                     };
                 }
 
-                using LiteNetTransport? transport = o.Port.HasValue ? LiteNetTransport.Listen(o.Port.Value, o.MaxPlayers) : null;
+                using LiteNetTransport? transport = o.Port.HasValue ? LiteNetTransport.Listen(o.Port.Value, o.MaxPlayers, o.LoopbackOnly) : null;
                 NetServer? net = transport != null ? CreateNetServer(o, sim, bots.Length, transport, log, result) : null;
                 try
                 {

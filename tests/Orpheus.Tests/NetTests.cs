@@ -42,6 +42,29 @@ namespace Orpheus.Tests
         // ---------- Кодек: туда-обратно побайтно ----------
 
         [Fact]
+        public void D00_Net_Udp_LoopbackOnly_ListensOnLoopbackOnly()
+        {
+            // Сервер по умолчанию и подключение к 127.0.0.1: сокеты только на петле — брандмауэр Windows не спрашивает разрешения.
+            using LiteNetTransport server = LiteNetTransport.Listen(0, 1, loopbackOnly: true);
+            using LiteNetTransport client = LiteNetTransport.Connect("127.0.0.1", server.LocalPort);
+            IPEndPoint[] listeners = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners();
+            foreach (int port in new[] { server.LocalPort, client.LocalPort })
+            {
+                var mine = Array.FindAll(listeners, e => e.Port == port);
+                Assert.NotEmpty(mine);
+                Assert.All(mine, e => Assert.True(IPAddress.IsLoopback(e.Address), $"порт {port} слушает {e.Address}"));
+            }
+
+            Assert.True(LiteNetTransport.IsLoopbackHost("localhost"));
+            Assert.True(LiteNetTransport.IsLoopbackHost("127.0.0.1"));
+            Assert.True(LiteNetTransport.IsLoopbackHost("::1"));
+            Assert.False(LiteNetTransport.IsLoopbackHost("192.168.1.10"));
+            Assert.False(LiteNetTransport.IsLoopbackHost("example.org"));
+            Assert.True(ServerOptions.Parse(new[] { "--create", "--port", "0" }).LoopbackOnly);
+            Assert.False(ServerOptions.Parse(new[] { "--create", "--port", "0", "--public" }).LoopbackOnly);
+        }
+
+        [Fact]
         public void D00_Net_Codec_Login_RoundTripBytes()
         {
             var m = new LoginMessage { Version = new NetVersion(0, 4, 2), Name = "Орфей" };

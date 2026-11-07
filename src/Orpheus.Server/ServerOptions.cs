@@ -24,7 +24,8 @@ namespace Orpheus.Server
     /// Ключи сервера по docs/07, 11.2:
     /// <c>--world &lt;папка&gt; --create --seed N --size 1024|4096 --sim --bots 8:wander --ticks N --hash
     /// --record &lt;путь&gt; | --replay &lt;путь&gt;</c>; плюс <c>--logs &lt;папка&gt;</c>, <c>--log кат=уровень</c>
-    /// (11.6), <c>--port P</c> — слушать UDP (0-008; 0 — порт выдаст ОС) и <c>--max-players N</c>.
+    /// (11.6), <c>--port P</c> — слушать UDP (0-008; 0 — порт выдаст ОС), по умолчанию только на петле 127.0.0.1/::1
+    /// (тесты, smoke, игра на одной машине — без окна брандмауэра), <c>--public</c> — на всех адресах (игроки с других машин) и <c>--max-players N</c>.
     /// Сохранения (0-009, docs/07 6.4): <c>--world</c> без <c>--create</c> загружает мир — снимок генерации и новейшее
     /// целое поколение; <c>--autosave &lt;сек&gt;</c> — интервал автосохранения в секундах мира (по умолчанию 120;
     /// игроку настройка даётся 1–30 мин, меньше минуты — для тестов); <c>--debug-save-crash &lt;зерно&gt;</c> —
@@ -35,7 +36,7 @@ namespace Orpheus.Server
         public const string Usage =
             "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень]\n" +
-            "              [--port P [--max-players N]]\n" +
+            "              [--port P [--public] [--max-players N]]\n" +
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]";
 
         /// <summary>Автосохранение по умолчанию: раз в 2 мин мира (docs/07, 6.4).</summary>
@@ -70,6 +71,12 @@ namespace Orpheus.Server
 
         /// <summary>Заданный миг обрыва для приёмки 0.4 (<c>--debug-save-plan</c>), синтаксис — <see cref="SaveCrashHook.Fixed"/>.</summary>
         public string? DebugSavePlan { get; set; }
+
+        /// <summary>
+        /// Слушать только петлю 127.0.0.1/::1 — по умолчанию: брандмауэр Windows не спрашивает разрешения у каждой
+        /// новой сборки (рабочие копии агентов). <c>--public</c> — слушать все адреса, для игроков с других машин.
+        /// </summary>
+        public bool LoopbackOnly { get; set; } = true;
 
         /// <summary>Мест для игроков по сети (по умолчанию 16).</summary>
         public int MaxPlayers { get; set; } = 16;
@@ -141,6 +148,9 @@ namespace Orpheus.Server
                             throw new ArgumentException($"--port: {o.Port} вне 0…65535.");
                         }
 
+                        break;
+                    case "--public":
+                        o.LoopbackOnly = false;
                         break;
                     case "--max-players":
                         o.MaxPlayers = ParseInt(a, Value(args, ref i));
