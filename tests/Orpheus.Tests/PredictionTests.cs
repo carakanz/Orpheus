@@ -345,6 +345,9 @@ namespace Orpheus.Tests
             public NetServer Server = null!;
             public LocalPrediction Pred = null!;
             public WorldPos ServerPos;
+
+            /// <summary>Перенумераций кадров клиентом (<see cref="NetClient.FrameRenumbers"/>).</summary>
+            public long Renumbers;
         }
 
         private static NetRun RunNet(NetSimSettings? s, Func<long, Input8> script, long durationUs, WorldPos spawn, bool hitches, ulong seed,
@@ -419,6 +422,7 @@ namespace Orpheus.Tests
             {
                 Reconciled = pred!.Reconciled, Resynced = pred.Resynced, MaxDev = pred.MaxDevUnits, Snapshots = client.SnapshotsApplied,
                 Server = server, Pred = pred, ServerPos = sim.Entities[0].Mover.Position,
+                Renumbers = client.FrameRenumbers,
             };
         }
 
@@ -426,6 +430,13 @@ namespace Orpheus.Tests
         /// Критерий 0-019 (п. 4 карточки) в CI: сервер шагает ввод покадрово, своё состояние — без кванта; через имитатор
         /// (RTT 100, σ 20, потери 1 %; RTT 200 пачками; перестановка и дубли) правок на чистом движении нет, расхождение 0.
         /// Сверка — с серверным состоянием из снимка, не клиента с самим собой.
+        /// <para>
+        /// Правило (П по 0-026, з. 4): правок 0 — только в прогонах, где сервер не перескакивал и не выбрасывал кадры
+        /// (<c>FramesSkipped + FramesTrimmed == 0</c>). Перескок (2.7: дыра в номерах не закрылась за <c>HoleWaitTicks</c>)
+        /// шагает не тот ввод, что предсказал клиент, — правка там верный исход, но их не больше, чем перескоков. Прогон —
+        /// на 8 зёрнах имитатора (в ночном прогоне — на 50, <see cref="D07_S2_6_Net_Big_ThroughSimulator_CleanMovement_50Seeds"/>),
+        /// а не на одном удачном.
+        /// </para>
         /// </summary>
         [Theory]
         [InlineData(0, 0, 0.0, false, false)]
@@ -434,34 +445,74 @@ namespace Orpheus.Tests
         [InlineData(80, 10, 2.0, false, true)]
         public void D07_S2_6_Net_ThroughSimulator_CleanMovement_NoCorrections(int rttMs, int jitterMs, double lossPercent, bool burstJitter, bool hitches)
         {
-            NetSimSettings? s = null;
-            if (rttMs > 0)
+            CleanMovementOnSeeds(rttMs, jitterMs, lossPercent, burstJitter, hitches, 8);
+        }
+
+        /// <summary>То же, что <see cref="D07_S2_6_Net_ThroughSimulator_CleanMovement_NoCorrections"/>, на 50 зёрнах имитатора (ночной прогон).</summary>
+        [Theory]
+        [Trait("Category", "Big")]
+        [InlineData(100, 20, 1.0, false, true)]
+        [InlineData(200, 30, 1.0, true, true)]
+        [InlineData(80, 10, 2.0, false, true)]
+        public void D07_S2_6_Net_Big_ThroughSimulator_CleanMovement_50Seeds(int rttMs, int jitterMs, double lossPercent, bool burstJitter, bool hitches)
+        {
+            CleanMovementOnSeeds(rttMs, jitterMs, lossPercent, burstJitter, hitches, 50);
+        }
+
+        private void CleanMovementOnSeeds(int rttMs, int jitterMs, double lossPercent, bool burstJitter, bool hitches, int seeds)
+        {
+            MapShape shape = MapShape.World(1024);
+            WorldPos spawn = ServerRun.SpawnPoint(shape, 0);
+            int runs = rttMs > 0 ? seeds : 1; // без имитатора случайности нет — один прогон
+            int clean = 0;
+            for (int seed = 1; seed <= runs; seed++)
             {
-                NetSimSettings v = NetSimSettings.FromRtt(rttMs, jitterMs, lossPercent, 19);
-                v.BurstJitter = burstJitter;
-                if (lossPercent >= 2)
+                NetSimSettings? s = null;
+                if (rttMs > 0)
                 {
-                    v.DuplicatePpm = 20_000;
-                    v.ReorderPpm = 50_000;
+                    NetSimSettings v = NetSimSettings.FromRtt(rttMs, jitterMs, lossPercent, (ulong)seed);
+                    v.BurstJitter = burstJitter;
+                    if (lossPercent >= 2)
+                    {
+                        v.DuplicatePpm = 20_000;
+                        v.ReorderPpm = 50_000;
+                    }
+
+                    s = v;
                 }
 
-                s = v;
+                NetRun r = RunNet(s, Walk, 10_000_000, spawn, hitches, 7);
+                NetServer sv = r.Server;
+                long skips = sv.FramesSkipped + sv.FramesTrimmed;
+                string tag = $"RTT {rttMs}±{jitterMs}, потери {lossPercent} %, пачки {burstJitter}/{hitches}, зерно {seed}";
+                _out.WriteLine($"{tag}: снимков {r.Snapshots}, сверок {r.Reconciled}, правок {r.Resynced}, расх. {r.MaxDev} u; " +
+                               $"сервер: кадров {sv.FramesApplied}, сам {sv.FramesSelfStepped}, перескок {sv.FramesSkipped}, " +
+                               $"выброшено {sv.FramesTrimmed}, перенумераций {r.Renumbers}, опоздали {sv.FramesLate}, тактов-пачек {sv.BurstTicks}, стопов {sv.InputStops}");
+                // Порог относительный (0-025, проверка з. 4; было «> 250»): число принятых снимков зависит от зерна имитатора —
+                // переставленные разбросом отбрасываются как старые (RTT 100±20: 240–251 из 300 на 8 зёрнах). Сверка — на каждом
+                // принятом снимке, кроме первых до начала предсказания: ≥ 90 % (на 8 зёрнах × 4 строки — не меньше 98 %).
+                Assert.True(r.Snapshots > 200, $"{tag}: снимков {r.Snapshots} из 300");
+                Assert.True(r.Reconciled >= r.Snapshots * 0.9, $"{tag}: сверок {r.Reconciled} из {r.Snapshots} снимков");
+                // Без имитатора связь чистая: перескок там — только дыра в номерах от перенумерации кадров клиентом
+                // (FrameRenumbers, подстройка часов 0-025), предсказание перенумеровывает так же — правок быть не может.
+                if (skips == 0 || s == null)
+                {
+                    clean++;
+                    Assert.True(r.Resynced == 0, $"{tag}: правок {r.Resynced} без перескока и выброса кадров сервером (перескок {skips})");
+                    Assert.True(r.MaxDev == 0, $"{tag}: расхождение {r.MaxDev} u без перескока и выброса кадров");
+                }
+                else
+                {
+                    Assert.True(r.Resynced <= skips, $"{tag}: правок {r.Resynced} больше перескоков {skips}");
+                }
+
+                Assert.Equal(r.ServerPos, r.Pred.Position);
+                Assert.True(Torus.Dist2(shape, spawn, r.ServerPos) > 4L * U * 4 * U, $"{tag}: персонаж не ушёл");
             }
 
-            NetRun r = RunNet(s, Walk, 10_000_000, ServerRun.SpawnPoint(MapShape.World(1024), 0), hitches, 7);
-            NetServer sv = r.Server;
-            _out.WriteLine($"RTT {rttMs}±{jitterMs}, потери {lossPercent} %, пачки {burstJitter}/{hitches}: снимков {r.Snapshots}, сверок {r.Reconciled}, " +
-                           $"правок {r.Resynced}, расх. {r.MaxDev} u; сервер: кадров {sv.FramesApplied}, сам {sv.FramesSelfStepped}, " +
-                           $"перескок {sv.FramesSkipped}, опоздали {sv.FramesLate}, тактов-пачек {sv.BurstTicks}, стопов {sv.InputStops}");
-            // Порог относительный (0-025, проверка з. 4; было «> 250»): число принятых снимков зависит от зерна имитатора —
-            // переставленные разбросом отбрасываются как старые (RTT 100±20: 240–251 из 300 на 8 зёрнах). Сверка — на каждом
-            // принятом снимке, кроме первых до начала предсказания: ≥ 90 % (на 8 зёрнах × 4 строки — не меньше 98 %).
-            Assert.True(r.Snapshots > 200, $"снимков {r.Snapshots} из 300");
-            Assert.True(r.Reconciled >= r.Snapshots * 0.9, $"сверок {r.Reconciled} из {r.Snapshots} снимков");
-            Assert.Equal(0, r.Resynced);
-            Assert.Equal(0, r.MaxDev);
-            Assert.Equal(r.ServerPos, r.Pred.Position);
-            Assert.True(Torus.Dist2(MapShape.World(1024), ServerRun.SpawnPoint(MapShape.World(1024), 0), r.ServerPos) > 4L * U * 4 * U, "персонаж не ушёл");
+            // Перескок — редкость (50 зёрен RTT 200 пачками: 4 из 50): если «чистых» прогонов меньше половины, правило «правок 0»
+            // проверено не было.
+            Assert.True(clean * 2 >= runs, $"чистых прогонов (без перескока) {clean} из {runs}");
         }
 
         /// <summary>Шов тора через сеть: спавн у x = 1023,9 т, бег на восток — правок нет (M4 в связке).</summary>

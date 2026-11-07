@@ -64,8 +64,7 @@ namespace Orpheus.Core.World
             // Остаются чанки текущего окна внутри блока 8 × 6: x ∈ [cx − 4, cx + 3], y ∈ [cy − 3, cy + 2].
             for (int i = 0; i < current.Length; i++)
             {
-                Int2 d = Torus.Delta(map, center, current[i]);
-                if (d.X >= -KeepWidth / 2 && d.X < KeepWidth / 2 && d.Y >= -KeepHeight / 2 && d.Y < KeepHeight / 2)
+                if (InKeep(map, center, current[i]))
                 {
                     next[n++] = current[i];
                 }
@@ -88,6 +87,16 @@ namespace Orpheus.Core.World
 
             ChunkSets.Sort(next.Slice(0, n));
             return n;
+        }
+
+        /// <summary>
+        /// Чанк в блоке выхода 8 × 6 с центром <paramref name="center"/>: [cx − 4, cx + 3] × [cy − 3, cy + 2] по тору.
+        /// Одно правило для сервера (окно, <see cref="Update"/>) и клиента (выброс чанков по центру окна от сервера, 0-026).
+        /// </summary>
+        public static bool InKeep(in MapShape map, ChunkCoord center, ChunkCoord chunk)
+        {
+            Int2 d = Torus.Delta(map, center, chunk);
+            return d.X >= -KeepWidth / 2 && d.X < KeepWidth / 2 && d.Y >= -KeepHeight / 2 && d.Y < KeepHeight / 2;
         }
 
         /// <summary>

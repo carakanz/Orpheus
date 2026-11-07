@@ -107,6 +107,9 @@ namespace Orpheus.Net.Session
             /// <summary>Кадр начала последней решённой по игроку угрозы; <see cref="HasResolved"/> — решена хоть одна.</summary>
             public uint ResolvedStart;
             public bool HasResolved;
+
+            /// <summary>Чанки у клиента и их ревизии (3.5, 3.7; 0-026); создаётся с первым окном.</summary>
+            public HeldChunks? Held;
         }
 
         /// <summary>
@@ -203,6 +206,10 @@ namespace Orpheus.Net.Session
         private readonly int[] _addCur = new int[Snapshot.MaxEntities];
         private readonly InputFrame[] _frameBuf = new InputFrame[FramesPerTickLimit];
         private readonly uint[] _frameNum = new uint[FramesPerTickLimit]; // номера кадров _frameBuf (угрозы, 0-029)
+
+        // Мир по сети (0-026): буфер надёжных сообщений (чанк и пачка — до 13 КБ) и индексы принятых правок чанка.
+        private readonly byte[] _worldBuf = new byte[NetSettings.MaxReliablePayload];
+        private readonly ushort[] _patchIdx = new ushort[Chunk.TileCount];
 
         // Обзор (0-022): ключи кандидатов «квадрат расстояния до своего << 20 | место» — сортировка без выделений,
         // ближние первыми, при равенстве — по месту (по номеру).
@@ -314,6 +321,27 @@ namespace Orpheus.Net.Session
 
         /// <summary>Обзоров, не влезших в снимок целиком: отсортированы ближними первыми (4.3; 0-022).</summary>
         public long ViewsSortedByDistance { get; private set; }
+
+        /// <summary>Чанков целиком отправлено (вход в окно, запрос; 0-026).</summary>
+        public long ChunksSent { get; private set; }
+
+        /// <summary>Байт сообщений «чанк» (с типом и заголовком).</summary>
+        public long ChunkBytes { get; private set; }
+
+        /// <summary>Сжатий чанка сетью: копия собирается один раз на ревизию (3.6) — по числу ревизий, а не отправок.</summary>
+        public long ChunkCompressions { get; private set; }
+
+        /// <summary>Пачек правок отправлено (по одной на чанк за такт каждому, у кого чанк в окне; 3.7).</summary>
+        public long PatchesSent { get; private set; }
+
+        /// <summary>Байт пачек правок.</summary>
+        public long PatchBytes { get; private set; }
+
+        /// <summary>Сообщений «центр окна» (клиент выбросил чанки вне 8 × 6).</summary>
+        public long WindowMessagesSent { get; private set; }
+
+        /// <summary>Запросов «чанк целиком» от клиентов (пачка не к той ревизии, 3.7 «Порядок»).</summary>
+        public long ChunkRequests { get; private set; }
 
         /// <summary>Сущностей вне окна, оставленных в обзоре гистерезисом (были в обзоре, ещё в блоке 8 × 6).</summary>
         public long ViewKeptByHysteresis { get; private set; }
@@ -475,6 +503,32 @@ namespace Orpheus.Net.Session
 
             frame = 0;
             return false;
+        }
+
+        /// <summary>
+        /// Чанки, которые сервер считает доставленными игроку с сущностью <paramref name="entityId"/> (набор окна, 3.5, 3.7;
+        /// 0-026), — в <paramref name="into"/> (≥ <see cref="ChunkWindow.MaxChunks"/>). Возвращает число; нет игрока — −1.
+        /// Для проверок «набор клиента = набор сервера».
+        /// </summary>
+        public int CopyHeldChunks(int entityId, Span<ChunkCoord> into)
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if (p.State == PlayerState.InGame && p.EntityId == entityId)
+                {
+                    HeldChunks? held = p.Held;
+                    if (held == null)
+                    {
+                        return 0;
+                    }
+
+                    new ReadOnlySpan<ChunkCoord>(held.Coords, 0, held.Count).CopyTo(into);
+                    return held.Count;
+                }
+            }
+
+            return -1;
         }
 
         /// <summary>Кадров ввода игрока с сущностью <paramref name="entityId"/> пришло и ждёт шага (очередь); нет игрока — −1.</summary>
@@ -681,6 +735,7 @@ namespace Orpheus.Net.Session
         /// </summary>
         public void SendSnapshots()
         {
+            BroadcastPatches(); // правки такта — до окон: вошедшие в окно чанки уйдут уже с ревизией после такта (3.7)
             ReadOnlySpan<SimEntity> entities = _sim.Entities;
             uint tick = (uint)_sim.Tick;
             for (int p = 0; p < _players.Count; p++)
@@ -924,6 +979,7 @@ namespace Orpheus.Net.Session
                 v.Center = center;
                 v.HasWindow = true;
                 ViewWindowRecalcs++;
+                SyncChunks(pl, v);
             }
 
             EntityChunkGrid grid = _sim.Grid;
@@ -1015,6 +1071,138 @@ namespace Orpheus.Net.Session
             }
 
             return -1;
+        }
+
+        // ---------- Мир по сети (docs/07, 3.5–3.7; 0-026) ----------
+
+        /// <summary>
+        /// Окно сменилось (<see cref="BuildView"/>): чанки вне нового окна убираются из набора клиента — ему уходит центр
+        /// окна (3.5: клиент выбрасывает чанки вне 8 × 6 вокруг него), затем вошедшие в окно чанки, которых у клиента нет, —
+        /// свежей копией (3.7 «Вход чанка в окно»). Всё — канал 1, по порядку с пачками правок.
+        /// </summary>
+        private void SyncChunks(Player pl, ViewState v)
+        {
+            HeldChunks held = pl.Held ??= new HeldChunks();
+            var window = new ReadOnlySpan<ChunkCoord>(v.Window, 0, v.WindowCount);
+            if (held.RetainIn(window) > 0)
+            {
+                int len = new ChunkWindowMessage { Map = ChunkWire.SurfaceMap, Center = v.Center }.Write(_worldBuf);
+                _transport.Send(pl.Peer, NetChannel.World, new ReadOnlySpan<byte>(_worldBuf, 0, len));
+                WindowMessagesSent++;
+            }
+
+            for (int i = 0; i < window.Length; i++)
+            {
+                if (held.IndexOf(window[i]) < 0)
+                {
+                    held.Add(window[i], SendChunk(pl, window[i]));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Чанк целиком — свежей копией (3.3, 3.6): копия сжимается, только если её ревизия устарела, — один раз на ревизию,
+        /// сколько бы клиентов чанк ни получили. Возвращает отправленную ревизию.
+        /// </summary>
+        private uint SendChunk(Player pl, ChunkCoord c)
+        {
+            Chunk chunk = _sim.World.GetOrCreateChunk(c);
+            if (!chunk.HasFreshCopy)
+            {
+                chunk.RebuildCompressed();
+                ChunkCompressions++;
+            }
+
+            int len = ChunkMessage.Write(_worldBuf, ChunkWire.SurfaceMap, c, chunk.Revision, chunk.FreshCopy);
+            _transport.Send(pl.Peer, NetChannel.World, new ReadOnlySpan<byte>(_worldBuf, 0, len));
+            ChunksSent++;
+            ChunkBytes += len;
+            return chunk.Revision;
+        }
+
+        /// <summary>
+        /// Правки такта (3.7 «Рассылка»): по событиям такта — одна пачка на изменённый чанк, каждому, у кого чанк в окне.
+        /// У клиента ревизия ровно предыдущая — пачка; уже эта — ничего; иначе (без ошибки не бывает) — чанк целиком.
+        /// Пачка пишется из содержимого чанка по индексам принятых правок — <c>Simulation</c> только читается.
+        /// </summary>
+        private void BroadcastPatches()
+        {
+            ReadOnlySpan<SimEvent> events = _sim.Events;
+            int n = 0;
+            ChunkCoord current = default;
+            for (int e = 0; e < events.Length; e++)
+            {
+                SimEvent ev = events[e];
+                if (ev.Kind == SimEventKind.TileEdit)
+                {
+                    if (ev.Chunk != current)
+                    {
+                        n = 0; // пачка прошлого чанка без новой ревизии (все правки — отказ)
+                        current = ev.Chunk;
+                    }
+
+                    if (ev.Result == EditResult.Applied)
+                    {
+                        _patchIdx[n++] = (ushort)ev.TileIndex;
+                    }
+
+                    continue;
+                }
+
+                if (ev.Kind != SimEventKind.ChunkRevised)
+                {
+                    continue;
+                }
+
+                if (n == 0 || ev.Chunk != current)
+                {
+                    throw new InvalidOperationException($"Такт {ev.Tick}: ревизия чанка {ev.Chunk} без принятых правок в событиях.");
+                }
+
+                int len = -1;
+                Chunk chunk = _sim.World.FindChunk(ev.Chunk)!;
+                for (int p = 0; p < _players.Count; p++)
+                {
+                    Player pl = _players[p];
+                    HeldChunks? held = pl.Held;
+                    int k = held == null || pl.State != PlayerState.InGame ? -1 : held.IndexOf(ev.Chunk);
+                    if (k < 0 || held!.Revisions[k] == ev.Revision)
+                    {
+                        continue;
+                    }
+
+                    if (held.Revisions[k] != unchecked(ev.Revision - 1))
+                    {
+                        held.Revisions[k] = SendChunk(pl, ev.Chunk);
+                        continue;
+                    }
+
+                    if (len < 0)
+                    {
+                        len = ChunkPatchMessage.Write(_worldBuf, ChunkWire.SurfaceMap, ev.Chunk, ev.Revision, chunk,
+                            new ReadOnlySpan<ushort>(_patchIdx, 0, n));
+                    }
+
+                    _transport.Send(pl.Peer, NetChannel.World, new ReadOnlySpan<byte>(_worldBuf, 0, len));
+                    held.Revisions[k] = ev.Revision;
+                    PatchesSent++;
+                    PatchBytes += len;
+                }
+
+                n = 0;
+            }
+        }
+
+        /// <summary>Запрос чанка целиком (3.7 «Порядок»): чанк в окне клиента — свежая копия; нет — пропуск.</summary>
+        private void OnChunkRequest(Player p, ChunkRequestMessage m)
+        {
+            ChunkRequests++;
+            HeldChunks? held = p.Held;
+            int k = held?.IndexOf(m.Chunk) ?? -1;
+            if (k >= 0)
+            {
+                held!.Revisions[k] = SendChunk(p, m.Chunk);
+            }
         }
 
         /// <summary>
@@ -1112,6 +1300,12 @@ namespace Orpheus.Net.Session
                 if (type == MessageType.Input && channel == NetChannel.Unreliable)
                 {
                     OnInput(p, InputMessage.Read(data));
+                    return;
+                }
+
+                if (type == MessageType.ChunkRequest && channel == NetChannel.World)
+                {
+                    OnChunkRequest(p, ChunkRequestMessage.Read(data, _sim.Shape));
                     return;
                 }
 

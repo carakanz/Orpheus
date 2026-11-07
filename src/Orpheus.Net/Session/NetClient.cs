@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Net.Protocol;
@@ -86,6 +87,18 @@ namespace Orpheus.Net.Session
         }
 
         public NetClientState State { get; private set; } = NetClientState.Connecting;
+
+        /// <summary>
+        /// Мир клиента — чанки окна от сервера (docs/07, 3.4–3.7; 0-026); создаётся по «вход принят». Генератора и зерна
+        /// у клиента нет: тайлы — только отсюда.
+        /// </summary>
+        public ClientWorld? World { get; private set; }
+
+        // Сообщения мира, обогнавшие «вход принят» (канал 1 против канала 2): разбираются сразу после него.
+        private readonly List<byte[]> _early = new List<byte[]>();
+
+        /// <summary>Сообщений мира, ждущих «вход принят», не больше: окно входа — 24 чанка и центр (0-026).</summary>
+        public const int MaxEarlyWorldMessages = 64;
 
         /// <summary>Транспорт клиента.</summary>
         public ITransport Transport => _transport;
@@ -414,6 +427,11 @@ namespace Orpheus.Net.Session
                     case MessageType.OpenResult when State == NetClientState.InGame:
                         OpenResult = OpenResultMessage.Read(data);
                         break;
+                    case MessageType.Chunk:
+                    case MessageType.ChunkPatch:
+                    case MessageType.ChunkWindow:
+                        OnWorld(channel, data);
+                        break;
                     case MessageType.Snapshot:
                         break; // снимок обогнал «вход принят» (другой канал) — пропускаем
                     case MessageType.SwingStart:
@@ -447,6 +465,46 @@ namespace Orpheus.Net.Session
             _hasSnapshot = false;
             Array.Clear(_baseValid, 0, BaseDepth);
             State = NetClientState.InGame;
+            World = new ClientWorld(_layout.Shape, RequestChunk);
+            for (int i = 0; i < _early.Count; i++)
+            {
+                OnWorld(NetChannel.World, _early[i]);
+            }
+
+            _early.Clear();
+        }
+
+        private void OnWorld(NetChannel channel, ReadOnlySpan<byte> data)
+        {
+            if (channel != NetChannel.World)
+            {
+                throw new ProtocolException($"Сообщение мира {data[0]} по каналу {channel}.");
+            }
+
+            if (State == NetClientState.LoggingIn)
+            {
+                if (_early.Count == MaxEarlyWorldMessages)
+                {
+                    throw new ProtocolException($"До «вход принят» — больше {MaxEarlyWorldMessages} сообщений мира.");
+                }
+
+                _early.Add(data.ToArray());
+                return;
+            }
+
+            if (State != NetClientState.InGame || World == null)
+            {
+                return;
+            }
+
+            World.Handle(Codec.TypeOf(data), data);
+        }
+
+        /// <summary>«Пришли чанк целиком» (3.7 «Порядок») — канал 1.</summary>
+        private void RequestChunk(ChunkCoord c)
+        {
+            int len = new ChunkRequestMessage { Map = ChunkWire.SurfaceMap, Chunk = c }.Write(_buf);
+            _transport.Send(_serverPeer, NetChannel.World, new ReadOnlySpan<byte>(_buf, 0, len));
         }
 
         private void OnSnapshot(ReadOnlySpan<byte> data)

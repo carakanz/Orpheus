@@ -141,6 +141,62 @@ namespace Orpheus.Client
             PlaceNodes();
         }
 
+        /// <summary>
+        /// Сеть (0-026): чанк пришёл от сервера целиком или к нему применилась пачка — залить этот чанк заново в тот же
+        /// кадр (<see cref="Tilemap.SetTilesBlock"/>); нового чанка ещё нет на экране — взять узел из пула. Набор чанков
+        /// задаёт сервер (<c>ClientWorld</c>), а не позиция персонажа: <see cref="UpdateWindow"/> в сети не зовётся.
+        /// </summary>
+        public void ShowChunk(ChunkCoord c)
+        {
+            if (_nodes.TryGetValue(c, out ChunkNode? node))
+            {
+                Fill(node, c);
+                return;
+            }
+
+            if (_count == _current.Length)
+            {
+                throw new InvalidOperationException($"Чанков на экране больше {_current.Length}: сервер прислал лишний ({c.X}, {c.Y}).");
+            }
+
+            node = _pool.Count > 0 ? _pool.Pop() : CreateNode();
+            node.Coord = c;
+            node.Root.name = $"Chunk {c.X},{c.Y}";
+            Fill(node, c);
+            node.Root.SetActive(true);
+            node.Root.transform.localPosition = _origin.ChunkToUnity(c);
+            _nodes.Add(c, node);
+            _current[_count++] = c;
+            ChunkSets.Sort(new Span<ChunkCoord>(_current, 0, _count));
+            if (_count > MaxCount)
+            {
+                MaxCount = _count;
+            }
+        }
+
+        /// <summary>Сеть (0-026): чанк выброшен из окна (центр окна от сервера) — узел в пул.</summary>
+        public void HideChunk(ChunkCoord c)
+        {
+            if (!_nodes.TryGetValue(c, out ChunkNode? node))
+            {
+                return;
+            }
+
+            _nodes.Remove(c);
+            node.Root.SetActive(false);
+            _pool.Push(node);
+            int n = 0;
+            for (int i = 0; i < _count; i++)
+            {
+                if (_current[i] != c)
+                {
+                    _current[n++] = _current[i];
+                }
+            }
+
+            _count = n;
+        }
+
         /// <summary>Расставить все узлы окна от текущего якоря (после переезда начала — обязательно).</summary>
         public void PlaceNodes()
         {

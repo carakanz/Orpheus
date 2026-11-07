@@ -53,7 +53,22 @@ namespace Orpheus.Net.Protocol
         /// <summary>Сервер → клиент, канал 2: удар врага по этому игроку решён (0-029; `07` 2.7 «Решение»): попал / нет, ожидание.</summary>
         MeleeResult = 14,
 
-        // 15 свободен; 16–19 — у 0-026 (чанки). Новые типы — в Codec.TypeOf.
+        // 15 не занят: неизвестный тип. Новые типы — в Codec.IsKnown.
+
+        // 0-026, мир по сети (docs/07, 3.5–3.7), канал 1. Номера с 16 (13–14 — у 0-029, 15 не занят): так их и слали ветки до
+        // слияния с 0-025, «золотые» байты те же. Последний тип — ChunkRequest.
+
+        /// <summary>Сервер → клиент, канал 1: чанк целиком — заголовок и сжатая копия (3.6).</summary>
+        Chunk = 16,
+
+        /// <summary>Сервер → клиент, канал 1: пачка правок чанка за такт (3.7).</summary>
+        ChunkPatch = 17,
+
+        /// <summary>Сервер → клиент, канал 1: новый центр окна — клиент выбрасывает чанки вне 8 × 6 вокруг него (3.5).</summary>
+        ChunkWindow = 18,
+
+        /// <summary>Клиент → сервер, канал 1: «пришли чанк целиком» — пачка не к той ревизии (3.7 «Порядок»).</summary>
+        ChunkRequest = 19,
     }
 
     /// <summary>
@@ -707,13 +722,18 @@ namespace Orpheus.Net.Protocol
             }
 
             byte t = src[0];
-            if (t < (byte)MessageType.Login || t > (byte)MessageType.MeleeResult)
+            if (!IsKnown(t))
             {
                 throw new ProtocolException($"Неизвестный тип сообщения {t}.");
             }
 
             return (MessageType)t;
         }
+
+        /// <summary>Известный тип сообщения: 1…14 (до MeleeResult, 0-029) и 16…19 (мир, 0-026; последний — ChunkRequest); 15 не занят.</summary>
+        public static bool IsKnown(byte t) =>
+            (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.ChunkRequest);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)
