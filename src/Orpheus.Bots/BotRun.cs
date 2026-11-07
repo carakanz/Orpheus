@@ -74,6 +74,10 @@ namespace Orpheus.Bots
         /// <summary>Сообщений «часы» принято.</summary>
         public long ClocksReceived { get; set; }
 
+        /// <summary>Сценарий <c>dig_line</c> (0-028): итог строкой; иначе null.</summary>
+        public string? DigLine { get; set; }
+        public int RocksDug { get; set; }
+
         /// <summary>Сценарий <c>dodge</c> (0-029): итог уворотов — строкой и числами; иначе null / 0.</summary>
         public string? Dodge { get; set; }
         public int DodgeScored { get; set; }
@@ -321,6 +325,14 @@ namespace Orpheus.Bots
                     st.PredResynced = pred.Resynced;
                 }
 
+                DigLineBot? dig = bots[i].DigLine;
+                if (dig != null)
+                {
+                    st.RocksDug = dig.RocksDug;
+                    st.DigLine = $"скал {dig.RocksDug}, прочего {dig.OtherDug}, отказов {dig.Refused} ({dig.RefusalsText}), строк {dig.Rows}; " +
+                                 $"предсказаний {bots[i].Client.World?.Predicted ?? 0}, откатов {bots[i].Client.World?.PredictionsRolledBack ?? 0}";
+                }
+
                 DodgeBot? dodge = bots[i].Dodge;
                 if (dodge != null)
                 {
@@ -384,6 +396,11 @@ namespace Orpheus.Bots
                 if (report.Bots[i].Dodge != null)
                 {
                     console?.WriteLine($"  уворот, бот {i}: {report.Bots[i].Dodge}");
+                }
+
+                if (report.Bots[i].DigLine != null)
+                {
+                    console?.WriteLine($"  dig_line, бот {i}: {report.Bots[i].DigLine}");
                 }
             }
 
@@ -549,6 +566,12 @@ namespace Orpheus.Bots
                 w.WriteNumber("clocksReceived", b.ClocksReceived);
                 w.WriteNumber("frameRenumbers", b.FrameRenumbers);
                 w.WriteNumber("owdMs", Math.Round(b.OwdMs, 2));
+                if (b.DigLine != null)
+                {
+                    w.WriteString("digLine", b.DigLine);
+                    w.WriteNumber("rocksDug", b.RocksDug);
+                }
+
                 if (b.Dodge != null)
                 {
                     w.WriteString("dodge", b.Dodge);
