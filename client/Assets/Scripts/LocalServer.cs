@@ -172,8 +172,16 @@ namespace Orpheus.Client
             DateTime newest = DateTime.MinValue;
             try
             {
-                foreach (string f in Directory.GetFiles(WorldDir, WorldFolder.GenerationPrefix + "*" + WorldFolder.GenerationSuffix))
+                // Поколения world.N.save; только что созданный мир — его world.base (состояние на создании).
+                var files = new List<string>(Directory.GetFiles(WorldDir, WorldFolder.GenerationPrefix + "*" + WorldFolder.GenerationSuffix));
+                files.Add(Path.Combine(WorldDir, WorldFolder.BaseFileName));
+                foreach (string f in files)
                 {
+                    if (!File.Exists(f))
+                    {
+                        continue;
+                    }
+
                     DateTime t = File.GetLastWriteTimeUtc(f);
                     if (t > newest)
                     {
