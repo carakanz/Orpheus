@@ -21,6 +21,73 @@ namespace Orpheus.Net.Protocol
     }
 
     /// <summary>
+    /// Подтверждённое состояние своего персонажа (docs/07, 2.6 п. 2; 0-019): позиция без кванта (1/256 тайла) и остаток
+    /// скорости <c>Carry</c> — ровно то, с чего сервер шагнёт следующий кадр. Клиент при правке берёт его целиком: без
+    /// кванта 1/32 правка не тянет за собой цепочку следующих. Идёт в каждом снимке и каждой дельте, сразу за заголовком.
+    /// </summary>
+    public struct SelfState : IEquatable<SelfState>
+    {
+        /// <summary>Наибольший остаток скорости по модулю (десятые unit: <c>carry %= 10</c>).</summary>
+        public const int MaxCarry = 9;
+
+        /// <summary>Есть ли состояние (в снимках тестов и инструментов его может не быть).</summary>
+        public bool Present;
+
+        /// <summary>Позиция, 1/256 тайла, без кванта.</summary>
+        public WorldPos Position;
+
+        /// <summary>Остаток скорости, десятые unit (−9…9 на ось).</summary>
+        public Int2 Carry;
+
+        public SelfState(WorldPos position, Int2 carry)
+        {
+            Present = true;
+            Position = position;
+            Carry = carry;
+        }
+
+        public bool Equals(SelfState o) => Present == o.Present && Position == o.Position && Carry == o.Carry;
+        public override bool Equals(object? obj) => obj is SelfState o && Equals(o);
+        public override int GetHashCode() => Present ? Position.X ^ (Position.Y << 7) ^ (Carry.X << 3) ^ Carry.Y : 0;
+        public override string ToString() => Present ? $"своё {Position} c{Carry}" : "своё —";
+
+        internal void Write(ref BitWriter w, in SnapshotLayout layout)
+        {
+            w.WriteBits(Present ? 1u : 0u, 1);
+            SelfState s = Present ? this : default;
+            w.WriteBits((uint)s.Position.X, layout.SelfBitsX);
+            w.WriteBits((uint)s.Position.Y, layout.SelfBitsY);
+            w.WriteBits((uint)(s.Carry.X + SnapshotLayout.CarryBias), SnapshotLayout.CarryBits);
+            w.WriteBits((uint)(s.Carry.Y + SnapshotLayout.CarryBias), SnapshotLayout.CarryBits);
+        }
+
+        internal static SelfState Read(ref BitReader r, in SnapshotLayout layout)
+        {
+            bool present = r.ReadBits(1) != 0;
+            int x = (int)r.ReadBits(layout.SelfBitsX);
+            int y = (int)r.ReadBits(layout.SelfBitsY);
+            int cx = (int)r.ReadBits(SnapshotLayout.CarryBits) - SnapshotLayout.CarryBias;
+            int cy = (int)r.ReadBits(SnapshotLayout.CarryBits) - SnapshotLayout.CarryBias;
+            if (x >= layout.Shape.WidthUnits || y >= layout.Shape.HeightUnits || Math.Abs(cx) > MaxCarry || Math.Abs(cy) > MaxCarry)
+            {
+                throw new ProtocolException($"Снимок: своё состояние ({x}, {y}) c({cx}, {cy}) вне карты или остаток > {MaxCarry}.");
+            }
+
+            if (!present)
+            {
+                if (x != 0 || y != 0 || cx != 0 || cy != 0)
+                {
+                    throw new ProtocolException("Снимок: своего состояния нет, а поля не пустые.");
+                }
+
+                return default;
+            }
+
+            return new SelfState(new WorldPos(x, y), new Int2(cx, cy));
+        }
+    }
+
+    /// <summary>
     /// Разметка снимка для формы карты (docs/07, 4.3): позиция — 1/32 тайла (младшие 3 бита из 8 отброшены),
     /// бит на ось — сколько нужно для ширины карты: 1024² — 15, 4096² — 17. Обе стороны знают форму из входа.
     /// </summary>
@@ -38,21 +105,41 @@ namespace Orpheus.Net.Protocol
         public readonly int BitsX;
         public readonly int BitsY;
 
+        /// <summary>Бит на ось позиции своего состояния (<see cref="SelfState"/>) — без кванта: 1024² — 18, 4096² — 20.</summary>
+        public readonly int SelfBitsX;
+
+        /// <inheritdoc cref="SelfBitsX"/>
+        public readonly int SelfBitsY;
+
+        /// <summary>Бит на ось остатка скорости своего состояния: −9…9 со сдвигом <see cref="CarryBias"/> → 0…18.</summary>
+        public const int CarryBits = 5;
+
+        /// <summary>Сдвиг остатка скорости в поле (<see cref="CarryBits"/>).</summary>
+        public const int CarryBias = 16;
+
         public SnapshotLayout(MapShape shape)
         {
             Shape = shape;
             BitsX = BitLength(shape.WidthUnits - 1) - QuantShift;
             BitsY = BitLength(shape.HeightUnits - 1) - QuantShift;
+            SelfBitsX = BitsX + QuantShift;
+            SelfBitsY = BitsY + QuantShift;
         }
 
         /// <summary>Бит на сущность.</summary>
         public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits;
 
+        /// <summary>
+        /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5.
+        /// 1024² — 47 бит (≈ 6 байт), 4096² — 51 бит. Есть в каждом снимке и каждой дельте.
+        /// </summary>
+        public int SelfBits => 1 + SelfBitsX + SelfBitsY + 2 * CarryBits;
+
         /// <summary>Сколько сущностей влезает в бюджет <see cref="NetSettings.SnapshotBudget"/>.</summary>
-        public int MaxEntitiesInBudget => Math.Min(Snapshot.MaxEntities, (NetSettings.SnapshotBudget - Snapshot.HeaderBytes) * 8 / EntityBits);
+        public int MaxEntitiesInBudget => Math.Min(Snapshot.MaxEntities, ((NetSettings.SnapshotBudget - Snapshot.HeaderBytes) * 8 - SelfBits) / EntityBits);
 
         /// <summary>Байт снимка с <paramref name="count"/> сущностями.</summary>
-        public int SizeFor(int count) => Snapshot.HeaderBytes + (count * EntityBits + 7) / 8;
+        public int SizeFor(int count) => Snapshot.HeaderBytes + (SelfBits + count * EntityBits + 7) / 8;
 
         /// <summary>Позиция → клетка 1/32 → обратно (то, что увидит клиент).</summary>
         public static WorldPos Quantize(WorldPos p) =>
@@ -74,8 +161,8 @@ namespace Orpheus.Net.Protocol
     /// <summary>
     /// Полный снимок (docs/07, 4.3; дельты — <see cref="SnapshotDeltaMessage"/>, 0-014): такт сервера, последний применённый кадр ввода
     /// этого клиента, сущности рядом. Своя сущность — первой. Объект переиспользуется: чтение не выделяет память.
-    /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, число сущностей u8; затем сущности по битам
-    /// (<see cref="SnapshotLayout"/>).</para>
+    /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, число сущностей u8; своё состояние
+    /// (<see cref="SelfState"/>, <see cref="SnapshotLayout.SelfBits"/>); затем сущности по битам (<see cref="SnapshotLayout"/>).</para>
     /// </summary>
     public sealed class Snapshot
     {
@@ -90,6 +177,9 @@ namespace Orpheus.Net.Protocol
         public uint Tick;
         public uint AckFrame;
         public int Count;
+
+        /// <summary>Подтверждённое состояние своего персонажа после кадра <see cref="AckFrame"/> (0-019).</summary>
+        public SelfState Self;
 
         /// <summary>true — объект получен склейкой дельты (0-014), не из полного кадра.</summary>
         public bool IsDelta;
@@ -118,6 +208,7 @@ namespace Orpheus.Net.Protocol
             into.Tick = Tick;
             into.AckFrame = AckFrame;
             into.Count = Count;
+            into.Self = Self;
             into.IsDelta = IsDelta;
             Array.Copy(Entities, into.Entities, Count);
         }
@@ -125,7 +216,7 @@ namespace Orpheus.Net.Protocol
         /// <summary>Записать снимок из этого объекта (все <see cref="Count"/> сущностей; бюджет не проверяется).</summary>
         public int Write(Span<byte> dest, in SnapshotLayout layout)
         {
-            var w = new SnapshotWriter(dest, layout, Tick, AckFrame, dest.Length);
+            var w = new SnapshotWriter(dest, layout, Tick, AckFrame, Self, dest.Length);
             for (int i = 0; i < Count; i++)
             {
                 if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction))
@@ -144,6 +235,7 @@ namespace Orpheus.Net.Protocol
             uint tick = r.ReadUInt32();
             uint ack = r.ReadUInt32();
             int count = r.ReadByte();
+            SelfState self = SelfState.Read(ref r, layout);
             for (int i = 0; i < count; i++)
             {
                 ref SnapshotEntity e = ref Entities[i];
@@ -165,6 +257,7 @@ namespace Orpheus.Net.Protocol
             Tick = tick;
             AckFrame = ack;
             Count = count;
+            Self = self;
             IsDelta = false;
         }
 
@@ -192,6 +285,12 @@ namespace Orpheus.Net.Protocol
         private int _count;
 
         public SnapshotWriter(Span<byte> dest, in SnapshotLayout layout, uint tick, uint ackFrame, int limitBytes = NetSettings.SnapshotBudget)
+            : this(dest, layout, tick, ackFrame, default, limitBytes)
+        {
+        }
+
+        /// <param name="self">Своё подтверждённое состояние (0-019); без него — признак «нет» и нули.</param>
+        public SnapshotWriter(Span<byte> dest, in SnapshotLayout layout, uint tick, uint ackFrame, in SelfState self, int limitBytes = NetSettings.SnapshotBudget)
         {
             _dest = dest;
             _layout = layout;
@@ -202,6 +301,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteUInt32(tick);
             _w.WriteUInt32(ackFrame);
             _w.WriteByte(0); // число сущностей — в Finish
+            self.Write(ref _w, layout);
         }
 
         /// <summary>Сущностей записано.</summary>
@@ -248,7 +348,7 @@ namespace Orpheus.Net.Protocol
     /// новая — полной записью, как в полном снимке. Порядок сущностей после склейки задаёт <see cref="ApplyTo"/> —
     /// одна функция у сервера (кольцо «что клиент имеет») и у клиента, поэтому номера совпадают.
     /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, отставание базы u8 (такт − такт базы, 1…255),
-    /// исчезнувших u8, изменившихся u8, новых u8; затем исчезнувшие (номер 8 бит), изменившиеся (номер 8 бит,
+    /// исчезнувших u8, изменившихся u8, новых u8; своё состояние (<see cref="SelfState"/>, 0-019); затем исчезнувшие (номер 8 бит), изменившиеся (номер 8 бит,
     /// маска 2 бита, позиция <see cref="SnapshotLayout"/> если есть в маске, направление 4 бита если есть),
     /// новые (запись полного снимка).</para>
     /// </summary>
@@ -273,6 +373,9 @@ namespace Orpheus.Net.Protocol
         public uint Tick;
         public uint AckFrame;
         public uint BaselineTick;
+
+        /// <summary>Своё подтверждённое состояние (0-019) — целиком, не дельтой к базе.</summary>
+        public SelfState Self;
 
         public int RemovedCount;
         public readonly int[] Removed = new int[Snapshot.MaxEntities];
@@ -310,6 +413,7 @@ namespace Orpheus.Net.Protocol
                 throw new ProtocolException("Дельта: отставание базы 0.");
             }
 
+            SelfState self = SelfState.Read(ref r, layout);
             for (int i = 0; i < removed; i++)
             {
                 Removed[i] = (int)r.ReadBits(IndexBits);
@@ -358,6 +462,7 @@ namespace Orpheus.Net.Protocol
             Tick = tick;
             AckFrame = ack;
             BaselineTick = tick - (uint)age;
+            Self = self;
             RemovedCount = removed;
             UpdatedCount = updated;
             AddedCount = added;
@@ -471,6 +576,13 @@ namespace Orpheus.Net.Protocol
 
         /// <param name="baselineTick">Такт базы: от <paramref name="tick"/> − 255 до <paramref name="tick"/> − 1.</param>
         public SnapshotDeltaWriter(Span<byte> dest, in SnapshotLayout layout, uint tick, uint ackFrame, uint baselineTick, int limitBytes = NetSettings.SnapshotBudget)
+            : this(dest, layout, tick, ackFrame, baselineTick, default, limitBytes)
+        {
+        }
+
+        /// <param name="self">Своё подтверждённое состояние (0-019); без него — признак «нет» и нули.</param>
+        public SnapshotDeltaWriter(Span<byte> dest, in SnapshotLayout layout, uint tick, uint ackFrame, uint baselineTick, in SelfState self,
+                                   int limitBytes = NetSettings.SnapshotBudget)
         {
             uint age = tick - baselineTick;
             if (age == 0 || age > SnapshotDeltaMessage.MaxBaselineAge)
@@ -493,6 +605,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteByte(0); // числа разделов — в Finish
             _w.WriteByte(0);
             _w.WriteByte(0);
+            self.Write(ref _w, layout);
         }
 
         /// <summary>Записано: исчезнувших, изменившихся, новых.</summary>

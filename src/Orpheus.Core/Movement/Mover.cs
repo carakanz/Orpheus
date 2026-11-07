@@ -52,6 +52,17 @@ namespace Orpheus.Core.Movement
             return Position;
         }
 
+        /// <summary>
+        /// Один кадр ввода 60 Гц — полшага такта (скорость <see cref="UnitsPerTickX10"/> ÷ <see cref="MovementTick.FramesPerTick"/>)
+        /// с тем же остатком <see cref="Carry"/>. Так шагают сетевой персонаж на сервере и предсказание клиента
+        /// (docs/07, 2.6 п. 5 и 2.7 «Применение ввода»; 0-019): одна функция, одни входы — одна позиция.
+        /// </summary>
+        public WorldPos StepFrame(in MapShape map, Input8 input, TileSolid solid)
+        {
+            Position = MovementTick.Tick(map, Position, Carry, input, UnitsPerTickX10 / MovementTick.FramesPerTick, solid, out Carry);
+            return Position;
+        }
+
         /// <summary>Один такт в пустом мире (тайлов нет): чистый пробег по тору.</summary>
         public WorldPos Step(in MapShape map, Input8 input) => Step(map, input, Collision.Empty);
 

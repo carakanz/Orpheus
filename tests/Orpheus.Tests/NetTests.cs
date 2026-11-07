@@ -157,7 +157,11 @@ namespace Orpheus.Tests
         {
             var layout = new SnapshotLayout(MapShape.World(size));
             var rng = new DetRandom(7);
-            var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, Count = 40 };
+            var snap = new Snapshot
+            {
+                Tick = 99_999, AckFrame = 200_003, Count = 40,
+                Self = new SelfState(new WorldPos(size * U - 1, rng.NextInt(size * U)), new Int2(-9, 7)), // без кванта (0-019)
+            };
             for (int i = 0; i < snap.Count; i++)
             {
                 snap.Entities[i] = new SnapshotEntity
@@ -176,6 +180,7 @@ namespace Orpheus.Tests
             Assert.Equal(snap.Tick, back.Tick);
             Assert.Equal(snap.AckFrame, back.AckFrame);
             Assert.Equal(snap.Count, back.Count);
+            Assert.Equal(snap.Self, back.Self);
             for (int i = 0; i < snap.Count; i++)
             {
                 Assert.Equal(snap.Entities[i].Id, back.Entities[i].Id);
@@ -185,6 +190,15 @@ namespace Orpheus.Tests
             }
 
             Assert.Equal(a, Encode(b => back.Write(b, layout)));
+
+            // Своё состояние (0-019): 1024² — 47 бит, 4096² — 51; остаток скорости вне −9…9 — испорченный снимок.
+            Assert.Equal(size == 1024 ? 47 : 51, layout.SelfBits);
+            snap.Self = new SelfState(new WorldPos(5, 5), new Int2(12, 0));
+            byte[] bad = Encode(b => snap.Write(b, layout));
+            Assert.Throws<ProtocolException>(() => back.Read(bad, layout));
+            snap.Self = default;
+            back.Read(Encode(b => snap.Write(b, layout)), layout);
+            Assert.False(back.Self.Present);
         }
 
         // ---------- Дельта снимка: кодек (карточка 0-014, docs/07 4.3) ----------
@@ -214,7 +228,8 @@ namespace Orpheus.Tests
             };
 
             var buf = new byte[NetSettings.MaxUnreliablePayload];
-            var w = new SnapshotDeltaWriter(buf, layout, 123_456, 246_912, 123_430);
+            var self = new SelfState(new WorldPos(3, size * U - 2), new Int2(4, -3));
+            var w = new SnapshotDeltaWriter(buf, layout, 123_456, 246_912, 123_430, self);
             Assert.True(w.TryAddRemoved(1));
             Assert.True(w.TryAddRemoved(5));
             Assert.True(w.TryAddUpdated(0, DeltaFields.Position | DeltaFields.Direction, p0, 8));
@@ -230,7 +245,7 @@ namespace Orpheus.Tests
                        SnapshotDeltaMessage.UpdatedBits(DeltaFields.Position | DeltaFields.Direction, layout) +
                        SnapshotDeltaMessage.UpdatedBits(DeltaFields.Position, layout) +
                        SnapshotDeltaMessage.UpdatedBits(DeltaFields.Direction, layout) + 2 * layout.EntityBits;
-            Assert.Equal(SnapshotDeltaMessage.HeaderBytes + (bits + 7) / 8, len);
+            Assert.Equal(SnapshotDeltaMessage.HeaderBytes + (layout.SelfBits + bits + 7) / 8, len);
             Assert.Equal((byte)MessageType.SnapshotDelta, buf[0]);
             Assert.Equal(123_456u, Snapshot.PeekTick(new ReadOnlySpan<byte>(buf, 0, len)));
 
@@ -239,6 +254,7 @@ namespace Orpheus.Tests
             Assert.Equal(123_456u, d.Tick);
             Assert.Equal(246_912u, d.AckFrame);
             Assert.Equal(123_430u, d.BaselineTick);
+            Assert.Equal(self, d.Self);
             Assert.Equal((2, 3, 2), (d.RemovedCount, d.UpdatedCount, d.AddedCount));
 
             var into = new SnapshotEntity[Snapshot.MaxEntities];
@@ -290,8 +306,8 @@ namespace Orpheus.Tests
                 n++;
             }
 
-            // Позиция 1024² — 30 бит: изменение 40 бит = 5 байт; в 60 − 13 байт влезает 9 (у полной записи — 5).
-            Assert.Equal((limit - SnapshotDeltaMessage.HeaderBytes) * 8 / SnapshotDeltaMessage.UpdatedBits(DeltaFields.Position, layout), n);
+            // Позиция 1024² — 30 бит: изменение 40 бит = 5 байт; в 60 − 13 байт без своего состояния (47 бит) влезает 8.
+            Assert.Equal(((limit - SnapshotDeltaMessage.HeaderBytes) * 8 - layout.SelfBits) / SnapshotDeltaMessage.UpdatedBits(DeltaFields.Position, layout), n);
             Assert.False(w.TryAddAdded(1, 1, new WorldPos(0, 0), 0));
             Assert.InRange(w.Finish(), SnapshotDeltaMessage.HeaderBytes, limit);
         }
