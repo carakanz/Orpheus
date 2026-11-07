@@ -1,4 +1,5 @@
 using System;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Rng;
@@ -12,10 +13,11 @@ namespace Orpheus.Net.Session
     /// вошёл, — в секторе манекена), видит замах по сообщению «замах начат» и жмёт уворот вбок от оси удара в случайный
     /// кадр окна [конец показанного замаха − 0,2 с; конец − 17 мс] на своём экране; после рывка идёт домой.
     /// <para>
-    /// Экран бота — его кадры ввода (номер = оценка кадра сервера по часам клиента, 0-025; опережения L в шипе нет).
-    /// Замах показывается «сейчас» (`07` 2.9: анимация сжимается в оставшееся время) и кончается в кадре E = s + d —
-    /// там, где сервер решает удар (шип: без сдвига D_p). Показ начинается, когда сообщение пришло: замах виден
-    /// d − owd. Пришло позже начала окна — окно с кадра прихода; позже E − 1 — «не успел увидеть» (не в счёт).
+    /// Экран бота — его кадры ввода (номер = оценка кадра сервера + опережение L, 0-025, 0-033). Замах показывается
+    /// «сейчас» (`07` 2.9: анимация сжимается в оставшееся время) честно: с кадра прихода сообщения A и не короче
+    /// min(d; 0,3 с) — конец показа E = max(C, A + min(d; 18)), где C = s + max(d, D_p + min(d; 18)) — кадр решения
+    /// сервера по боту (D_p — из сообщения). E > C — показ длиннее решения (<see cref="ShownPastResolve"/>), нажатие
+    /// может опоздать. Пришло позже начала окна — окно с кадра прихода; позже E − 1 — «не успел увидеть» (не в счёт).
     /// </para>
     /// Учёт по каждому замаху: нажат ли вовремя, дома ли, итог сервера (засчитан / попал), решён ли по последнему
     /// известному, сколько кадров ввода не хватило и дошло ли само нажатие к решению, сколько сервер ждал.
@@ -106,6 +108,15 @@ namespace Orpheus.Net.Session
         /// <summary>Итог по замаху, которого бот не видел.</summary>
         public int UnknownResults { get; private set; }
 
+        /// <summary>Конец показа позже кадра решения сервера (D_p меньше настоящей задержки показа): замахов.</summary>
+        public int ShownPastResolve { get; private set; }
+
+        /// <summary>Наибольшая D_p из сообщений, кадров.</summary>
+        public int MaxDelayFrames { get; private set; }
+
+        /// <summary>Наименьший показ замаха (E − A), кадров; нет — 0.</summary>
+        public int MinShownFrames { get; private set; }
+
         /// <summary>Попадания по номеру кадра нажатия до конца замаха (C − P, 0…15): где теряются.</summary>
         public int[] HitsByLead { get; } = new int[16];
 
@@ -125,12 +136,26 @@ namespace Orpheus.Net.Session
 
             ref Record r = ref _records[_next];
             _next = (_next + 1) % RecordRing;
-            r = new Record { Used = true, Attacker = m.AttackerId, Start = m.StartFrame, Contact = m.ContactFrame };
+            uint resolve = m.ResolveFrame;
+            r = new Record { Used = true, Attacker = m.AttackerId, Start = m.StartFrame, Contact = resolve };
             SwingsSeen++;
             uint seen = _hasFrame ? _lastFrame + 1 : m.StartFrame;
             r.SeenFrame = seen;
-            uint lo = m.ContactFrame - EarliestLeadFrames;
-            uint hi = m.ContactFrame - LatestLeadFrames;
+            uint shownEnd = seen + (uint)Math.Min((int)m.WindupFrames, ThreatTiming.MinShowFrames); // 2.9: не короче min(d; 0,3 с)
+            if ((int)(shownEnd - resolve) > 0)
+            {
+                ShownPastResolve++;
+            }
+            else
+            {
+                shownEnd = resolve;
+            }
+
+            MaxDelayFrames = Math.Max(MaxDelayFrames, m.DelayFrames);
+            int shown = (int)(shownEnd - seen);
+            MinShownFrames = SwingsSeen == 1 ? shown : Math.Min(MinShownFrames, shown);
+            uint lo = shownEnd - EarliestLeadFrames;
+            uint hi = shownEnd - LatestLeadFrames;
             if ((int)(seen - lo) > 0)
             {
                 lo = seen;
@@ -247,6 +272,7 @@ namespace Orpheus.Net.Session
         /// <summary>Строка итога.</summary>
         public string Summary() =>
             $"засчитано {Counted} из {Scored} (попаданий {Hits}, по последнему известному {ByLastKnown}, нажатие не дошло {PressNotArrived}, " +
+            $"показ ≥ {MinShownFrames} кадров, D ≤ {MaxDelayFrames}, показ позже решения {ShownPastResolve}, " +
             $"нехватка кадров ≤ {MaxMissingFrames}, ожидание ≤ {MaxWaitedFrames}); замахов {SwingsSeen}, не успел увидеть {TooLate}, не в счёт {NotScored}, неизвестных итогов {UnknownResults}";
     }
 }

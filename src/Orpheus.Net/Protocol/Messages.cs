@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Sim;
 using Orpheus.Core.Geometry;
 
@@ -439,8 +440,11 @@ namespace Orpheus.Net.Protocol
         /// <summary>Номер (такт) последнего полученного снимка.</summary>
         public uint LastSnapshot;
 
-        /// <summary>Опережение L в кадрах (2.7; пока 0).</summary>
+        /// <summary>Опережение L в кадрах (2.7; 0-033): 0…<see cref="MaxLeadFrames"/>.</summary>
         public sbyte Lead;
+
+        /// <summary>Опережение не больше 400 мс = 24 кадра (2.7, 4.6).</summary>
+        public const int MaxLeadFrames = 24;
 
         /// <summary>Номер текущего кадра.</summary>
         public uint LastFrame => FirstFrame + FrameCount - 1;
@@ -503,6 +507,11 @@ namespace Orpheus.Net.Protocol
                 Lead = r.ReadSByte(),
             };
             r.ExpectEnd();
+            if (m.Lead < 0 || m.Lead > MaxLeadFrames)
+            {
+                throw new ProtocolException($"Ввод: опережение {m.Lead} вне 0…{MaxLeadFrames} кадров.");
+            }
+
             return m;
         }
     }
@@ -594,8 +603,8 @@ namespace Orpheus.Net.Protocol
     /// </summary>
     public struct SwingStartMessage
     {
-        /// <summary>Тип 1 + атакующий 4 + s 4 + d 1 + центр 8 + ось 2 + досягаемость 2 + полудуга 2.</summary>
-        public const int Bytes = 24;
+        /// <summary>Тип 1 + атакующий 4 + s 4 + d 1 + центр 8 + ось 2 + досягаемость 2 + полудуга 2 + D_p 1 (0-033).</summary>
+        public const int Bytes = 25;
 
         public int AttackerId;
         public uint StartFrame;
@@ -605,8 +614,20 @@ namespace Orpheus.Net.Protocol
         public ushort ReachUnits;
         public ushort HalfArcSteps;
 
+        /// <summary>
+        /// Задержка показа D_p получателя, кадров (0-033, `07` 2.7; ≤ <see cref="ThreatTiming.MaxDelayFrames"/>): своя у
+        /// каждого игрока, с ней сервер решает удар по нему.
+        /// </summary>
+        public byte DelayFrames;
+
         /// <summary>Кадр конца замаха s + d.</summary>
         public uint ContactFrame => unchecked(StartFrame + WindupFrames);
+
+        /// <summary>
+        /// Кадр решения удара по получателю — и конец замаха на его экране (2.7, 2.9): s + max(d, D_p + min(d; 0,3 с)),
+        /// во времени его персонажа (номер кадра ввода).
+        /// </summary>
+        public uint ResolveFrame => ThreatTiming.ResolveFrame(StartFrame, WindupFrames, DelayFrames);
 
         public int Write(Span<byte> dest)
         {
@@ -620,6 +641,7 @@ namespace Orpheus.Net.Protocol
             w.WriteUInt16(Axis);
             w.WriteUInt16(ReachUnits);
             w.WriteUInt16(HalfArcSteps);
+            w.WriteByte(DelayFrames);
             return w.BytesWritten;
         }
 
@@ -635,17 +657,18 @@ namespace Orpheus.Net.Protocol
                 Axis = r.ReadUInt16(),
                 ReachUnits = r.ReadUInt16(),
                 HalfArcSteps = r.ReadUInt16(),
+                DelayFrames = r.ReadByte(),
             };
             r.ExpectEnd();
-            if (m.Origin.X < 0 || m.Origin.Y < 0 || m.WindupFrames == 0)
+            if (m.Origin.X < 0 || m.Origin.Y < 0 || m.WindupFrames == 0 || m.DelayFrames > ThreatTiming.MaxDelayFrames)
             {
-                throw new ProtocolException($"Замах: центр {m.Origin} или замах {m.WindupFrames} вне пределов.");
+                throw new ProtocolException($"Замах: центр {m.Origin}, замах {m.WindupFrames} или D_p {m.DelayFrames} вне пределов.");
             }
 
             return m;
         }
 
-        public override string ToString() => $"замах #{AttackerId}: s {StartFrame}, d {WindupFrames}, {Origin} ось {Axis}";
+        public override string ToString() => $"замах #{AttackerId}: s {StartFrame}, d {WindupFrames}, {Origin} ось {Axis}, D {DelayFrames}";
     }
 
     /// <summary>

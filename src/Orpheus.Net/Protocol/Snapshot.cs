@@ -1,4 +1,5 @@
 using System;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
@@ -52,6 +53,22 @@ namespace Orpheus.Net.Protocol
         /// <summary>Бит уворота всего: 21.</summary>
         public const int DodgeBits = DodgeElapsedBits + DodgeDashBits + DodgeCooldownBits + DodgeDirectionBits;
 
+        /// <summary>
+        /// Отчёт сервера получателю (0-033, `07` 2.7): «запас прихода кадров» — 1-й процентиль за 2 с при его нынешнем
+        /// опережении, кадров (−64…63; ≥ 0 — кадры приходят к сроку решения). Не состояние персонажа: в сравнение
+        /// (<see cref="Equals(SelfState)"/>) не входит, пишется и без своего состояния.
+        /// </summary>
+        public sbyte LeadMargin;
+
+        /// <summary>Отчёт сервера: задержка показа D_p получателя, кадров (0…30; 2.7 «Значок высокая задержка»). Вне сравнения.</summary>
+        public byte DelayFrames;
+
+        /// <summary>Бит отчёта: запас 7 (со сдвигом 64) + D_p 5.</summary>
+        public const int MarginBits = 7, DelayBits = 5, ReportBits = MarginBits + DelayBits;
+
+        /// <summary>Сдвиг запаса в битах.</summary>
+        public const int MarginBias = 64;
+
         public SelfState(WorldPos position, Int2 carry)
             : this(position, carry, default)
         {
@@ -63,6 +80,8 @@ namespace Orpheus.Net.Protocol
             Position = position;
             Carry = carry;
             Dodge = dodge;
+            LeadMargin = 0;
+            DelayFrames = 0;
         }
 
         /// <summary>Уворот одинаков во всех полях.</summary>
@@ -86,6 +105,8 @@ namespace Orpheus.Net.Protocol
             w.WriteBits(s.Dodge.DashLeft, DodgeDashBits);
             w.WriteBits(s.Dodge.Cooldown, DodgeCooldownBits);
             w.WriteBits(s.Dodge.Direction, DodgeDirectionBits);
+            w.WriteBits((uint)(Math.Max(-MarginBias, Math.Min(MarginBias - 1, (int)LeadMargin)) + MarginBias), MarginBits);
+            w.WriteBits(Math.Min(DelayFrames, (byte)ThreatTiming.MaxDelayFrames), DelayBits);
         }
 
         internal static SelfState Read(ref BitReader r, in SnapshotLayout layout)
@@ -102,6 +123,12 @@ namespace Orpheus.Net.Protocol
                 Cooldown = (byte)r.ReadBits(DodgeCooldownBits),
                 Direction = (byte)r.ReadBits(DodgeDirectionBits),
             };
+            sbyte margin = (sbyte)((int)r.ReadBits(MarginBits) - MarginBias);
+            byte delay = (byte)r.ReadBits(DelayBits);
+            if (delay > ThreatTiming.MaxDelayFrames)
+            {
+                throw new ProtocolException($"Снимок: задержка показа {delay} > {ThreatTiming.MaxDelayFrames} кадров.");
+            }
             if (dodge.DashLeft > Dodge.DashFrames || dodge.Cooldown > Dodge.CooldownFrames || dodge.Direction > 8)
             {
                 throw new ProtocolException($"Снимок: уворот вне пределов ({dodge.DashLeft}, {dodge.Cooldown}, {dodge.Direction}).");
@@ -119,10 +146,10 @@ namespace Orpheus.Net.Protocol
                     throw new ProtocolException("Снимок: своего состояния нет, а поля не пустые.");
                 }
 
-                return default;
+                return new SelfState { LeadMargin = margin, DelayFrames = delay };
             }
 
-            return new SelfState(new WorldPos(x, y), new Int2(cx, cy), dodge);
+            return new SelfState(new WorldPos(x, y), new Int2(cx, cy), dodge) { LeadMargin = margin, DelayFrames = delay };
         }
     }
 
@@ -172,7 +199,7 @@ namespace Orpheus.Net.Protocol
         /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5
         /// + уворот 21 (0-029, протокол 6). 1024² — 68 бит (≈ 9 байт), 4096² — 72 бита. Есть в каждом снимке и каждой дельте.
         /// </summary>
-        public int SelfBits => 1 + SelfBitsX + SelfBitsY + 2 * CarryBits + SelfState.DodgeBits;
+        public int SelfBits => 1 + SelfBitsX + SelfBitsY + 2 * CarryBits + SelfState.DodgeBits + SelfState.ReportBits;
 
         /// <summary>Сколько сущностей влезает в бюджет <see cref="NetSettings.SnapshotBudget"/>.</summary>
         public int MaxEntitiesInBudget => Math.Min(Snapshot.MaxEntities, ((NetSettings.SnapshotBudget - Snapshot.HeaderBytes) * 8 - SelfBits) / EntityBits);
