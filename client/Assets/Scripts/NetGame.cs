@@ -219,7 +219,8 @@ namespace Orpheus.Client
                     _fatal = true;
                     _status = _view != null
                         ? "Связь потеряна: " + (_client?.DisconnectReason ?? NetDisconnectReason.Other)
-                        : $"Не удалось подключиться к {_host}:{_port}: {(_client?.DisconnectReason ?? NetDisconnectReason.Other)}";
+                        : $"Не удалось подключиться к {_host}:{_port}: " +
+                          (_client?.DisconnectReason == NetDisconnectReason.ConnectFailed ? "сервер не отвечает" : $"{_client?.DisconnectReason}");
                     Debug.LogError("[net] " + _status);
                     break;
             }

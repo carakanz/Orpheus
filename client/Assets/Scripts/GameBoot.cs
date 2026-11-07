@@ -99,7 +99,7 @@ namespace Orpheus.Client
                 if (Args.Error != null)
                 {
                     // Сетевой режим с ошибкой ключа (например, имя длиннее 32 байт UTF-8) — не входим вовсе (0-017).
-                    Debug.LogError("[boot] аргументы: " + Args.Error + "; ключи: " + ClientArgs.Usage);
+                    Debug.LogError("[boot] аргументы: " + Args.Error + " Ключи: " + ClientArgs.Usage);
                     Application.Quit(1);
                     return;
                 }
