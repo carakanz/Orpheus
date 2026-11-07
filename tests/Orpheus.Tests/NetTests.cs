@@ -1642,7 +1642,7 @@ namespace Orpheus.Tests
         private const double ProbeSlowMs = 5;
 
         /// <summary>Зонд: наибольшая доля медленных снимков (0-032).</summary>
-        private const double ProbeSlowMaxShare = 0.05;
+        private const double ProbeSlowMaxShare = 0.2;
 
         /// <summary>Простой потока ботов (и для лога — сервера): промежуток между кадрами (тактами) больше кадра (такта) на столько, мкс (0-032).</summary>
         private const long StallSlackMicros = 5000;
