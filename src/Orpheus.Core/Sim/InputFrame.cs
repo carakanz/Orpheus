@@ -24,6 +24,15 @@ namespace Orpheus.Core.Sim
         /// нажатие клавиши; удержание не повторяет рывок. Нажатие в рывке, в откате или без направления — без действия.
         /// </summary>
         public const ushort Dodge = 1 << 0;
+
+        /// <summary>
+        /// Основное действие — копание (`05` 1.3, `07` 3.7; 0-028): бит — <b>удержание</b> в этом кадре. Прогресс копания на
+        /// сервере копится по кадрам ввода с этим битом (<c>EditRules.DigFrames</c>); какой тайл — запрос «копать: начало».
+        /// </summary>
+        public const ushort Dig = 1 << 1;
+
+        /// <summary>В кадре зажато копание.</summary>
+        public static bool DigHeld(InputFrame f) => (f.Buttons & Dig) != 0;
     }
 
     public readonly struct InputFrame : IEquatable<InputFrame>

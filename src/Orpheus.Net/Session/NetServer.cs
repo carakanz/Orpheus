@@ -110,6 +110,9 @@ namespace Orpheus.Net.Session
 
             /// <summary>Чанки у клиента и их ревизии (3.5, 3.7; 0-026); создаётся с первым окном.</summary>
             public HeldChunks? Held;
+
+            /// <summary>Правки тайлов (0-028): копание, ведро постановок, ждущие ответа; создаётся с первым запросом.</summary>
+            public EditState? Edits;
         }
 
         /// <summary>
@@ -652,6 +655,7 @@ namespace Orpheus.Net.Session
 
                 p.Credits -= n;
                 ResolveThreats(p, slot, n);
+                AdvanceEdits(p, slot, n); // 0-028: копание по кадрам такта
                 _sim.SetFramesAt(slot, new ReadOnlySpan<InputFrame>(_frameBuf, 0, n));
             }
         }
@@ -736,6 +740,7 @@ namespace Orpheus.Net.Session
         public void SendSnapshots()
         {
             BroadcastPatches(); // правки такта — до окон: вошедшие в окно чанки уйдут уже с ревизией после такта (3.7)
+            SendEditReplies(); // 0-028: «принято» / «отказ» по исходам такта
             ReadOnlySpan<SimEntity> entities = _sim.Entities;
             uint tick = (uint)_sim.Tick;
             for (int p = 0; p < _players.Count; p++)
@@ -1306,6 +1311,12 @@ namespace Orpheus.Net.Session
                 if (type == MessageType.ChunkRequest && channel == NetChannel.World)
                 {
                     OnChunkRequest(p, ChunkRequestMessage.Read(data, _sim.Shape));
+                    return;
+                }
+
+                if (type == MessageType.TileRequest && channel == NetChannel.Facts)
+                {
+                    OnTileRequest(p, TileRequestMessage.Read(data, _sim.Shape)); // 0-028
                     return;
                 }
 
