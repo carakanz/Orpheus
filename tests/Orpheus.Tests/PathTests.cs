@@ -387,8 +387,15 @@ namespace Orpheus.Tests
             PathBench.Report sched = bench.RunScheduler(1000, new StopwatchClock());
             _out.WriteLine("такты, 40 запросов за такт, бюджет 40 и 3 мс: " + sched);
 
+            Assert.Equal(direct.Found + direct.Edge + direct.Partial + direct.Enclosed, sched.Completed);
+#if DEBUG
+            // Сборка Debug втрое медленнее Release (замер 0-023): пороги времени — только в Release,
+            // как поедет сервер: dotnet test -c Release --filter FullyQualifiedName~D02_S9_2_Big.
+            _out.WriteLine("Debug: пороги 3 мс и 5 тактов не проверяются — запускать в Release.");
+#else
             Assert.True(sched.MeanTickUs <= 3000, $"среднее за такт {sched.MeanTickUs:F0} мкс");
             Assert.True(sched.MaxWaitTicks <= 5, $"ожидание {sched.MaxWaitTicks} тактов");
+#endif
         }
 
         // ---------- Помощники ----------
