@@ -10,7 +10,7 @@
 сервера: чужие (SpaceLions) не вытесняются. Модели на Маке скрипт не трогает (никаких /free).
 
 Учёт — art/style/probes/ledger.json (в git): id задания, набор, вариант, предмет, промпт, зерно, стиль, статус.
-Картинки — art/style/probes/<вариант>/<предмет>_<n>.png и уменьшения в _small/ (в .gitignore: пробы большие).
+Картинки — art/style/probes/<вариант>/<предмет>[@<набор>]_<n>.png (набор — кроме set1) и уменьшения в _small/ (в .gitignore: пробы большие).
 Страница — art/style/probes/index.html (в git): строки — предметы, столбцы — варианты, под картинкой — 48 и 96 px,
 как на экране 1080p и 4K (docs/00_vision.md 5.1); у пола ещё кусок 3 × 3, чтобы видеть шов. Собирается из того,
 что уже скачано: недостающие клетки показывают статус задания.
@@ -199,6 +199,11 @@ def small(src, px, tile=False):
     return dst.relative_to(PROBES).as_posix()
 
 
+def stem(j):
+    """Имя файла пробы: set1 — <предмет>, другие наборы — <предмет>@<набор> (иначе повтор затрёт первый набор)."""
+    return j["subject"] if j["set"] == "set1" else f"{j['subject']}@{j['set']}"
+
+
 def cmd_collect():
     jobs = load()
     online = server_queue() is not None
@@ -211,7 +216,7 @@ def cmd_collect():
         out = PROBES / j["variant"]
         out.mkdir(parents=True, exist_ok=True)
         for n, url in enumerate(j.get("images") or []):
-            path = out / f"{j['subject']}_{n}.png"
+            path = out / f"{stem(j)}_{n}.png"
             if path.exists():
                 continue
             if not online:
@@ -292,7 +297,7 @@ def build_page(jobs):
         tds = []
         for v in variants:
             j = cell.get((v["key"], s["key"]))
-            files = sorted((PROBES / v["key"]).glob(f"{s['key']}_[0-9].png"))
+            files = sorted((PROBES / v["key"]).glob(f"{s['key']}_[0-9].png")) + sorted((PROBES / v["key"]).glob(f"{s['key']}@*_[0-9].png"))
             have += len(files)
             pics = [thumb_html(p, s["kind"]) for p in files]
             if not files:
