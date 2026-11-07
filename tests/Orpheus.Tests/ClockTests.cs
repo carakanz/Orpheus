@@ -431,6 +431,25 @@ namespace Orpheus.Tests
 
             Assert.True(r.ClockResets <= 1, $"{r.ClockResets}");
         }
+    }
+
+    /// <summary>Отдельная коллекция без параллели: UDP-прогон 60 с под чужой нагрузкой (другие Big UDP-тесты) краснеет не по своей вине.</summary>
+    [CollectionDefinition(Name, DisableParallelization = true)]
+    public sealed class ClockUdpCollection
+    {
+        public const string Name = "ClockUdp";
+    }
+
+    /// <summary>Часы и заморозка по UDP (0-025): сервер в процессе теста, боты с предсказанием, `-All`.</summary>
+    [Collection(ClockUdpCollection.Name)]
+    public class ClockUdpTests
+    {
+        private readonly ITestOutputHelper _out;
+
+        public ClockUdpTests(ITestOutputHelper output)
+        {
+            _out = output;
+        }
 
         /// <summary>
         /// 2.13 п. 1 и 5 по UDP (`-All`): 2 бота с предсказанием × 60 с, RTT 100, потери 1 %, поток такта сервера заморожен на 2 с
