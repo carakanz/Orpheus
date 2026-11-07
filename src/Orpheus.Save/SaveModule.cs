@@ -8,8 +8,12 @@ namespace Orpheus.Save
     /// </summary>
     public static class SaveModule
     {
-        /// <summary>Версия формата сохранения (6.7): 1 — первая, миграций ещё нет.</summary>
-        public const uint FormatVersion = 1;
+        /// <summary>
+        /// Версия формата сохранения (6.7): 1 — первая; 2 — у сущности поля уворота (0-029, <c>EntityField.Dodge*</c>).
+        /// Миграций ещё нет: формат 1 читается тем же кодом, у сущностей без полей уворота он нулевой (6.7: «новое поле
+        /// с умолчанием миграции не требует»).
+        /// </summary>
+        public const uint FormatVersion = 2;
 
         /// <summary>Версия сборки в заголовке сохранения: растёт с выпусками.</summary>
         public const uint BuildVersion = 1;

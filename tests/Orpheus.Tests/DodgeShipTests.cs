@@ -150,6 +150,22 @@ namespace Orpheus.Tests
             Assert.Equal(at, pred.Position);
         }
 
+        /// <summary>
+        /// Умолчание W = 6 кадров = 100 мс (docs/07 4.6) у сервера и у ключа <c>--dummy-wait</c> (П по 0-029, з. 2):
+        /// <see cref="Run"/> передаёт W явно, поэтому умолчание проверяется отдельно.
+        /// </summary>
+        [Fact]
+        public void D07_S2_13_P3_DodgeShip_DefaultWait6Frames()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(256), 42);
+            using LoopbackTransport st = LoopbackTransport.CreateServer(1);
+            var server = new NetServer(st, new Simulation(world, maxEntities: 2), _ => default, 1, NetModule.Version);
+            Assert.Equal(6, server.InputWaitFrames);
+
+            Assert.Equal(6, ServerOptions.Parse(new[] { "--create", "--seed", "42", "--size", "1024", "--dummy" }).DummyWaitFrames);
+            Assert.Equal(9, ServerOptions.Parse(new[] { "--create", "--seed", "42", "--size", "1024", "--dummy", "--dummy-wait", "9" }).DummyWaitFrames);
+        }
+
         /// <summary>Без задержки: все 100 уворотов засчитаны, сервер не ждёт дольше W, по последнему известному — ни одного.</summary>
         [Fact]
         public void D07_S2_13_P3_DodgeShip_NoLatency_AllCounted()
