@@ -104,11 +104,14 @@
     "count": 2,
     "style": "default",
     "prompt": "loose watercolor wash illustration with fine sepia ink linework, transparent layered washes with soft blooms and granulation, visible cold-press paper grain, muted desaturated palette of faded terracotta, sage green, umber and parchment, accents and ornaments in the style of ancient Greek black-figure pottery with meander key patterns, delicate and airy. a sunny Greek meadow floor: short lush green grass seen from above, small patches of clover, scattered tiny white and yellow wildflowers, a few small pebbles, gentle natural variation of green tones. seamless tileable ground texture, viewed strictly from directly above, orthographic top-down, the ground fills the entire square edge to edge, no horizon, no perspective, no sky, no single object in focus, even uniform density across the whole image so it can repeat without visible seams, soft light from the upper left, ancient Greek landscape, no text, no letters, no watermark, no border, no frame",
-    "status": "running",
+    "status": "done",
     "picker_url": "/?set=20261107-124732-5ab8ef",
     "queued": "2026-11-07 12:47",
-    "images": [],
-    "checked": "2026-11-07 14:27"
+    "images": [
+      "/files/concepts/20261107-124732-5ab8ef/concept_0.png",
+      "/files/concepts/20261107-124732-5ab8ef/concept_1.png"
+    ],
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-d16666",
@@ -120,11 +123,14 @@
     "count": 2,
     "style": "default",
     "prompt": "painterly hand-painted gouache illustration, thick opaque brush strokes with visible bristle texture, soft painted edges and no outlines, forms built from broad planes of color, warm golden afternoon sunlight, rich warm palette of ochre, olive green, terracotta and sun-bleached cream, glowing warm highlights and cool violet shadows. a large weathered pale grey limestone boulder, chunky rounded block with a flattish top, deep cracks and chipped edges, a few patches of yellow lichen and green moss, small tufts of grass at its base. top-down game view tilted at about 45 degrees, high three-quarter overhead camera looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "queued",
+    "status": "done",
     "picker_url": "/?set=20261107-124732-d16666",
     "queued": "2026-11-07 12:47",
-    "images": [],
-    "checked": "2026-11-07 14:27"
+    "images": [
+      "/files/concepts/20261107-124732-d16666/concept_0.png",
+      "/files/concepts/20261107-124732-d16666/concept_1.png"
+    ],
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-588494",
@@ -136,11 +142,11 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a large weathered pale grey limestone boulder, chunky rounded block with a flattish top, deep cracks and chipped edges, a few patches of yellow lichen and green moss, small tufts of grass at its base. top-down game view tilted at about 45 degrees, high three-quarter overhead camera looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "queued",
+    "status": "running",
     "picker_url": "/?set=20261107-124732-588494",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 14:27"
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-13f2d8",
@@ -156,7 +162,7 @@
     "picker_url": "/?set=20261107-124732-13f2d8",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 14:27"
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-831ba8",
@@ -172,7 +178,7 @@
     "picker_url": "/?set=20261107-124732-831ba8",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 14:27"
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-98de89",
@@ -188,7 +194,7 @@
     "picker_url": "/?set=20261107-124732-98de89",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 14:27"
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-ea534d",
@@ -204,7 +210,7 @@
     "picker_url": "/?set=20261107-124732-ea534d",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 14:27"
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-30fc63",
@@ -220,7 +226,7 @@
     "picker_url": "/?set=20261107-124732-30fc63",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 14:27"
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-5d2ad4",
@@ -236,7 +242,7 @@
     "picker_url": "/?set=20261107-124732-5d2ad4",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 14:27"
+    "checked": "2026-11-07 15:05"
   },
   {
     "id": "20261107-124732-cc2a0f",
@@ -252,6 +258,6 @@
     "picker_url": "/?set=20261107-124732-cc2a0f",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 14:27"
+    "checked": "2026-11-07 15:05"
   }
 ]
