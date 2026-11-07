@@ -404,7 +404,11 @@ namespace Orpheus.Tests
             _out.WriteLine($"RTT {rttMs}±{jitterMs}, потери {lossPercent} %, пачки {burstJitter}/{hitches}: снимков {r.Snapshots}, сверок {r.Reconciled}, " +
                            $"правок {r.Resynced}, расх. {r.MaxDev} u; сервер: кадров {sv.FramesApplied}, сам {sv.FramesSelfStepped}, " +
                            $"перескок {sv.FramesSkipped}, опоздали {sv.FramesLate}, тактов-пачек {sv.BurstTicks}, стопов {sv.InputStops}");
-            Assert.True(r.Reconciled > 250, $"сверок {r.Reconciled}");
+            // Порог относительный (0-025, проверка з. 4; было «> 250»): число принятых снимков зависит от зерна имитатора —
+            // переставленные разбросом отбрасываются как старые (RTT 100±20: 240–251 из 300 на 8 зёрнах). Сверка — на каждом
+            // принятом снимке, кроме первых до начала предсказания: ≥ 90 % (на 8 зёрнах × 4 строки — не меньше 98 %).
+            Assert.True(r.Snapshots > 200, $"снимков {r.Snapshots} из 300");
+            Assert.True(r.Reconciled >= r.Snapshots * 0.9, $"сверок {r.Reconciled} из {r.Snapshots} снимков");
             Assert.Equal(0, r.Resynced);
             Assert.Equal(0, r.MaxDev);
             Assert.Equal(r.ServerPos, r.Pred.Position);
@@ -743,8 +747,45 @@ namespace Orpheus.Tests
             }
 
             _out.WriteLine($"10 мин, +0,1 %: отправлено {sent}, шагнуто {p.Server.FramesApplied}, выброшено {p.Server.FramesTrimmed}, очередь max {max}");
-            Assert.True(max <= NetServer.MaxBacklogFrames, $"очередь {max}");
+            Assert.True(max <= 6, $"очередь {max}"); // потолок числом (0-025, проверка 0-019 з. 2): мутация «6 → 10» краснит
             Assert.True(p.Server.FramesTrimmed > 0);
+        }
+
+        /// <summary>
+        /// Запас кадров 20 — числом (0-025, проверка 0-019 повт. з. 1): после долгого затишья запас полон; клиент шлёт по 4 кадра
+        /// за такт 40 тактов — шагнуто 2·40 кадров и сверх того не больше 20 (запас), дальше по 2 за такт. Мутация «запас 20 → 60» краснит.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_Server_CreditCap20_FourPerTick40Ticks_Applies100()
+        {
+            var p = new ScriptedPlayer();
+            for (int k = 0; k < 10; k++)
+            {
+                p.Send(RunEast);
+                p.Send(RunEast);
+                p.Tick();
+            }
+
+            for (int k = 0; k < 20; k++)
+            {
+                p.Tick(); // затишье 20 тактов: самоход 6 кадров, стоп, запас копится до потолка
+            }
+
+            long before = p.Server.FramesApplied;
+            for (int k = 0; k < 40; k++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    p.Send(RunEast);
+                }
+
+                p.Tick();
+            }
+
+            long applied = p.Server.FramesApplied - before;
+            _out.WriteLine($"40 тактов по 4 кадра после затишья: шагнуто {applied}, выброшено {p.Server.FramesTrimmed}, очередь {p.Backlog}");
+            // Сверх 2 за такт — запас (≤ 20); первые кадры после самохода опоздали (их номера сервер шагнул сам) — минус 4.
+            Assert.InRange(applied - 2 * 40, 14, 20);
         }
 
         /// <summary>Предел кадров за такт (мутация A проверки 0-019): после затишья 12 кадров разом — шагнуто 6, остальные — следующим тактом.</summary>

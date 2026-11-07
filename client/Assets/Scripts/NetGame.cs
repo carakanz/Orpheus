@@ -33,8 +33,6 @@ namespace Orpheus.Client
     /// </summary>
     public sealed class NetGame
     {
-        const double InputInterval = 1.0 / 60.0;
-        const int MaxSendsPerFrame = 4;
         const int LoginTimeoutSec = 10;
 
         /// <summary>
@@ -105,8 +103,6 @@ namespace Orpheus.Client
         LocalPrediction? _pred;
         int _localId;
         ScreenshotRun? _screenshot;
-        double _inputAccum;
-        long _inputClockUs;
         long _inGameSinceUs;
         long _hudSnaps;
         long _hudTimeUs;
@@ -410,6 +406,7 @@ namespace Orpheus.Client
             _netRules = new Simulation(_world, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
             _pred = new LocalPrediction(_map, _netRules.Solid, spawn);
             _remote = new RemoteInterpolation(_map);
+            _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height} зерно 0x{accept.WorldSeed:X}, " +
                       $"хэш генерации 0x{genHash:X16} = серверу, " +
                       $"такт {accept.ServerTick}; генерация {sw.Elapsed.TotalMilliseconds:0} мс " +
@@ -464,28 +461,16 @@ namespace Orpheus.Client
         void SendInput(long now)
         {
             NetClient c = _client!;
-            // Часы ввода — монотонные мкс, не Time.unscaledDeltaTime: в -batchmode Unity завышает время очень коротких
-            // кадров (net-smoke 0-019: ~79 кадров ввода в секунду вместо 60), и сервер, шагающий 2 кадра за такт, отстаёт.
-            if (_inputClockUs == 0)
-            {
-                _inputClockUs = now;
-            }
-
-            _inputAccum += Math.Max(0, now - _inputClockUs) / 1_000_000.0; // шаг часов назад — ноль
-            _inputClockUs = now;
-            int sent = 0;
-            while (_inputAccum >= InputInterval && sent < MaxSendsPerFrame)
+            // Часы ввода (docs/07 2.4, 2.7; 0-025): номер кадра идёт за оценкой кадра сервера (часы клиента по снимкам и
+            // пингу) — NetClient.FramesDue, 0…4 кадра за кадр рисования. Время — монотонные мкс, не Time.unscaledDeltaTime:
+            // в -batchmode Unity завышает время очень коротких кадров (net-smoke 0-019). После фриза сервера часы
+            // переставляются, следующий кадр перенумеровывается (NetClient.SendFrame, LocalPrediction.Sent).
+            int n = c.FramesDue(now);
+            for (int k = 0; k < n; k++)
             {
                 InputFrame frame = _args.NetSmokeSeconds > 0 ? ScriptedSmokeFrame(now) : GameBoot.ToFrame(_g.Move.ReadValue<Vector2>());
                 c.SendFrame(frame);
                 _pred!.Sent(c.Frame, frame);
-                _inputAccum -= InputInterval;
-                sent++;
-            }
-
-            if (_inputAccum > 1.0)
-            {
-                _inputAccum = 0; // окно свернули — не «прыгаем» ретрансляцией старых кадров
             }
         }
 

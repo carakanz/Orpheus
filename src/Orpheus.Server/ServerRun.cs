@@ -534,6 +534,15 @@ namespace Orpheus.Server
 
                 if (clock != null)
                 {
+                    foreach ((long Tick, int Ms) f in o.DebugFreezes)
+                    {
+                        if (f.Tick == tick)
+                        {
+                            log.Warn(tick, "perf", "отладочная заморозка такта", ("ms", f.Ms)); // 2.13 п. 5 (0-025)
+                            Thread.Sleep(f.Ms);
+                        }
+                    }
+
                     long dropped = clock.WaitNext(stop);
                     if (dropped > 0)
                     {

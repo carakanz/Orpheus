@@ -83,6 +83,9 @@ namespace Orpheus.Net.Session
             /// <summary>Такт сервера, на котором пришёл последний новый кадр ввода (или вход).</summary>
             public long LastInputTick;
 
+            /// <summary>Такт сервера, на котором открылось соединение (тайм-аут входа, 0-025).</summary>
+            public long ConnectedTick;
+
             /// <summary>Ввод подменён пустым по обрыву; снимается новым кадром.</summary>
             public bool Stopped;
 
@@ -221,11 +224,17 @@ namespace Orpheus.Net.Session
         public const int CreditCap = 20;
 
         /// <summary>
-        /// Ждущих кадров после плана такта не больше 10 (6 на такт + запас 4; ≈ 0,17 с): лишние старейшие — перескок
-        /// (<see cref="FramesTrimmed"/>), чтобы время персонажа не отставало навсегда (задержка-пачка, дрейф часов клиента).
-        /// Пока ждёт дыра в номерах — не режется.
+        /// Ждущих кадров после плана такта не больше 6 (кадры одного такта с пачкой, 0,1 с; 0-025 — было 10, проверка 0-019
+        /// з. 2): лишние старейшие — перескок (<see cref="FramesTrimmed"/>), чтобы время персонажа не отставало навсегда
+        /// (задержка-пачка, спешащие часы клиента). Пока ждёт дыра в номерах — не режется.
         /// </summary>
-        public const int MaxBacklogFrames = FramesPerTickLimit + 4;
+        public const int MaxBacklogFrames = FramesPerTickLimit;
+
+        /// <summary>
+        /// Соединение без входа держится не дольше 300 тактов (10 с, как <c>DisconnectTimeout</c>; 0-025, проверка 0-008 з. 8).
+        /// Счёт — тактами сервера: заморозка сервера (2.13 п. 5) тайм-аут не приближает.
+        /// </summary>
+        public const int LoginTimeoutTicks = 10 * Simulation.TickRate;
 
         /// <summary>Самоход (2.7 «Нет ввода»): кадров за один разрыв — 6 (100 мс), затем стоп.</summary>
         public const int SelfStepFrames = (InputStaleTicks - SelfStepAfterTicks) * MovementTick.FramesPerTick;
@@ -327,6 +336,21 @@ namespace Orpheus.Net.Session
 
         /// <inheritdoc cref="InputsAccepted"/>
         public long InputsDropped { get; private set; }
+
+        /// <summary>Соединений закрыто по тайм-ауту входа (<see cref="LoginTimeoutTicks"/>).</summary>
+        public long LoginTimeouts { get; private set; }
+
+        /// <summary>
+        /// Перенумераций ввода назад (0-025): пакет новее по подтверждённому снимку, а номера не новее принятых — клиент
+        /// переставил часы назад (фриз сервера); очередь игрока — заново от номеров пакета.
+        /// </summary>
+        public long InputRebases { get; private set; }
+
+        /// <summary>Ответов на пинг часов.</summary>
+        public long PongsSent { get; private set; }
+
+        /// <summary>Эпоха часов: +1 при каждой рассылке «часы» (<see cref="BroadcastClock"/>), в заголовке каждого снимка.</summary>
+        public byte ClockEpoch { get; private set; }
 
         /// <summary>Сколько раз ввод игрока подменён пустым: нового кадра нет <see cref="InputStaleTicks"/> тактов.</summary>
         public long InputStops { get; private set; }
@@ -465,6 +489,7 @@ namespace Orpheus.Net.Session
         {
             _nowMicros = nowMicros;
             _transport.Poll(nowMicros, this);
+            DropSilentConnections();
             StopStaleInputs();
             PlanFrames();
         }
@@ -589,6 +614,23 @@ namespace Orpheus.Net.Session
             p.HasApplied = true;
             p.LastInput = input;
             p.NextFrame++;
+        }
+
+        /// <summary>Тайм-аут входа: соединение без входа дольше <see cref="LoginTimeoutTicks"/> тактов — закрыть (место не держит).</summary>
+        private void DropSilentConnections()
+        {
+            long tick = _sim.Tick;
+            for (int i = _players.Count - 1; i >= 0; i--)
+            {
+                Player p = _players[i];
+                if (p.State == PlayerState.AwaitingLogin && tick - p.ConnectedTick >= LoginTimeoutTicks)
+                {
+                    _players.RemoveAt(i);
+                    LoginTimeouts++;
+                    Log?.Invoke(NetLogLevel.Warn, $"соединение {p.Peer}: нет входа {LoginTimeoutTicks / Simulation.TickRate} с — закрыто");
+                    _transport.Disconnect(p.Peer, ReadOnlySpan<byte>.Empty);
+                }
+            }
         }
 
         /// <summary>
@@ -796,6 +838,7 @@ namespace Orpheus.Net.Session
             }
 
             var w = new SnapshotDeltaWriter(_buf, _layout, tick, pl.LastApplied, pl.LastSnapshotAck, _self);
+            w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < removedN; i++)
             {
                 w.TryAddRemoved(_removedIdx[i]);
@@ -823,6 +866,7 @@ namespace Orpheus.Net.Session
         private int WriteFull(uint tick, Player pl, int curCount, out int written)
         {
             var w = new SnapshotWriter(_buf, _layout, tick, pl.LastApplied, _self);
+            w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < curCount; i++)
             {
                 if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction))
@@ -960,10 +1004,15 @@ namespace Orpheus.Net.Session
             return -1;
         }
 
-        /// <summary>Часы всем в игре (2.4: после перегрузки, когда такты не догнаны).</summary>
+        /// <summary>
+        /// «Часы после фриза» (2.4): сервер отстал больше чем на 3 такта и не догоняет — «часы: кадр N» всем в игре по каналу 2,
+        /// эпоха часов +1 (в заголовке каждого следующего снимка). N — такт, который идёт (последний шагнутый + 1): зовётся
+        /// между тактами, как и разбор пакетов.
+        /// </summary>
         public void BroadcastClock()
         {
-            int len = new ClockMessage { ServerTick = (uint)_sim.Tick }.Write(_buf);
+            ClockEpoch++;
+            int len = new ClockMessage { ServerTick = (uint)_sim.Tick + 1 }.Write(_buf);
             for (int p = 0; p < _players.Count; p++)
             {
                 if (_players[p].State == PlayerState.InGame)
@@ -984,7 +1033,7 @@ namespace Orpheus.Net.Session
         {
             if (Find(peer) == null)
             {
-                _players.Add(new Player { Peer = peer, State = PlayerState.AwaitingLogin });
+                _players.Add(new Player { Peer = peer, State = PlayerState.AwaitingLogin, ConnectedTick = _sim.Tick });
             }
         }
 
@@ -1050,6 +1099,16 @@ namespace Orpheus.Net.Session
                 if (type == MessageType.Input && channel == NetChannel.Unreliable)
                 {
                     OnInput(p, InputMessage.Read(data));
+                    return;
+                }
+
+                if (type == MessageType.Ping && channel == NetChannel.Unreliable)
+                {
+                    // Часы клиента (2.4): ответ сразу, кадр — идущий такт (последний шагнутый + 1), как у «часов».
+                    PingMessage ping = PingMessage.Read(data);
+                    int len = new PongMessage { ClientUs = ping.ClientUs, ServerTick = (uint)_sim.Tick + 1 }.Write(_buf);
+                    _transport.Send(p.Peer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
+                    PongsSent++;
                     return;
                 }
 
@@ -1179,6 +1238,20 @@ namespace Orpheus.Net.Session
 
         private void OnInput(Player p, in InputMessage m)
         {
+            // Перенумерация назад (0-025): пакет отправлен после всех принятых (подтверждает более новый снимок), а номера
+            // не новее принятых — клиент переставил часы назад (фриз сервера: за 2 с он нумеровал вперёд). Обычные пакеты
+            // так не бывают: номера клиента растут вместе с подтверждённым снимком. Очередь — заново от номеров пакета
+            // (все 4 кадра: перед новым клиент шлёт его копии, предсказание шагает так же).
+            if (p.HasFrame && (int)(m.LastSnapshot - p.LastSnapshotAck) > 0 && (int)(m.LastFrame - p.Newest) <= 0)
+            {
+                Array.Clear(p.RingValid, 0, FrameRing);
+                p.NextFrame = m.FirstFrame;
+                p.HasNext = true;
+                p.Newest = m.FirstFrame - 1;
+                p.HoleSinceTick = -1;
+                InputRebases++;
+            }
+
             bool isNew = !p.HasFrame || (int)(m.LastFrame - p.Newest) > 0;
             if (!p.HasNext)
             {
