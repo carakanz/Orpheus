@@ -62,11 +62,16 @@ namespace Orpheus.Net.Transport
             m.BroadcastReceiveEnabled = false;
         }
 
-        /// <summary>Сервер: слушать UDP-порт <paramref name="port"/> (0 — выдаст ОС) на всех адресах.</summary>
-        public static LiteNetTransport Listen(int port, int maxPeers)
+        /// <summary>
+        /// Сервер: слушать UDP-порт <paramref name="port"/> (0 — выдаст ОС). По умолчанию — на всех адресах;
+        /// <paramref name="loopbackOnly"/> — только 127.0.0.1 и ::1 (тесты, smoke, локальная игра: брандмауэр Windows
+        /// не спрашивает разрешения у программы, которая слушает только петлю).
+        /// </summary>
+        public static LiteNetTransport Listen(int port, int maxPeers, bool loopbackOnly = false)
         {
             var t = new LiteNetTransport(true, maxPeers);
-            if (!t._manager.Start(port))
+            bool started = loopbackOnly ? t._manager.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port) : t._manager.Start(port);
+            if (!started)
             {
                 throw new SocketException((int)SocketError.AddressAlreadyInUse);
             }
@@ -74,11 +79,15 @@ namespace Orpheus.Net.Transport
             return t;
         }
 
-        /// <summary>Клиент: подключиться к <paramref name="host"/>:<paramref name="port"/>. Событие «открыто» — в <see cref="Poll"/>.</summary>
+        /// <summary>
+        /// Клиент: подключиться к <paramref name="host"/>:<paramref name="port"/>. Событие «открыто» — в <see cref="Poll"/>.
+        /// К серверу на этой же машине (<see cref="IsLoopbackHost"/>) сокет клиента открывается только на петле — без окна брандмауэра.
+        /// </summary>
         public static LiteNetTransport Connect(string host, int port)
         {
             var t = new LiteNetTransport(false, 1);
-            if (!t._manager.Start())
+            bool started = IsLoopbackHost(host) ? t._manager.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, 0) : t._manager.Start();
+            if (!started)
             {
                 throw new SocketException((int)SocketError.SocketError);
             }
@@ -93,6 +102,17 @@ namespace Orpheus.Net.Transport
             t.ServerPeer = peer.Id;
             t._peers[peer.Id] = peer;
             return t;
+        }
+
+        /// <summary>Сервер на этой же машине: <c>localhost</c> или адрес петли (127.x.x.x, ::1) — без запроса DNS.</summary>
+        public static bool IsLoopbackHost(string host)
+        {
+            if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return IPAddress.TryParse(host, out IPAddress? address) && IPAddress.IsLoopback(address);
         }
 
         public void Poll(long nowMicros, ITransportHandler handler)
