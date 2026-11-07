@@ -86,6 +86,12 @@ namespace Orpheus.Tests
                 _out.WriteLine($"сервер готов за {server.ReadySeconds:0.000} с (1024², создание мира), порт {server.Endpoint.Port}");
                 Assert.True(server.ReadySeconds <= 5, $"старт {server.ReadySeconds:0.00} с > 5 с (1.9 п. 4)");
                 AssertListening(server.Endpoint.Port, a => IPAddress.IsLoopback(a), "до «Открыть для друзей» — только петля");
+                using (Process sp = Process.GetProcessById(server.Endpoint.ProcessId))
+                {
+                    double mb = sp.WorkingSet64 / 1048576.0;
+                    _out.WriteLine($"память сервера после старта: рабочий набор {mb:0} МБ, частная {sp.PrivateMemorySize64 / 1048576.0:0} МБ");
+                    Assert.True(mb <= 128, $"сервер занимает {mb:0} МБ > 128 (1.9 п. 4)");
+                }
 
                 host = Client("127.0.0.1", server.Endpoint.Port, "хост", server.Endpoint.Token);
                 var hostBot = new NetBot(host, "wander", 0);
@@ -214,8 +220,13 @@ namespace Orpheus.Tests
 
         // ---------- 2.3 / 7.6: хост не вернулся — сохранение и выход через отведённое время ----------
 
+        /// <summary>
+        /// Короткий вариант (12 с): обрыв убитой игры транспорт замечает через тайм-аут 10 с (2.10), поэтому меньше 12 с ожидание
+        /// не проверить; оба варианта — в ночном прогоне, в CI — <c>HostTests.D07_S2_3_ServerRun_HostNeverJoins_*</c> (1 с).
+        /// </summary>
         [Fact]
-        public void D07_S2_3_HostNotBack_SaveAndExitAfterGrace_Short()
+        [Trait("Category", "Big")]
+        public void D07_S2_3_HostNotBack_SaveAndExitAfter12s_Big()
         {
             HostNotBack(grace: 12, tolerance: 1.0);
         }

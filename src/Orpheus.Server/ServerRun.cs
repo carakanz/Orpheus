@@ -362,7 +362,7 @@ namespace Orpheus.Server
             // Дать отключениям с причиной уйти до закрытия сокетов (без этого клиенты узнают лишь по тайм-ауту).
             var w = Stopwatch.StartNew();
             var sink = new NullHandler();
-            while (w.ElapsedMilliseconds < 150)
+            while (w.ElapsedMilliseconds < 50)
             {
                 transport.Poll(w.Elapsed.Ticks / 10, sink);
                 transport.Flush();
