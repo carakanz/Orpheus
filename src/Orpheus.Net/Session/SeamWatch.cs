@@ -194,7 +194,11 @@ namespace Orpheus.Net.Session
         /// </summary>
         public bool Passed => OverExcess == 0 && Steps30 > 0 && ViewEastOfX > 0 && ViewWestOfX > 0 && ViewSouthOfY > 0 && ViewNorthOfY > 0;
 
-        /// <summary>То же, но и по сдвигу за 1/30 с ≤ 0,22 тайла буквально (08 3.0, 0.2).</summary>
+        /// <summary>
+        /// То же, но и по сдвигу за 1/30 с ≤ 0,22 тайла буквально (08 3.0, 0.2), кроме первой секунды показа чужого
+        /// (<see cref="WarmupUs"/>). Держится на сети без разброса и потерь (тест CI по петле, проверка 0-027 п. 1); при σ 10 —
+        /// нет: неровный ход бегущего на сервере (07 2.7), известный дефект, backlog [сеть, док].
+        /// </summary>
         public bool PassedLiteral => Passed && Over30 == 0;
 
         /// <summary>Снимок принят (из <see cref="NetClient.SnapshotApplied"/>), время — местные мкс приёма.</summary>
