@@ -109,6 +109,21 @@ namespace Orpheus.Server
 
         /// <summary>Сервер игры: порт «Открыть для друзей»; не открывали — −1.</summary>
         public int OpenedPort { get; set; } = -1;
+
+        /// <summary>Метрики такта, памяти, сборок мусора и трафика за весь цикл тактов (0-030); null — цикла не было.</summary>
+        public MetricsSample? Metrics { get; set; }
+
+        /// <summary>Окна метрик, выведенные в лог (раз в <c>--metrics</c> с).</summary>
+        public List<MetricsSample> MetricsWindows { get; } = new List<MetricsSample>();
+
+        /// <summary>От запуска процесса до готовности (порт слушается; без сети — начало цикла тактов), с (0-030, приёмка 0.8).</summary>
+        public double ReadySeconds { get; set; }
+
+        /// <summary>Рабочий набор и его пик в миг готовности, МБ (0-030, приёмка 0.8).</summary>
+        public double ReadyWorkingSetMb { get; set; }
+
+        /// <inheritdoc cref="ReadyWorkingSetMb"/>
+        public double ReadyPeakWorkingSetMb { get; set; }
     }
 
     /// <summary>
@@ -236,7 +251,10 @@ namespace Orpheus.Server
                 LiteNetTransport? transport = o.Port.HasValue ? LiteNetTransport.Listen(o.Port.Value, o.MaxPlayers, o.LoopbackOnly) : null;
                 // Сервер игры: петля + «Открыть для друзей» вторым сокетом под тем же NetServer (0-024).
                 MuxTransport? mux = transport != null && o.Mode.HasValue ? new MuxTransport(transport) : null;
-                using ITransport? netTransport = (ITransport?)mux ?? transport;
+                ITransport? rawTransport = (ITransport?)mux ?? transport;
+                // Счёт байт на клиента (0-030, 11.6) — обёрткой, NetServer не меняется.
+                using CountingTransport? traffic = rawTransport != null ? new CountingTransport(rawTransport) : null;
+                ITransport? netTransport = traffic;
                 NetServer? net = transport != null ? CreateNetServer(o, sim, bots.Length, spawnCenter, netTransport!, transport.LocalPort, log, result) : null;
                 if (net != null)
                 {
@@ -249,9 +267,12 @@ namespace Orpheus.Server
                     Ready(console, transport!.LocalPort);
                 }
 
+                ReadyMetrics(o, sim.Tick, log, result);
+                using var metrics = new ServerMetrics(
+                    new TickMetrics(o.Sim ? 0 : 1_000_000L / Simulation.TickRate), traffic, () => net?.PlayersInGame ?? 0, o.MetricsSeconds);
                 try
                 {
-                    Loop(o, sim, bots, record, replay, net, host, saver, log, result, stop);
+                    Loop(o, sim, bots, record, replay, net, host, saver, log, result, metrics, stop);
                 }
                 finally
                 {
@@ -289,6 +310,11 @@ namespace Orpheus.Server
                 {
                     result.HostLockWrites = opened.HostLockWriter.Written;
                     result.HostLockFailures = opened.HostLockWriter.Failures;
+                }
+
+                if (o.ReportPath != null)
+                {
+                    WriteReport(o, world.Shape.Width, result);
                 }
 
                 if (host != null)
@@ -360,6 +386,45 @@ namespace Orpheus.Server
             log.Info(sim.Tick, "net", "сервер игры", ("mode", lockInfo.Mode), ("graceSec", o.HostGraceSeconds),
                 ("openAddress", o.OpenAddress?.ToString() ?? "все"), ("openPort", o.OpenPort), ("lock", HostLockFile.PathIn(o.WorldDir!)));
             return host;
+        }
+
+        /// <summary>
+        /// Приёмка 0.8 (`07` 1.9 п. 4): секунды от запуска процесса до готовности и память в этот миг — в лог и итог.
+        /// С сетью — сразу после строки готовности, без сети — перед циклом тактов.
+        /// </summary>
+        private static void ReadyMetrics(ServerOptions o, long tick, JsonLog log, ServerResult result)
+        {
+            result.ReadySeconds = ServerMetrics.SecondsSinceProcessStart();
+            (double ws, double peak, double priv) = ServerMetrics.ProcessMemory();
+            result.ReadyWorkingSetMb = ws;
+            result.ReadyPeakWorkingSetMb = peak;
+            log.Info(tick, "perf", o.Port.HasValue ? "готов: принимаю подключения" : "готов: начинаю такты",
+                ("sinceProcessStartSec", Math.Round(result.ReadySeconds, 3)), ("workingSetMb", Math.Round(ws, 1)),
+                ("peakWorkingSetMb", Math.Round(peak, 1)), ("privateMb", Math.Round(priv, 1)),
+                ("heapMb", Math.Round(GC.GetGCMemoryInfo().HeapSizeBytes / 1048576.0, 1)));
+        }
+
+        private static void WriteReport(ServerOptions o, int size, ServerResult result)
+        {
+            var report = new ServerReport
+            {
+                Mode = o.Sim ? "sim" : o.Port.HasValue ? "udp" : "clock",
+                Size = size,
+                Bots = BotsText(o),
+                Port = result.Port,
+                Machine = $"{Environment.MachineName}, {Environment.ProcessorCount} логич. ядер, {System.Runtime.InteropServices.RuntimeInformation.OSDescription}, .NET {Environment.Version}",
+#if DEBUG
+                Configuration = "Debug",
+#else
+                Configuration = "Release",
+#endif
+                ReadySeconds = result.ReadySeconds,
+                ReadyWorkingSetMb = result.ReadyWorkingSetMb,
+                ReadyPeakWorkingSetMb = result.ReadyPeakWorkingSetMb,
+                Total = result.Metrics ?? new MetricsSample(),
+                Windows = result.MetricsWindows,
+            };
+            report.Write(o.ReportPath!);
         }
 
         private static void Ready(TextWriter? console, int port)
@@ -452,9 +517,10 @@ namespace Orpheus.Server
 
         private static void Loop(
             ServerOptions o, Simulation sim, SimBot[] bots, InputJournalWriter? record, InputJournalReader? replay,
-            NetServer? net, HostSession? host, WorldSaver? saver, JsonLog log, ServerResult result, CancellationToken stop)
+            NetServer? net, HostSession? host, WorldSaver? saver, JsonLog log, ServerResult result, ServerMetrics metrics, CancellationToken stop)
         {
             long startTick = sim.Tick;
+            TickMetrics tm = metrics.Tick;
             var pending = new EntityInput[sim.EntityCount + 1];
             JournalRecord next = replay?.Next() ?? JournalRecord.None;
             bool replayEnded = false;
@@ -466,9 +532,11 @@ namespace Orpheus.Server
 
             long allocated0 = GC.GetAllocatedBytesForCurrentThread();
             var watch = Stopwatch.StartNew();
+            metrics.Start();
             while (sim.Tick - startTick < o.Ticks && !stop.IsCancellationRequested && !replayEnded)
             {
                 long tick = sim.Tick + 1;
+                tm.BeginTick();
 
                 // Сеть: события транспорта, вход, ввод игроков — в потоке такта, до такта (2.10).
                 long nowMicros = watch.Elapsed.Ticks / (TimeSpan.TicksPerMillisecond / 1000);
@@ -481,6 +549,8 @@ namespace Orpheus.Server
                         ("graceSec", host.GraceMicros / 1_000_000), ("players", net!.PlayersInGame));
                     break;
                 }
+
+                tm.Mark(TickPart.Input);
 
                 // Источник ввода: боты или журнал.
                 for (int i = 0; i < bots.Length; i++)
@@ -512,16 +582,21 @@ namespace Orpheus.Server
                     next = replay.Next();
                 }
 
+                tm.Mark(TickPart.Ai);
                 if (record != null)
                 {
                     int n = sim.CopyPendingInputs(pending);
                     record.WriteInputs(tick, new ReadOnlySpan<EntityInput>(pending, 0, n));
                 }
 
+                tm.Mark(TickPart.Other);
                 sim.Step();
+                tm.Mark(TickPart.Sim);
                 net?.SendSnapshots(); // снимок каждому игроку каждый такт — 30 Гц: дельта к подтверждённой базе или полный (2.4, 4.3; 0-014)
+                tm.Mark(TickPart.Net);
                 sim.RefillPools(); // вне такта: запас словарей построек (backlog [такт сервера])
                 saver?.AfterTick(sim); // граница такта: автосохранение (0-009)
+                tm.Mark(TickPart.Save);
                 o.AfterTick?.Invoke(sim);
 
                 bool checkpoint = tick % Simulation.HashInterval == 0;
@@ -543,6 +618,8 @@ namespace Orpheus.Server
                     {
                         result.Ticks = sim.Tick - startTick;
                         result.Seconds = watch.Elapsed.TotalSeconds;
+                        tm.EndTick();
+                        FinishMetrics(metrics, sim.Tick, log, result);
                         return;
                     }
 
@@ -556,6 +633,13 @@ namespace Orpheus.Server
                     {
                         log.Warn(tick, "world", "журнал ввода оборван без записи «конец»");
                     }
+                }
+
+                tm.EndTick(); // хвост (хэш, сверка, крючок тестов) — в «прочее»; заморозка и ожидание часов — вне такта
+                if (metrics.Due())
+                {
+                    MetricsSample w = metrics.TakeWindow();
+                    log.Info(tick, "perf", "метрики такта", w.ToLogData());
                 }
 
                 if (clock != null)
@@ -592,6 +676,15 @@ namespace Orpheus.Server
             log.Info(sim.Tick, "perf", o.Sim ? "симуляция закончена" : "сервер остановлен",
                 ("ticks", result.Ticks), ("seconds", result.Seconds), ("ticksPerSecond", result.Ticks / Math.Max(result.Seconds, 1e-9)),
                 ("speedX", result.SpeedX), ("allocatedBytesPerTick", result.AllocatedBytesPerTick));
+            FinishMetrics(metrics, sim.Tick, log, result);
+        }
+
+        private static void FinishMetrics(ServerMetrics metrics, long tick, JsonLog log, ServerResult result)
+        {
+            MetricsSample total = metrics.TakeTotal();
+            result.Metrics = total;
+            result.MetricsWindows.AddRange(metrics.Windows);
+            log.Info(tick, "perf", "метрики такта: итог", total.ToLogData());
         }
 
         private static bool Verify(Simulation sim, InputJournalReader replay, JsonLog log, ServerResult result)

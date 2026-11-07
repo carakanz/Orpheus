@@ -15,4 +15,9 @@
     <ProjectReference Include="..\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Гистограмма метрик такта (TickStats.AddTick) — в тестах без настоящих часов (0-030). -->
+    <InternalsVisibleTo Include="Orpheus.Tests" />
+  </ItemGroup>
+
 </Project>

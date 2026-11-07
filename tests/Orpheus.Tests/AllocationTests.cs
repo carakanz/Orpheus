@@ -425,5 +425,88 @@ namespace Orpheus.Tests
             Assert.True(scheduler.EnclosedCount > 0 && scheduler.PartialCount > 0 && scheduler.WindowEdgeCount > 0);
             Assert.Equal(0, bytes);
         }
+
+        // ---------- Метрики такта сервера (0-030) ----------
+
+        /// <summary>
+        /// Метрики такта (11.6: «метрики — без выделений в такте»): начало, отметки всех частей, конец такта, переход через
+        /// простой; счёт трафика обёрткой транспорта — отправка и приём. Окно и итог (лог, память, GC) — между тактами, вне замера.
+        /// </summary>
+        [Fact]
+        public void D07_S11_6_TickMetricsAndTrafficCount_NoAllocations()
+        {
+            var metrics = new TickMetrics(1);
+            var traffic = new CountingTransport(new EchoTransport());
+            var sink = new SinkHandler();
+            var payload = new byte[300];
+            long now = 0;
+            Action pass = () =>
+            {
+                for (int k = 0; k < 300; k++)
+                {
+                    metrics.BeginTick();
+                    traffic.Poll(++now, sink);
+                    metrics.Mark(TickPart.Input);
+                    metrics.Mark(TickPart.Ai);
+                    metrics.Mark(TickPart.Sim);
+                    traffic.Send(k % 9, NetChannel.Unreliable, payload);
+                    traffic.Send(300 + k, NetChannel.World, payload); // номер вне счёта по соединениям — только общий
+                    traffic.Flush();
+                    metrics.Mark(TickPart.Net);
+                    metrics.Mark(TickPart.Save);
+                    metrics.EndTick();
+                }
+            };
+
+            long bytes = AllocatedInPass(pass);
+            _out.WriteLine($"300 тактов: {bytes} байт; тактов {metrics.Total.Ticks}, простоев {metrics.Total.Stalls}, отправлено {traffic.BytesOut}, принято {traffic.BytesIn}");
+            Assert.Equal(0, bytes);
+            Assert.Equal(1200, metrics.Total.Ticks);
+            Assert.Equal(1200 * 600L, traffic.BytesOut);
+            Assert.Equal(1200 * 16L, traffic.BytesIn);
+            Assert.Equal(1200 * 16L, sink.Bytes);
+            Assert.Equal(4 * 34 * 300L, traffic.PeerOut(0)); // 4 прохода (3 прогрева + замер), k % 9 == 0 — 34 раза из 300
+        }
+
+        /// <summary>Транспорт-заглушка: каждый опрос — одно сообщение 16 байт от соединения 1.</summary>
+        private sealed class EchoTransport : ITransport
+        {
+            private readonly byte[] _msg = new byte[16];
+
+            public void Poll(long nowMicros, ITransportHandler handler) => handler.OnReceive(1, NetChannel.Unreliable, _msg);
+
+            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+            {
+            }
+
+            public void Flush()
+            {
+            }
+
+            public void Disconnect(int peer, ReadOnlySpan<byte> payload)
+            {
+            }
+
+            public int RoundTripMs(int peer) => 0;
+
+            public void Dispose()
+            {
+            }
+        }
+
+        private sealed class SinkHandler : ITransportHandler
+        {
+            public long Bytes;
+
+            public void OnConnected(int peer)
+            {
+            }
+
+            public void OnDisconnected(int peer, NetDisconnectReason reason, ReadOnlySpan<byte> payload)
+            {
+            }
+
+            public void OnReceive(int peer, NetChannel channel, ReadOnlySpan<byte> data) => Bytes += data.Length;
+        }
     }
 }
