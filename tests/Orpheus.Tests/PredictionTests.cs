@@ -370,7 +370,6 @@ namespace Orpheus.Tests
             client.SnapshotApplied = snap => pred?.Reconcile(snap.AckFrame, snap.Self, now);
             var rng = new DetRandom(seed);
             long nextUnity = 0;
-            long accum = 0;
             long inGameAt = -1;
             long tick = 0;
             for (now = 0; now <= durationUs; now += 1000)
@@ -408,8 +407,10 @@ namespace Orpheus.Tests
                     inGameAt = now;
                 }
 
-                accum += dt;
-                for (int sent = 0; accum >= FrameUs && sent < 4; sent++, accum -= FrameUs)
+                // Темп кадров — по часам ввода клиента (NetClient.FramesDue, как NetGame): с опережением L (0-033) номер идёт за
+                // оценкой + L, и своё «сколько прошло» (dt) разошлось бы с ним — перенумерация и перескок у сервера.
+                int due = client.FramesDue(now);
+                for (int sent = 0; sent < due; sent++)
                 {
                     var input = new InputFrame(script(now - inGameAt), buttons?.Invoke(now - inGameAt) ?? 0);
                     client.SendFrame(input);
@@ -484,6 +485,7 @@ namespace Orpheus.Tests
                 NetRun r = RunNet(s, Walk, 10_000_000, spawn, hitches, 7);
                 NetServer sv = r.Server;
                 long skips = sv.FramesSkipped + sv.FramesTrimmed;
+                long diverge = skips + sv.FramesSelfStepped; // шаг сам (2.7 «Нет ввода»: пачка σ 30 без пакетов 100 мс) — расхождение по правилу (0-033)
                 string tag = $"RTT {rttMs}±{jitterMs}, потери {lossPercent} %, пачки {burstJitter}/{hitches}, зерно {seed}";
                 _out.WriteLine($"{tag}: снимков {r.Snapshots}, сверок {r.Reconciled}, правок {r.Resynced}, расх. {r.MaxDev} u; " +
                                $"сервер: кадров {sv.FramesApplied}, сам {sv.FramesSelfStepped}, перескок {sv.FramesSkipped}, " +
@@ -498,12 +500,16 @@ namespace Orpheus.Tests
                 if (skips == 0 || s == null)
                 {
                     clean++;
+                }
+
+                if (diverge == 0 || s == null)
+                {
                     Assert.True(r.Resynced == 0, $"{tag}: правок {r.Resynced} без перескока и выброса кадров сервером (перескок {skips})");
                     Assert.True(r.MaxDev == 0, $"{tag}: расхождение {r.MaxDev} u без перескока и выброса кадров");
                 }
                 else
                 {
-                    Assert.True(r.Resynced <= skips, $"{tag}: правок {r.Resynced} больше перескоков {skips}");
+                    Assert.True(r.Resynced <= diverge, $"{tag}: правок {r.Resynced} больше перескоков и шагов сам {diverge}");
                 }
 
                 Assert.Equal(r.ServerPos, r.Pred.Position);
@@ -572,6 +578,11 @@ namespace Orpheus.Tests
             var t = new NetTests.ScriptedTransport();
             WorldPos spawn = ServerRun.SpawnPoint(world.Shape, 0);
             var server = new NetServer(t, sim, _ => spawn, 4, NetModule.Version);
+            for (int k = 0; k < ScriptedPlayer.LeadInTicks; k++)
+            {
+                Tick(); // номера кадров с 1 отстают от времени сервера (0-033: кадры «из будущего» ждут своего такта)
+            }
+
             t.Connect(1);
             t.Push(1, NetChannel.Facts, Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b)));
             void Tick()
@@ -674,6 +685,11 @@ namespace Orpheus.Tests
             var t = new NetTests.ScriptedTransport();
             WorldPos spawn = ServerRun.SpawnPoint(world.Shape, 0);
             var server = new NetServer(t, sim, _ => spawn, 4, NetModule.Version);
+            for (int k = 0; k < ScriptedPlayer.LeadInTicks; k++)
+            {
+                Tick(); // номера кадров с 1 отстают от времени сервера (0-033: кадры «из будущего» ждут своего такта)
+            }
+
             t.Connect(1);
             t.Push(1, NetChannel.Facts, Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b)));
             void Tick()
@@ -729,6 +745,9 @@ namespace Orpheus.Tests
         /// <summary>Сервер на заглушке транспорта и игрок, шлющий кадры по одному пакету (4 кадра) — для тестов очереди.</summary>
         private sealed class ScriptedPlayer
         {
+            /// <summary>Тактов сервера до входа игрока (номера его кадров отстают от времени сервера).</summary>
+            public const int LeadInTicks = 60;
+
             private readonly NetTests.ScriptedTransport _t = new NetTests.ScriptedTransport();
             private InputMessage _input;
 
@@ -737,6 +756,13 @@ namespace Orpheus.Tests
                 WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
                 Sim = new Simulation(world, maxEntities: 4);
                 Server = new NetServer(_t, Sim, _ => ServerRun.SpawnPoint(world.Shape, 0), 4, NetModule.Version);
+                // Номера кадров игрока идут с 1, а сервер применяет кадры не дальше своего такта (2.7, 0-033): сначала 2 с сервера —
+                // номера отстают от времени сервера на 120 кадров, как у клиента с задержкой, и пачки не упираются в «будущее».
+                for (int k = 0; k < LeadInTicks; k++)
+                {
+                    Tick();
+                }
+
                 _t.Connect(1);
                 _t.Push(1, NetChannel.Facts, Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b)));
                 Tick();

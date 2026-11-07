@@ -585,9 +585,9 @@ namespace Orpheus.Tests
                 Frame1 = new WireFrame { Direction = 0, Power = 0, Aim = 65535, Buttons = 0 },
                 Frame2 = new WireFrame { Direction = 8, Power = 17, Aim = 1, Buttons = 0xFFFF },
                 Frame3 = new WireFrame { Direction = 5, Power = 200, Aim = 40000, Buttons = 0x0102 },
-                PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = -5,
+                PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = 24,
             };
-            byte[] gInput = Golden("04 f0 ff ff ff 01 ff 34 12 01 80 00 00 ff ff 00 00 08 11 01 00 ff ff 05 c8 40 9c 02 01 4d 00 00 00 ff ff ff 7f fb",
+            byte[] gInput = Golden("04 f0 ff ff ff 01 ff 34 12 01 80 00 00 ff ff 00 00 08 11 01 00 ff ff 05 c8 40 9c 02 01 4d 00 00 00 ff ff ff 7f 18",
                 b => input.Write(b));
             byte[] gClock = Golden("06 04 03 02 01", b => new ClockMessage { ServerTick = 0x01020304 }.Write(b));
             byte[] gPing = Golden("0b 04 03 02 01", b => new PingMessage { ClientUs = 0x01020304 }.Write(b));
@@ -596,9 +596,9 @@ namespace Orpheus.Tests
             var swing = new SwingStartMessage
             {
                 AttackerId = 0x7FFF0001, StartFrame = 0xFFFF_FFFC, WindupFrames = 24, Origin = new WorldPos(262_143, 5),
-                Axis = 32768, ReachUnits = 384, HalfArcSteps = 8192,
+                Axis = 32768, ReachUnits = 384, HalfArcSteps = 8192, DelayFrames = 13,
             };
-            byte[] gSwing = Golden("0d 01 00 ff 7f fc ff ff ff 18 ff ff 03 00 05 00 00 00 00 80 80 01 00 20", b => swing.Write(b));
+            byte[] gSwing = Golden("0d 01 00 ff 7f fc ff ff ff 18 ff ff 03 00 05 00 00 00 00 80 80 01 00 20 0d", b => swing.Write(b));
             var melee = new MeleeResultMessage { AttackerId = 7, StartFrame = 1234, Hit = true, ByLastKnown = true, WaitedFrames = 6, MissingFrames = 3, DecidedAtFrame = 1264 };
             byte[] gMelee = Golden("0e 07 00 00 00 d2 04 00 00 03 06 03 f0 04 00 00", b => melee.Write(b));
 
@@ -631,6 +631,7 @@ namespace Orpheus.Tests
             Assert.Equal(swing.Axis, rSwing.Axis);
             Assert.Equal(swing.ReachUnits, rSwing.ReachUnits);
             Assert.Equal(swing.HalfArcSteps, rSwing.HalfArcSteps);
+            Assert.Equal(swing.DelayFrames, rSwing.DelayFrames);
             MeleeResultMessage rMelee = MeleeResultMessage.Read(gMelee);
             Assert.Equal(melee.AttackerId, rMelee.AttackerId);
             Assert.Equal(melee.StartFrame, rMelee.StartFrame);
@@ -642,14 +643,14 @@ namespace Orpheus.Tests
             Golden("08", b => new OpenForFriendsMessage().Write(b));
             Golden("09 01 61 1e", b => new OpenResultMessage { Opened = true, Port = 0x1E61 }.Write(b));
             Golden("0a 03", b => new ClosingMessage { Reason = ClosingReason.Replaced }.Write(b));
-            byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f 56 00 00 00 00 d0 07 d0 07 4c 13 00 00 80 80 fb 1f 00 80", b =>
+            byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f d6 9b 05 00 00 00 00 7d 00 7d c0 34 01 00 00 08 b8 ff 01 00 08", b =>
             {
-                var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, ClockEpoch = 0xA5, Count = 2, Self = new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7), new Dodge { Elapsed = 0xA3, DashLeft = 15, Cooldown = 17, Direction = 6 }) };
+                var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, ClockEpoch = 0xA5, Count = 2, Self = new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7), new Dodge { Elapsed = 0xA3, DashLeft = 15, Cooldown = 17, Direction = 6 }) { LeadMargin = -3, DelayFrames = 19 } };
                 snap.Entities[0] = new SnapshotEntity { Id = 5, Kind = 0, Position = SnapshotLayout.Quantize(new WorldPos(1000, 2000)), Direction = 3 };
                 snap.Entities[1] = new SnapshotEntity { Id = 77, Kind = 2, Position = SnapshotLayout.Quantize(new WorldPos(262_000, 5)), Direction = 8 };
                 return snap.Write(b, layout);
             });
-            Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 42 00 00 10 00 30 7d 80 3e 70 63 00 00 00 01 e8 03 01 80 00", b =>
+            Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 42 00 00 00 04 01 00 d3 07 e8 03 37 06 00 00 10 80 3e 10 00 08", b =>
             {
                 var w = new SnapshotDeltaWriter(b, layout, 52, 104, 10);
                 w.SetClockEpoch(0xA5);
@@ -658,11 +659,13 @@ namespace Orpheus.Tests
                 Assert.True(w.TryAddAdded(99, 1, new WorldPos(8000, 16), 2));
                 return w.Finish();
             });
-            var rSnap = new Snapshot(); // своё состояние с увороном (0-029, протокол 6) — из золотых байт
+            Assert.True(_golden.Count == 0, string.Join("\n", _golden));
+            var rSnap = new Snapshot(); // своё состояние с увороном (0-029, протокол 6) и отчётом (0-033, протокол 7) — из золотых байт
             rSnap.Read(gSnap, layout);
             Assert.Equal(new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7), new Dodge { Elapsed = 0xA3, DashLeft = 15, Cooldown = 17, Direction = 6 }), rSnap.Self);
+            Assert.Equal(-3, rSnap.Self.LeadMargin);
+            Assert.Equal(19, rSnap.Self.DelayFrames);
             Assert.Equal(2, rSnap.Count);
-            Assert.True(_golden.Count == 0, string.Join("\n", _golden));
         }
 
         /// <summary>

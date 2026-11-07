@@ -123,7 +123,7 @@ namespace Orpheus.Tests
                 Frame1 = new WireFrame { Direction = 0, Power = 0, Aim = 65535, Buttons = 0 },
                 Frame2 = new WireFrame { Direction = 8, Power = 17, Aim = 1, Buttons = 0xFFFF },
                 Frame3 = new WireFrame { Direction = 5, Power = 200, Aim = 40000, Buttons = 0x0102 },
-                PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = -5,
+                PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = 24,
             };
             byte[] a = Encode(b => m.Write(b));
             Assert.Equal(38, a.Length);
@@ -141,6 +141,12 @@ namespace Orpheus.Tests
             Assert.Equal(m.Lead, back.Lead);
             Assert.Equal(a, Encode(b => back.Write(b)));
             Assert.Equal(new InputFrame(Input8.West, 0x0102), back.Frame3.ToInputFrame()); // код 5 = направление 4 (запад)
+
+            // Опережение L (0-033, протокол 7): 0…24 кадра (400 мс, 2.7); вне — испорченный пакет.
+            a[a.Length - 1] = 25;
+            Assert.Throws<ProtocolException>(() => InputMessage.Read(a));
+            a[a.Length - 1] = 0xFF; // −1
+            Assert.Throws<ProtocolException>(() => InputMessage.Read(a));
         }
 
         [Fact]
@@ -196,13 +202,29 @@ namespace Orpheus.Tests
             Assert.Equal(a, Encode(b => back.Write(b, layout)));
 
             // Своё состояние (0-019): 1024² — 47 бит, 4096² — 51; остаток скорости вне −9…9 — испорченный снимок.
-            Assert.Equal(size == 1024 ? 68 : 72, layout.SelfBits); // + уворот 21 бит (0-029, протокол 6)
+            Assert.Equal(size == 1024 ? 80 : 84, layout.SelfBits); // + уворот 21 бит (0-029, протокол 6), + отчёт запас 7 и D_p 5 (0-033, протокол 7)
             snap.Self = new SelfState(new WorldPos(5, 5), new Int2(12, 0));
             byte[] bad = Encode(b => snap.Write(b, layout));
             Assert.Throws<ProtocolException>(() => back.Read(bad, layout));
             snap.Self = default;
             back.Read(Encode(b => snap.Write(b, layout)), layout);
             Assert.False(back.Self.Present);
+
+            // Отчёт сервера (0-033): запас −64…63 и D_p 0…30 — туда и обратно, в сравнение своего состояния не входит;
+            // запас вне 7 бит и D_p > 30 обрезаются при записи (чтение D_p > 30 — испорченный снимок); отчёт есть и без своего состояния.
+            snap.Self = new SelfState(new WorldPos(5, 5), new Int2(1, -1)) { LeadMargin = -64, DelayFrames = 30 };
+            back.Read(Encode(b => snap.Write(b, layout)), layout);
+            Assert.Equal(-64, back.Self.LeadMargin);
+            Assert.Equal(30, back.Self.DelayFrames);
+            Assert.Equal(new SelfState(new WorldPos(5, 5), new Int2(1, -1)), back.Self);
+            snap.Self = new SelfState { LeadMargin = 100, DelayFrames = 7 };
+            back.Read(Encode(b => snap.Write(b, layout)), layout);
+            Assert.False(back.Self.Present);
+            Assert.Equal(63, back.Self.LeadMargin);
+            Assert.Equal(7, back.Self.DelayFrames);
+            snap.Self = new SelfState { DelayFrames = 31 };
+            back.Read(Encode(b => snap.Write(b, layout)), layout);
+            Assert.Equal(30, back.Self.DelayFrames); // запись — не больше 30 (4.6: учитывается ≤ 500 мс)
         }
 
         // ---------- Дельта снимка: кодек (карточка 0-014, docs/07 4.3) ----------
