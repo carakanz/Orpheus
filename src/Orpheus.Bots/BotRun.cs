@@ -508,10 +508,12 @@ namespace Orpheus.Bots
         public static string WatchText(SeamWatch w) => string.Format(CultureInfo.InvariantCulture,
             "кадров {0}, в показе {1} (x: восток {2} / запад {3}; y: юг {4} / север {5}), переходов шва x {6}, y {7}; " +
             "за 1/30 с: замеров {8}, наибольший сдвиг {9:0.000} т (окно {10:0.0} мс), сверх 0,22 — {11} (из них окно > 36,7 мс — {12}); " +
-            "за 1/60 с: наибольший {13:0.000} т, сверх 0,11 — {14}; показ: на новейшем {15}, догон {16}, перестановок {17}",
+            "за 1/60 с: наибольший {13:0.000} т, сверх 0,11 — {14}; скачок сверх траектории снимков за 1/30 с: наибольший {18:0.0000} т, " +
+            "сверх {19:0.000} — {20}, расхождение ≤ {21:0.0000} т; показ: на новейшем {15}, догон {16}, перестановок {17}",
             w.Frames, w.FramesInView, w.ViewEastOfX, w.ViewWestOfX, w.ViewSouthOfY, w.ViewNorthOfY, w.CrossingsX, w.CrossingsY,
             w.Steps30, w.MaxStep30Tiles, w.MaxStep30WindowUs / 1000.0, w.Over30, w.Over30LateWindow, w.MaxStep60Tiles, w.Over60,
-            w.Interp.HoldFrames, w.Interp.CatchUpSteps, w.Interp.ClockResets);
+            w.Interp.HoldFrames, w.Interp.CatchUpSteps, w.Interp.ClockResets, w.MaxExcess30Tiles, SeamWatch.LimitExcessTiles, w.OverExcess,
+            w.MaxDeviationTiles);
 
         private static string Progress(NetBot b)
         {
@@ -673,6 +675,10 @@ namespace Orpheus.Bots
                     SeamWatch s = b.Watch;
                     w.WriteStartObject("seamWatch");
                     w.WriteBoolean("passed", s.Passed);
+                    w.WriteBoolean("passedLiteral", s.PassedLiteral);
+                    w.WriteNumber("maxExcess30Tiles", Math.Round(s.MaxExcess30Tiles, 5));
+                    w.WriteNumber("overExcess", s.OverExcess);
+                    w.WriteNumber("maxDeviationTiles", Math.Round(s.MaxDeviationTiles, 5));
                     w.WriteNumber("frames", s.Frames);
                     w.WriteNumber("framesInView", s.FramesInView);
                     w.WriteNumber("viewEastOfX", s.ViewEastOfX);
