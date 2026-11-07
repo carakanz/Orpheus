@@ -1,5 +1,6 @@
 using System;
 using Orpheus.Core.Bots;
+using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
 using Orpheus.Net.Protocol;
@@ -27,6 +28,7 @@ namespace Orpheus.Net.Session
         private readonly string _script;
         private readonly int _botIndex;
         private SimBot? _bot;
+        private DodgeBot? _dodge;
         private InputFrame _current;
         private LocalPrediction? _pred;
         private uint _reconciledTick;
@@ -69,6 +71,9 @@ namespace Orpheus.Net.Session
         /// <summary>Создать предсказание после входа; null — пока нет (спрашивается каждый кадр до первого не-null).</summary>
         public Func<NetClient, LocalPrediction?>? PredictionFactory { get; set; }
 
+        /// <summary>Бот-уворачивающийся (сценарий <c>dodge</c>, 0-029) — после входа; иначе null.</summary>
+        public DodgeBot? Dodge => _dodge;
+
         /// <summary>Предсказание своего персонажа (после входа, если есть фабрика).</summary>
         public LocalPrediction? Prediction => _pred;
 
@@ -94,7 +99,17 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            if (_bot == null)
+            if (_script == DodgeBot.Name)
+            {
+                if (_dodge == null)
+                {
+                    var dodge = new DodgeBot(Client.Shape, Client.Accept.WorldSeed ^ (ulong)(_botIndex + 1) * 0x9E3779B97F4A7C15UL);
+                    _dodge = dodge;
+                    Client.SwingStarted = m => dodge.OnSwing(m);
+                    Client.MeleeResolved = m => dodge.OnResult(m);
+                }
+            }
+            else if (_bot == null)
             {
                 _bot = _script == RunSeamBot.Name
                     ? new RunSeamBot(Client.EntityId, Client.Shape, RunLaps)
@@ -129,7 +144,13 @@ namespace Orpheus.Net.Session
             for (int k = 0; k < n; k++)
             {
                 uint next = Client.Frame + 1;
-                if (_bot is RunSeamBot run)
+                if (_dodge != null)
+                {
+                    WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
+                        : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
+                    _current = _dodge.Next(next, pos);
+                }
+                else if (_bot is RunSeamBot run)
                 {
                     _current = InputFrame.None;
                     if (Client.HasSnapshot && Client.Latest.Self.Present)
@@ -146,7 +167,7 @@ namespace Orpheus.Net.Session
                         self.Mover = new Mover(e.Position);
                     }
 
-                    _current = _bot.Think(next / 2, self);
+                    _current = _bot!.Think(next / 2, self);
                 }
 
                 long renumbers = Client.FrameRenumbers;

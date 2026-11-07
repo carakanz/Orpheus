@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using Orpheus.Core.Bots;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
+using Orpheus.Core.Trig;
 using Orpheus.Core.World;
 using Orpheus.Net;
 using Orpheus.Net.Hosting;
@@ -407,6 +409,12 @@ namespace Orpheus.Server
 
         // ---------- Сеть ----------
 
+        /// <summary>Номер манекена шипа 0-029 (не сущность симуляции — только в сообщениях «замах начат»).</summary>
+        public const int DummyEntityId = 0x7FFF0001;
+
+        /// <summary>Период замахов манекена: 90 кадров (1,5 с) — рывок, откат и путь бота домой укладываются.</summary>
+        public const int DummyPeriodFrames = 90;
+
         private static NetServer CreateNetServer(ServerOptions o, Simulation sim, int firstPlayer, TileCoord center, ITransport transport, int port, JsonLog log, ServerResult result)
         {
             var net = new NetServer(transport, sim, n => SpawnPoint(sim.Shape, firstPlayer + n, center), o.MaxPlayers, NetModule.Version);
@@ -425,6 +433,15 @@ namespace Orpheus.Server
                         break;
                 }
             };
+            if (o.Dummy)
+            {
+                // Шип 0-029: манекен у первой точки появления (стартовая зона пуста), первый замах через 1 с.
+                WorldPos at = Torus.Offset(sim.Shape, SpawnPoint(sim.Shape, firstPlayer, center), new Int2(Torus.SubTilesPerTile, 0));
+                net.InputWaitFrames = o.DummyWaitFrames;
+                net.SetDummy(new MeleeDummy(DummyEntityId, at, Angle16.FromDirection(new Int2(-1, 0)), net.ServerFrame + 60, DummyPeriodFrames));
+                log.Info(sim.Tick, "net", "манекен шипа 0-029", ("x", at.X), ("y", at.Y), ("periodFrames", DummyPeriodFrames), ("waitFrames", o.DummyWaitFrames));
+            }
+
             result.Port = port;
             log.Info(sim.Tick, "net", "слушаю UDP", ("port", port), ("loopbackOnly", o.LoopbackOnly), ("maxPlayers", o.MaxPlayers),
                 ("version", NetModule.Version.ToString()), ("mtu", NetSettings.Mtu));

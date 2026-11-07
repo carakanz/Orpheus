@@ -113,6 +113,19 @@ namespace Orpheus.Bots
         /// (<see cref="SeamWatch.Over30"/>) код выхода не меняет — он в отчёте (<c>passedLiteral</c>).
         /// </summary>
         public bool ScenarioFailed { get; set; }
+
+        /// <summary>Сценарий <c>dodge</c> (0-029): итог уворотов — строкой и числами; иначе null / 0.</summary>
+        public string? Dodge { get; set; }
+        public int DodgeScored { get; set; }
+        public int DodgeCounted { get; set; }
+        public int DodgeHits { get; set; }
+        public int DodgeByLastKnown { get; set; }
+        public int DodgePressNotArrived { get; set; }
+        public int DodgeMaxMissingFrames { get; set; }
+        public int DodgeMaxWaitedFrames { get; set; }
+        public int DodgeSwingsSeen { get; set; }
+        public int DodgeTooLate { get; set; }
+        public int DodgeNotScored { get; set; }
     }
 
     /// <summary>Итог запуска ботов.</summary>
@@ -417,6 +430,22 @@ namespace Orpheus.Bots
                     st.ScenarioFailed = sw == null || !sw.Passed;
                 }
 
+                DodgeBot? dodge = bots[i].Dodge;
+                if (dodge != null)
+                {
+                    st.Dodge = dodge.Summary();
+                    st.DodgeScored = dodge.Scored;
+                    st.DodgeCounted = dodge.Counted;
+                    st.DodgeHits = dodge.Hits;
+                    st.DodgeByLastKnown = dodge.ByLastKnown;
+                    st.DodgePressNotArrived = dodge.PressNotArrived;
+                    st.DodgeMaxMissingFrames = dodge.MaxMissingFrames;
+                    st.DodgeMaxWaitedFrames = dodge.MaxWaitedFrames;
+                    st.DodgeSwingsSeen = dodge.SwingsSeen;
+                    st.DodgeTooLate = dodge.TooLate;
+                    st.DodgeNotScored = dodge.NotScored;
+                }
+
                 st.SnapshotsPerSecond = st.SecondsInGame > 0 ? st.SnapshotsApplied / st.SecondsInGame : 0;
                 if (sims[i] != null)
                 {
@@ -459,6 +488,14 @@ namespace Orpheus.Bots
             console?.WriteLine($"итог: в игре {report.InGame} из {report.Count}, отказов {report.Rejected}, отключений {report.Disconnects}, " +
                                $"снимков/с у бота 0 — {(report.Bots.Count > 0 ? report.Bots[0].SnapshotsPerSecond : 0):0.0}, " +
                                $"предсказание ≤ 0,5 тайла — {report.PredWithinHalfTile:P3}");
+            for (int i = 0; i < report.Bots.Count; i++)
+            {
+                if (report.Bots[i].Dodge != null)
+                {
+                    console?.WriteLine($"  уворот, бот {i}: {report.Bots[i].Dodge}");
+                }
+            }
+
             for (int i = 0; i < report.Bots.Count; i++)
             {
                 BotStats b = report.Bots[i];
@@ -734,6 +771,21 @@ namespace Orpheus.Bots
                     w.WriteNumber("interpStepViolations", s.Interp.StepViolations);
                     w.WriteNumber("interpSeamSamples", s.Interp.SeamSamples);
                     w.WriteEndObject();
+                }
+
+                if (b.Dodge != null)
+                {
+                    w.WriteString("dodge", b.Dodge);
+                    w.WriteNumber("dodgeScored", b.DodgeScored);
+                    w.WriteNumber("dodgeCounted", b.DodgeCounted);
+                    w.WriteNumber("dodgeHits", b.DodgeHits);
+                    w.WriteNumber("dodgeByLastKnown", b.DodgeByLastKnown);
+                    w.WriteNumber("dodgePressNotArrived", b.DodgePressNotArrived);
+                    w.WriteNumber("dodgeMaxMissingFrames", b.DodgeMaxMissingFrames);
+                    w.WriteNumber("dodgeMaxWaitedFrames", b.DodgeMaxWaitedFrames);
+                    w.WriteNumber("dodgeSwingsSeen", b.DodgeSwingsSeen);
+                    w.WriteNumber("dodgeTooLate", b.DodgeTooLate);
+                    w.WriteNumber("dodgeNotScored", b.DodgeNotScored);
                 }
 
                 w.WriteEndObject();

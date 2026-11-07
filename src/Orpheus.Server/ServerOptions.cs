@@ -51,7 +51,7 @@ namespace Orpheus.Server
             "              [--debug-run-lanes (run_seam: расчищенные полосы, появление в углу швов; мир в памяти)]\n" +
             "              [--mode single|host --host-token <32 hex> [--open-address all|<IPv4>] [--open-port P] [--host-grace <сек>]]\n" +
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]\n" +
-            "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]]";
+            "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]] [--dummy [--dummy-wait <кадры>]]";
 
         /// <summary>Автосохранение по умолчанию: раз в 2 мин мира (docs/07, 6.4).</summary>
         public const int DefaultAutosaveSeconds = 120;
@@ -120,6 +120,15 @@ namespace Orpheus.Server
         /// Только мир в памяти (<c>--create</c> без <c>--world</c>): расчищенный мир не сохраняется.
         /// </summary>
         public bool DebugRunLanes { get; set; }
+
+        /// <summary>
+        /// Ключ отладки шипа 0-029: манекен в 1 т к востоку от первой точки появления бьёт ближним на запад раз в 1,5 с,
+        /// удар по игрокам решается с ожиданием ввода (<see cref="DummyWaitFrames"/>).
+        /// </summary>
+        public bool Dummy { get; set; }
+
+        /// <summary>Ожидание ввода W для решения удара манекена, кадров (по умолчанию 6 = 100 мс; 0 — без ожидания).</summary>
+        public int DummyWaitFrames { get; set; } = 6;
 
         /// <summary>Режим сервера игры (<c>--mode</c>); null — выделенный сервер.</summary>
         public ServerMode? Mode { get; set; }
@@ -212,6 +221,17 @@ namespace Orpheus.Server
                         break;
                     case "--debug-run-lanes":
                         o.DebugRunLanes = true;
+                        break;
+                    case "--dummy":
+                        o.Dummy = true;
+                        break;
+                    case "--dummy-wait":
+                        o.DummyWaitFrames = ParseInt(a, Value(args, ref i));
+                        if (o.DummyWaitFrames < 0 || o.DummyWaitFrames > 30)
+                        {
+                            throw new ArgumentException($"--dummy-wait: {o.DummyWaitFrames} вне 0…30.");
+                        }
+
                         break;
                     case "--max-players":
                         o.MaxPlayers = ParseInt(a, Value(args, ref i));

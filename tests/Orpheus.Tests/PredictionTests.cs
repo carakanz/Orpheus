@@ -49,6 +49,9 @@ namespace Orpheus.Tests
 
         private static Input8 East(long us) => new Input8(1, 0);
 
+        /// <summary>Уворот (0-029): нажатие раз в 0,7 с (окно 16 мс — один-два кадра; лишние в рывке пропадают).</summary>
+        private static ushort DodgeEvery700(long us) => us % 700_000 < 16_000 ? InputButtons.Dodge : (ushort)0;
+
         // ---------- Модель: LocalPrediction против сервера, шагающего каждый пришедший кадр ----------
 
         /// <summary>
@@ -89,6 +92,9 @@ namespace Orpheus.Tests
             /// <summary>Кадры Unity неровные (8–50 мс), ввод догоняется пачками до 4 кадров.</summary>
             public bool Hitches { get; set; }
 
+            /// <summary>Кнопки кадра по времени (уворот, 0-029); null — без кнопок.</summary>
+            public Func<long, ushort>? Buttons { get; set; }
+
             /// <summary>Толчок сервера (чужое влияние, 2.6 п. 5): такт и смещение по X, unit.</summary>
             public (long Tick, int Dx)? Push { get; set; }
 
@@ -123,7 +129,7 @@ namespace Orpheus.Tests
                     int sent = 0;
                     while (accum >= FrameUs && sent < 4)
                     {
-                        var input = new InputFrame(_script(t), 0);
+                        var input = new InputFrame(_script(t), Buttons?.Invoke(t) ?? 0);
                         frame++;
                         Pred.Sent(frame, input);
                         long at = t + OneWayMs * 1000L + (JitterMs > 0 ? NetSimTransport.Gaussian(ref _rng, JitterMs) : 0);
@@ -151,7 +157,7 @@ namespace Orpheus.Tests
                 while (_toServer.Count > 0 && _toServer.Peek().At <= t)
                 {
                     (uint f, InputFrame input, _) = _toServer.Dequeue();
-                    _server.StepFrame(_map, input.Direction, _solid);
+                    _server.StepFrame(_map, input.Direction, input.DodgePressed, _solid);
                     _ack = f;
                 }
 
@@ -161,7 +167,7 @@ namespace Orpheus.Tests
                 }
 
                 long at = t + OneWayMs * 1000L + (JitterMs > 0 ? NetSimTransport.Gaussian(ref _rng, JitterMs) : 0);
-                _toClient.Add((tick, _ack, new SelfState(_server.Position, _server.Carry), Math.Max(at, t)));
+                _toClient.Add((tick, _ack, new SelfState(_server.Position, _server.Carry, _server.Dodge), Math.Max(at, t)));
             }
 
             private void DeliverSnapshots(long t)
@@ -267,6 +273,48 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// Уворот в предсказании (0-029, чек-лист: «предсказание рывка — 0 правок на чистом уворот-движении»): бег по скрипту и
+        /// уворот раз в 0,7 с при задержке, разбросе и пачках кадров — правок нет, позиция с сервером совпадает. Сервер-модель
+        /// шагает те же кадры той же функцией ядра (<see cref="Mover.StepFrame(in MapShape, Input8, bool, TileSolid)"/>).
+        /// </summary>
+        [Theory]
+        [InlineData(0, 0, false)]
+        [InlineData(50, 10, true)]
+        [InlineData(150, 30, true)]
+        public void D02_S2_5_Model_DodgeMovement_NoCorrections(int oneWayMs, int jitterMs, bool hitches)
+        {
+            MapShape map = MapShape.World(1024);
+            TileSolid wall = (MapShape _, TileCoord t) => t.X == 312 && t.Y >= 380; // рывки на восток упираются в стену
+            var m = new Model(map, wall, Center(300, 400), Walk, 13) { OneWayMs = oneWayMs, JitterMs = jitterMs, Hitches = hitches, Buttons = DodgeEvery700 };
+            m.Run(9_000_000);
+            LocalPrediction p = m.Pred;
+            _out.WriteLine($"уворот, задержка {oneWayMs}±{jitterMs}: сверок {p.Reconciled}, правок {p.Resynced}, конец {p.Position} / {m.ServerPos}");
+            Assert.Equal(0, p.Resynced);
+            Assert.Equal(0, p.MaxDevUnits);
+            Assert.Equal(m.ServerPos, p.Position);
+
+            // Рывки и правда были: без уворота путь короче.
+            var plain = new Model(map, wall, Center(300, 400), Walk, 13) { OneWayMs = oneWayMs, JitterMs = jitterMs, Hitches = hitches };
+            plain.Run(9_000_000);
+            Assert.NotEqual(plain.ServerPos, m.ServerPos);
+        }
+
+        /// <summary>
+        /// Толчок посреди рывка (0-029): одна правка, рывок переигран с состоянием уворота на ack (в снимке его нет — берётся
+        /// предсказанное для ack); дальше правок нет, позиция совпадает с сервером.
+        /// </summary>
+        [Fact]
+        public void D02_S2_5_Model_PushDuringDash_OneCorrection()
+        {
+            MapShape map = MapShape.World(1024);
+            var m = new Model(map, Collision.Empty, Center(300, 400), Walk, 3) { OneWayMs = 50, JitterMs = 10, Push = (90, 77), Buttons = us => us >= 2_900_000 && us < 2_916_000 ? InputButtons.Dodge : (ushort)0 };
+            m.Run(6_000_000);
+            _out.WriteLine($"толчок в рывке: правок {m.Pred.Resynced}, расх. {m.Pred.MaxDevUnits} u");
+            Assert.Equal(1, m.Pred.Resynced);
+            Assert.Equal(m.ServerPos, m.Pred.Position);
+        }
+
+        /// <summary>
         /// Кольцо 256 кадров (≈ 4,3 с, решение 0-019): RTT 3 с — правок нет; RTT 4,6 с — ack старше кольца, каждая сверка —
         /// правка со счётчиком <see cref="LocalPrediction.Overflows"/> и в <see cref="LocalPrediction.Resynced"/>.
         /// </summary>
@@ -297,9 +345,13 @@ namespace Orpheus.Tests
             public NetServer Server = null!;
             public LocalPrediction Pred = null!;
             public WorldPos ServerPos;
+
+            /// <summary>Перенумераций кадров клиентом (<see cref="NetClient.FrameRenumbers"/>).</summary>
+            public long Renumbers;
         }
 
-        private static NetRun RunNet(NetSimSettings? s, Func<long, Input8> script, long durationUs, WorldPos spawn, bool hitches, ulong seed)
+        private static NetRun RunNet(NetSimSettings? s, Func<long, Input8> script, long durationUs, WorldPos spawn, bool hitches, ulong seed,
+            Func<long, ushort>? buttons = null)
         {
             WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
             var sim = new Simulation(world, maxEntities: 8);
@@ -359,7 +411,7 @@ namespace Orpheus.Tests
                 accum += dt;
                 for (int sent = 0; accum >= FrameUs && sent < 4; sent++, accum -= FrameUs)
                 {
-                    var input = new InputFrame(script(now - inGameAt), 0);
+                    var input = new InputFrame(script(now - inGameAt), buttons?.Invoke(now - inGameAt) ?? 0);
                     client.SendFrame(input);
                     pred.Sent(client.Frame, input);
                 }
@@ -370,6 +422,7 @@ namespace Orpheus.Tests
             {
                 Reconciled = pred!.Reconciled, Resynced = pred.Resynced, MaxDev = pred.MaxDevUnits, Snapshots = client.SnapshotsApplied,
                 Server = server, Pred = pred, ServerPos = sim.Entities[0].Mover.Position,
+                Renumbers = client.FrameRenumbers,
             };
         }
 
@@ -377,6 +430,13 @@ namespace Orpheus.Tests
         /// Критерий 0-019 (п. 4 карточки) в CI: сервер шагает ввод покадрово, своё состояние — без кванта; через имитатор
         /// (RTT 100, σ 20, потери 1 %; RTT 200 пачками; перестановка и дубли) правок на чистом движении нет, расхождение 0.
         /// Сверка — с серверным состоянием из снимка, не клиента с самим собой.
+        /// <para>
+        /// Правило (П по 0-026, з. 4): правок 0 — только в прогонах, где сервер не перескакивал и не выбрасывал кадры
+        /// (<c>FramesSkipped + FramesTrimmed == 0</c>). Перескок (2.7: дыра в номерах не закрылась за <c>HoleWaitTicks</c>)
+        /// шагает не тот ввод, что предсказал клиент, — правка там верный исход, но их не больше, чем перескоков. Прогон —
+        /// на 8 зёрнах имитатора (в ночном прогоне — на 50, <see cref="D07_S2_6_Net_Big_ThroughSimulator_CleanMovement_50Seeds"/>),
+        /// а не на одном удачном.
+        /// </para>
         /// </summary>
         [Theory]
         [InlineData(0, 0, 0.0, false, false)]
@@ -385,34 +445,74 @@ namespace Orpheus.Tests
         [InlineData(80, 10, 2.0, false, true)]
         public void D07_S2_6_Net_ThroughSimulator_CleanMovement_NoCorrections(int rttMs, int jitterMs, double lossPercent, bool burstJitter, bool hitches)
         {
-            NetSimSettings? s = null;
-            if (rttMs > 0)
+            CleanMovementOnSeeds(rttMs, jitterMs, lossPercent, burstJitter, hitches, 8);
+        }
+
+        /// <summary>То же, что <see cref="D07_S2_6_Net_ThroughSimulator_CleanMovement_NoCorrections"/>, на 50 зёрнах имитатора (ночной прогон).</summary>
+        [Theory]
+        [Trait("Category", "Big")]
+        [InlineData(100, 20, 1.0, false, true)]
+        [InlineData(200, 30, 1.0, true, true)]
+        [InlineData(80, 10, 2.0, false, true)]
+        public void D07_S2_6_Net_Big_ThroughSimulator_CleanMovement_50Seeds(int rttMs, int jitterMs, double lossPercent, bool burstJitter, bool hitches)
+        {
+            CleanMovementOnSeeds(rttMs, jitterMs, lossPercent, burstJitter, hitches, 50);
+        }
+
+        private void CleanMovementOnSeeds(int rttMs, int jitterMs, double lossPercent, bool burstJitter, bool hitches, int seeds)
+        {
+            MapShape shape = MapShape.World(1024);
+            WorldPos spawn = ServerRun.SpawnPoint(shape, 0);
+            int runs = rttMs > 0 ? seeds : 1; // без имитатора случайности нет — один прогон
+            int clean = 0;
+            for (int seed = 1; seed <= runs; seed++)
             {
-                NetSimSettings v = NetSimSettings.FromRtt(rttMs, jitterMs, lossPercent, 19);
-                v.BurstJitter = burstJitter;
-                if (lossPercent >= 2)
+                NetSimSettings? s = null;
+                if (rttMs > 0)
                 {
-                    v.DuplicatePpm = 20_000;
-                    v.ReorderPpm = 50_000;
+                    NetSimSettings v = NetSimSettings.FromRtt(rttMs, jitterMs, lossPercent, (ulong)seed);
+                    v.BurstJitter = burstJitter;
+                    if (lossPercent >= 2)
+                    {
+                        v.DuplicatePpm = 20_000;
+                        v.ReorderPpm = 50_000;
+                    }
+
+                    s = v;
                 }
 
-                s = v;
+                NetRun r = RunNet(s, Walk, 10_000_000, spawn, hitches, 7);
+                NetServer sv = r.Server;
+                long skips = sv.FramesSkipped + sv.FramesTrimmed;
+                string tag = $"RTT {rttMs}±{jitterMs}, потери {lossPercent} %, пачки {burstJitter}/{hitches}, зерно {seed}";
+                _out.WriteLine($"{tag}: снимков {r.Snapshots}, сверок {r.Reconciled}, правок {r.Resynced}, расх. {r.MaxDev} u; " +
+                               $"сервер: кадров {sv.FramesApplied}, сам {sv.FramesSelfStepped}, перескок {sv.FramesSkipped}, " +
+                               $"выброшено {sv.FramesTrimmed}, перенумераций {r.Renumbers}, опоздали {sv.FramesLate}, тактов-пачек {sv.BurstTicks}, стопов {sv.InputStops}");
+                // Порог относительный (0-025, проверка з. 4; было «> 250»): число принятых снимков зависит от зерна имитатора —
+                // переставленные разбросом отбрасываются как старые (RTT 100±20: 240–251 из 300 на 8 зёрнах). Сверка — на каждом
+                // принятом снимке, кроме первых до начала предсказания: ≥ 90 % (на 8 зёрнах × 4 строки — не меньше 98 %).
+                Assert.True(r.Snapshots > 200, $"{tag}: снимков {r.Snapshots} из 300");
+                Assert.True(r.Reconciled >= r.Snapshots * 0.9, $"{tag}: сверок {r.Reconciled} из {r.Snapshots} снимков");
+                // Без имитатора связь чистая: перескок там — только дыра в номерах от перенумерации кадров клиентом
+                // (FrameRenumbers, подстройка часов 0-025), предсказание перенумеровывает так же — правок быть не может.
+                if (skips == 0 || s == null)
+                {
+                    clean++;
+                    Assert.True(r.Resynced == 0, $"{tag}: правок {r.Resynced} без перескока и выброса кадров сервером (перескок {skips})");
+                    Assert.True(r.MaxDev == 0, $"{tag}: расхождение {r.MaxDev} u без перескока и выброса кадров");
+                }
+                else
+                {
+                    Assert.True(r.Resynced <= skips, $"{tag}: правок {r.Resynced} больше перескоков {skips}");
+                }
+
+                Assert.Equal(r.ServerPos, r.Pred.Position);
+                Assert.True(Torus.Dist2(shape, spawn, r.ServerPos) > 4L * U * 4 * U, $"{tag}: персонаж не ушёл");
             }
 
-            NetRun r = RunNet(s, Walk, 10_000_000, ServerRun.SpawnPoint(MapShape.World(1024), 0), hitches, 7);
-            NetServer sv = r.Server;
-            _out.WriteLine($"RTT {rttMs}±{jitterMs}, потери {lossPercent} %, пачки {burstJitter}/{hitches}: снимков {r.Snapshots}, сверок {r.Reconciled}, " +
-                           $"правок {r.Resynced}, расх. {r.MaxDev} u; сервер: кадров {sv.FramesApplied}, сам {sv.FramesSelfStepped}, " +
-                           $"перескок {sv.FramesSkipped}, опоздали {sv.FramesLate}, тактов-пачек {sv.BurstTicks}, стопов {sv.InputStops}");
-            // Порог относительный (0-025, проверка з. 4; было «> 250»): число принятых снимков зависит от зерна имитатора —
-            // переставленные разбросом отбрасываются как старые (RTT 100±20: 240–251 из 300 на 8 зёрнах). Сверка — на каждом
-            // принятом снимке, кроме первых до начала предсказания: ≥ 90 % (на 8 зёрнах × 4 строки — не меньше 98 %).
-            Assert.True(r.Snapshots > 200, $"снимков {r.Snapshots} из 300");
-            Assert.True(r.Reconciled >= r.Snapshots * 0.9, $"сверок {r.Reconciled} из {r.Snapshots} снимков");
-            Assert.Equal(0, r.Resynced);
-            Assert.Equal(0, r.MaxDev);
-            Assert.Equal(r.ServerPos, r.Pred.Position);
-            Assert.True(Torus.Dist2(MapShape.World(1024), ServerRun.SpawnPoint(MapShape.World(1024), 0), r.ServerPos) > 4L * U * 4 * U, "персонаж не ушёл");
+            // Перескок — редкость (50 зёрен RTT 200 пачками: 4 из 50): если «чистых» прогонов меньше половины, правило «правок 0»
+            // проверено не было.
+            Assert.True(clean * 2 >= runs, $"чистых прогонов (без перескока) {clean} из {runs}");
         }
 
         /// <summary>Шов тора через сеть: спавн у x = 1023,9 т, бег на восток — правок нет (M4 в связке).</summary>
@@ -423,6 +523,38 @@ namespace Orpheus.Tests
             NetRun r = RunNet(NetSimSettings.FromRtt(100, 20, 1.0, 3), East, 4_000_000, spawn, true, 2);
             Assert.Equal(0, r.Resynced);
             Assert.InRange(Torus.TileOf(MapShape.World(1024), r.Pred.Position).X, 5, 40);
+        }
+
+        /// <summary>
+        /// Уворот через сеть (0-029): кнопка уворота доходит до сервера в кадре ввода, <see cref="Simulation"/> шагает рывок
+        /// той же функцией, что предсказание. RTT 100 σ 20, потери 1 % — правок нет. RTT 200 пачками: бег без правок, а нажатие
+        /// в опоздавшем кадре сервер пока теряет (кадр выбрасывается; «липкие» нажатия `07` 2.7 — не в этой карточке) —
+        /// правок не больше опоздавших кадров, и после правки позиция снова совпадает с сервером.
+        /// </summary>
+        [Theory]
+        [InlineData(100, 20, false)]
+        [InlineData(200, 30, true)]
+        public void D02_S2_5_Net_DodgeMovement_NoCorrections(int rttMs, int jitterMs, bool burstJitter)
+        {
+            NetSimSettings v = NetSimSettings.FromRtt(rttMs, jitterMs, 1.0, 23);
+            v.BurstJitter = burstJitter;
+            NetRun r = RunNet(v, Walk, 10_000_000, ServerRun.SpawnPoint(MapShape.World(1024), 0), true, 5, DodgeEvery700);
+            NetServer sv = r.Server;
+            _out.WriteLine($"уворот, RTT {rttMs}±{jitterMs}, пачки {burstJitter}: сверок {r.Reconciled}, правок {r.Resynced}, расх. {r.MaxDev} u; " +
+                           $"сервер: кадров {sv.FramesApplied}, сам {sv.FramesSelfStepped}, перескок {sv.FramesSkipped}, опоздали {sv.FramesLate}");
+            Assert.True(r.Reconciled > 200, $"сверок {r.Reconciled}");
+            Assert.Equal(r.ServerPos, r.Pred.Position);
+            if (!burstJitter)
+            {
+                Assert.Equal(0, r.Resynced);
+                Assert.Equal(0, r.MaxDev);
+                return;
+            }
+
+            NetRun plain = RunNet(v, Walk, 10_000_000, ServerRun.SpawnPoint(MapShape.World(1024), 0), true, 5);
+            _out.WriteLine($"без уворота: правок {plain.Resynced}, сам {plain.Server.FramesSelfStepped}, опоздали {plain.Server.FramesLate}");
+            Assert.Equal(0, plain.Resynced);
+            Assert.InRange(r.Resynced, 0, sv.FramesLate);
         }
 
         // ---------- Сервер: ввод покадрово ----------

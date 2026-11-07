@@ -163,7 +163,8 @@ namespace Orpheus.Tests
             var snap = new Snapshot
             {
                 Tick = 99_999, AckFrame = 200_003, Count = 40,
-                Self = new SelfState(new WorldPos(size * U - 1, rng.NextInt(size * U)), new Int2(-9, 7)), // без кванта (0-019)
+                Self = new SelfState(new WorldPos(size * U - 1, rng.NextInt(size * U)), new Int2(-9, 7),
+                    new Dodge { Elapsed = 255, DashLeft = 15, Cooldown = 24, Direction = 8 }), // без кванта (0-019); уворот — пределы полей (0-029)
             };
             for (int i = 0; i < snap.Count; i++)
             {
@@ -195,7 +196,7 @@ namespace Orpheus.Tests
             Assert.Equal(a, Encode(b => back.Write(b, layout)));
 
             // Своё состояние (0-019): 1024² — 47 бит, 4096² — 51; остаток скорости вне −9…9 — испорченный снимок.
-            Assert.Equal(size == 1024 ? 47 : 51, layout.SelfBits);
+            Assert.Equal(size == 1024 ? 68 : 72, layout.SelfBits); // + уворот 21 бит (0-029, протокол 6)
             snap.Self = new SelfState(new WorldPos(5, 5), new Int2(12, 0));
             byte[] bad = Encode(b => snap.Write(b, layout));
             Assert.Throws<ProtocolException>(() => back.Read(bad, layout));
