@@ -176,6 +176,11 @@ namespace Orpheus.Net.Transport
             link.Remote.DropLink(link.RemotePeer, NetDisconnectReason.Remote, payload.ToArray());
         }
 
+        /// <summary>Доставка и так мгновенная — нечего сбрасывать.</summary>
+        public void Flush()
+        {
+        }
+
         public int RoundTripMs(int peer) => 0;
 
         /// <summary>Закрыть все соединения: другим сторонам — «закрыто другой стороной».</summary>

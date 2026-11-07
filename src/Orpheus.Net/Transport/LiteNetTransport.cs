@@ -141,6 +141,12 @@ namespace Orpheus.Net.Transport
             }
         }
 
+        /// <summary>
+        /// Разбудить поток логики LiteNetLib: отправка уходит сразу, а не по таймеру <c>UpdateTime</c>
+        /// (<c>TriggerUpdate</c>; один раз на пачку отправок, не на каждый <see cref="Send"/>).
+        /// </summary>
+        public void Flush() => _manager.TriggerUpdate();
+
         public void Disconnect(int peer, ReadOnlySpan<byte> payload)
         {
             if (_peers.TryGetValue(peer, out NetPeer? p))

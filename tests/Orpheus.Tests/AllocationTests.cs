@@ -167,6 +167,7 @@ namespace Orpheus.Tests
 
             long allocated = AllocatedInPass(pass);
             Assert.Equal(8 * Passes * Ticks, server.SnapshotsSent);
+            Assert.Equal(Passes * Ticks, t.Flushes); // один сброс отправки на такт, а не на каждый снимок (0-015)
             Assert.Equal(8 * 2 * Passes * Ticks, server.InputsAccepted);
             Assert.Equal(0, allocated);
         }

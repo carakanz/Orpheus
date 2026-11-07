@@ -726,6 +726,8 @@ namespace Orpheus.Tests
             var h = new LoopbackHarness(world, scripts.Length, scripts: scripts);
             h.Server.KeyframePeriod = keyframePeriod;
             h.Run(ticks);
+            Assert.True(h.CheckedDirections > 0, "направления не сверялись");
+            Assert.True(h.DirectionErrors == 0, $"период {keyframePeriod}: направление в снимке не совпало {h.DirectionErrors} раз из {h.CheckedDirections}");
 
             var pos = new long[scripts.Length];
             for (int i = 0; i < scripts.Length; i++)
@@ -806,6 +808,8 @@ namespace Orpheus.Tests
             Assert.True(h.MaxErrorUnits <= 4, $"{h.MaxErrorUnits}");
             Assert.True(h.CheckedOthers > 500 && h.MaxOthersErrorUnits <= 4, $"чужие: {h.CheckedOthers}, ошибка {h.MaxOthersErrorUnits}");
             Assert.Equal(0, h.SelfNotFirst);
+            Assert.True(h.CheckedDirections > 1000, $"{h.CheckedDirections}");
+            Assert.Equal(0, h.DirectionErrors); // склейка несёт и направление, не только позицию (M2 проверки 0-014)
             Assert.True(h.MaxLagTicks <= 20, $"{h.MaxLagTicks}");
             Assert.True(h.Server.FullSent >= 20, $"{h.Server.FullSent}");
             Assert.Equal(0, h.Server.SnapshotsTruncated);
@@ -888,6 +892,8 @@ namespace Orpheus.Tests
                            $"против {full.Server.SnapshotBytes / (double)full.Server.SnapshotsSent:0.#} на одних полных");
             Assert.Equal(0, h.SelfNotFirst);
             Assert.True(h.MaxOthersErrorUnits <= 4, $"{h.MaxOthersErrorUnits}");
+            Assert.Equal(0, h.DirectionErrors);
+            Assert.Equal(0, full.DirectionErrors);
             full.Dispose();
         }
 
@@ -901,15 +907,26 @@ namespace Orpheus.Tests
 
             public bool DropUnreliable { get; set; }
 
+            /// <summary>Глушить исходящий канал 0 (клиент перестал слать ввод — обрыв в сторону сервера).</summary>
+            public bool DropOutgoingUnreliable { get; set; }
+
             public void Poll(long nowMicros, ITransportHandler handler)
             {
                 _handler = handler;
                 _inner.Poll(nowMicros, this);
             }
 
-            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data) => _inner.Send(peer, channel, data);
+            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+            {
+                if (!(DropOutgoingUnreliable && channel == NetChannel.Unreliable))
+                {
+                    _inner.Send(peer, channel, data);
+                }
+            }
 
             public void Disconnect(int peer, ReadOnlySpan<byte> payload) => _inner.Disconnect(peer, payload);
+
+            public void Flush() => _inner.Flush();
 
             public int RoundTripMs(int peer) => _inner.RoundTripMs(peer);
 
@@ -952,9 +969,353 @@ namespace Orpheus.Tests
 
             Assert.Equal(0, h.SelfNotFirst);
             Assert.True(h.MaxOthersErrorUnits <= 4, $"{h.MaxOthersErrorUnits}");
+            Assert.Equal(0, h.DirectionErrors);
             _out.WriteLine($"8 игроков: байт/снимок — дельта {h.Server.DeltaBytes / (double)h.Server.DeltasSent:0.#}, " +
                            $"полный {(h.Server.SnapshotBytes - h.Server.DeltaBytes) / (double)h.Server.FullSent:0.#}; " +
                            $"максимальная дельта {h.Server.MaxDeltaBytes} байт, наибольший снимок {h.Server.MaxSnapshotBytes}");
+        }
+
+        // ---------- Старые пакеты, стоп при обрыве, база дельты (карточка 0-015) ----------
+
+        /// <summary>
+        /// Замечание 1 проверки 0-008: перестановка и дубли в обе стороны (имитатор). Сервер отбрасывает старый и
+        /// повторный ввод, клиент — старые снимки; применённый кадр ввода на сервере (после приёма каждого такта) и такт
+        /// принятого снимка у клиента (каждый принятый) только растут. Период 1 — одни полные снимки (фильтр
+        /// <c>OnSnapshot</c>), 30 — в основном дельты (фильтр <c>OnDelta</c>).
+        /// </summary>
+        [Theory]
+        [InlineData(1u)]
+        [InlineData(30u)]
+        public void D00_Net_Loopback_ReorderDuplicates_StaleDropped_FrameAndTickOnlyGrow(uint keyframePeriod)
+        {
+            var sim = new NetSimSettings
+            {
+                DelayMs = 40, JitterMs = 10, LossPpm = 10_000, DuplicatePpm = 50_000, ReorderPpm = 150_000, ReorderMs = 60, Seed = 15,
+            };
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
+            using var h = new LoopbackHarness(world, 3, sim: sim, scripts: new[] { "wander", "wander", "idle" });
+            h.Server.KeyframePeriod = keyframePeriod;
+            h.Run(600);
+
+            long stale = 0;
+            foreach (NetBot b in h.Bots)
+            {
+                NetClient c = b.Client;
+                Assert.Equal(NetClientState.InGame, c.State);
+                Assert.True(c.SnapshotsApplied > 500, $"{c.SnapshotsApplied}");
+                stale += c.SnapshotsStale;
+            }
+
+            _out.WriteLine($"период {keyframePeriod}: ввод отброшен {h.Server.InputsDropped} из {h.Server.InputsDropped + h.Server.InputsAccepted}, " +
+                           $"старых снимков {stale}, назад: кадр {h.ServerFrameWentBack}, такт {h.SnapshotTickWentBack}; " +
+                           $"дельт {h.Server.DeltasSent}, полных {h.Server.FullSent}");
+            Assert.True(h.Server.InputsDropped > 100, $"отброшено ввода {h.Server.InputsDropped}");
+            Assert.True(stale > 50, $"старых снимков {stale}");
+            Assert.Equal(0, h.ServerFrameWentBack);
+            Assert.Equal(0, h.SnapshotTickWentBack);
+            Assert.True(h.MaxErrorUnits <= 4 && h.MaxOthersErrorUnits <= 4, $"{h.MaxErrorUnits} {h.MaxOthersErrorUnits}");
+            Assert.Equal(0, h.DirectionErrors);
+            Assert.Equal(0, h.Server.InputStops); // перестановка — не обрыв
+        }
+
+        /// <summary>
+        /// 2.13 п. 6 (замечание 3 проверки 0-008): связь от клиента к серверу оборвана — персонаж стоит не позже чем через
+        /// 0,2 с (6 тактов) после последнего пришедшего кадра; соединение держится. Связь вернулась — снова идёт.
+        /// </summary>
+        [Fact]
+        public void D07_S2_13_6_LinkCut_CharacterStopsWithin6Ticks_ResumesAfter()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
+            var gates = new List<GateTransport>();
+            using var h = new LoopbackHarness(world, 2, scripts: new[] { "wander", "wander" }, wrap: (i, t) =>
+            {
+                var g = new GateTransport(t);
+                gates.Add(g);
+                return g;
+            });
+            WorldPos PosOf(int entity) => h.Sim.Entities[h.Sim.SlotOf(entity)].Mover.Position;
+            bool Moving(int entity) => h.Sim.Entities[h.Sim.SlotOf(entity)].Input.Direction.IsMoving;
+
+            h.Run(30);
+            int id = h.Bots[0].Client.EntityId;
+            int waited = 0;
+            while (!Moving(id) && waited++ < 300)
+            {
+                h.Run(1);
+            }
+
+            Assert.True(Moving(id), "бот не пошёл");
+
+            // Два обрыва подряд: после возврата связи стоп снова срабатывает (признак «остановлен» снимается новым кадром).
+            var report = new List<string>();
+            for (int round = 0; round < 2; round++)
+            {
+                long stopsBefore = h.Server.InputStops;
+                gates[0].DropOutgoingUnreliable = true;
+                long cut = h.Sim.Tick; // последний кадр принят на приёме такта cut − 1 (перед шагом к cut)
+                var pos = new List<WorldPos>();
+                for (int k = 0; k < 60; k++)
+                {
+                    h.Run(1);
+                    pos.Add(PosOf(id)); // позиция после такта cut + k + 1
+                }
+
+                // Первые такты ввод ещё держится (бежит), не позже 6 тактов после последнего кадра — стоит.
+                Assert.NotEqual(pos[0], pos[3]);
+                int stoppedFrom = pos.Count - 1;
+                while (stoppedFrom > 0 && pos[stoppedFrom - 1] == pos[pos.Count - 1])
+                {
+                    stoppedFrom--;
+                }
+
+                // Конечную позицию персонаж занял на такте cut + stoppedFrom + 1 — ровно через 6 тактов (0,2 с, 2.13 п. 6)
+                // после последнего кадра: не позже (норма документа) и не раньше (ранний стоп — ложные стопы при живой
+                // связи). Порог — число документа, не константа сервера.
+                long lastFrameTick = cut - 1;
+                long stoppedTick = cut + stoppedFrom + 1;
+                Assert.True(stoppedTick - lastFrameTick == 6, $"обрыв {round}: стоит с такта {stoppedTick}, последний кадр на такте {lastFrameTick}");
+                Assert.Equal(stopsBefore + 1, h.Server.InputStops);
+                Assert.False(Moving(id));
+                Assert.Equal(2, h.Server.PlayersInGame);
+                Assert.Equal(NetClientState.InGame, h.Bots[0].Client.State);
+
+                // Связь вернулась: ввод снова применяется — бот идёт.
+                gates[0].DropOutgoingUnreliable = false;
+                WorldPos stoppedAt = PosOf(id);
+                waited = 0;
+                while (!(PosOf(id) != stoppedAt && Moving(id)) && waited++ < 300)
+                {
+                    h.Run(1);
+                }
+
+                Assert.NotEqual(stoppedAt, PosOf(id));
+                Assert.True(Moving(id), $"обрыв {round}: после возврата связи бот не идёт");
+                report.Add($"обрыв {round}: последний кадр на такте {lastFrameTick}, стоит с такта {stoppedTick} " +
+                           $"({stoppedTick - lastFrameTick} такт(ов)); после возврата пошёл через {waited} такт(ов)");
+            }
+
+            _out.WriteLine(string.Join("\n", report));
+        }
+
+        /// <summary>
+        /// 2.13 п. 6 на заглушке транспорта (кадр за кадром): стоп ровно через 6 тактов после последнего нового кадра,
+        /// стоп — это и движение 0, и кнопки 0; повтор того же кадра — не новый кадр (отброшен, стоп не отодвигает);
+        /// до первого кадра после входа стопа нет; новый кадр снимает стоп.
+        /// </summary>
+        [Fact]
+        public void D07_S2_13_6_Scripted_StopExactly6Ticks_ClearsButtons_RepeatIsNotNewFrame()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            var sim = new Simulation(world, maxEntities: 8);
+            var t = new ScriptedTransport();
+            var server = new NetServer(t, sim, n => ServerRun.SpawnPoint(world.Shape, n), 4, NetModule.Version);
+            t.Connect(1);
+            t.Push(1, NetChannel.Facts, Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b)));
+
+            void Tick()
+            {
+                server.Poll(sim.Tick);
+                sim.Step();
+                server.SendSnapshots();
+            }
+
+            // До первого кадра — стопа нет (ввод и так пустой), счётчик не врёт.
+            for (int k = 0; k < 20; k++)
+            {
+                Tick();
+            }
+
+            int id = server.EntityOf(1);
+            Assert.True(id > 0);
+            Assert.Equal(0, server.InputStops);
+            InputFrame Input() => sim.Entities[sim.SlotOf(id)].Input;
+            WorldPos Pos() => sim.Entities[sim.SlotOf(id)].Mover.Position;
+
+            var held = new InputFrame(Input8.FromIndex(2), 0x0005); // идёт и держит кнопки
+            uint frame = 0;
+            byte[] Packet(uint f) => Encode(b => new InputMessage { FirstFrame = f, Frame3 = WireFrame.From(held) }.Write(b));
+            for (int k = 0; k < 10; k++)
+            {
+                t.Push(1, NetChannel.Unreliable, Packet(++frame));
+                Tick();
+            }
+
+            Assert.Equal(held, Input());
+            long lastFrameTick = sim.Tick - 1; // последний новый кадр принят на приёме такта lastFrameTick
+            byte[] repeat = Packet(frame);
+            long accepted = server.InputsAccepted;
+            long dropped = server.InputsDropped;
+
+            // Дальше приходит только повтор последнего пакета (дубль) — новых кадров нет.
+            var pos = new Dictionary<long, WorldPos> { [sim.Tick] = Pos() };
+            for (int k = 0; k < 12; k++)
+            {
+                t.Push(1, NetChannel.Unreliable, repeat);
+                Tick();
+                pos[sim.Tick] = Pos();
+                if (sim.Tick - lastFrameTick <= 6)
+                {
+                    Assert.True(Input() == held, $"такт {sim.Tick}: стоп раньше 6 тактов после кадра ({Input()})");
+                }
+                else
+                {
+                    Assert.True(Input() == InputFrame.None, $"такт {sim.Tick}: через {sim.Tick - lastFrameTick} тактов ввод {Input()}, а не пустой");
+                }
+            }
+
+            Assert.Equal(0, Input().Buttons);
+            Assert.NotEqual(pos[lastFrameTick + 5], pos[lastFrameTick + 6]); // идёт до 6-го такта
+            Assert.Equal(pos[lastFrameTick + 6], pos[sim.Tick]);              // и стоит с него
+            Assert.Equal(accepted, server.InputsAccepted);                   // повтор того же кадра не принят
+            Assert.Equal(dropped + 12, server.InputsDropped);
+            Assert.Equal(1, server.InputStops);
+
+            // Новый кадр снимает стоп.
+            t.Push(1, NetChannel.Unreliable, Packet(++frame));
+            Tick();
+            Assert.Equal(held, Input());
+            Assert.Equal(1, server.InputStops);
+        }
+
+        /// <summary>
+        /// M4 проверки 0-014: дельта к такту, которого нет в кольце баз клиента, — отброшена (<c>DeltasUnmerged</c>),
+        /// <c>Latest</c> не меняется; клиент продолжает подтверждать последний применённый снимок. Два случая: ячейка
+        /// кольца занята другим тактом (тот же такт mod 32) и ячейка пуста.
+        /// </summary>
+        [Fact]
+        public void D00_Net_Client_DeltaWithoutBase_Unmerged_LatestKept()
+        {
+            var shape = MapShape.World(1024);
+            var layout = new SnapshotLayout(shape);
+            var t = new ScriptedTransport();
+            var c = new NetClient(t, LoopbackTransport.ServerPeer, "c", NetModule.Version);
+            var accept = new LoginAcceptMessage
+            {
+                EntityId = 5, ServerTick = 8, MapWidth = shape.Width, MapHeight = shape.Height, Wraps = shape.Wraps, WorldSeed = 1,
+                TickRate = Simulation.TickRate,
+            };
+            t.Connect(LoopbackTransport.ServerPeer);
+            t.Push(LoopbackTransport.ServerPeer, NetChannel.Facts, Encode(b => accept.Write(b)));
+            WorldPos p10 = SnapshotLayout.Quantize(new WorldPos(100 * U, 200 * U));
+            t.Push(LoopbackTransport.ServerPeer, NetChannel.Unreliable, Encode(b =>
+            {
+                var w = new SnapshotWriter(b, layout, 10, 20);
+                Assert.True(w.TryAdd(5, SimEntity.KindCharacter, p10, 3));
+                return w.Finish();
+            }));
+            c.Poll(0);
+            Assert.Equal(NetClientState.InGame, c.State);
+            Assert.Equal(10u, c.Latest.Tick);
+            c.SendFrame(default);
+            Assert.Equal(1, t.Flushes); // кадр ввода уходит сразу — один сброс отправки на кадр (0-015)
+
+            WorldPos moved = SnapshotLayout.Quantize(new WorldPos(101 * U, 200 * U));
+            t.Push(LoopbackTransport.ServerPeer, NetChannel.Unreliable, Delta(layout, 50, 42, moved)); // ячейка 10 — такт 10, не 42
+            t.Push(LoopbackTransport.ServerPeer, NetChannel.Unreliable, Delta(layout, 51, 20, moved)); // ячейка 20 — пуста
+            c.Poll(1);
+            Assert.Equal(2, c.DeltasUnmerged);
+            Assert.Equal(0, c.DeltasApplied);
+            Assert.Equal(10u, c.Latest.Tick);
+            Assert.Equal(1, c.Latest.Count);
+            Assert.Equal(p10, c.Latest.Entities[0].Position);
+            Assert.Equal(3, c.Latest.Entities[0].Direction);
+
+            // Дельта к настоящей базе склеивается.
+            t.Push(LoopbackTransport.ServerPeer, NetChannel.Unreliable, Delta(layout, 52, 10, moved));
+            c.Poll(2);
+            Assert.Equal(1, c.DeltasApplied);
+            Assert.Equal(52u, c.Latest.Tick);
+            Assert.Equal(moved, c.Latest.Entities[0].Position);
+            Assert.Equal(7, c.Latest.Entities[0].Direction);
+        }
+
+        private static byte[] Delta(SnapshotLayout layout, uint tick, uint baseline, WorldPos p) => Encode(b =>
+        {
+            var w = new SnapshotDeltaWriter(b, layout, tick, tick * 2, baseline);
+            Assert.True(w.TryAddUpdated(0, DeltaFields.Position | DeltaFields.Direction, p, 7));
+            return w.Finish();
+        });
+
+        /// <summary>
+        /// Замечание 10 проверки 0-008: пакеты, застрявшие в очереди имитатора, после «закрыто» не уходят новому
+        /// соединению с тем же номером (LiteNetLib номера переиспользует) — ни входящие, ни исходящие.
+        /// </summary>
+        [Fact]
+        public void D00_Net_Sim_Disconnect_DropsQueuedPackets_ReusedPeerGetsNothingOld()
+        {
+            var inner = new ManualTransport();
+            using var sim = new NetSimTransport(inner, new NetSimSettings { DelayMs = 50, Seed = 1 });
+            var rec = new Recorder();
+            static byte[] Packet(int seq)
+            {
+                var b = new byte[12];
+                BitConverter.TryWriteBytes(b, seq);
+                return b;
+            }
+
+            inner.Events.Add(h => h.OnConnected(1));
+            sim.Poll(0, rec);
+            inner.Events.Add(h => h.OnReceive(1, NetChannel.Unreliable, Packet(1)));
+            inner.Events.Add(h => h.OnReceive(1, NetChannel.Facts, Packet(2)));
+            sim.Poll(1_000, rec);
+            sim.Send(1, NetChannel.Unreliable, Packet(3));
+            sim.Send(1, NetChannel.Facts, Packet(4));
+            sim.Send(2, NetChannel.Unreliable, Packet(5)); // чужое соединение — не трогается
+            Assert.Equal(5, sim.PendingCount);
+
+            // Старое соединение 1 закрылось, новое получило тот же номер — раньше срока доставки старых пакетов.
+            inner.Events.Add(h => h.OnDisconnected(1, NetDisconnectReason.Timeout, ReadOnlySpan<byte>.Empty));
+            inner.Events.Add(h => h.OnConnected(1));
+            sim.Poll(10_000, rec);
+            Assert.Equal(1, sim.PendingCount);
+            for (long now = 20_000; now <= 200_000; now += 10_000)
+            {
+                sim.Poll(now, rec);
+            }
+
+            Assert.Empty(rec.Received);
+            Assert.Equal(new[] { (2, NetChannel.Unreliable) }, inner.Sent);
+            Assert.Equal(2, sim.ReceiveStats.Discarded);
+            Assert.Equal(2, sim.SendStats.Discarded);
+
+            // Своё «закрыть» тоже чистит очередь.
+            sim.Send(1, NetChannel.Unreliable, Packet(6));
+            sim.Disconnect(1, ReadOnlySpan<byte>.Empty);
+            Assert.Equal(0, sim.PendingCount);
+        }
+
+        /// <summary>Транспорт-заглушка с ручными событиями: <see cref="Events"/> раздаются в ближайший <see cref="Poll"/>.</summary>
+        private sealed class ManualTransport : ITransport
+        {
+            public delegate void Event(ITransportHandler handler);
+
+            public readonly List<Event> Events = new List<Event>();
+            public readonly List<(int Peer, NetChannel Channel)> Sent = new List<(int, NetChannel)>();
+            public long Flushes;
+
+            public void Poll(long nowMicros, ITransportHandler handler)
+            {
+                foreach (Event e in Events)
+                {
+                    e(handler);
+                }
+
+                Events.Clear();
+            }
+
+            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data) => Sent.Add((peer, channel));
+
+            public void Disconnect(int peer, ReadOnlySpan<byte> payload)
+            {
+            }
+
+            public void Flush() => Flushes++;
+
+            public int RoundTripMs(int peer) => 0;
+
+            public void Dispose()
+            {
+            }
         }
 
         /// <summary>
@@ -965,6 +1326,9 @@ namespace Orpheus.Tests
         {
             private readonly LoopbackTransport _serverTransport;
             private readonly Dictionary<long, WorldPos> _history = new Dictionary<long, WorldPos>();
+            private readonly Dictionary<long, byte> _dirHistory = new Dictionary<long, byte>();
+            private readonly Dictionary<NetClient, uint> _lastApplied = new Dictionary<NetClient, uint>();
+            private readonly Dictionary<int, uint> _lastFrame = new Dictionary<int, uint>();
             private long _frame;
 
             public LoopbackHarness(WorldModel world, int bots, int maxPlayers = 16, NetVersion? clientVersion = null, NetSimSettings? sim = null, string[]? scripts = null,
@@ -1010,6 +1374,19 @@ namespace Orpheus.Tests
             public long SelfNotFirst { get; private set; }
             public long MaxLagTicks { get; private set; }
 
+            /// <summary>
+            /// Направление в склеенном снимке ≠ направлению сущности на сервере в такт снимка (своя и чужие; 0-015 по
+            /// проверке 0-014, M2). Сверок — <see cref="CheckedDirections"/>.
+            /// </summary>
+            public long DirectionErrors { get; private set; }
+            public long CheckedDirections { get; private set; }
+
+            /// <summary>Сколько раз такт принятого снимка у клиента не вырос (старый снимок стал <c>Latest</c>; 0-015).</summary>
+            public long SnapshotTickWentBack { get; private set; }
+
+            /// <summary>Сколько раз после приёма такта применённый кадр ввода на сервере уменьшился (0-015).</summary>
+            public long ServerFrameWentBack { get; private set; }
+
             /// <summary><paramref name="ticks"/> тактов сервера (по два кадра ботов на такт).</summary>
             public void Run(int ticks)
             {
@@ -1025,11 +1402,25 @@ namespace Orpheus.Tests
                     }
 
                     Server.Poll(_frame * FrameMicros);
+                    foreach (NetBot b in Bots)
+                    {
+                        if (Server.TryGetLastFrame(b.Client.EntityId, out uint applied))
+                        {
+                            if (_lastFrame.TryGetValue(b.Client.EntityId, out uint prev) && (int)(applied - prev) < 0)
+                            {
+                                ServerFrameWentBack++;
+                            }
+
+                            _lastFrame[b.Client.EntityId] = applied;
+                        }
+                    }
+
                     Sim.Step();
                     Server.SendSnapshots();
                     foreach (SimEntity e in Sim.Entities)
                     {
                         _history[Key(e.Id, Sim.Tick)] = e.Mover.Position;
+                        _dirHistory[Key(e.Id, Sim.Tick)] = e.Input.DirectionCode;
                     }
                 }
             }
@@ -1037,9 +1428,27 @@ namespace Orpheus.Tests
             private void Check(NetClient c, Snapshot snap)
             {
                 MaxLagTicks = Math.Max(MaxLagTicks, Sim.Tick - snap.Tick);
+                if (_lastApplied.TryGetValue(c, out uint prevTick) && (int)(snap.Tick - prevTick) <= 0)
+                {
+                    SnapshotTickWentBack++;
+                }
+
+                _lastApplied[c] = snap.Tick;
                 if (snap.Count == 0 || snap.Entities[0].Id != c.EntityId)
                 {
                     SelfNotFirst++;
+                }
+
+                for (int i = 0; i < snap.Count; i++)
+                {
+                    if (_dirHistory.TryGetValue(Key(snap.Entities[i].Id, snap.Tick), out byte dir))
+                    {
+                        CheckedDirections++;
+                        if (dir != snap.Entities[i].Direction)
+                        {
+                            DirectionErrors++;
+                        }
+                    }
                 }
 
                 for (int i = 1; i < snap.Count; i++)
@@ -1082,6 +1491,8 @@ namespace Orpheus.Tests
 
             public long Sent;
 
+            public long Flushes;
+
             public void Connect(int peer) => _queue.Add((peer, NetChannel.Unreliable, null));
 
             public void Push(int peer, NetChannel channel, byte[] data) => _queue.Add((peer, channel, data));
@@ -1109,6 +1520,8 @@ namespace Orpheus.Tests
             public void Disconnect(int peer, ReadOnlySpan<byte> payload)
             {
             }
+
+            public void Flush() => Flushes++;
 
             public int RoundTripMs(int peer) => 0;
 
@@ -1158,11 +1571,20 @@ namespace Orpheus.Tests
             }
 
             _out.WriteLine($"сверка по такту: {run.Checked} снимков, ошибка ≤ {run.MaxErrorUnits} unit; отставание снимка от такта сервера при приёме: " +
-                           $"≤ {run.MaxLagTicks} тактов ({run.MaxLagTicks * 0.2:F1} тайла при 6 т/с), среднее {run.MeanLagTicks:F2}");
+                           $"≤ {run.MaxLagTicks} тактов ({run.MaxLagTicks * 0.2:F1} тайла при 6 т/с), среднее {run.MeanLagTicks:F2}; " +
+                           $"больше 2 тактов — {run.LagOver2} из {run.Snapshots}");
             Assert.Equal(2, r.InGame);
             Assert.Equal(0, r.Disconnects);
             Assert.True(run.Checked > 2 * 60 * 25, $"{run.Checked}");
             Assert.True(run.MaxErrorUnits <= U / 2, $"{run.MaxErrorUnits}");
+
+            // 2.13 п. 1 (замечание 2 проверки 0-008): отставание снимка от такта сервера при приёме ≤ 2 тактов (0,4 тайла
+            // при 6 т/с) у всех снимков. Задержка 50 мс в одну сторону — 1,5 такта; отправка сразу после такта
+            // (ITransport.Flush, 0-015) — без неё LiteNetLib держал снимок до UpdateTime (15 мс) и 3 такта были у 1–5 %.
+            // Метрики «предсказание клиента против сервера в тот же момент» (порог 0,5 тайла) в ядре пока нет — предсказание
+            // 0-013 живёт в Unity; см. work/backlog.md, после 0-019.
+            Assert.True(run.LagOver2 == 0 && run.MaxLagTicks <= 2,
+                        $"отставание > 2 тактов у {run.LagOver2} из {run.Snapshots} снимков, максимум {run.MaxLagTicks}");
         }
 
         private sealed class UdpRun
@@ -1173,6 +1595,10 @@ namespace Orpheus.Tests
             public int MaxErrorUnits;
             public long MaxLagTicks;
             public double MeanLagTicks;
+
+            /// <summary>Принятых снимков всего / с отставанием больше 2 тактов (0-015, 2.13 п. 1).</summary>
+            public long Snapshots;
+            public long LagOver2;
         }
 
         private UdpRun RunUdp(int bots, double seconds, int rttMs, double lossPercent, Action<BotOptions> extra)
@@ -1207,6 +1633,12 @@ namespace Orpheus.Tests
             {
                 long lag = Volatile.Read(ref serverTick) - snap.Tick;
                 lagSum += lag;
+                run.Snapshots++;
+                if (lag > 2)
+                {
+                    run.LagOver2++;
+                }
+
                 run.MaxLagTicks = Math.Max(run.MaxLagTicks, lag);
                 if (snap.TryFind(entityId, out SnapshotEntity mine) && history.TryGetValue(((long)entityId << 32) | snap.Tick, out WorldPos truth))
                 {

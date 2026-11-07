@@ -161,6 +161,7 @@ namespace Orpheus.Net.Session
             _input.Lead = 0;
             int len = _input.Write(_buf);
             _transport.Send(_serverPeer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
+            _transport.Flush(); // кадр ввода — сразу: задержка ввода — бюджет уворота (2.13 п. 3; 0-015)
             InputsSent++;
         }
 
