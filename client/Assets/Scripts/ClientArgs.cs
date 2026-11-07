@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Globalization;
+using Orpheus.Net.Protocol;
 
 namespace Orpheus.Client
 {
@@ -12,8 +13,10 @@ namespace Orpheus.Client
     /// <item><c>--size N</c> — сторона мира-тора в тайлах (степень двойки, 512…8192); по умолчанию 1024.</item>
     /// <item><c>--smoke</c> — дымовая проверка офлайна: прогон через шов по X и Y скриптовым вводом и выход с кодом 0/1.</item>
     /// <item><c>--connect хост:порт</c> — сетевой режим: вход на сервер, мир по его зерну, снимки с интерполяцией (0-012).</item>
-    /// <item><c>--name N</c> — имя игрока для входа; по умолчанию player-1.</item>
+    /// <item><c>--name N</c> — имя игрока для входа, 1…32 байта UTF-8 (как в протоколе; «Орфей» — 10); по умолчанию player-1.</item>
     /// <item><c>--net-smoke [сек]</c> — дымовая проверка сети: вход, играть сек секунд (по умолчанию 10), «[smoke] done», код 0/1.</item>
+    /// <item><c>--net-smoke-seam</c> — net-smoke у шва (сервер с <c>--spawn-seam --bots 2:shuttle</c>): свой персонаж и чужие
+    /// переходят шов x = 0, начало переезжает на шве (0-017).</item>
     /// <item><c>--hud</c> — текст состояния в окне (в сетевом режиме включено всегда).</item>
     /// <item><c>--screenshot &lt;путь&gt;</c> — кадр мира с персонажем в PNG и выход.</item>
     /// </list>
@@ -49,6 +52,9 @@ namespace Orpheus.Client
         /// <summary>Секунд игры в net-smoke; 0 — режим выключен.</summary>
         public int NetSmokeSeconds;
 
+        /// <summary>net-smoke требует перехода шва своим персонажем и чужими (0-017).</summary>
+        public bool NetSmokeSeam;
+
         public bool Hud;
 
         /// <summary>
@@ -65,7 +71,7 @@ namespace Orpheus.Client
         /// <summary>Текст подсказки для логов и подсказки при ошибке.</summary>
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
-            "[--net-smoke [сек]] [--net-sim RTT,σ,потери%] [--hud] [--screenshot путь]";
+            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%] [--hud] [--screenshot путь]";
 
         public static ClientArgs Parse(string[] args)
         {
@@ -115,9 +121,10 @@ namespace Orpheus.Client
                         break;
                     case "--name":
                         i++;
-                        if (string.IsNullOrWhiteSpace(next) || next!.Length > 24)
+                        string? nameError = LoginMessage.NameError(next); // байты UTF-8, как в протоколе (0-017)
+                        if (nameError != null)
                         {
-                            a.Error = $"--name: нужно имя 1…24 символа, дано '{next}'";
+                            a.Error = "--name: " + nameError;
                         }
                         else
                         {
@@ -135,6 +142,9 @@ namespace Orpheus.Client
                             i++;
                         }
 
+                        break;
+                    case "--net-smoke-seam":
+                        a.NetSmokeSeam = true;
                         break;
                     case "--hud":
                         a.Hud = true;

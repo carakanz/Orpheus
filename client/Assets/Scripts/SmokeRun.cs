@@ -364,10 +364,16 @@ namespace Orpheus.Client
 
         WorldPos DrawnCamera(out bool ok) => DrawnAt(_g.Camera.transform.position - GameBoot.CameraOffset, out ok);
 
-        WorldPos DrawnAt(Vector3 unity, out bool ok)
+        WorldPos DrawnAt(Vector3 unity, out bool ok) => DrawnAt(_map, _g.View, _g.Origin, _g.Player.Position, unity, out ok);
+
+        /// <summary>
+        /// Где точка Unity стоит относительно нарисованных тайлов: от узла чанка под позицией ядра <paramref name="core"/>
+        /// (не от якоря) — рывок узлов при переезде начала виден так же, как рывок персонажа. Общая с net-smoke (0-017).
+        /// </summary>
+        public static WorldPos DrawnAt(MapShape map, WorldView view, FloatingOrigin origin, WorldPos core, Vector3 unity, out bool ok)
         {
-            ChunkCoord c = Torus.ChunkOf(_map, _g.Player.Position);
-            if (!_g.View.TryGetNode(c, out WorldView.ChunkNode node) || !node.Root.activeSelf)
+            ChunkCoord c = Torus.ChunkOf(map, core);
+            if (!view.TryGetNode(c, out WorldView.ChunkNode node) || !node.Root.activeSelf)
             {
                 ok = false;
                 return default;
@@ -375,7 +381,7 @@ namespace Orpheus.Client
 
             ok = true;
             WorldPos corner = Torus.CornerOf(Torus.CornerOf(c));
-            return _g.Origin.FromUnity(corner, node.Root.transform.position, unity);
+            return origin.FromUnity(corner, node.Root.transform.position, unity);
         }
 
         void CheckWindow()
@@ -386,20 +392,31 @@ namespace Orpheus.Client
                 _maxWindow = n;
             }
 
+            _holes += WindowHoles(_map, _g.View, _g.Player.Position, msg => Fail($"кадр {_frames}: {msg}"));
+        }
+
+        /// <summary>
+        /// Окно чанков: не больше <see cref="ChunkWindow.MaxChunks"/>, блок входа 6 × 4 вокруг <paramref name="core"/> целиком
+        /// в окне, узлы активны и стоят ровно в сетке. Возвращает число дыр (ошибки — в <paramref name="fail"/>). Общая с net-smoke.
+        /// </summary>
+        public static int WindowHoles(MapShape map, WorldView view, WorldPos core, Action<string> fail)
+        {
+            int holes = 0;
+            int n = view.Count;
             if (n > ChunkWindow.MaxChunks)
             {
-                Fail($"кадр {_frames}: чанков в окне {n} > {ChunkWindow.MaxChunks}");
+                fail($"чанков в окне {n} > {ChunkWindow.MaxChunks}");
             }
 
             // Дыры: блок входа 6 × 4 вокруг персонажа целиком в окне, узлы активны и стоят ровно в сетке
             // относительно узла центра блока. Сверка — по смещению из индексов блока (i·32, −j·32), независимо от
             // ChunkToUnity: узел, вставленный по другую сторону шва, даёт расхождение в целый мир (замечание П по M2).
-            ChunkCoord center = ChunkWindow.BlockCenter(_map, _g.Player.Position);
-            if (!_g.View.TryGetNode(center, out WorldView.ChunkNode centerNode) || !centerNode.Root.activeSelf)
+            ChunkCoord center = ChunkWindow.BlockCenter(map, core);
+            if (!view.TryGetNode(center, out WorldView.ChunkNode centerNode) || !centerNode.Root.activeSelf)
             {
-                _holes++;
-                Fail($"кадр {_frames}: нет узла центра блока {center} в окне");
-                return;
+                holes++;
+                fail($"нет узла центра блока {center} в окне");
+                return holes;
             }
 
             Vector3 centerPos = centerNode.Root.transform.position;
@@ -407,24 +424,26 @@ namespace Orpheus.Client
             {
                 for (int i = -ChunkWindow.Width / 2; i < ChunkWindow.Width / 2; i++)
                 {
-                    ChunkCoord c = Torus.Wrap(_map, new ChunkCoord(center.X + i, center.Y + j));
-                    if (!_g.View.TryGetNode(c, out WorldView.ChunkNode node) || !node.Root.activeSelf)
+                    ChunkCoord c = Torus.Wrap(map, new ChunkCoord(center.X + i, center.Y + j));
+                    if (!view.TryGetNode(c, out WorldView.ChunkNode node) || !node.Root.activeSelf)
                     {
-                        _holes++;
-                        Fail($"кадр {_frames}: дыра — нет чанка {c} в окне");
+                        holes++;
+                        fail($"дыра — нет чанка {c} в окне");
                     }
                     else
                     {
                         Vector3 expected = centerPos + new Vector3(i * Torus.ChunkSize, -j * Torus.ChunkSize, 0f);
                         if ((node.Root.transform.position - expected).sqrMagnitude > 1e-6f)
                         {
-                            _holes++;
-                            Fail($"кадр {_frames}: чанк {c} стоит в {node.Root.transform.position}, " +
+                            holes++;
+                            fail($"чанк {c} стоит в {node.Root.transform.position}, " +
                                  $"а узел центра {center} в {centerPos}: ждали {(i * Torus.ChunkSize, -j * Torus.ChunkSize)} относительно него");
                         }
                     }
                 }
             }
+
+            return holes;
         }
 
         // ---------- Тайлы: Tilemap против мира ядра ----------

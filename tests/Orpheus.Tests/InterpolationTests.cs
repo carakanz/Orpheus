@@ -49,7 +49,7 @@ namespace Orpheus.Tests
             public long MaxBufferUs = long.MinValue;
 
             public void Go(int ticks, long startX, int dirX, Func<uint, bool>? lost = null, long jitterUs = 0, long frameUs = 16_667,
-                long frameJitterUs = 0, ulong seed = 1, int skipFirstFrames = 120)
+                long frameJitterUs = 0, ulong seed = 1, int skipFirstFrames = 120, long firstLateUs = 0, double drift = 0)
             {
                 var rng = new DetRandom(seed);
                 var arrivals = new SortedList<long, uint>();
@@ -62,6 +62,7 @@ namespace Orpheus.Tests
                     }
 
                     long a = RemoteInterpolation.TickTimeUs(n) + 30_000 + (jitterUs > 0 ? rng.NextInt((int)jitterUs) : 0);
+                    a = (long)(a * (1.0 + drift)) + (arrivals.Count == 0 ? firstLateUs : 0); // местные часы идут иначе; первый снимок опоздал
                     a = Math.Max(a, lastArrival + 1); // NetClient отдаёт только новее прежнего — порядок прихода по такту
                     lastArrival = a;
                     arrivals.Add(a, n);
@@ -165,6 +166,22 @@ namespace Orpheus.Tests
             Assert.InRange(i.MaxStepUnits, 20, 33);
             Assert.Equal(0, i.StepViolations);
             Assert.Equal(0, i.HoldFrames);
+        }
+
+        [Fact]
+        public void D00_Interp_ClockSlews_FirstLateSample_AndDrift()
+        {
+            // Первый снимок опоздал на 80 мс (часы поставлены с ошибкой), местные часы спешат на 0,3 % — поправка хода ≤ 1 %
+            // за несколько секунд возвращает запас к 67–100 мс без перестановок; без неё показ отставал бы на 80 мс и уплывал.
+            var run = new Run();
+            run.Go(ticks: 900, startX: 100 * U, dirX: 1, firstLateUs: 80_000, drift: 0.003, skipFirstFrames: 600);
+            RemoteInterpolation i = run.Interp;
+            _out.WriteLine($"запас после 10 с: {run.MinBufferUs}…{run.MaxBufferUs} мкс, ход {i.ClockRate:0.0000}, перестановок {i.ClockResets}");
+            Assert.Equal(0, i.ClockResets);
+            Assert.InRange(run.MinBufferUs, 55_000, 90_000);
+            Assert.InRange(run.MaxBufferUs, 85_000, 110_000);
+            Assert.Equal(0, i.SameTimeFrames);
+            Assert.Equal(0, i.StepViolations);
         }
 
         [Fact]
@@ -280,6 +297,20 @@ namespace Orpheus.Tests
             var t = new TileCoord(5, 7);
             a.SetBaseTile(t, (byte)(a.GetFloor(t) ^ 1), a.GetObject(t));
             Assert.NotEqual(ha, StateHash.Generation(a)); // один тайл — другой хэш
+        }
+
+        [Fact]
+        public void D00_LoginName_Utf8Bytes_OrpheusFits()
+        {
+            Assert.Null(LoginMessage.NameError("Орфей"));
+            Assert.Null(LoginMessage.NameError(new string('я', 16))); // 32 байта
+            Assert.NotNull(LoginMessage.NameError(new string('я', 17))); // 34 байта — протокол бы отверг
+            Assert.Null(LoginMessage.NameError(new string('a', 32)));
+            Assert.NotNull(LoginMessage.NameError(new string('a', 33)));
+            Assert.NotNull(LoginMessage.NameError(" "));
+            Assert.NotNull(LoginMessage.NameError(null));
+            byte[] buf = new byte[LoginMessage.MaxBytes];
+            Assert.True(new LoginMessage { Version = Orpheus.Net.NetModule.Version, Name = new string('я', 16) }.Write(buf) == LoginMessage.MaxBytes);
         }
 
         // ---------- Появление у шва и челнок (net-smoke шва) ----------

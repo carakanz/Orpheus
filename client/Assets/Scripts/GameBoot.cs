@@ -86,7 +86,7 @@ namespace Orpheus.Client
         void Awake()
         {
             Args = ClientArgs.Parse(Environment.GetCommandLineArgs());
-            if (Args.Error != null)
+            if (Args.Error != null && Args.Connect == null)
             {
                 Debug.LogWarning("[boot] аргументы: " + Args.Error + " — взято значение по умолчанию");
             }
@@ -98,6 +98,8 @@ namespace Orpheus.Client
             {
                 if (Args.Error != null)
                 {
+                    // Сетевой режим с ошибкой ключа (например, имя длиннее 32 байт UTF-8) — не входим вовсе (0-017).
+                    Debug.LogError("[boot] аргументы: " + Args.Error + "; ключи: " + ClientArgs.Usage);
                     Application.Quit(1);
                     return;
                 }
