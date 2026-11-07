@@ -275,11 +275,14 @@
     "count": 2,
     "style": "default",
     "prompt": "loose watercolor wash illustration with fine sepia ink linework, transparent layered washes with soft blooms and granulation, visible cold-press paper grain, muted desaturated palette of faded terracotta, sage green, umber and parchment, accents and ornaments in the style of ancient Greek black-figure pottery with meander key patterns, delicate and airy. a lean grey wolf, a hostile enemy creature, standing on all four legs in an aggressive stance, head lowered, teeth bared, ears back, shaggy grey-brown fur with a pale belly, bushy tail, three-quarter side view seen from above, the whole body from nose to tail in frame. top-down game view tilted at about 45 degrees, high three-quarter overhead camera looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "running",
+    "status": "done",
     "picker_url": "/?set=20261107-124732-cc2a0f",
     "queued": "2026-11-07 12:47",
-    "images": [],
-    "checked": "2026-11-07 17:21"
+    "images": [
+      "/files/concepts/20261107-124732-cc2a0f/concept_0.png",
+      "/files/concepts/20261107-124732-cc2a0f/concept_1.png"
+    ],
+    "checked": "2026-11-07 18:11"
   },
   {
     "id": "20261107-151934-d0942e",
@@ -291,11 +294,14 @@
     "count": 2,
     "style": "default",
     "prompt": "painterly hand-painted gouache illustration, thick opaque brush strokes with visible bristle texture, soft painted edges and no outlines, forms built from broad planes of color, warm golden afternoon sunlight, rich warm palette of ochre, olive green, terracotta and sun-bleached cream, glowing warm highlights and cool violet shadows. a sunny Greek meadow floor: short lush green grass seen from above, small patches of clover, scattered tiny white and yellow wildflowers, a few small pebbles, gentle natural variation of green tones. a full-frame painting of open grassy ground seen from straight above, like looking down at your feet, the grass and ground continue past all four edges of the picture and are cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no rocks, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark",
-    "status": "queued",
+    "status": "done",
     "picker_url": "/?set=20261107-151934-d0942e",
     "queued": "2026-11-07 15:19",
-    "images": [],
-    "checked": "2026-11-07 17:21"
+    "images": [
+      "/files/concepts/20261107-151934-d0942e/concept_0.png",
+      "/files/concepts/20261107-151934-d0942e/concept_1.png"
+    ],
+    "checked": "2026-11-07 18:11"
   },
   {
     "id": "20261107-151934-14175d",
@@ -307,11 +313,11 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a sunny Greek meadow floor: short lush green grass seen from above, small patches of clover, scattered tiny white and yellow wildflowers, a few small pebbles, gentle natural variation of green tones. a full-frame painting of open grassy ground seen from straight above, like looking down at your feet, the grass and ground continue past all four edges of the picture and are cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no rocks, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark",
-    "status": "queued",
+    "status": "running",
     "picker_url": "/?set=20261107-151934-14175d",
     "queued": "2026-11-07 15:19",
     "images": [],
-    "checked": "2026-11-07 17:21"
+    "checked": "2026-11-07 18:11"
   },
   {
     "id": "20261107-151934-5fa087",
@@ -327,6 +333,6 @@
     "picker_url": "/?set=20261107-151934-5fa087",
     "queued": "2026-11-07 15:19",
     "images": [],
-    "checked": "2026-11-07 17:21"
+    "checked": "2026-11-07 18:11"
   }
 ]
