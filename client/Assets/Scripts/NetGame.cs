@@ -684,7 +684,7 @@ namespace Orpheus.Client
                 return;
             }
 
-            if (_fatal || state == NetClientState.Rejected || state == NetClientState.Disconnected || (_transport == null && _local == null))
+            if (_fatal || state == NetClientState.Rejected || state == NetClientState.Disconnected || (_transport == null && _local == null && _threadServer == null))
             {
                 Fail($"[smoke] FAILED: {_status}");
                 return;
