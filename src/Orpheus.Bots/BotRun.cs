@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Orpheus.Core.Bots;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
@@ -73,6 +74,27 @@ namespace Orpheus.Bots
 
         /// <summary>Сообщений «часы» принято.</summary>
         public long ClocksReceived { get; set; }
+
+        /// <summary><c>run_seam</c> (0-027): круги; не бегун — null.</summary>
+        public List<RunSeamLap>? Laps { get; set; }
+
+        /// <summary><c>run_seam</c>: точка появления (старт), unit.</summary>
+        public WorldPos RunOrigin { get; set; }
+
+        /// <summary><c>run_seam</c>: позиция в конце (последний снимок, <c>Self</c>), unit.</summary>
+        public WorldPos RunEnd { get; set; }
+
+        /// <summary><c>run_seam</c>: секунд от первого решения до конца четвёртого круга (0 — не дошёл).</summary>
+        public double RunSeconds { get; set; }
+
+        /// <summary><c>seam_watch</c> (0-027): замер наблюдателя; не наблюдатель — null.</summary>
+        public SeamWatch? Watch { get; set; }
+
+        /// <summary>
+        /// Сценарий не выполнен: <c>run_seam</c> — не все 4 круга или невязка ≠ 0; <c>seam_watch</c> — скачок &gt; 0,22 тайла,
+        /// нет замеров или бегущего не видно с какой-то стороны шва.
+        /// </summary>
+        public bool ScenarioFailed { get; set; }
     }
 
     /// <summary>Итог запуска ботов.</summary>
@@ -119,8 +141,23 @@ namespace Orpheus.Bots
             }
         }
 
-        /// <summary>0 — все вошли и ни одного отключения; 1 — иначе.</summary>
-        public int ExitCode => Disconnects == 0 && Rejected == 0 && InGame == Count ? 0 : 1;
+        /// <summary>Ботов, у которых сценарий не выполнен (<see cref="BotStats.ScenarioFailed"/>).</summary>
+        public int ScenarioFailures
+        {
+            get
+            {
+                int n = 0;
+                foreach (BotStats b in Bots)
+                {
+                    n += b.ScenarioFailed ? 1 : 0;
+                }
+
+                return n;
+            }
+        }
+
+        /// <summary>0 — все вошли, ни одного отключения, сценарии (run_seam, seam_watch) выполнены; 1 — иначе.</summary>
+        public int ExitCode => Disconnects == 0 && Rejected == 0 && InGame == Count && ScenarioFailures == 0 ? 0 : 1;
     }
 
     /// <summary>
@@ -211,6 +248,9 @@ namespace Orpheus.Bots
 
             console?.WriteLine($"боты: {o.Count} × {o.Script} → {o.Host}:{o.Port}, {o.Seconds:0.#} с, связь: {(o.SimFor(0).IsActive ? o.SimFor(0).ToString() : "без имитатора")}");
             var watch = Stopwatch.StartNew();
+            var runStart = new double[o.Count];
+            var runEnd = new double[o.Count];
+            double finishedAt = -1;
             bool openSent = false;
             bool openReported = false;
             using (var clock = new TickClock(FrameRate))
@@ -238,6 +278,35 @@ namespace Orpheus.Bots
                         break;
                     }
 
+                    // run_seam / seam_watch: сценарий кончился сам у всех — ещё 1 с (последние снимки), и выход.
+                    bool allFinished = true;
+                    for (int i = 0; i < bots.Length; i++)
+                    {
+                        RunSeamBot? run = bots[i].Runner;
+                        if (run != null && run.Started && runStart[i] == 0)
+                        {
+                            runStart[i] = watch.Elapsed.TotalSeconds;
+                        }
+
+                        if (run != null && run.Done && runEnd[i] == 0)
+                        {
+                            runEnd[i] = watch.Elapsed.TotalSeconds;
+                            console?.WriteLine($"  бот {i}: run_seam — 4 круга за {runEnd[i] - runStart[i]:0.0} с, наибольшая невязка {run.MaxResidualUnits} unit");
+                        }
+
+                        allFinished &= bots[i].Finished;
+                    }
+
+                    if (allFinished && finishedAt < 0)
+                    {
+                        finishedAt = watch.Elapsed.TotalSeconds;
+                    }
+
+                    if (finishedAt >= 0 && watch.Elapsed.TotalSeconds - finishedAt >= 1)
+                    {
+                        break;
+                    }
+
                     NetClient first = bots[0].Client;
                     if (o.OpenForFriends && !openSent && first.State == NetClientState.InGame)
                     {
@@ -255,7 +324,7 @@ namespace Orpheus.Bots
                     if (console != null && watch.Elapsed.TotalSeconds >= nextStatus)
                     {
                         nextStatus += 10;
-                        console.WriteLine($"  {watch.Elapsed.TotalSeconds:0} с: в игре {Count(bots, NetClientState.InGame)} из {bots.Length}, снимков у бота 0 — {bots[0].Client.SnapshotsApplied}");
+                        console.WriteLine($"  {watch.Elapsed.TotalSeconds:0} с: в игре {Count(bots, NetClientState.InGame)} из {bots.Length}, снимков у бота 0 — {bots[0].Client.SnapshotsApplied}{Progress(bots[0])}");
                     }
 
                     clock.WaitNext(stop);
@@ -308,6 +377,23 @@ namespace Orpheus.Bots
                     st.PredResynced = pred.Resynced;
                 }
 
+                RunSeamBot? runner = bots[i].Runner;
+                if (runner != null || o.Script == RunSeamBot.Name)
+                {
+                    st.Laps = runner != null ? new List<RunSeamLap>(runner.Laps) : new List<RunSeamLap>();
+                    st.RunOrigin = runner?.Origin ?? default;
+                    st.RunEnd = c.HasSnapshot ? c.Latest.Self.Position : default;
+                    st.RunSeconds = runEnd[i] > 0 ? runEnd[i] - runStart[i] : 0;
+                    st.ScenarioFailed = runner == null || !runner.AllExact;
+                }
+
+                SeamWatch? sw = bots[i].Watch;
+                if (sw != null || o.Script == SeamWatchBot.Name)
+                {
+                    st.Watch = sw;
+                    st.ScenarioFailed = sw == null || !sw.Passed;
+                }
+
                 st.SnapshotsPerSecond = st.SecondsInGame > 0 ? st.SnapshotsApplied / st.SecondsInGame : 0;
                 if (sims[i] != null)
                 {
@@ -352,9 +438,24 @@ namespace Orpheus.Bots
                                $"предсказание ≤ 0,5 тайла — {report.PredWithinHalfTile:P3}");
             for (int i = 0; i < report.Bots.Count; i++)
             {
-                if (report.Bots[i].RejectText != null)
+                BotStats b = report.Bots[i];
+                if (b.RejectText != null)
                 {
-                    console?.WriteLine($"  бот {i}: {report.Bots[i].RejectText}");
+                    console?.WriteLine($"  бот {i}: {b.RejectText}");
+                }
+
+                if (b.Laps != null)
+                {
+                    console?.WriteLine($"  бот {i}: run_seam — кругов {b.Laps.Count} из {RunSeamBot.LapCount}, {b.RunSeconds:0.0} с{(b.ScenarioFailed ? " — НЕ ВЫПОЛНЕН" : "")}");
+                    foreach (RunSeamLap l in b.Laps)
+                    {
+                        console?.WriteLine($"    {l}");
+                    }
+                }
+
+                if (b.Watch != null)
+                {
+                    console?.WriteLine($"  бот {i}: seam_watch — {WatchText(b.Watch)}{(b.ScenarioFailed ? " — НЕ ВЫПОЛНЕН" : "")}");
                 }
             }
 
@@ -379,6 +480,12 @@ namespace Orpheus.Bots
                     WorldModel world = WorldGenModule.Current.Generate(shape, seed);
                     if (StateHash.Generation(world) != hash)
                     {
+                        // Тестовый мир run_seam (сервер --debug-run-lanes, 0-027): те же полосы — тот же хэш.
+                        RunSeamLanes.Clear(world);
+                    }
+
+                    if (StateHash.Generation(world) != hash)
+                    {
                         console?.WriteLine("боты: хэш генерации мира не совпал с сервером — без предсказания");
                         return null;
                     }
@@ -395,6 +502,27 @@ namespace Orpheus.Bots
 
             Simulation? rules = build.Result;
             return rules == null ? null : new LocalPrediction(c.Shape, rules.Solid, new WorldPos(c.Shape.WidthUnits / 2, c.Shape.HeightUnits / 2));
+        }
+
+        /// <summary>Строка замера наблюдателя для консоли.</summary>
+        public static string WatchText(SeamWatch w) => string.Format(CultureInfo.InvariantCulture,
+            "кадров {0}, в показе {1} (x: восток {2} / запад {3}; y: юг {4} / север {5}), переходов шва x {6}, y {7}; " +
+            "за 1/30 с: замеров {8}, наибольший сдвиг {9:0.000} т (окно {10:0.0} мс), сверх 0,22 — {11} (из них окно > 36,7 мс — {12}); " +
+            "за 1/60 с: наибольший {13:0.000} т, сверх 0,11 — {14}; показ: на новейшем {15}, догон {16}, перестановок {17}",
+            w.Frames, w.FramesInView, w.ViewEastOfX, w.ViewWestOfX, w.ViewSouthOfY, w.ViewNorthOfY, w.CrossingsX, w.CrossingsY,
+            w.Steps30, w.MaxStep30Tiles, w.MaxStep30WindowUs / 1000.0, w.Over30, w.Over30LateWindow, w.MaxStep60Tiles, w.Over60,
+            w.Interp.HoldFrames, w.Interp.CatchUpSteps, w.Interp.ClockResets);
+
+        private static string Progress(NetBot b)
+        {
+            RunSeamBot? r = b.Runner;
+            if (r != null && r.Started)
+            {
+                return r.Done ? ", run_seam: все круги" : $", run_seam: круг {r.Lap + 1}, пройдено {r.Travelled / (double)Torus.SubTilesPerTile:0} т";
+            }
+
+            SeamWatch? w = b.Watch;
+            return w != null ? $", seam_watch: в показе {w.FramesInView} кадров, наибольший сдвиг {w.MaxStep30Tiles:0.000} т" : "";
         }
 
         private static int RttOf(NetBot bot, NetSimTransport? sim) => bot.Client.Transport.RoundTripMs(bot.Client.ServerPeer);
@@ -461,6 +589,7 @@ namespace Orpheus.Bots
             w.WriteNumber("rejected", r.Rejected);
             w.WriteNumber("disconnects", r.Disconnects);
             w.WriteNumber("exitCode", r.ExitCode);
+            w.WriteNumber("scenarioFailures", r.ScenarioFailures);
             w.WriteNumber("predWithinHalfTile", Math.Round(r.PredWithinHalfTile, 6));
             w.WriteNumber("serverPid", r.ServerPid);
             w.WriteNumber("serverReadySeconds", Math.Round(r.ServerReadySeconds, 3));
@@ -512,6 +641,63 @@ namespace Orpheus.Bots
                 w.WriteNumber("clocksReceived", b.ClocksReceived);
                 w.WriteNumber("frameRenumbers", b.FrameRenumbers);
                 w.WriteNumber("owdMs", Math.Round(b.OwdMs, 2));
+                w.WriteBoolean("scenarioFailed", b.ScenarioFailed);
+                if (b.Laps != null)
+                {
+                    w.WriteStartObject("runSeam");
+                    w.WriteNumber("seconds", Math.Round(b.RunSeconds, 3));
+                    w.WriteNumber("originX", b.RunOrigin.X);
+                    w.WriteNumber("originY", b.RunOrigin.Y);
+                    w.WriteNumber("endX", b.RunEnd.X);
+                    w.WriteNumber("endY", b.RunEnd.Y);
+                    w.WriteStartArray("laps");
+                    foreach (RunSeamLap l in b.Laps)
+                    {
+                        w.WriteStartObject();
+                        w.WriteNumber("index", l.Index);
+                        w.WriteString("direction", l.DirectionName);
+                        w.WriteNumber("frames", l.Steps);
+                        w.WriteNumber("residualX", l.Residual.X);
+                        w.WriteNumber("residualY", l.Residual.Y);
+                        w.WriteNumber("approaches", l.Approaches);
+                        w.WriteNumber("maxCrossUnits", l.MaxCrossUnits);
+                        w.WriteEndObject();
+                    }
+
+                    w.WriteEndArray();
+                    w.WriteEndObject();
+                }
+
+                if (b.Watch != null)
+                {
+                    SeamWatch s = b.Watch;
+                    w.WriteStartObject("seamWatch");
+                    w.WriteBoolean("passed", s.Passed);
+                    w.WriteNumber("frames", s.Frames);
+                    w.WriteNumber("framesInView", s.FramesInView);
+                    w.WriteNumber("viewEastOfX", s.ViewEastOfX);
+                    w.WriteNumber("viewWestOfX", s.ViewWestOfX);
+                    w.WriteNumber("viewSouthOfY", s.ViewSouthOfY);
+                    w.WriteNumber("viewNorthOfY", s.ViewNorthOfY);
+                    w.WriteNumber("crossingsX", s.CrossingsX);
+                    w.WriteNumber("crossingsY", s.CrossingsY);
+                    w.WriteNumber("steps30", s.Steps30);
+                    w.WriteNumber("maxStep30Tiles", Math.Round(s.MaxStep30Tiles, 4));
+                    w.WriteNumber("maxStep30WindowMs", Math.Round(s.MaxStep30WindowUs / 1000.0, 2));
+                    w.WriteNumber("over30", s.Over30);
+                    w.WriteNumber("over30LateWindow", s.Over30LateWindow);
+                    w.WriteNumber("maxWindowMs", Math.Round(s.MaxWindowUs / 1000.0, 2));
+                    w.WriteNumber("steps60", s.Steps60);
+                    w.WriteNumber("maxStep60Tiles", Math.Round(s.MaxStep60Tiles, 4));
+                    w.WriteNumber("over60", s.Over60);
+                    w.WriteNumber("interpHoldFrames", s.Interp.HoldFrames);
+                    w.WriteNumber("interpCatchUpSteps", s.Interp.CatchUpSteps);
+                    w.WriteNumber("interpClockResets", s.Interp.ClockResets);
+                    w.WriteNumber("interpStepViolations", s.Interp.StepViolations);
+                    w.WriteNumber("interpSeamSamples", s.Interp.SeamSamples);
+                    w.WriteEndObject();
+                }
+
                 w.WriteEndObject();
             }
 

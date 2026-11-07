@@ -45,9 +45,10 @@ namespace Orpheus.Server
     public sealed class ServerOptions
     {
         public const string Usage =
-            "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander|shuttle[,N:...]]\n" +
+            "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander|shuttle|run_seam[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень]\n" +
             "              [--port P [--public] [--max-players N]] [--spawn-seam (net-smoke: появление у шва)]\n" +
+            "              [--debug-run-lanes (run_seam: расчищенные полосы, появление в углу швов; мир в памяти)]\n" +
             "              [--mode single|host --host-token <32 hex> [--open-address all|<IPv4>] [--open-port P] [--host-grace <сек>]]\n" +
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]\n" +
             "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]]";
@@ -112,6 +113,13 @@ namespace Orpheus.Server
         /// карты; вместе с ботами <c>shuttle</c> — чужие ходят через шов на глазах у клиента.
         /// </summary>
         public bool SpawnSeam { get; set; }
+
+        /// <summary>
+        /// <c>--debug-run-lanes</c> (0-027, приёмка 0.2): тестовый мир для <c>run_seam</c> — полосы бега расчищены на тайлах
+        /// генерации (<see cref="Orpheus.Core.Bots.RunSeamLanes"/>), игроки появляются у угла (0, 0), где сходятся оба шва.
+        /// Только мир в памяти (<c>--create</c> без <c>--world</c>): расчищенный мир не сохраняется.
+        /// </summary>
+        public bool DebugRunLanes { get; set; }
 
         /// <summary>Режим сервера игры (<c>--mode</c>); null — выделенный сервер.</summary>
         public ServerMode? Mode { get; set; }
@@ -201,6 +209,9 @@ namespace Orpheus.Server
                         break;
                     case "--spawn-seam":
                         o.SpawnSeam = true;
+                        break;
+                    case "--debug-run-lanes":
+                        o.DebugRunLanes = true;
                         break;
                     case "--max-players":
                         o.MaxPlayers = ParseInt(a, Value(args, ref i));
@@ -322,6 +333,11 @@ namespace Orpheus.Server
             if (o.WorldDir == null && !o.Create && o.ReplayPath == null)
             {
                 throw new ArgumentException("Нужен --world <папка> (или --create для мира только в памяти).");
+            }
+
+            if (o.DebugRunLanes && (o.WorldDir != null || o.ReplayPath != null || o.RecordPath != null || o.SpawnSeam))
+            {
+                throw new ArgumentException("--debug-run-lanes — только мир в памяти (--create без --world), без --record/--replay и --spawn-seam.");
             }
 
             if (o.Mode.HasValue)

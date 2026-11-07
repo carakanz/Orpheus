@@ -16,6 +16,11 @@ namespace Orpheus.Net.Session
     /// <see cref="LocalPrediction"/> после входа (проходимость — из мира того же зерна); его метрика — расхождение
     /// предсказанной позиции с серверной в тот же кадр на каждой сверке (<see cref="LocalPrediction.Compared"/>).
     /// </para>
+    /// <para>
+    /// <c>run_seam</c> (0-027): решение — каждый кадр ввода, по подтверждённой позиции снимка (<c>Self</c>) и признаку
+    /// «все отправленные кадры с движением сервер шагнул» (AckFrame ≥ номера последнего такого кадра), — см.
+    /// <see cref="RunSeamBot"/>. <c>seam_watch</c>: стоит, показывает чужих через <see cref="SeamWatch"/> и меряет скачок.
+    /// </para>
     /// </summary>
     public sealed class NetBot
     {
@@ -26,12 +31,32 @@ namespace Orpheus.Net.Session
         private LocalPrediction? _pred;
         private uint _reconciledTick;
         private bool _reconciledAny;
+        private SeamWatch? _watch;
+        private long _pollUs;
+        private uint _lastMoveFrame;
+        private bool _moved;
 
         public NetBot(NetClient client, string script, int botIndex)
         {
             Client = client;
             _script = script;
             _botIndex = botIndex;
+            if (script == SeamWatchBot.Name)
+            {
+                // Снимки — в показ наблюдателя тем же порядком, что у клиента Unity (в Poll, со временем этого опроса).
+                Action<Snapshot>? applied = client.SnapshotApplied;
+                client.SnapshotApplied = s =>
+                {
+                    applied?.Invoke(s);
+                    _watch?.OnSnapshot(s, _pollUs);
+                };
+                Action? reset = client.ClockReset;
+                client.ClockReset = () =>
+                {
+                    reset?.Invoke();
+                    _watch?.OnClockReset();
+                };
+            }
         }
 
         public NetClient Client { get; }
@@ -45,9 +70,19 @@ namespace Orpheus.Net.Session
         /// <summary>Предсказание своего персонажа (после входа, если есть фабрика).</summary>
         public LocalPrediction? Prediction => _pred;
 
+        /// <summary>Бег <c>run_seam</c> (после входа); другой сценарий — null.</summary>
+        public RunSeamBot? Runner => _bot as RunSeamBot;
+
+        /// <summary>Наблюдатель <c>seam_watch</c> (после входа); другой сценарий — null.</summary>
+        public SeamWatch? Watch => _watch;
+
+        /// <summary>Сценарий кончился сам: <c>run_seam</c> прошёл все круги, <c>seam_watch</c> остался один.</summary>
+        public bool Finished => Runner?.Done == true || _watch?.Alone == true;
+
         /// <summary>Кадр бота: разобрать пришедшее, сверить, решить, отправить ввод по часам.</summary>
         public void Frame(long nowMicros)
         {
+            _pollUs = nowMicros;
             Client.Poll(nowMicros);
             if (Client.State != NetClientState.InGame)
             {
@@ -56,7 +91,11 @@ namespace Orpheus.Net.Session
 
             if (_bot == null)
             {
-                _bot = SimBot.Create(_script, Client.EntityId, _botIndex, Client.Accept.WorldSeed);
+                _bot = SimBot.Create(_script, Client.EntityId, _botIndex, Client.Accept.WorldSeed, Client.Shape);
+                if (_bot is SeamWatchBot)
+                {
+                    _watch = new SeamWatch(Client.Shape);
+                }
             }
 
             if (_pred == null && PredictionFactory != null)
@@ -75,7 +114,16 @@ namespace Orpheus.Net.Session
             for (int k = 0; k < n; k++)
             {
                 uint next = Client.Frame + 1;
-                if ((next & 1) == 0)
+                if (_bot is RunSeamBot run)
+                {
+                    _current = InputFrame.None;
+                    if (Client.HasSnapshot && Client.Latest.Self.Present)
+                    {
+                        bool settled = !_moved || (int)(Client.Latest.AckFrame - _lastMoveFrame) >= 0;
+                        _current = run.ThinkFrame(Client.Latest.Self.Position, settled);
+                    }
+                }
+                else if ((next & 1) == 0)
                 {
                     var self = new SimEntity { Id = Client.EntityId, Kind = SimEntity.KindCharacter };
                     if (Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity e))
@@ -88,7 +136,14 @@ namespace Orpheus.Net.Session
 
                 Client.SendFrame(_current);
                 _pred?.Sent(Client.Frame, _current);
+                if (_current.Direction.IsMoving)
+                {
+                    _moved = true;
+                    _lastMoveFrame = Client.Frame;
+                }
             }
+
+            _watch?.Frame(nowMicros, Client.EntityId);
         }
     }
 }

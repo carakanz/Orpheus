@@ -162,6 +162,15 @@ namespace Orpheus.Server
             {
                 using OpenedWorld opened = OpenWorld(o, replay?.Header, log);
                 WorldModel world = opened.World;
+                if (o.DebugRunLanes)
+                {
+                    // Тестовый мир run_seam (0-027): полосы на тайлах генерации — хэш генерации считается заново, бот
+                    // с тем же расчищением получает тот же мир.
+                    int cleared = RunSeamLanes.Clear(world);
+                    opened.GenerationHash = StateHash.Generation(world);
+                    log.Warn(0, "world", "отладка: полосы run_seam расчищены, появление у угла (0, 0)", ("tiles", cleared));
+                }
+
                 int players = o.Port.HasValue ? o.MaxPlayers : 0;
                 int loadedEntities = opened.Loaded?.Entities.Length ?? 0;
                 var sim = new Simulation(world, maxEntities: Math.Max(64, Math.Max(CountBots(o), loadedEntities) + players + 1));
@@ -812,6 +821,11 @@ namespace Orpheus.Server
 
         private static TileCoord SpawnCenter(Simulation sim, ServerOptions o, JsonLog log)
         {
+            if (o.DebugRunLanes)
+            {
+                return RunSeamLanes.SpawnCenter;
+            }
+
             if (!o.SpawnSeam)
             {
                 return DefaultSpawnCenter(sim.Shape);
@@ -840,7 +854,7 @@ namespace Orpheus.Server
                 {
                     // Загруженный мир: боты берут сущности из сохранения по порядку, недостающих — ставят.
                     int id = index < sim.EntityCount ? sim.Entities[index].Id : sim.AddEntity(SpawnPoint(sim.Shape, index, center));
-                    bots[index] = SimBot.Create(g.Script, id, index, sim.World.Seed);
+                    bots[index] = SimBot.Create(g.Script, id, index, sim.World.Seed, sim.Shape);
                 }
             }
 

@@ -23,7 +23,7 @@ namespace Orpheus.Bots
     public sealed class BotOptions
     {
         public const string Usage =
-            "Orpheus.Bots --connect host:port [--count N] [--script idle|wander] [--rtt мс] [--jitter мс] [--burst]\n" +
+            "Orpheus.Bots --connect host:port [--count N] [--script idle|wander|shuttle|run_seam|seam_watch] [--rtt мс] [--jitter мс] [--burst]\n" +
             "             [--loss %] [--dup %] [--reorder %] [--seed N] [--minutes M | --seconds S] [--report <json>]\n" +
             "             [--name префикс] [--version x.y.z] [--host-token <32 hex>] [--open-for-friends]\n" +
             "Orpheus.Bots --launch <OrpheusServer> --world <папка> [--create-seed N] [--mode single|host] [--open-address A]\n" +
