@@ -450,56 +450,80 @@ namespace Orpheus.Client
 
         void CheckTiles(string where)
         {
+            int mismatches = CheckViewTiles(_g.View, _g.World, _map, where, out int checkedTiles, out int samples,
+                line => Debug.Log("[smoke] " + line), msg => Fail(msg));
+            _samples += samples;
+            _tileMismatches += mismatches;
+            _tilesChecked += checkedTiles;
+        }
+
+        /// <summary>
+        /// Тайлы окна: Tilemap каждого узла против чанка ядра (офлайн — мир генератора, сеть — чанки от сервера, 0-026);
+        /// по одному образцу каждого вида — строкой <c>sample</c> для сверки с картинкой gen_preview того же зерна
+        /// (<c>tools/check_smoke_tiles.py</c>). Возвращает число расхождений (первые 5 — в <paramref name="fail"/>).
+        /// </summary>
+        public static int CheckViewTiles(WorldView view, WorldModel world, MapShape map, string where, out int checkedTiles,
+            out int samples, Action<string> log, Action<string> fail)
+        {
             int mismatches = 0;
-            int checkedTiles = 0;
+            checkedTiles = 0;
+            samples = 0;
             bool tree = false, rock = false, stone = false, grass = false;
-            WorldModel world = _g.World;
-            ReadOnlySpan<ChunkCoord> chunks = _g.View.Chunks;
+            ReadOnlySpan<ChunkCoord> chunks = view.Chunks;
             for (int k = 0; k < chunks.Length; k++)
             {
                 ChunkCoord c = chunks[k];
-                _g.View.TryGetNode(c, out WorldView.ChunkNode node);
+                view.TryGetNode(c, out WorldView.ChunkNode node);
                 Chunk? chunk = world.FindChunk(c);
+                if (chunk == null)
+                {
+                    mismatches++;
+                    fail($"{where}: чанк {c} нарисован, а в мире ядра его нет");
+                    continue;
+                }
+
                 for (int ly = 0; ly < Torus.ChunkSize; ly++)
                 {
                     for (int lx = 0; lx < Torus.ChunkSize; lx++)
                     {
                         int index = Chunk.IndexOf(lx, ly);
-                        byte floor = chunk!.GetFloor(index);
+                        byte floor = chunk.GetFloor(index);
                         ushort obj = chunk.GetObject(index);
                         Vector3Int cell = WorldView.CellOf(lx, ly);
                         TileBase? f = node.Floor.GetTile(cell);
                         TileBase? o = node.Objects.GetTile(cell);
                         checkedTiles++;
-                        if (f != _g.View.FloorTile(floor) || o != _g.View.ObjectTile(obj))
+                        if (f != view.FloorTile(floor) || o != view.ObjectTile(obj))
                         {
                             if (mismatches++ < 5)
                             {
-                                Fail($"{where}: тайл чанка {c} ({lx},{ly}) нарисован {Name(f)}/{Name(o)}, в ядре пол {floor} объект {obj}");
+                                fail($"{where}: тайл чанка {c} ({lx},{ly}) нарисован {Name(f)}/{Name(o)}, в ядре пол {floor} объект {obj}");
                             }
                         }
 
                         // Образцы для сверки с gen_preview: по одному тайлу каждого вида на проверку.
                         var t = new TileCoord((c.X << Torus.ChunkBits) + lx, (c.Y << Torus.ChunkBits) + ly);
-                        if (obj == ObjectId.Tree && !tree) tree = Sample(t, "tree", floor, obj, f, o);
-                        else if (obj == ObjectId.Rock && !rock) rock = Sample(t, "rock", floor, obj, f, o);
-                        else if (obj == ObjectId.Empty && floor == FloorId.Stone && !stone) stone = Sample(t, "stone", floor, obj, f, o);
-                        else if (obj == ObjectId.Empty && floor == FloorId.Grass && !grass && !StubGenerator.InStartZone(_map, t.X, t.Y))
-                            grass = Sample(t, "grass", floor, obj, f, o);
+                        string? kind = null;
+                        if (obj == ObjectId.Tree && !tree) { tree = true; kind = "tree"; }
+                        else if (obj == ObjectId.Rock && !rock) { rock = true; kind = "rock"; }
+                        else if (obj == ObjectId.Empty && floor == FloorId.Stone && !stone) { stone = true; kind = "stone"; }
+                        else if (obj == ObjectId.Empty && floor == FloorId.Grass && !grass && !StubGenerator.InStartZone(map, t.X, t.Y))
+                        {
+                            grass = true;
+                            kind = "grass";
+                        }
+
+                        if (kind != null)
+                        {
+                            samples++;
+                            log($"sample x={t.X} y={t.Y} kind={kind} floor={floor} obj={obj} drawn={Name(f)}/{Name(o)}");
+                        }
                     }
                 }
             }
 
-            _tileMismatches += mismatches;
-            _tilesChecked += checkedTiles;
-            Debug.Log($"[smoke] tiles {where}: чанков {chunks.Length}, тайлов {checkedTiles}, расхождений {mismatches}");
-        }
-
-        bool Sample(TileCoord t, string kind, byte floor, ushort obj, TileBase? f, TileBase? o)
-        {
-            _samples++;
-            Debug.Log($"[smoke] sample x={t.X} y={t.Y} kind={kind} floor={floor} obj={obj} drawn={Name(f)}/{Name(o)}");
-            return true;
+            log($"tiles {where}: чанков {chunks.Length}, тайлов {checkedTiles}, расхождений {mismatches}");
+            return mismatches;
         }
 
         static string Name(TileBase? t) => t == null ? "-" : t.name;

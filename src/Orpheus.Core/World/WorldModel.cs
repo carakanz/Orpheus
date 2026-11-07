@@ -77,6 +77,21 @@ namespace Orpheus.Core.World
         public Chunk? FindChunk(ChunkCoord coord) =>
             _chunks.TryGetValue(CheckedWrap(coord), out Chunk? chunk) ? chunk : null;
 
+        /// <summary>
+        /// Убрать чанк (клиент: чанк вышел из окна 8 × 6, docs/07 3.5; 0-026). Тайлы убранного чанка — пустые, как у
+        /// несозданного. false — чанка не было.
+        /// </summary>
+        public bool RemoveChunk(ChunkCoord coord)
+        {
+            if (!_chunks.Remove(CheckedWrap(coord)))
+            {
+                return false;
+            }
+
+            _keysStale = true;
+            return true;
+        }
+
         /// <summary>Создать все чанки карты (генератор заполняет весь мир, 3.3: «вся поверхность в памяти»).</summary>
         public void CreateAllChunks()
         {
