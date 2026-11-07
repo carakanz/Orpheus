@@ -173,6 +173,88 @@ namespace Orpheus.Tests
             Assert.Equal(0, allocated);
         }
 
+        /// <summary>
+        /// 0-022 (docs/07, 4.4; 11.6): сетка сущностей по чанкам и обзор по окну чанков в установившемся режиме без
+        /// выделений — 8 игроков бегают туда-обратно по 30 тайлов (окно пересчитывается, сущности уходят и держатся
+        /// гистерезисом), 48 сущностей бродят через границы чанков (переносы в сетке).
+        /// </summary>
+        [Fact]
+        public void D07_S4_4_GridAndView_SteadyState_NoAllocations()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            var sim = new Simulation(world, maxEntities: 64);
+            var npcs = new SimBot[48];
+            for (int i = 0; i < npcs.Length; i++)
+            {
+                WorldPos p = ServerRun.SpawnPoint(world.Shape, i, new TileCoord(512 + (i % 6) * 12 - 30, 512 + (i / 6) * 8 - 32));
+                npcs[i] = SimBot.Create(WanderBot.Name, sim.AddEntity(p), i, 1);
+            }
+
+            var t = new NetTests.ScriptedTransport();
+            var server = new NetServer(t, sim, n => ServerRun.SpawnPoint(world.Shape, n), 8, NetModule.Version);
+            byte[] login = NetTests.Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b));
+            for (int peer = 1; peer <= 8; peer++)
+            {
+                t.Connect(peer);
+                t.Push(peer, NetChannel.Facts, login);
+            }
+
+            server.Poll(0);
+            Assert.Equal(8, server.PlayersInGame);
+
+            // Проход — 300 тактов: 150 на восток, 150 на запад (30 тайлов туда и обратно) — проходы одинаковы.
+            const int Ticks = 300;
+            const int Passes = WarmupPasses + 1;
+            var inputs = new byte[Passes * Ticks * 2][];
+            for (int f = 0; f < inputs.Length; f++)
+            {
+                Input8 d = f % (2 * Ticks) < Ticks ? Input8.East : Input8.West;
+                var m = new InputMessage { FirstFrame = (uint)f + 1, Frame3 = WireFrame.From(new InputFrame(d)) };
+                inputs[f] = NetTests.Encode(b => m.Write(b));
+            }
+
+            int tick = 0;
+            Action pass = () =>
+            {
+                for (int i = 0; i < Ticks; i++, tick++)
+                {
+                    for (int peer = 1; peer <= 8; peer++)
+                    {
+                        t.Push(peer, NetChannel.Unreliable, inputs[2 * tick]);
+                        t.Push(peer, NetChannel.Unreliable, inputs[2 * tick + 1]);
+                    }
+
+                    for (int k = 0; k < npcs.Length; k++)
+                    {
+                        int slot = sim.SlotOf(npcs[k].EntityId);
+                        sim.SetInputAt(slot, npcs[k].Think(sim.Tick + 1, sim.Entities[slot]));
+                    }
+
+                    server.Poll(tick);
+                    sim.Step();
+                    server.SendSnapshots();
+                }
+            };
+
+            for (int i = 0; i < WarmupPasses; i++)
+            {
+                pass();
+            }
+
+            long moves = sim.Grid.Moves;
+            long recalcs = server.ViewWindowRecalcs;
+            long kept = server.ViewKeptByHysteresis;
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            pass();
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            _out.WriteLine($"проход: переносов в сетке {sim.Grid.Moves - moves}, пересчётов окна {server.ViewWindowRecalcs - recalcs}, " +
+                           $"оставлено гистерезисом {server.ViewKeptByHysteresis - kept}, непустых чанков {sim.Grid.ChunkCount}; выделено {allocated} байт");
+            Assert.True(sim.Grid.Moves - moves > 50);
+            Assert.True(server.ViewWindowRecalcs - recalcs >= 8);
+            Assert.True(server.ViewKeptByHysteresis - kept > 0);
+            Assert.Equal(0, allocated);
+        }
+
         // ---------- Такт сервера (из SimTests) ----------
 
         [Fact]

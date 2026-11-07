@@ -29,7 +29,8 @@ namespace Orpheus.Core.Sim
     /// <item><b>Ввод</b>: кадры, пришедшие до такта (<see cref="SetInput"/>), становятся текущим вводом сущностей;
     /// сущность без нового кадра держит прежний.</item>
     /// <item><b>Движение</b>: сущности по номеру, каждая — <see cref="Mover.Step"/> по своему вводу
-    /// (коллизия с тайлами мира, каким он был в начале такта).</item>
+    /// (коллизия с тайлами мира, каким он был в начале такта); перешедшие границу чанка переносятся в сетке
+    /// <see cref="Grid"/> (docs/07, 4.4).</item>
     /// <item><b>Правки мира пачками</b>: запросы такта (<see cref="RequestEdit(TileCoord, byte, ushort)"/>)
     /// группируются по чанку — <b>одна пачка на чанк за такт</b> (3.7, backlog [такт сервера]): чанки по
     /// порядку (Y, затем X), внутри чанка — по порядку прихода; на чанк один вызов
@@ -64,6 +65,7 @@ namespace Orpheus.Core.Sim
         private readonly int[] _frameCount;
         private int _entityCount;
         private int _nextId = 1;
+        private readonly EntityChunkGrid _grid;
 
         private readonly EditRequest[] _edits;
         private readonly EditRequest[] _editScratch;
@@ -101,6 +103,7 @@ namespace Orpheus.Core.Sim
             _hasPending = new bool[maxEntities];
             _frames = new InputFrame[maxEntities * MaxFramesPerTick];
             _frameCount = new int[maxEntities];
+            _grid = new EntityChunkGrid(maxEntities);
             for (int i = 0; i < maxEntities; i++)
             {
                 _frameCount[i] = -1;
@@ -135,6 +138,15 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Число сущностей.</summary>
         public int EntityCount => _entityCount;
+
+        /// <summary>Ёмкость списка сущностей.</summary>
+        public int Capacity => _entities.Length;
+
+        /// <summary>
+        /// Сетка сущностей по чанкам (docs/07, 4.4): места в <see cref="Entities"/> по чанку. Верна между тактами
+        /// (после <see cref="Step"/>, добавления, удаления, загрузки).
+        /// </summary>
+        public EntityChunkGrid Grid => _grid;
 
         /// <summary>Сущности по возрастанию номера.</summary>
         public ReadOnlySpan<SimEntity> Entities => new ReadOnlySpan<SimEntity>(_entities, 0, _entityCount);
@@ -190,6 +202,7 @@ namespace Orpheus.Core.Sim
             };
             _hasPending[slot] = false;
             _frameCount[slot] = -1;
+            _grid.Insert(slot, Torus.ChunkOf(_shape, _entities[slot].Mover.Position));
             _nextId = id + 1;
             return id;
         }
@@ -217,6 +230,7 @@ namespace Orpheus.Core.Sim
             _pending[_entityCount] = default;
             _hasPending[_entityCount] = false;
             _frameCount[_entityCount] = -1;
+            _grid.Rebuild(_shape, Entities); // места после удалённой сдвинулись
             return true;
         }
 
@@ -262,6 +276,7 @@ namespace Orpheus.Core.Sim
             }
 
             _entityCount = entities.Length;
+            _grid.Rebuild(_shape, Entities);
             _nextId = Math.Max(nextId, maxId + 1);
             Tick = tick;
         }
@@ -460,6 +475,12 @@ namespace Orpheus.Core.Sim
                 }
 
                 _frameCount[i] = -1;
+            }
+
+            // Сетка по чанкам: перешедшие границу чанка переносятся (4.4).
+            for (int i = 0; i < _entityCount; i++)
+            {
+                _grid.Update(i, Torus.ChunkOf(_shape, _entities[i].Mover.Position));
             }
 
             // 3. Правки мира: одна пачка на чанк за такт.
