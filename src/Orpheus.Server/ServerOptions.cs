@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
 using Orpheus.Core.Bots;
+using Orpheus.Net.Hosting;
+using Orpheus.Net.Protocol;
 
 namespace Orpheus.Server
 {
@@ -30,6 +34,13 @@ namespace Orpheus.Server
     /// целое поколение; <c>--autosave &lt;сек&gt;</c> — интервал автосохранения в секундах мира (по умолчанию 120;
     /// игроку настройка даётся 1–30 мин, меньше минуты — для тестов); <c>--debug-save-crash &lt;зерно&gt;</c> —
     /// отладочный крючок приёмки 0.4. <c>--ticks</c> — сколько тактов выполнить в этом запуске.
+    /// <para>
+    /// Сервер игры (0-024, docs/07 2.3): <c>--mode single|host --host-token &lt;32 hex&gt;</c> — запущен игрой как дочерний
+    /// процесс; слушает только петлю, вход с токеном — хозяин; <c>--open-address all|IPv4 --open-port P</c> — где слушать по
+    /// «Открыть для друзей» (по умолчанию все адреса, 7777); <c>--host-grace &lt;сек&gt;</c> — сколько ждать упавшую игру хоста
+    /// (60). Порт и токен — в файле-замке <c>host.lock</c> папки мира; строка готовности <c>orpheus-ready port=P</c> — в stdout;
+    /// команда <c>stop</c> строкой в stdin — штатная остановка.
+    /// </para>
     /// </summary>
     public sealed class ServerOptions
     {
@@ -37,6 +48,7 @@ namespace Orpheus.Server
             "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander|shuttle[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень]\n" +
             "              [--port P [--public] [--max-players N]] [--spawn-seam (net-smoke: появление у шва)]\n" +
+            "              [--mode single|host --host-token <32 hex> [--open-address all|<IPv4>] [--open-port P] [--host-grace <сек>]]\n" +
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]";
 
         /// <summary>Автосохранение по умолчанию: раз в 2 мин мира (docs/07, 6.4).</summary>
@@ -47,6 +59,12 @@ namespace Orpheus.Server
 
         /// <summary>Предел отладочного наполнения сохранения: 512 КБ (приёмка 0.4).</summary>
         public const int MaxDebugSavePadKb = 512;
+
+        /// <summary>Ожидание упавшей игры хоста по умолчанию: 60 с (docs/07, 2.3 и 7.6).</summary>
+        public const int DefaultHostGraceSeconds = 60;
+
+        /// <summary>Порт «Открыть для друзей» по умолчанию: UDP 7777 (docs/07, 0 и 10).</summary>
+        public const int DefaultOpenPort = 7777;
 
         public string? WorldDir { get; set; }
         public bool Create { get; set; }
@@ -86,6 +104,21 @@ namespace Orpheus.Server
         /// карты; вместе с ботами <c>shuttle</c> — чужие ходят через шов на глазах у клиента.
         /// </summary>
         public bool SpawnSeam { get; set; }
+
+        /// <summary>Режим сервера игры (<c>--mode</c>); null — выделенный сервер.</summary>
+        public ServerMode? Mode { get; set; }
+
+        /// <summary>Токен хозяина (<c>--host-token</c>).</summary>
+        public HostToken HostToken { get; set; }
+
+        /// <summary>Адрес «Открыть для друзей» (<c>--open-address</c>): null — все адреса.</summary>
+        public IPAddress? OpenAddress { get; set; }
+
+        /// <summary>Порт «Открыть для друзей» (<c>--open-port</c>); 0 — выдаст ОС.</summary>
+        public int OpenPort { get; set; } = DefaultOpenPort;
+
+        /// <summary>Сколько ждать упавшую игру хоста, с (<c>--host-grace</c>).</summary>
+        public int HostGraceSeconds { get; set; } = DefaultHostGraceSeconds;
 
         /// <summary>Для тестов: зовётся в потоке такта после каждого такта (и рассылки снимков). Не ключ.</summary>
         public Action<Orpheus.Core.Sim.Simulation>? AfterTick { get; set; }
@@ -191,6 +224,53 @@ namespace Orpheus.Server
                     case "--debug-save-plan":
                         o.DebugSavePlan = Value(args, ref i);
                         break;
+                    case "--mode":
+                        string mode = Value(args, ref i);
+                        o.Mode = mode == "single" ? ServerMode.Single
+                            : mode == "host" ? ServerMode.Host
+                            : throw new ArgumentException($"--mode: single или host, а не «{mode}».");
+                        break;
+                    case "--host-token":
+                        string token = Value(args, ref i);
+                        if (!HostToken.TryParse(token, out HostToken t))
+                        {
+                            throw new ArgumentException($"--host-token: {HostToken.HexLength} шестнадцатеричных цифр, не нули.");
+                        }
+
+                        o.HostToken = t;
+                        break;
+                    case "--open-address":
+                        string address = Value(args, ref i);
+                        if (address == "all")
+                        {
+                            o.OpenAddress = null;
+                        }
+                        else if (IPAddress.TryParse(address, out IPAddress? ip) && ip.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            o.OpenAddress = ip;
+                        }
+                        else
+                        {
+                            throw new ArgumentException($"--open-address: all или адрес IPv4, а не «{address}».");
+                        }
+
+                        break;
+                    case "--open-port":
+                        o.OpenPort = ParseInt(a, Value(args, ref i));
+                        if (o.OpenPort < 0 || o.OpenPort > 65535)
+                        {
+                            throw new ArgumentException($"--open-port: {o.OpenPort} вне 0…65535.");
+                        }
+
+                        break;
+                    case "--host-grace":
+                        o.HostGraceSeconds = ParseInt(a, Value(args, ref i));
+                        if (o.HostGraceSeconds < 1 || o.HostGraceSeconds > 600)
+                        {
+                            throw new ArgumentException($"--host-grace: 1…600 с, а не {o.HostGraceSeconds}.");
+                        }
+
+                        break;
                     default:
                         throw new ArgumentException($"Неизвестный ключ: {a}.");
                 }
@@ -219,6 +299,23 @@ namespace Orpheus.Server
             if (o.WorldDir == null && !o.Create && o.ReplayPath == null)
             {
                 throw new ArgumentException("Нужен --world <папка> (или --create для мира только в памяти).");
+            }
+
+            if (o.Mode.HasValue)
+            {
+                if (!o.Port.HasValue || o.WorldDir == null || o.HostToken.IsEmpty)
+                {
+                    throw new ArgumentException("--mode: нужны --port, --world и --host-token (сервер игры пишет файл-замок в папку мира).");
+                }
+
+                if (!o.LoopbackOnly)
+                {
+                    throw new ArgumentException("--mode и --public вместе нельзя: сервер игры открывается для друзей командой хозяина.");
+                }
+            }
+            else if (!o.HostToken.IsEmpty)
+            {
+                throw new ArgumentException("--host-token — только с --mode single|host.");
             }
 
             return o;

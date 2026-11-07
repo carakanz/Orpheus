@@ -7,7 +7,7 @@ namespace Orpheus.Net.Protocol
     /// <summary>Тип сообщения — первый байт каждого сообщения (docs/07, 2.10). Схема — в этом файле одним местом.</summary>
     public enum MessageType : byte
     {
-        /// <summary>Клиент → сервер, канал 2: вход (версия, имя).</summary>
+        /// <summary>Клиент → сервер, канал 2: вход (версия, имя, токен хозяина — если есть; 0-024).</summary>
         Login = 1,
 
         /// <summary>Сервер → клиент, канал 2: вход принят (сущность, такт, мир).</summary>
@@ -27,6 +27,15 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, 30 Гц: дельта к подтверждённому снимку (0-014, 4.3): удалённые id + изменившиеся сущности.</summary>
         SnapshotDelta = 7,
+
+        /// <summary>Клиент-хозяин → сервер, канал 2: «Открыть для друзей» (0-024, docs/07 2.3 и 2.13 п. 9).</summary>
+        OpenForFriends = 8,
+
+        /// <summary>Сервер → клиент-хозяин, канал 2: итог «Открыть для друзей» — открыт ли и на каком порту.</summary>
+        OpenResult = 9,
+
+        /// <summary>Сервер → клиент, в данных отключения: мир закрывается — хост вышел, сервер остановлен, вход с другого места (0-024, 7.6).</summary>
+        Closing = 10,
     }
 
     /// <summary>
@@ -65,7 +74,10 @@ namespace Orpheus.Net.Protocol
         public override string ToString() => $"{Major}.{Minor}.{Patch}";
     }
 
-    /// <summary>Вход: версия и имя игрока (UTF-8, 1…<see cref="MaxNameBytes"/> байт).</summary>
+    /// <summary>
+    /// Вход: версия, имя игрока (UTF-8, 1…<see cref="MaxNameBytes"/> байт) и токен хозяина (0-024, docs/07 2.3): игра,
+    /// запустившая сервер, входит с одноразовым токеном из ключей сервера и получает флаг «хозяин»; остальные — без токена.
+    /// </summary>
     public struct LoginMessage
     {
         public const int MaxNameBytes = 32;
@@ -73,8 +85,11 @@ namespace Orpheus.Net.Protocol
         public NetVersion Version;
         public string Name;
 
-        /// <summary>Наибольший размер: тип 1 + версия 6 + длина 1 + имя 32.</summary>
-        public const int MaxBytes = 1 + NetVersion.WireBytes + 1 + MaxNameBytes;
+        /// <summary>Токен хозяина; пустой — обычный игрок.</summary>
+        public HostToken Token;
+
+        /// <summary>Наибольший размер: тип 1 + версия 6 + длина 1 + имя 32 + флаг токена 1 + токен 16.</summary>
+        public const int MaxBytes = 1 + NetVersion.WireBytes + 1 + MaxNameBytes + 1 + HostToken.Bytes;
 
         /// <summary>
         /// Проверка имени до отправки (0-017, замечание 6 проверки 0-012): null — годится; иначе текст для игрока.
@@ -107,7 +122,24 @@ namespace Orpheus.Net.Protocol
             Version.Write(ref w);
             w.WriteByte((byte)n);
             w.WriteBytes(name);
+            w.WriteByte(Token.IsEmpty ? (byte)0 : (byte)1);
+            if (!Token.IsEmpty)
+            {
+                Token.Write(ref w);
+            }
+
             return w.BytesWritten;
+        }
+
+        /// <summary>
+        /// Только версия из входа — до разбора остального (замечание 5 проверки 0-024): формат входа меняется от
+        /// протокола к протоколу (в 3 — флаг токена), и клиент другой сборки должен видеть «Версии не совпадают»,
+        /// а не «Вход не удался». Тип и версия (первые 7 байт) — неизменны во всех протоколах.
+        /// </summary>
+        public static NetVersion ReadVersion(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Login);
+            return NetVersion.Read(ref r);
         }
 
         public static LoginMessage Read(ReadOnlySpan<byte> src)
@@ -122,8 +154,20 @@ namespace Orpheus.Net.Protocol
 
             byte[] name = new byte[n];
             r.ReadBytes(name);
+            byte hasToken = r.ReadByte();
+            if (hasToken > 1)
+            {
+                throw new ProtocolException($"Вход: флаг токена {hasToken}.");
+            }
+
+            HostToken token = hasToken == 1 ? HostToken.Read(ref r) : default;
+            if (hasToken == 1 && token.IsEmpty)
+            {
+                throw new ProtocolException("Вход: токен хозяина из нулей.");
+            }
+
             r.ExpectEnd();
-            return new LoginMessage { Version = v, Name = Encoding.UTF8.GetString(name) };
+            return new LoginMessage { Version = v, Name = Encoding.UTF8.GetString(name), Token = token };
         }
     }
 
@@ -206,6 +250,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сообщение входа испорчено или пришло не первым.</summary>
         BadLogin = 4,
+
+        /// <summary>Токен хозяина не тот (0-024).</summary>
+        BadToken = 5,
     }
 
     /// <summary>Вход отклонён: причина и версия сервера — для «Версии не совпадают: у сервера …, у тебя …».</summary>
@@ -230,7 +277,7 @@ namespace Orpheus.Net.Protocol
         {
             var r = Codec.Begin(src, MessageType.LoginReject);
             byte reason = r.ReadByte();
-            if (reason < (byte)LoginRejectReason.VersionMismatch || reason > (byte)LoginRejectReason.BadLogin)
+            if (reason < (byte)LoginRejectReason.VersionMismatch || reason > (byte)LoginRejectReason.BadToken)
             {
                 throw new ProtocolException($"Отказ входа: причина {reason}.");
             }
@@ -243,6 +290,13 @@ namespace Orpheus.Net.Protocol
         /// <summary>Текст для игрока.</summary>
         public string Describe(NetVersion mine)
         {
+            // Сервер другой сборки мог не разобрать наш вход и ответить «вход испорчен» (сервер протокола 2 не знает флага
+            // токена) — версия в отказе всё равно его: о ней игроку и сказать.
+            if (ServerVersion != mine)
+            {
+                return $"Версии не совпадают: у сервера {ServerVersion}, у тебя {mine}";
+            }
+
             switch (Reason)
             {
                 case LoginRejectReason.VersionMismatch:
@@ -251,6 +305,8 @@ namespace Orpheus.Net.Protocol
                     return "Сервер полон";
                 case LoginRejectReason.BadName:
                     return "Имя не подходит: 1–32 байта";
+                case LoginRejectReason.BadToken:
+                    return "Токен хозяина не подходит: мир открыт другой игрой";
                 default:
                     return "Вход не удался";
             }
@@ -455,7 +511,7 @@ namespace Orpheus.Net.Protocol
             }
 
             byte t = src[0];
-            if (t < (byte)MessageType.Login || t > (byte)MessageType.SnapshotDelta)
+            if (t < (byte)MessageType.Login || t > (byte)MessageType.Closing)
             {
                 throw new ProtocolException($"Неизвестный тип сообщения {t}.");
             }

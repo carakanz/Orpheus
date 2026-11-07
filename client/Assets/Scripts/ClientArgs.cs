@@ -1,6 +1,10 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
+using Orpheus.Net.Hosting;
 using Orpheus.Net.Protocol;
 
 namespace Orpheus.Client
@@ -19,6 +23,16 @@ namespace Orpheus.Client
     /// переходят шов x = 0, начало переезжает на шве (0-017).</item>
     /// <item><c>--hud</c> — текст состояния в окне (в сетевом режиме включено всегда).</item>
     /// <item><c>--screenshot &lt;путь&gt;</c> — кадр мира с персонажем в PNG и выход.</item>
+    /// <item><c>--single</c> / <c>--host</c> — одиночная игра / хост (0-024, docs/07 2.3; меню — потом): игра запускает
+    /// <c>OrpheusServer</c> дочерним процессом (<c>PcServerLauncher</c>) и входит хозяином через 127.0.0.1. Сервер уже
+    /// работает с этим миром (игра упала, 7.6) — подключается к нему по <c>host.lock</c>.</item>
+    /// <item><c>--world &lt;папка&gt;</c> — папка мира; нет <c>world.base</c> — мир создаётся по <c>--seed</c>/<c>--size</c>.
+    /// По умолчанию — <c>Worlds/world-1</c> в <c>Application.persistentDataPath</c>.</item>
+    /// <item><c>--server &lt;путь&gt;</c> — <c>OrpheusServer.exe</c>/<c>.dll</c>; по умолчанию — рядом с <c>Orpheus.exe</c>.</item>
+    /// <item><c>--server-arg A</c> — ещё ключ серверу (повторяемый): <c>--server-arg --bots --server-arg 2:wander</c>.</item>
+    /// <item><c>--open-for-friends</c> — сразу после входа «Открыть для друзей» (иначе клавиша F2).</item>
+    /// <item><c>--open-address IPv4</c>, <c>--open-port P</c> — где открыть для друзей; по умолчанию все адреса и 7777.
+    /// Прогоны и тесты — только 127.0.0.2: бинд на все адреса вызывает окно брандмауэра.</item>
     /// </list>
     /// </summary>
     public sealed class ClientArgs
@@ -57,6 +71,26 @@ namespace Orpheus.Client
 
         public bool Hud;
 
+        /// <summary>Одиночная / хост: сервер дочерним процессом (0-024); null — офлайн или <see cref="Connect"/>.</summary>
+        public ServerMode? Mode;
+
+        /// <summary>Папка мира одиночной/хоста; null — по умолчанию (<c>persistentDataPath/Worlds/world-1</c>).</summary>
+        public string? WorldDir;
+
+        /// <summary>Путь к <c>OrpheusServer</c>; null — рядом со сборкой клиента.</summary>
+        public string? ServerPath;
+
+        /// <summary>Ключи серверу сверх тех, что ставит лаунчер.</summary>
+        public readonly List<string> ServerArgs = new List<string>();
+
+        public bool OpenForFriends;
+
+        /// <summary>Адрес «Открыть для друзей»; null — все адреса (игра).</summary>
+        public string? OpenAddress;
+
+        /// <summary>Порт «Открыть для друзей»: по умолчанию 7777 (docs/07, 0 и 10); 0 — выдаст ОС.</summary>
+        public int OpenPort = 7777;
+
         /// <summary>
         /// Имитатор связи на клиенте (0-019): «RTT,σ,потери%[,зерно]» — например «100,20,1» или «200,30,1,7»; задержка
         /// RTT/2 в каждую сторону (<c>NetSimTransport</c> ядра). 0 — без имитатора. Зерно (0-021) — разные прогоны
@@ -76,7 +110,8 @@ namespace Orpheus.Client
         /// <summary>Текст подсказки для логов и подсказки при ошибке.</summary>
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
-            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь]";
+            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь] " +
+            "[--single|--host] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P]";
 
         public static ClientArgs Parse(string[] args)
         {
@@ -172,6 +207,64 @@ namespace Orpheus.Client
                         }
 
                         break;
+                    case "--single":
+                    case "--host":
+                        ServerMode mode = s == "--single" ? ServerMode.Single : ServerMode.Host;
+                        if (a.Mode.HasValue && a.Mode != mode)
+                        {
+                            a.Error = "--single и --host вместе нельзя";
+                        }
+
+                        a.Mode = mode;
+                        break;
+                    case "--world":
+                    case "--server":
+                    case "--server-arg":
+                        i++;
+                        if (string.IsNullOrEmpty(next))
+                        {
+                            a.Error = s + ": нет значения";
+                        }
+                        else if (s == "--world")
+                        {
+                            a.WorldDir = next;
+                        }
+                        else if (s == "--server")
+                        {
+                            a.ServerPath = next;
+                        }
+                        else
+                        {
+                            a.ServerArgs.Add(next!);
+                        }
+
+                        break;
+                    case "--open-for-friends":
+                        a.OpenForFriends = true;
+                        break;
+                    case "--open-address":
+                        i++;
+                        // Только IPv4-адрес: «все адреса» — умолчание игры, ключом его не просят (окно брандмауэра в прогонах).
+                        if (!IPAddress.TryParse(next ?? string.Empty, out IPAddress? ip) || ip.AddressFamily != AddressFamily.InterNetwork)
+                        {
+                            a.Error = $"--open-address: нужен адрес IPv4 (например 127.0.0.2), дано '{next}'";
+                        }
+                        else
+                        {
+                            a.OpenAddress = ip.ToString();
+                        }
+
+                        break;
+                    case "--open-port":
+                        i++;
+                        if (!int.TryParse(next, NumberStyles.Integer, CultureInfo.InvariantCulture, out a.OpenPort)
+                            || a.OpenPort < 0 || a.OpenPort > 65_535)
+                        {
+                            a.Error = $"--open-port: нужен порт 0…65535, дано '{next}'";
+                            a.OpenPort = 7777;
+                        }
+
+                        break;
                     case "--screenshot":
                         i++;
                         if (string.IsNullOrEmpty(next))
@@ -187,9 +280,19 @@ namespace Orpheus.Client
                 }
             }
 
-            if (a.NetSmokeSeconds > 0 && a.Connect == null)
+            if (a.Mode.HasValue && a.Connect != null)
             {
-                a.Error = "--net-smoke требует --connect";
+                a.Error = "--connect и --single/--host вместе нельзя";
+            }
+
+            if (a.NetSmokeSeconds > 0 && a.Connect == null && !a.Mode.HasValue)
+            {
+                a.Error = "--net-smoke требует --connect, --single или --host";
+            }
+
+            if (a.OpenForFriends && !a.Mode.HasValue)
+            {
+                a.Error = "--open-for-friends — только с --single или --host";
             }
 
             return a;

@@ -385,18 +385,20 @@ namespace Orpheus.Tests
             {
                 // Проверка упала (нет маркера, таймаут, молчание) — дочерний сервер не остаётся висеть:
                 // крючок после crash-point ждёт вечно (0-016, замечание 5 проверки 0-009).
-                if (!process.HasExited)
+                // HasExited тоже может бросить (процесс уже освобождён) — внутри try, чтобы не заслонить исходное падение
+                // (0-024, backlog [тесты], замечание 3 проверки 0-020).
+                try
                 {
-                    try
+                    if (!process.HasExited)
                     {
                         process.Kill(entireProcessTree: true);
                         process.WaitForExit();
                     }
-                    catch (Exception stop) when (failure != null)
-                    {
-                        // Отказ снятия не заслоняет исходное падение: оно — в сообщении и внутренним (0-020, замечание 5 проверки 0-016).
-                        throw new InvalidOperationException($"{failure.Message}{Environment.NewLine}(и сервер не снялся: {stop.Message})", failure);
-                    }
+                }
+                catch (Exception stop) when (failure != null)
+                {
+                    // Отказ снятия не заслоняет исходное падение: оно — в сообщении и внутренним (0-020, замечание 5 проверки 0-016).
+                    throw new InvalidOperationException($"{failure.Message}{Environment.NewLine}(и сервер не снялся: {stop.Message})", failure);
                 }
             }
         }

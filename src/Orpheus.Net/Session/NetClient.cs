@@ -138,6 +138,41 @@ namespace Orpheus.Net.Session
         /// <summary>Каждый принятый (более новый) снимок — после того, как стал <see cref="Latest"/>.</summary>
         public Action<Snapshot>? SnapshotApplied { get; set; }
 
+        // ---------- Хозяин и закрытие мира (0-024) ----------
+
+        /// <summary>Токен хозяина для входа (до подключения): игра, запустившая сервер, входит хозяином.</summary>
+        public HostToken HostToken { get; set; }
+
+        /// <summary>Ответ на «Открыть для друзей»; не было — null.</summary>
+        public OpenResultMessage? OpenResult { get; private set; }
+
+        /// <summary>Сервер закрыл мир (7.6): причина из данных отключения; не было — null.</summary>
+        public ClosingReason? Closing { get; private set; }
+
+        /// <summary>
+        /// Текст для игрока после отключения (0-024): «Хост вышел. Мир сохранён у него» и т. п. по причине закрытия; без
+        /// причины по тайм-ауту — «Связь с хостом потеряна» (7.6, допущение до ответа на вопрос [док] карточки 0-024).
+        /// В игре — null.
+        /// </summary>
+        public string? DisconnectText =>
+            State != NetClientState.Disconnected ? null
+            : Closing.HasValue ? new ClosingMessage { Reason = Closing.Value }.Describe()
+            : DisconnectReason == NetDisconnectReason.Local ? "Вы вышли"
+            : "Связь с хостом потеряна";
+
+        /// <summary>«Открыть для друзей» (2.13 п. 9): только хозяину; ответ — в <see cref="OpenResult"/>.</summary>
+        public void RequestOpenForFriends()
+        {
+            if (State != NetClientState.InGame)
+            {
+                return;
+            }
+
+            int len = new OpenForFriendsMessage().Write(_buf);
+            _transport.Send(_serverPeer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+            _transport.Flush();
+        }
+
         /// <summary>Разобрать пришедшее.</summary>
         public void Poll(long nowMicros) => _transport.Poll(nowMicros, this);
 
@@ -177,7 +212,7 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            int len = new LoginMessage { Version = _version, Name = _name }.Write(_buf);
+            int len = new LoginMessage { Version = _version, Name = _name, Token = HostToken }.Write(_buf);
             _transport.Send(_serverPeer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             State = NetClientState.LoggingIn;
         }
@@ -190,7 +225,18 @@ namespace Orpheus.Net.Session
             }
 
             DisconnectReason = reason;
-            if (State == NetClientState.LoggingIn && payload.Length > 0)
+            if (payload.Length > 0 && payload[0] == (byte)MessageType.Closing)
+            {
+                try
+                {
+                    Closing = ClosingMessage.Read(payload).Reason;
+                }
+                catch (ProtocolException)
+                {
+                    BadMessages++;
+                }
+            }
+            else if (State == NetClientState.LoggingIn && payload.Length > 0)
             {
                 try
                 {
@@ -237,6 +283,9 @@ namespace Orpheus.Net.Session
                             ServerTick = c.ServerTick;
                         }
 
+                        break;
+                    case MessageType.OpenResult when State == NetClientState.InGame:
+                        OpenResult = OpenResultMessage.Read(data);
                         break;
                     case MessageType.Snapshot:
                         break; // снимок обогнал «вход принят» (другой канал) — пропускаем

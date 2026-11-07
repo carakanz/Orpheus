@@ -1,12 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using Orpheus.Net.Hosting;
+using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using Orpheus.Net.Transport;
+using Orpheus.Platform.Pc;
 using Orpheus.Server;
 
 namespace Orpheus.Bots
@@ -47,6 +51,18 @@ namespace Orpheus.Bots
         public int InGame { get; set; }
         public int Rejected { get; set; }
 
+        /// <summary>Сервер, запущенный ботами (<c>--launch</c>) или найденный (<c>--find</c>): процесс; нет — 0.</summary>
+        public int ServerPid { get; set; }
+
+        /// <summary>Секунд от запуска сервера до готовности (<c>--launch</c>).</summary>
+        public double ServerReadySeconds { get; set; }
+
+        /// <summary>«Открыть для друзей»: порт; не открывали или не вышло — −1.</summary>
+        public int OpenedPort { get; set; } = -1;
+
+        /// <summary>Текст отключения у бота 0 (0-024: «Хост вышел…», «Связь с хостом потеряна»).</summary>
+        public string? DisconnectText { get; set; }
+
         /// <summary>Отключений после входа (не по нашей воле) и неудачных подключений.</summary>
         public int Disconnects { get; set; }
 
@@ -67,6 +83,50 @@ namespace Orpheus.Bots
 
         public static BotReport Run(BotOptions o, TextWriter? console, CancellationToken stop = default)
         {
+            // «Игра хоста» (0-024): сервер — дочерним процессом лаунчера или найденный по файлу-замку.
+            IServerInstance? server = null;
+            if (o.LaunchServer != null)
+            {
+                server = new PcServerLauncher(o.LaunchServer).Start(o.Launch);
+                UseEndpoint(o, server.Endpoint);
+                console?.WriteLine($"server pid={server.Endpoint.ProcessId} port={server.Endpoint.Port} ready={server.ReadySeconds.ToString("0.000", CultureInfo.InvariantCulture)}");
+                console?.Flush();
+            }
+            else if (o.FindWorld != null)
+            {
+                var found = new PcServerLauncher(PcServerLauncher.DefaultPath(AppContext.BaseDirectory)).FindRunning(o.FindWorld);
+                if (found == null)
+                {
+                    throw new IOException($"Работающего сервера мира нет: {o.FindWorld} (файл-замок host.lock).");
+                }
+
+                UseEndpoint(o, found.Value);
+                console?.WriteLine($"found pid={found.Value.ProcessId} port={found.Value.Port}");
+                console?.Flush();
+            }
+
+            try
+            {
+                BotReport report = RunBots(o, console, stop);
+                report.ServerPid = server?.Endpoint.ProcessId ?? report.ServerPid;
+                report.ServerReadySeconds = server?.ReadySeconds ?? 0;
+                return report;
+            }
+            finally
+            {
+                server?.Dispose(); // бот-хост закончил штатно — сервер останавливается штатно (сохраняет мир)
+            }
+        }
+
+        private static void UseEndpoint(BotOptions o, ServerEndpoint e)
+        {
+            o.Host = e.Host;
+            o.Port = e.Port;
+            o.HostToken = e.Token;
+        }
+
+        private static BotReport RunBots(BotOptions o, TextWriter? console, CancellationToken stop)
+        {
             var bots = new NetBot[o.Count];
             var sims = new NetSimTransport?[o.Count];
             var entered = new double[o.Count];
@@ -82,6 +142,11 @@ namespace Orpheus.Bots
                 }
 
                 var client = new NetClient(t, serverPeer, $"{o.Name}{i}", o.Version);
+                if (i == 0)
+                {
+                    client.HostToken = o.HostToken;
+                }
+
                 int index = i;
                 if (o.OnSnapshot != null)
                 {
@@ -94,6 +159,8 @@ namespace Orpheus.Bots
 
             console?.WriteLine($"боты: {o.Count} × {o.Script} → {o.Host}:{o.Port}, {o.Seconds:0.#} с, связь: {(o.SimFor(0).IsActive ? o.SimFor(0).ToString() : "без имитатора")}");
             var watch = Stopwatch.StartNew();
+            bool openSent = false;
+            bool openReported = false;
             using (var clock = new TickClock(FrameRate))
             {
                 double nextStatus = 10;
@@ -119,6 +186,20 @@ namespace Orpheus.Bots
                         break;
                     }
 
+                    NetClient first = bots[0].Client;
+                    if (o.OpenForFriends && !openSent && first.State == NetClientState.InGame)
+                    {
+                        first.RequestOpenForFriends();
+                        openSent = true;
+                    }
+
+                    if (!openReported && first.OpenResult.HasValue)
+                    {
+                        openReported = true;
+                        console?.WriteLine($"open-result opened={(first.OpenResult.Value.Opened ? 1 : 0)} port={first.OpenResult.Value.Port}");
+                        console?.Flush();
+                    }
+
                     if (console != null && watch.Elapsed.TotalSeconds >= nextStatus)
                     {
                         nextStatus += 10;
@@ -137,6 +218,8 @@ namespace Orpheus.Bots
                 Count = o.Count,
                 Simulator = o.SimFor(0).IsActive ? o.SimFor(0).ToString() : "нет",
                 Seconds = seconds,
+                OpenedPort = bots.Length > 0 && bots[0].Client.OpenResult is OpenResultMessage r && r.Opened ? r.Port : -1,
+                DisconnectText = bots.Length > 0 ? bots[0].Client.DisconnectText : null,
             };
 
             for (int i = 0; i < bots.Length; i++)
@@ -274,6 +357,14 @@ namespace Orpheus.Bots
             w.WriteNumber("rejected", r.Rejected);
             w.WriteNumber("disconnects", r.Disconnects);
             w.WriteNumber("exitCode", r.ExitCode);
+            w.WriteNumber("serverPid", r.ServerPid);
+            w.WriteNumber("serverReadySeconds", Math.Round(r.ServerReadySeconds, 3));
+            w.WriteNumber("openedPort", r.OpenedPort);
+            if (r.DisconnectText != null)
+            {
+                w.WriteString("disconnectText", r.DisconnectText);
+            }
+
             w.WriteStartArray("bots");
             foreach (BotStats b in r.Bots)
             {
