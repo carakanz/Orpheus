@@ -35,6 +35,7 @@ namespace Orpheus.Client
         IServerInstance? _instance;
         long _nextAliveUs;
         bool _exited;
+        int? _stoppedExitCode; // после Dispose процесс отпущен — код выхода запомнен здесь
 
         public LocalServer(ClientArgs args)
         {
@@ -60,7 +61,7 @@ namespace Orpheus.Client
         public double ReadySeconds => _instance?.ReadySeconds ?? 0;
 
         /// <summary>Код выхода своего процесса сервера; работает или не наш — null.</summary>
-        public int? ExitCode => _instance?.ExitCode;
+        public int? ExitCode => _stoppedExitCode ?? _instance?.ExitCode;
 
         /// <summary>Найти работающий сервер мира или начать запуск (фоном).</summary>
         public void Begin()
@@ -222,6 +223,7 @@ namespace Orpheus.Client
             bool wasRunning = !_instance.HasExited;
             _instance.Stop(StopTimeoutMs);
             int? code = _instance.ExitCode;
+            _stoppedExitCode = code;
             if (wasRunning)
             {
                 Debug.Log($"[host] сервер остановлен: код {(code.HasValue ? code.Value.ToString(CultureInfo.InvariantCulture) : "—")}");
