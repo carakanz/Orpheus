@@ -52,6 +52,55 @@ namespace Orpheus.Net.Session
             public uint LastFrame;
             public bool HasFrame;
             public uint LastSnapshotAck;
+
+            /// <summary>Кольцо отправленных снимков для дельт (0-014); создаётся при входе в игру.</summary>
+            public SentRing? Ring;
+        }
+
+        /// <summary>
+        /// Кольцо «что клиент имеет»: состояние (сущности), отправленное игроку на такте tick.
+        /// Дельта строится от записи с тактом = подтверждение клиента (<c>LastSnapshot</c> ввода).
+        /// </summary>
+        private sealed class SentRing
+        {
+            public const int Depth = 32; // 1 с снимков 30 Гц: клиент, подтверждая, всегда внутри
+
+            public readonly uint[] Tick = new uint[Depth];
+            public readonly bool[] Valid = new bool[Depth];
+            public readonly int[] Count = new int[Depth];
+            public readonly SnapshotEntity[][] Ents = new SnapshotEntity[Depth][];
+            public int Head;
+
+            public SentRing()
+            {
+                for (int i = 0; i < Depth; i++)
+                {
+                    Ents[i] = new SnapshotEntity[Snapshot.MaxEntities];
+                }
+            }
+
+            /// <summary>Индекс записи с тактом <paramref name="tick"/>; нет (клиент подтвердил старое) — −1.</summary>
+            public int Find(uint tick)
+            {
+                for (int i = 0; i < Depth; i++)
+                {
+                    if (Valid[i] && Tick[i] == tick)
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+
+            public void Push(uint tick, SnapshotEntity[] src, int count)
+            {
+                Tick[Head] = tick;
+                Valid[Head] = true;
+                Count[Head] = count;
+                Array.Copy(src, Ents[Head], count);
+                Head = (Head + 1) % Depth;
+            }
         }
 
         private readonly ITransport _transport;
@@ -62,7 +111,21 @@ namespace Orpheus.Net.Session
         private readonly SnapshotLayout _layout;
         private readonly List<Player> _players = new List<Player>();
         private readonly byte[] _buf = new byte[NetSettings.MaxUnreliablePayload];
+        private readonly SnapshotEntity[] _cur = new SnapshotEntity[Snapshot.MaxEntities];
+        private readonly SnapshotEntity[] _merged = new SnapshotEntity[Snapshot.MaxEntities];
+        private readonly SnapshotDeltaMessage _delta = new SnapshotDeltaMessage();
+        private readonly bool[] _matched = new bool[Snapshot.MaxEntities];
+        private readonly int[] _removedIdx = new int[Snapshot.MaxEntities];
+        private readonly int[] _updBase = new int[Snapshot.MaxEntities];
+        private readonly int[] _updCur = new int[Snapshot.MaxEntities];
+        private readonly DeltaFields[] _updFields = new DeltaFields[Snapshot.MaxEntities];
+        private readonly int[] _addCur = new int[Snapshot.MaxEntities];
         private int _spawned;
+
+        /// <summary>
+        /// Контрольный полный кадр — раз в столько тактов (30 = 1 с; 0-014, 4.3). 1 — всегда полный (эталон для тестов).
+        /// </summary>
+        public uint KeyframePeriod { get; set; } = 30;
 
         /// <param name="transport">Транспорт сервера (слушает).</param>
         /// <param name="sim">Такт; сущности игроков добавляются и убираются вне такта.</param>
@@ -100,17 +163,29 @@ namespace Orpheus.Net.Session
             }
         }
 
-        /// <summary>Снимков отправлено.</summary>
+        /// <summary>Снимков отправлено (полных и дельт).</summary>
         public long SnapshotsSent { get; private set; }
 
-        /// <summary>Байт снимков отправлено.</summary>
+        /// <summary>Байт снимков отправлено (полных и дельт).</summary>
         public long SnapshotBytes { get; private set; }
 
-        /// <summary>Наибольший снимок, байт.</summary>
+        /// <summary>Наибольший полный снимок, байт (дельты — <see cref="MaxDeltaBytes"/>).</summary>
         public int MaxSnapshotBytes { get; private set; }
 
         /// <summary>Снимков, обрезанных по бюджету 1200 байт (4.3: ошибка в лог).</summary>
         public long SnapshotsTruncated { get; private set; }
+
+        /// <summary>Дельт отправлено / байт (0-014).</summary>
+        public long DeltasSent { get; private set; }
+
+        /// <inheritdoc cref="DeltasSent"/>
+        public long DeltaBytes { get; private set; }
+
+        /// <summary>Полных снимков отправлено (контрольные, первый, база потеряна, дельта не меньше полного).</summary>
+        public long FullSent { get; private set; }
+
+        /// <summary>Наибольшая дельта, байт.</summary>
+        public int MaxDeltaBytes { get; private set; }
 
         /// <summary>Пакетов ввода принято / отброшено (старые, испорченные).</summary>
         public long InputsAccepted { get; private set; }
@@ -137,7 +212,12 @@ namespace Orpheus.Net.Session
         /// <summary>До такта: события транспорта, вход, ввод.</summary>
         public void Poll(long nowMicros) => _transport.Poll(nowMicros, this);
 
-        /// <summary>После такта: полный снимок каждому игроку в игре.</summary>
+        /// <summary>
+        /// После такта: снимок каждому игроку в игре (0-014, 4.3). База — снимок, который клиент подтвердил
+        /// (<c>LastSnapshot</c> ввода) и который ещё лежит в кольце «что клиент имеет» (32 такта). Есть база —
+        /// дельта к ней; нет (вход, потеря больше секунды) — полный. Плюс контрольный полный раз в
+        /// <see cref="KeyframePeriod"/> тактов и полный вместо дельты, если дельта не меньше полного (все вокруг бегут).
+        /// </summary>
         public void SendSnapshots()
         {
             ReadOnlySpan<SimEntity> entities = _sim.Entities;
@@ -156,41 +236,202 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                var w = new SnapshotWriter(_buf, _layout, tick, pl.LastFrame);
-                WorldPos self = entities[selfSlot].Mover.Position;
-                bool truncated = !Add(ref w, entities[selfSlot]);
-                for (int i = 0; i < entities.Length && !truncated; i++)
-                {
-                    if (i == selfSlot)
-                    {
-                        continue;
-                    }
+                int curCount = BuildView(entities, selfSlot, _cur);
+                SentRing ring = pl.Ring ??= new SentRing();
+                int bi = ring.Find(pl.LastSnapshotAck);
+                bool keyframe = KeyframePeriod <= 1 || tick % KeyframePeriod == 0;
+                uint age = tick - pl.LastSnapshotAck;
 
-                    Int2 d = Torus.Delta(_sim.Shape, self, entities[i].Mover.Position);
-                    if (Math.Abs(d.X) <= InterestHalfWidthUnits && Math.Abs(d.Y) <= InterestHalfHeightUnits)
+                int len = -1;
+                bool truncated = false;
+                if (bi >= 0 && !keyframe && age >= 1 && age <= SnapshotDeltaMessage.MaxBaselineAge)
+                {
+                    len = TryWriteDelta(tick, pl, ring.Ents[bi], ring.Count[bi], curCount, out truncated, out int mergedCount);
+                    if (len > 0)
                     {
-                        truncated = !Add(ref w, entities[i]);
+                        ring.Push(tick, _merged, mergedCount);
+                        DeltasSent++;
+                        DeltaBytes += len;
+                        if (len > MaxDeltaBytes)
+                        {
+                            MaxDeltaBytes = len;
+                        }
                     }
                 }
 
-                int len = w.Finish();
+                if (len < 0)
+                {
+                    len = WriteFull(tick, pl, curCount, out int written);
+                    truncated = written < curCount;
+                    ring.Push(tick, _cur, written); // у клиента будет ровно то, что влезло
+                    FullSent++;
+                    if (len > MaxSnapshotBytes)
+                    {
+                        MaxSnapshotBytes = len;
+                    }
+                }
+
                 if (truncated)
                 {
                     SnapshotsTruncated++;
                     if (SnapshotsTruncated == 1 || SnapshotsTruncated % 300 == 0)
                     {
-                        Log?.Invoke(NetLogLevel.Error, $"снимок для #{pl.EntityId} больше {NetSettings.SnapshotBudget} байт: обрезан до {w.Count} сущностей (всего обрезано {SnapshotsTruncated})");
+                        Log?.Invoke(NetLogLevel.Error, $"снимок для #{pl.EntityId} больше {NetSettings.SnapshotBudget} байт: обрезан (всего обрезано {SnapshotsTruncated})");
                     }
                 }
 
                 _transport.Send(pl.Peer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
                 SnapshotsSent++;
                 SnapshotBytes += len;
-                if (len > MaxSnapshotBytes)
+            }
+        }
+
+        /// <summary>
+        /// Дельта к базе в <see cref="_buf"/>; состояние клиента после неё — в <see cref="_merged"/>. Дельта не меньше
+        /// полного — −1 (вызывающий шлёт полный). Сервер читает свою же дельту и склеивает её той же
+        /// <see cref="SnapshotDeltaMessage.ApplyTo"/>, что и клиент, — номера сущностей в базе совпадают по построению.
+        /// </summary>
+        private int TryWriteDelta(uint tick, Player pl, SnapshotEntity[] baseEnts, int baseCount, int curCount,
+                                  out bool truncated, out int mergedCount)
+        {
+            truncated = false;
+            mergedCount = 0;
+            Array.Clear(_matched, 0, curCount);
+            int removedN = 0;
+            int updatedN = 0;
+            int bits = SnapshotDeltaMessage.HeaderBytes * 8;
+            for (int j = 0; j < baseCount; j++)
+            {
+                SnapshotEntity b = baseEnts[j];
+                int ci = IndexIn(_cur, curCount, b.Id);
+                if (ci < 0 || _cur[ci].Kind != b.Kind)
                 {
-                    MaxSnapshotBytes = len;
+                    _removedIdx[removedN++] = j; // ушла из обзора или сменила вид (тогда придёт новой)
+                    bits += SnapshotDeltaMessage.IndexBits;
+                    continue;
+                }
+
+                _matched[ci] = true;
+                DeltaFields f = DeltaFields.None;
+                if (_cur[ci].Position != b.Position)
+                {
+                    f |= DeltaFields.Position;
+                }
+
+                if (_cur[ci].Direction != b.Direction)
+                {
+                    f |= DeltaFields.Direction;
+                }
+
+                if (f != DeltaFields.None)
+                {
+                    _updBase[updatedN] = j;
+                    _updCur[updatedN] = ci;
+                    _updFields[updatedN] = f;
+                    updatedN++;
+                    bits += SnapshotDeltaMessage.UpdatedBits(f, _layout);
                 }
             }
+
+            int addedN = 0;
+            for (int ci = 0; ci < curCount; ci++)
+            {
+                if (!_matched[ci])
+                {
+                    _addCur[addedN++] = ci;
+                    bits += _layout.EntityBits;
+                }
+            }
+
+            if ((bits + 7) / 8 >= _layout.SizeFor(curCount))
+            {
+                return -1;
+            }
+
+            // Бюджет: исчезнувшие (≤ 255 байт) влезают всегда; дальше — изменения (своя сущность — номер 0, первой),
+            // затем новые. Не влезло — дельта обрезана, остальное дошлёт следующая.
+            var w = new SnapshotDeltaWriter(_buf, _layout, tick, pl.LastFrame, pl.LastSnapshotAck);
+            for (int i = 0; i < removedN; i++)
+            {
+                w.TryAddRemoved(_removedIdx[i]);
+            }
+
+            for (int i = 0; i < updatedN && !truncated; i++)
+            {
+                SnapshotEntity e = _cur[_updCur[i]];
+                truncated = !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction);
+            }
+
+            for (int i = 0; i < addedN && !truncated; i++)
+            {
+                SnapshotEntity e = _cur[_addCur[i]];
+                truncated = !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction);
+            }
+
+            int len = w.Finish();
+            _delta.Read(new ReadOnlySpan<byte>(_buf, 0, len), _layout);
+            mergedCount = _delta.ApplyTo(baseEnts, baseCount, _merged);
+            return len;
+        }
+
+        /// <summary>Полный снимок из <see cref="_cur"/>; возвращает длину, <paramref name="written"/> — сколько влезло.</summary>
+        private int WriteFull(uint tick, Player pl, int curCount, out int written)
+        {
+            var w = new SnapshotWriter(_buf, _layout, tick, pl.LastFrame);
+            for (int i = 0; i < curCount; i++)
+            {
+                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction))
+                {
+                    break;
+                }
+            }
+
+            written = w.Count;
+            return w.Finish();
+        }
+
+        /// <summary>Интерес-окно вокруг себя (свой — первым), позиции квантованы; число сущностей.</summary>
+        private int BuildView(ReadOnlySpan<SimEntity> entities, int selfSlot, SnapshotEntity[] cur)
+        {
+            WorldPos self = entities[selfSlot].Mover.Position;
+            int n = 0;
+            cur[n++] = Quantize(entities[selfSlot]);
+            for (int i = 0; i < entities.Length && n < Snapshot.MaxEntities; i++)
+            {
+                if (i == selfSlot)
+                {
+                    continue;
+                }
+
+                Int2 d = Torus.Delta(_sim.Shape, self, entities[i].Mover.Position);
+                if (Math.Abs(d.X) <= InterestHalfWidthUnits && Math.Abs(d.Y) <= InterestHalfHeightUnits)
+                {
+                    cur[n++] = Quantize(entities[i]);
+                }
+            }
+
+            return n;
+        }
+
+        private static SnapshotEntity Quantize(in SimEntity e) => new SnapshotEntity
+        {
+            Id = e.Id,
+            Kind = e.Kind,
+            Position = SnapshotLayout.Quantize(e.Mover.Position),
+            Direction = e.Input.DirectionCode,
+        };
+
+        private static int IndexIn(SnapshotEntity[] ents, int count, int id)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                if (ents[i].Id == id)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         /// <summary>Часы всем в игре (2.4: после перегрузки, когда такты не догнаны).</summary>

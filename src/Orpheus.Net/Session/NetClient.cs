@@ -26,7 +26,7 @@ namespace Orpheus.Net.Session
     }
 
     /// <summary>
-    /// Клиент без графики (docs/07, 11.3): подключение, вход, ввод 60 Гц пакетами по 4 кадра, приём полных снимков 30 Гц.
+    /// Клиент без графики (docs/07, 11.3): подключение, вход, ввод 60 Гц пакетами по 4 кадра, приём снимков 30 Гц: полных и дельт (0-014), дельта склеивается с базой в полный.
     /// Предсказания пока нет — клиент только применяет снимки: <see cref="Latest"/> — новейший по такту, старые и
     /// дубли (перестановка, имитатор) отбрасываются. Времени внутри нет: темп задаёт вызывающий.
     /// </summary>
@@ -39,12 +39,29 @@ namespace Orpheus.Net.Session
         private readonly byte[] _buf = new byte[NetSettings.MaxUnreliablePayload];
         private Snapshot _latest = new Snapshot();
         private Snapshot _scratch = new Snapshot();
+        private readonly SnapshotDeltaMessage _delta = new SnapshotDeltaMessage();
+
+        /// <summary>
+        /// Базы дельт (0-014, 4.3): применённые снимки последней секунды, ячейка — такт mod 32. Сервер строит
+        /// дельту от снимка, который клиент подтвердил (<c>LastSnapshot</c> ввода), а подтверждение отстаёт на RTT —
+        /// поэтому нужна не одна база, а кольцо.
+        /// </summary>
+        private readonly Snapshot[] _bases = new Snapshot[BaseDepth];
+        private readonly bool[] _baseValid = new bool[BaseDepth];
         private SnapshotLayout _layout;
         private bool _hasSnapshot;
         private InputMessage _input;
 
+        /// <summary>Глубина кольца баз: 32 снимка ≈ 1 с (как у сервера, 4.3).</summary>
+        public const int BaseDepth = 32;
+
         public NetClient(ITransport transport, int serverPeer, string name, NetVersion version)
         {
+            for (int i = 0; i < BaseDepth; i++)
+            {
+                _bases[i] = new Snapshot();
+            }
+
             _transport = transport ?? throw new ArgumentNullException(nameof(transport));
             _serverPeer = serverPeer;
             _name = name;
@@ -97,8 +114,20 @@ namespace Orpheus.Net.Session
         /// <summary>Пропущено тактов между принятыми снимками (потери).</summary>
         public long SnapshotsMissed { get; private set; }
 
+        /// <summary>Дельт применено (0-014).</summary>
+        public long DeltasApplied { get; private set; }
+
+        /// <summary>
+        /// Дельт отброшено: базы <c>BaselineTick</c> нет в кольце (старше секунды или не дошла). Клиент продолжает
+        /// подтверждать последний применённый снимок — сервер построит следующую дельту от него или пришлёт полный.
+        /// </summary>
+        public long DeltasUnmerged { get; private set; }
+
         /// <summary>Испорченных сообщений.</summary>
         public long BadMessages { get; private set; }
+
+        /// <summary>Последняя отвергнутая схема (диагностика в тестах и логах).</summary>
+        public string? LastBadMessage { get; private set; }
 
         /// <summary>Часов принято.</summary>
         public long ClocksReceived { get; private set; }
@@ -196,6 +225,9 @@ namespace Orpheus.Net.Session
                     case MessageType.Snapshot when State == NetClientState.InGame:
                         OnSnapshot(data);
                         break;
+                    case MessageType.SnapshotDelta when State == NetClientState.InGame:
+                        OnDelta(data);
+                        break;
                     case MessageType.Clock when State == NetClientState.InGame:
                         ClockMessage c = ClockMessage.Read(data);
                         ClocksReceived++;
@@ -209,12 +241,14 @@ namespace Orpheus.Net.Session
                         break; // снимок обогнал «вход принят» (другой канал) — пропускаем
                     default:
                         BadMessages++;
+                        LastBadMessage = $"тип {data[0]} в состоянии {State}";
                         break;
                 }
             }
-            catch (ProtocolException)
+            catch (ProtocolException e)
             {
                 BadMessages++;
+                LastBadMessage = e.Message;
             }
         }
 
@@ -227,6 +261,8 @@ namespace Orpheus.Net.Session
             // Кадры 60 Гц: два на такт; первый пакет несёт кадры «до входа» — пустые.
             _input = default;
             _input.FirstFrame = m.ServerTick * 2;
+            _hasSnapshot = false;
+            Array.Clear(_baseValid, 0, BaseDepth);
             State = NetClientState.InGame;
         }
 
@@ -240,6 +276,45 @@ namespace Orpheus.Net.Session
             }
 
             _scratch.Read(data, _layout);
+            _scratch.IsDelta = false;
+            CommitSnapshot();
+        }
+
+        /// <summary>
+        /// Дельта (0-014): склеить с базой из кольца (такт базы — в заголовке) в новый полный снимок; дальше всё
+        /// как у полного — <see cref="Latest"/>, интерполяция и предсказание видят только полные склеенные снимки.
+        /// Базы нет — отбросить (см. <see cref="DeltasUnmerged"/>).
+        /// </summary>
+        private void OnDelta(ReadOnlySpan<byte> data)
+        {
+            uint tick = Snapshot.PeekTick(data);
+            if (_hasSnapshot && (int)(tick - _latest.Tick) <= 0)
+            {
+                SnapshotsStale++;
+                return;
+            }
+
+            _delta.Read(data, _layout);
+            int slot = (int)(_delta.BaselineTick % BaseDepth);
+            Snapshot b = _bases[slot];
+            if (!_baseValid[slot] || b.Tick != _delta.BaselineTick)
+            {
+                DeltasUnmerged++;
+                return;
+            }
+
+            _scratch.Count = _delta.ApplyTo(b.Entities, b.Count, _scratch.Entities);
+            _scratch.Tick = tick;
+            _scratch.AckFrame = _delta.AckFrame;
+            _scratch.IsDelta = true;
+            DeltasApplied++;
+            CommitSnapshot();
+        }
+
+        /// <summary>Собранный в <see cref="_scratch"/> полный снимок становится <see cref="Latest"/> и базой в кольце.</summary>
+        private void CommitSnapshot()
+        {
+            uint tick = _scratch.Tick;
             if (_hasSnapshot)
             {
                 SnapshotsMissed += tick - _latest.Tick - 1;
@@ -249,6 +324,9 @@ namespace Orpheus.Net.Session
             _latest = _scratch;
             _scratch = t;
             _hasSnapshot = true;
+            int slot = (int)(tick % BaseDepth);
+            _latest.CopyTo(_bases[slot]);
+            _baseValid[slot] = true;
             SnapshotsApplied++;
             if ((int)(tick - ServerTick) > 0)
             {

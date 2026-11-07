@@ -72,7 +72,7 @@ namespace Orpheus.Net.Protocol
     }
 
     /// <summary>
-    /// Полный снимок (docs/07, 4.3; дельты — следующей задачей): такт сервера, последний применённый кадр ввода
+    /// Полный снимок (docs/07, 4.3; дельты — <see cref="SnapshotDeltaMessage"/>, 0-014): такт сервера, последний применённый кадр ввода
     /// этого клиента, сущности рядом. Своя сущность — первой. Объект переиспользуется: чтение не выделяет память.
     /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, число сущностей u8; затем сущности по битам
     /// (<see cref="SnapshotLayout"/>).</para>
@@ -90,6 +90,10 @@ namespace Orpheus.Net.Protocol
         public uint Tick;
         public uint AckFrame;
         public int Count;
+
+        /// <summary>true — объект получен склейкой дельты (0-014), не из полного кадра.</summary>
+        public bool IsDelta;
+
         public readonly SnapshotEntity[] Entities = new SnapshotEntity[MaxEntities];
 
         /// <summary>Сущность по номеру; нет — false.</summary>
@@ -114,6 +118,7 @@ namespace Orpheus.Net.Protocol
             into.Tick = Tick;
             into.AckFrame = AckFrame;
             into.Count = Count;
+            into.IsDelta = IsDelta;
             Array.Copy(Entities, into.Entities, Count);
         }
 
@@ -160,12 +165,14 @@ namespace Orpheus.Net.Protocol
             Tick = tick;
             AckFrame = ack;
             Count = count;
+            IsDelta = false;
         }
 
-        /// <summary>Номер сущности в заголовке не читая всего снимка — такт (для отбрасывания старых).</summary>
+        /// <summary>Такт из заголовка, не читая всего снимка (для отбрасывания старых); годится и для дельты (0-014).</summary>
         public static uint PeekTick(ReadOnlySpan<byte> src)
         {
-            BitReader r = Codec.Begin(src, MessageType.Snapshot);
+            MessageType t = Codec.TypeOf(src);
+            BitReader r = Codec.Begin(src, t == MessageType.SnapshotDelta ? MessageType.SnapshotDelta : MessageType.Snapshot);
             return r.ReadUInt32();
         }
 
@@ -222,6 +229,359 @@ namespace Orpheus.Net.Protocol
         {
             Snapshot.PatchCount(_dest, _count);
             return _w.BytesWritten;
+        }
+    }
+
+    /// <summary>Поля изменившейся сущности в дельте (маска, 4.3).</summary>
+    [Flags]
+    public enum DeltaFields : byte
+    {
+        None = 0,
+        Position = 1,
+        Direction = 2,
+    }
+
+    /// <summary>
+    /// Дельта снимка (docs/07, 4.3; карточка 0-014): что изменилось относительно базы — снимка, который клиент
+    /// подтвердил (<c>LastSnapshot</c> ввода). База — полный склеенный снимок; сущности в ней адресуются
+    /// <b>номером в базе</b> (8 бит), а не id: исчезнувшая — номером, изменившаяся — номером, маской полей и полями,
+    /// новая — полной записью, как в полном снимке. Порядок сущностей после склейки задаёт <see cref="ApplyTo"/> —
+    /// одна функция у сервера (кольцо «что клиент имеет») и у клиента, поэтому номера совпадают.
+    /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, отставание базы u8 (такт − такт базы, 1…255),
+    /// исчезнувших u8, изменившихся u8, новых u8; затем исчезнувшие (номер 8 бит), изменившиеся (номер 8 бит,
+    /// маска 2 бита, позиция <see cref="SnapshotLayout"/> если есть в маске, направление 4 бита если есть),
+    /// новые (запись полного снимка).</para>
+    /// </summary>
+    public sealed class SnapshotDeltaMessage
+    {
+        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + отставание базы 1 + три числа по 1.</summary>
+        public const int HeaderBytes = 13;
+
+        /// <summary>Бит на номер сущности в базе.</summary>
+        public const int IndexBits = 8;
+
+        /// <summary>Бит на маску полей.</summary>
+        public const int MaskBits = 2;
+
+        /// <summary>Наибольшее отставание базы (поле — u8).</summary>
+        public const int MaxBaselineAge = 255;
+
+        private const int RemovedOffset = 10;
+        private const int UpdatedOffset = 11;
+        private const int AddedOffset = 12;
+
+        public uint Tick;
+        public uint AckFrame;
+        public uint BaselineTick;
+
+        public int RemovedCount;
+        public readonly int[] Removed = new int[Snapshot.MaxEntities];
+
+        public int UpdatedCount;
+        public readonly int[] UpdatedIndex = new int[Snapshot.MaxEntities];
+        public readonly DeltaFields[] UpdatedFields = new DeltaFields[Snapshot.MaxEntities];
+
+        /// <summary>Новые значения изменившихся: действительны поля из <see cref="UpdatedFields"/>.</summary>
+        public readonly SnapshotEntity[] Updated = new SnapshotEntity[Snapshot.MaxEntities];
+
+        public int AddedCount;
+        public readonly SnapshotEntity[] Added = new SnapshotEntity[Snapshot.MaxEntities];
+
+        // Склейка: метка на номер базы (0 — без изменений, 1 — исчезла, 2+k — изменение k).
+        private readonly int[] _mark = new int[Snapshot.MaxEntities];
+
+        /// <summary>Бит на изменившуюся сущность с полями <paramref name="fields"/>.</summary>
+        public static int UpdatedBits(DeltaFields fields, in SnapshotLayout layout) =>
+            IndexBits + MaskBits + ((fields & DeltaFields.Position) != 0 ? layout.BitsX + layout.BitsY : 0) +
+            ((fields & DeltaFields.Direction) != 0 ? SnapshotLayout.DirectionBits : 0);
+
+        /// <summary>Прочитать дельту в этот объект (номера базы проверяет <see cref="ApplyTo"/>).</summary>
+        public void Read(ReadOnlySpan<byte> src, in SnapshotLayout layout)
+        {
+            BitReader r = Codec.Begin(src, MessageType.SnapshotDelta);
+            uint tick = r.ReadUInt32();
+            uint ack = r.ReadUInt32();
+            int age = r.ReadByte();
+            int removed = r.ReadByte();
+            int updated = r.ReadByte();
+            int added = r.ReadByte();
+            if (age == 0)
+            {
+                throw new ProtocolException("Дельта: отставание базы 0.");
+            }
+
+            for (int i = 0; i < removed; i++)
+            {
+                Removed[i] = (int)r.ReadBits(IndexBits);
+            }
+
+            for (int i = 0; i < updated; i++)
+            {
+                UpdatedIndex[i] = (int)r.ReadBits(IndexBits);
+                var f = (DeltaFields)r.ReadBits(MaskBits);
+                if (f == DeltaFields.None)
+                {
+                    throw new ProtocolException("Дельта: изменившаяся сущность без полей.");
+                }
+
+                UpdatedFields[i] = f;
+                ref SnapshotEntity e = ref Updated[i];
+                if ((f & DeltaFields.Position) != 0)
+                {
+                    e.Position = ReadPosition(ref r, layout);
+                }
+
+                if ((f & DeltaFields.Direction) != 0)
+                {
+                    e.Direction = (byte)r.ReadBits(SnapshotLayout.DirectionBits);
+                    if (e.Direction > InputFrame.MaxDirectionCode)
+                    {
+                        throw new ProtocolException($"Дельта: код направления {e.Direction} > 8.");
+                    }
+                }
+            }
+
+            for (int i = 0; i < added; i++)
+            {
+                ref SnapshotEntity e = ref Added[i];
+                e.Id = (int)r.ReadBits(SnapshotLayout.IdBits);
+                e.Kind = (byte)r.ReadBits(SnapshotLayout.KindBits);
+                e.Position = ReadPosition(ref r, layout);
+                e.Direction = (byte)r.ReadBits(SnapshotLayout.DirectionBits);
+                if (e.Direction > InputFrame.MaxDirectionCode)
+                {
+                    throw new ProtocolException($"Дельта: сущность {e} с кодом направления > 8.");
+                }
+            }
+
+            r.ExpectEnd();
+            Tick = tick;
+            AckFrame = ack;
+            BaselineTick = tick - (uint)age;
+            RemovedCount = removed;
+            UpdatedCount = updated;
+            AddedCount = added;
+        }
+
+        /// <summary>
+        /// Склеить: база <paramref name="baseEnts"/>[0..<paramref name="baseCount"/>) → <paramref name="into"/>
+        /// (не та же память). Порядок: сущности базы по порядку без исчезнувших, изменения на месте, затем новые.
+        /// Своя сущность базы (номер 0) так и остаётся первой. Номер вне базы, повтор — <see cref="ProtocolException"/>.
+        /// </summary>
+        public int ApplyTo(SnapshotEntity[] baseEnts, int baseCount, SnapshotEntity[] into)
+        {
+            Array.Clear(_mark, 0, baseCount);
+            for (int i = 0; i < RemovedCount; i++)
+            {
+                int j = Removed[i];
+                if (j >= baseCount || _mark[j] != 0)
+                {
+                    throw new ProtocolException($"Дельта: исчезнувшая №{j} вне базы из {baseCount} или повтор.");
+                }
+
+                _mark[j] = 1;
+            }
+
+            for (int i = 0; i < UpdatedCount; i++)
+            {
+                int j = UpdatedIndex[i];
+                if (j >= baseCount || _mark[j] != 0)
+                {
+                    throw new ProtocolException($"Дельта: изменившаяся №{j} вне базы из {baseCount} или повтор.");
+                }
+
+                _mark[j] = 2 + i;
+            }
+
+            int n = 0;
+            for (int j = 0; j < baseCount; j++)
+            {
+                int m = _mark[j];
+                if (m == 1)
+                {
+                    continue;
+                }
+
+                SnapshotEntity e = baseEnts[j];
+                if (m >= 2)
+                {
+                    int k = m - 2;
+                    if ((UpdatedFields[k] & DeltaFields.Position) != 0)
+                    {
+                        e.Position = Updated[k].Position;
+                    }
+
+                    if ((UpdatedFields[k] & DeltaFields.Direction) != 0)
+                    {
+                        e.Direction = Updated[k].Direction;
+                    }
+                }
+
+                into[n++] = e;
+            }
+
+            if (n + AddedCount > Snapshot.MaxEntities)
+            {
+                throw new ProtocolException($"Дельта: после склейки {n + AddedCount} сущностей > {Snapshot.MaxEntities}.");
+            }
+
+            Array.Copy(Added, 0, into, n, AddedCount);
+            return n + AddedCount;
+        }
+
+        private static WorldPos ReadPosition(ref BitReader r, in SnapshotLayout layout)
+        {
+            int qx = (int)r.ReadBits(layout.BitsX);
+            int qy = (int)r.ReadBits(layout.BitsY);
+            var p = new WorldPos(
+                (qx << SnapshotLayout.QuantShift) | (1 << (SnapshotLayout.QuantShift - 1)),
+                (qy << SnapshotLayout.QuantShift) | (1 << (SnapshotLayout.QuantShift - 1)));
+            if (p.X >= layout.Shape.WidthUnits || p.Y >= layout.Shape.HeightUnits)
+            {
+                throw new ProtocolException($"Дельта: позиция {p} вне карты.");
+            }
+
+            return p;
+        }
+
+        internal static void PatchCounts(Span<byte> dest, int removed, int updated, int added)
+        {
+            dest[RemovedOffset] = (byte)removed;
+            dest[UpdatedOffset] = (byte)updated;
+            dest[AddedOffset] = (byte)added;
+        }
+    }
+
+    /// <summary>
+    /// Запись дельты без выделений. Разделы — строго по порядку: исчезнувшие, изменившиеся, новые (иначе
+    /// <see cref="InvalidOperationException"/>). <c>TryAdd*</c> отказывает, когда запись не влезает в лимит байт
+    /// (бюджет 1200) или в 255, — сервер шлёт то, что влезло: не влезшее изменение клиент оставит из базы,
+    /// не влезшую новую сущность дошлёт следующая дельта.
+    /// </summary>
+    public ref struct SnapshotDeltaWriter
+    {
+        private readonly Span<byte> _dest;
+        private readonly SnapshotLayout _layout;
+        private readonly int _limitBits;
+        private BitWriter _w;
+        private int _section;
+        private int _removed;
+        private int _updated;
+        private int _added;
+
+        /// <param name="baselineTick">Такт базы: от <paramref name="tick"/> − 255 до <paramref name="tick"/> − 1.</param>
+        public SnapshotDeltaWriter(Span<byte> dest, in SnapshotLayout layout, uint tick, uint ackFrame, uint baselineTick, int limitBytes = NetSettings.SnapshotBudget)
+        {
+            uint age = tick - baselineTick;
+            if (age == 0 || age > SnapshotDeltaMessage.MaxBaselineAge)
+            {
+                throw new ArgumentOutOfRangeException(nameof(baselineTick), $"база {baselineTick} при такте {tick}: отставание 1…255");
+            }
+
+            _dest = dest;
+            _layout = layout;
+            _limitBits = Math.Min(limitBytes, dest.Length) * 8;
+            _w = new BitWriter(dest);
+            _section = 0;
+            _removed = 0;
+            _updated = 0;
+            _added = 0;
+            _w.WriteByte((byte)MessageType.SnapshotDelta);
+            _w.WriteUInt32(tick);
+            _w.WriteUInt32(ackFrame);
+            _w.WriteByte((byte)age);
+            _w.WriteByte(0); // числа разделов — в Finish
+            _w.WriteByte(0);
+            _w.WriteByte(0);
+        }
+
+        /// <summary>Записано: исчезнувших, изменившихся, новых.</summary>
+        public int Removed => _removed;
+
+        /// <inheritdoc cref="Removed"/>
+        public int Updated => _updated;
+
+        /// <inheritdoc cref="Removed"/>
+        public int Added => _added;
+
+        /// <summary>Исчезнувшая сущность базы (номер в базе); не влезла — false.</summary>
+        public bool TryAddRemoved(int baseIndex)
+        {
+            Enter(0);
+            if (_removed == Snapshot.MaxEntities || _w.BitPosition + SnapshotDeltaMessage.IndexBits > _limitBits)
+            {
+                return false;
+            }
+
+            _w.WriteBits((uint)baseIndex, SnapshotDeltaMessage.IndexBits);
+            _removed++;
+            return true;
+        }
+
+        /// <summary>Изменившаяся сущность базы: номер, поля по маске; не влезла — false (ничего не записано).</summary>
+        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction)
+        {
+            Enter(1);
+            if (fields == DeltaFields.None)
+            {
+                throw new ArgumentException("пустая маска полей", nameof(fields));
+            }
+
+            if (_updated == Snapshot.MaxEntities || _w.BitPosition + SnapshotDeltaMessage.UpdatedBits(fields, _layout) > _limitBits)
+            {
+                return false;
+            }
+
+            _w.WriteBits((uint)baseIndex, SnapshotDeltaMessage.IndexBits);
+            _w.WriteBits((uint)fields, SnapshotDeltaMessage.MaskBits);
+            if ((fields & DeltaFields.Position) != 0)
+            {
+                _w.WriteBits((uint)(position.X >> SnapshotLayout.QuantShift), _layout.BitsX);
+                _w.WriteBits((uint)(position.Y >> SnapshotLayout.QuantShift), _layout.BitsY);
+            }
+
+            if ((fields & DeltaFields.Direction) != 0)
+            {
+                _w.WriteBits(direction, SnapshotLayout.DirectionBits);
+            }
+
+            _updated++;
+            return true;
+        }
+
+        /// <summary>Новая сущность — полной записью; не влезла — false.</summary>
+        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction)
+        {
+            Enter(2);
+            if (_added == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
+            {
+                return false;
+            }
+
+            _w.WriteBits((uint)id, SnapshotLayout.IdBits);
+            _w.WriteBits(kind, SnapshotLayout.KindBits);
+            _w.WriteBits((uint)(position.X >> SnapshotLayout.QuantShift), _layout.BitsX);
+            _w.WriteBits((uint)(position.Y >> SnapshotLayout.QuantShift), _layout.BitsY);
+            _w.WriteBits(direction, SnapshotLayout.DirectionBits);
+            _added++;
+            return true;
+        }
+
+        /// <summary>Закрыть дельту: записать числа; вернуть длину в байтах.</summary>
+        public int Finish()
+        {
+            SnapshotDeltaMessage.PatchCounts(_dest, _removed, _updated, _added);
+            return _w.BytesWritten;
+        }
+
+        private void Enter(int section)
+        {
+            if (section < _section)
+            {
+                throw new InvalidOperationException("Дельта: разделы пишутся по порядку — исчезнувшие, изменившиеся, новые.");
+            }
+
+            _section = section;
         }
     }
 }

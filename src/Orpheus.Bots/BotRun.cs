@@ -23,6 +23,8 @@ namespace Orpheus.Bots
         public long SnapshotsApplied { get; set; }
         public long SnapshotsStale { get; set; }
         public long SnapshotsMissed { get; set; }
+        public long DeltasApplied { get; set; }
+        public long DeltasUnmerged { get; set; }
         public double SnapshotsPerSecond { get; set; }
         public long InputsSent { get; set; }
         public long BadMessages { get; set; }
@@ -150,6 +152,8 @@ namespace Orpheus.Bots
                     SnapshotsApplied = c.SnapshotsApplied,
                     SnapshotsStale = c.SnapshotsStale,
                     SnapshotsMissed = c.SnapshotsMissed,
+                    DeltasApplied = c.DeltasApplied,
+                    DeltasUnmerged = c.DeltasUnmerged,
                     InputsSent = c.InputsSent,
                     BadMessages = c.BadMessages,
                 };
@@ -290,6 +294,8 @@ namespace Orpheus.Bots
                 w.WriteNumber("snapshotsApplied", b.SnapshotsApplied);
                 w.WriteNumber("snapshotsStale", b.SnapshotsStale);
                 w.WriteNumber("snapshotsMissed", b.SnapshotsMissed);
+                w.WriteNumber("deltasApplied", b.DeltasApplied);
+                w.WriteNumber("deltasUnmerged", b.DeltasUnmerged);
                 w.WriteNumber("snapshotsPerSecond", Math.Round(b.SnapshotsPerSecond, 2));
                 w.WriteNumber("inputsSent", b.InputsSent);
                 w.WriteNumber("badMessages", b.BadMessages);

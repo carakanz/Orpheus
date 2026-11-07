@@ -24,6 +24,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: часы — номер такта сервера.</summary>
         Clock = 6,
+
+        /// <summary>Сервер → клиент, 30 Гц: дельта к подтверждённому снимку (0-014, 4.3): удалённые id + изменившиеся сущности.</summary>
+        SnapshotDelta = 7,
     }
 
     /// <summary>
@@ -427,7 +430,7 @@ namespace Orpheus.Net.Protocol
             }
 
             byte t = src[0];
-            if (t < (byte)MessageType.Login || t > (byte)MessageType.Clock)
+            if (t < (byte)MessageType.Login || t > (byte)MessageType.SnapshotDelta)
             {
                 throw new ProtocolException($"Неизвестный тип сообщения {t}.");
             }
