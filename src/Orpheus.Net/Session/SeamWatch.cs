@@ -50,6 +50,13 @@ namespace Orpheus.Net.Session
         /// </summary>
         public const long AloneAfterUs = 3_000_000;
 
+        /// <summary>
+        /// Первая секунда показа чужого (от первого кадра, где он виден, по местным часам) — не в счёт буквального сдвига
+        /// (<see cref="Over30"/>, <see cref="MaxStep30Tiles"/>): на входе первые кадры ввода бегущего приходят на сервер пачкой
+        /// (проверка 0-027: 3 окна на чистой сети — такты 17–18 после входа, не шов). Они — в <see cref="Over30Warmup"/>.
+        /// </summary>
+        public const long WarmupUs = 1_000_000;
+
         /// <summary>«Рядом» для <see cref="AloneAfterUs"/>: чужой в последнем снимке ближе стольких тайлов по каждой оси (окно обзора — 6 × 4 чанка).</summary>
         public const int NearTiles = 24;
 
@@ -96,6 +103,7 @@ namespace Orpheus.Net.Session
         private readonly MapShape _map;
         private readonly Dictionary<int, Track> _tracks = new Dictionary<int, Track>();
         private readonly Dictionary<int, RefTrack> _refs = new Dictionary<int, RefTrack>();
+        private readonly Dictionary<int, long> _firstShownUs = new Dictionary<int, long>();
         private long _frame;
         private long _lastSeenUs = -1;
         private bool _lastNear;
@@ -137,14 +145,17 @@ namespace Orpheus.Net.Session
         /// <summary>Замеров сдвига за 1/30 с (окно из трёх кадров подряд в показе).</summary>
         public long Steps30 { get; private set; }
 
-        /// <summary>Наибольший сдвиг за 1/30 с, тайла.</summary>
+        /// <summary>Наибольший сдвиг за 1/30 с (кроме первой секунды показа чужого), тайла.</summary>
         public double MaxStep30Tiles { get; private set; }
 
         /// <summary>Местное время окна наибольшего сдвига за 1/30 с, мкс (≈ 33 333 при ровном цикле).</summary>
         public long MaxStep30WindowUs { get; private set; }
 
-        /// <summary>Сдвигов за 1/30 с больше <see cref="LimitPer30Tiles"/>.</summary>
+        /// <summary>Сдвигов за 1/30 с больше <see cref="LimitPer30Tiles"/> (кроме первой секунды показа чужого, <see cref="WarmupUs"/>).</summary>
         public long Over30 { get; private set; }
+
+        /// <summary>Сдвигов за 1/30 с больше <see cref="LimitPer30Tiles"/> в первую секунду показа чужого — не в счёт.</summary>
+        public long Over30Warmup { get; private set; }
 
         /// <summary>Из них — в окне дольше 1,1 × 1/30 с по местным часам (опоздал кадр цикла бота, а не показ).</summary>
         public long Over30LateWindow { get; private set; }
@@ -336,6 +347,13 @@ namespace Orpheus.Net.Session
         private void Measure(int id, WorldPos from, float dx, float dy, long localUs)
         {
             bool hasRef = RefAt(id, Interp.RenderTimeUs, out double rx, out double ry, out int epoch);
+            if (!_firstShownUs.TryGetValue(id, out long shownUs))
+            {
+                shownUs = localUs;
+                _firstShownUs[id] = shownUs;
+            }
+
+            bool warmup = localUs - shownUs < WarmupUs;
             // Показанная позиция (по тору, в пределах карты) — для сторон шва.
             double px = Wrap(from.X + (double)dx, _map.WidthUnits);
             double py = Wrap(from.Y + (double)dy, _map.HeightUnits);
@@ -383,7 +401,14 @@ namespace Orpheus.Net.Session
                     long window = localUs - tr.PrevLocalUs;
                     Steps30++;
                     MaxWindowUs = Math.Max(MaxWindowUs, window);
-                    if (step30 > MaxStep30Tiles)
+                    if (warmup)
+                    {
+                        if (step30 > LimitPer30Tiles)
+                        {
+                            Over30Warmup++;
+                        }
+                    }
+                    else if (step30 > MaxStep30Tiles)
                     {
                         MaxStep30Tiles = step30;
                         MaxStep30WindowUs = window;
@@ -398,7 +423,7 @@ namespace Orpheus.Net.Session
                         OverExcess++;
                     }
 
-                    if (step30 > LimitPer30Tiles)
+                    if (!warmup && step30 > LimitPer30Tiles)
                     {
                         Over30++;
                         if (window * 10 > 2 * FrameUs * 11)

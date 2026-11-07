@@ -84,15 +84,33 @@ namespace Orpheus.Bots
         /// <summary><c>run_seam</c>: позиция в конце (последний снимок, <c>Self</c>), unit.</summary>
         public WorldPos RunEnd { get; set; }
 
-        /// <summary><c>run_seam</c>: секунд от первого решения до конца четвёртого круга (0 — не дошёл).</summary>
+        /// <summary><c>run_seam</c>: секунд от первого решения до конца последнего круга (0 — не дошёл).</summary>
         public double RunSeconds { get; set; }
+
+        /// <summary><c>run_seam</c>: кругов задано (4 или 2, <c>--laps</c>).</summary>
+        public int RunPlannedLaps { get; set; }
+
+        /// <summary><c>run_seam</c>: сверок кадров / несовпадений / кадров подтверждено, но не шагнуто (<see cref="RunSeamBot"/>).</summary>
+        public long RunFrameChecks { get; set; }
+
+        /// <inheritdoc cref="RunFrameChecks"/>
+        public long RunFrameMismatches { get; set; }
+
+        /// <inheritdoc cref="RunFrameChecks"/>
+        public long RunFramesShort { get; set; }
+
+        /// <summary><c>run_seam</c>: первое несовпадение сверки кадров; нет — null.</summary>
+        public string? RunFirstMismatch { get; set; }
 
         /// <summary><c>seam_watch</c> (0-027): замер наблюдателя; не наблюдатель — null.</summary>
         public SeamWatch? Watch { get; set; }
 
         /// <summary>
-        /// Сценарий не выполнен: <c>run_seam</c> — не все 4 круга или невязка ≠ 0; <c>seam_watch</c> — скачок &gt; 0,22 тайла,
-        /// нет замеров или бегущего не видно с какой-то стороны шва.
+        /// Сценарий не выполнен (код выхода ботов 1): <c>run_seam</c> — пройдены не все заданные круги, невязка круга ≠ 0
+        /// или сверка кадров не сошлась (<see cref="RunSeamBot.FrameMismatches"/>); <c>seam_watch</c> — скачок показа сверх
+        /// траектории снимков больше 0,022 тайла хоть в одном окне 1/30 с (<see cref="SeamWatch.OverExcess"/>), нет замеров
+        /// или бегущего не видно с какой-то стороны шва (<see cref="SeamWatch.Passed"/>). Буквальный сдвиг против 0,22 тайла
+        /// (<see cref="SeamWatch.Over30"/>) код выхода не меняет — он в отчёте (<c>passedLiteral</c>).
         /// </summary>
         public bool ScenarioFailed { get; set; }
     }
@@ -242,7 +260,7 @@ namespace Orpheus.Bots
                     client.SnapshotApplied = snap => o.OnSnapshot(index, snap, client.EntityId);
                 }
 
-                bots[i] = new NetBot(client, o.Script, i) { PredictionFactory = c => Predict(c, worlds, console) };
+                bots[i] = new NetBot(client, o.Script, i) { PredictionFactory = c => Predict(c, worlds, console), RunLaps = o.RunLaps };
                 entered[i] = -1;
             }
 
@@ -291,7 +309,7 @@ namespace Orpheus.Bots
                         if (run != null && run.Done && runEnd[i] == 0)
                         {
                             runEnd[i] = watch.Elapsed.TotalSeconds;
-                            console?.WriteLine($"  бот {i}: run_seam — 4 круга за {runEnd[i] - runStart[i]:0.0} с, наибольшая невязка {run.MaxResidualUnits} unit");
+                            console?.WriteLine($"  бот {i}: run_seam — кругов {run.PlannedLaps} за {runEnd[i] - runStart[i]:0.0} с, наибольшая невязка {run.MaxResidualUnits} unit, сверок кадров {run.FrameChecks}, несовпадений {run.FrameMismatches}");
                         }
 
                         allFinished &= bots[i].Finished;
@@ -384,7 +402,12 @@ namespace Orpheus.Bots
                     st.RunOrigin = runner?.Origin ?? default;
                     st.RunEnd = c.HasSnapshot ? c.Latest.Self.Position : default;
                     st.RunSeconds = runEnd[i] > 0 ? runEnd[i] - runStart[i] : 0;
-                    st.ScenarioFailed = runner == null || !runner.AllExact;
+                    st.RunPlannedLaps = runner?.PlannedLaps ?? 0;
+                    st.RunFrameChecks = runner?.FrameChecks ?? 0;
+                    st.RunFrameMismatches = runner?.FrameMismatches ?? 0;
+                    st.RunFramesShort = runner?.FramesShort ?? 0;
+                    st.RunFirstMismatch = runner?.FirstMismatch;
+                    st.ScenarioFailed = runner == null || !runner.Passed;
                 }
 
                 SeamWatch? sw = bots[i].Watch;
@@ -446,7 +469,7 @@ namespace Orpheus.Bots
 
                 if (b.Laps != null)
                 {
-                    console?.WriteLine($"  бот {i}: run_seam — кругов {b.Laps.Count} из {RunSeamBot.LapCount}, {b.RunSeconds:0.0} с{(b.ScenarioFailed ? " — НЕ ВЫПОЛНЕН" : "")}");
+                    console?.WriteLine($"  бот {i}: run_seam — кругов {b.Laps.Count} из {b.RunPlannedLaps}, {b.RunSeconds:0.0} с, сверок кадров {b.RunFrameChecks}, несовпадений {b.RunFrameMismatches}{(b.RunFirstMismatch != null ? " (" + b.RunFirstMismatch + ")" : "")}{(b.ScenarioFailed ? " — НЕ ВЫПОЛНЕН" : "")}");
                     foreach (RunSeamLap l in b.Laps)
                     {
                         console?.WriteLine($"    {l}");
@@ -507,13 +530,13 @@ namespace Orpheus.Bots
         /// <summary>Строка замера наблюдателя для консоли.</summary>
         public static string WatchText(SeamWatch w) => string.Format(CultureInfo.InvariantCulture,
             "кадров {0}, в показе {1} (x: восток {2} / запад {3}; y: юг {4} / север {5}), переходов шва x {6}, y {7}; " +
-            "за 1/30 с: замеров {8}, наибольший сдвиг {9:0.000} т (окно {10:0.0} мс), сверх 0,22 — {11} (из них окно > 36,7 мс — {12}); " +
+            "за 1/30 с: замеров {8}, наибольший сдвиг {9:0.000} т (окно {10:0.0} мс), сверх 0,22 — {11} (из них окно > 36,7 мс — {12}; ещё {22} в первую секунду показа — не в счёт); " +
             "за 1/60 с: наибольший {13:0.000} т, сверх 0,11 — {14}; скачок сверх траектории снимков за 1/30 с: наибольший {18:0.0000} т, " +
             "сверх {19:0.000} — {20}, расхождение ≤ {21:0.0000} т; показ: на новейшем {15}, догон {16}, перестановок {17}",
             w.Frames, w.FramesInView, w.ViewEastOfX, w.ViewWestOfX, w.ViewSouthOfY, w.ViewNorthOfY, w.CrossingsX, w.CrossingsY,
             w.Steps30, w.MaxStep30Tiles, w.MaxStep30WindowUs / 1000.0, w.Over30, w.Over30LateWindow, w.MaxStep60Tiles, w.Over60,
             w.Interp.HoldFrames, w.Interp.CatchUpSteps, w.Interp.ClockResets, w.MaxExcess30Tiles, SeamWatch.LimitExcessTiles, w.OverExcess,
-            w.MaxDeviationTiles);
+            w.MaxDeviationTiles, w.Over30Warmup);
 
         private static string Progress(NetBot b)
         {
@@ -652,6 +675,14 @@ namespace Orpheus.Bots
                     w.WriteNumber("originY", b.RunOrigin.Y);
                     w.WriteNumber("endX", b.RunEnd.X);
                     w.WriteNumber("endY", b.RunEnd.Y);
+                    w.WriteNumber("plannedLaps", b.RunPlannedLaps);
+                    w.WriteNumber("frameChecks", b.RunFrameChecks);
+                    w.WriteNumber("frameMismatches", b.RunFrameMismatches);
+                    w.WriteNumber("framesShort", b.RunFramesShort);
+                    if (b.RunFirstMismatch != null)
+                    {
+                        w.WriteString("firstMismatch", b.RunFirstMismatch);
+                    }
                     w.WriteStartArray("laps");
                     foreach (RunSeamLap l in b.Laps)
                     {
@@ -691,6 +722,7 @@ namespace Orpheus.Bots
                     w.WriteNumber("maxStep30Tiles", Math.Round(s.MaxStep30Tiles, 4));
                     w.WriteNumber("maxStep30WindowMs", Math.Round(s.MaxStep30WindowUs / 1000.0, 2));
                     w.WriteNumber("over30", s.Over30);
+                    w.WriteNumber("over30Warmup", s.Over30Warmup);
                     w.WriteNumber("over30LateWindow", s.Over30LateWindow);
                     w.WriteNumber("maxWindowMs", Math.Round(s.MaxWindowUs / 1000.0, 2));
                     w.WriteNumber("steps60", s.Steps60);

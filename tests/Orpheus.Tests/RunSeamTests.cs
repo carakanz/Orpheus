@@ -160,15 +160,8 @@ namespace Orpheus.Tests
             Assert.Throws<ArgumentException>(() => SimBot.Create(RunSeamBot.Name, 1, 0, 1));
         }
 
-        // ---------- Сценарий: связь в памяти, имитатор RTT 100, σ 10, 1 % ----------
+        // ---------- Сценарий: связь в памяти, имитатор RTT 100 ----------
 
-        /// <summary>
-        /// Приёмка 0.2 ускоренно (связь в памяти, виртуальное время): сервер на мире 1024² с полосами, бегущий
-        /// <c>run_seam</c> и наблюдатель <c>seam_watch</c> — NetBot, как в Orpheus.Bots, через имитатор RTT 100, σ 10, потери 1 %.
-        /// Бегущий — 4 круга (восток, запад, север, юг), невязка каждого 0 unit; наблюдатель у угла швов — сдвиг показанной
-        /// позиции за 1/30 с сверх траектории снимков ≤ 0,022 тайла во всех кадрах (сдвиг против 0,22 буквально — в выводе, вопрос
-        /// [док] 0-027), бегущий виден по обе стороны шва x и шва y, переходы швов в показе есть.
-        /// </summary>
         /// <summary>
         /// Замер к вопросу [док] 0-027 (без порога на сдвиг 0,22): почему буквальный предел «за 1/30 с ≤ 0,22 тайла» не держится
         /// по сети — бегущий на сервере сам идёт неровно: кадры ввода шагаются по приходу (07 2.7), при разбросе σ 10 мс —
@@ -222,8 +215,60 @@ namespace Orpheus.Tests
             Assert.Equal(0, bots[1].Watch!.OverExcess);
         }
 
+        /// <summary>
+        /// Приёмка 0.2 ускоренно (связь в памяти, виртуальное время): сервер на мире 1024² с полосами, бегущий
+        /// <c>run_seam</c> и наблюдатель <c>seam_watch</c> — NetBot, как в Orpheus.Bots, через имитатор RTT 100, σ 10, потери 1 %.
+        /// Бегущий — 4 круга (восток, запад, север, юг), невязка каждого 0 unit, сверка кадров без несовпадений; наблюдатель
+        /// у угла швов — сдвиг показанной позиции за 1/30 с сверх траектории снимков ≤ 0,022 тайла во всех кадрах (сдвиг против
+        /// 0,22 буквально при σ 10 не держится — в выводе, вопрос [док] 0-027), бегущий виден по обе стороны шва x и шва y,
+        /// переходы швов в показе есть.
+        /// </summary>
         [Fact]
         public void D08_S3_0_2_RunSeam_Loopback_Rtt100_Sigma10_Loss1_FourLapsExact_ObserverNoSeamJump()
+        {
+            LoopRun r = RunLoopback(jitter: 10, lossPercent: 1);
+            AssertLoopRun(r);
+        }
+
+        /// <summary>
+        /// Приёмка 0.2 буквально (проверка 0-027, правка 1): связь в памяти, RTT 100 <b>без разброса и потерь</b>, 4 круга (≈ 690 с
+        /// виртуальных, в тесте — доли секунды). У наблюдателя сдвиг показанной позиции бегущего за 1/30 с ≤ 6 т/с × 1/30 с × 1,1 =
+        /// 0,22 тайла во <b>всех</b> окнах (<c>Over30 == 0</c>), кроме первой секунды показа (<see cref="SeamWatch.WarmupUs"/>: первые
+        /// кадры ввода бегущего приходят пачкой); переходы обоих швов в показе. Ловит рывок шва в симуляции и в снимке, которого
+        /// не видит «скачок сверх траектории» (мутации П-1а, П-1б, П-2).
+        /// </summary>
+        [Fact]
+        public void D08_S3_0_2_RunSeam_Loopback_Rtt100_Clean_FourLapsExact_ObserverLiteralStep022()
+        {
+            LoopRun r = RunLoopback(jitter: 0, lossPercent: 0);
+            AssertLoopRun(r);
+            Assert.True(r.Watch.Over30 == 0, $"сдвиг за 1/30 с сверх 0,22 тайла: {r.Watch.Over30} окон, наибольший {r.Watch.MaxStep30Tiles:0.000} т");
+            Assert.True(r.Watch.MaxStep30Tiles <= SeamWatch.LimitPer30Tiles, $"наибольший сдвиг {r.Watch.MaxStep30Tiles:0.000} т");
+            Assert.True(r.Watch.PassedLiteral);
+        }
+
+        private sealed class LoopRun
+        {
+            public LoopRun(NetBot[] bots, NetSimTransport[] sims, int ticks, double seconds, bool observerQuitEarly)
+            {
+                Bots = bots;
+                Sims = sims;
+                Ticks = ticks;
+                Seconds = seconds;
+                ObserverQuitEarly = observerQuitEarly;
+            }
+
+            public NetBot[] Bots { get; }
+            public NetSimTransport[] Sims { get; }
+            public int Ticks { get; }
+            public double Seconds { get; }
+            public bool ObserverQuitEarly { get; }
+            public RunSeamBot Run => Bots[0].Runner!;
+            public SeamWatch Watch => Bots[1].Watch!;
+        }
+
+        // Сервер, бегущий и наблюдатель на связи в памяти: такт — 2 кадра ботов, опрос, шаг, снимки; до 4 кругов + 200 тактов.
+        private LoopRun RunLoopback(int jitter, int lossPercent)
         {
             var watch = Stopwatch.StartNew();
             var shape = MapShape.World(1024);
@@ -239,7 +284,7 @@ namespace Orpheus.Tests
             {
                 sims[i] = new NetSimTransport(LoopbackTransport.ConnectTo(st), new NetSimSettings
                 {
-                    DelayMs = 50, JitterMs = 10, LossPpm = NetSimSettings.PercentToPpm(1), Seed = 27 + (ulong)i,
+                    DelayMs = 50, JitterMs = jitter, LossPpm = NetSimSettings.PercentToPpm(lossPercent), Seed = 27 + (ulong)i,
                 });
                 bots[i] = new NetBot(new NetClient(sims[i], LoopbackTransport.ServerPeer, $"b{i}", NetModule.Version), scripts[i], i);
             }
@@ -275,60 +320,88 @@ namespace Orpheus.Tests
                 }
             }
 
-            RunSeamBot run = bots[0].Runner!;
-            SeamWatch w = bots[1].Watch!;
-            foreach (RunSeamLap l in run.Laps)
+            var r = new LoopRun(bots, sims, ticks, watch.Elapsed.TotalSeconds, observerQuitEarly);
+            foreach (RunSeamLap l in r.Run.Laps)
             {
                 _out.WriteLine(l.ToString());
             }
 
-            _out.WriteLine($"тактов {ticks} ({ticks / 30.0:0.0} с виртуальных), за {watch.Elapsed.TotalSeconds:0.0} с; имитатор бегущего: потеряно " +
+            _out.WriteLine($"σ {jitter} мс, потери {lossPercent} %: тактов {ticks} ({ticks / 30.0:0.0} с виртуальных), за {r.Seconds:0.0} с; имитатор бегущего: потеряно " +
                            $"{sims[0].SendStats.Lost}/{sims[0].SendStats.Packets} и {sims[0].ReceiveStats.Lost}/{sims[0].ReceiveStats.Packets}");
-            _out.WriteLine("наблюдатель: " + BotRun.WatchText(w));
-            Assert.True(run.Done, $"кругов {run.Laps.Count} за {ticks} тактов");
+            _out.WriteLine($"бегущий: сверок кадров {r.Run.FrameChecks}, несовпадений {r.Run.FrameMismatches}, не шагнуто {r.Run.FramesShort}{(r.Run.FirstMismatch != null ? "; " + r.Run.FirstMismatch : "")}");
+            _out.WriteLine("наблюдатель: " + BotRun.WatchText(r.Watch));
+            return r;
+        }
+
+        private static void AssertLoopRun(LoopRun r)
+        {
+            RunSeamBot run = r.Run;
+            SeamWatch w = r.Watch;
+            Assert.True(run.Done, $"кругов {run.Laps.Count} за {r.Ticks} тактов");
             Assert.True(run.AllExact, $"невязка до {run.MaxResidualUnits} unit");
-            Assert.Equal(run.Origin, bots[0].Client.Latest.Self.Position);
-            Assert.Equal(NetClientState.InGame, bots[1].Client.State);
-            Assert.False(observerQuitEarly, "наблюдатель кончил, пока бегущий был на круге");
-            Assert.True(bots[1].Finished, "наблюдатель не заметил, что бегущий вышел");
+            foreach (RunSeamLap l in run.Laps)
+            {
+                Assert.True(l.Approaches == 1, $"{l} — подходов не 1");
+            }
+
+            Assert.Equal(run.Origin, r.Bots[0].Client.Latest.Self.Position);
+            Assert.True(run.FrameChecks > 10_000, $"сверок кадров {run.FrameChecks}");
+            Assert.True(run.FrameMismatches == 0, $"сверка кадров: {run.FrameMismatches} несовпадений; {run.FirstMismatch}");
+            Assert.True(run.Passed);
+            Assert.Equal(NetClientState.InGame, r.Bots[1].Client.State);
+            Assert.False(r.ObserverQuitEarly, "наблюдатель кончил, пока бегущий был на круге");
+            Assert.True(r.Bots[1].Finished, "наблюдатель не заметил, что бегущий вышел");
 
             Assert.True(w.Steps30 > 1000, $"замеров {w.Steps30}");
-            Assert.Equal(0, w.OverExcess); // скачка показа сверх траектории снимков нет (решение 0-027; сдвиг 0,22 буквально — [док])
+            Assert.Equal(0, w.OverExcess); // скачка показа сверх траектории снимков нет (решение 0-027)
             Assert.True(w.MaxExcess30Tiles <= SeamWatch.LimitExcessTiles, $"скачок {w.MaxExcess30Tiles:0.0000} тайла");
             Assert.True(w.ViewEastOfX > 0 && w.ViewWestOfX > 0 && w.ViewSouthOfY > 0 && w.ViewNorthOfY > 0, BotRun.WatchText(w));
             Assert.True(w.CrossingsX >= 2 && w.CrossingsY >= 2, $"переходов шва x {w.CrossingsX}, y {w.CrossingsY}");
             Assert.True(w.Passed);
         }
 
-        // ---------- По UDP (-All) ----------
+        // ---------- По UDP: круг на ось (-All) и 4 круга (Soak) ----------
 
         /// <summary>
-        /// Приёмка 0.2 по UDP (`-All`, ~12 мин): сервер в процессе теста (<c>--debug-run-lanes</c>, 1024²), бегущий и наблюдатель —
-        /// два запуска <see cref="BotRun"/> (свой поток, свой имитатор RTT 100, σ 10, 1 %). Отключений 0, 4 круга точно,
-        /// у наблюдателя 0 окон 1/30 с со скачком сверх траектории снимков (сдвиг против 0,22 — в выводе), бегущий виден по обе стороны швов.
+        /// Приёмка 0.2 по UDP в `-All` (≈ 6 мин): сервер в процессе теста (<c>--debug-run-lanes</c>, 1024²), бегущий и наблюдатель —
+        /// два запуска <see cref="BotRun"/> (свой поток, свой имитатор RTT 100, σ 10, 1 %). Бегущий — по кругу на ось
+        /// (<c>--laps axes</c>: восток и север, оба шва). Отключений 0, круги точно, сверка кадров без несовпадений; у наблюдателя
+        /// 0 окон 1/30 с со скачком сверх траектории снимков, бегущий виден по обе стороны швов. Полные 4 круга — Soak-тест ниже.
         /// </summary>
         [Fact]
         [Trait("Category", "Big")]
-        public async Task D08_S3_0_2_RunSeam_Udp_Big_Rtt100_Sigma10_Loss1_FourLapsExact_ObserverNoSeamJump()
+        public Task D08_S3_0_2_RunSeam_Udp_Big_Rtt100_Sigma10_Loss1_LapPerAxisExact_ObserverNoSeamJump() =>
+            RunUdp(RunSeamBot.LapsAxes, runnerSeconds: 480);
+
+        /// <summary>
+        /// Приёмка 0.2 по UDP целиком (≈ 11,5 мин): то же, что Big-тест, но 4 круга (восток, запад, север, юг). Не в CI и не в
+        /// `-All` — <c>tools\ci.cmd -Soak -TimeLimitSec 0</c> или <c>tools\run_seam.ps1</c> перед приёмкой вехи.
+        /// </summary>
+        [Fact]
+        [Trait("Category", "Soak")]
+        public Task D08_S3_0_2_RunSeam_Udp_Soak_Rtt100_Sigma10_Loss1_FourLapsExact_ObserverNoSeamJump() =>
+            RunUdp(RunSeamBot.LapsAll, runnerSeconds: 840);
+
+        private async Task RunUdp(string laps, int runnerSeconds)
         {
             int port = FreeUdpPort();
             ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", Seed.ToString(), "--size", "1024", "--port", port.ToString(), "--debug-run-lanes" });
             using var cpu = new CpuLoad();
             using var stopServer = new CancellationTokenSource();
             Task<ServerResult> server = Task.Run(() => ServerRun.Run(so, null, stopServer.Token));
-            BotOptions Bots(string script, string seed, string seconds) => BotOptions.Parse(new[]
+            BotOptions Bots(string script, string seed, int seconds) => BotOptions.Parse(new[]
             {
-                "--connect", $"127.0.0.1:{port}", "--count", "1", "--script", script, "--rtt", "100", "--jitter", "10", "--loss", "1",
-                "--seconds", seconds, "--seed", seed, "--name", script,
+                "--connect", $"127.0.0.1:{port}", "--count", "1", "--script", script, "--laps", laps, "--rtt", "100", "--jitter", "10", "--loss", "1",
+                "--seconds", seconds.ToString(), "--seed", seed, "--name", script,
             });
 
             BotReport runner;
             BotReport observer;
             try
             {
-                Task<BotReport> obs = Task.Run(() => BotRun.Run(Bots(SeamWatchBot.Name, "8", "900"), null));
+                Task<BotReport> obs = Task.Run(() => BotRun.Run(Bots(SeamWatchBot.Name, "8", runnerSeconds + 60), null));
                 Thread.Sleep(500);
-                runner = await Task.Run(() => BotRun.Run(Bots(RunSeamBot.Name, "7", "840"), null));
+                runner = await Task.Run(() => BotRun.Run(Bots(RunSeamBot.Name, "7", runnerSeconds), null));
                 observer = await obs; // бегущий вышел — наблюдатель один и кончает сам через 3 с
             }
             finally
@@ -346,11 +419,14 @@ namespace Orpheus.Tests
             }
 
             SeamWatch w = observer.Bots[0].Watch!;
-            _out.WriteLine($"бегущий: {rb.RunSeconds:0.0} с, RTT {rb.RttMs} мс, потеряно {rb.SimSendLost}/{rb.SimSent} и {rb.SimReceiveLost}/{rb.SimReceived}");
+            _out.WriteLine($"бегущий: {rb.RunSeconds:0.0} с, RTT {rb.RttMs} мс, потеряно {rb.SimSendLost}/{rb.SimSent} и {rb.SimReceiveLost}/{rb.SimReceived}; " +
+                           $"сверок кадров {rb.RunFrameChecks}, несовпадений {rb.RunFrameMismatches}, не шагнуто {rb.RunFramesShort}{(rb.RunFirstMismatch != null ? "; " + rb.RunFirstMismatch : "")}");
             _out.WriteLine("наблюдатель: " + BotRun.WatchText(w));
             Assert.Equal(0, runner.Disconnects + observer.Disconnects);
-            Assert.Equal(RunSeamBot.LapCount, rb.Laps!.Count);
-            Assert.False(rb.ScenarioFailed, "невязка круга ≠ 0");
+            Assert.Equal(rb.RunPlannedLaps, rb.Laps!.Count);
+            Assert.Equal(laps == RunSeamBot.LapsAll ? RunSeamBot.LapCount : 2, rb.RunPlannedLaps);
+            Assert.True(rb.RunFrameMismatches == 0, $"сверка кадров: {rb.RunFrameMismatches}; {rb.RunFirstMismatch}");
+            Assert.False(rb.ScenarioFailed, "невязка круга ≠ 0 или сверка кадров не сошлась");
             Assert.Equal(0, w.OverExcess);
             Assert.True(w.Passed, BotRun.WatchText(w));
             Assert.Equal(0, runner.ExitCode);

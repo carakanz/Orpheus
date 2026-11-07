@@ -35,6 +35,8 @@ namespace Orpheus.Net.Session
         private long _pollUs;
         private uint _lastMoveFrame;
         private bool _moved;
+        private uint _checkedTick;
+        private bool _checkedAny;
 
         public NetBot(NetClient client, string script, int botIndex)
         {
@@ -70,6 +72,9 @@ namespace Orpheus.Net.Session
         /// <summary>Предсказание своего персонажа (после входа, если есть фабрика).</summary>
         public LocalPrediction? Prediction => _pred;
 
+        /// <summary>Круги <c>run_seam</c>: <see cref="RunSeamBot.LapsAll"/> (по умолчанию) или <see cref="RunSeamBot.LapsAxes"/>.</summary>
+        public string RunLaps { get; set; } = RunSeamBot.LapsAll;
+
         /// <summary>Бег <c>run_seam</c> (после входа); другой сценарий — null.</summary>
         public RunSeamBot? Runner => _bot as RunSeamBot;
 
@@ -91,7 +96,9 @@ namespace Orpheus.Net.Session
 
             if (_bot == null)
             {
-                _bot = SimBot.Create(_script, Client.EntityId, _botIndex, Client.Accept.WorldSeed, Client.Shape);
+                _bot = _script == RunSeamBot.Name
+                    ? new RunSeamBot(Client.EntityId, Client.Shape, RunLaps)
+                    : SimBot.Create(_script, Client.EntityId, _botIndex, Client.Accept.WorldSeed, Client.Shape);
                 if (_bot is SeamWatchBot)
                 {
                     _watch = new SeamWatch(Client.Shape);
@@ -108,6 +115,14 @@ namespace Orpheus.Net.Session
                 _reconciledAny = true;
                 _reconciledTick = Client.Latest.Tick;
                 _pred.Reconcile(Client.Latest.AckFrame, Client.Latest.Self, nowMicros);
+            }
+
+            if (_bot is RunSeamBot check && Client.HasSnapshot && Client.Latest.Self.Present && (!_checkedAny || Client.Latest.Tick != _checkedTick))
+            {
+                // Сверка кадров (проверка 0-027 п. 2): сдвиг своей позиции между снимками = шагнутые кадры × 25,6 unit.
+                _checkedAny = true;
+                _checkedTick = Client.Latest.Tick;
+                check.CheckConfirmed(Client.Latest.AckFrame, Client.Latest.Self.Position, Client.Latest.Self.Carry);
             }
 
             int n = Client.FramesDue(nowMicros);
@@ -134,8 +149,19 @@ namespace Orpheus.Net.Session
                     _current = _bot.Think(next / 2, self);
                 }
 
+                long renumbers = Client.FrameRenumbers;
                 Client.SendFrame(_current);
                 _pred?.Sent(Client.Frame, _current);
+                if (_bot is RunSeamBot sent)
+                {
+                    if (Client.FrameRenumbers != renumbers)
+                    {
+                        sent.ResetFrameCheck();
+                    }
+
+                    sent.SentFrame(Client.Frame, _current.Direction);
+                }
+
                 if (_current.Direction.IsMoving)
                 {
                     _moved = true;

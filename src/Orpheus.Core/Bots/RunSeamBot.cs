@@ -58,13 +58,30 @@ namespace Orpheus.Core.Bots
     /// круг W × 256 unit = W × 10 кадров ровно, и с нулевого остатка позиция после круга совпадает со стартом точно.
     /// Невязка круга ≠ 0 значит, что шов (заворот, сервер, клиент) потерял или добавил unit.
     /// </para>
+    /// <para>
+    /// Сверка кадров (по сети, проверка 0-027 п. 2): невязка круга не видит рывок, кратный шагу кадра (0,5 т = 5 кадров),
+    /// поэтому на каждом снимке сдвиг своей подтверждённой позиции (<c>Self</c> с остатком) сверяется с отправленными
+    /// кадрами, которые сервер шагнул за это время (номера в (AckFrame прошлого снимка, AckFrame]): «10 × позиция + Carry»
+    /// растёт ровно на 256 за кадр по оси, поэтому сдвиг — целое число кадров m, поперёк — 0, и вперёд m не больше, чем
+    /// отправлено кадров вперёд (назад — назад). Меньше — можно: сервер выбрасывает лишнее из очереди и перескакивает дыры
+    /// (07 2.7). Иначе — <see cref="FrameMismatches"/>, сценарий не выполнен.
+    /// </para>
     /// </summary>
     public sealed class RunSeamBot : SimBot
     {
         public const string Name = "run_seam";
 
-        /// <summary>Кругов: восток, запад, север, юг.</summary>
+        /// <summary>Кругов по умолчанию (<see cref="LapsAll"/>): восток, запад, север, юг.</summary>
         public const int LapCount = 4;
+
+        /// <summary>Круги (<c>--laps</c>): все четыре — восток, запад, север, юг (приёмка 0.2, ≈ 11,5 мин по сети).</summary>
+        public const string LapsAll = "all";
+
+        /// <summary>Круги (<c>--laps</c>): по одному на ось — восток и север (оба шва, ≈ 5,7 мин по сети; `-All`).</summary>
+        public const string LapsAxes = "axes";
+
+        /// <summary>Отправленных кадров в памяти сверки.</summary>
+        public const int FrameRing = 256;
 
         /// <summary>
         /// Подход начинается за 3 тайла до конца круга: в полёте (отправлено, ещё не в снимке) по сети при RTT ≤ 300 мс —
@@ -78,10 +95,19 @@ namespace Orpheus.Core.Bots
         /// <summary>Шаг решения по сети: кадр ввода (полшага такта), десятые unit.</summary>
         public const int FrameStepX10 = MovementTick.BaseSpeedX10 / MovementTick.FramesPerTick;
 
-        private static readonly Input8[] LapDirections = { Input8.East, Input8.West, Input8.North, Input8.South };
+        private static readonly Input8[] AllDirections = { Input8.East, Input8.West, Input8.North, Input8.South };
+        private static readonly Input8[] AxisDirections = { Input8.East, Input8.North };
 
         private readonly MapShape _map;
+        private readonly Input8[] _dirs;
         private readonly List<RunSeamLap> _laps = new List<RunSeamLap>(LapCount);
+        private readonly uint[] _sentFrame = new uint[FrameRing];
+        private readonly Input8[] _sentDir = new Input8[FrameRing];
+        private readonly bool[] _sentValid = new bool[FrameRing];
+        private bool _checkBase;
+        private uint _checkAck;
+        private WorldPos _checkPos;
+        private Int2 _checkCarry;
         private bool _started;
         private WorldPos _origin;
         private WorldPos _lapStart;
@@ -95,10 +121,14 @@ namespace Orpheus.Core.Bots
         private int _burstLeft;
         private Input8 _burstDir;
 
-        public RunSeamBot(int entityId, in MapShape map)
+        /// <param name="laps"><see cref="LapsAll"/> — четыре круга, <see cref="LapsAxes"/> — восток и север.</param>
+        public RunSeamBot(int entityId, in MapShape map, string laps = LapsAll)
             : base(entityId)
         {
             _map = map;
+            _dirs = laps == LapsAll ? AllDirections
+                : laps == LapsAxes ? AxisDirections
+                : throw new ArgumentException($"Круги run_seam: «{laps}» — нет; есть {LapsAll}, {LapsAxes}.", nameof(laps));
         }
 
         public override string Script => Name;
@@ -106,8 +136,26 @@ namespace Orpheus.Core.Bots
         /// <summary>Пройденные круги по порядку.</summary>
         public IReadOnlyList<RunSeamLap> Laps => _laps;
 
-        /// <summary>Все четыре круга пройдены.</summary>
-        public bool Done => _laps.Count == LapCount;
+        /// <summary>Кругов задано (4 или 2).</summary>
+        public int PlannedLaps => _dirs.Length;
+
+        /// <summary>Все заданные круги пройдены.</summary>
+        public bool Done => _laps.Count == _dirs.Length;
+
+        /// <summary>Сверок кадров по снимкам (по сети).</summary>
+        public long FrameChecks { get; private set; }
+
+        /// <summary>Сверок, где сдвиг своей позиции не сошёлся с шагнутыми кадрами (рывок, не кратный кадру, или лишние кадры).</summary>
+        public long FrameMismatches { get; private set; }
+
+        /// <summary>Кадров, отправленных и подтверждённых, но не шагнутых (сервер выбросил из очереди или перескочил) — для справки.</summary>
+        public long FramesShort { get; private set; }
+
+        /// <summary>Первое несовпадение сверки кадров — для отчёта; нет — null.</summary>
+        public string? FirstMismatch { get; private set; }
+
+        /// <summary>Сценарий выполнен: круги без невязки и сверка кадров без несовпадений.</summary>
+        public bool Passed => AllExact && FrameMismatches == 0;
 
         /// <summary>Точка появления (старт первого круга); до первого решения — default.</summary>
         public WorldPos Origin => _origin;
@@ -169,6 +217,98 @@ namespace Orpheus.Core.Bots
         /// </summary>
         public InputFrame ThinkFrame(WorldPos confirmed, bool settled) => new InputFrame(Decide(confirmed, settled, FrameStepX10));
 
+        /// <summary>По сети: кадр ввода <paramref name="frame"/> ушёл с направлением <paramref name="direction"/> (для сверки кадров).</summary>
+        public void SentFrame(uint frame, Input8 direction)
+        {
+            int i = (int)(frame % FrameRing);
+            _sentFrame[i] = frame;
+            _sentDir[i] = direction;
+            _sentValid[i] = true;
+        }
+
+        /// <summary>Номера кадров начались заново (перенумерация часов): сверка — с следующего снимка.</summary>
+        public void ResetFrameCheck()
+        {
+            _checkBase = false;
+            Array.Clear(_sentValid, 0, FrameRing);
+        }
+
+        /// <summary>
+        /// По сети: новый снимок — <paramref name="ackFrame"/> (последний шагнутый кадр) и своё подтверждённое состояние после
+        /// него. Сдвиг от прошлого снимка сверяется с отправленными кадрами из (прошлый AckFrame, <paramref name="ackFrame"/>].
+        /// Кадра из этого промежутка нет в памяти (до первого кадра, перенумерация) — сверки нет, отсчёт отсюда.
+        /// </summary>
+        public void CheckConfirmed(uint ackFrame, WorldPos position, Int2 carry)
+        {
+            if (!_checkBase || (int)(ackFrame - _checkAck) < 0 || (int)(ackFrame - _checkAck) > FrameRing)
+            {
+                SetCheckBase(ackFrame, position, carry);
+                return;
+            }
+
+            int fwdX = 0, backX = 0, fwdY = 0, backY = 0;
+            for (uint f = _checkAck + 1; (int)(ackFrame - f) >= 0; f++)
+            {
+                int i = (int)(f % FrameRing);
+                if (!_sentValid[i] || _sentFrame[i] != f)
+                {
+                    SetCheckBase(ackFrame, position, carry);
+                    return;
+                }
+
+                Input8 d = _sentDir[i];
+                fwdX += d.DX > 0 ? 1 : 0;
+                backX += d.DX < 0 ? 1 : 0;
+                fwdY += d.DY > 0 ? 1 : 0;
+                backY += d.DY < 0 ? 1 : 0;
+            }
+
+            Int2 delta = Torus.Delta(_map, _checkPos, position);
+            long ex = (long)delta.X * MovementTick.SpeedScale + carry.X - _checkCarry.X;
+            long ey = (long)delta.Y * MovementTick.SpeedScale + carry.Y - _checkCarry.Y;
+            FrameChecks++;
+            bool okX = Frames(ex, fwdX, backX, out int shortX);
+            bool okY = Frames(ey, fwdY, backY, out int shortY);
+            if (okX && okY)
+            {
+                FramesShort += shortX + shortY;
+            }
+            else
+            {
+                FrameMismatches++;
+                FirstMismatch ??= $"кадры {_checkAck + 1}…{ackFrame}: x +{fwdX}/−{backX}, y +{fwdY}/−{backY} кадров, сдвиг ({ex / 10.0:0.0}, {ey / 10.0:0.0}) unit";
+            }
+
+            SetCheckBase(ackFrame, position, carry);
+        }
+
+        // Сдвиг по оси в десятых unit — целое число кадров m (256 десятых), −назад ≤ m ≤ вперёд; не шагнуто — разница.
+        private static bool Frames(long shiftX10, int forward, int back, out int notStepped)
+        {
+            notStepped = 0;
+            if (shiftX10 % FrameStepX10 != 0)
+            {
+                return false;
+            }
+
+            long m = shiftX10 / FrameStepX10;
+            if (m > forward || m < -back)
+            {
+                return false;
+            }
+
+            notStepped = (int)Math.Abs(forward - back - m);
+            return true;
+        }
+
+        private void SetCheckBase(uint ackFrame, WorldPos position, Int2 carry)
+        {
+            _checkBase = true;
+            _checkAck = ackFrame;
+            _checkPos = position;
+            _checkCarry = carry;
+        }
+
         /// <summary>Имя направления для отчёта.</summary>
         public static string NameOf(Input8 d) =>
             d == Input8.East ? "east" : d == Input8.West ? "west" : d == Input8.North ? "north" : d == Input8.South ? "south" : d.ToString();
@@ -195,7 +335,7 @@ namespace Orpheus.Core.Bots
                 return _burstDir;
             }
 
-            Input8 dir = LapDirections[_laps.Count];
+            Input8 dir = _dirs[_laps.Count];
             long remaining = LapUnits() - _travelled;
             if (!_approach)
             {
@@ -250,7 +390,7 @@ namespace Orpheus.Core.Bots
                 return;
             }
 
-            Input8 dir = LapDirections[_laps.Count];
+            Input8 dir = _dirs[_laps.Count];
             if (dir.DX != 0)
             {
                 _travelled += d.X * dir.DX;
@@ -265,7 +405,7 @@ namespace Orpheus.Core.Bots
             _maxCross = Math.Max(_maxCross, Math.Abs(_cross));
         }
 
-        private long LapUnits() => LapDirections[_laps.Count].DX != 0 ? _map.WidthUnits : _map.HeightUnits;
+        private long LapUnits() => _dirs[_laps.Count].DX != 0 ? _map.WidthUnits : _map.HeightUnits;
     }
 
     /// <summary>
