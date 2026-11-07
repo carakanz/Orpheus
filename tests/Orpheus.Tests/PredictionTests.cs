@@ -920,6 +920,44 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// З. 1 проверки 0-033: фриз сервера 2 с — клиент нумеровал кадры дальше (на 120 вперёд времени сервера). После «часов» и
+        /// до перенумерации назад это не опережение L: потолок кадров «из будущего» их не держит, сервер шагает их по запасу
+        /// (персонаж не стоит, пока предсказание идёт — иначе лишняя большая сверка в UDP-тесте фриза). Без «часов» те же номера
+        /// ждут своего такта. Мутация «потолок и после фриза» краснит.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_Server_AfterFreeze_FramesAheadAreNotLead()
+        {
+            var p = new ScriptedPlayer(leadInTicks: 0); // номера — на времени сервера, как у клиента с часами 0-025
+            var walk = new InputFrame(new Input8(1, 0));
+            for (int k = 0; k < 10; k++)
+            {
+                p.Send(walk);
+                p.Send(walk);
+                p.Tick();
+            }
+
+            for (int k = 0; k < 60; k++) // фриз 2 с: тактов нет, клиент шлёт 120 кадров
+            {
+                p.Send(walk);
+                p.Send(walk);
+            }
+
+            p.Server.BroadcastClock();
+            long before = p.Server.FramesApplied;
+            for (int k = 0; k < 5; k++) // «часы» ещё в пути: номера клиента по-прежнему впереди
+            {
+                p.Send(walk);
+                p.Send(walk);
+                p.Tick();
+            }
+
+            long stepped = p.Server.FramesApplied - before;
+            _out.WriteLine($"после фриза за 5 тактов шагнуто {stepped}, переполнений кольца {p.Server.FramesOverflow}, выброшено {p.Server.FramesTrimmed}");
+            Assert.True(stepped >= 5 * MovementTick.FramesPerTick, $"шагнуто {stepped}: кадры после фриза ждут как «из будущего»");
+        }
+
+        /// <summary>
         /// Блокирующее замечание проверки 0-019: всплеск задержки (500 / 900 мс без пакетов, потом всё пачкой) — очередь
         /// сервера возвращается к норме (не «навсегда 20 / 44 кадра»), а обрыв после этого — стоп ровно через 6 тактов
         /// после последнего пришедшего кадра (2.13 п. 6, как в 0-015).
