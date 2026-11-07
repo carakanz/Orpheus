@@ -25,7 +25,7 @@ namespace Orpheus.Client
     /// <see cref="RemoteInterpolation"/> ядра — время показа «сервер сейчас − 100 мс» растёт каждый кадр (docs/07, 2.9);
     /// «плавающее начало» переезжает за своим персонажем, как в офлайне (0-010). Свой персонаж ведёт <see cref="LocalPrediction"/> ядра
     /// (Orpheus.Net, 0-019): шаг кадра ядром, сверка по AckFrame со своим состоянием без кванта, гашение расхождений (2.6) —
-    /// он в своём «сейчас», без задержки показа. <c>--net-sim RTT,σ,потери%</c> — имитатор связи ядра под клиентом.
+    /// он в своём «сейчас», без задержки показа. <c>--net-sim RTT,σ,потери%[,зерно]</c> — имитатор связи ядра под клиентом.
     /// Ввод летит на сервер пакетиками 60 Гц, как у ботов (Temp: <c>BotRun</c>).
     /// Кадр ведётся из <see cref="GameBoot.Update"/>: poll → состояние → ввод → предсказание → переезд начала → окно →
     /// персонаж и камера → чужие → HUD.
@@ -36,9 +36,14 @@ namespace Orpheus.Client
         const int MaxSendsPerFrame = 4;
         const int LoginTimeoutSec = 10;
 
-        /// <summary>Пороги net-smoke чужих (0-017): доля кадров с тем же временем показа и кадров «стоит на новейшем».</summary>
+        /// <summary>
+        /// Пороги net-smoke чужих (0-017, 0-021): доля кадров с тем же временем показа и кадров «стоит на новейшем»; доля
+        /// шагов догона (быстрее предела по местному времени — показ упирается в новейший снимок: без задержки показа,
+        /// M2 проверки 0-017, их ~25 %; модель 200,30,1 на 500 прогонах — не больше 1 %); перестановок часов — ни одной.
+        /// </summary>
         const double MaxSmokeSameTimeShare = 0.01;
         const double MaxSmokeHoldShare = 0.05;
+        const double MaxSmokeCatchUpShare = 0.03;
         const int MinSmokeRemoteSteps = 60;
 
         /// <summary>Порог net-smoke (0-019): правок на чистом движении и расхождение предсказания с сервером, unit.</summary>
@@ -56,12 +61,12 @@ namespace Orpheus.Client
         long _anchoredInitial; // установка предсказания, под которую поставлено начало
         bool _fatal;           // статус окончательный (мир не совпал, не подключились) — не перетирать
 
-        // net-smoke: свой персонаж на экране — рывок, окно — дыры (как офлайн-smoke 0-010).
+        // net-smoke: свой персонаж на экране — нарисовано против ядра (как офлайн-smoke 0-010), окно — дыры.
         bool _measureSelf;
         WorldPos _prevDrawn;
-        long _prevDrawnUs;
         float _maxSelfJump;
-        int _selfJumpFails;
+        int _maxSelfDrift;
+        int _selfDriftFails;
         int _holes;
         int _maxWindow;
         long _renderFrames;
@@ -138,7 +143,7 @@ namespace Orpheus.Client
             _link = _transport;
             if (_args.NetSimRttMs > 0 || _args.NetSimJitterMs > 0 || _args.NetSimLossPercent > 0)
             {
-                _netSim = new NetSimTransport(_transport, NetSimSettings.FromRtt(_args.NetSimRttMs, _args.NetSimJitterMs, _args.NetSimLossPercent, 0x0019));
+                _netSim = new NetSimTransport(_transport, NetSimSettings.FromRtt(_args.NetSimRttMs, _args.NetSimJitterMs, _args.NetSimLossPercent, _args.NetSimSeed));
                 _link = _netSim;
                 Debug.Log($"[net] имитатор связи: {_netSim.Settings}");
             }
@@ -420,16 +425,19 @@ namespace Orpheus.Client
 
             if (_args.NetSmokeSeconds > 0)
             {
-                SmokeFrame(me, now);
+                SmokeFrame(me, dx, dy);
             }
         }
 
         /// <summary>
-        /// net-smoke, каждый кадр: окно чанков без дыр и свой персонаж на экране без рывка — позиция относительно
-        /// нарисованного узла чанка под ним (как офлайн-smoke 0-010), шаг ≤ 6 т/с × 1/30 с × 1,1 (кадр дольше 1/30 с —
-        /// пропорционально).
+        /// net-smoke, каждый кадр: окно чанков без дыр и свой персонаж на экране там, где его ставит ядро (0-021,
+        /// замечание 4 проверки 0-017): позиция относительно нарисованного узла чанка под ним (как офлайн-smoke 0-010)
+        /// минус позиция предсказания с гашением (<see cref="LocalPrediction.RenderDelta"/>) — не больше 2/256 т. Не зависит
+        /// от длины кадра и кванта ввода (шаг предсказания 0,1 т × до 4 кадров ввода за кадр рисования давал ложный красный
+        /// по пределу рывка), а скачок узлов или персонажа на шве и при переезде начала (чанк, 32 т) ловит так же. Рывок за
+        /// кадр — в лог, для сведения.
         /// </summary>
-        void SmokeFrame(WorldPos me, long now)
+        void SmokeFrame(WorldPos me, float dx, float dy)
         {
             _maxWindow = Math.Max(_maxWindow, _view!.Count);
             _holes += SmokeRun.WindowHoles(_map, _view, me, msg => Debug.LogError($"[smoke] кадр {_renderFrames}: {msg}"));
@@ -440,21 +448,23 @@ namespace Orpheus.Client
                 return;
             }
 
+            WorldPos core = Torus.Offset(_map, me, new Int2(Mathf.RoundToInt(dx), Mathf.RoundToInt(dy)));
+            Int2 drift = Torus.Delta(_map, core, drawn);
+            int driftAbs = Math.Max(Math.Abs(drift.X), Math.Abs(drift.Y));
+            _maxSelfDrift = Math.Max(_maxSelfDrift, driftAbs);
+            if (driftAbs > SmokeRun.MatchUnits && _selfDriftFails++ < 5)
+            {
+                Debug.LogError($"[smoke] кадр {_renderFrames}: свой нарисован в {drawn}, ядро — {core}: разница {drift.X},{drift.Y}/256 т " +
+                               $"(допуск {SmokeRun.MatchUnits}), якорь {_origin!.Anchor}");
+            }
+
             if (_measureSelf)
             {
                 Int2 j = Torus.Delta(_map, _prevDrawn, drawn);
-                float jump = Mathf.Sqrt((float)j.LengthSquared) / Torus.SubTilesPerTile;
-                _maxSelfJump = Mathf.Max(_maxSelfJump, jump);
-                // Предел 0-010 — на кадр до 1/30 с; кадр дольше (подвисание ОС в пакетном режиме) — пропорционально.
-                float limit = SmokeRun.MaxJumpTiles * Mathf.Max(1f, (now - _prevDrawnUs) * 30f / 1_000_000f);
-                if (jump > limit && _selfJumpFails++ < 5)
-                {
-                    Debug.LogError($"[smoke] кадр {_renderFrames}: рывок своего {jump:0.000} т (предел {limit:0.000}), якорь {_origin!.Anchor}");
-                }
+                _maxSelfJump = Mathf.Max(_maxSelfJump, Mathf.Sqrt((float)j.LengthSquared) / Torus.SubTilesPerTile);
             }
 
             _prevDrawn = drawn;
-            _prevDrawnUs = now;
             _measureSelf = true;
         }
 
@@ -576,24 +586,28 @@ namespace Orpheus.Client
                 RemoteInterpolation r = _remote!;
                 double sameShare = r.Frames > 0 ? r.SameTimeFrames / (double)r.Frames : 1.0;
                 double holdShare = r.Frames > 0 ? r.HoldFrames / (double)r.Frames : 1.0;
+                double catchShare = r.Steps > 0 ? r.CatchUpSteps / (double)r.Steps : 1.0;
                 string remote = $"чужие: кадров {r.Frames}, с тем же временем показа {r.SameTimeFrames} ({sameShare:P2}), " +
                                 $"стоит на новейшем {r.HoldFrames} ({holdShare:P2}), шагов {r.Steps}, шаг max {r.MaxStepUnits:0.0}/256 т " +
-                                $"(к пределу {r.MaxStepRatio:0.00}), сверх предела {r.StepViolations} (догон после остановки {r.CatchUpSteps}), " +
+                                $"(к пределу {r.MaxStepRatio:0.00}), сверх предела {r.StepViolations}, шагов догона {r.CatchUpSteps} ({catchShare:P2}), " +
                                 $"пар через шов {r.SeamSamples}, " +
-                                $"запас показа {r.BufferUs / 1000} мс, перестановок часов {r.ClockResets}, ход {r.ClockRate:+0.0000;-0.0000}";
+                                $"запас показа {r.BufferUs / 1000} мс, перестановок часов {r.ClockResets}, ход показа {r.PlaybackRate:0.000}, " +
+                                $"догон к пределу {r.MaxCatchUpRatio:0.00} (k = {RemoteInterpolation.CatchUpRate:0.#})";
                 Debug.Log("[smoke] " + remote);
-                if (sameShare > MaxSmokeSameTimeShare || holdShare > MaxSmokeHoldShare || r.StepViolations > 0 || r.Steps < MinSmokeRemoteSteps
+                if (sameShare > MaxSmokeSameTimeShare || holdShare > MaxSmokeHoldShare || catchShare > MaxSmokeCatchUpShare
+                    || r.StepViolations > 0 || r.ClockResets > 0 || r.Steps < MinSmokeRemoteSteps
                     || (_args.NetSmokeSeam && r.SeamSamples == 0))
                 {
                     Fail($"[smoke] FAILED: интерполяция чужих — {remote} (нужно: тех же ≤ {MaxSmokeSameTimeShare:P0}, стоит ≤ {MaxSmokeHoldShare:P0}, " +
-                         $"сверх предела 0, шагов ≥ {MinSmokeRemoteSteps}{(_args.NetSmokeSeam ? ", пар через шов ≥ 1" : "")})");
+                         $"догона ≤ {MaxSmokeCatchUpShare:P0} шагов, сверх предела 0, перестановок часов 0, шагов ≥ {MinSmokeRemoteSteps}" +
+                         $"{(_args.NetSmokeSeam ? ", пар через шов ≥ 1" : "")})");
                     return;
                 }
 
-                string seamLine = $"шов: переездов начала {_origin!.Rebases}, на шве {_origin.SeamRebases}, рывок своего max {_maxSelfJump:0.000} т/кадр " +
-                                  $"(предел {SmokeRun.MaxJumpTiles:0.000}), окно max {_maxWindow} чанков, дыр {_holes}, якорь {_origin.Anchor}";
+                string seamLine = $"шов: переездов начала {_origin!.Rebases}, на шве {_origin.SeamRebases}, нарисовано − ядро max {_maxSelfDrift}/256 т " +
+                                  $"(допуск {SmokeRun.MatchUnits}), рывок своего max {_maxSelfJump:0.000} т/кадр, окно max {_maxWindow} чанков, дыр {_holes}, якорь {_origin.Anchor}";
                 Debug.Log("[smoke] " + seamLine);
-                if (_holes > 0 || _selfJumpFails > 0 || _maxWindow > ChunkWindow.MaxChunks || (_args.NetSmokeSeam && _origin.SeamRebases == 0))
+                if (_holes > 0 || _selfDriftFails > 0 || _maxWindow > ChunkWindow.MaxChunks || (_args.NetSmokeSeam && _origin.SeamRebases == 0))
                 {
                     Fail($"[smoke] FAILED: {seamLine}{(_args.NetSmokeSeam ? " (нужен переезд на шве ≥ 1)" : "")}");
                     return;

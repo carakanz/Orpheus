@@ -58,12 +58,17 @@ namespace Orpheus.Client
         public bool Hud;
 
         /// <summary>
-        /// Имитатор связи на клиенте (0-019): «RTT,σ,потери%» — например «100,20,1»; задержка RTT/2 в каждую сторону
-        /// (<c>NetSimTransport</c> ядра). 0 — без имитатора.
+        /// Имитатор связи на клиенте (0-019): «RTT,σ,потери%[,зерно]» — например «100,20,1» или «200,30,1,7»; задержка
+        /// RTT/2 в каждую сторону (<c>NetSimTransport</c> ядра). 0 — без имитатора. Зерно (0-021) — разные прогоны
+        /// net-smoke на разных выборках пакетов; по умолчанию <see cref="DefaultNetSimSeed"/>.
         /// </summary>
         public int NetSimRttMs;
         public int NetSimJitterMs;
         public double NetSimLossPercent;
+        public ulong NetSimSeed = DefaultNetSimSeed;
+
+        /// <summary>Зерно имитатора без четвёртого числа в <c>--net-sim</c> (было зашито в 0-019).</summary>
+        public const ulong DefaultNetSimSeed = 0x19;
 
         /// <summary>Ошибка разбора (неизвестное значение) — текст; null — всё хорошо.</summary>
         public string? Error;
@@ -71,7 +76,7 @@ namespace Orpheus.Client
         /// <summary>Текст подсказки для логов и подсказки при ошибке.</summary>
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
-            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%] [--hud] [--screenshot путь]";
+            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь]";
 
         public static ClientArgs Parse(string[] args)
         {
@@ -152,16 +157,18 @@ namespace Orpheus.Client
                     case "--net-sim":
                         i++;
                         string[] parts = (next ?? string.Empty).Split(',');
-                        if (parts.Length != 3
+                        if (parts.Length < 3 || parts.Length > 4
+                            || parts.Length == 4 && !ulong.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.NetSimSeed)
                             || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.NetSimRttMs)
                             || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.NetSimJitterMs)
                             || !double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out a.NetSimLossPercent)
                             || a.NetSimRttMs < 0 || a.NetSimRttMs > 2000 || a.NetSimJitterMs < 0 || a.NetSimJitterMs > 500
                             || a.NetSimLossPercent < 0 || a.NetSimLossPercent > 50)
                         {
-                            a.Error = $"--net-sim: нужно RTT,σ,потери% (например 100,20,1), дано '{next}'";
+                            a.Error = $"--net-sim: нужно RTT,σ,потери%[,зерно] (например 100,20,1 или 200,30,1,7), дано '{next}'";
                             a.NetSimRttMs = a.NetSimJitterMs = 0;
                             a.NetSimLossPercent = 0;
+                            a.NetSimSeed = DefaultNetSimSeed;
                         }
 
                         break;
