@@ -51,7 +51,11 @@ namespace Orpheus.Server
             "              [--debug-run-lanes (run_seam: расчищенные полосы, появление в углу швов; мир в памяти)]\n" +
             "              [--mode single|host --host-token <32 hex> [--open-address all|<IPv4>] [--open-port P] [--host-grace <сек>]]\n" +
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]\n" +
-            "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]] [--dummy [--dummy-wait <кадры>]]";
+            "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]] [--dummy [--dummy-wait <кадры>]]\n" +
+            "              [--metrics <сек> (метрики такта в лог, 0 — только итог; по умолчанию 10)] [--report <json>]";
+
+        /// <summary>Окно метрик такта по умолчанию: 10 с (docs/07 11.6).</summary>
+        public const int DefaultMetricsSeconds = 10;
 
         /// <summary>Автосохранение по умолчанию: раз в 2 мин мира (docs/07, 6.4).</summary>
         public const int DefaultAutosaveSeconds = 120;
@@ -81,6 +85,12 @@ namespace Orpheus.Server
         public string? RecordPath { get; set; }
         public string? ReplayPath { get; set; }
         public string? LogsDir { get; set; }
+
+        /// <summary>Окно метрик такта в лог, с (<c>--metrics</c>, 0-030); 0 — только итог.</summary>
+        public int MetricsSeconds { get; set; } = DefaultMetricsSeconds;
+
+        /// <summary>Отчёт сервера JSON (<c>--report</c>, 0-030): итог метрик, окна, старт; null — не писать.</summary>
+        public string? ReportPath { get; set; }
         public List<string> LogLevels { get; } = new List<string>();
         public int? Port { get; set; }
         public int AutosaveSeconds { get; set; } = DefaultAutosaveSeconds;
@@ -201,6 +211,17 @@ namespace Orpheus.Server
                         break;
                     case "--logs":
                         o.LogsDir = Value(args, ref i);
+                        break;
+                    case "--metrics":
+                        o.MetricsSeconds = ParseInt(a, Value(args, ref i));
+                        if (o.MetricsSeconds < 0)
+                        {
+                            throw new ArgumentException("--metrics: окно метрик в секундах, 0 — только итог.");
+                        }
+
+                        break;
+                    case "--report":
+                        o.ReportPath = Value(args, ref i);
                         break;
                     case "--log":
                         o.LogLevels.Add(Value(args, ref i));
