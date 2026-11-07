@@ -66,7 +66,7 @@ namespace Orpheus.Tests
                     ? new TileCoord(512 - 48 + rng.NextInt(96), 512 - 32 + rng.NextInt(64))
                     : new TileCoord(rng.NextInt(1024), rng.NextInt(1024));
                 int id = sim.AddEntity(new WorldPos(tile.X * U + U / 2, tile.Y * U + U / 2));
-                bots[i] = SimBot.Create(WanderBot.Name, id, i, world.Seed);
+                bots[i] = SimBot.Create(ShuttleBot.Name, id, i, world.Seed); // челнок: окрестность не расползается за долгий прогрев
             }
 
             // Прогрев не короче 0,5 с: многоуровневая JIT переписывает горячие методы (уровень 1) через ~100 мс работы.
@@ -100,7 +100,8 @@ namespace Orpheus.Tests
 
             double usPerTick = sw.Elapsed.TotalMilliseconds * 1000 / Measured;
             _out.WriteLine($"{(dense ? "плотно" : "врозь")}, {entities} сущностей: SendSnapshots {usPerTick:0.0} мкс/такт ({usPerTick / 8:0.0} на игрока), " +
-                           $"наибольший полный {server.MaxSnapshotBytes} байт, дельта {server.MaxDeltaBytes}, обрезано {server.SnapshotsTruncated}");
+                           $"наибольший полный {server.MaxSnapshotBytes} байт, дельта {server.MaxDeltaBytes}, обрезано {server.SnapshotsTruncated}; " +
+                           $"окно пересчитано {server.ViewWindowRecalcs}, гистерезисом оставлено {server.ViewKeptByHysteresis}, сортировок {server.ViewsSortedByDistance}");
         }
 
         // ---------- Сетка по чанкам (ядро) ----------

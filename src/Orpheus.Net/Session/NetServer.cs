@@ -110,9 +110,16 @@ namespace Orpheus.Net.Session
             public readonly ChunkCoord[] Keep = new ChunkCoord[ChunkWindow.MaxChunks];
             public int KeepCount;
 
-            /// <summary>Номера чужих сущностей в обзоре прошлого такта, по возрастанию.</summary>
+            /// <summary>Чанк блока 8 × 6 (по номеру в <see cref="Keep"/>) — в окне: вход в обзор.</summary>
+            public readonly bool[] KeepInWindow = new bool[ChunkWindow.MaxChunks];
+
+            /// <summary>
+            /// Номера чужих сущностей в обзоре прошлого такта; сортируются при первом поиске (<see cref="IdsSorted"/>) —
+            /// пока все сущности обзора в окне, поиска нет и сортировки тоже.
+            /// </summary>
             public readonly int[] Ids = new int[Snapshot.MaxEntities];
             public int IdCount;
+            public bool IdsSorted;
         }
 
         /// <summary>
@@ -786,12 +793,17 @@ namespace Orpheus.Net.Session
                 (v.Window, v.WindowNext) = (v.WindowNext, v.Window);
                 v.WindowCount = wn;
                 v.KeepCount = ChunkWindow.KeepBlock(shape, center, v.Keep);
+                var window = new ReadOnlySpan<ChunkCoord>(v.Window, 0, v.WindowCount);
+                for (int k = 0; k < v.KeepCount; k++)
+                {
+                    v.KeepInWindow[k] = ChunkSets.Contains(window, v.Keep[k]);
+                }
+
                 v.Center = center;
                 v.HasWindow = true;
                 ViewWindowRecalcs++;
             }
 
-            var window = new ReadOnlySpan<ChunkCoord>(v.Window, 0, v.WindowCount);
             EntityChunkGrid grid = _sim.Grid;
             int nc = 0;
             for (int k = 0; k < v.KeepCount; k++)
@@ -803,7 +815,7 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                bool inWindow = ChunkSets.Contains(window, c);
+                bool inWindow = v.KeepInWindow[k];
                 for (; slot >= 0; slot = grid.Next(slot))
                 {
                     if (slot == selfSlot)
@@ -813,6 +825,12 @@ namespace Orpheus.Net.Session
 
                     if (!inWindow)
                     {
+                        if (!v.IdsSorted)
+                        {
+                            Array.Sort(v.Ids, 0, v.IdCount);
+                            v.IdsSorted = true;
+                        }
+
                         if (Array.BinarySearch(v.Ids, 0, v.IdCount, entities[slot].Id) < 0)
                         {
                             continue; // вне окна и не была в обзоре — не входит
@@ -852,7 +870,7 @@ namespace Orpheus.Net.Session
                 v.Ids[i - 1] = cur[i].Id;
             }
 
-            Array.Sort(v.Ids, 0, v.IdCount);
+            v.IdsSorted = false;
             return n;
         }
 
