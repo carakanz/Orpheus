@@ -2,7 +2,9 @@
 # Запуск: tools\ci.cmd (обёртка для cmd) или powershell -NoProfile -File tools/ci.ps1 (или pwsh tools/ci.ps1).
 # Выход 0 — зелёный; иначе код ошибки. Лимит времени — 60 с (0 — без лимита).
 # Тяжёлые тесты ([Trait("Category", "Big")], имена D0N_*_Big*: миры 4096² и больше) CI пропускает;
-# ночной прогон гоняет всё: tools\ci.cmd -All -TimeLimitSec 0.
+# ночной прогон гоняет всё, кроме Soak: tools\ci.cmd -All -TimeLimitSec 0.
+# Soak ([Trait("Category", "Soak")]: долгие прогоны в реальном времени, например 4 круга run_seam по UDP, ~12 мин)
+# не входят ни в CI, ни в -All; только они — tools\ci.cmd -Soak -TimeLimitSec 0 (перед приёмкой вехи).
 #
 # Кодировка: консоль переводится в UTF-8, поэтому перенаправление (tools\ci.cmd > log.txt 2>&1)
 # и -LogFile дают UTF-8 без BOM — кириллица в логе CI читается без подбора кодировки.
@@ -10,7 +12,8 @@ param(
     [string]$Configuration = 'Debug',
     [int]$TimeLimitSec = 60,
     [string]$LogFile = '',
-    [switch]$All
+    [switch]$All,
+    [switch]$Soak
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,10 +60,17 @@ function Invoke-Step([string]$name, [string]$color, [string[]]$dotnetArgs) {
 
 Invoke-Step 'build' 'Cyan' @('build', $sln, '-c', $Configuration, '--nologo', '-v', 'minimal')
 $testArgs = @('test', $sln, '-c', $Configuration, '--no-build', '--nologo', '-v', 'minimal')
-if (-not $All) {
-    $testArgs += @('--filter', 'Category!=Big')
+if ($Soak) {
+    $testArgs += @('--filter', 'Category=Soak')
+    $title = 'test (только Category=Soak)'
+} elseif ($All) {
+    $testArgs += @('--filter', 'Category!=Soak')
+    $title = 'test (все, с Big, без Soak)'
+} else {
+    $testArgs += @('--filter', 'Category!=Big&Category!=Soak')
+    $title = 'test (без Category=Big и Soak)'
 }
-Invoke-Step ($(if ($All) { 'test (все, с Big)' } else { 'test (без Category=Big)' })) 'Cyan' $testArgs
+Invoke-Step $title 'Cyan' $testArgs
 
 $sec = [math]::Round($total.Elapsed.TotalSeconds, 1)
 if ($TimeLimitSec -gt 0 -and $total.Elapsed.TotalSeconds -gt $TimeLimitSec) {
