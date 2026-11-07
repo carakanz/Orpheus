@@ -40,6 +40,9 @@ namespace Orpheus.Bots
         /// <summary>Для тестов: каждый принятый снимок бота № i (в потоке ботов). Не ключ.</summary>
         public Action<int, Snapshot, int>? OnSnapshot { get; set; }
 
+        /// <summary>Для тестов: начало кадра ботов (в потоке ботов) с его временем, мкс от старта ботов, — тем же, что уходит в опрос транспорта и имитатора; метка для замера задержки (0-032). Не ключ.</summary>
+        public Action<long>? OnFrame { get; set; }
+
         /// <summary>Настройки имитатора бота № <paramref name="index"/>: своё зерно у каждого.</summary>
         public NetSimSettings SimFor(int index) => new NetSimSettings
         {

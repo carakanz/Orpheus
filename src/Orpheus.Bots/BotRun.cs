@@ -100,6 +100,7 @@ namespace Orpheus.Bots
                 while (watch.Elapsed.TotalSeconds < o.Seconds && !stop.IsCancellationRequested)
                 {
                     long now = watch.Elapsed.Ticks / (TimeSpan.TicksPerMillisecond / 1000);
+                    o.OnFrame?.Invoke(now);
                     bool anyAlive = false;
                     for (int i = 0; i < bots.Length; i++)
                     {
