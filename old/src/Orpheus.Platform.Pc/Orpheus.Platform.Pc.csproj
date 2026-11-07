@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Платформенный слой «ПК» (docs/07, 1.6): IPlatformStorage с атомарной записью (6.5). Здесь и только здесь
+    P/Invoke сохранений: FlushFileBuffers, MoveFileExW (Windows), rename/open/fsync (Linux, macOS).
+    И IServerLauncher «ПК» (0-024): OrpheusServer дочерним процессом — System.Diagnostics.Process только здесь.
+    netstandard2.1 — его же берёт клиент Unity (IL2CPP) для режима «сервер в потоке».
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <!-- Тест флагов сброса (0-016) подменяет системные вызовы записи через внутренний шов PcFileCalls. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Orpheus.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Orpheus.Save\Orpheus.Save.csproj" />
+    <ProjectReference Include="..\Orpheus.Net\Orpheus.Net.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Тесты ядра: dotnet test без Unity. По docs/07 1.3 — net10.0; пока net9.0 (решение Продюсера 30.10). -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <!-- Та же версия Roslyn, что у анализатора (src/Orpheus.Analyzers): тесты собирают примеры in-memory. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Orpheus.Core\Orpheus.Core.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.Net\Orpheus.Net.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.Save\Orpheus.Save.csproj" />
+    <!-- Сервер (exe): тесты D00_Sim_* гоняют его цикл такта в процессе теста через ServerRun.Run. -->
+    <ProjectReference Include="..\..\src\Orpheus.Server\Orpheus.Server.csproj" />
+    <!-- Боты по сети (exe): тесты D00_Net_Udp_* гоняют BotRun.Run в процессе теста. -->
+    <ProjectReference Include="..\..\src\Orpheus.Bots\Orpheus.Bots.csproj" />
+    <!-- Анализатор как обычная библиотека: тесты D00_Analyzer_* создают DeterminismAnalyzer напрямую. -->
+    <ProjectReference Include="..\..\src\Orpheus.Analyzers\Orpheus.Analyzers.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
+    <ProjectReference Include="..\..\tools\orpheus-save\orpheus-save.csproj" />
+  </ItemGroup>
+
+</Project>

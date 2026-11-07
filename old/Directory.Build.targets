@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Модули ядра (OrpheusDeterministicRules=true в .csproj) собираются с анализатором Orpheus.Analyzers:
+    ORP001–ORP007 — ошибки сборки, ORP900 — предупреждение-сводка об обходах [AllowNondeterministic].
+  -->
+  <ItemGroup Condition="'$(OrpheusDeterministicRules)' == 'true'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src\Orpheus.Analyzers\Orpheus.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

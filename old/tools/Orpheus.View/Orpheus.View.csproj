@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Orpheus.View</RootNamespace>
+    <AssemblyName>OrpheusView</AssemblyName>
+    <Description>Кадр мира из сохранения: чанки + сущности в BMP (промежуточные playble-сборки).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Orpheus.Core\Orpheus.Core.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.Save\Orpheus.Save.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
+    <ProjectReference Include="..\..\src\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
+  </ItemGroup>
+
+</Project>

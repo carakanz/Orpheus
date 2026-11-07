@@ -1,0 +1,132 @@
+using System;
+using Orpheus.Core.Geometry;
+
+namespace Orpheus.Core.Movement
+{
+    /// <summary>
+    /// Движение одной сущности за такт 30 Гц (docs/07, 4.2): позиция + целый остаток скорости +
+    /// шаг. Никаких ссылок на Unity и на мир: есть только форма карты (<see cref="MapShape"/>),
+    /// направление ввода (<see cref="Input8"/>) и вопрос «тайл твёрдый?» (<see cref="TileSolid"/>).
+    /// <para>
+    /// Скорость — <see cref="UnitsPerTickX10"/> в unit × 10 за такт: базовый бег 512 (6 тайлов/с
+    /// при 30 Гц = 51,2 unit за такт, work/refs/movement.md); ускорения снаряжения — другие значения
+    /// тем же полем. За такт <c>carry += v</c>, <c>шаг = carry / 10</c>, <c>carry %= 10</c> —
+    /// дробные 0,2 unit накапливаются целым числом на сущности, float-накопления нет.
+    /// Сдвиг позиции — только <see cref="Torus.Offset"/> (docs/07, 3.2).
+    /// </para>
+    /// Структура: 2 × int32 (позиция) + 2 × int32 (остаток) + int32 (скорость) + уворот 4 байта (<see cref="Dodge"/>, 0-029),
+    /// памяти в такте не выделяет.
+    /// </summary>
+    public struct Mover
+    {
+        /// <summary>Позиция существа в 1/256 тайла (docs/07, 3.2), свёрнутая в пределы карты.</summary>
+        public WorldPos Position;
+
+        /// <summary>
+        /// Целый остаток скорости на осях в десятых долях unit (−9…9 на ось): <c>carry += v</c>,
+        /// шаг = <c>carry / 10</c>, <c>carry %= 10</c>. После кратного числа тактов (5 — для базового
+        /// бега) остаток равен 0, и путь кратен тайлу ровно.
+        /// </summary>
+        public Int2 Carry;
+
+        /// <summary>Скорость за такт в unit × 10: базовый бег 512 (см. <see cref="MovementTick.BaseSpeedX10"/>).</summary>
+        public int UnitsPerTickX10;
+
+        /// <summary>Уворот (`02` 2.2; 0-029): рывок, неуязвимость, откат — шагается только покадрово.</summary>
+        public Dodge Dodge;
+
+        public Mover(WorldPos position, int unitsPerTickX10 = MovementTick.BaseSpeedX10)
+        {
+            Position = position;
+            Carry = default;
+            UnitsPerTickX10 = unitsPerTickX10;
+            Dodge = default;
+        }
+
+        /// <summary>Сущность в позиции, свёрнутой в карту (тор: координата за миром невозможна).</summary>
+        public static Mover At(in MapShape map, WorldPos position, int unitsPerTickX10 = MovementTick.BaseSpeedX10) =>
+            new Mover(Torus.Wrap(map, position), unitsPerTickX10);
+
+        /// <summary>
+        /// Один такт 30 Гц: направление ввода → скорость на оси (прямая 512, диагональ 362 unit × 10)
+        /// → целый шаг с остатком → коллизия по осям (X, потом Y). Возвращает новую позицию.
+        /// </summary>
+        public WorldPos Step(in MapShape map, Input8 input, TileSolid solid)
+        {
+            Position = MovementTick.Tick(map, Position, Carry, input, UnitsPerTickX10, solid, out Carry);
+            return Position;
+        }
+
+        /// <summary>
+        /// Один кадр ввода 60 Гц — полшага такта (скорость <see cref="UnitsPerTickX10"/> ÷ <see cref="MovementTick.FramesPerTick"/>)
+        /// с тем же остатком <see cref="Carry"/>. Так шагают сетевой персонаж на сервере и предсказание клиента
+        /// (docs/07, 2.6 п. 5 и 2.7 «Применение ввода»; 0-019): одна функция, одни входы — одна позиция.
+        /// </summary>
+        public WorldPos StepFrame(in MapShape map, Input8 input, TileSolid solid) => StepFrame(map, input, false, solid);
+
+        /// <summary>
+        /// Кадр ввода 60 Гц с уворотом (`02` 2.2, 2.4; 0-029). Нажатие (<paramref name="dodgePressed"/>) при готовом увороте
+        /// (<see cref="Dodge.Ready"/>) и направлении ввода начинает рывок в этом же кадре. В рывке персонаж идёт
+        /// <see cref="Movement.Dodge.SpeedX10"/> за кадр в направлении рывка, ввод не действует; рывок кончается через
+        /// <see cref="Movement.Dodge.DashFrames"/> кадров или в кадре, где упёрся в стену по всем осям направления; с конца —
+        /// откат. Без рывка — шаг бега (<see cref="StepFrame(in MapShape, Input8, TileSolid)"/>), откат убывает.
+        /// Порядок фиксирован: начать → шагнуть → счётчики. Без выделений, только целые.
+        /// </summary>
+        public WorldPos StepFrame(in MapShape map, Input8 input, bool dodgePressed, TileSolid solid)
+        {
+            if (dodgePressed && input.IsMoving && Dodge.Ready)
+            {
+                Dodge.DashLeft = Movement.Dodge.DashFrames;
+                Dodge.Elapsed = 0;
+                Dodge.Direction = (byte)(input.DirectionIndex + 1);
+            }
+
+            if (Dodge.Elapsed < Movement.Dodge.ElapsedCap && Dodge.Direction != 0)
+            {
+                Dodge.Elapsed++;
+            }
+
+            if (!Dodge.Dashing)
+            {
+                if (Dodge.Cooldown != 0)
+                {
+                    Dodge.Cooldown--;
+                }
+
+                Position = MovementTick.Tick(map, Position, Carry, input, UnitsPerTickX10 / MovementTick.FramesPerTick, solid, out Carry);
+                return Position;
+            }
+
+            Input8 dir = Dodge.DashDirection;
+            int wantX = (Carry.X + dir.SpeedX10(Movement.Dodge.SpeedX10)) / MovementTick.SpeedScale;
+            int wantY = (Carry.Y + dir.SpeedY10(Movement.Dodge.SpeedX10)) / MovementTick.SpeedScale;
+            WorldPos from = Position;
+            Position = MovementTick.Tick(map, Position, Carry, dir, Movement.Dodge.SpeedX10, solid, out Carry);
+            Int2 moved = Torus.Delta(map, from, Position);
+
+            // Упёрся: по каждой оси направления пройдено не всё (по оси без движения — «упёрто» само собой).
+            bool stuckX = wantX == 0 || moved.X != wantX;
+            bool stuckY = wantY == 0 || moved.Y != wantY;
+            Dodge.DashLeft--;
+            if (stuckX && stuckY)
+            {
+                Dodge.DashLeft = 0;
+            }
+
+            if (Dodge.DashLeft == 0)
+            {
+                Dodge.Cooldown = Movement.Dodge.CooldownFrames;
+            }
+
+            return Position;
+        }
+
+        /// <summary>Один такт в пустом мире (тайлов нет): чистый пробег по тору.</summary>
+        public WorldPos Step(in MapShape map, Input8 input) => Step(map, input, Collision.Empty);
+
+        /// <summary>Тайл, в котором стоит сущность.</summary>
+        public TileCoord TileOn(in MapShape map) => Torus.TileOf(map, Position);
+
+        public override string ToString() => $"mover({Position.X}/256, {Position.Y}/256) v={UnitsPerTickX10} {Dodge}";
+    }
+}
