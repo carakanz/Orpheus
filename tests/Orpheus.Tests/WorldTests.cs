@@ -328,28 +328,8 @@ namespace Orpheus.Tests
             Assert.Equal(1u, chunk.Revision);
         }
 
-        [Fact]
-        public void D00_World_Edits_NoAllocationsInTick()
-        {
-            var chunk = new Chunk();
-            var edits = new TileEdit[64];
-            for (int i = 0; i < edits.Length; i++)
-            {
-                edits[i] = new TileEdit((ushort)(i * 7), FloorId.Dirt, ObjectId.Rock);
-            }
-
-            var results = new EditResult[edits.Length];
-            var wire = new byte[1024];
-            chunk.ApplyEdits(edits, results);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int k = 0; k < 100; k++)
-            {
-                uint rev = chunk.ApplyEdits(edits, results);
-                TilePatch.WriteAccepted(wire, 0, new ChunkCoord(0, 0), rev, edits, results);
-            }
-
-            Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
-        }
+        // Тесты «без выделений» (D00_World_Edits_NoAllocationsInTick, D00_World_WindowAndZone_NoAllocations) —
+        // в AllocationTests: отдельная непараллельная коллекция с прогревом (0-020).
 
         // ---------- Сжатая копия (3.3, 3.6) ----------
 
@@ -861,30 +841,6 @@ namespace Orpheus.Tests
             }
 
             return false;
-        }
-
-        [Fact]
-        public void D00_World_WindowAndZone_NoAllocations()
-        {
-            var map = MapShape.World(4096);
-            var players = new[] { TileCenter(10, 10), TileCenter(4000, 4000) };
-            var a = new ChunkCoord[ActiveZone.MaxChunks(map, players.Length)];
-            var b = new ChunkCoord[a.Length];
-            var wa = new ChunkCoord[ChunkWindow.MaxChunks];
-            var wb = new ChunkCoord[ChunkWindow.MaxChunks];
-            int na = ActiveZone.Update(map, players, ReadOnlySpan<ChunkCoord>.Empty, a);
-            int nw = ChunkWindow.Update(map, players[0], ReadOnlySpan<ChunkCoord>.Empty, wa);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int k = 0; k < 200; k++)
-            {
-                players[0] = Torus.Offset(map, players[0], new Int2(U, U / 3));
-                int nb = ActiveZone.Update(map, players, a.AsSpan(0, na), b);
-                (a, b, na) = (b, a, nb);
-                int nwb = ChunkWindow.Update(map, players[0], wa.AsSpan(0, nw), wb);
-                (wa, wb, nw) = (wb, wa, nwb);
-            }
-
-            Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
         }
     }
 }

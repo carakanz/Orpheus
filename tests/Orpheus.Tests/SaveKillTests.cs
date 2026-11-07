@@ -336,6 +336,7 @@ namespace Orpheus.Tests
             psi.ArgumentList.Add(_logs);
 
             using var process = Process.Start(psi) ?? throw new InvalidOperationException("не запустился " + Host);
+            Exception? failure = null;
             try
             {
                 // Чтение stderr — с тем же сроком, что и ожидание выхода: зависший сервер с открытым stderr
@@ -375,14 +376,27 @@ namespace Orpheus.Tests
                 stdout = process.StandardOutput.ReadToEnd();
                 return process.ExitCode;
             }
+            catch (Exception e)
+            {
+                failure = e;
+                throw;
+            }
             finally
             {
                 // Проверка упала (нет маркера, таймаут, молчание) — дочерний сервер не остаётся висеть:
                 // крючок после crash-point ждёт вечно (0-016, замечание 5 проверки 0-009).
                 if (!process.HasExited)
                 {
-                    process.Kill(entireProcessTree: true);
-                    process.WaitForExit();
+                    try
+                    {
+                        process.Kill(entireProcessTree: true);
+                        process.WaitForExit();
+                    }
+                    catch (Exception stop) when (failure != null)
+                    {
+                        // Отказ снятия не заслоняет исходное падение: оно — в сообщении и внутренним (0-020, замечание 5 проверки 0-016).
+                        throw new InvalidOperationException($"{failure.Message}{Environment.NewLine}(и сервер не снялся: {stop.Message})", failure);
+                    }
                 }
             }
         }
