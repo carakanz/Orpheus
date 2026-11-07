@@ -123,6 +123,9 @@ namespace Orpheus.Net.Session
         /// <summary>Расхождение на последней сверке, unit.</summary>
         public int LastDevUnits { get; private set; }
 
+        /// <summary>Была сверка с сервером (позиция — не начальная заглушка).</summary>
+        public bool Synced => _synced;
+
         /// <summary>Предсказанная позиция после последнего кадра.</summary>
         public WorldPos Position => _mover.Position;
 
@@ -253,7 +256,7 @@ namespace Orpheus.Net.Session
                     ComparedOverHalfTile++;
                 }
 
-                if (d2 <= MatchDist2 && predicted.Carry == server.Carry)
+                if (d2 <= MatchDist2 && predicted.Carry == server.Carry && SelfState.SameDodge(predicted.Dodge, server.Dodge))
                 {
                     return; // совпало (2.6 п. 3)
                 }
@@ -289,11 +292,11 @@ namespace Orpheus.Net.Session
                 _replay[n++] = s;
             }
 
-            // Серверное состояние — уже после ack: переигровка только новее. Уворота в снимке нет (0-029: шаги 3–5) —
-            // он берётся из предсказанного для ack: он зависит только от кадров ввода, и сервер шагнул те же.
+            // Серверное состояние — уже после ack: переигровка только новее. Уворот — тоже серверный (0-029, протокол 5):
+            // сервер мог шагнуть кадры сам (без нажатий) или перескочить их — тогда предсказанный рывок не тот.
             _mover.Position = server.Position;
             _mover.Carry = server.Carry;
-            _mover.Dodge = known ? predicted.Dodge : default;
+            _mover.Dodge = server.Dodge;
             _before = _mover;
             _beforeFrame = ackFrame;
             _beforePre = !_hasHistory || (int)(ackFrame - _firstFrame) < 0;

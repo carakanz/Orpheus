@@ -167,7 +167,7 @@ namespace Orpheus.Tests
                 }
 
                 long at = t + OneWayMs * 1000L + (JitterMs > 0 ? NetSimTransport.Gaussian(ref _rng, JitterMs) : 0);
-                _toClient.Add((tick, _ack, new SelfState(_server.Position, _server.Carry), Math.Max(at, t)));
+                _toClient.Add((tick, _ack, new SelfState(_server.Position, _server.Carry, _server.Dodge), Math.Max(at, t)));
             }
 
             private void DeliverSnapshots(long t)

@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using Orpheus.Core.Sim;
+using Orpheus.Core.Geometry;
 
 namespace Orpheus.Net.Protocol
 {
@@ -42,6 +43,17 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 0: ответ на пинг — метка клиента и кадр сервера сейчас (часы клиента, 2.4).</summary>
         Pong = 12,
+
+        /// <summary>
+        /// Сервер → клиент, канал 0, каждый такт замаха: «замах начат» (0-029; `02` 15.1 — событие с серверным временем
+        /// начала): кто, кадр начала s, длина замаха d, сектор. Повтор каждый такт — потеря пакета не теряет замах.
+        /// </summary>
+        SwingStart = 13,
+
+        /// <summary>Сервер → клиент, канал 2: удар врага по этому игроку решён (0-029; `07` 2.7 «Решение»): попал / нет, ожидание.</summary>
+        MeleeResult = 14,
+
+        // 15 свободен; 16–19 — у 0-026 (чанки). Новые типы — в Codec.TypeOf.
     }
 
     /// <summary>
@@ -560,6 +572,129 @@ namespace Orpheus.Net.Protocol
         }
     }
 
+    /// <summary>
+    /// «Замах начат» (0-029, тип 13): ближний удар врага — номер атакующего, кадр начала s (время сервера, кадры 60 Гц),
+    /// длина замаха d, сектор (центр без кванта, ось, досягаемость, половина дуги). Клиент показывает замах «сейчас»:
+    /// конец — в его кадре s + d (`07` 2.9, в шипе без сдвига D_p).
+    /// </summary>
+    public struct SwingStartMessage
+    {
+        /// <summary>Тип 1 + атакующий 4 + s 4 + d 1 + центр 8 + ось 2 + досягаемость 2 + полудуга 2.</summary>
+        public const int Bytes = 24;
+
+        public int AttackerId;
+        public uint StartFrame;
+        public byte WindupFrames;
+        public WorldPos Origin;
+        public ushort Axis;
+        public ushort ReachUnits;
+        public ushort HalfArcSteps;
+
+        /// <summary>Кадр конца замаха s + d.</summary>
+        public uint ContactFrame => unchecked(StartFrame + WindupFrames);
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.SwingStart);
+            w.WriteUInt32((uint)AttackerId);
+            w.WriteUInt32(StartFrame);
+            w.WriteByte(WindupFrames);
+            w.WriteUInt32((uint)Origin.X);
+            w.WriteUInt32((uint)Origin.Y);
+            w.WriteUInt16(Axis);
+            w.WriteUInt16(ReachUnits);
+            w.WriteUInt16(HalfArcSteps);
+            return w.BytesWritten;
+        }
+
+        public static SwingStartMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.SwingStart);
+            var m = new SwingStartMessage
+            {
+                AttackerId = (int)r.ReadUInt32(),
+                StartFrame = r.ReadUInt32(),
+                WindupFrames = r.ReadByte(),
+                Origin = new WorldPos((int)r.ReadUInt32(), (int)r.ReadUInt32()),
+                Axis = r.ReadUInt16(),
+                ReachUnits = r.ReadUInt16(),
+                HalfArcSteps = r.ReadUInt16(),
+            };
+            r.ExpectEnd();
+            if (m.Origin.X < 0 || m.Origin.Y < 0 || m.WindupFrames == 0)
+            {
+                throw new ProtocolException($"Замах: центр {m.Origin} или замах {m.WindupFrames} вне пределов.");
+            }
+
+            return m;
+        }
+
+        public override string ToString() => $"замах #{AttackerId}: s {StartFrame}, d {WindupFrames}, {Origin} ось {Axis}";
+    }
+
+    /// <summary>
+    /// «Удар решён» (0-029, тип 14): итог угрозы по этому игроку — попал или нет; решён ли по последнему известному
+    /// (ввода кадра конца замаха не дождались за W); сколько кадров сервер ждал после конца замаха и сколько кадров ввода
+    /// не хватило; кадр сервера в миг решения.
+    /// </summary>
+    public struct MeleeResultMessage
+    {
+        /// <summary>Тип 1 + атакующий 4 + s 4 + флаги 1 + ждал 1 + не хватило 1 + кадр решения 4.</summary>
+        public const int Bytes = 16;
+
+        public int AttackerId;
+        public uint StartFrame;
+        public bool Hit;
+
+        /// <summary>Решён по последнему известному: ввод кадра конца замаха не пришёл за W.</summary>
+        public bool ByLastKnown;
+
+        /// <summary>Кадров сервер ждал ввода после конца замаха (по времени сервера), 0…W.</summary>
+        public byte WaitedFrames;
+
+        /// <summary>Кадров ввода до конца замаха не хватило в миг решения (0 — дождался).</summary>
+        public byte MissingFrames;
+
+        /// <summary>Кадр сервера в миг решения.</summary>
+        public uint DecidedAtFrame;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.MeleeResult);
+            w.WriteUInt32((uint)AttackerId);
+            w.WriteUInt32(StartFrame);
+            w.WriteByte((byte)((Hit ? 1 : 0) | (ByLastKnown ? 2 : 0)));
+            w.WriteByte(WaitedFrames);
+            w.WriteByte(MissingFrames);
+            w.WriteUInt32(DecidedAtFrame);
+            return w.BytesWritten;
+        }
+
+        public static MeleeResultMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.MeleeResult);
+            var m = new MeleeResultMessage { AttackerId = (int)r.ReadUInt32(), StartFrame = r.ReadUInt32() };
+            byte flags = r.ReadByte();
+            if (flags > 3)
+            {
+                throw new ProtocolException($"Удар решён: флаги {flags}.");
+            }
+
+            m.Hit = (flags & 1) != 0;
+            m.ByLastKnown = (flags & 2) != 0;
+            m.WaitedFrames = r.ReadByte();
+            m.MissingFrames = r.ReadByte();
+            m.DecidedAtFrame = r.ReadUInt32();
+            r.ExpectEnd();
+            return m;
+        }
+
+        public override string ToString() =>
+            $"удар #{AttackerId} s {StartFrame}: {(Hit ? "попал" : "мимо")}{(ByLastKnown ? ", по последнему известному" : "")}, ждал {WaitedFrames}, не хватило {MissingFrames}";
+    }
+
     /// <summary>Общее для кодека: тип сообщения.</summary>
     public static class Codec
     {
@@ -572,7 +707,7 @@ namespace Orpheus.Net.Protocol
             }
 
             byte t = src[0];
-            if (t < (byte)MessageType.Login || t > (byte)MessageType.Pong)
+            if (t < (byte)MessageType.Login || t > (byte)MessageType.MeleeResult)
             {
                 throw new ProtocolException($"Неизвестный тип сообщения {t}.");
             }

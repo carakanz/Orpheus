@@ -1,5 +1,6 @@
 using System;
 using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
 using Orpheus.Net.Transport;
 
@@ -39,17 +40,39 @@ namespace Orpheus.Net.Protocol
         /// <summary>Остаток скорости, десятые unit (−9…9 на ось).</summary>
         public Int2 Carry;
 
+        /// <summary>
+        /// Уворот (0-029, протокол 5): кадров от начала (8 бит), рывка осталось (4), откат (5), направление (4) — 21 бит.
+        /// Клиент при правке берёт его вместо предсказанного: сервер мог шагнуть кадры сам или перескочить их.
+        /// </summary>
+        public Dodge Dodge;
+
+        /// <summary>Бит на поля уворота.</summary>
+        public const int DodgeElapsedBits = 8, DodgeDashBits = 4, DodgeCooldownBits = 5, DodgeDirectionBits = 4;
+
+        /// <summary>Бит уворота всего: 21.</summary>
+        public const int DodgeBits = DodgeElapsedBits + DodgeDashBits + DodgeCooldownBits + DodgeDirectionBits;
+
         public SelfState(WorldPos position, Int2 carry)
+            : this(position, carry, default)
+        {
+        }
+
+        public SelfState(WorldPos position, Int2 carry, Dodge dodge)
         {
             Present = true;
             Position = position;
             Carry = carry;
+            Dodge = dodge;
         }
 
-        public bool Equals(SelfState o) => Present == o.Present && Position == o.Position && Carry == o.Carry;
+        /// <summary>Уворот одинаков во всех полях.</summary>
+        public static bool SameDodge(in Dodge a, in Dodge b) =>
+            a.Elapsed == b.Elapsed && a.DashLeft == b.DashLeft && a.Cooldown == b.Cooldown && a.Direction == b.Direction;
+
+        public bool Equals(SelfState o) => Present == o.Present && Position == o.Position && Carry == o.Carry && SameDodge(Dodge, o.Dodge);
         public override bool Equals(object? obj) => obj is SelfState o && Equals(o);
-        public override int GetHashCode() => Present ? Position.X ^ (Position.Y << 7) ^ (Carry.X << 3) ^ Carry.Y : 0;
-        public override string ToString() => Present ? $"своё {Position} c{Carry}" : "своё —";
+        public override int GetHashCode() => Present ? Position.X ^ (Position.Y << 7) ^ (Carry.X << 3) ^ Carry.Y ^ (Dodge.Elapsed << 11) : 0;
+        public override string ToString() => Present ? $"своё {Position} c{Carry} {Dodge}" : "своё —";
 
         internal void Write(ref BitWriter w, in SnapshotLayout layout)
         {
@@ -59,6 +82,10 @@ namespace Orpheus.Net.Protocol
             w.WriteBits((uint)s.Position.Y, layout.SelfBitsY);
             w.WriteBits((uint)(s.Carry.X + SnapshotLayout.CarryBias), SnapshotLayout.CarryBits);
             w.WriteBits((uint)(s.Carry.Y + SnapshotLayout.CarryBias), SnapshotLayout.CarryBits);
+            w.WriteBits(s.Dodge.Elapsed, DodgeElapsedBits);
+            w.WriteBits(s.Dodge.DashLeft, DodgeDashBits);
+            w.WriteBits(s.Dodge.Cooldown, DodgeCooldownBits);
+            w.WriteBits(s.Dodge.Direction, DodgeDirectionBits);
         }
 
         internal static SelfState Read(ref BitReader r, in SnapshotLayout layout)
@@ -68,6 +95,18 @@ namespace Orpheus.Net.Protocol
             int y = (int)r.ReadBits(layout.SelfBitsY);
             int cx = (int)r.ReadBits(SnapshotLayout.CarryBits) - SnapshotLayout.CarryBias;
             int cy = (int)r.ReadBits(SnapshotLayout.CarryBits) - SnapshotLayout.CarryBias;
+            var dodge = new Dodge
+            {
+                Elapsed = (byte)r.ReadBits(DodgeElapsedBits),
+                DashLeft = (byte)r.ReadBits(DodgeDashBits),
+                Cooldown = (byte)r.ReadBits(DodgeCooldownBits),
+                Direction = (byte)r.ReadBits(DodgeDirectionBits),
+            };
+            if (dodge.DashLeft > Dodge.DashFrames || dodge.Cooldown > Dodge.CooldownFrames || dodge.Direction > 8)
+            {
+                throw new ProtocolException($"Снимок: уворот вне пределов ({dodge.DashLeft}, {dodge.Cooldown}, {dodge.Direction}).");
+            }
+
             if (x >= layout.Shape.WidthUnits || y >= layout.Shape.HeightUnits || Math.Abs(cx) > MaxCarry || Math.Abs(cy) > MaxCarry)
             {
                 throw new ProtocolException($"Снимок: своё состояние ({x}, {y}) c({cx}, {cy}) вне карты или остаток > {MaxCarry}.");
@@ -75,7 +114,7 @@ namespace Orpheus.Net.Protocol
 
             if (!present)
             {
-                if (x != 0 || y != 0 || cx != 0 || cy != 0)
+                if (x != 0 || y != 0 || cx != 0 || cy != 0 || !SameDodge(dodge, default))
                 {
                     throw new ProtocolException("Снимок: своего состояния нет, а поля не пустые.");
                 }
@@ -83,7 +122,7 @@ namespace Orpheus.Net.Protocol
                 return default;
             }
 
-            return new SelfState(new WorldPos(x, y), new Int2(cx, cy));
+            return new SelfState(new WorldPos(x, y), new Int2(cx, cy), dodge);
         }
     }
 
@@ -130,10 +169,10 @@ namespace Orpheus.Net.Protocol
         public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits;
 
         /// <summary>
-        /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5.
-        /// 1024² — 47 бит (≈ 6 байт), 4096² — 51 бит. Есть в каждом снимке и каждой дельте.
+        /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5
+        /// + уворот 21 (0-029, протокол 5). 1024² — 68 бит (≈ 9 байт), 4096² — 72 бита. Есть в каждом снимке и каждой дельте.
         /// </summary>
-        public int SelfBits => 1 + SelfBitsX + SelfBitsY + 2 * CarryBits;
+        public int SelfBits => 1 + SelfBitsX + SelfBitsY + 2 * CarryBits + SelfState.DodgeBits;
 
         /// <summary>Сколько сущностей влезает в бюджет <see cref="NetSettings.SnapshotBudget"/>.</summary>
         public int MaxEntitiesInBudget => Math.Min(Snapshot.MaxEntities, ((NetSettings.SnapshotBudget - Snapshot.HeaderBytes) * 8 - SelfBits) / EntityBits);

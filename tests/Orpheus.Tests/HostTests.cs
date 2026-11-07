@@ -77,7 +77,7 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 0 }));
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 4 }));
             Assert.Equal("Хост вышел. Мир сохранён у него", new ClosingMessage { Reason = ClosingReason.HostLeft }.Describe());
-            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.Pong + 1 })); // последний тип — Pong (0-025, после Closing)
+            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.MeleeResult + 1 })); // последний тип — MeleeResult (0-029, после Pong)
 
             Assert.True(HostToken.TryParse(Token.ToString(), out HostToken parsed));
             Assert.Equal(Token, parsed);

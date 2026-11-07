@@ -39,7 +39,7 @@ namespace Orpheus.Net.Session
     /// персонаж стоит; соединение держится до обычного тайм-аута транспорта.
     /// </para>
     /// </summary>
-    public sealed class NetServer : ITransportHandler
+    public sealed partial class NetServer : ITransportHandler
     {
         private enum PlayerState : byte
         {
@@ -100,6 +100,13 @@ namespace Orpheus.Net.Session
 
             /// <summary>Обзор (4.4; 0-022); создаётся при входе в игру.</summary>
             public ViewState? View;
+
+            /// <summary>Угрозы (0-029): решаются по игроку замахи, начатые с этого кадра сервера (вход в игру).</summary>
+            public uint ThreatsFrom;
+
+            /// <summary>Кадр начала последней решённой по игроку угрозы; <see cref="HasResolved"/> — решена хоть одна.</summary>
+            public uint ResolvedStart;
+            public bool HasResolved;
         }
 
         /// <summary>
@@ -195,6 +202,7 @@ namespace Orpheus.Net.Session
         private readonly DeltaFields[] _updFields = new DeltaFields[Snapshot.MaxEntities];
         private readonly int[] _addCur = new int[Snapshot.MaxEntities];
         private readonly InputFrame[] _frameBuf = new InputFrame[FramesPerTickLimit];
+        private readonly uint[] _frameNum = new uint[FramesPerTickLimit]; // номера кадров _frameBuf (угрозы, 0-029)
 
         // Обзор (0-022): ключи кандидатов «квадрат расстояния до своего << 20 | место» — сортировка без выделений,
         // ближние первыми, при равенстве — по месту (по номеру).
@@ -501,6 +509,7 @@ namespace Orpheus.Net.Session
         private void PlanFrames()
         {
             long tick = _sim.Tick;
+            StepDummy();
             for (int pi = 0; pi < _players.Count; pi++)
             {
                 Player p = _players[pi];
@@ -525,8 +534,9 @@ namespace Orpheus.Net.Session
                     if (p.RingValid[i] && p.RingFrame[i] == c)
                     {
                         p.RingValid[i] = false;
-                        _frameBuf[n++] = p.RingInput[i];
+                        _frameBuf[n] = p.RingInput[i];
                         Advance(p, p.RingInput[i]);
+                        _frameNum[n++] = p.LastApplied;
                         FramesApplied++;
                         p.HoleSinceTick = -1;
                         continue;
@@ -565,8 +575,9 @@ namespace Orpheus.Net.Session
                     var self = new InputFrame(p.LastInput.Direction); // 2.7 «Нет ввода»: последнее направление, кнопки отпущены
                     while (n < MovementTick.FramesPerTick && n < limit)
                     {
-                        _frameBuf[n++] = self;
+                        _frameBuf[n] = self;
                         Advance(p, self);
+                        _frameNum[n++] = p.LastApplied;
                         FramesSelfStepped++;
                     }
                 }
@@ -586,6 +597,7 @@ namespace Orpheus.Net.Session
                 }
 
                 p.Credits -= n;
+                ResolveThreats(p, slot, n);
                 _sim.SetFramesAt(slot, new ReadOnlySpan<InputFrame>(_frameBuf, 0, n));
             }
         }
@@ -686,7 +698,7 @@ namespace Orpheus.Net.Session
                 }
 
                 Mover me = entities[selfSlot].Mover;
-                _self = new SelfState(me.Position, me.Carry); // подтверждённое состояние без кванта (2.6 п. 2; 0-019)
+                _self = new SelfState(me.Position, me.Carry, me.Dodge); // подтверждённое состояние без кванта (2.6 п. 2; 0-019), с уворотом (0-029)
                 int curCount = BuildView(pl, entities, selfSlot, _cur);
                 SentRing ring = pl.Ring ??= new SentRing();
                 int bi = ring.Find(pl.LastSnapshotAck);
@@ -736,6 +748,7 @@ namespace Orpheus.Net.Session
                 SnapshotBytes += len;
             }
 
+            SendSwings();
             _transport.Flush(); // снимки такта — сразу, а не по таймеру транспорта (0-015)
         }
 
@@ -1190,6 +1203,7 @@ namespace Orpheus.Net.Session
             p.IsHost = !m.Token.IsEmpty;
             p.LastInputTick = _sim.Tick;
             p.Credits = FramesPerTickLimit;
+            p.ThreatsFrom = ServerFrame;
             LoginsAccepted++;
             int len = new LoginAcceptMessage
             {
