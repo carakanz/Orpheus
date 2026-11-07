@@ -139,16 +139,16 @@ namespace Orpheus.Net.Session
             for (int k = 0; k < n && ti < _threats.Count; k++)
             {
                 m.StepFrame(_sim.Shape, _frameBuf[k].Direction, _frameBuf[k].DodgePressed, _sim.Solid);
-                while (ti < _threats.Count && unchecked((int)(_frameNum[k] - _threats[ti].ContactFrame)) >= 0)
+                while (ti < _threats.Count && unchecked((int)(_frameNum[k] - ResolveFrame(p, _threats[ti]))) >= 0)
                 {
                     Decide(p, _threats[ti], m, false, 0);
                     ti++;
                 }
             }
 
-            // Ожидание: следующий такт ушёл бы за W после конца замаха — решить сейчас по последнему известному.
+            // Ожидание: следующий такт ушёл бы за W после кадра решения — решить сейчас по последнему известному.
             uint nextTick = unchecked(ServerFrame + MovementTick.FramesPerTick);
-            while (ti < _threats.Count && unchecked((int)(nextTick - _threats[ti].ContactFrame)) > InputWaitFrames)
+            while (ti < _threats.Count && unchecked((int)(nextTick - ResolveFrame(p, _threats[ti]))) > InputWaitFrames)
             {
                 ref readonly Threat t = ref _threats[ti];
                 Mover known = _sim.Entities[slot].Mover;
@@ -157,7 +157,7 @@ namespace Orpheus.Net.Session
                     known.StepFrame(_sim.Shape, _frameBuf[k].Direction, _frameBuf[k].DodgePressed, _sim.Solid);
                 }
 
-                int missing = p.HasApplied ? unchecked((int)(t.ContactFrame - p.LastApplied)) : 0;
+                int missing = p.HasApplied ? unchecked((int)(ResolveFrame(p, t) - p.LastApplied)) : 0;
                 missing = Math.Max(0, Math.Min(missing, ThreatQueue.LifetimeFrames));
                 for (int k = 0; k < missing; k++)
                 {
@@ -169,6 +169,26 @@ namespace Orpheus.Net.Session
             }
         }
 
+        /// <summary>
+        /// Кадр решения угрозы по игроку (2.7, 0-033): s + max(d, D_p + min(d; 0,3 с)) — время его персонажа. D_p игрока не
+        /// меняется, пока по нему есть нерешённые угрозы (<see cref="UpdateLeadStats"/>), поэтому кадр решения постоянен.
+        /// </summary>
+        private static uint ResolveFrame(Player p, in Threat t) => ThreatTiming.ResolveFrame(t.StartFrame, t.WindupFrames, p.DelayFrames);
+
+        /// <summary>По игроку есть нерешённая угроза.</summary>
+        private bool HasPendingThreat(Player p)
+        {
+            for (int ti = 0; ti < _threats.Count; ti++)
+            {
+                if (Concerns(p, _threats[ti]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>Угроза ещё не решена по игроку и начата после его входа.</summary>
         private static bool Concerns(Player p, in Threat t) =>
             unchecked((int)(t.StartFrame - p.ThreatsFrom)) >= 0 && (!p.HasResolved || unchecked((int)(t.StartFrame - p.ResolvedStart)) > 0);
@@ -176,7 +196,7 @@ namespace Orpheus.Net.Session
         private void Decide(Player p, in Threat t, in Mover state, bool byLastKnown, int missing)
         {
             bool hit = MeleeHit.Lands(_sim.Shape, t, state);
-            int waited = Math.Max(0, unchecked((int)(ServerFrame - t.ContactFrame))); // «сейчас» сервера в плане такта — ServerFrame
+            int waited = Math.Max(0, unchecked((int)(ServerFrame - ResolveFrame(p, t)))); // «сейчас» сервера в плане такта — ServerFrame
             p.ResolvedStart = t.StartFrame;
             p.HasResolved = true;
             ThreatsResolved++;
@@ -220,7 +240,7 @@ namespace Orpheus.Net.Session
                 }
 
                 MeleeSector sec = t.Sector;
-                int len = new SwingStartMessage
+                var msg = new SwingStartMessage
                 {
                     AttackerId = t.AttackerId,
                     StartFrame = t.StartFrame,
@@ -229,11 +249,13 @@ namespace Orpheus.Net.Session
                     Axis = sec.Axis.Raw,
                     ReachUnits = (ushort)sec.ReachUnits,
                     HalfArcSteps = (ushort)sec.HalfArcSteps,
-                }.Write(_buf);
+                };
                 for (int pi = 0; pi < _players.Count; pi++)
                 {
                     if (_players[pi].State == PlayerState.InGame)
                     {
+                        msg.DelayFrames = (byte)_players[pi].DelayFrames; // своя D_p: кадр решения по получателю (0-033)
+                        int len = msg.Write(_buf);
                         _transport.Send(_players[pi].Peer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
                         SwingMessagesSent++;
                     }

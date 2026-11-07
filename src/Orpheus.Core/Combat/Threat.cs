@@ -29,6 +29,34 @@ namespace Orpheus.Core.Combat
         public const int CycleFrames = WindupFrames + StrikeFrames + RecoverFrames;
     }
 
+    /// <summary>
+    /// Когда решается удар по игроку (docs/07, 2.7 «Когда решается удар и зона», 2.9, 4.6; `02` 15.1; 0-033): в его кадре
+    /// <c>s + max(d, D_p + min(d; 0,3 с))</c>, где D_p = owd_p + L_p — задержка показа, не больше 500 мс. Ровно в этот кадр
+    /// замах кончается на экране игрока: показ не короче min(d; 0,3 с).
+    /// </summary>
+    public static class ThreatTiming
+    {
+        /// <summary>Нижняя граница показа замаха 0,3 с = 18 кадров (2.9).</summary>
+        public const int MinShowFrames = 18;
+
+        /// <summary>Задержка показа D_p учитывается не больше 500 мс = 30 кадров (4.6).</summary>
+        public const int MaxDelayFrames = 30;
+
+        /// <summary>Порог значка «высокая задержка»: D_p больше 150 мс = 9 кадров (2.7).</summary>
+        public const int HighLatencyFrames = 9;
+
+        /// <summary>Сдвиг кадра решения от начала замаха: max(d, min(D, 30) + min(d, 18)), кадров.</summary>
+        public static int ResolveOffset(int windupFrames, int delayFrames)
+        {
+            int delay = Math.Max(0, Math.Min(delayFrames, MaxDelayFrames));
+            return Math.Max(windupFrames, delay + Math.Min(windupFrames, MinShowFrames));
+        }
+
+        /// <summary>Кадр решения удара по игроку с задержкой показа <paramref name="delayFrames"/> (с переполнением).</summary>
+        public static uint ResolveFrame(uint startFrame, int windupFrames, int delayFrames) =>
+            unchecked(startFrame + (uint)ResolveOffset(windupFrames, delayFrames));
+    }
+
     /// <summary>Вид угрозы (docs/07, 2.7 «Угроза»): в шипе — только ближний удар; зона, снаряд, рывок — потом.</summary>
     public enum ThreatKind : byte
     {

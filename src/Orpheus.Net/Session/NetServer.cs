@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
@@ -110,6 +111,56 @@ namespace Orpheus.Net.Session
 
             /// <summary>Чанки у клиента и их ревизии (3.5, 3.7; 0-026); создаётся с первым окном.</summary>
             public HeldChunks? Held;
+
+            /// <summary>
+            /// Опережение L из последнего нового пакета ввода, кадров (0-033, 2.7) — подсказка только для отчёта о запасе (им клиент
+            /// правит своё же L); D_p от него не зависит (з. 2 проверки 0-033).
+            /// </summary>
+            public int Lead;
+
+            /// <summary>
+            /// Задержка прихода кадров o = кадр сервера при разборе − номер новейшего кадра пакета + L пакета (owd вверх + ожидание
+            /// опроса такта − ошибка часов) — по новым пакетам за 2 с (0-033). L пакета здесь — чтобы запас W + L − o₉₉ отзывался
+            /// на смену L сразу, а не через окно 2 с (без него L перелетал вдвое при входе).
+            /// </summary>
+            public readonly FrameWindow Arrival = new FrameWindow(OwdWindow);
+
+            /// <summary>
+            /// Задержка показа по эху снимков (з. 2 проверки 0-033): номер кадра клиента в первом пакете, подтвердившем снимок S,
+            /// минус кадр сервера 2·S, когда снимок (и «замах начат» того же такта) ушёл. Это RTT, замеренный сервером (от
+            /// отправки снимка до пакета с его подтверждением), минус (кадр сервера − номер кадра) того же пакета: owd вниз + ошибка
+            /// часов + L, кадр сервера при разборе сокращается. Поле L сюда не входит. По новым подтверждениям за 2 с (снимок —
+            /// раз в такт).
+            /// </summary>
+            public readonly FrameWindow Echo = new FrameWindow(EchoWindow);
+
+            /// <summary>99-й процентиль o за окно, кадров (считается раз в такт).</summary>
+            public int OwdP99;
+
+            /// <summary>99-й процентиль задержки показа по эху за окно, кадров.</summary>
+            public int EchoP99;
+
+            /// <summary>«Запас прихода кадров» при нынешнем L — отчёт в снимке: W + L − o₉₉, кадров (1-й процентиль запаса).</summary>
+            public int Margin;
+
+            /// <summary>
+            /// Задержка показа D_p (≤ 30 кадров) — по эху снимков, без поля L, с которой решаются удары по игроку и которая уходит
+            /// ему в «замах начат». Пересчитывается, только когда по игроку нет нерешённых угроз: кадр решения угрозы не меняется.
+            /// </summary>
+            public int DelayFrames;
+
+            /// <summary>«Липкие» нажатия (2.7 «Опоздавший кадр»): кнопки опоздавших и выброшенных кадров — в первый шагнутый кадр.</summary>
+            public ushort Sticky;
+
+            /// <summary>
+            /// Часы клиента — на старой шкале (з. 1 проверки 0-033): после «часов» (фриз сервера) и до перенумерации назад кадры
+            /// клиента впереди времени сервера на длину фриза — это не опережение L, и потолок кадров «из будущего» их не держит
+            /// (шагаются по запасу, как до 0-033). Иначе персонаж стоит до перенумерации, а предсказание идёт — лишняя сверка.
+            /// </summary>
+            public bool ClockStale;
+
+            /// <summary>Такт заголовка первого снимка после «часов» — пакет, подтвердивший его, уже знает новую шкалу.</summary>
+            public uint ClockStaleSnapshot;
 
             /// <summary>Правки тайлов (0-028): копание, ведро постановок, ждущие ответа; создаётся с первым запросом.</summary>
             public EditState? Edits;
@@ -224,6 +275,73 @@ namespace Orpheus.Net.Session
 
         /// <summary>Кольцо кадров ввода игрока: 64 кадра (≈ 1 с) вперёд от времени персонажа.</summary>
         public const int FrameRing = 64;
+
+        /// <summary>Окно задержки прихода кадров: 120 новых пакетов (2 с при 60 Гц; 2.7 «1-й процентиль запаса за 2 с»).</summary>
+        public const int OwdWindow = 120;
+
+        /// <summary>Окно эха снимков: 60 подтверждений (2 с при снимке раз в такт).</summary>
+        public const int EchoWindow = 60;
+
+        /// <summary>Ячеек окна: значения от <see cref="OwdMin"/> до <see cref="OwdMin"/> + 127 кадров (дальше — в крайние).</summary>
+        public const int OwdBins = 128;
+
+        /// <summary>Наименьшее учитываемое значение окна, кадров (часы клиента впереди — o меньше нуля).</summary>
+        public const int OwdMin = -32;
+
+        /// <summary>Скользящее окно значений в кадрах: кольцо ячеек и гистограмма — процентиль за проход по ячейкам без выделений.</summary>
+        public sealed class FrameWindow
+        {
+            private readonly byte[] _ring;
+            private readonly short[] _hist = new short[OwdBins];
+            private int _head;
+
+            public FrameWindow(int size) => _ring = new byte[size];
+
+            /// <summary>Значений в окне.</summary>
+            public int Count { get; private set; }
+
+            public void Record(int value)
+            {
+                int bin = Math.Max(0, Math.Min(OwdBins - 1, value - OwdMin));
+                if (Count == _ring.Length)
+                {
+                    _hist[_ring[_head]]--;
+                }
+                else
+                {
+                    Count++;
+                }
+
+                _ring[_head] = (byte)bin;
+                _hist[bin]++;
+                _head = (_head + 1) % _ring.Length;
+            }
+
+            /// <summary>99-й процентиль (1 % окна сверху, не меньше одного значения); пустое окно — <paramref name="empty"/>.</summary>
+            public int P99(int empty)
+            {
+                if (Count == 0)
+                {
+                    return empty;
+                }
+
+                int need = Math.Max(1, (Count + 99) / 100);
+                int bin = OwdBins - 1;
+                for (int seen = 0; bin > 0; bin--)
+                {
+                    seen += _hist[bin];
+                    if (seen >= need)
+                    {
+                        break;
+                    }
+                }
+
+                return bin + OwdMin;
+            }
+        }
+
+        /// <summary>Опоздавший кадр старше этого (кадров до времени персонажа) — не «липкий»: копия из давнего пакета.</summary>
+        public const int StickyHorizonFrames = 32;
 
         /// <summary>Кадров за такт не больше 6 (2 + 4 на пачку после затишья; 0-019); в среднем — 2 (<see cref="CreditCap"/>).</summary>
         public const int FramesPerTickLimit = MovementTick.FramesPerTick + 4;
@@ -409,6 +527,9 @@ namespace Orpheus.Net.Session
         /// <summary>Кадров отброшено: клиент ушёл вперёд больше кольца (<see cref="FrameRing"/>) — ускорение или обрыв.</summary>
         public long FramesOverflow { get; private set; }
 
+        /// <summary>Нажатий перенесено «липкими» (2.7): из опоздавших и выброшенных кадров (0-033).</summary>
+        public long StickyPresses { get; private set; }
+
         /// <summary>Кадров выброшено без шага: очередь длиннее <see cref="MaxBacklogFrames"/> или стоп по обрыву.</summary>
         public long FramesTrimmed { get; private set; }
 
@@ -589,15 +710,23 @@ namespace Orpheus.Net.Session
                 p.Credits = Math.Min(p.Credits + MovementTick.FramesPerTick, CreditCap);
                 int limit = Math.Min(p.Credits, FramesPerTickLimit);
                 int n = 0;
+                // 2.7: не дальше кадров этого такта; часы клиента на старой шкале (после фриза) — без потолка, по запасу.
+                uint cap = p.ClockStale ? unchecked(p.NextFrame + FrameRing) : unchecked(ServerFrame + MovementTick.FramesPerTick);
                 while (p.HasNext && n < limit)
                 {
                     uint c = p.NextFrame;
+                    if ((int)(c - cap) >= 0)
+                    {
+                        break; // кадр «из будущего» (опережение L): ждёт своего такта
+                    }
+
                     int i = (int)(c % FrameRing);
                     if (p.RingValid[i] && p.RingFrame[i] == c)
                     {
                         p.RingValid[i] = false;
-                        _frameBuf[n] = p.RingInput[i];
-                        Advance(p, p.RingInput[i]);
+                        InputFrame taken = TakeSticky(p, p.RingInput[i]);
+                        _frameBuf[n] = taken;
+                        Advance(p, taken);
                         _frameNum[n++] = p.LastApplied;
                         FramesApplied++;
                         p.HoleSinceTick = -1;
@@ -637,8 +766,9 @@ namespace Orpheus.Net.Session
                     var self = new InputFrame(p.LastInput.Direction); // 2.7 «Нет ввода»: последнее направление, кнопки отпущены
                     while (n < MovementTick.FramesPerTick && n < limit)
                     {
-                        _frameBuf[n] = self;
-                        Advance(p, self);
+                        InputFrame taken = TakeSticky(p, self);
+                        _frameBuf[n] = taken;
+                        Advance(p, taken);
                         _frameNum[n++] = p.LastApplied;
                         FramesSelfStepped++;
                     }
@@ -648,9 +778,11 @@ namespace Orpheus.Net.Session
                 // догона осталось бы навсегда (задержка-пачка, рывок клиента, дрейф часов) — время персонажа отстало бы
                 // больше W, а стоп 0-015 растянулся бы. После плана такта ждущих кадров больше MaxBacklogFrames — старейшие
                 // перескакиваются со счётчиком. Ускорения это не даёт: кадры только выбрасываются.
-                if (p.HasNext && p.HasFrame && p.HoleSinceTick < 0 && (int)(p.Newest - p.NextFrame) >= MaxBacklogFrames)
+                // Кадры «из будущего» (опережение L) — не очередь: считаются только применимые в этом такте.
+                uint usable = (int)(p.Newest - cap) >= 0 ? cap - 1 : p.Newest;
+                if (p.HasNext && p.HasFrame && p.HoleSinceTick < 0 && (int)(usable - p.NextFrame) >= MaxBacklogFrames)
                 {
-                    TrimTo(p, p.Newest + 1 - MaxBacklogFrames);
+                    TrimTo(p, usable + 1 - MaxBacklogFrames, true);
                 }
 
                 if (n > MovementTick.FramesPerTick)
@@ -659,14 +791,18 @@ namespace Orpheus.Net.Session
                 }
 
                 p.Credits -= n;
+                UpdateLeadStats(p);
                 ResolveThreats(p, slot, n);
                 AdvanceEdits(p, slot, n); // 0-028: копание по кадрам такта
                 _sim.SetFramesAt(slot, new ReadOnlySpan<InputFrame>(_frameBuf, 0, n));
             }
         }
 
-        /// <summary>Выбросить ждущие кадры до <paramref name="next"/> (не шагать): время персонажа — к нему.</summary>
-        private void TrimTo(Player p, uint next)
+        /// <summary>
+        /// Выбросить ждущие кадры до <paramref name="next"/> (не шагать): время персонажа — к нему. <paramref name="keepPresses"/> —
+        /// нажатия выброшенных кадров «липкие» (2.7: ни одно нажатие не теряется); при стопе по обрыву — нет.
+        /// </summary>
+        private void TrimTo(Player p, uint next, bool keepPresses)
         {
             for (uint f = p.NextFrame; (int)(next - f) > 0; f++)
             {
@@ -674,6 +810,11 @@ namespace Orpheus.Net.Session
                 if (p.RingValid[i] && p.RingFrame[i] == f)
                 {
                     p.RingValid[i] = false;
+                    if (keepPresses && p.RingInput[i].Buttons != 0)
+                    {
+                        p.Sticky |= p.RingInput[i].Buttons;
+                        StickyPresses++;
+                    }
                 }
 
                 FramesTrimmed++;
@@ -681,6 +822,37 @@ namespace Orpheus.Net.Session
 
             p.NextFrame = next;
             p.HoleSinceTick = -1;
+        }
+
+        /// <summary>Кадр к шагу с «липкими» нажатиями (2.7): кнопки опоздавших кадров — в первый шагнутый кадр, один раз.</summary>
+        private static InputFrame TakeSticky(Player p, InputFrame frame)
+        {
+            if (p.Sticky == 0)
+            {
+                return frame;
+            }
+
+            var withSticky = new InputFrame(frame.Direction, (ushort)(frame.Buttons | p.Sticky));
+            p.Sticky = 0;
+            return withSticky;
+        }
+
+        /// <summary>
+        /// Раз в такт (0-033, 2.7): o₉₉ за 2 с; «запас прихода кадров» W + L − o₉₉ (кадр f доходит к решению, если разобран не позже
+        /// кадра сервера f + W: решение «по последнему известному» — в первом опросе после f + W − 2, кадры этого опроса уже
+        /// применены); D_p — 99-й процентиль эха снимков (≤ 30), когда по игроку нет нерешённых угроз.
+        /// </summary>
+        private void UpdateLeadStats(Player p)
+        {
+            p.OwdP99 = p.Arrival.P99(0);
+            p.EchoP99 = p.Echo.P99(0);
+            p.Margin = InputWaitFrames + p.Lead - p.OwdP99; // поле L — только здесь: отчёт, по которому клиент правит своё L
+            if (!HasPendingThreat(p))
+            {
+                // Добавки нет (прежняя +1 кадр «отправка после такта» ушла): кадр начала s — 2·S или 2·S + 1, «замах начат»
+                // уходит со снимком S, а эхо считает от 2·S.
+                p.DelayFrames = Math.Max(0, Math.Min(ThreatTiming.MaxDelayFrames, p.EchoP99));
+            }
         }
 
         private static void Advance(Player p, InputFrame input)
@@ -729,8 +901,10 @@ namespace Orpheus.Net.Session
                 InputStops++;
                 if (p.HasNext && (int)(p.Newest - p.NextFrame) >= 0)
                 {
-                    TrimTo(p, p.Newest + 1); // стоп 2.13 п. 6: ждавшие кадры не дошагиваются после стопа
+                    TrimTo(p, p.Newest + 1, false); // стоп 2.13 п. 6: ждавшие кадры не дошагиваются после стопа
                 }
+
+                p.Sticky = 0;
                 _sim.SetInput(p.EntityId, InputFrame.None);
                 p.LastInput = InputFrame.None;
             }
@@ -763,7 +937,11 @@ namespace Orpheus.Net.Session
                 }
 
                 Mover me = entities[selfSlot].Mover;
-                _self = new SelfState(me.Position, me.Carry, me.Dodge); // подтверждённое состояние без кванта (2.6 п. 2; 0-019), с уворотом (0-029)
+                _self = new SelfState(me.Position, me.Carry, me.Dodge) // подтверждённое состояние без кванта (2.6 п. 2; 0-019), с уворотом (0-029)
+                {
+                    LeadMargin = (sbyte)Math.Max(-SelfState.MarginBias, Math.Min(SelfState.MarginBias - 1, pl.Margin)), // 0-033
+                    DelayFrames = (byte)pl.DelayFrames,
+                };
                 int curCount = BuildView(pl, entities, selfSlot, _cur);
                 SentRing ring = pl.Ring ??= new SentRing();
                 int bi = ring.Find(pl.LastSnapshotAck);
@@ -1228,6 +1406,8 @@ namespace Orpheus.Net.Session
             {
                 if (_players[p].State == PlayerState.InGame)
                 {
+                    _players[p].ClockStale = true; // до перенумерации назад (OnInput)
+                    _players[p].ClockStaleSnapshot = (uint)_sim.Tick + 1;
                     _transport.Send(_players[p].Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
                 }
             }
@@ -1473,6 +1653,7 @@ namespace Orpheus.Net.Session
                 p.HasNext = true;
                 p.Newest = m.FirstFrame - 1;
                 p.HoleSinceTick = -1;
+                p.ClockStale = false;
                 InputRebases++;
             }
 
@@ -1506,9 +1687,19 @@ namespace Orpheus.Net.Session
                 uint f = m.FirstFrame + (uint)k;
                 if ((int)(f - p.NextFrame) < 0)
                 {
-                    if (isNew && (!p.HasFrame || (int)(f - p.Newest) > 0))
+                    // 2.7 «Опоздавший кадр»: номер уже шагнут сервером сам или перескочен, а сам кадр не приходил — его нажатия
+                    // «липкие» (в первый ещё не шагнутый кадр). Ячейка помечается номером: копии в следующих пакетах — не новые.
+                    int li = (int)(f % FrameRing);
+                    if (!p.RingValid[li] && p.RingFrame[li] != f && (int)(p.NextFrame - f) <= StickyHorizonFrames)
                     {
-                        FramesLate++; // номер уже шагнут сервером сам или перескочен
+                        p.RingFrame[li] = f;
+                        FramesLate++;
+                        ushort buttons = m[k].ToInputFrame().Buttons;
+                        if (buttons != 0)
+                        {
+                            p.Sticky |= buttons;
+                            StickyPresses++;
+                        }
                     }
 
                     continue;
@@ -1529,8 +1720,8 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            // 2.7 «Опоздавший кадр»: все кадры пакета уже шагнуты сервером сам — не выбрасывается, его ввод действует
-            // с первого ещё не шагнутого кадра.
+            // 2.7 «Опоздавший кадр»: все кадры пакета уже шагнуты сервером сам — не выбрасывается, его направление действует
+            // с первого ещё не шагнутого кадра (нажатия уже «липкие» — выше).
             if ((int)(m.LastFrame - p.NextFrame) < 0)
             {
                 int i = (int)(p.NextFrame % FrameRing);
@@ -1538,10 +1729,25 @@ namespace Orpheus.Net.Session
                 {
                     p.RingFrame[i] = p.NextFrame;
                     p.RingValid[i] = true;
-                    p.RingInput[i] = m.Frame3.ToInputFrame();
+                    p.RingInput[i] = new InputFrame(m.Frame3.ToInputFrame().Direction);
                 }
             }
 
+            if (p.ClockStale && (int)(m.LastSnapshot - p.ClockStaleSnapshot) >= 0
+                && (int)(m.LastFrame - ServerFrame) <= InputMessage.MaxLeadFrames + MovementTick.FramesPerTick)
+            {
+                p.ClockStale = false; // клиент видел новую шкалу, номера на ней (перенумерация не понадобилась)
+            }
+
+            // Задержка прихода (0-033): o = кадр сервера сейчас − новейший кадр + L. Эхо снимка (з. 2 проверки 0-033): первый пакет,
+            // подтвердивший более новый снимок S, — номер кадра клиента в миг, когда снимок S (ушедший в кадре сервера 2·S) у
+            // него. Подтверждение снимка, которого сервер ещё не слал, — не эхо; на старой шкале часов (после фриза) — тоже.
+            p.Lead = m.Lead;
+            p.Arrival.Record(unchecked((int)(ServerFrame - m.LastFrame)) + m.Lead);
+            if ((int)(m.LastSnapshot - p.LastSnapshotAck) > 0 && (int)(m.LastSnapshot - (uint)_sim.Tick) <= 0 && !p.ClockStale)
+            {
+                p.Echo.Record(unchecked((int)(m.LastFrame - m.LastSnapshot * 2)));
+            }
             p.Newest = m.LastFrame;
             p.HasFrame = true;
             p.LastSnapshotAck = m.LastSnapshot;
