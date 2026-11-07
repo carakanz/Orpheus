@@ -86,6 +86,21 @@ namespace Orpheus.Server
         /// </summary>
         public bool WaitForPrevious { get; set; }
 
+        /// <summary>
+        /// Сохранить сейчас, не дожидаясь интервала (0-024, docs/07 2.3: игра хоста упала и других игроков нет), — в фоне,
+        /// как автосохранение; идёт прошлая запись или такт уже сохранён — ничего.
+        /// </summary>
+        public void SaveNow(Simulation sim, string reason)
+        {
+            Poll(sim.Tick);
+            if (_pending != null || sim.Tick == _lastSavedTick && _lastTickSaved)
+            {
+                return;
+            }
+
+            Start(sim, reason);
+        }
+
         /// <summary>Остановка сервера: дождаться фоновой записи, затем сохранить текущий такт (если он новее записанного).</summary>
         public void SaveOnStop(Simulation sim)
         {

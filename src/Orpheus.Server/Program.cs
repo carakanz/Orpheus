@@ -41,7 +41,44 @@ namespace Orpheus.Server
                 stop.Cancel();
             };
 
+            if (options.Mode.HasValue)
+            {
+                ListenStdin(stop);
+            }
+
             return ServerRun.Run(options, Console.Out, stop.Token).ExitCode;
+        }
+
+        /// <summary>
+        /// Сервер игры (0-024): игра-родитель останавливает его строкой <c>stop</c> в stdin (штатно: сохранить, разослать,
+        /// выйти). Конец stdin (игра упала) — не команда: сервер ждёт хозяина 60 с (2.3).
+        /// </summary>
+        private static void ListenStdin(CancellationTokenSource stop)
+        {
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    string? line;
+                    while ((line = Console.In.ReadLine()) != null)
+                    {
+                        if (line.Trim() == "stop")
+                        {
+                            stop.Cancel();
+                            return;
+                        }
+                    }
+                }
+                catch (Exception e) when (e is System.IO.IOException || e is ObjectDisposedException)
+                {
+                    // stdin закрыт — команд больше не будет
+                }
+            })
+            {
+                IsBackground = true,
+                Name = "stdin-команды",
+            };
+            thread.Start();
         }
     }
 }

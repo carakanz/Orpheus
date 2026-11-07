@@ -7,13 +7,17 @@
      в client/Assets/Plugins/Orpheus/. Нет src/ или проектов ядра — шаг пропускается с сообщением.
   2. Запускает Unity в пакетном режиме:
      -batchmode -nographics -quit -executeMethod Orpheus.Editor.BuildScript.BuildWindows -logFile ...
-  3. Кладёт сборку в build/client-win/Orpheus.exe (папка build/ — в .gitignore).
+  3. Кладёт сборку в build/client-win/Orpheus.exe (папка build/ — в .gitignore) и рядом — OrpheusServer.exe
+     (dotnet publish src/Orpheus.Server, 0-024): одиночная игра и хост запускают его дочерним процессом (docs/07, 2.3).
   4. С ключом -Smoke запускает собранный Orpheus.exe --smoke и проверяет код выхода.
+  5. С ключом -HostSmoke — net-smoke хоста: Orpheus.exe --host сам запускает сервер (новый мир в build/logs/host-smoke-world,
+     2 бота wander), входит хозяином, «Открыть для друзей» только на 127.0.0.2 (не на всех адресах — без окна брандмауэра),
+     ходит, выходит; сервер сохраняет мир и выходит с кодом 0.
   Выход ≠ 0 при любой ошибке.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File tools/build_client.ps1
-  powershell -ExecutionPolicy Bypass -File tools/build_client.ps1 -Backend Mono -Clean -Smoke
+  powershell -ExecutionPolicy Bypass -File tools/build_client.ps1 -Backend Mono -Clean -Smoke -HostSmoke
 #>
 [CmdletBinding()]
 param(
@@ -23,6 +27,8 @@ param(
     [switch] $Clean,
     # После сборки запустить Orpheus.exe -batchmode -nographics --smoke.
     [switch] $Smoke,
+    # После сборки — net-smoke хоста: клиент сам запускает OrpheusServer (0-024).
+    [switch] $HostSmoke,
     # Сборка разработки (BuildOptions.Development).
     [switch] $Development,
     [string] $UnityPath = $(if ($env:ORPHEUS_UNITY) { $env:ORPHEUS_UNITY } else { 'C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe' }),
@@ -128,6 +134,17 @@ if (Test-Path $UnityLog) {
 if ($code -ne 0) { Fail "сборка Unity не прошла (код $code), лог: $UnityLog" }
 if (-not (Test-Path $Exe)) { Fail "нет $Exe после сборки" }
 
+# --- 2a. OrpheusServer рядом с клиентом (0-024) ---------------------------------------------
+# Одиночная и хост запускают его дочерним процессом: PcServerLauncher.DefaultPath(папка Orpheus.exe).
+# Зависит от рантайма .NET (как прежде сервер для playable); самодостаточная сборка — вместе с установщиком.
+$ServerExe = Join-Path $OutDir 'OrpheusServer.exe'
+$serverProj = Join-Path $Root 'src\Orpheus.Server\Orpheus.Server.csproj'
+if (-not (Test-Path $serverProj)) { Fail "нет $serverProj" }
+Say 'сервер: dotnet publish Orpheus.Server → build/client-win'
+& dotnet publish $serverProj -c Release -o $OutDir --nologo -v quiet
+if ($LASTEXITCODE -ne 0) { Fail "dotnet publish Orpheus.Server — код $LASTEXITCODE" }
+if (-not (Test-Path $ServerExe)) { Fail "нет $ServerExe после publish" }
+
 # --- 3. Дымовая проверка --------------------------------------------------------------------
 if ($Smoke) {
     Say 'smoke: Orpheus.exe -batchmode -nographics --smoke'
@@ -147,6 +164,37 @@ if ($Smoke) {
         Fail "smoke: в логе $($bad.Count) строк с ошибками, лог: $SmokeLog"
     }
     Say 'smoke: код 0'
+}
+
+# --- 4. net-smoke хоста (0-024) ---------------------------------------------------------------
+if ($HostSmoke) {
+    $hostLog = Join-Path $LogDir 'host-smoke.log'
+    $hostWorld = Join-Path $LogDir 'host-smoke-world'
+    foreach ($p in @($hostLog, $hostWorld)) { if (Test-Path $p) { Remove-Item -Recurse -Force $p } }
+    Say 'host-smoke: Orpheus.exe --host --net-smoke 6 (сервер запускает сам клиент; «для друзей» — 127.0.0.2)'
+    $hp = Start-Process -FilePath $Exe -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $LogDir 'host-smoke.stdout.txt') -ArgumentList @(
+        '-batchmode', '-nographics', '--host', '--world', "`"$hostWorld`"", '--net-smoke', '6',
+        '--open-for-friends', '--open-address', '127.0.0.2', '--open-port', '0',
+        '--server-arg', '--bots', '--server-arg', '2:wander', '-logFile', "`"$hostLog`"")
+    $null = $hp.Handle
+    if (-not $hp.WaitForExit(90 * 1000)) { try { $hp.Kill() } catch { }; Fail 'host-smoke: Orpheus.exe не вышел за 90 с' }
+    $hp.WaitForExit()
+    Select-String -Path $hostLog -Pattern '^\[(smoke|host)\]' | ForEach-Object { Write-Host "  $($_.Line)" }
+    # Сервер, запущенный клиентом, не должен пережить клиента: номер процесса — из строки «сервер готов».
+    $ready = Select-String -Path $hostLog -Pattern '^\[host\] сервер готов .* процесс (\d+)' | Select-Object -First 1
+    if ($ready) {
+        $serverPid = [int]$ready.Matches[0].Groups[1].Value
+        $left = Get-Process -Id $serverPid -ErrorAction SilentlyContinue
+        if ($left -and $left.ProcessName -eq 'OrpheusServer') {
+            Stop-Process -Id $serverPid -Force
+            Fail "host-smoke: сервер (процесс $serverPid) пережил клиента — снят"
+        }
+    }
+    if ($hp.ExitCode -ne 0) { Fail "host-smoke: код выхода $($hp.ExitCode), лог: $hostLog" }
+    if (-not (Select-String -Path $hostLog -Pattern '^\[smoke\] done' -Quiet)) { Fail "host-smoke: нет строки '[smoke] done' в $hostLog" }
+    if (-not $ready) { Fail "host-smoke: клиент не запускал сервер (нет строки '[host] сервер готов')" }
+    if (-not (Select-String -Path $hostLog -Pattern '^\[host\] сервер остановлен: код 0' -Quiet)) { Fail 'host-smoke: сервер не вышел штатно с кодом 0' }
+    Say 'host-smoke: код 0'
 }
 
 Say ("готово: {0} ({1}), всего {2:0.0} с" -f $Exe, $Backend, $total.Elapsed.TotalSeconds)

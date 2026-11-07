@@ -3,6 +3,7 @@
   <!--
     Платформенный слой «ПК» (docs/07, 1.6): IPlatformStorage с атомарной записью (6.5). Здесь и только здесь
     P/Invoke сохранений: FlushFileBuffers, MoveFileExW (Windows), rename/open/fsync (Linux, macOS).
+    И IServerLauncher «ПК» (0-024): OrpheusServer дочерним процессом — System.Diagnostics.Process только здесь.
     netstandard2.1 — его же берёт клиент Unity (IL2CPP) для режима «сервер в потоке».
   -->
   <PropertyGroup>
@@ -16,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Orpheus.Save\Orpheus.Save.csproj" />
+    <ProjectReference Include="..\Orpheus.Net\Orpheus.Net.csproj" />
   </ItemGroup>
 
 </Project>
