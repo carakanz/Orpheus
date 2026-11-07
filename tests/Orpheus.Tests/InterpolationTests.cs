@@ -216,6 +216,8 @@ namespace Orpheus.Tests
             var burst = new Run();
             burst.Go(ticks: 600, startX: 100 * U, dirX: 1, lost: n => n >= 200 && n < 208, jitterUs: 10_000);
             Assert.True(burst.Interp.HoldFrames > 0);
+            Assert.True(burst.Interp.CatchUpSteps > 0); // догон вперёд после остановки — отдельный счёт
+            Assert.Equal(0, burst.Interp.StepViolations);
             AssertMonotone(burst.DrawnX, +1);
             for (int k = 1; k < burst.RenderUs.Count; k++)
             {

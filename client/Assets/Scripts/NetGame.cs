@@ -59,6 +59,7 @@ namespace Orpheus.Client
         // net-smoke: свой персонаж на экране — рывок, окно — дыры (как офлайн-smoke 0-010).
         bool _measureSelf;
         WorldPos _prevDrawn;
+        long _prevDrawnUs;
         float _maxSelfJump;
         int _selfJumpFails;
         int _holes;
@@ -419,15 +420,16 @@ namespace Orpheus.Client
 
             if (_args.NetSmokeSeconds > 0)
             {
-                SmokeFrame(me);
+                SmokeFrame(me, now);
             }
         }
 
         /// <summary>
         /// net-smoke, каждый кадр: окно чанков без дыр и свой персонаж на экране без рывка — позиция относительно
-        /// нарисованного узла чанка под ним (как офлайн-smoke 0-010), шаг ≤ 6 т/с × 1/30 с × 1,1.
+        /// нарисованного узла чанка под ним (как офлайн-smoke 0-010), шаг ≤ 6 т/с × 1/30 с × 1,1 (кадр дольше 1/30 с —
+        /// пропорционально).
         /// </summary>
-        void SmokeFrame(WorldPos me)
+        void SmokeFrame(WorldPos me, long now)
         {
             _maxWindow = Math.Max(_maxWindow, _view!.Count);
             _holes += SmokeRun.WindowHoles(_map, _view, me, msg => Debug.LogError($"[smoke] кадр {_renderFrames}: {msg}"));
@@ -443,13 +445,16 @@ namespace Orpheus.Client
                 Int2 j = Torus.Delta(_map, _prevDrawn, drawn);
                 float jump = Mathf.Sqrt((float)j.LengthSquared) / Torus.SubTilesPerTile;
                 _maxSelfJump = Mathf.Max(_maxSelfJump, jump);
-                if (jump > SmokeRun.MaxJumpTiles && _selfJumpFails++ < 5)
+                // Предел 0-010 — на кадр до 1/30 с; кадр дольше (подвисание ОС в пакетном режиме) — пропорционально.
+                float limit = SmokeRun.MaxJumpTiles * Mathf.Max(1f, (now - _prevDrawnUs) * 30f / 1_000_000f);
+                if (jump > limit && _selfJumpFails++ < 5)
                 {
-                    Debug.LogError($"[smoke] кадр {_renderFrames}: рывок своего {jump:0.000} т (предел {SmokeRun.MaxJumpTiles:0.000}), якорь {_origin!.Anchor}");
+                    Debug.LogError($"[smoke] кадр {_renderFrames}: рывок своего {jump:0.000} т (предел {limit:0.000}), якорь {_origin!.Anchor}");
                 }
             }
 
             _prevDrawn = drawn;
+            _prevDrawnUs = now;
             _measureSelf = true;
         }
 
@@ -573,7 +578,8 @@ namespace Orpheus.Client
                 double holdShare = r.Frames > 0 ? r.HoldFrames / (double)r.Frames : 1.0;
                 string remote = $"чужие: кадров {r.Frames}, с тем же временем показа {r.SameTimeFrames} ({sameShare:P2}), " +
                                 $"стоит на новейшем {r.HoldFrames} ({holdShare:P2}), шагов {r.Steps}, шаг max {r.MaxStepUnits:0.0}/256 т " +
-                                $"(к пределу {r.MaxStepRatio:0.00}), сверх предела {r.StepViolations}, пар через шов {r.SeamSamples}, " +
+                                $"(к пределу {r.MaxStepRatio:0.00}), сверх предела {r.StepViolations} (догон после остановки {r.CatchUpSteps}), " +
+                                $"пар через шов {r.SeamSamples}, " +
                                 $"запас показа {r.BufferUs / 1000} мс, перестановок часов {r.ClockResets}, ход {r.ClockRate:+0.0000;-0.0000}";
                 Debug.Log("[smoke] " + remote);
                 if (sameShare > MaxSmokeSameTimeShare || holdShare > MaxSmokeHoldShare || r.StepViolations > 0 || r.Steps < MinSmokeRemoteSteps

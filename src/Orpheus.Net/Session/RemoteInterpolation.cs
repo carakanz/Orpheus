@@ -82,6 +82,8 @@ namespace Orpheus.Net.Session
         private long _renderUs;
         private long _frameDtUs;
         private long _frame;
+        private bool _prevHeld; // прошлый кадр стоял (новее новейшего или старше старейшего)
+        private bool _held;
         private int _ia;
         private int _ib;
         private double _frac;
@@ -143,8 +145,14 @@ namespace Orpheus.Net.Session
         /// <summary>Наибольшее отношение шага к пределу (предел скорости × приращение времени показа + допуск).</summary>
         public double MaxStepRatio { get; private set; }
 
-        /// <summary>Шагов больше предела.</summary>
+        /// <summary>Шагов больше предела (кроме догона после остановки на новейшем — см. <see cref="CatchUpSteps"/>).</summary>
         public long StepViolations { get; private set; }
+
+        /// <summary>
+        /// Шагов больше предела в первом кадре после остановки (снимки опоздали дольше запаса): показ догоняет вперёд.
+        /// Это след нехватки запаса, а не ошибка интерполяции; сама остановка считается в <see cref="HoldFrames"/>.
+        /// </summary>
+        public long CatchUpSteps { get; private set; }
 
         /// <summary>Оценка «сервер сейчас» в мкс шкалы сервера; до первого снимка — 0.</summary>
         public double ServerNowUs(long localUs) =>
@@ -211,6 +219,8 @@ namespace Orpheus.Net.Session
             }
 
             _frame++;
+            _prevHeld = _held;
+            _held = false;
             long t = (long)Math.Floor(ServerNowUs(localUs)) - DelayUs;
             if (_hasRender && t <= _renderUs)
             {
@@ -228,6 +238,7 @@ namespace Orpheus.Net.Session
             {
                 _ia = _ib = newest;
                 _frac = 0;
+                _held = true;
                 HoldFrames++;
                 return true;
             }
@@ -251,6 +262,7 @@ namespace Orpheus.Net.Session
 
             _ia = _ib = next; // время показа старше всей истории — старейший
             _frac = 0;
+            _held = true;
             BeforeOldestFrames++;
             return true;
         }
@@ -306,7 +318,14 @@ namespace Orpheus.Net.Session
                 MaxStepRatio = Math.Max(MaxStepRatio, step / limit);
                 if (step > limit)
                 {
-                    StepViolations++;
+                    if (_prevHeld)
+                    {
+                        CatchUpSteps++;
+                    }
+                    else
+                    {
+                        StepViolations++;
+                    }
                 }
             }
 
