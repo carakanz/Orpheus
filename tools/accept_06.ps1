@@ -76,7 +76,7 @@ while (-not $botsProc.HasExited) {
         $nextLoad += 10
         $cpu = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
         $server.Refresh(); $botsProc.Refresh()
-        "{0:F0},{1:F0},{2:F1},{3:F1}" -f $t, $cpu, $server.TotalProcessorTime.TotalSeconds, $botsProc.TotalProcessorTime.TotalSeconds | Add-Content -Encoding utf8 $load
+        [string]::Format($inv, "{0:F0},{1:F0},{2:F1},{3:F1}", $t, $cpu, $server.TotalProcessorTime.TotalSeconds, $botsProc.TotalProcessorTime.TotalSeconds) | Add-Content -Encoding utf8 $load
     }
 
     Start-Sleep -Milliseconds 200
