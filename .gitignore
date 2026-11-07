@@ -27,3 +27,5 @@ build/
 # DLL ядра в клиенте — наезжают tools/build_client.ps1 (0-002); .meta (настройки импорта) — в репозитории
 client/Assets/Plugins/Orpheus/*.dll
 client/Assets/Plugins/Orpheus/*.pdb
+# Пробы стиля с Мака (A-001): картинки большие, в git — промпты, учёт и страница
+art/style/probes/**/*.png

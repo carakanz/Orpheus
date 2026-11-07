@@ -1,0 +1,67 @@
+{
+  "set": "set1",
+  "about": "A-001: пробы стиля — 3 варианта рисованного арта × 5 предметов × 2 картинки. Не ассеты: в игру и в art/manifest.csv не идут. Промпт = стиль + предмет + общая часть (camera_object или camera_floor).",
+  "count": 2,
+  "style": "default",
+  "common": {
+    "camera_object": "top-down game view tilted at about 45 degrees, high three-quarter overhead camera looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_floor": "seamless tileable ground texture, viewed strictly from directly above, orthographic top-down, the ground fills the entire square edge to edge, no horizon, no perspective, no sky, no single object in focus, even uniform density across the whole image so it can repeat without visible seams, soft light from the upper left, ancient Greek landscape, no text, no letters, no watermark, no border, no frame"
+  },
+  "variants": [
+    {
+      "key": "a_gouache",
+      "title": "А — живописная гуашь",
+      "note": "крупные мазки, без контура, тёплый солнечный свет",
+      "prompt": "painterly hand-painted gouache illustration, thick opaque brush strokes with visible bristle texture, soft painted edges and no outlines, forms built from broad planes of color, warm golden afternoon sunlight, rich warm palette of ochre, olive green, terracotta and sun-bleached cream, glowing warm highlights and cool violet shadows"
+    },
+    {
+      "key": "b_inkcel",
+      "title": "Б — контур и плоский цвет",
+      "note": "тёмный цветной контур, плоские заливки, две ступени светотени",
+      "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish"
+    },
+    {
+      "key": "c_watercolor",
+      "title": "В — акварель и тушь",
+      "note": "приглушённая палитра, бумага, мотивы античной керамики",
+      "prompt": "loose watercolor wash illustration with fine sepia ink linework, transparent layered washes with soft blooms and granulation, visible cold-press paper grain, muted desaturated palette of faded terracotta, sage green, umber and parchment, accents and ornaments in the style of ancient Greek black-figure pottery with meander key patterns, delicate and airy"
+    }
+  ],
+  "subjects": [
+    {
+      "key": "orpheus",
+      "title": "Орфей с лирой",
+      "kind": "object",
+      "seed": 1101,
+      "prompt": "Orpheus, a young ancient Greek bard, full body standing figure from head to feet, slender build, curly dark brown hair with a green laurel wreath, calm gentle face, short white chiton with a blue meander border, a light ochre cloak over one shoulder, brown leather sandals, holding a golden wooden lyre with two curved horn-like arms, a tortoiseshell sound box and strings against his chest, three-quarter view from above, feet near the bottom of the frame"
+    },
+    {
+      "key": "meadow",
+      "title": "Пол «луг»",
+      "kind": "floor",
+      "seed": 1102,
+      "prompt": "a sunny Greek meadow floor: short lush green grass seen from above, small patches of clover, scattered tiny white and yellow wildflowers, a few small pebbles, gentle natural variation of green tones"
+    },
+    {
+      "key": "rock",
+      "title": "Скала / валун",
+      "kind": "object",
+      "seed": 1103,
+      "prompt": "a large weathered pale grey limestone boulder, chunky rounded block with a flattish top, deep cracks and chipped edges, a few patches of yellow lichen and green moss, small tufts of grass at its base"
+    },
+    {
+      "key": "tree",
+      "title": "Дерево (олива)",
+      "kind": "object",
+      "seed": 1104,
+      "prompt": "an old Mediterranean olive tree, thick gnarled twisted trunk split into two, a dense rounded canopy of small silvery-green leaves with a few dark olives, short roots spreading at the base, the whole tree from roots to crown in frame"
+    },
+    {
+      "key": "wolf",
+      "title": "Волк (враг)",
+      "kind": "object",
+      "seed": 1105,
+      "prompt": "a lean grey wolf, a hostile enemy creature, standing on all four legs in an aggressive stance, head lowered, teeth bared, ears back, shaggy grey-brown fur with a pale belly, bushy tail, three-quarter side view seen from above, the whole body from nose to tail in frame"
+    }
+  ]
+}
