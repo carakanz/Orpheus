@@ -312,7 +312,7 @@ namespace Orpheus.Tests
             Assert.NotNull(LoginMessage.NameError(" "));
             Assert.NotNull(LoginMessage.NameError(null));
             byte[] buf = new byte[LoginMessage.MaxBytes];
-            Assert.True(new LoginMessage { Version = Orpheus.Net.NetModule.Version, Name = new string('я', 16) }.Write(buf) == LoginMessage.MaxBytes);
+            Assert.True(new LoginMessage { Version = Orpheus.Net.NetModule.Version, Name = new string('я', 16), Token = new HostToken(1, 1) }.Write(buf) == LoginMessage.MaxBytes);
         }
 
         // ---------- Появление у шва и челнок (net-smoke шва) ----------
