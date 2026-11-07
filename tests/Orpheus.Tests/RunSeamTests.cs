@@ -247,8 +247,9 @@ namespace Orpheus.Tests
             long frame = 0;
             int ticks = 0;
             int doneAt = -1;
+            bool observerQuitEarly = false;
             const int MaxTicks = 4 * 5120 + 3000;
-            while (ticks < MaxTicks && (doneAt < 0 || ticks - doneAt < 60))
+            while (ticks < MaxTicks && (doneAt < 0 || ticks - doneAt < 200))
             {
                 for (int f = 0; f < 2; f++, frame++)
                 {
@@ -262,9 +263,15 @@ namespace Orpheus.Tests
                 sim.Step();
                 server.SendSnapshots();
                 ticks++;
+                observerQuitEarly |= doneAt < 0 && bots[1].Finished; // бегущий за краем обзора — не конец наблюдения
                 if (doneAt < 0 && bots[0].Runner?.Done == true)
                 {
                     doneAt = ticks;
+                }
+
+                if (doneAt >= 0 && ticks - doneAt == 30)
+                {
+                    bots[0].Client.Disconnect(); // бегущий вышел у наблюдателя — тот кончает сам через 3 с
                 }
             }
 
@@ -280,9 +287,10 @@ namespace Orpheus.Tests
             _out.WriteLine("наблюдатель: " + BotRun.WatchText(w));
             Assert.True(run.Done, $"кругов {run.Laps.Count} за {ticks} тактов");
             Assert.True(run.AllExact, $"невязка до {run.MaxResidualUnits} unit");
-            Assert.Equal(run.Origin, sim.GetEntity(bots[0].Client.EntityId).Mover.Position);
-            Assert.Equal(NetClientState.InGame, bots[0].Client.State);
+            Assert.Equal(run.Origin, bots[0].Client.Latest.Self.Position);
             Assert.Equal(NetClientState.InGame, bots[1].Client.State);
+            Assert.False(observerQuitEarly, "наблюдатель кончил, пока бегущий был на круге");
+            Assert.True(bots[1].Finished, "наблюдатель не заметил, что бегущий вышел");
 
             Assert.True(w.Steps30 > 1000, $"замеров {w.Steps30}");
             Assert.Equal(0, w.OverExcess); // скачка показа сверх траектории снимков нет (решение 0-027; сдвиг 0,22 буквально — [док])

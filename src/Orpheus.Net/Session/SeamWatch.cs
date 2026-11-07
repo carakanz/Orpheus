@@ -44,8 +44,14 @@ namespace Orpheus.Net.Session
         /// <summary>Кадр 60 Гц по местным часам, мкс; окно «1/30 с» дольше 1,1 × 2 кадров — опоздавший кадр цикла.</summary>
         public const long FrameUs = 1_000_000 / 60;
 
-        /// <summary>Без чужих столько мкс после того, как их видели, — «один» (бегущий ушёл): наблюдение кончено.</summary>
+        /// <summary>
+        /// Чужой пропал из снимков рядом с наблюдателем (не ушёл за край обзора, а вышел из игры) и не вернулся столько мкс —
+        /// «один»: наблюдение кончено. Уход за край обзора (бегущий на круге) — не конец.
+        /// </summary>
         public const long AloneAfterUs = 3_000_000;
+
+        /// <summary>«Рядом» для <see cref="AloneAfterUs"/>: чужой в последнем снимке ближе стольких тайлов по каждой оси (окно обзора — 6 × 4 чанка).</summary>
+        public const int NearTiles = 24;
 
         private const double U = Torus.SubTilesPerTile;
 
@@ -92,6 +98,7 @@ namespace Orpheus.Net.Session
         private readonly Dictionary<int, RefTrack> _refs = new Dictionary<int, RefTrack>();
         private long _frame;
         private long _lastSeenUs = -1;
+        private bool _lastNear;
         private long _firstFrameUs = -1;
 
         public SeamWatch(in MapShape map)
@@ -166,7 +173,7 @@ namespace Orpheus.Net.Session
         /// <summary>Чужих, бывших в показе.</summary>
         public int Seen => _tracks.Count;
 
-        /// <summary>Видел чужих, а теперь <see cref="AloneAfterUs"/> их нет в снимках: бегущий ушёл.</summary>
+        /// <summary>Видел чужих, последний пропал из снимков рядом и <see cref="AloneAfterUs"/> их нет: бегущий вышел из игры.</summary>
         public bool Alone { get; private set; }
 
         /// <summary>
@@ -268,8 +275,8 @@ namespace Orpheus.Net.Session
         /// <summary>«Часы после фриза» (<see cref="NetClient.ClockReset"/>).</summary>
         public void OnClockReset() => Interp.OnClockReset();
 
-        /// <summary>Кадр рисования: время показа, позиции чужих (кроме <paramref name="selfId"/>), замер.</summary>
-        public void Frame(long localUs, int selfId)
+        /// <summary>Кадр рисования: время показа, позиции чужих (кроме <paramref name="selfId"/>, стоящего в <paramref name="self"/>), замер.</summary>
+        public void Frame(long localUs, int selfId, WorldPos self)
         {
             if (_firstFrameUs < 0)
             {
@@ -304,17 +311,26 @@ namespace Orpheus.Net.Session
             }
 
             bool othersInSnapshot = false;
+            bool near = false;
             for (int i = 0; i < snap.Count; i++)
             {
-                othersInSnapshot |= snap.Entities[i].Id != selfId;
+                if (snap.Entities[i].Id == selfId)
+                {
+                    continue;
+                }
+
+                othersInSnapshot = true;
+                Int2 d = Torus.Delta(_map, self, snap.Entities[i].Position);
+                near |= Math.Abs(d.X) < NearTiles * Torus.SubTilesPerTile && Math.Abs(d.Y) < NearTiles * Torus.SubTilesPerTile;
             }
 
             if (othersInSnapshot)
             {
                 _lastSeenUs = localUs;
+                _lastNear = near;
             }
 
-            Alone = _tracks.Count > 0 && _lastSeenUs >= 0 && localUs - _lastSeenUs >= AloneAfterUs;
+            Alone = _tracks.Count > 0 && _lastNear && _lastSeenUs >= 0 && localUs - _lastSeenUs >= AloneAfterUs;
         }
 
         private void Measure(int id, WorldPos from, float dx, float dy, long localUs)

@@ -143,7 +143,10 @@ namespace Orpheus.Net.Session
                 }
             }
 
-            _watch?.Frame(nowMicros, Client.EntityId);
+            if (_watch != null && Client.HasSnapshot)
+            {
+                _watch.Frame(nowMicros, Client.EntityId, Client.Latest.Self.Position);
+            }
         }
     }
 }
