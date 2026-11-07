@@ -401,13 +401,14 @@ namespace Orpheus.Tests
         public void D07_S2_10_GoldenBytes_TileRequest_TileReply()
         {
             MapShape map = MapShape.World(1024);
-            var req = new TileRequestMessage { RequestId = 0x0102, Op = TileOp.Place, From = new TileCoord(5, 6), To = new TileCoord(7, 8), Obj = ObjectId.WoodWall };
+            var req = new TileRequestMessage { RequestId = 0x0102, Op = TileOp.Place, Frame = 0x0A0B0C0D, From = new TileCoord(5, 6), To = new TileCoord(7, 8), Obj = ObjectId.WoodWall };
             byte[] rb = NetTests.Encode(b => req.Write(b));
-            Assert.Equal("14 02 01 03 05 00 06 00 07 00 08 00 04 00", string.Join(" ", rb.Select(x => x.ToString("x2"))));
+            Assert.Equal("14 02 01 03 0d 0c 0b 0a 05 00 06 00 07 00 08 00 04 00", string.Join(" ", rb.Select(x => x.ToString("x2"))));
             Assert.Equal(TileRequestMessage.Bytes, rb.Length);
             TileRequestMessage back = TileRequestMessage.Read(rb, map);
             Assert.Equal(req.To, back.To);
             Assert.Equal(TileOp.Place, back.Op);
+            Assert.Equal(0x0A0B0C0Du, back.Frame);
 
             var rep = new TileReplyMessage { RequestId = 0x0102, Reply = EditReply.Accepted, FirstRefusal = EditReply.Occupied, Mask = 0x80000001 };
             byte[] pb = NetTests.Encode(b => rep.Write(b));
@@ -418,7 +419,7 @@ namespace Orpheus.Tests
             badOp[3] = 4;
             Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(badOp, map));
             byte[] outside = (byte[])rb.Clone();
-            outside[9] = 0x04; // y конца 1031
+            outside[15] = 0x04; // y конца 1032
             Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(outside, map));
             byte[] badMask = (byte[])pb.Clone();
             badMask[5] = 0; badMask[8] = 0; // «принято» без маски
@@ -438,10 +439,16 @@ namespace Orpheus.Tests
             private long _frame;
 
             public EditRig(WorldModel world, Func<int, WorldPos> spawn, int maxPlayers = 8)
+                : this(new Simulation(world, maxEntities: 32), spawn, null, maxPlayers)
             {
-                Sim = new Simulation(world, maxEntities: 32);
+            }
+
+            /// <param name="wrapServer">Обёртка транспорта сервера (счётчик отправленного в тестах замера).</param>
+            public EditRig(Simulation sim, Func<int, WorldPos> spawn, Func<ITransport, ITransport>? wrapServer, int maxPlayers = 8)
+            {
+                Sim = sim;
                 _st = LoopbackTransport.CreateServer(maxPlayers + 8);
-                Server = new NetServer(_st, Sim, spawn, maxPlayers, NetModule.Version);
+                Server = new NetServer(wrapServer?.Invoke(_st) ?? _st, Sim, spawn, maxPlayers, NetModule.Version);
             }
 
             public Simulation Sim { get; private set; }

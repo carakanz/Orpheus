@@ -36,8 +36,14 @@ namespace Orpheus.Net.Session
         /// <inheritdoc cref="EditRequestsSent"/>
         public long EditRepliesReceived { get; private set; }
 
-        /// <summary>Копание идёт (начато, ещё не докопано своим счётом и не отвергнуто).</summary>
-        public bool Digging => _digActive && !_digPredicted;
+        /// <summary>
+        /// Копание идёт: начато и ответа ещё нет. Докопанное своим счётом (<see cref="DigPredicted"/>) — тоже: кнопку держат до
+        /// ответа, сервер копит время по своим кадрам и мог недосчитать (перескок, выброс кадров) — новое начало его бы прервало.
+        /// </summary>
+        public bool Digging => _digActive;
+
+        /// <summary>Докопано своим счётом — «объект снят» предсказан, ждём ответа.</summary>
+        public bool DigPredicted => _digActive && _digPredicted;
 
         /// <summary>Тайл текущего копания.</summary>
         public TileCoord DigTile => _digTile;
@@ -64,7 +70,7 @@ namespace Orpheus.Net.Session
             _digTile = t;
             _digObj = World.World.GetObject(t);
             DigProgress = 0;
-            SendRequest(new TileRequestMessage { RequestId = id, Op = TileOp.DigStart, From = t, To = t });
+            SendRequest(new TileRequestMessage { RequestId = id, Op = TileOp.DigStart, Frame = _input.LastFrame + 1, From = t, To = t });
             return id;
         }
 
@@ -77,7 +83,7 @@ namespace Orpheus.Net.Session
             }
 
             _digActive = false;
-            SendRequest(new TileRequestMessage { RequestId = _digRequest, Op = TileOp.DigStop, From = _digTile, To = _digTile });
+            SendRequest(new TileRequestMessage { RequestId = _digRequest, Op = TileOp.DigStop, Frame = _input.LastFrame + 1, From = _digTile, To = _digTile });
         }
 
         /// <summary>
@@ -113,7 +119,7 @@ namespace Orpheus.Net.Session
 
             SendRequest(new TileRequestMessage
             {
-                RequestId = id, Op = TileOp.Place, From = Torus.Wrap(World.Shape, from), To = Torus.Wrap(World.Shape, to), Obj = obj,
+                RequestId = id, Op = TileOp.Place, Frame = _input.LastFrame + 1, From = Torus.Wrap(World.Shape, from), To = Torus.Wrap(World.Shape, to), Obj = obj,
             });
             return id;
         }

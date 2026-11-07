@@ -47,6 +47,13 @@ namespace Orpheus.Net.Session
             public ushort DigObj;
             public int DigProgress;
 
+            // Ждущий запрос копания (начало или конец) — действует с кадра PendingFrame (кадр запроса клиента).
+            public bool HasPending;
+            public TileOp PendingOp;
+            public ushort PendingRequest;
+            public TileCoord PendingTile;
+            public uint PendingFrame;
+
             public int PlaceThirds = PlaceBucketThirds;
 
             public readonly ushort[] PendingId = new ushort[MaxPendingPlaces];
@@ -84,44 +91,63 @@ namespace Orpheus.Net.Session
             }
 
             WorldPos pos = _sim.Entities[slot].Mover.Position;
-            switch (m.Op)
+            if (m.Op == TileOp.Place)
             {
-                case TileOp.DigStart:
+                OnPlace(p, s, pos, m);
+                return;
+            }
+
+            // Копание — с кадра запроса (AdvanceEdits): кадры раньше него докапывают прежнее. Ждёт один запрос; новый вытесняет
+            // ждущий: вытесненное начало — «прервано», не начавшись.
+            if (s.HasPending && s.PendingOp == TileOp.DigStart)
+            {
+                Reply(p, s.PendingRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
+            }
+
+            s.HasPending = true;
+            s.PendingOp = m.Op;
+            s.PendingRequest = m.RequestId;
+            s.PendingTile = m.From;
+            s.PendingFrame = m.Frame;
+            if (!p.HasApplied || (int)(m.Frame - (p.LastApplied + 1)) <= 0)
+            {
+                ApplyPendingDig(p, s, pos); // кадр запроса уже наступил — сразу
+            }
+        }
+
+        /// <summary>Ждущий запрос копания вступает: конец — «прервано»; начало — прежнему «прервано», проверка, старт.</summary>
+        private void ApplyPendingDig(Player p, EditState s, WorldPos pos)
+        {
+            s.HasPending = false;
+            if (s.PendingOp == TileOp.DigStop)
+            {
+                if (s.Digging && s.DigRequest == s.PendingRequest)
                 {
-                    if (s.Digging)
-                    {
-                        Reply(p, s.DigRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
-                        s.Digging = false;
-                    }
-
-                    EditReply check = EditRules.CheckDig(_sim.World, pos, m.From);
-                    if (check != EditReply.Accepted)
-                    {
-                        Reply(p, m.RequestId, check, check, 0);
-                        return;
-                    }
-
-                    s.Digging = true;
-                    s.DigRequest = m.RequestId;
-                    s.DigTile = m.From;
-                    s.DigObj = _sim.World.GetObject(m.From);
-                    s.DigProgress = 0;
-                    return;
+                    Reply(p, s.DigRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
+                    s.Digging = false;
                 }
 
-                case TileOp.DigStop:
-                    if (s.Digging && s.DigRequest == m.RequestId)
-                    {
-                        Reply(p, s.DigRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
-                        s.Digging = false;
-                    }
-
-                    return;
-
-                default:
-                    OnPlace(p, s, pos, m);
-                    return;
+                return;
             }
+
+            if (s.Digging)
+            {
+                Reply(p, s.DigRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
+                s.Digging = false;
+            }
+
+            EditReply check = EditRules.CheckDig(_sim.World, pos, s.PendingTile);
+            if (check != EditReply.Accepted)
+            {
+                Reply(p, s.PendingRequest, check, check, 0);
+                return;
+            }
+
+            s.Digging = true;
+            s.DigRequest = s.PendingRequest;
+            s.DigTile = s.PendingTile;
+            s.DigObj = _sim.World.GetObject(s.PendingTile);
+            s.DigProgress = 0;
         }
 
         private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m)
@@ -198,26 +224,25 @@ namespace Orpheus.Net.Session
             }
 
             s.PlaceThirds = Math.Min(PlaceBucketThirds, s.PlaceThirds + PlaceRefillThirdsPerTick);
-            if (!s.Digging)
-            {
-                return;
-            }
-
+            WorldPos pos = _sim.Entities[slot].Mover.Position;
             for (int i = 0; i < frames; i++)
             {
-                if (InputButtons.DigHeld(_frameBuf[i]))
+                if (s.HasPending && (int)(_frameNum[i] - s.PendingFrame) >= 0)
                 {
-                    s.DigProgress++;
+                    ApplyPendingDig(p, s, pos);
+                }
+
+                if (s.Digging && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= EditRules.DigFrames)
+                {
+                    CompleteDig(p, s, pos);
                 }
             }
+        }
 
-            if (s.DigProgress < EditRules.DigFrames)
-            {
-                return;
-            }
-
+        /// <summary>Докопали (по кадрам сервера): досягаемость, «тайл тот же», правка в такт; отказ — ответ сразу.</summary>
+        private void CompleteDig(Player p, EditState s, WorldPos pos)
+        {
             s.Digging = false;
-            WorldPos pos = _sim.Entities[slot].Mover.Position;
             EditReply check = EditRules.CheckDig(_sim.World, pos, s.DigTile);
             if (check == EditReply.Accepted && _sim.World.GetObject(s.DigTile) != s.DigObj)
             {

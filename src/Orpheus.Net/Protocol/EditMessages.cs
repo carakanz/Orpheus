@@ -20,13 +20,21 @@ namespace Orpheus.Net.Protocol
     /// <summary>
     /// Клиент → сервер, канал 2 (надёжный, по порядку): запрос правки тайлов (0-028, тип 20; docs/07, 3.7). Номер запроса —
     /// u16 клиента по кругу, им же помечен ответ. Один вид на все операции: для копания конец = начало, объект 0.
+    /// <para>
+    /// <see cref="Frame"/> — кадр ввода, с которого действует запрос (следующий кадр клиента): кадры раньше него копят прогресс
+    /// прежнего копания, с него — нового. Иначе «начало» по надёжному каналу обгоняет последние кадры прежнего копания по
+    /// ненадёжному, и докопанное своим счётом сервер прерывает.
+    /// </para>
     /// </summary>
     public struct TileRequestMessage
     {
-        /// <summary>Тип 1 + номер 2 + операция 1 + начало x, y 2 + 2 + конец x, y 2 + 2 + объект 2.</summary>
-        public const int Bytes = 14;
+        /// <summary>Тип 1 + номер 2 + операция 1 + кадр 4 + начало x, y 2 + 2 + конец x, y 2 + 2 + объект 2.</summary>
+        public const int Bytes = 18;
 
         public ushort RequestId;
+
+        /// <summary>Кадр ввода, с которого действует запрос (копание; для постановки — справочно).</summary>
+        public uint Frame;
         public TileOp Op;
         public TileCoord From;
         public TileCoord To;
@@ -38,6 +46,7 @@ namespace Orpheus.Net.Protocol
             w.WriteByte((byte)MessageType.TileRequest);
             w.WriteUInt16(RequestId);
             w.WriteByte((byte)Op);
+            w.WriteUInt32(Frame);
             w.WriteUInt16((ushort)From.X);
             w.WriteUInt16((ushort)From.Y);
             w.WriteUInt16((ushort)To.X);
@@ -52,6 +61,7 @@ namespace Orpheus.Net.Protocol
             var r = Codec.Begin(src, MessageType.TileRequest);
             var m = new TileRequestMessage { RequestId = r.ReadUInt16() };
             byte op = r.ReadByte();
+            m.Frame = r.ReadUInt32();
             m.From = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.To = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.Obj = r.ReadUInt16();
@@ -70,7 +80,7 @@ namespace Orpheus.Net.Protocol
             return m;
         }
 
-        public override string ToString() => $"запрос {RequestId}: {Op} {From}–{To} obj {Obj}";
+        public override string ToString() => $"запрос {RequestId}: {Op} с кадра {Frame} {From}–{To} obj {Obj}";
     }
 
     /// <summary>
