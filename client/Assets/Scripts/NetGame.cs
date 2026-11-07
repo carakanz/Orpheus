@@ -589,7 +589,7 @@ namespace Orpheus.Client
                 double catchShare = r.Steps > 0 ? r.CatchUpSteps / (double)r.Steps : 1.0;
                 string remote = $"чужие: кадров {r.Frames}, с тем же временем показа {r.SameTimeFrames} ({sameShare:P2}), " +
                                 $"стоит на новейшем {r.HoldFrames} ({holdShare:P2}), шагов {r.Steps}, шаг max {r.MaxStepUnits:0.0}/256 т " +
-                                $"(к пределу {r.MaxStepRatio:0.00}), сверх предела {r.StepViolations} шагов догона {r.CatchUpSteps} ({catchShare:P2}), " +
+                                $"(к пределу {r.MaxStepRatio:0.00}), сверх предела {r.StepViolations}, шагов догона {r.CatchUpSteps} ({catchShare:P2}), " +
                                 $"пар через шов {r.SeamSamples}, " +
                                 $"запас показа {r.BufferUs / 1000} мс, перестановок часов {r.ClockResets}, ход показа {r.PlaybackRate:0.000}, " +
                                 $"догон к пределу {r.MaxCatchUpRatio:0.00} (k = {RemoteInterpolation.CatchUpRate:0.#})";
