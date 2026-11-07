@@ -2,6 +2,7 @@ using System;
 using Orpheus.Core.Bots;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
+using Orpheus.Core.Pathing;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net;
@@ -233,6 +234,44 @@ namespace Orpheus.Tests
             Assert.Equal(0, inTick);
             Assert.Equal(misses, world.BuildMaps.Misses);
             Assert.True(total > 0, "постройки в новых чанках должны были брать словари из пула");
+        }
+
+        // ---------- Поиск пути (0-023) ----------
+
+        [Fact]
+        public void D02_S9_2_PathSearchAndScheduler_NoAllocations()
+        {
+            PathBench bench = PathBench.Build(128, 0x0_023, 400);
+            var results = new PathBuffer[PathBench.PerTick];
+            for (int i = 0; i < results.Length; i++)
+            {
+                results[i] = new PathBuffer();
+            }
+
+            var finder = new PathFinder();
+            var scheduler = new PathScheduler(finder, bench.Terrain, results, 2 * PathBench.PerTick, clock: new StopwatchClock());
+            long tick = 0;
+            Action pass = () =>
+            {
+                // 400 запросов всех видов (обычные, через шов, замкнутые, недостижимые) по 40 за такт.
+                for (int i = 0; i < bench.Requests.Length; i++)
+                {
+                    PathRequest r = bench.Requests[i];
+                    scheduler.Enqueue(r.Owner, r.Start, r.Goal, r.Mode, tick);
+                    if (scheduler.Pending == PathBench.PerTick)
+                    {
+                        while (scheduler.Pending > 0)
+                        {
+                            scheduler.RunTick(++tick);
+                        }
+                    }
+                }
+            };
+
+            long bytes = AllocatedInPass(pass);
+            _out.WriteLine($"400 поисков: {bytes} байт, A* {finder.AStarRuns}, замкнутых {scheduler.EnclosedCount}, частичных {scheduler.PartialCount}");
+            Assert.True(scheduler.EnclosedCount > 0 && scheduler.PartialCount > 0 && scheduler.WindowEdgeCount > 0);
+            Assert.Equal(0, bytes);
         }
     }
 }
