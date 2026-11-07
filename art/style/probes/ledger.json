@@ -28,11 +28,14 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. Orpheus, a young ancient Greek bard, full body standing figure from head to feet, slender build, curly dark brown hair with a green laurel wreath, calm gentle face, short white chiton with a blue meander border, a light ochre cloak over one shoulder, brown leather sandals, holding a golden wooden lyre with two curved horn-like arms, a tortoiseshell sound box and strings against his chest, three-quarter view from above, feet near the bottom of the frame. top-down game view tilted at about 45 degrees, high three-quarter overhead camera looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "running",
+    "status": "done",
     "picker_url": "/?set=20261107-124732-a8114f",
     "queued": "2026-11-07 12:47",
-    "images": [],
-    "checked": "2026-11-07 13:21"
+    "images": [
+      "/files/concepts/20261107-124732-a8114f/concept_0.png",
+      "/files/concepts/20261107-124732-a8114f/concept_1.png"
+    ],
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-8cf66d",
@@ -44,11 +47,11 @@
     "count": 2,
     "style": "default",
     "prompt": "loose watercolor wash illustration with fine sepia ink linework, transparent layered washes with soft blooms and granulation, visible cold-press paper grain, muted desaturated palette of faded terracotta, sage green, umber and parchment, accents and ornaments in the style of ancient Greek black-figure pottery with meander key patterns, delicate and airy. Orpheus, a young ancient Greek bard, full body standing figure from head to feet, slender build, curly dark brown hair with a green laurel wreath, calm gentle face, short white chiton with a blue meander border, a light ochre cloak over one shoulder, brown leather sandals, holding a golden wooden lyre with two curved horn-like arms, a tortoiseshell sound box and strings against his chest, three-quarter view from above, feet near the bottom of the frame. top-down game view tilted at about 45 degrees, high three-quarter overhead camera looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "queued",
+    "status": "running",
     "picker_url": "/?set=20261107-124732-8cf66d",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-c40ca1",
@@ -64,7 +67,7 @@
     "picker_url": "/?set=20261107-124732-c40ca1",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-92df18",
@@ -80,7 +83,7 @@
     "picker_url": "/?set=20261107-124732-92df18",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-5ab8ef",
@@ -96,7 +99,7 @@
     "picker_url": "/?set=20261107-124732-5ab8ef",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-d16666",
@@ -112,7 +115,7 @@
     "picker_url": "/?set=20261107-124732-d16666",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-588494",
@@ -128,7 +131,7 @@
     "picker_url": "/?set=20261107-124732-588494",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-13f2d8",
@@ -144,7 +147,7 @@
     "picker_url": "/?set=20261107-124732-13f2d8",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-831ba8",
@@ -160,7 +163,7 @@
     "picker_url": "/?set=20261107-124732-831ba8",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-98de89",
@@ -176,7 +179,7 @@
     "picker_url": "/?set=20261107-124732-98de89",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-ea534d",
@@ -192,7 +195,7 @@
     "picker_url": "/?set=20261107-124732-ea534d",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-30fc63",
@@ -208,7 +211,7 @@
     "picker_url": "/?set=20261107-124732-30fc63",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-5d2ad4",
@@ -224,7 +227,7 @@
     "picker_url": "/?set=20261107-124732-5d2ad4",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   },
   {
     "id": "20261107-124732-cc2a0f",
@@ -240,6 +243,6 @@
     "picker_url": "/?set=20261107-124732-cc2a0f",
     "queued": "2026-11-07 12:47",
     "images": [],
-    "checked": "2026-11-07 13:21"
+    "checked": "2026-11-07 13:47"
   }
 ]
