@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using Orpheus.Core.Bots;
 using Orpheus.Net;
+using Orpheus.Net.Hosting;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Transport;
 
@@ -11,13 +12,38 @@ namespace Orpheus.Bots
     /// Ключи ботов по сети (docs/07, 11.3; карточка 0-008):
     /// <c>--connect host:port --count N --script wander --rtt мс --jitter мс [--burst] --loss % [--dup %] [--reorder %]
     /// [--seed N] --minutes M [--seconds S] --report &lt;json&gt; [--name префикс] [--version x.y.z]</c>.
+    /// <para>
+    /// «Игра хоста» без Unity (0-024, docs/07 2.3): <c>--launch &lt;OrpheusServer&gt; --world &lt;папка&gt; [--create-seed N]
+    /// [--mode single|host] [--open-address A] [--open-port P] [--host-grace сек] [--server-arg ключ]…</c> — запустить сервер
+    /// лаунчером и войти хозяином; <c>--find &lt;папка мира&gt;</c> — найти работающий сервер по файлу-замку и войти хозяином;
+    /// <c>--host-token &lt;32 hex&gt;</c> — войти хозяином по известному токену; <c>--open-for-friends</c> — бот 0 после входа
+    /// жмёт «Открыть для друзей».
+    /// </para>
     /// </summary>
     public sealed class BotOptions
     {
         public const string Usage =
             "Orpheus.Bots --connect host:port [--count N] [--script idle|wander] [--rtt мс] [--jitter мс] [--burst]\n" +
             "             [--loss %] [--dup %] [--reorder %] [--seed N] [--minutes M | --seconds S] [--report <json>]\n" +
-            "             [--name префикс] [--version x.y.z]";
+            "             [--name префикс] [--version x.y.z] [--host-token <32 hex>] [--open-for-friends]\n" +
+            "Orpheus.Bots --launch <OrpheusServer> --world <папка> [--create-seed N] [--mode single|host] [--open-address A]\n" +
+            "             [--open-port P] [--host-grace сек] [--server-arg ключ]... [ключи ботов без --connect]\n" +
+            "Orpheus.Bots --find <папка мира> [ключи ботов без --connect]";
+
+        /// <summary>Токен хозяина: бот 0 входит хозяином (остальные — обычными игроками).</summary>
+        public HostToken HostToken { get; set; }
+
+        /// <summary>Бот 0 после входа жмёт «Открыть для друзей».</summary>
+        public bool OpenForFriends { get; set; }
+
+        /// <summary>Запустить сервер лаунчером «ПК» (путь к <c>OrpheusServer</c>); null — сервер уже есть.</summary>
+        public string? LaunchServer { get; set; }
+
+        /// <summary>Что запустить (<see cref="LaunchServer"/>).</summary>
+        public ServerLaunch Launch { get; } = new ServerLaunch();
+
+        /// <summary>Найти работающий сервер мира по файлу-замку (<c>--find</c>).</summary>
+        public string? FindWorld { get; set; }
 
         public string Host { get; set; } = "127.0.0.1";
         public int Port { get; set; }
@@ -115,6 +141,52 @@ namespace Orpheus.Bots
                     case "--version":
                         o.Version = ParseVersion(Value(args, ref i));
                         break;
+                    case "--host-token":
+                        if (!HostToken.TryParse(Value(args, ref i), out HostToken token))
+                        {
+                            throw new ArgumentException($"--host-token: {HostToken.HexLength} шестнадцатеричных цифр, не нули.");
+                        }
+
+                        o.HostToken = token;
+                        break;
+                    case "--open-for-friends":
+                        o.OpenForFriends = true;
+                        break;
+                    case "--launch":
+                        o.LaunchServer = Value(args, ref i);
+                        connect = true;
+                        break;
+                    case "--world":
+                        o.Launch.WorldDir = Value(args, ref i);
+                        break;
+                    case "--create-seed":
+                        o.Launch.Create = true;
+                        o.Launch.Seed = ulong.TryParse(Value(args, ref i), NumberStyles.None, CultureInfo.InvariantCulture, out ulong ws)
+                            ? ws
+                            : throw new ArgumentException("--create-seed: целое без знака.");
+                        break;
+                    case "--mode":
+                        string mode = Value(args, ref i);
+                        o.Launch.Mode = mode == "single" ? ServerMode.Single
+                            : mode == "host" ? ServerMode.Host
+                            : throw new ArgumentException($"--mode: single или host, а не «{mode}».");
+                        break;
+                    case "--open-address":
+                        o.Launch.OpenAddress = Value(args, ref i);
+                        break;
+                    case "--open-port":
+                        o.Launch.OpenPort = Int(a, Value(args, ref i), 0, 65535);
+                        break;
+                    case "--host-grace":
+                        o.Launch.HostGraceSeconds = Int(a, Value(args, ref i), 1, 600);
+                        break;
+                    case "--server-arg":
+                        o.Launch.ExtraArgs.Add(Value(args, ref i));
+                        break;
+                    case "--find":
+                        o.FindWorld = Value(args, ref i);
+                        connect = true;
+                        break;
                     default:
                         throw new ArgumentException($"Неизвестный ключ: {a}.");
                 }
@@ -122,7 +194,12 @@ namespace Orpheus.Bots
 
             if (!connect)
             {
-                throw new ArgumentException("Нужен --connect host:port.");
+                throw new ArgumentException("Нужен --connect host:port (или --launch / --find).");
+            }
+
+            if (o.LaunchServer != null && (o.FindWorld != null || o.Launch.WorldDir.Length == 0))
+            {
+                throw new ArgumentException("--launch: нужен --world <папка>; вместе с --find нельзя.");
             }
 
             if (o.Seconds <= 0)

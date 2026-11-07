@@ -94,6 +94,12 @@ namespace Orpheus.Net.Session
 
             /// <summary>Кольцо отправленных снимков для дельт (0-014); создаётся при входе в игру.</summary>
             public SentRing? Ring;
+
+            /// <summary>Вошёл с токеном хозяина (0-024).</summary>
+            public bool IsHost;
+
+            /// <summary>Время последнего пришедшего сообщения (мкс по часам <see cref="Poll"/>; 0-024 — отсчёт 60 с хоста).</summary>
+            public long LastHeardMicros;
         }
 
         /// <summary>
@@ -162,6 +168,7 @@ namespace Orpheus.Net.Session
         private readonly InputFrame[] _frameBuf = new InputFrame[FramesPerTickLimit];
         private SelfState _self;
         private int _spawned;
+        private long _nowMicros;
 
         /// <summary>Кольцо кадров ввода игрока: 64 кадра (≈ 1 с) вперёд от времени персонажа.</summary>
         public const int FrameRing = 64;
@@ -308,6 +315,63 @@ namespace Orpheus.Net.Session
         /// <summary>Отключений игроков в игре (любая причина).</summary>
         public int Disconnects { get; private set; }
 
+        // ---------- Хозяин (0-024, docs/07 2.3 и 7.6) ----------
+
+        /// <summary>Токен хозяина из ключей сервера; пустой — хозяина нет (выделенный сервер), вход с токеном — отказ.</summary>
+        public HostToken HostToken { get; set; }
+
+        /// <summary>
+        /// «Открыть для друзей» от хозяина: начать слушать на всех адресах и вернуть порт; не вышло — исключение
+        /// (текст — в лог, хозяину — «не открыт»). Зовётся в потоке такта из <see cref="Poll"/>. Null — команды нет.
+        /// </summary>
+        public Func<int>? OpenForFriends { get; set; }
+
+        /// <summary>Хозяин вошёл (первый раз или вернулся).</summary>
+        public Action? HostJoined { get; set; }
+
+        /// <summary>
+        /// Хозяин ушёл (отключение, тайм-аут): аргументы — время последнего сообщения от него и текущее (мкс, часы
+        /// <see cref="Poll"/>); отсчёт 60 с — от последнего сообщения: упавшая игра молчит, а транспорт замечает обрыв
+        /// только через тайм-аут.
+        /// </summary>
+        public Action<long, long>? HostLeft { get; set; }
+
+        /// <summary>Хозяин в игре.</summary>
+        public bool HostInGame
+        {
+            get
+            {
+                for (int i = 0; i < _players.Count; i++)
+                {
+                    if (_players[i].IsHost && _players[i].State == PlayerState.InGame)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        /// <summary>Порт «Открыть для друзей» (команда хозяина выполнена); не открыт — −1.</summary>
+        public int OpenedPort { get; private set; } = -1;
+
+        /// <summary>
+        /// Закрыть мир (7.6): всем соединениям — отключение с <see cref="ClosingMessage"/> (клиент покажет «Хост вышел…»
+        /// вместо «связь потеряна»). Сущности игроков остаются как есть — сервер после этого завершается.
+        /// </summary>
+        public void CloseAll(ClosingReason reason)
+        {
+            int len = new ClosingMessage { Reason = reason }.Write(_buf);
+            for (int i = _players.Count - 1; i >= 0; i--)
+            {
+                _transport.Disconnect(_players[i].Peer, new ReadOnlySpan<byte>(_buf, 0, len));
+            }
+
+            _players.Clear();
+            _transport.Flush();
+        }
+
         /// <summary>Номер сущности игрока на соединении <paramref name="peer"/>; не в игре — −1.</summary>
         public int EntityOf(int peer)
         {
@@ -353,6 +417,7 @@ namespace Orpheus.Net.Session
         /// <summary>До такта: события транспорта, вход, ввод; стоп тем, от кого ввода нет 0,2 с; кадры ввода на такт.</summary>
         public void Poll(long nowMicros)
         {
+            _nowMicros = nowMicros;
             _transport.Poll(nowMicros, this);
             StopStaleInputs();
             PlanFrames();
@@ -776,7 +841,11 @@ namespace Orpheus.Net.Session
                 Disconnects++;
                 _sim.RemoveEntity(p.EntityId);
                 Log?.Invoke(reason == NetDisconnectReason.Timeout ? NetLogLevel.Warn : NetLogLevel.Info,
-                    $"игрок «{p.Name}» (#{p.EntityId}) ушёл: {reason}");
+                    $"{(p.IsHost ? "хозяин" : "игрок")} «{p.Name}» (#{p.EntityId}) ушёл: {reason}");
+                if (p.IsHost)
+                {
+                    HostLeft?.Invoke(p.LastHeardMicros, _nowMicros);
+                }
             }
         }
 
@@ -788,6 +857,7 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            p.LastHeardMicros = _nowMicros;
             try
             {
                 MessageType type = Codec.TypeOf(data);
@@ -814,6 +884,13 @@ namespace Orpheus.Net.Session
                     return;
                 }
 
+                if (type == MessageType.OpenForFriends && channel == NetChannel.Facts)
+                {
+                    OpenForFriendsMessage.Read(data);
+                    OnOpenForFriends(p);
+                    return;
+                }
+
                 InputsDropped++;
             }
             catch (ProtocolException e)
@@ -837,6 +914,30 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            if (!m.Token.IsEmpty)
+            {
+                if (HostToken.IsEmpty || m.Token != HostToken)
+                {
+                    Reject(p, LoginRejectReason.BadToken, HostToken.IsEmpty ? "у сервера нет хозяина" : "токен хозяина не тот");
+                    return;
+                }
+
+                // Один токен с двух мест (7.7): новый вход вытесняет прежний — у упавшей игры хоста соединение
+                // висит до тайм-аута транспорта, а вернувшийся хост входит сразу.
+                for (int i = _players.Count - 1; i >= 0; i--)
+                {
+                    Player old = _players[i];
+                    if (old != p && old.IsHost && old.State == PlayerState.InGame)
+                    {
+                        _players.RemoveAt(i);
+                        _sim.RemoveEntity(old.EntityId);
+                        int n = new ClosingMessage { Reason = ClosingReason.Replaced }.Write(_buf);
+                        _transport.Disconnect(old.Peer, new ReadOnlySpan<byte>(_buf, 0, n));
+                        Log?.Invoke(NetLogLevel.Warn, $"хозяин вошёл заново — прежнее соединение {old.Peer} (#{old.EntityId}) вытеснено");
+                    }
+                }
+            }
+
             if (PlayersInGame >= _maxPlayers)
             {
                 Reject(p, LoginRejectReason.ServerFull, $"мест {_maxPlayers}");
@@ -858,6 +959,7 @@ namespace Orpheus.Net.Session
             p.State = PlayerState.InGame;
             p.EntityId = id;
             p.Name = m.Name;
+            p.IsHost = !m.Token.IsEmpty;
             p.LastInputTick = _sim.Tick;
             p.Credits = FramesPerTickLimit;
             LoginsAccepted++;
@@ -873,7 +975,37 @@ namespace Orpheus.Net.Session
                 GenerationHash = GenerationHash,
             }.Write(_buf);
             _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
-            Log?.Invoke(NetLogLevel.Info, $"вход: «{m.Name}» → #{id}, соединение {p.Peer}");
+            Log?.Invoke(NetLogLevel.Info, $"вход{(p.IsHost ? " хозяина" : "")}: «{m.Name}» → #{id}, соединение {p.Peer}");
+            if (p.IsHost)
+            {
+                HostJoined?.Invoke();
+            }
+        }
+
+        /// <summary>«Открыть для друзей» (2.13 п. 9): только хозяин; уже открыт — тот же порт; итог — хозяину.</summary>
+        private void OnOpenForFriends(Player p)
+        {
+            if (!p.IsHost || p.State != PlayerState.InGame)
+            {
+                Log?.Invoke(NetLogLevel.Warn, $"«Открыть для друзей» не от хозяина (соединение {p.Peer}) — мимо");
+                return;
+            }
+
+            if (OpenedPort < 0 && OpenForFriends != null)
+            {
+                try
+                {
+                    OpenedPort = OpenForFriends();
+                    Log?.Invoke(NetLogLevel.Info, $"открыто для друзей: порт {OpenedPort}");
+                }
+                catch (Exception e) when (e is System.Net.Sockets.SocketException || e is InvalidOperationException || e is ArgumentException)
+                {
+                    Log?.Invoke(NetLogLevel.Error, $"«Открыть для друзей» не вышло: {e.Message}");
+                }
+            }
+
+            int len = new OpenResultMessage { Opened = OpenedPort >= 0, Port = (ushort)Math.Max(0, OpenedPort) }.Write(_buf);
+            _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
         }
 
         private void OnInput(Player p, in InputMessage m)

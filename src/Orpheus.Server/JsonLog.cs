@@ -35,7 +35,7 @@ namespace Orpheus.Server
         };
 
         private readonly string? _dir;
-        private readonly TextWriter? _console;
+        private TextWriter? _console;
         private readonly Dictionary<string, LogLevel> _levels = new Dictionary<string, LogLevel>(StringComparer.Ordinal);
         private readonly MemoryStream _line = new MemoryStream(512);
         private StreamWriter? _file;
@@ -115,7 +115,16 @@ namespace Orpheus.Server
             }
 
             string text = Encoding.UTF8.GetString(_line.GetBuffer(), 0, (int)_line.Length);
-            _console?.WriteLine(text);
+            try
+            {
+                _console?.WriteLine(text);
+            }
+            catch (IOException)
+            {
+                // Вывода больше нет: игра хоста, запустившая сервер, упала и закрыла трубу (0-024) — сервер живёт дальше,
+                // лог — в файле.
+                _console = null;
+            }
             StreamWriter? file = FileFor(now);
             if (file != null)
             {

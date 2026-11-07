@@ -80,6 +80,34 @@ namespace Orpheus.Net.Transport
         }
 
         /// <summary>
+        /// Сервер: слушать UDP-порт <paramref name="port"/> на адресе <paramref name="address"/> (0-024, «Открыть для
+        /// друзей»): null — все адреса IPv4 и IPv6 (как <see cref="Listen(int, int, bool)"/> без петли); адрес IPv4 —
+        /// только он, без IPv6. Тесты и прогоны открывают на втором адресе петли (127.0.0.2): брандмауэр Windows
+        /// спрашивает разрешения у программы, слушающей не петлю, — по окну на каждый путь .exe.
+        /// </summary>
+        public static LiteNetTransport Listen(int port, int maxPeers, IPAddress? address)
+        {
+            if (address == null)
+            {
+                return Listen(port, maxPeers, loopbackOnly: false);
+            }
+
+            if (address.AddressFamily != AddressFamily.InterNetwork)
+            {
+                throw new ArgumentException($"Адрес «Открыть для друзей» — все или IPv4, а не {address}.", nameof(address));
+            }
+
+            var t = new LiteNetTransport(true, maxPeers);
+            t._manager.IPv6Enabled = false;
+            if (!t._manager.Start(address, IPAddress.IPv6None, port))
+            {
+                throw new SocketException((int)SocketError.AddressAlreadyInUse);
+            }
+
+            return t;
+        }
+
+        /// <summary>
         /// Клиент: подключиться к <paramref name="host"/>:<paramref name="port"/>. Событие «открыто» — в <see cref="Poll"/>.
         /// К серверу на этой же машине (<see cref="IsLoopbackHost"/>) сокет клиента открывается только на петле — без окна брандмауэра.
         /// </summary>

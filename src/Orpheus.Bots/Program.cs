@@ -50,6 +50,11 @@ namespace Orpheus.Bots
                 Console.Error.WriteLine($"сеть: {e.Message}");
                 return 2;
             }
+            catch (Exception e) when (e is Orpheus.Net.Hosting.ServerLaunchException || e is System.IO.IOException)
+            {
+                Console.Error.WriteLine($"сервер: {e.Message}");
+                return 2;
+            }
         }
     }
 }
