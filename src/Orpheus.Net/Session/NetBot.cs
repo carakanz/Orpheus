@@ -1,3 +1,4 @@
+using System;
 using Orpheus.Core.Bots;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
@@ -7,8 +8,14 @@ namespace Orpheus.Net.Session
 {
     /// <summary>
     /// Бот по сети (docs/07, 11.3): <see cref="NetClient"/> + сценарий <see cref="SimBot"/> (<c>idle</c>, <c>wander</c>).
-    /// Вызывающий зовёт <see cref="Frame"/> 60 раз в секунду: разбор пришедшего, раз в два кадра — решение сценария,
-    /// каждый кадр — пакет ввода. Сценарий решает по своему номеру такта (кадр / 2) и позиции из снимка.
+    /// Вызывающий зовёт <see cref="Frame"/> примерно 60 раз в секунду: разбор пришедшего, сверка предсказания с новым
+    /// снимком, затем столько кадров ввода, сколько велят часы клиента (<see cref="NetClient.FramesDue"/>, 2.4; 0-025):
+    /// раз в два кадра — решение сценария, каждый кадр — пакет ввода и шаг предсказания.
+    /// <para>
+    /// Предсказание (11.3 «тот же протокол, предсказание, сверка», 0-025): <see cref="PredictionFactory"/> даёт
+    /// <see cref="LocalPrediction"/> после входа (проходимость — из мира того же зерна); его метрика — расхождение
+    /// предсказанной позиции с серверной в тот же кадр на каждой сверке (<see cref="LocalPrediction.Compared"/>).
+    /// </para>
     /// </summary>
     public sealed class NetBot
     {
@@ -16,6 +23,9 @@ namespace Orpheus.Net.Session
         private readonly int _botIndex;
         private SimBot? _bot;
         private InputFrame _current;
+        private LocalPrediction? _pred;
+        private uint _reconciledTick;
+        private bool _reconciledAny;
 
         public NetBot(NetClient client, string script, int botIndex)
         {
@@ -29,7 +39,13 @@ namespace Orpheus.Net.Session
         /// <summary>Сценарий.</summary>
         public string Script => _script;
 
-        /// <summary>Кадр 60 Гц: разобрать пришедшее, решить, отправить ввод.</summary>
+        /// <summary>Создать предсказание после входа; null — пока нет (спрашивается каждый кадр до первого не-null).</summary>
+        public Func<NetClient, LocalPrediction?>? PredictionFactory { get; set; }
+
+        /// <summary>Предсказание своего персонажа (после входа, если есть фабрика).</summary>
+        public LocalPrediction? Prediction => _pred;
+
+        /// <summary>Кадр бота: разобрать пришедшее, сверить, решить, отправить ввод по часам.</summary>
         public void Frame(long nowMicros)
         {
             Client.Poll(nowMicros);
@@ -43,19 +59,36 @@ namespace Orpheus.Net.Session
                 _bot = SimBot.Create(_script, Client.EntityId, _botIndex, Client.Accept.WorldSeed);
             }
 
-            uint next = Client.Frame + 1;
-            if ((next & 1) == 0)
+            if (_pred == null && PredictionFactory != null)
             {
-                var self = new SimEntity { Id = Client.EntityId, Kind = SimEntity.KindCharacter };
-                if (Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity e))
-                {
-                    self.Mover = new Mover(e.Position);
-                }
-
-                _current = _bot.Think(next / 2, self);
+                _pred = PredictionFactory(Client); // null — ещё не готово (мир строится), спросим в следующем кадре
             }
 
-            Client.SendFrame(_current);
+            if (_pred != null && Client.HasSnapshot && (!_reconciledAny || Client.Latest.Tick != _reconciledTick))
+            {
+                _reconciledAny = true;
+                _reconciledTick = Client.Latest.Tick;
+                _pred.Reconcile(Client.Latest.AckFrame, Client.Latest.Self, nowMicros);
+            }
+
+            int n = Client.FramesDue(nowMicros);
+            for (int k = 0; k < n; k++)
+            {
+                uint next = Client.Frame + 1;
+                if ((next & 1) == 0)
+                {
+                    var self = new SimEntity { Id = Client.EntityId, Kind = SimEntity.KindCharacter };
+                    if (Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity e))
+                    {
+                        self.Mover = new Mover(e.Position);
+                    }
+
+                    _current = _bot.Think(next / 2, self);
+                }
+
+                Client.SendFrame(_current);
+                _pred?.Sent(Client.Frame, _current);
+            }
         }
     }
 }

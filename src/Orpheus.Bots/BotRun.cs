@@ -6,12 +6,17 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
 using Orpheus.Net.Hosting;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using Orpheus.Net.Transport;
 using Orpheus.Platform.Pc;
 using Orpheus.Server;
+using Orpheus.WorldGen;
 
 namespace Orpheus.Bots
 {
@@ -38,6 +43,36 @@ namespace Orpheus.Bots
         public long SimReceived { get; set; }
         public long SimReceiveLost { get; set; }
         public double SimMeanDelayMs { get; set; }
+
+        /// <summary>Предсказание (11.3; 0-025): сверок со сравнением в тот же кадр / из них больше 0,5 тайла.</summary>
+        public long PredCompared { get; set; }
+
+        /// <inheritdoc cref="PredCompared"/>
+        public long PredOverHalfTile { get; set; }
+
+        /// <summary>Наибольшее расхождение предсказания с сервером, unit (1/256 тайла).</summary>
+        public int PredMaxDevUnits { get; set; }
+
+        /// <summary>Правок предсказания (сверка не совпала).</summary>
+        public long PredResynced { get; set; }
+
+        /// <summary>Часы клиента: перестановок вперёд, назад, по «часам после фриза»; перенумераций кадров; owd, мс.</summary>
+        public long ClockStepsForward { get; set; }
+
+        /// <inheritdoc cref="ClockStepsForward"/>
+        public long ClockStepsBack { get; set; }
+
+        /// <inheritdoc cref="ClockStepsForward"/>
+        public long ClockServerResets { get; set; }
+
+        /// <inheritdoc cref="ClockStepsForward"/>
+        public long FrameRenumbers { get; set; }
+
+        /// <inheritdoc cref="ClockStepsForward"/>
+        public double OwdMs { get; set; }
+
+        /// <summary>Сообщений «часы» принято.</summary>
+        public long ClocksReceived { get; set; }
     }
 
     /// <summary>Итог запуска ботов.</summary>
@@ -67,6 +102,22 @@ namespace Orpheus.Bots
         public int Disconnects { get; set; }
 
         public List<BotStats> Bots { get; } = new List<BotStats>();
+
+        /// <summary>Доля сверок предсказания с расхождением ≤ 0,5 тайла по всем ботам (2.13 п. 1); сверок нет — 0.</summary>
+        public double PredWithinHalfTile
+        {
+            get
+            {
+                long all = 0, over = 0;
+                foreach (BotStats b in Bots)
+                {
+                    all += b.PredCompared;
+                    over += b.PredOverHalfTile;
+                }
+
+                return all > 0 ? (all - over) / (double)all : 0;
+            }
+        }
 
         /// <summary>0 — все вошли и ни одного отключения; 1 — иначе.</summary>
         public int ExitCode => Disconnects == 0 && Rejected == 0 && InGame == Count ? 0 : 1;
@@ -130,6 +181,7 @@ namespace Orpheus.Bots
             var bots = new NetBot[o.Count];
             var sims = new NetSimTransport?[o.Count];
             var entered = new double[o.Count];
+            var worlds = new Dictionary<ulong, Task<Simulation?>>();
             for (int i = 0; i < o.Count; i++)
             {
                 ITransport t = LiteNetTransport.Connect(o.Host, o.Port);
@@ -153,7 +205,7 @@ namespace Orpheus.Bots
                     client.SnapshotApplied = snap => o.OnSnapshot(index, snap, client.EntityId);
                 }
 
-                bots[i] = new NetBot(client, o.Script, i);
+                bots[i] = new NetBot(client, o.Script, i) { PredictionFactory = c => Predict(c, worlds, console) };
                 entered[i] = -1;
             }
 
@@ -240,7 +292,22 @@ namespace Orpheus.Bots
                     DeltasUnmerged = c.DeltasUnmerged,
                     InputsSent = c.InputsSent,
                     BadMessages = c.BadMessages,
+                    ClockStepsForward = c.Clock.StepsForward,
+                    ClockStepsBack = c.Clock.StepsBack,
+                    ClockServerResets = c.Clock.ServerResets,
+                    FrameRenumbers = c.FrameRenumbers,
+                    OwdMs = c.Clock.OwdUs / 1000.0,
+                    ClocksReceived = c.ClocksReceived,
                 };
+                LocalPrediction? pred = bots[i].Prediction;
+                if (pred != null)
+                {
+                    st.PredCompared = pred.Compared;
+                    st.PredOverHalfTile = pred.ComparedOverHalfTile;
+                    st.PredMaxDevUnits = pred.MaxDevUnits;
+                    st.PredResynced = pred.Resynced;
+                }
+
                 st.SnapshotsPerSecond = st.SecondsInGame > 0 ? st.SnapshotsApplied / st.SecondsInGame : 0;
                 if (sims[i] != null)
                 {
@@ -281,7 +348,8 @@ namespace Orpheus.Bots
             }
 
             console?.WriteLine($"итог: в игре {report.InGame} из {report.Count}, отказов {report.Rejected}, отключений {report.Disconnects}, " +
-                               $"снимков/с у бота 0 — {(report.Bots.Count > 0 ? report.Bots[0].SnapshotsPerSecond : 0):0.0}");
+                               $"снимков/с у бота 0 — {(report.Bots.Count > 0 ? report.Bots[0].SnapshotsPerSecond : 0):0.0}, " +
+                               $"предсказание ≤ 0,5 тайла — {report.PredWithinHalfTile:P3}");
             for (int i = 0; i < report.Bots.Count; i++)
             {
                 if (report.Bots[i].RejectText != null)
@@ -291,6 +359,42 @@ namespace Orpheus.Bots
             }
 
             return report;
+        }
+
+        /// <summary>
+        /// Предсказание бота (11.3): мир того же зерна и размера — проходимость как у сервера; хэш генерации не совпал —
+        /// без предсказания (другая сборка генератора). Мир один на всех ботов и строится в фоне (генерация — секунды,
+        /// кадр бота ждать не должен): пока не готов — null, бот спросит в следующем кадре.
+        /// </summary>
+        private static LocalPrediction? Predict(NetClient c, Dictionary<ulong, Task<Simulation?>> worlds, TextWriter? console)
+        {
+            ulong key = c.Accept.WorldSeed ^ ((ulong)(uint)c.Accept.MapWidth << 40);
+            if (!worlds.TryGetValue(key, out Task<Simulation?>? build))
+            {
+                MapShape shape = c.Shape;
+                ulong seed = c.Accept.WorldSeed;
+                ulong hash = c.Accept.GenerationHash;
+                build = Task.Run(() =>
+                {
+                    WorldModel world = WorldGenModule.Current.Generate(shape, seed);
+                    if (StateHash.Generation(world) != hash)
+                    {
+                        console?.WriteLine("боты: хэш генерации мира не совпал с сервером — без предсказания");
+                        return null;
+                    }
+
+                    return (Simulation?)new Simulation(world, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
+                });
+                worlds[key] = build;
+            }
+
+            if (!build.IsCompleted)
+            {
+                return null;
+            }
+
+            Simulation? rules = build.Result;
+            return rules == null ? null : new LocalPrediction(c.Shape, rules.Solid, new WorldPos(c.Shape.WidthUnits / 2, c.Shape.HeightUnits / 2));
         }
 
         private static int RttOf(NetBot bot, NetSimTransport? sim) => bot.Client.Transport.RoundTripMs(bot.Client.ServerPeer);
@@ -357,6 +461,7 @@ namespace Orpheus.Bots
             w.WriteNumber("rejected", r.Rejected);
             w.WriteNumber("disconnects", r.Disconnects);
             w.WriteNumber("exitCode", r.ExitCode);
+            w.WriteNumber("predWithinHalfTile", Math.Round(r.PredWithinHalfTile, 6));
             w.WriteNumber("serverPid", r.ServerPid);
             w.WriteNumber("serverReadySeconds", Math.Round(r.ServerReadySeconds, 3));
             w.WriteNumber("openedPort", r.OpenedPort);
@@ -397,6 +502,16 @@ namespace Orpheus.Bots
                 w.WriteNumber("simReceived", b.SimReceived);
                 w.WriteNumber("simReceiveLost", b.SimReceiveLost);
                 w.WriteNumber("simMeanDelayMs", Math.Round(b.SimMeanDelayMs, 2));
+                w.WriteNumber("predCompared", b.PredCompared);
+                w.WriteNumber("predOverHalfTile", b.PredOverHalfTile);
+                w.WriteNumber("predMaxDevUnits", b.PredMaxDevUnits);
+                w.WriteNumber("predResynced", b.PredResynced);
+                w.WriteNumber("clockStepsForward", b.ClockStepsForward);
+                w.WriteNumber("clockStepsBack", b.ClockStepsBack);
+                w.WriteNumber("clockServerResets", b.ClockServerResets);
+                w.WriteNumber("clocksReceived", b.ClocksReceived);
+                w.WriteNumber("frameRenumbers", b.FrameRenumbers);
+                w.WriteNumber("owdMs", Math.Round(b.OwdMs, 2));
                 w.WriteEndObject();
             }
 

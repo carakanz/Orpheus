@@ -124,8 +124,8 @@ namespace Orpheus.Net.Transport
         public const int ReceiveSystemId = 0x5E02;
 
         /// <summary>
-        /// Свои потоки случайности у надёжных каналов (0-026): мир по каналу 1 (чанки, пачки) не сдвигает случайность
-        /// канала 0 — потери и разброс снимков и ввода при том же зерне те же, что без него.
+        /// Свой поток случайности у канала мира (0-026): мир по каналу 1 (чанки, пачки) не сдвигает случайность
+        /// канала 0 — потери и разброс снимков и ввода при том же зерне те же, что без него. Канал 2 — общим потоком.
         /// </summary>
         public const int ReliableSendSystemId = 0x5E03;
 
@@ -311,8 +311,11 @@ namespace Orpheus.Net.Transport
                 return;
             }
 
-            long reliableDelay = ReliableBaseDelay(ref d);
-            for (int r = 0; r < MaxRetransmits && RollReliable(ref d, _s.LossPpm); r++)
+            // Мир (канал 1) — своей случайностью: чанки и пачки не сдвигают поток канала 0. Канал 2 — общим потоком, как до
+            // 0-026: без мира исход при том же зерне тот же, что в main до слияния (0-025 подбирала приёмки по нему).
+            bool world = channel == NetChannel.World;
+            long reliableDelay = world ? ReliableBaseDelay(ref d) : BaseDelay(ref d);
+            for (int r = 0; r < MaxRetransmits && (world ? RollReliable(ref d, _s.LossPpm) : Roll(ref d, _s.LossPpm)); r++)
             {
                 d.Stats.Retransmits++;
                 reliableDelay += 2L * _s.DelayMs * 1000 + RetransmitExtraMicros;
@@ -338,7 +341,7 @@ namespace Orpheus.Net.Transport
             d.Stats.DelaySumMicros += due - _now;
         }
 
-        // Надёжные каналы: своя случайность; общий разброс пачками — текущий, если окно пачки идёт, без нового броска.
+        // Канал мира: своя случайность; общий разброс пачками — текущий, если окно пачки идёт, без нового броска.
         private long ReliableBaseDelay(ref Direction d)
         {
             long delay = _s.DelayMs * 1000L;

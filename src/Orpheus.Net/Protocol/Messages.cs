@@ -37,8 +37,14 @@ namespace Orpheus.Net.Protocol
         /// <summary>Сервер → клиент, в данных отключения: мир закрывается — хост вышел, сервер остановлен, вход с другого места (0-024, 7.6).</summary>
         Closing = 10,
 
-        // 0-026, мир по сети (docs/07, 3.5–3.7), канал 1. Номера с 16: 11…15 оставлены сообщениям часов (0-025),
-        // которые сливаются параллельно.
+        /// <summary>Клиент → сервер, канал 0, раз в 1 с: пинг часов (2.4, 2.10) — метка времени клиента.</summary>
+        Ping = 11,
+
+        /// <summary>Сервер → клиент, канал 0: ответ на пинг — метка клиента и кадр сервера сейчас (часы клиента, 2.4).</summary>
+        Pong = 12,
+
+        // 0-026, мир по сети (docs/07, 3.5–3.7), канал 1. Номера с 16 (13…15 не заняты): так их и слали ветки до слияния
+        // с 0-025, «золотые» байты те же. Последний тип — ChunkRequest.
 
         /// <summary>Сервер → клиент, канал 1: чанк целиком — заголовок и сжатая копия (3.6).</summary>
         Chunk = 16,
@@ -514,6 +520,61 @@ namespace Orpheus.Net.Protocol
         }
     }
 
+    /// <summary>
+    /// Пинг часов (docs/07, 2.4 «Часы клиента», 2.10 <c>PingInterval</c> 1 с; 0-025): клиент шлёт свою метку времени (младшие
+    /// 32 бита мкс), сервер отвечает <see cref="PongMessage"/> сразу при разборе — RTT и кадр сервера.
+    /// </summary>
+    public struct PingMessage
+    {
+        /// <summary>Тип 1 + метка 4.</summary>
+        public const int Bytes = 5;
+
+        public uint ClientUs;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Ping);
+            w.WriteUInt32(ClientUs);
+            return w.BytesWritten;
+        }
+
+        public static PingMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Ping);
+            var m = new PingMessage { ClientUs = r.ReadUInt32() };
+            r.ExpectEnd();
+            return m;
+        }
+    }
+
+    /// <summary>Ответ на пинг (0-025): метка клиента как пришла и кадр сервера сейчас — такт, который идёт (последний шагнутый + 1).</summary>
+    public struct PongMessage
+    {
+        /// <summary>Тип 1 + метка 4 + такт 4.</summary>
+        public const int Bytes = 9;
+
+        public uint ClientUs;
+        public uint ServerTick;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Pong);
+            w.WriteUInt32(ClientUs);
+            w.WriteUInt32(ServerTick);
+            return w.BytesWritten;
+        }
+
+        public static PongMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Pong);
+            var m = new PongMessage { ClientUs = r.ReadUInt32(), ServerTick = r.ReadUInt32() };
+            r.ExpectEnd();
+            return m;
+        }
+    }
+
     /// <summary>Общее для кодека: тип сообщения.</summary>
     public static class Codec
     {
@@ -534,9 +595,9 @@ namespace Orpheus.Net.Protocol
             return (MessageType)t;
         }
 
-        /// <summary>Известный тип сообщения (номера не подряд: 11…15 — у 0-025).</summary>
+        /// <summary>Известный тип сообщения: 1…12 (до Pong, 0-025) и 16…19 (мир, 0-026; последний — ChunkRequest); 13…15 не заняты.</summary>
         public static bool IsKnown(byte t) =>
-            (t >= (byte)MessageType.Login && t <= (byte)MessageType.Closing) ||
+            (t >= (byte)MessageType.Login && t <= (byte)MessageType.Pong) ||
             (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.ChunkRequest);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>

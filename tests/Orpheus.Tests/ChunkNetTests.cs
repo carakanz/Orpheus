@@ -447,16 +447,22 @@ namespace Orpheus.Tests
                 PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = -5,
             }.Write(b));
             Golden("06 04 03 02 01", b => new ClockMessage { ServerTick = 0x01020304 }.Write(b));
-            Golden("05 9f 86 01 00 43 0d 03 00 02 d1 07 80 3e e0 dc 02 00 00 00 80 3e 80 3e 60 9a 00 00 00 04 dc ff 00 00 04", b =>
+            Golden("0b 04 03 02 01", b => new PingMessage { ClientUs = 0x01020304 }.Write(b));
+            Golden("0c 04 03 02 01 0d 0c 0b 0a", b => new PongMessage { ClientUs = 0x01020304, ServerTick = 0x0A0B0C0D }.Write(b));
+            Golden("08", b => new OpenForFriendsMessage().Write(b));
+            Golden("09 01 61 1e", b => new OpenResultMessage { Opened = true, Port = 0x1E61 }.Write(b));
+            Golden("0a 03", b => new ClosingMessage { Reason = ClosingReason.Replaced }.Write(b));
+            Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc 02 00 00 00 80 3e 80 3e 60 9a 00 00 00 04 dc ff 00 00 04", b =>
             {
-                var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, Count = 2, Self = new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7)) };
+                var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, ClockEpoch = 0xA5, Count = 2, Self = new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7)) };
                 snap.Entities[0] = new SnapshotEntity { Id = 5, Kind = 0, Position = SnapshotLayout.Quantize(new WorldPos(1000, 2000)), Direction = 3 };
                 snap.Entities[1] = new SnapshotEntity { Id = 77, Kind = 2, Position = SnapshotLayout.Quantize(new WorldPos(262_000, 5)), Direction = 8 };
                 return snap.Write(b, layout);
             });
-            Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 00 00 00 00 00 c2 00 80 e9 03 f4 81 1b 03 00 00 08 40 1f 08 00 04", b =>
+            Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 c2 00 80 e9 03 f4 81 1b 03 00 00 08 40 1f 08 00 04", b =>
             {
                 var w = new SnapshotDeltaWriter(b, layout, 52, 104, 10);
+                w.SetClockEpoch(0xA5);
                 Assert.True(w.TryAddRemoved(1));
                 Assert.True(w.TryAddUpdated(0, DeltaFields.Position | DeltaFields.Direction, new WorldPos(4000, 4000), 7));
                 Assert.True(w.TryAddAdded(99, 1, new WorldPos(8000, 16), 2));
