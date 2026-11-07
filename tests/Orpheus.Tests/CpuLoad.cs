@@ -48,8 +48,8 @@ namespace Orpheus.Tests
             public double OwnPercent;
 
             public override string ToString() => Known
-                ? $"машина ср. {MeanPercent:F0} %, max {MaxPercent:F0} %, из них процесс теста {OwnPercent:F0} % ({Environment.ProcessorCount} логич. ядер)"
-                : $"загрузка машины неизвестна, процесс теста {OwnPercent:F0} %";
+                ? $"машина ср. {MeanPercent:F0} %, max {MaxPercent:F0} %, из них процесс теста {OwnPercent:F1} % ({Environment.ProcessorCount} логич. ядер)"
+                : $"загрузка машины неизвестна, процесс теста {OwnPercent:F1} %";
         }
 
         /// <summary>Остановить опрос и вернуть итог.</summary>
