@@ -12,7 +12,6 @@ using Orpheus.Net.Hosting;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using Orpheus.Net.Transport;
-using Orpheus.WorldGen;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -379,41 +378,38 @@ namespace Orpheus.Client
             }
         }
 
-        // ---------- мир по зерну сервера ----------
+        // ---------- мир — чанки от сервера (0-026) ----------
 
+        /// <summary>
+        /// Мир клиента — только чанки окна от сервера (docs/07, 3.4: генератора и зерна у клиента нет; 0-026): модель —
+        /// <see cref="ClientWorld"/> из <see cref="NetClient"/>; пришёл чанк или пачка — этот чанк перерисовывается в тот же кадр,
+        /// чанк вышел из окна (центр окна от сервера) — узел в пул.
+        /// </summary>
         void BuildWorld(in LoginAcceptMessage accept)
         {
             _map = new MapShape(accept.MapWidth, accept.MapHeight, accept.Wraps);
-            var sw = Stopwatch.StartNew();
-            _world = new StubGenerator().Generate(_map, accept.WorldSeed, out GenStats stats);
-            ulong genHash = StateHash.Generation(_world);
-            if (genHash != accept.GenerationHash)
-            {
-                // Мир клиента ≠ миру сервера (другой генератор или зерно): ходить нельзя — коллизия предсказания и картинка
-                // разойдутся с сервером (замечание 3 проверки 0-012; docs/07 3.4 — backlog [док]).
-                _fatal = true;
-                _status = $"Мир не совпал с сервером: хэш генерации 0x{genHash:X16}, у сервера 0x{accept.GenerationHash:X16} " +
-                          $"(зерно 0x{accept.WorldSeed:X}, генератор v{_world.GeneratorVersion}) — нужна та же сборка";
-                Debug.LogError("[net] " + _status);
-                _client!.Disconnect();
-                return;
-            }
-
+            ClientWorld cw = _client!.World!;
+            _world = cw.World;
             _localId = accept.EntityId;
             WorldPos spawn = CenterOf(accept.MapWidth / 2, accept.MapHeight / 2);
             _origin = new FloatingOrigin(_map, Torus.ChunkOf(_map, spawn));
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
-            _view.UpdateWindow(spawn);
+            WorldView view = _view;
+            foreach (ChunkCoord c in _world.GetChunkCoords().ToArray())
+            {
+                view.ShowChunk(c); // чанки, пришедшие в том же Poll, что и «вход принят»
+            }
+
+            cw.ChunkChanged = c => view.ShowChunk(c);
+            cw.ChunkRemoved = c => view.HideChunk(c);
             _localPos = spawn;
 
             // Проходимость — тот же IsBlocked ядра, что в такте сервера; предсказание стартует из точки поселения.
             _netRules = new Simulation(_world, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
             _pred = new LocalPrediction(_map, _netRules.Solid, spawn);
             _remote = new RemoteInterpolation(_map);
-            Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height} зерно 0x{accept.WorldSeed:X}, " +
-                      $"хэш генерации 0x{genHash:X16} = серверу, " +
-                      $"такт {accept.ServerTick}; генерация {sw.Elapsed.TotalMilliseconds:0} мс " +
-                      $"(деревьев {stats.Trees}, скал {stats.Rocks})");
+            Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height}, такт {accept.ServerTick}; " +
+                      $"мир — чанки от сервера (генератора у клиента нет), пришло уже {cw.ChunksReceived}");
             _g.Character.gameObject.SetActive(true);
             _g.Character.position = _origin.ToUnity(spawn);
             _inGameSinceUs = NowUs();
@@ -511,8 +507,7 @@ namespace Orpheus.Client
                 // Установка (первая сверка): сервер поставил персонажа не там, где ждали, — как телепорт офлайна:
                 // окно заново, начало — к персонажу. Рывок этого кадра не мерим.
                 _anchoredInitial = _pred.Initial;
-                _view!.Clear();
-                _origin!.Rebase(myChunk, seam: false);
+                _origin!.Rebase(myChunk, seam: false); // набор чанков задаёт сервер (0-026) — окно не сбрасывается
                 _measureSelf = false;
             }
             else if (_origin!.NeedsRebase(myChunk, out bool seam))
@@ -522,7 +517,7 @@ namespace Orpheus.Client
                 _origin.Rebase(myChunk, seam);
             }
 
-            _view!.UpdateWindow(me);
+            _view!.PlaceNodes(); // набор чанков — от сервера (ShowChunk/HideChunk); здесь только места от якоря
             _g.Character.gameObject.SetActive(true);
             _g.Character.position = _origin!.ToUnity(me) + new Vector3(dx / sub, -dy / sub, 0f);
             _g.Camera.transform.position = _g.Character.position + GameBoot.CameraOffset;
@@ -573,7 +568,10 @@ namespace Orpheus.Client
         void SmokeFrame(WorldPos me, float dx, float dy)
         {
             _maxWindow = Math.Max(_maxWindow, _view!.Count);
-            _holes += SmokeRun.WindowHoles(_map, _view, me, msg => Debug.LogError($"[smoke] кадр {_renderFrames}: {msg}"));
+            // Окно задаёт сервер по своей позиции персонажа (0-026): дыры — от подтверждённой позиции последнего снимка,
+            // а не от предсказания, которое впереди на RTT (у новой границы чанк ещё в пути — это не дыра).
+            WorldPos confirmed = _client!.HasSnapshot && _client.Latest.Self.Present ? _client.Latest.Self.Position : me;
+            _holes += SmokeRun.WindowHoles(_map, _view, confirmed, msg => Debug.LogError($"[smoke] кадр {_renderFrames}: {msg}"));
             WorldPos drawn = SmokeRun.DrawnAt(_map, _view, _origin!, me, _g.Character.position, out bool ok);
             if (!ok)
             {
@@ -753,7 +751,18 @@ namespace Orpheus.Client
                     return;
                 }
 
-                Debug.Log($"[smoke] world: хэш генерации 0x{StateHash.Generation(_world!):X16} = серверу (зерно 0x{_client.Accept.WorldSeed:X})");
+                ClientWorld cw = _client.World!;
+                int tileErrors = SmokeRun.CheckViewTiles(_view!, _world!, _map, "net", out int tilesChecked, out int samples,
+                    line => Debug.Log("[smoke] " + line), msg => Debug.LogError("[smoke] " + msg));
+                Debug.Log($"[smoke] world: чанков от сервера {cw.ChunksReceived}, пачек {cw.PatchesApplied}, разрывов {cw.PatchGaps}, " +
+                          $"выброшено {cw.ChunksDropped}, сейчас {cw.ChunkCount} (max {cw.MaxChunkCount}); тайлов проверено {tilesChecked}, " +
+                          $"расхождений Tilemap/ядро {tileErrors}, образцов {samples}; зерно сервера 0x{_client.Accept.WorldSeed:X} " +
+                          $"(только для сверки образцов с gen_preview: tools/check_smoke_tiles.py)");
+                if (tileErrors > 0 || samples < 4 || cw.ChunkCount < ChunkWindow.Width * ChunkWindow.Height)
+                {
+                    Fail($"[smoke] FAILED: тайлы — расхождений {tileErrors}, образцов {samples}, чанков {cw.ChunkCount}");
+                    return;
+                }
                 Debug.Log($"[smoke] input: кадров ввода {_client.InputsSent} за {(now - _inGameSinceUs) / 1e6:0.00} с " +
                           $"({_client.InputsSent / Math.Max((now - _inGameSinceUs) / 1e6, 1e-3):0.0} в секунду)");
                 Debug.Log($"[smoke] done: вход #{_client.EntityId}, снимков {_client.SnapshotsApplied} " +
