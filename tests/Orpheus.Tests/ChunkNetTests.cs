@@ -355,6 +355,55 @@ namespace Orpheus.Tests
             Assert.Equal(0, observer.World.PatchGaps);
         }
 
+        /// <summary>
+        /// Чанк обогнал «вход принят» (канал 1 против канала 2): копится и разбирается сразу после него. Испорченное —
+        /// плохое сообщение, а не падение: чанк вне карты, неразворачиваемый блок, мир не по каналу 1, пачка к чужому чанку.
+        /// </summary>
+        [Fact]
+        public void D07_S3_6_Client_WorldBeforeAccept_Buffered_BadOnesRejected()
+        {
+            MapShape shape = MapShape.World(1024);
+            var t = new PushTransport();
+            var c = new NetClient(t, LoopbackTransport.ServerPeer, "c", NetModule.Version);
+            var chunk = new Chunk();
+            chunk.SetBaseTile(5, FloorId.Stone, ObjectId.Torch);
+            byte[] z = chunk.Compress();
+            var at = new ChunkCoord(3, 4);
+            t.Push(h => h.OnConnected(LoopbackTransport.ServerPeer));
+            t.Push(NetChannel.World, NetTests.Encode(b => ChunkMessage.Write(b, 0, at, 7, z)));
+            t.Push(NetChannel.Facts, NetTests.Encode(b => new LoginAcceptMessage
+            {
+                EntityId = 5, ServerTick = 8, MapWidth = shape.Width, MapHeight = shape.Height, Wraps = true, TickRate = 30,
+            }.Write(b)));
+            c.Poll(0);
+            Assert.Equal(NetClientState.InGame, c.State);
+            Assert.Equal(1, c.World!.ChunksReceived);
+            Chunk got = c.World.World.FindChunk(at)!;
+            Assert.Equal(7u, got.Revision);
+            Assert.Equal(FloorId.Stone, got.GetFloor(5));
+            Assert.Equal(ObjectId.Torch, got.GetObject(5));
+            Assert.Equal(0, c.BadMessages);
+
+            t.Push(NetChannel.World, NetTests.Encode(b => ChunkMessage.Write(b, 0, new ChunkCoord(shape.ChunksX, 0), 1, z)));
+            t.Push(NetChannel.World, NetTests.Encode(b => ChunkMessage.Write(b, 0, at, 8, new byte[] { 1, 2, 3, 4 })));
+            t.Push(NetChannel.Facts, NetTests.Encode(b => ChunkMessage.Write(b, 0, at, 9, z)));
+            t.Push(NetChannel.World, NetTests.Encode(b => ChunkMessage.Write(b, 1, at, 9, z)));
+            c.Poll(1);
+            Assert.Equal(4, c.BadMessages);
+            Assert.Equal(7u, c.World.World.FindChunk(at)!.Revision);
+
+            // Пачка к чанку, которого нет, — пропуск; к своему — ровно следующая ревизия.
+            t.Push(NetChannel.World, NetTests.Encode(b => ChunkPatchMessage.Write(b,
+                new TilePatch(0, new ChunkCoord(9, 9), 1, new[] { new TileEdit(1, FloorId.Dirt, ObjectId.Empty) }))));
+            t.Push(NetChannel.World, NetTests.Encode(b => ChunkPatchMessage.Write(b,
+                new TilePatch(0, at, 8, new[] { new TileEdit(5, FloorId.Dirt, ObjectId.Empty) }))));
+            c.Poll(2);
+            Assert.Equal(4, c.BadMessages);
+            Assert.Equal(1, c.World.PatchesSkipped);
+            Assert.Equal(1, c.World.PatchesApplied);
+            Assert.Equal(FloorId.Dirt, c.World.World.FindChunk(at)!.GetFloor(5));
+        }
+
         // ---------- «Золотые» байты ----------
 
         /// <summary>
@@ -530,6 +579,32 @@ namespace Orpheus.Tests
 
         private static byte[] Hex(string hex) =>
             hex.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(h => Convert.ToByte(h, 16)).ToArray();
+
+        /// <summary>Транспорт клиента под рукой теста: события — по очереди в <c>Poll</c>, отправки — счётом.</summary>
+        private sealed class PushTransport : ITransport
+        {
+            private readonly List<Action<ITransportHandler>> _queue = new List<Action<ITransportHandler>>();
+            public long Sent;
+
+            public void Push(Action<ITransportHandler> e) => _queue.Add(e);
+            public void Push(NetChannel channel, byte[] data) => _queue.Add(h => h.OnReceive(LoopbackTransport.ServerPeer, channel, data));
+
+            public void Poll(long nowMicros, ITransportHandler handler)
+            {
+                var q = _queue.ToArray();
+                _queue.Clear();
+                foreach (Action<ITransportHandler> e in q)
+                {
+                    e(handler);
+                }
+            }
+
+            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data) => Sent++;
+            public void Flush() { }
+            public void Disconnect(int peer, ReadOnlySpan<byte> payload) { }
+            public int RoundTripMs(int peer) => 0;
+            public void Dispose() { }
+        }
 
         /// <summary>Тап на транспорте клиента: входящие сообщения мира по условию выбрасываются (потеря пачки).</summary>
         private sealed class DropTap : ITransport, ITransportHandler
