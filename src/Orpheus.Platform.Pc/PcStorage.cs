@@ -55,6 +55,25 @@ namespace Orpheus.Platform.Pc
     /// </summary>
     public sealed class PcStorage : IPlatformStorage
     {
+        /// <summary>
+        /// Параметры <c>.tmp</c>: сквозь кэш ОС. Константа, а не литерал в вызове, — её же сверяет тест флагов
+        /// (<c>D00_Save_PcStorage_*</c>) через шов <see cref="PcFileCalls"/>.
+        /// </summary>
+        internal const FileOptions TmpOptions = FileOptions.WriteThrough;
+
+        private readonly PcFileCalls _calls;
+
+        public PcStorage()
+            : this(PcFileCalls.Os)
+        {
+        }
+
+        /// <summary>Только для тестов: системные вызовы записи через подменённый <paramref name="calls"/>.</summary>
+        internal PcStorage(PcFileCalls calls)
+        {
+            _calls = calls;
+        }
+
         /// <summary>Кусок записи при включённом крючке — чтобы обрыв приходился на разные смещения файла.</summary>
         public const int ProbePieceBytes = 512;
 
@@ -98,7 +117,7 @@ namespace Orpheus.Platform.Pc
             Action<string, PcWriteStage, long, long>? probe = Probe;
 
             // bufferSize 1 — без буфера .NET: байты сразу идут в ОС, а WriteThrough — сквозь кэш ОС.
-            using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None, 1, FileOptions.WriteThrough))
+            using (FileStream fs = _calls.CreateTmp(tmp, TmpOptions))
             {
                 if (probe == null)
                 {
@@ -144,12 +163,12 @@ namespace Orpheus.Platform.Pc
 
         // ---------- Сброс и переименование ----------
 
-        private static void FlushToDisk(FileStream fs, string path)
+        private void FlushToDisk(FileStream fs, string path)
         {
             fs.Flush(false);
             if (IsWindows)
             {
-                if (!FlushFileBuffers(fs.SafeFileHandle))
+                if (!_calls.FlushFileBuffers(fs.SafeFileHandle, path))
                 {
                     throw Error("FlushFileBuffers", path, Marshal.GetLastWin32Error());
                 }
@@ -160,12 +179,12 @@ namespace Orpheus.Platform.Pc
             }
         }
 
-        private static void Rename(string from, string to, bool replaceExisting)
+        private void Rename(string from, string to, bool replaceExisting)
         {
             if (IsWindows)
             {
                 uint flags = MoveFileWriteThrough | (replaceExisting ? MoveFileReplaceExisting : 0u);
-                if (!MoveFileExW(from, to, flags))
+                if (!_calls.MoveFileEx(from, to, flags))
                 {
                     throw Error("MoveFileExW", from + " → " + to, Marshal.GetLastWin32Error());
                 }
@@ -218,16 +237,8 @@ namespace Orpheus.Platform.Pc
 
         // ---------- Windows ----------
 
-        private const uint MoveFileReplaceExisting = 0x1;
-        private const uint MoveFileWriteThrough = 0x8;
-
-        [DllImport("kernel32.dll", EntryPoint = "MoveFileExW", CharSet = CharSet.Unicode, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool MoveFileExW(string existingFileName, string newFileName, uint flags);
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool FlushFileBuffers(SafeFileHandle file);
+        internal const uint MoveFileReplaceExisting = 0x1;
+        internal const uint MoveFileWriteThrough = 0x8;
 
         // ---------- POSIX ----------
 
@@ -246,5 +257,34 @@ namespace Orpheus.Platform.Pc
 
         [DllImport("libc", SetLastError = true)]
         private static extern int close(int fd);
+    }
+
+    /// <summary>
+    /// Системные вызовы атомарной записи на Windows — шов для теста флагов и порядка (0-016, замечание 3 проверки
+    /// 0-009). Убийство процесса не отличает кэш ОС от носителя, поэтому гарантию «дошло до диска» держит не
+    /// обрыв, а тест: он подменяет этот класс записывающим наследником и сверяет, что <c>.tmp</c> открыт с
+    /// <see cref="FileOptions.WriteThrough"/>, <c>FlushFileBuffers</c> позван до <c>MoveFileExW</c>, в флагах
+    /// <c>MOVEFILE_WRITE_THROUGH</c>. В игре — <see cref="Os"/>: один виртуальный вызов на файл, против записи
+    /// на носитель — ничто. POSIX-ветка (<c>fsync</c>, <c>rename</c>) шва не имеет: CI идёт на Windows.
+    /// </summary>
+    internal class PcFileCalls
+    {
+        internal static readonly PcFileCalls Os = new PcFileCalls();
+
+        /// <summary><c>.tmp</c> на запись, без буфера .NET (bufferSize 1): байты сразу идут в ОС.</summary>
+        public virtual FileStream CreateTmp(string path, FileOptions options) =>
+            new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1, options);
+
+        public virtual bool FlushFileBuffers(SafeFileHandle file, string path) => FlushFileBuffers(file);
+
+        public virtual bool MoveFileEx(string from, string to, uint flags) => MoveFileExW(from, to, flags);
+
+        [DllImport("kernel32.dll", EntryPoint = "MoveFileExW", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool MoveFileExW(string existingFileName, string newFileName, uint flags);
+
+        [DllImport("kernel32.dll", EntryPoint = "FlushFileBuffers", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool FlushFileBuffers(SafeFileHandle file);
     }
 }
