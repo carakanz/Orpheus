@@ -27,6 +27,12 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, 30 Гц: дельта к подтверждённому снимку (0-014, 4.3): удалённые id + изменившиеся сущности.</summary>
         SnapshotDelta = 7,
+
+        /// <summary>Клиент → сервер, канал 0, раз в 1 с: пинг часов (2.4, 2.10) — метка времени клиента.</summary>
+        Ping = 8,
+
+        /// <summary>Сервер → клиент, канал 0: ответ на пинг — метка клиента и кадр сервера сейчас (часы клиента, 2.4).</summary>
+        Pong = 9,
     }
 
     /// <summary>
@@ -443,6 +449,61 @@ namespace Orpheus.Net.Protocol
         }
     }
 
+    /// <summary>
+    /// Пинг часов (docs/07, 2.4 «Часы клиента», 2.10 <c>PingInterval</c> 1 с; 0-025): клиент шлёт свою метку времени (младшие
+    /// 32 бита мкс), сервер отвечает <see cref="PongMessage"/> сразу при разборе — RTT и кадр сервера.
+    /// </summary>
+    public struct PingMessage
+    {
+        /// <summary>Тип 1 + метка 4.</summary>
+        public const int Bytes = 5;
+
+        public uint ClientUs;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Ping);
+            w.WriteUInt32(ClientUs);
+            return w.BytesWritten;
+        }
+
+        public static PingMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Ping);
+            var m = new PingMessage { ClientUs = r.ReadUInt32() };
+            r.ExpectEnd();
+            return m;
+        }
+    }
+
+    /// <summary>Ответ на пинг (0-025): метка клиента как пришла и кадр сервера сейчас — такт, который идёт (последний шагнутый + 1).</summary>
+    public struct PongMessage
+    {
+        /// <summary>Тип 1 + метка 4 + такт 4.</summary>
+        public const int Bytes = 9;
+
+        public uint ClientUs;
+        public uint ServerTick;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Pong);
+            w.WriteUInt32(ClientUs);
+            w.WriteUInt32(ServerTick);
+            return w.BytesWritten;
+        }
+
+        public static PongMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Pong);
+            var m = new PongMessage { ClientUs = r.ReadUInt32(), ServerTick = r.ReadUInt32() };
+            r.ExpectEnd();
+            return m;
+        }
+    }
+
     /// <summary>Общее для кодека: тип сообщения.</summary>
     public static class Codec
     {
@@ -455,7 +516,7 @@ namespace Orpheus.Net.Protocol
             }
 
             byte t = src[0];
-            if (t < (byte)MessageType.Login || t > (byte)MessageType.SnapshotDelta)
+            if (t < (byte)MessageType.Login || t > (byte)MessageType.Pong)
             {
                 throw new ProtocolException($"Неизвестный тип сообщения {t}.");
             }

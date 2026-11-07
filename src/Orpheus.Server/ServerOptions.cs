@@ -37,7 +37,8 @@ namespace Orpheus.Server
             "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander|shuttle[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень]\n" +
             "              [--port P [--public] [--max-players N]] [--spawn-seam (net-smoke: появление у шва)]\n" +
-            "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]";
+            "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]\n" +
+            "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]]";
 
         /// <summary>Автосохранение по умолчанию: раз в 2 мин мира (docs/07, 6.4).</summary>
         public const int DefaultAutosaveSeconds = 120;
@@ -71,6 +72,13 @@ namespace Orpheus.Server
 
         /// <summary>Заданный миг обрыва для приёмки 0.4 (<c>--debug-save-plan</c>), синтаксис — <see cref="SaveCrashHook.Fixed"/>.</summary>
         public string? DebugSavePlan { get; set; }
+
+        /// <summary>
+        /// <c>--debug-freeze &lt;такт&gt;:&lt;мс&gt;</c> (0-025, приёмка 2.13 п. 5): после такта поток такта стоит столько мс —
+        /// как сборка мусора или антивирус. Стоит только поток такта: транспорт LiteNetLib (свой поток) отвечает на пинги —
+        /// заморозку всего процесса делает скрипт приёмки снаружи. Только с часами (не <c>--sim</c>).
+        /// </summary>
+        public List<(long Tick, int Ms)> DebugFreezes { get; } = new List<(long Tick, int Ms)>();
 
         /// <summary>
         /// Слушать только петлю 127.0.0.1/::1 — по умолчанию: брандмауэр Windows не спрашивает разрешения у каждой
@@ -190,6 +198,21 @@ namespace Orpheus.Server
                         break;
                     case "--debug-save-plan":
                         o.DebugSavePlan = Value(args, ref i);
+                        break;
+                    case "--debug-freeze":
+                        foreach (string part in Value(args, ref i).Split(','))
+                        {
+                            string[] tm = part.Split(':');
+                            long ft = tm.Length == 2 ? ParseLong(a, tm[0]) : -1;
+                            int ms = tm.Length == 2 ? ParseInt(a, tm[1]) : -1;
+                            if (ft < 0 || ms < 1 || ms > 60_000)
+                            {
+                                throw new ArgumentException($"--debug-freeze: «такт:мс», мс 1…60000, а не «{part}».");
+                            }
+
+                            o.DebugFreezes.Add((ft, ms));
+                        }
+
                         break;
                     default:
                         throw new ArgumentException($"Неизвестный ключ: {a}.");

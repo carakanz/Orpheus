@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Orpheus.Core\Orpheus.Core.csproj" />
     <ProjectReference Include="..\Orpheus.Net\Orpheus.Net.csproj" />
+    <ProjectReference Include="..\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
   </ItemGroup>
 
   <ItemGroup>

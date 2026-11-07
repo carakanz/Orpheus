@@ -51,6 +51,23 @@ namespace Orpheus.Net.Session
         private SnapshotLayout _layout;
         private bool _hasSnapshot;
         private InputMessage _input;
+        private readonly ClientClock _clock = new ClientClock();
+        private long _nowUs;
+        private long _lastPingUs;
+        private byte _epoch;
+        private bool _epochKnown;
+
+        /// <summary>Пинг часов — раз в столько мкс (2.10 <c>PingInterval</c>).</summary>
+        public const long PingIntervalUs = NetSettings.PingIntervalMs * 1000L;
+
+        /// <summary>
+        /// Номер кадра расходится с оценкой часов больше чем на 6 кадров (100 мс — порог перестановки часов, 2.4) —
+        /// перенумерация к оценке (<see cref="FrameRenumbers"/>); меньше — номера идут подряд, темп держит <see cref="FramesDue"/>.
+        /// </summary>
+        public const int RenumberFrames = 6;
+
+        /// <summary>Кадров за один вызов <see cref="FramesDue"/> не больше 4 (пакет несёт 4 кадра).</summary>
+        public const int MaxFramesDue = InputMessage.FrameCount;
 
         /// <summary>Глубина кольца баз: 32 снимка ≈ 1 с (как у сервера, 4.3).</summary>
         public const int BaseDepth = 32;
@@ -105,6 +122,27 @@ namespace Orpheus.Net.Session
         /// <summary>Номер текущего кадра ввода (последнего отправленного).</summary>
         public uint Frame => _input.LastFrame;
 
+        /// <summary>Часы клиента: оценка кадра сервера (2.4; 0-025).</summary>
+        public ClientClock Clock => _clock;
+
+        /// <summary>Перенумераций кадров ввода к оценке часов (перестановка часов больше 100 мс).</summary>
+        public long FrameRenumbers { get; private set; }
+
+        /// <summary>Снимков с новой эпохой часов («часы после фриза» в заголовке, 2.4).</summary>
+        public long EpochResets { get; private set; }
+
+        /// <summary>Пингов отправлено / ответов принято.</summary>
+        public long PingsSent { get; private set; }
+
+        /// <inheritdoc cref="PingsSent"/>
+        public long PongsReceived { get; private set; }
+
+        /// <summary>
+        /// «Часы после фриза» пришли (сообщение «часы» или новая эпоха в снимке) — до <see cref="SnapshotApplied"/> этого снимка.
+        /// Часы показа чужих (RemoteInterpolation) сбрасывают по нему окно медианы.
+        /// </summary>
+        public Action? ClockReset { get; set; }
+
         /// <summary>Снимков принято (новее прежнего) / отброшено (старее или дубль).</summary>
         public long SnapshotsApplied { get; private set; }
 
@@ -139,7 +177,40 @@ namespace Orpheus.Net.Session
         public Action<Snapshot>? SnapshotApplied { get; set; }
 
         /// <summary>Разобрать пришедшее.</summary>
-        public void Poll(long nowMicros) => _transport.Poll(nowMicros, this);
+        public void Poll(long nowMicros)
+        {
+            _nowUs = nowMicros;
+            _transport.Poll(nowMicros, this);
+            if (State == NetClientState.InGame && nowMicros - _lastPingUs >= PingIntervalUs)
+            {
+                _lastPingUs = nowMicros;
+                int len = new PingMessage { ClientUs = unchecked((uint)nowMicros) }.Write(_buf);
+                _transport.Send(_serverPeer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
+                _transport.Flush();
+                PingsSent++;
+            }
+        }
+
+        /// <summary>
+        /// Сколько кадров ввода отправить сейчас (часы ввода, 2.4 и 2.7, L = 0): номер кадра идёт за оценкой кадра сервера —
+        /// разница оценки и последнего отправленного, 0…4. Расхождение больше <see cref="RenumberFrames"/> — 1: следующий
+        /// <see cref="SendFrame"/> перенумерует. Не в игре — 0.
+        /// </summary>
+        public int FramesDue(long nowMicros)
+        {
+            if (State != NetClientState.InGame || !_clock.Valid)
+            {
+                return 0;
+            }
+
+            int d = (int)(_clock.FrameAt(nowMicros) - _input.LastFrame);
+            if (d > RenumberFrames || d < -RenumberFrames)
+            {
+                return 1;
+            }
+
+            return Math.Max(0, Math.Min(d, MaxFramesDue));
+        }
 
         /// <summary>
         /// Новый кадр ввода (60 Гц): номер +1, пакет из трёх прошлых и текущего — по каналу 0. Не в игре — ничего.
@@ -151,11 +222,28 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            _input.Frame0 = _input.Frame1;
-            _input.Frame1 = _input.Frame2;
-            _input.Frame2 = _input.Frame3;
-            _input.Frame3 = WireFrame.From(frame);
-            _input.FirstFrame++;
+            uint target = _clock.FrameAt(_nowUs);
+            int d = (int)(target - (_input.LastFrame + 1));
+            if (InputsSent > 0 && _clock.Valid && (d > RenumberFrames || d < -RenumberFrames))
+            {
+                // Перестановка часов (фриз сервера, скачок): номер — по оценке. Прошлые три кадра пакета — копии нового:
+                // сервер не шагнёт под новыми номерами старый ввод, предсказание (LocalPrediction.Sent) делает так же.
+                WireFrame w = WireFrame.From(frame);
+                _input.Frame0 = w;
+                _input.Frame1 = w;
+                _input.Frame2 = w;
+                _input.Frame3 = w;
+                _input.FirstFrame = target - (InputMessage.FrameCount - 1);
+                FrameRenumbers++;
+            }
+            else
+            {
+                _input.Frame0 = _input.Frame1;
+                _input.Frame1 = _input.Frame2;
+                _input.Frame2 = _input.Frame3;
+                _input.Frame3 = WireFrame.From(frame);
+                _input.FirstFrame++;
+            }
             _input.LastSnapshot = _hasSnapshot ? _latest.Tick : 0;
             _input.PictureTime = _input.LastSnapshot * 2;
             _input.Lead = 0;
@@ -232,11 +320,15 @@ namespace Orpheus.Net.Session
                     case MessageType.Clock when State == NetClientState.InGame:
                         ClockMessage c = ClockMessage.Read(data);
                         ClocksReceived++;
-                        if ((int)(c.ServerTick - ServerTick) > 0)
-                        {
-                            ServerTick = c.ServerTick;
-                        }
-
+                        _clock.OnServerReset(c.ServerTick, _nowUs); // 2.4 «часы после фриза»: сразу
+                        ClockReset?.Invoke();
+                        break;
+                    case MessageType.Pong when State == NetClientState.InGame:
+                        PongMessage pong = PongMessage.Read(data);
+                        PongsReceived++;
+                        _clock.OnPong(pong.ServerTick, unchecked((uint)_nowUs - pong.ClientUs), _nowUs);
+                        break;
+                    case MessageType.Pong:
                         break;
                     case MessageType.Snapshot:
                         break; // снимок обогнал «вход принят» (другой канал) — пропускаем
@@ -260,8 +352,12 @@ namespace Orpheus.Net.Session
             ServerTick = m.ServerTick;
 
             // Кадры 60 Гц: два на такт; первый пакет несёт кадры «до входа» — пустые.
+            _clock.SeedRtt(_transport.RoundTripMs(_serverPeer) * 1000L);
+            _clock.Start(m.ServerTick + 1, _nowUs); // вход отправлен в разборе такта ServerTick + 1 (идущего)
             _input = default;
-            _input.FirstFrame = m.ServerTick * 2;
+            _input.FirstFrame = _clock.FrameAt(_nowUs) - InputMessage.FrameCount; // первый кадр — по оценке
+            _lastPingUs = long.MinValue / 2; // первый пинг — сразу: RTT для часов
+            _epochKnown = false;
             _hasSnapshot = false;
             Array.Clear(_baseValid, 0, BaseDepth);
             State = NetClientState.InGame;
@@ -309,6 +405,7 @@ namespace Orpheus.Net.Session
             _scratch.AckFrame = _delta.AckFrame;
             _scratch.Self = _delta.Self;
             _scratch.IsDelta = true;
+            _scratch.ClockEpoch = _delta.ClockEpoch;
             DeltasApplied++;
             CommitSnapshot();
         }
@@ -335,6 +432,20 @@ namespace Orpheus.Net.Session
                 ServerTick = tick;
             }
 
+            // Часы клиента (2.4): заголовок снимка — образец; новая эпоха — «часы после фриза», перестановка сразу.
+            if (_epochKnown && _latest.ClockEpoch != _epoch)
+            {
+                EpochResets++;
+                _clock.OnServerReset(tick, _nowUs);
+                ClockReset?.Invoke();
+            }
+            else
+            {
+                _clock.OnSample(tick, _nowUs);
+            }
+
+            _epoch = _latest.ClockEpoch;
+            _epochKnown = true;
             SnapshotApplied?.Invoke(_latest);
         }
     }
