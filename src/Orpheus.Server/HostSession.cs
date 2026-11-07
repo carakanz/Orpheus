@@ -30,9 +30,10 @@ namespace Orpheus.Server
         /// <summary>Когда кончится ожидание (мкс); хозяин в игре — не важно.</summary>
         public long DeadlineMicros => _deadline;
 
+        /// <summary>Хозяин вошёл; второй и следующие входы — возвращения (и после ухода, и вытеснив висящее соединение упавшей игры).</summary>
         public void Joined()
         {
-            if (EverJoined && !HostIn)
+            if (EverJoined)
             {
                 Returns++;
             }
