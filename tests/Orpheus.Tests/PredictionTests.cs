@@ -745,8 +745,45 @@ namespace Orpheus.Tests
             }
 
             _out.WriteLine($"10 мин, +0,1 %: отправлено {sent}, шагнуто {p.Server.FramesApplied}, выброшено {p.Server.FramesTrimmed}, очередь max {max}");
-            Assert.True(max <= NetServer.MaxBacklogFrames, $"очередь {max}");
+            Assert.True(max <= 6, $"очередь {max}"); // потолок числом (0-025, проверка 0-019 з. 2): мутация «6 → 10» краснит
             Assert.True(p.Server.FramesTrimmed > 0);
+        }
+
+        /// <summary>
+        /// Запас кадров 20 — числом (0-025, проверка 0-019 повт. з. 1): после долгого затишья запас полон; клиент шлёт по 4 кадра
+        /// за такт 40 тактов — шагнуто 2·40 кадров и сверх того не больше 20 (запас), дальше по 2 за такт. Мутация «запас 20 → 60» краснит.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_Server_CreditCap20_FourPerTick40Ticks_Applies100()
+        {
+            var p = new ScriptedPlayer();
+            for (int k = 0; k < 10; k++)
+            {
+                p.Send(RunEast);
+                p.Send(RunEast);
+                p.Tick();
+            }
+
+            for (int k = 0; k < 20; k++)
+            {
+                p.Tick(); // затишье 20 тактов: самоход 6 кадров, стоп, запас копится до потолка
+            }
+
+            long before = p.Server.FramesApplied;
+            for (int k = 0; k < 40; k++)
+            {
+                for (int j = 0; j < 4; j++)
+                {
+                    p.Send(RunEast);
+                }
+
+                p.Tick();
+            }
+
+            long applied = p.Server.FramesApplied - before;
+            _out.WriteLine($"40 тактов по 4 кадра после затишья: шагнуто {applied}, выброшено {p.Server.FramesTrimmed}, очередь {p.Backlog}");
+            // Сверх 2 за такт — запас (≤ 20); первые кадры после самохода опоздали (их номера сервер шагнул сам) — минус 4.
+            Assert.InRange(applied - 2 * 40, 14, 20);
         }
 
         /// <summary>Предел кадров за такт (мутация A проверки 0-019): после затишья 12 кадров разом — шагнуто 6, остальные — следующим тактом.</summary>
