@@ -7,6 +7,10 @@ Temp/
 Logs/
 UserSettings/
 MemoryCaptures/
+# Проекты IDE, которые Unity генерирует сам при каждом открытии (0-016): сборка их не читает —
+# ядро собирает Orpheus.sln (tools\ci.cmd), клиент — tools\build_client.ps1 через Unity.
+client/*.csproj
+client/*.sln
 # Python
 __pycache__/
 *.pyc

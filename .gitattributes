@@ -8,11 +8,13 @@
 *.asmdef    text eol=lf
 *.meta      text eol=lf
 
-# Единичные файлы Unity (сцены, префабы) — текст: диффы должны читаться.
-*.unity     text
-*.asset     text
-*.prefab    text
-*.mat       text
+# Единичные файлы Unity (сцены, префабы, настройки) — текст: диффы должны читаться. Unity пишет YAML с LF
+# на любой ОС; без eol=lf Git на Windows выдаёт их с CRLF, и каждая сборка Unity оставляла `git status`
+# грязным при том же содержимом (0-016).
+*.unity     text eol=lf
+*.asset     text eol=lf
+*.prefab    text eol=lf
+*.mat       text eol=lf
 
 # Windows-скрипты и решение — CRLF.
 *.cmd       text eol=crlf
