@@ -9,9 +9,23 @@ namespace Orpheus.Core.Sim
     /// <para>
     /// В журнале — 3 байта: направление (0 — стойка, 1…8 — <see cref="Input8.DirectionIndex"/> + 1)
     /// и кнопки (u16, младший байт первым). Значение битов кнопок задают боевые и строительные задачи
-    /// (`02`, `05`); ядро такта их пока только переносит и хэширует.
+    /// (`02`, `05`) — <see cref="InputButtons"/>; уворот (бит 0, 0-029) ядро такта применяет в покадровом шаге
+    /// (<see cref="Mover.Dodge"/>), остальные пока только переносит и хэширует.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Биты кнопок кадра ввода (<see cref="InputFrame.Buttons"/>). Формат кадра от них не меняется: кнопки — u16 и в журнале
+    /// (3 байта), и в сети (<c>WireFrame</c>, 6 байт).
+    /// </summary>
+    public static class InputButtons
+    {
+        /// <summary>
+        /// Уворот (`02` 2.2; 0-029): бит — <b>нажатие в этом кадре</b>, а не удержание. Клиент ставит его в одном кадре на
+        /// нажатие клавиши; удержание не повторяет рывок. Нажатие в рывке, в откате или без направления — без действия.
+        /// </summary>
+        public const ushort Dodge = 1 << 0;
+    }
+
     public readonly struct InputFrame : IEquatable<InputFrame>
     {
         /// <summary>Байт кадра в журнале: направление 1 + кнопки 2.</summary>
@@ -34,6 +48,9 @@ namespace Orpheus.Core.Sim
             Direction = direction;
             Buttons = buttons;
         }
+
+        /// <summary>В этом кадре нажат уворот (<see cref="InputButtons.Dodge"/>).</summary>
+        public bool DodgePressed => (Buttons & InputButtons.Dodge) != 0;
 
         /// <summary>Код направления: 0 — стойка, 1…8 — номер направления + 1.</summary>
         public byte DirectionCode => Direction.IsMoving ? (byte)(Direction.DirectionIndex + 1) : (byte)0;

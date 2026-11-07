@@ -131,7 +131,7 @@ namespace Orpheus.Net.Session
                 _beforePre = false;
             }
 
-            _mover.StepFrame(_map, input.Direction, _solid);
+            _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid);
             Push(frame, input);
         }
 
@@ -230,16 +230,18 @@ namespace Orpheus.Net.Session
                 _replay[n++] = s;
             }
 
-            // Серверное состояние — уже после ack: переигровка только новее.
+            // Серверное состояние — уже после ack: переигровка только новее. Уворота в снимке нет (0-029: шаги 3–5) —
+            // он берётся из предсказанного для ack: он зависит только от кадров ввода, и сервер шагнул те же.
             _mover.Position = server.Position;
             _mover.Carry = server.Carry;
+            _mover.Dodge = known ? predicted.Dodge : default;
             _before = _mover;
             _beforeFrame = ackFrame;
             _beforePre = !_hasHistory || (int)(ackFrame - _firstFrame) < 0;
             _head = _count = 0;
             for (int k = n - 1; k >= 0; k--)
             {
-                _mover.StepFrame(_map, _replay[k].Input.Direction, _solid);
+                _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, _solid);
                 Push(_replay[k].Frame, _replay[k].Input);
             }
 

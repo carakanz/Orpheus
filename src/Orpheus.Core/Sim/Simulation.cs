@@ -471,7 +471,7 @@ namespace Orpheus.Core.Sim
                 {
                     InputFrame f = _frames[i * MaxFramesPerTick + k];
                     _entities[i].Input = f;
-                    _entities[i].Mover.StepFrame(_shape, f.Direction, _solid);
+                    _entities[i].Mover.StepFrame(_shape, f.Direction, f.DodgePressed, _solid); // с уворотом (0-029)
                 }
 
                 _frameCount[i] = -1;
