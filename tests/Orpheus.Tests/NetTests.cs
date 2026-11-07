@@ -1073,64 +1073,10 @@ namespace Orpheus.Tests
             }
         }
 
-        /// <summary>
-        /// 11.6 «без выделений в такте»: сервер по сети в установившейся игре (8 игроков, ввод 60 Гц, снимок 30 Гц) —
-        /// разбор ввода и сборка снимков не выделяют памяти (транспорт — заглушка: свой расход у LiteNetLib).
-        /// </summary>
-        [Fact]
-        public void D00_Net_Server_SteadyState_NoAllocations()
-        {
-            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
-            var sim = new Simulation(world, maxEntities: 64);
-            var t = new ScriptedTransport();
-            var server = new NetServer(t, sim, n => ServerRun.SpawnPoint(world.Shape, n), 8, NetModule.Version);
-            byte[] login = Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b));
-            for (int peer = 1; peer <= 8; peer++)
-            {
-                t.Connect(peer);
-                t.Push(peer, NetChannel.Facts, login);
-            }
-
-            server.Poll(0);
-            Assert.Equal(8, server.PlayersInGame);
-
-            // Пакеты ввода заранее: на каждый кадр — свой номер.
-            const int Ticks = 300;
-            var inputs = new byte[Ticks * 2][];
-            for (int f = 0; f < inputs.Length; f++)
-            {
-                var m = new InputMessage { FirstFrame = (uint)f + 1, Frame3 = WireFrame.From(new InputFrame(Input8.FromIndex(f / 60 % 8))) };
-                inputs[f] = Encode(b => m.Write(b));
-            }
-
-            void Tick(int k)
-            {
-                for (int peer = 1; peer <= 8; peer++)
-                {
-                    t.Push(peer, NetChannel.Unreliable, inputs[2 * k]);
-                    t.Push(peer, NetChannel.Unreliable, inputs[2 * k + 1]);
-                }
-
-                server.Poll(k);
-                sim.Step();
-                server.SendSnapshots();
-            }
-
-            Tick(0); // прогрев
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int k = 1; k < Ticks; k++)
-            {
-                Tick(k);
-            }
-
-            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            Assert.Equal(8 * Ticks, server.SnapshotsSent);
-            Assert.Equal(8 * 2 * Ticks, server.InputsAccepted);
-            Assert.Equal(0, allocated);
-        }
+        // D00_Net_Server_SteadyState_NoAllocations (11.6) — в AllocationTests: непараллельная коллекция (0-020).
 
         /// <summary>Транспорт-заглушка: <see cref="Poll"/> раздаёт заранее положенные события, отправки считает и выбрасывает.</summary>
-        private sealed class ScriptedTransport : ITransport
+        internal sealed class ScriptedTransport : ITransport
         {
             private readonly List<(int Peer, NetChannel Channel, byte[]? Data)> _queue = new List<(int, NetChannel, byte[]?)>(64);
 
@@ -1295,9 +1241,9 @@ namespace Orpheus.Tests
 
         // ---------- Вспомогательное ----------
 
-        private delegate int Writer(Span<byte> dest);
+        internal delegate int Writer(Span<byte> dest);
 
-        private static byte[] Encode(Writer write)
+        internal static byte[] Encode(Writer write)
         {
             byte[] buf = new byte[NetSettings.MaxUnreliablePayload];
             int n = write(buf);

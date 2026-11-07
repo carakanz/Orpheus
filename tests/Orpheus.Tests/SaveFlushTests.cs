@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 using Orpheus.Platform.Pc;
@@ -153,6 +155,186 @@ namespace Orpheus.Tests
             Assert.Contains("FlushFileBuffers", e.Message, StringComparison.Ordinal);
             Assert.DoesNotContain(calls.Log, l => l.StartsWith("move", StringComparison.Ordinal));
             Assert.False(File.Exists(path));
+        }
+
+        // ---------- Лист шва: вызовы до ОС (0-020, замечание 1 проверки 0-016) ----------
+        //
+        // Тесты выше подменяют PcFileCalls наследником, который зовёт base — то есть сами листья шва
+        // (две строки рядом с DllImport) они не проверяют: заглушка «=> true» или «flags & ~8» прошли бы.
+        // Здесь листья проверены дважды: поведением настоящей ОС и телом метода (IL) — лист только передаёт
+        // аргументы в extern-функцию kernel32 как есть.
+
+        /// <summary>
+        /// <c>FlushFileBuffers</c> доходит до ОС: на дескрипторе только для чтения ОС отказывает с
+        /// <c>ERROR_ACCESS_DENIED</c> (нужен GENERIC_WRITE) — заглушка без вызова ОС вернула бы успех.
+        /// </summary>
+        [Fact]
+        public void D00_Save_PcFileCalls_Flush_ReachesOs_ReadOnlyHandleDenied()
+        {
+            if (!IsWindows)
+            {
+                return;
+            }
+
+            string path = Path.Combine(_dir, "flush.bin");
+            File.WriteAllBytes(path, Bytes(100, 7));
+
+            using (var ro = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                Assert.False(PcFileCalls.Os.FlushFileBuffers(ro.SafeFileHandle, path), "сброс дескриптора только для чтения — ОС не позвана");
+                Assert.Equal(ErrorAccessDenied, Marshal.GetLastPInvokeError());
+            }
+
+            using (var rw = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite))
+            {
+                Assert.True(PcFileCalls.Os.FlushFileBuffers(rw.SafeFileHandle, path), $"сброс на запись: код {Marshal.GetLastPInvokeError()}");
+            }
+        }
+
+        /// <summary>
+        /// Флаги <c>MoveFileExW</c> доходят до ОС как есть: без <c>MOVEFILE_REPLACE_EXISTING</c> перенос на
+        /// существующий файл — отказ <c>ERROR_ALREADY_EXISTS</c>, с ним — замена.
+        /// </summary>
+        [Fact]
+        public void D00_Save_PcFileCalls_MoveFileEx_ReachesOs_ReplaceExistingHonoured()
+        {
+            if (!IsWindows)
+            {
+                return;
+            }
+
+            string from = Path.Combine(_dir, "move.tmp");
+            string to = Path.Combine(_dir, "move.bin");
+            File.WriteAllBytes(from, Bytes(64, 8));
+            File.WriteAllBytes(to, Bytes(32, 9));
+
+            Assert.False(PcFileCalls.Os.MoveFileEx(from, to, MoveFileWriteThrough), "перенос на существующий без REPLACE_EXISTING удался");
+            Assert.Equal(ErrorAlreadyExists, Marshal.GetLastPInvokeError());
+            Assert.Equal(Bytes(32, 9), File.ReadAllBytes(to));
+
+            Assert.True(PcFileCalls.Os.MoveFileEx(from, to, MoveFileWriteThrough | MoveFileReplaceExisting), $"замена: код {Marshal.GetLastPInvokeError()}");
+            Assert.Equal(Bytes(64, 8), File.ReadAllBytes(to));
+            Assert.False(File.Exists(from));
+        }
+
+        /// <summary>
+        /// Тело листьев шва — ровно «аргументы → extern kernel32 → результат», без правки по дороге.
+        /// <c>MOVEFILE_WRITE_THROUGH</c> снаружи не увидеть (ОС ведёт себя так же, только без сброса журнала NTFS),
+        /// поэтому снятие 0x8 в листе ловит сверка IL: лишняя инструкция (<c>ldc.i4 -9; and</c>, константа вместо
+        /// вызова) — красный. Сама extern-функция сверяется по <see cref="DllImportAttribute"/>: kernel32, нужная
+        /// точка входа, <c>SetLastError</c> (иначе код отказа теряется).
+        /// </summary>
+        [Fact]
+        public void D00_Save_PcFileCalls_Leaves_PassArgumentsToKernel32AsIs()
+        {
+            AssertLeaf(nameof(PcFileCalls.MoveFileEx), new[] { typeof(string), typeof(string), typeof(uint) }, "MoveFileExW");
+            AssertLeaf(nameof(PcFileCalls.FlushFileBuffers), new[] { typeof(SafeFileHandle), typeof(string) }, "FlushFileBuffers");
+        }
+
+        private const int ErrorAccessDenied = 5;
+        private const int ErrorAlreadyExists = 183;
+
+        /// <summary>
+        /// Лист <paramref name="leaf"/> класса <see cref="PcFileCalls"/>: IL (без <c>nop</c> и отладочного
+        /// <c>stloc/br/ldloc</c> вокруг возврата) — <c>ldarg.1 … ldarg.k</c>, <c>call</c> extern-функции
+        /// <paramref name="entryPoint"/> с теми же типами параметров, <c>ret</c>.
+        /// </summary>
+        private static void AssertLeaf(string leaf, Type[] parameters, string entryPoint)
+        {
+            const BindingFlags Any = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+            MethodInfo method = typeof(PcFileCalls).GetMethod(leaf, Any, null, parameters, null)
+                ?? throw new InvalidOperationException($"нет листа {leaf}");
+            List<(OpCode Op, int Token)> il = DecodeIl(method);
+            string dump = string.Join("; ", il.ConvertAll(i => i.Op.Name));
+
+            // В extern идут все аргументы листа, кроме пути для сообщений (у FlushFileBuffers он последний и в ОС не нужен).
+            Assert.True(il.Count >= 2 && il[il.Count - 2].Op == OpCodes.Call, $"{leaf}: нет call перед ret — {dump}");
+            MethodBase target = method.Module.ResolveMethod(il[il.Count - 2].Token)
+                ?? throw new InvalidOperationException($"{leaf}: call не разрешился");
+            int args = target.GetParameters().Length;
+            Assert.True(il.Count == args + 2, $"{leaf}: лишние инструкции — {dump}");
+            for (int i = 0; i < args; i++)
+            {
+                Assert.True(il[i].Op == ArgOps[i + 1], $"{leaf}: аргумент {i + 1} не передан как есть — {dump}");
+            }
+
+            Assert.Equal(OpCodes.Ret, il[il.Count - 1].Op);
+
+            Assert.True(target.IsStatic && (target.Attributes & MethodAttributes.PinvokeImpl) != 0, $"{leaf}: зовёт не extern, а {target.Name}");
+            DllImportAttribute import = target.GetCustomAttribute<DllImportAttribute>()
+                ?? throw new InvalidOperationException($"{target.Name}: нет DllImport");
+            Assert.Equal("kernel32.dll", import.Value, ignoreCase: true);
+            Assert.Equal(entryPoint, import.EntryPoint);
+            Assert.True(import.SetLastError, $"{target.Name}: без SetLastError код отказа теряется");
+            ParameterInfo[] p = target.GetParameters();
+            for (int i = 0; i < args; i++)
+            {
+                Assert.Equal(parameters[i], p[i].ParameterType);
+            }
+        }
+
+        private static readonly OpCode[] ArgOps = { OpCodes.Ldarg_0, OpCodes.Ldarg_1, OpCodes.Ldarg_2, OpCodes.Ldarg_3 };
+
+        private static readonly Dictionary<short, OpCode> OpByValue = BuildOpTable();
+
+        private static Dictionary<short, OpCode> BuildOpTable()
+        {
+            var table = new Dictionary<short, OpCode>();
+            foreach (FieldInfo f in typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static))
+            {
+                var op = (OpCode)f.GetValue(null)!;
+                table[op.Value] = op;
+            }
+
+            return table;
+        }
+
+        /// <summary>Инструкции тела: код и токен (для call), без <c>nop</c> и отладочной пары «результат в локальную и обратно».</summary>
+        private static List<(OpCode Op, int Token)> DecodeIl(MethodInfo method)
+        {
+            byte[] body = method.GetMethodBody()?.GetILAsByteArray() ?? Array.Empty<byte>();
+            var all = new List<(OpCode Op, int Token)>();
+            for (int at = 0; at < body.Length;)
+            {
+                short value = body[at] == 0xFE ? (short)(0xFE00 | body[at + 1]) : body[at];
+                at += body[at] == 0xFE ? 2 : 1;
+                OpCode op = OpByValue[value];
+                int size = OperandBytes(op.OperandType);
+                int token = size == 4 ? BitConverter.ToInt32(body, at) : 0;
+                Assert.True(op.OperandType != OperandType.InlineSwitch, $"{method.Name}: switch в листе");
+                at += size;
+                all.Add((op, token));
+            }
+
+            // Отладочная сборка: «stloc.0; br.s +0; ldloc.0» перед ret — то же, что сразу ret.
+            var il = all.FindAll(i => i.Op != OpCodes.Nop);
+            int n = il.Count;
+            if (n >= 4 && il[n - 4].Op == OpCodes.Stloc_0 && il[n - 3].Op == OpCodes.Br_S && il[n - 2].Op == OpCodes.Ldloc_0 && il[n - 1].Op == OpCodes.Ret)
+            {
+                il.RemoveRange(n - 4, 3);
+            }
+
+            return il;
+        }
+
+        private static int OperandBytes(OperandType type)
+        {
+            switch (type)
+            {
+                case OperandType.InlineNone:
+                    return 0;
+                case OperandType.ShortInlineBrTarget:
+                case OperandType.ShortInlineI:
+                case OperandType.ShortInlineVar:
+                    return 1;
+                case OperandType.InlineVar:
+                    return 2;
+                case OperandType.InlineI8:
+                case OperandType.InlineR:
+                    return 8;
+                default:
+                    return 4;
+            }
         }
 
         // ---------- Сверка ----------

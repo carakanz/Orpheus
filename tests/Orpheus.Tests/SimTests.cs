@@ -554,67 +554,7 @@ namespace Orpheus.Tests
             Assert.False(sim.IsBlocked(map, new TileCoord(12, 5))); // трава
         }
 
-        // ---------- Без выделений в такте (07 11.6) ----------
-
-        [Fact]
-        public void D00_Sim_TickWithBotsEditsAndHash_AllocatesNothing()
-        {
-            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), Seed);
-            var sim = new Simulation(world);
-            var bots = new SimBot[8];
-            for (int i = 0; i < bots.Length; i++)
-            {
-                bots[i] = SimBot.Create(WanderBot.Name, sim.AddEntity(ServerRun.SpawnPoint(world.Shape, i)), i, Seed);
-            }
-
-            var pending = new EntityInput[16];
-            ulong sink = 0;
-            long inTick = 0;
-            void Ticks(int n)
-            {
-                for (int k = 0; k < n; k++)
-                {
-                    for (int i = 0; i < bots.Length; i++)
-                    {
-                        int slot = sim.SlotOf(bots[i].EntityId);
-                        sim.SetInputAt(slot, bots[i].Think(sim.Tick + 1, sim.Entities[slot]));
-                    }
-
-                    sim.CopyPendingInputs(pending);
-
-                    // Правки — каждый 7-й такт, в разные чанки; каждая вторая — постройка с записью:
-                    // первая постройка в чанке берёт словарь записей из пула (backlog [такт сервера]).
-                    if (sim.Tick % 7 == 0)
-                    {
-                        int t = (int)(sim.Tick % 1000);
-                        sim.RequestEdit(new TileCoord(t, t / 3), FloorId.Dirt, ObjectId.Rock);
-                        sim.RequestEdit(new TileCoord(t * 5 + 1, t / 3), FloorId.Grass, ObjectId.WoodWall, BuildRecord.OfPlayer(1, FloorId.Grass));
-                    }
-
-                    // В такте (шаг и хэш) — ни байта; пополнение пула — между тактами, вне замера.
-                    long before = GC.GetAllocatedBytesForCurrentThread();
-                    sim.Step();
-                    if (sim.Tick % Simulation.HashInterval == 0)
-                    {
-                        sink ^= StateHash.Compute(sim).Total;
-                    }
-
-                    inTick += GC.GetAllocatedBytesForCurrentThread() - before;
-                    sim.RefillPools();
-                }
-            }
-
-            Ticks(900); // прогрев: JIT, статические таблицы
-            inTick = 0;
-            int misses = world.BuildMaps.Misses;
-            long total = GC.GetAllocatedBytesForCurrentThread();
-            Ticks(3000);
-            total = GC.GetAllocatedBytesForCurrentThread() - total;
-            _out.WriteLine($"3000 тактов: в такте выделено {inTick} байт, с пополнением пула {total} байт (хэш {sink:x16})");
-            Assert.Equal(0, inTick);
-            Assert.Equal(misses, world.BuildMaps.Misses);
-            Assert.True(total > 0, "постройки в новых чанках должны были брать словари из пула");
-        }
+        // D00_Sim_TickWithBotsEditsAndHash_AllocatesNothing (07 11.6) — в AllocationTests: непараллельная коллекция (0-020).
 
         // ---------- Журнал, боты, ключи ----------
 
