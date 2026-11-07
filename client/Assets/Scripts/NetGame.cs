@@ -22,8 +22,9 @@ namespace Orpheus.Client
     /// <summary>
     /// Сетевой режим клиента (карточка 0-012; предсказание — 0-013): вход на сервер по UDP, мир перегенерируется
     /// по зерну из «входа принят», чужие сущности — по снимкам 30 Гц с задержкой <see cref="InterpDelayUs"/>
-    /// и интерполяцией между парой снимков (docs/07, 2.9). Свой персонаж ведёт <see cref="LocalPrediction"/>:
-    /// шаг вперёд ядром, сверка по AckFrame, гашение расхождений (2.6) — он в своём «сейчас», без задержки показа.
+    /// и интерполяцией между парой снимков (docs/07, 2.9). Свой персонаж ведёт <see cref="LocalPrediction"/> ядра
+    /// (Orpheus.Net, 0-019): шаг кадра ядром, сверка по AckFrame со своим состоянием без кванта, гашение расхождений (2.6) —
+    /// он в своём «сейчас», без задержки показа. <c>--net-sim RTT,σ,потери%</c> — имитатор связи ядра под клиентом.
     /// Ввод летит на сервер пакетиками 60 Гц, как у ботов (Temp: <c>BotRun</c>).
     /// Кадр ведётся из <see cref="GameBoot.Update"/>: poll → состояние → ввод → предсказание → интерполяция → окно → камера → HUD.
     /// </summary>
@@ -38,6 +39,10 @@ namespace Orpheus.Client
         const double InputInterval = 1.0 / 60.0;
         const int MaxSendsPerFrame = 4;
         const int LoginTimeoutSec = 10;
+
+        /// <summary>Порог net-smoke (0-019): правок на чистом движении и расхождение предсказания с сервером, unit.</summary>
+        const int MaxSmokeCorrections = 2;
+        const int MaxSmokeDevUnits = 8;
 
         readonly GameBoot _g;
         readonly ClientArgs _args;
@@ -59,17 +64,23 @@ namespace Orpheus.Client
 
         NetClient? _client;
         LiteNetTransport? _transport;
+        ITransport? _link; // транспорт клиента: UDP или имитатор над ним (0-019)
+        NetSimTransport? _netSim;
+        bool _hasServerStart;
+        int _corrLogged;
+        WorldPos _serverStart;
+        WorldPos _serverLast;
         WorldModel? _world;
         MapShape _map;
         FloatingOrigin? _origin;
         WorldView? _view;
         WorldPos _localPos;
-        WorldPos _spawnPos;
         Simulation? _netRules;
         LocalPrediction? _pred;
         int _localId;
         ScreenshotRun? _screenshot;
         double _inputAccum;
+        long _inputClockUs;
         long _inGameSinceUs;
         long _hudSnaps;
         long _hudTimeUs;
@@ -111,7 +122,15 @@ namespace Orpheus.Client
                 return;
             }
 
-            _client = new NetClient(_transport, _transport.ServerPeer, _args.Name, NetModule.Version);
+            _link = _transport;
+            if (_args.NetSimRttMs > 0 || _args.NetSimJitterMs > 0 || _args.NetSimLossPercent > 0)
+            {
+                _netSim = new NetSimTransport(_transport, NetSimSettings.FromRtt(_args.NetSimRttMs, _args.NetSimJitterMs, _args.NetSimLossPercent, 0x0019));
+                _link = _netSim;
+                Debug.Log($"[net] имитатор связи: {_netSim.Settings}");
+            }
+
+            _client = new NetClient(_link, _transport.ServerPeer, _args.Name, NetModule.Version);
             _client.SnapshotApplied = OnSnapshot;
         }
 
@@ -197,7 +216,7 @@ namespace Orpheus.Client
         public void Shutdown()
         {
             _client?.Disconnect();
-            _transport?.Dispose();
+            (_link ?? _transport)?.Dispose();
         }
 
         // ---------- мир по зерну сервера ----------
@@ -213,7 +232,6 @@ namespace Orpheus.Client
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
             _view.UpdateWindow(spawn);
             _localPos = spawn;
-            _spawnPos = spawn;
 
             // Проходимость — тот же IsBlocked ядра, что в такте сервера; предсказание стартует из точки поселения.
             _netRules = new Simulation(_world, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
@@ -248,10 +266,23 @@ namespace Orpheus.Client
 
             _lastSnapshotUs = _pollUs;
 
-            // Сверка своего персонажа (2.6): своя сущность в снимке — первой,AckFrame — применённый кадр ввода.
-            if (_pred != null && s.TryFind(_localId, out SnapshotEntity me))
+            // Сверка своего персонажа (2.6): AckFrame — последний шагнутый сервером кадр, Self — состояние после него без кванта.
+            if (_pred != null && s.Self.Present)
             {
-                _pred.Reconcile(s.AckFrame, me.Position, _pollUs);
+                long before = _pred.Resynced;
+                _pred.Reconcile(s.AckFrame, s.Self, _pollUs);
+                if (_pred.Resynced != before && _corrLogged++ < 20)
+                {
+                    Debug.Log($"[net] правка предсказания: снимок {s.Tick}, ack {s.AckFrame}, отправлен кадр {_client!.Frame}, " +
+                              $"сервер {s.Self}, расхождение {_pred.LastDevUnits} u, переполнений {_pred.Overflows}, сверок {_pred.Reconciled}");
+                }
+                if (!_hasServerStart)
+                {
+                    _hasServerStart = true;
+                    _serverStart = s.Self.Position;
+                }
+
+                _serverLast = s.Self.Position;
             }
         }
 
@@ -351,7 +382,15 @@ namespace Orpheus.Client
         void SendInput(long now)
         {
             NetClient c = _client!;
-            _inputAccum += (double)Time.unscaledDeltaTime;
+            // Часы ввода — монотонные мкс, не Time.unscaledDeltaTime: в -batchmode Unity завышает время очень коротких
+            // кадров (net-smoke 0-019: ~79 кадров ввода в секунду вместо 60), и сервер, шагающий 2 кадра за такт, отстаёт.
+            if (_inputClockUs == 0)
+            {
+                _inputClockUs = now;
+            }
+
+            _inputAccum += (now - _inputClockUs) / 1_000_000.0;
+            _inputClockUs = now;
             int sent = 0;
             while (_inputAccum >= InputInterval && sent < MaxSendsPerFrame)
             {
@@ -483,13 +522,14 @@ namespace Orpheus.Client
             _hudSnaps = c.SnapshotsApplied;
             _hudTimeUs = now;
             TileCoord t = Torus.TileOf(_map, _localPos);
-            int rtt = _transport!.RoundTripMs(c.ServerPeer);
+            int rtt = _link!.RoundTripMs(c.ServerPeer);
             _g.DebugText.text =
                 $"в игре  сервер {_host}:{_port}  seed 0x{c.Accept.WorldSeed:X}  {_map.Width}×{_map.Height}  " +
                 $"такт {c.ServerTick}  tile {t.X},{t.Y}  сущ {Math.Min(_seen.Count + 1, 99)}  окно {_view!.Count}/{ChunkWindow.MaxChunks}  " +
                 $"снимки {snapsPerSec:0.0}/с  дельт {c.DeltasApplied} (не склеено {c.DeltasUnmerged})  " +
                 $"rtt {(rtt >= 0 ? rtt + " мс" : "—")}  ввод {c.InputsSent}  " +
-                $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} расх {_pred?.MaxDevUnits ?? 0}u  " +
+                $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} расх {_pred?.MaxDevUnits ?? 0}u" +
+                $"{(_pred != null && _pred.Overflows > 0 ? $" (задержка > {LocalPrediction.BufferSize / 60} с: {_pred.Overflows})" : "")}  " +
                 $"zoom x{_g.Zoom:0.00}  {fps:0} fps";
         }
 
@@ -509,14 +549,15 @@ namespace Orpheus.Client
             if (InGame && (now - _inGameSinceUs) / 1_000_000 >= Math.Max(2, _args.NetSmokeSeconds)
                 && _client!.SnapshotsApplied >= 10)
             {
-                // Предсказание (0-013): скрипт шёл на восток/север — персонаж обязан уйти от спавна, сверка — не «прыгать».
-                Int2 d = Torus.Delta(_map, _spawnPos, _localPos);
+                // Предсказание (0-013, 0-019): сдвиг — по подтверждённому серверному состоянию (не клиент сам с собой);
+                // на чистом движении правок ≤ 2, расхождение предсказания с сервером ≤ 8 unit на всех сверках.
+                Int2 d = Torus.Delta(_map, _serverStart, _serverLast);
                 int moved = Math.Max(Math.Abs(d.X), Math.Abs(d.Y));
                 LocalPrediction p = _pred!;
-                if (moved < 2 * 256 || p.MaxDevUnits > 128)
+                if (!_hasServerStart || moved < 2 * 256 || p.Resynced > MaxSmokeCorrections || p.MaxDevUnits > MaxSmokeDevUnits || p.Initial != 1)
                 {
-                    Fail($"[smoke] FAILED: предсказание — сдвиг {moved} unit (нужно ≥ {2 * 256}), " +
-                         $"макс.расхождение {p.MaxDevUnits} unit (нужно ≤ 128)");
+                    Fail($"[smoke] FAILED: предсказание — сдвиг на сервере {moved} unit (нужно ≥ {2 * 256}), правок {p.Resynced} " +
+                         $"(нужно ≤ {MaxSmokeCorrections}), макс.расхождение {p.MaxDevUnits} unit (нужно ≤ {MaxSmokeDevUnits}), установок {p.Initial}, сверок {p.Reconciled}");
                     return;
                 }
 
@@ -527,12 +568,18 @@ namespace Orpheus.Client
                     return;
                 }
 
+                Debug.Log($"[smoke] input: кадров ввода {_client.InputsSent} за {(now - _inGameSinceUs) / 1e6:0.00} с " +
+                          $"({_client.InputsSent / Math.Max((now - _inGameSinceUs) / 1e6, 1e-3):0.0} в секунду)");
                 Debug.Log($"[smoke] done: вход #{_client.EntityId}, снимков {_client.SnapshotsApplied} " +
                           $"(устаревших {_client.SnapshotsStale}, потерь тактов {_client.SnapshotsMissed}), " +
                           $"ввода отправлено {_client.InputsSent}, плохих сообщений {_client.BadMessages}; " +
                           $"дельт {_client.DeltasApplied} (не склеено {_client.DeltasUnmerged}); " +
                           $"предсказание: сверок {p.Reconciled}, правок {p.Resynced}, " +
-                          $"макс.расхождение {p.MaxDevUnits} unit, сдвиг {moved / 256.0:0.0} т");
+                          $"макс.расхождение {p.MaxDevUnits} unit, сдвиг {moved / 256.0:0.0} т" +
+                          (_netSim != null
+                              ? $"; имитатор: {_netSim.Settings}, ушло {_netSim.SendStats.Delivered} (потерь {_netSim.SendStats.Lost}), " +
+                                $"пришло {_netSim.ReceiveStats.Delivered} (потерь {_netSim.ReceiveStats.Lost})"
+                              : "; без имитатора"));
                 Quit(0);
             }
             else if ((now - _startUs) / 1_000_000 >= _args.NetSmokeSeconds + LoginTimeoutSec)

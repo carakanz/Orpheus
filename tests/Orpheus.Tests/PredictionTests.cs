@@ -526,6 +526,70 @@ namespace Orpheus.Tests
             Assert.True(server.FramesOverflow > 0);
         }
 
+        /// <summary>
+        /// Дыра в номерах кадров (перестановка больше 4 кадров): сервер ждёт <see cref="NetServer.HoleWaitTicks"/> такта —
+        /// опоздавший пакет закрывает дыру, кадры шагаются по порядку без перескока; не пришёл — перескок со счётчиком.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_Server_HoleWaitsForReorderedPacket_ThenSkips()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            var sim = new Simulation(world, maxEntities: 4);
+            var t = new NetTests.ScriptedTransport();
+            WorldPos spawn = ServerRun.SpawnPoint(world.Shape, 0);
+            var server = new NetServer(t, sim, _ => spawn, 4, NetModule.Version);
+            t.Connect(1);
+            t.Push(1, NetChannel.Facts, Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b)));
+            void Tick()
+            {
+                server.Poll(sim.Tick);
+                sim.Step();
+                server.SendSnapshots();
+            }
+
+            Tick();
+            int id = server.EntityOf(1);
+            var east = WireFrame.From(new InputFrame(new Input8(1, 0), 0));
+            var north = WireFrame.From(new InputFrame(new Input8(0, -1), 0));
+            void Packet(uint first, WireFrame f)
+            {
+                var m = new InputMessage { FirstFrame = first, Frame0 = f, Frame1 = f, Frame2 = f, Frame3 = f };
+                t.Push(1, NetChannel.Unreliable, Encode(b => m.Write(b)));
+            }
+
+            Packet(1, east); // кадры 1–4
+            Tick();
+            Packet(9, north); // кадры 9–12 обогнали 5–8
+            Tick();
+            Assert.True(server.TryGetLastFrame(id, out uint ack));
+            Assert.Equal(4u, ack); // ждёт дыру 5–8
+            Packet(5, east); // опоздавший пакет закрыл дыру
+            Tick();
+            Tick();
+            Assert.True(server.TryGetLastFrame(id, out ack));
+            Assert.Equal(12u, ack);
+            Assert.Equal(0, server.FramesSkipped);
+
+            var reference = Mover.At(world.Shape, spawn);
+            for (int i = 0; i < 12; i++)
+            {
+                reference.StepFrame(world.Shape, i < 8 ? new Input8(1, 0) : new Input8(0, -1), sim.Solid);
+            }
+
+            Assert.Equal(reference.Position, sim.GetEntity(id).Mover.Position);
+
+            // Дыра 13–16 не закрылась: через 2 такта — перескок к 17.
+            Packet(17, east);
+            Tick();
+            Assert.True(server.TryGetLastFrame(id, out ack));
+            Assert.Equal(12u, ack);
+            Tick();
+            Tick();
+            Assert.True(server.TryGetLastFrame(id, out ack));
+            Assert.Equal(20u, ack);
+            Assert.Equal(4, server.FramesSkipped);
+        }
+
         // ---------- Имитатор: Flush (замечание 1 повторной проверки 0-015, мутации F3 и F4) ----------
 
         /// <summary>
