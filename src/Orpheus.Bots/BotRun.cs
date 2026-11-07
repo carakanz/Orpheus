@@ -75,6 +75,10 @@ namespace Orpheus.Bots
         /// <summary>Сообщений «часы» принято.</summary>
         public long ClocksReceived { get; set; }
 
+        /// <summary>Сценарий <c>dig_line</c> (0-028): итог строкой; иначе null.</summary>
+        public string? DigLine { get; set; }
+        public int RocksDug { get; set; }
+
         /// <summary><c>run_seam</c> (0-027): круги; не бегун — null.</summary>
         public List<RunSeamLap>? Laps { get; set; }
 
@@ -408,6 +412,14 @@ namespace Orpheus.Bots
                     st.PredResynced = pred.Resynced;
                 }
 
+                DigLineBot? dig = bots[i].DigLine;
+                if (dig != null)
+                {
+                    st.RocksDug = dig.RocksDug;
+                    st.DigLine = $"скал {dig.RocksDug}, прочего {dig.OtherDug}, отказов {dig.Refused} ({dig.RefusalsText}), строк {dig.Rows}; " +
+                                 $"предсказаний {bots[i].Client.World?.Predicted ?? 0}, откатов {bots[i].Client.World?.PredictionsRolledBack ?? 0}";
+                }
+
                 RunSeamBot? runner = bots[i].Runner;
                 if (runner != null || o.Script == RunSeamBot.Name)
                 {
@@ -493,6 +505,11 @@ namespace Orpheus.Bots
                 if (report.Bots[i].Dodge != null)
                 {
                     console?.WriteLine($"  уворот, бот {i}: {report.Bots[i].Dodge}");
+                }
+
+                if (report.Bots[i].DigLine != null)
+                {
+                    console?.WriteLine($"  dig_line, бот {i}: {report.Bots[i].DigLine}");
                 }
             }
 
@@ -703,6 +720,12 @@ namespace Orpheus.Bots
                 w.WriteNumber("clocksReceived", b.ClocksReceived);
                 w.WriteNumber("frameRenumbers", b.FrameRenumbers);
                 w.WriteNumber("owdMs", Math.Round(b.OwdMs, 2));
+                if (b.DigLine != null)
+                {
+                    w.WriteString("digLine", b.DigLine);
+                    w.WriteNumber("rocksDug", b.RocksDug);
+                }
+
                 w.WriteBoolean("scenarioFailed", b.ScenarioFailed);
                 if (b.Laps != null)
                 {

@@ -69,6 +69,14 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Клиент → сервер, канал 1: «пришли чанк целиком» — пачка не к той ревизии (3.7 «Порядок»).</summary>
         ChunkRequest = 19,
+
+        // 0-028, правки тайлов (docs/07, 3.7), канал 2. Номера с 20 (протокол 7).
+
+        /// <summary>Клиент → сервер, канал 2: запрос правки — копать (начало, конец) или поставить линию (3.7).</summary>
+        TileRequest = 20,
+
+        /// <summary>Сервер → клиент, канал 2: ответ на запрос правки — «принято» или «отказ: причина» (3.7 «Ответ»).</summary>
+        TileReply = 21,
     }
 
     /// <summary>
@@ -730,10 +738,13 @@ namespace Orpheus.Net.Protocol
             return (MessageType)t;
         }
 
-        /// <summary>Известный тип сообщения: 1…14 (до MeleeResult, 0-029) и 16…19 (мир, 0-026; последний — ChunkRequest); 15 не занят.</summary>
+        /// <summary>
+        /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026) и 20…21 (правки тайлов, 0-028; последний —
+        /// TileReply); 15 не занят.
+        /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.ChunkRequest);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.TileReply);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)

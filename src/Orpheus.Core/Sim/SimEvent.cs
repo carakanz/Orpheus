@@ -36,7 +36,14 @@ namespace Orpheus.Core.Sim
         /// <summary>Ревизия чанка после пачки.</summary>
         public readonly uint Revision;
 
-        public SimEvent(SimEventKind kind, long tick, ChunkCoord chunk, int tileIndex, EditResult result, uint revision)
+        /// <summary>Кто просил правку (номер сущности; 0 — не игрок: тесты, процессы мира) — ответ «принято» / «отказ» (0-028).</summary>
+        public readonly int Requester;
+
+        /// <summary>Метка запроса от вызывающего (у сервера — номер запроса клиента и место в линии; 0-028).</summary>
+        public readonly int Tag;
+
+        public SimEvent(SimEventKind kind, long tick, ChunkCoord chunk, int tileIndex, EditResult result, uint revision,
+            int requester = 0, int tag = 0)
         {
             Kind = kind;
             Tick = tick;
@@ -44,6 +51,8 @@ namespace Orpheus.Core.Sim
             TileIndex = tileIndex;
             Result = result;
             Revision = revision;
+            Requester = requester;
+            Tag = tag;
         }
 
         public override string ToString() =>

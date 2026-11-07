@@ -70,6 +70,8 @@ namespace Orpheus.Core.Sim
         private readonly EditRequest[] _edits;
         private readonly EditRequest[] _editScratch;
         private readonly TileEdit[] _batch = new TileEdit[TilePatch.MaxEdits];
+        private readonly int[] _batchOf;          // место правки очереди в пачке чанка; −1 — отказ до пачки (0-028)
+        private readonly EditResult[] _preResult; // исход отказа до пачки: существо, враг, лишняя сверх тайлов
         private readonly EditResult[] _results = new EditResult[TilePatch.MaxEdits];
         private int _editCount;
 
@@ -111,6 +113,8 @@ namespace Orpheus.Core.Sim
 
             _edits = new EditRequest[maxEditsPerTick];
             _editScratch = new EditRequest[maxEditsPerTick];
+            _batchOf = new int[maxEditsPerTick];
+            _preResult = new EditResult[maxEditsPerTick];
 
             // Событий на такт: исход каждой правки + ревизия каждого чанка — не больше 2 × правок.
             _events = new SimEvent[maxEditsPerTick * 2];
@@ -174,6 +178,17 @@ namespace Orpheus.Core.Sim
             }
 
             return AddEntityWithId(_nextId, position, unitsPerTickX10);
+        }
+
+        /// <summary>
+        /// Добавить врага-заглушку (<see cref="SimEntity.KindEnemy"/>; 0-028 — для правила «не ближе 2 тайлов к врагу»): стоит,
+        /// пока ему не дали ввод. Номер — следующий. Возвращает номер.
+        /// </summary>
+        public int AddEnemy(WorldPos position)
+        {
+            int id = AddEntity(position);
+            _entities[SlotOf(id)].Kind = SimEntity.KindEnemy;
+            return id;
         }
 
         /// <summary>
@@ -410,13 +425,23 @@ namespace Orpheus.Core.Sim
         /// Применится в фазе 3 пачкой своего чанка. Очередь полна — false.
         /// </summary>
         public bool RequestEdit(TileCoord tile, byte floor, ushort obj) =>
-            Enqueue(tile, floor, obj, false, default);
+            Enqueue(tile, floor, obj, false, default, 0, 0, false);
 
         /// <summary>Запрос правки тайла с записью постройки (см. <see cref="RequestEdit(TileCoord, byte, ushort)"/>).</summary>
         public bool RequestEdit(TileCoord tile, byte floor, ushort obj, BuildRecord record) =>
-            Enqueue(tile, floor, obj, true, record);
+            Enqueue(tile, floor, obj, true, record, 0, 0, false);
 
-        private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record)
+        /// <summary>
+        /// Правка игрока (docs/07, 3.7; 0-028): как <see cref="RequestEdit(TileCoord, byte, ushort)"/>, плюс метки для ответа
+        /// (<paramref name="requester"/>, <paramref name="tag"/> — в событии такта) и проверка существ <b>в фазе 3, после
+        /// движения</b> (`05` 1.3): непроходимое — не на тайл, который задевает сущность (в том числе своя), непроходимое и
+        /// ловушка — не ближе 2 тайлов к врагу (<see cref="SimEntity.KindEnemy"/>). Иначе персонаж, шагнувший на тайл в том же
+        /// такте, оказался бы в стене и вышел бы сквозь стену в 1 тайл (backlog [стройка], П по 0-004).
+        /// </summary>
+        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag) =>
+            Enqueue(tile, floor, obj, hasRecord, record, requester, tag, EditRules.NeedsClearance(obj));
+
+        private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, bool checkCreatures)
         {
             if (_editCount == _edits.Length)
             {
@@ -433,7 +458,8 @@ namespace Orpheus.Core.Sim
             _edits[_editCount] = new EditRequest(
                 Torus.ChunkOf(_shape, t),
                 _editCount,
-                hasRecord ? new TileEdit(index, floor, obj, record) : new TileEdit(index, floor, obj));
+                hasRecord ? new TileEdit(index, floor, obj, record) : new TileEdit(index, floor, obj),
+                requester, tag, checkCreatures);
             _editCount++;
             return true;
         }
@@ -514,21 +540,32 @@ namespace Orpheus.Core.Sim
                     end++;
                 }
 
+                // Проверка существ (0-028) — до пачки, по позициям после движения: отказ в пачку не идёт.
                 // Больше правок на чанк, чем тайлов: хвост — «занято» без вызова мира
                 // (на тайл в пачке проходит только одна правка, 3.7).
-                int count = end - start;
-                int take = count < _batch.Length ? count : _batch.Length;
-                for (int i = 0; i < take; i++)
+                int take = 0;
+                for (int i = start; i < end; i++)
                 {
-                    _batch[i] = _edits[start + i].Edit;
+                    EditResult pre = _edits[i].CheckCreatures ? CheckCreatures(chunk, _edits[i].Edit) : EditResult.Applied;
+                    if (pre == EditResult.Applied && take < _batch.Length)
+                    {
+                        _batchOf[i] = take;
+                        _batch[take++] = _edits[i].Edit;
+                    }
+                    else
+                    {
+                        _batchOf[i] = -1;
+                        _preResult[i] = pre == EditResult.Applied ? EditResult.Busy : pre;
+                    }
                 }
 
                 uint before = _world.FindChunk(chunk)?.Revision ?? 0;
-                uint revision = _world.ApplyEdits(chunk, new ReadOnlySpan<TileEdit>(_batch, 0, take), _results);
-                for (int i = 0; i < count; i++)
+                uint revision = take > 0 ? _world.ApplyEdits(chunk, new ReadOnlySpan<TileEdit>(_batch, 0, take), _results) : before;
+                for (int i = start; i < end; i++)
                 {
-                    EditResult result = i < take ? _results[i] : EditResult.Busy;
-                    AddEvent(new SimEvent(SimEventKind.TileEdit, tick, chunk, _edits[start + i].Edit.Index, result, revision));
+                    EditResult result = _batchOf[i] >= 0 ? _results[_batchOf[i]] : _preResult[i];
+                    AddEvent(new SimEvent(SimEventKind.TileEdit, tick, chunk, _edits[i].Edit.Index, result, revision,
+                        _edits[i].Requester, _edits[i].Tag));
                 }
 
                 if (revision != before)
@@ -540,6 +577,34 @@ namespace Orpheus.Core.Sim
             }
 
             _editCount = 0;
+        }
+
+        /// <summary>
+        /// Существа у тайла правки (`05` 1.3; 0-028): непроходимое на тайл, который задевает сущность, — «занято существом»;
+        /// непроходимое или ловушка ближе 2 тайлов к врагу — «враг ближе 2 тайлов». Сущностей ≤ ёмкости — перебор всех.
+        /// </summary>
+        private EditResult CheckCreatures(ChunkCoord chunk, in TileEdit edit)
+        {
+            var tile = new TileCoord(
+                (chunk.X << Torus.ChunkBits) + (edit.Index & (Torus.ChunkSize - 1)),
+                (chunk.Y << Torus.ChunkBits) + (edit.Index >> Torus.ChunkBits));
+            bool blocks = EditRules.BlocksCreature(edit.Obj);
+            EditResult result = EditResult.Applied;
+            for (int i = 0; i < _entityCount; i++)
+            {
+                WorldPos p = _entities[i].Mover.Position;
+                if (blocks && EditRules.Overlaps(_shape, p, tile))
+                {
+                    return EditResult.Occupied;
+                }
+
+                if (_entities[i].Kind == SimEntity.KindEnemy && EditRules.EnemyTooClose(_shape, p, tile))
+                {
+                    result = EditResult.EnemyNear;
+                }
+            }
+
+            return result;
         }
 
         private void AddEvent(in SimEvent e)
@@ -648,12 +713,18 @@ namespace Orpheus.Core.Sim
             public readonly ChunkCoord Chunk;
             public readonly int Arrival;
             public readonly TileEdit Edit;
+            public readonly int Requester;
+            public readonly int Tag;
+            public readonly bool CheckCreatures;
 
-            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit)
+            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit, int requester, int tag, bool checkCreatures)
             {
                 Chunk = chunk;
                 Arrival = arrival;
                 Edit = edit;
+                Requester = requester;
+                Tag = tag;
+                CheckCreatures = checkCreatures;
             }
         }
     }

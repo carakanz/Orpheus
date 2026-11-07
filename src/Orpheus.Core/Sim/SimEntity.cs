@@ -12,6 +12,9 @@ namespace Orpheus.Core.Sim
         /// <summary>Персонаж (игрок или бот — для такта одно и то же: сущность с вводом).</summary>
         public const byte KindCharacter = 1;
 
+        /// <summary>Враг (0-028: заглушка для правила постановки «не ближе 2 тайлов к врагу», `05` 1.3).</summary>
+        public const byte KindEnemy = 2;
+
         /// <summary>Номер сущности: растёт, не переиспользуется.</summary>
         public int Id;
 

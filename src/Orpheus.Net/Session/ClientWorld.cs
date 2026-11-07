@@ -22,7 +22,7 @@ namespace Orpheus.Net.Session
     /// (<see cref="ProtocolException"/>, счётчик <see cref="ChunksRejected"/>), а не доходит до экрана (П по 0-026, Н4).</item>
     /// </list>
     /// </summary>
-    public sealed class ClientWorld
+    public sealed partial class ClientWorld
     {
         private readonly Action<ChunkCoord> _request;
         private readonly HashSet<ChunkCoord> _awaiting = new HashSet<ChunkCoord>();
@@ -125,6 +125,7 @@ namespace Orpheus.Net.Session
             }
 
             _awaiting.Remove(m.Chunk);
+            OnChunkReplaced(m.Chunk); // 0-028: предсказания поверх новой копии
             ChunksReceived++;
             if (World.ChunkCount > MaxChunkCount)
             {
@@ -173,6 +174,7 @@ namespace Orpheus.Net.Session
             }
 
             PatchesApplied++;
+            OnPatchApplied(patch); // 0-028: сервер главнее предсказания
             ChunkChanged?.Invoke(patch.Chunk);
         }
 
@@ -192,6 +194,7 @@ namespace Orpheus.Net.Session
             {
                 World.RemoveChunk(_drop[i]);
                 _awaiting.Remove(_drop[i]);
+                DropPredictions(_drop[i]);
                 ChunksDropped++;
                 ChunkRemoved?.Invoke(_drop[i]);
             }

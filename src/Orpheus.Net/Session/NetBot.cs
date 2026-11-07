@@ -29,6 +29,7 @@ namespace Orpheus.Net.Session
         private readonly int _botIndex;
         private SimBot? _bot;
         private DodgeBot? _dodge;
+        private DigLineBot? _digLine;
         private InputFrame _current;
         private LocalPrediction? _pred;
         private uint _reconciledTick;
@@ -74,6 +75,9 @@ namespace Orpheus.Net.Session
         /// <summary>Бот-уворачивающийся (сценарий <c>dodge</c>, 0-029) — после входа; иначе null.</summary>
         public DodgeBot? Dodge => _dodge;
 
+        /// <summary>Бот <c>dig_line</c> (0-028) — после входа; иначе null.</summary>
+        public DigLineBot? DigLine => _digLine;
+
         /// <summary>Предсказание своего персонажа (после входа, если есть фабрика).</summary>
         public LocalPrediction? Prediction => _pred;
 
@@ -107,6 +111,15 @@ namespace Orpheus.Net.Session
                     _dodge = dodge;
                     Client.SwingStarted = m => dodge.OnSwing(m);
                     Client.MeleeResolved = m => dodge.OnResult(m);
+                }
+            }
+            else if (_script == DigLineBot.Name)
+            {
+                if (_digLine == null)
+                {
+                    var dig = new DigLineBot(Client.Shape);
+                    _digLine = dig;
+                    Client.EditReplied = dig.OnReply;
                 }
             }
             else if (_bot == null)
@@ -149,6 +162,12 @@ namespace Orpheus.Net.Session
                     WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
                         : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
                     _current = _dodge.Next(next, pos);
+                }
+                else if (_digLine != null)
+                {
+                    WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
+                        : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
+                    _current = pos.HasValue ? _digLine.Next(Client, pos.Value) : InputFrame.None; // каждый кадр: кнопка копания — в кадрах
                 }
                 else if (_bot is RunSeamBot run)
                 {
