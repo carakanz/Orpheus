@@ -123,6 +123,15 @@ namespace Orpheus.Net.Transport
         /// <summary>Номер системы потока «приём».</summary>
         public const int ReceiveSystemId = 0x5E02;
 
+        /// <summary>
+        /// Свои потоки случайности у надёжных каналов (0-026): мир по каналу 1 (чанки, пачки) не сдвигает случайность
+        /// канала 0 — потери и разброс снимков и ввода при том же зерне те же, что без него.
+        /// </summary>
+        public const int ReliableSendSystemId = 0x5E03;
+
+        /// <summary>См. <see cref="ReliableSendSystemId"/>.</summary>
+        public const int ReliableReceiveSystemId = 0x5E04;
+
         /// <summary>Добавка к переотправке надёжного пакета сверх двух задержек, мкс.</summary>
         public const int RetransmitExtraMicros = 25_000;
 
@@ -144,6 +153,7 @@ namespace Orpheus.Net.Transport
         private struct Direction
         {
             public DetRandom Rng;
+            public DetRandom ReliableRng;
             public long BurstUntil;
             public long BurstOffset;
             public NetSimStats Stats;
@@ -172,6 +182,8 @@ namespace Orpheus.Net.Transport
             _s = settings;
             _send.Rng = DetRandom.ForSystem(settings.Seed, SendSystemId);
             _receive.Rng = DetRandom.ForSystem(settings.Seed, ReceiveSystemId);
+            _send.ReliableRng = DetRandom.ForSystem(settings.Seed, ReliableSendSystemId);
+            _receive.ReliableRng = DetRandom.ForSystem(settings.Seed, ReliableReceiveSystemId);
         }
 
         /// <summary>Настройки.</summary>
@@ -299,8 +311,8 @@ namespace Orpheus.Net.Transport
                 return;
             }
 
-            long reliableDelay = BaseDelay(ref d);
-            for (int r = 0; r < MaxRetransmits && Roll(ref d, _s.LossPpm); r++)
+            long reliableDelay = ReliableBaseDelay(ref d);
+            for (int r = 0; r < MaxRetransmits && RollReliable(ref d, _s.LossPpm); r++)
             {
                 d.Stats.Retransmits++;
                 reliableDelay += 2L * _s.DelayMs * 1000 + RetransmitExtraMicros;
@@ -325,6 +337,21 @@ namespace Orpheus.Net.Transport
             d.Stats.Delivered++;
             d.Stats.DelaySumMicros += due - _now;
         }
+
+        // Надёжные каналы: своя случайность; общий разброс пачками — текущий, если окно пачки идёт, без нового броска.
+        private long ReliableBaseDelay(ref Direction d)
+        {
+            long delay = _s.DelayMs * 1000L;
+            if (_s.JitterMs > 0)
+            {
+                delay += _s.BurstJitter && _now < d.BurstUntil ? d.BurstOffset : Gaussian(ref d.ReliableRng, _s.JitterMs);
+            }
+
+            return delay < 0 ? 0 : delay;
+        }
+
+        private static bool RollReliable(ref Direction d, int ppm) =>
+            ppm > 0 && (ppm >= NetSimSettings.Million || d.ReliableRng.NextInt(NetSimSettings.Million) < ppm);
 
         private long BaseDelay(ref Direction d)
         {
