@@ -1043,46 +1043,55 @@ namespace Orpheus.Tests
             }
 
             Assert.True(Moving(id), "бот не пошёл");
-            long stopsBefore = h.Server.InputStops;
-            gates[0].DropOutgoingUnreliable = true;
-            long cut = h.Sim.Tick; // последний кадр принят на приёме такта cut − 1 (перед шагом к cut)
-            var pos = new List<WorldPos>();
-            for (int k = 0; k < 60; k++)
+
+            // Два обрыва подряд: после возврата связи стоп снова срабатывает (признак «остановлен» снимается новым кадром).
+            var report = new List<string>();
+            for (int round = 0; round < 2; round++)
             {
-                h.Run(1);
-                pos.Add(PosOf(id)); // позиция после такта cut + k + 1
+                long stopsBefore = h.Server.InputStops;
+                gates[0].DropOutgoingUnreliable = true;
+                long cut = h.Sim.Tick; // последний кадр принят на приёме такта cut − 1 (перед шагом к cut)
+                var pos = new List<WorldPos>();
+                for (int k = 0; k < 60; k++)
+                {
+                    h.Run(1);
+                    pos.Add(PosOf(id)); // позиция после такта cut + k + 1
+                }
+
+                // Первые такты ввод ещё держится (бежит), не позже 6 тактов после последнего кадра — стоит.
+                Assert.NotEqual(pos[0], pos[3]);
+                int stoppedFrom = pos.Count - 1;
+                while (stoppedFrom > 0 && pos[stoppedFrom - 1] == pos[pos.Count - 1])
+                {
+                    stoppedFrom--;
+                }
+
+                // Конечную позицию персонаж занял на такте cut + stoppedFrom + 1 — не позже чем через 6 тактов (0,2 с,
+                // 2.13 п. 6) после последнего кадра. Порог — число документа, не константа сервера.
+                long lastFrameTick = cut - 1;
+                long stoppedTick = cut + stoppedFrom + 1;
+                Assert.True(stoppedTick - lastFrameTick <= 6, $"обрыв {round}: стоит только с такта {stoppedTick}, последний кадр на такте {lastFrameTick}");
+                Assert.Equal(stopsBefore + 1, h.Server.InputStops);
+                Assert.False(Moving(id));
+                Assert.Equal(2, h.Server.PlayersInGame);
+                Assert.Equal(NetClientState.InGame, h.Bots[0].Client.State);
+
+                // Связь вернулась: ввод снова применяется — бот идёт.
+                gates[0].DropOutgoingUnreliable = false;
+                WorldPos stoppedAt = PosOf(id);
+                waited = 0;
+                while (!(PosOf(id) != stoppedAt && Moving(id)) && waited++ < 300)
+                {
+                    h.Run(1);
+                }
+
+                Assert.NotEqual(stoppedAt, PosOf(id));
+                Assert.True(Moving(id), $"обрыв {round}: после возврата связи бот не идёт");
+                report.Add($"обрыв {round}: последний кадр на такте {lastFrameTick}, стоит с такта {stoppedTick} " +
+                           $"({stoppedTick - lastFrameTick} такт(ов)); после возврата пошёл через {waited} такт(ов)");
             }
 
-            // Первые такты ввод ещё держится (бежит), не позже 6 тактов после последнего кадра — стоит.
-            Assert.NotEqual(pos[0], pos[3]);
-            int stoppedFrom = pos.Count - 1;
-            while (stoppedFrom > 0 && pos[stoppedFrom - 1] == pos[pos.Count - 1])
-            {
-                stoppedFrom--;
-            }
-
-            // Последний кадр принят на такте cut − 1; конечную позицию персонаж занял на такте cut + stoppedFrom + 1 —
-            // не позже чем через 6 тактов (0,2 с) после кадра.
-            long lastFrameTick = cut - 1;
-            long stoppedTick = cut + stoppedFrom + 1;
-            Assert.True(stoppedTick - lastFrameTick <= NetServer.InputStaleTicks, $"стоит только с такта {stoppedTick}, последний кадр на такте {lastFrameTick}");
-            Assert.Equal(stopsBefore + 1, h.Server.InputStops);
-            Assert.False(Moving(id));
-            Assert.Equal(2, h.Server.PlayersInGame);
-            Assert.Equal(NetClientState.InGame, h.Bots[0].Client.State);
-
-            // Связь вернулась: ввод снова применяется — бот идёт.
-            gates[0].DropOutgoingUnreliable = false;
-            WorldPos stoppedAt = PosOf(id);
-            waited = 0;
-            while (PosOf(id) == stoppedAt && waited++ < 300)
-            {
-                h.Run(1);
-            }
-
-            Assert.NotEqual(stoppedAt, PosOf(id));
-            _out.WriteLine($"обрыв: последний кадр на такте {lastFrameTick}, стоит с такта {stoppedTick} ({stoppedTick - lastFrameTick} такт(ов)); " +
-                           $"после возврата пошёл через {waited} такт(ов)");
+            _out.WriteLine(string.Join("\n", report));
         }
 
         /// <summary>
@@ -1524,11 +1533,17 @@ namespace Orpheus.Tests
             }
 
             _out.WriteLine($"сверка по такту: {run.Checked} снимков, ошибка ≤ {run.MaxErrorUnits} unit; отставание снимка от такта сервера при приёме: " +
-                           $"≤ {run.MaxLagTicks} тактов ({run.MaxLagTicks * 0.2:F1} тайла при 6 т/с), среднее {run.MeanLagTicks:F2}");
+                           $"≤ {run.MaxLagTicks} тактов ({run.MaxLagTicks * 0.2:F1} тайла при 6 т/с), среднее {run.MeanLagTicks:F2}; " +
+                           $"больше 2 тактов — {run.LagOver2} из {run.Snapshots}");
             Assert.Equal(2, r.InGame);
             Assert.Equal(0, r.Disconnects);
             Assert.True(run.Checked > 2 * 60 * 25, $"{run.Checked}");
             Assert.True(run.MaxErrorUnits <= U / 2, $"{run.MaxErrorUnits}");
+
+            // 2.13 п. 1 (замечание 2 проверки 0-008): отставание снимка от такта сервера при приёме ≤ 2 такта (0,4 тайла
+            // при 6 т/с) в 99,9 % снимков. Метрики «предсказание клиента против сервера в тот же момент» в ядре пока нет
+            // (предсказание 0-013 — в Unity) — см. work/backlog.md; порог 0,5 тайла — на ней после 0-019.
+            Assert.True(run.LagOver2 * 1000 <= run.Snapshots, $"отставание > 2 тактов у {run.LagOver2} из {run.Snapshots} снимков (> 0,1 %)");
         }
 
         private sealed class UdpRun
@@ -1539,6 +1554,10 @@ namespace Orpheus.Tests
             public int MaxErrorUnits;
             public long MaxLagTicks;
             public double MeanLagTicks;
+
+            /// <summary>Принятых снимков всего / с отставанием больше 2 тактов (0-015, 2.13 п. 1).</summary>
+            public long Snapshots;
+            public long LagOver2;
         }
 
         private UdpRun RunUdp(int bots, double seconds, int rttMs, double lossPercent, Action<BotOptions> extra)
@@ -1573,6 +1592,12 @@ namespace Orpheus.Tests
             {
                 long lag = Volatile.Read(ref serverTick) - snap.Tick;
                 lagSum += lag;
+                run.Snapshots++;
+                if (lag > 2)
+                {
+                    run.LagOver2++;
+                }
+
                 run.MaxLagTicks = Math.Max(run.MaxLagTicks, lag);
                 if (snap.TryFind(entityId, out SnapshotEntity mine) && history.TryGetValue(((long)entityId << 32) | snap.Tick, out WorldPos truth))
                 {
