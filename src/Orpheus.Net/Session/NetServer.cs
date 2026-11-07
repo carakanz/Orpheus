@@ -215,7 +215,14 @@ namespace Orpheus.Net.Session
             _maxPlayers = maxPlayers;
             _version = version;
             _layout = new SnapshotLayout(sim.Shape);
+            GenerationHash = StateHash.Generation(sim.World);
         }
+
+        /// <summary>
+        /// Хэш снимка генерации для «входа принят» (0-017). По умолчанию — от мира при создании сервера (верно для мира
+        /// без правок); загруженный мир с правками — сервер ставит хэш, посчитанный до наложения сохранения.
+        /// </summary>
+        public ulong GenerationHash { get; set; }
 
         /// <summary>Лог: уровень, категория (<c>net</c>), текст.</summary>
         public Action<NetLogLevel, string>? Log { get; set; }
@@ -863,6 +870,7 @@ namespace Orpheus.Net.Session
                 Wraps = _sim.Shape.Wraps,
                 WorldSeed = _sim.World.Seed,
                 TickRate = Simulation.TickRate,
+                GenerationHash = GenerationHash,
             }.Write(_buf);
             _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             Log?.Invoke(NetLogLevel.Info, $"вход: «{m.Name}» → #{id}, соединение {p.Peer}");

@@ -36,7 +36,7 @@ namespace Orpheus.Server
         public const string Usage =
             "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень]\n" +
-            "              [--port P [--public] [--max-players N]]\n" +
+            "              [--port P [--public] [--max-players N]] [--spawn-seam]\n" +
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]";
 
         /// <summary>Автосохранение по умолчанию: раз в 2 мин мира (docs/07, 6.4).</summary>
@@ -80,6 +80,12 @@ namespace Orpheus.Server
 
         /// <summary>Мест для игроков по сети (по умолчанию 16).</summary>
         public int MaxPlayers { get; set; } = 16;
+
+        /// <summary>
+        /// <c>--spawn-seam</c> (0-017, net-smoke): боты и игроки появляются у шва x = 0 на чистой строке, а не в середине
+        /// карты; вместе с ботами <c>shuttle</c> — чужие ходят через шов на глазах у клиента.
+        /// </summary>
+        public bool SpawnSeam { get; set; }
 
         /// <summary>Для тестов: зовётся в потоке такта после каждого такта (и рассылки снимков). Не ключ.</summary>
         public Action<Orpheus.Core.Sim.Simulation>? AfterTick { get; set; }
@@ -151,6 +157,9 @@ namespace Orpheus.Server
                         break;
                     case "--public":
                         o.LoopbackOnly = false;
+                        break;
+                    case "--spawn-seam":
+                        o.SpawnSeam = true;
                         break;
                     case "--max-players":
                         o.MaxPlayers = ParseInt(a, Value(args, ref i));

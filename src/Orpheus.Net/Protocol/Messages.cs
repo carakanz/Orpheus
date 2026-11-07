@@ -76,6 +76,23 @@ namespace Orpheus.Net.Protocol
         /// <summary>Наибольший размер: тип 1 + версия 6 + длина 1 + имя 32.</summary>
         public const int MaxBytes = 1 + NetVersion.WireBytes + 1 + MaxNameBytes;
 
+        /// <summary>
+        /// Проверка имени до отправки (0-017, замечание 6 проверки 0-012): null — годится; иначе текст для игрока.
+        /// Предел — байты UTF-8, как в протоколе, а не символы: «Орфей» — 10 байт, кириллицей входит 16 букв.
+        /// </summary>
+        public static string? NameError(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return "Имя пустое: нужно 1…" + MaxNameBytes + " байт UTF-8.";
+            }
+
+            int n = Encoding.UTF8.GetByteCount(name);
+            return n > MaxNameBytes
+                ? $"Имя «{name}» — {n} байт UTF-8, а можно не больше {MaxNameBytes} (кириллица — 2 байта на букву: до 16 букв)."
+                : null;
+        }
+
         public int Write(Span<byte> dest)
         {
             byte[] name = Encoding.UTF8.GetBytes(Name ?? string.Empty); // вход — раз за сессию, выделение не важно
@@ -110,11 +127,14 @@ namespace Orpheus.Net.Protocol
         }
     }
 
-    /// <summary>Вход принят: своя сущность, такт сервера, форма и зерно мира.</summary>
+    /// <summary>
+    /// Вход принят: своя сущность, такт сервера, форма и зерно мира, хэш снимка генерации (0-017: клиент, генерирующий
+    /// мир по зерну, сверяет свой — <c>StateHash.Generation</c>; docs/07, 3.4, backlog [док]).
+    /// </summary>
     public struct LoginAcceptMessage
     {
-        /// <summary>Тип 1 + сущность 4 + такт 4 + ширина 4 + высота 4 + тор 1 + зерно 8 + частота 1.</summary>
-        public const int Bytes = 27;
+        /// <summary>Тип 1 + сущность 4 + такт 4 + ширина 4 + высота 4 + тор 1 + зерно 8 + частота 1 + хэш генерации 8.</summary>
+        public const int Bytes = 35;
 
         public int EntityId;
         public uint ServerTick;
@@ -123,6 +143,9 @@ namespace Orpheus.Net.Protocol
         public bool Wraps;
         public ulong WorldSeed;
         public byte TickRate;
+
+        /// <summary>Хэш снимка генерации мира сервера (до правок): <c>StateHash.Generation</c>.</summary>
+        public ulong GenerationHash;
 
         public int Write(Span<byte> dest)
         {
@@ -135,6 +158,7 @@ namespace Orpheus.Net.Protocol
             w.WriteByte(Wraps ? (byte)1 : (byte)0);
             w.WriteUInt64(WorldSeed);
             w.WriteByte(TickRate);
+            w.WriteUInt64(GenerationHash);
             return w.BytesWritten;
         }
 
@@ -157,6 +181,7 @@ namespace Orpheus.Net.Protocol
             m.Wraps = wraps == 1;
             m.WorldSeed = r.ReadUInt64();
             m.TickRate = r.ReadByte();
+            m.GenerationHash = r.ReadUInt64();
             r.ExpectEnd();
             if (m.MapWidth <= 0 || m.MapHeight <= 0 || m.EntityId <= 0)
             {

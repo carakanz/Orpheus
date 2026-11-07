@@ -82,7 +82,7 @@ namespace Orpheus.Tests
             var m = new LoginAcceptMessage
             {
                 EntityId = 123456, ServerTick = 4_000_000_000, MapWidth = 4096, MapHeight = 4096, Wraps = true,
-                WorldSeed = 0xDEADBEEF_CAFEBABE, TickRate = 30,
+                WorldSeed = 0xDEADBEEF_CAFEBABE, TickRate = 30, GenerationHash = 0x0123_4567_89AB_CDEF,
             };
             byte[] a = Encode(b => m.Write(b));
             Assert.Equal(LoginAcceptMessage.Bytes, a.Length);
@@ -94,6 +94,7 @@ namespace Orpheus.Tests
             Assert.Equal(m.Wraps, back.Wraps);
             Assert.Equal(m.WorldSeed, back.WorldSeed);
             Assert.Equal(m.TickRate, back.TickRate);
+            Assert.Equal(m.GenerationHash, back.GenerationHash);
             Assert.Equal(a, Encode(b => back.Write(b)));
         }
 
