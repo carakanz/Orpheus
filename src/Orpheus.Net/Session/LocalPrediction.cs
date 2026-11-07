@@ -123,8 +123,14 @@ namespace Orpheus.Net.Session
         /// <summary>Расхождение на последней сверке, unit.</summary>
         public int LastDevUnits { get; private set; }
 
+        /// <summary>Была сверка с сервером (позиция — не начальная заглушка).</summary>
+        public bool Synced => _synced;
+
         /// <summary>Предсказанная позиция после последнего кадра.</summary>
         public WorldPos Position => _mover.Position;
+
+        /// <summary>Предсказанный уворот после последнего кадра (0-029).</summary>
+        public Dodge Dodge => _mover.Dodge;
 
         /// <summary>Предсказанный остаток скорости после последнего кадра.</summary>
         public Int2 Carry => _mover.Carry;
@@ -152,7 +158,7 @@ namespace Orpheus.Net.Session
                 _awaitFrom = frame - 3;
                 for (uint k = 3; k >= 1; k--)
                 {
-                    _mover.StepFrame(_map, input.Direction, _solid);
+                    _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid); // копии — с кнопками, как шлёт клиент (0-029)
                     Push(frame - k, input);
                 }
             }
@@ -170,7 +176,7 @@ namespace Orpheus.Net.Session
                 _beforePre = false;
             }
 
-            _mover.StepFrame(_map, input.Direction, _solid);
+            _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid);
             Push(frame, input);
         }
 
@@ -253,7 +259,7 @@ namespace Orpheus.Net.Session
                     ComparedOverHalfTile++;
                 }
 
-                if (d2 <= MatchDist2 && predicted.Carry == server.Carry)
+                if (d2 <= MatchDist2 && predicted.Carry == server.Carry && SelfState.SameDodge(predicted.Dodge, server.Dodge))
                 {
                     return; // совпало (2.6 п. 3)
                 }
@@ -289,16 +295,18 @@ namespace Orpheus.Net.Session
                 _replay[n++] = s;
             }
 
-            // Серверное состояние — уже после ack: переигровка только новее.
+            // Серверное состояние — уже после ack: переигровка только новее. Уворот — тоже серверный (0-029, протокол 6):
+            // сервер мог шагнуть кадры сам (без нажатий) или перескочить их — тогда предсказанный рывок не тот.
             _mover.Position = server.Position;
             _mover.Carry = server.Carry;
+            _mover.Dodge = server.Dodge;
             _before = _mover;
             _beforeFrame = ackFrame;
             _beforePre = !_hasHistory || (int)(ackFrame - _firstFrame) < 0;
             _head = _count = 0;
             for (int k = n - 1; k >= 0; k--)
             {
-                _mover.StepFrame(_map, _replay[k].Input.Direction, _solid);
+                _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, _solid);
                 Push(_replay[k].Frame, _replay[k].Input);
             }
 

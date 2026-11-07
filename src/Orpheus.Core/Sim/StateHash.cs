@@ -140,6 +140,10 @@ namespace Orpheus.Core.Sim
             h.Add(e.Mover.Carry.X);
             h.Add(e.Mover.Carry.Y);
             h.Add(e.Mover.UnitsPerTickX10);
+            h.Add(e.Mover.Dodge.Elapsed);
+            h.Add(e.Mover.Dodge.DashLeft);
+            h.Add(e.Mover.Dodge.Cooldown);
+            h.Add(e.Mover.Dodge.Direction);
             h.Add(e.Input.DirectionCode);
             h.Add(e.Input.Buttons);
             return h.Value;

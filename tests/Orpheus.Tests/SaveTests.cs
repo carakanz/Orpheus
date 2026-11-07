@@ -330,6 +330,140 @@ namespace Orpheus.Tests
             Assert.Empty(loaded.World.GetChangedSinceBase());
         }
 
+        /// <summary>
+        /// Близнец <see cref="D00_Save_RoundTrip_SameStateHash_ThenSameFuture_ByteIdentical"/> с уворотом (П по 0-029, з. 1):
+        /// сущности жмут уворот кадрами (<see cref="Simulation.SetFramesAt"/>), на такте сохранения одна в рывке, одна в откате,
+        /// у одной счётчик «с начала» упёрся в 255. Сохранение → загрузка — тот же хэш, тот же уворот, тот же файл и то же будущее.
+        /// </summary>
+        [Fact]
+        public void D00_Save_RoundTrip_Dodge_SameStateHash_ThenSameFuture_ByteIdentical()
+        {
+            SaveFixtures.LiveWorld live = SaveFixtures.Create(1024, Seed, bots: 8);
+            live.Run(ticks: 120, editsPerTick: 2);
+            for (int t = 0; t < 200; t++)
+            {
+                StepDodging(live.Sim, t);
+            }
+
+            Dodge[] dodges = DodgesOf(live.Sim);
+            Assert.Contains(dodges, d => d.Dashing);
+            Assert.Contains(dodges, d => !d.Dashing && d.Cooldown != 0);
+            Assert.Contains(dodges, d => d.Elapsed == Dodge.ElapsedCap && d.Direction != 0);
+
+            StateHashResult before = StateHash.Compute(live.Sim);
+            byte[] save = WorldSave.Build(WorldSave.Capture(live.Sim, live.BaseSha, "уворот"), 9, 1_762_400_000_000);
+            _out.WriteLine($"уворот на такте {live.Sim.Tick}: {string.Join("; ", dodges.Select(d => d.ToString()))}");
+
+            Simulation loaded = SaveFixtures.Load(live.BaseBytes, save);
+            Assert.Equal(dodges, DodgesOf(loaded));
+            Assert.Equal(before.Total, StateHash.Compute(loaded).Total);
+            Assert.Equal(save, WorldSave.Build(WorldSave.Capture(loaded, live.BaseSha, "уворот"), 9, 1_762_400_000_000));
+
+            // Будущее одно: те же кадры с нажатиями — откат и рывок посреди сохранения доигрываются одинаково.
+            for (int t = 200; t < 500; t++)
+            {
+                StepDodging(live.Sim, t);
+                StepDodging(loaded, t);
+                Assert.Equal(StateHash.Compute(live.Sim).Total, StateHash.Compute(loaded).Total);
+            }
+        }
+
+        /// <summary>Сохранение формата 1 (без полей уворота) грузится: уворот нулевой, остальное на месте (6.7, поле с умолчанием).</summary>
+        [Fact]
+        public void D00_Save_Format1_NoDodgeFields_LoadsWithZeroDodge()
+        {
+            SaveFixtures.LiveWorld live = SaveFixtures.Create(1024, Seed, bots: 4);
+            live.Run(ticks: 60, editsPerTick: 2);
+            for (int t = 0; t < 30; t++)
+            {
+                StepDodging(live.Sim, t);
+            }
+
+            Assert.Contains(DodgesOf(live.Sim), d => d.Direction != 0);
+            SaveFile f = SaveContainer.Read(WorldSave.Build(WorldSave.Capture(live.Sim, live.BaseSha, "v1"), 4, 0));
+            Assert.Equal(2u, f.Header.FormatVersion);
+
+            // Формат 1: те же записи сущностей без полей 10–13, заголовок версии 1.
+            var creatures = new RecordWriter();
+            var r = new RecordReader(f.Section(SaveSections.Creatures));
+            while (r.Next())
+            {
+                int em = creatures.BeginRecord(SaveSections.CreaturesField.Entity);
+                RecordReader er = r.Record();
+                while (er.Next())
+                {
+                    if (er.Field >= SaveSections.EntityField.DodgeElapsed && er.Field <= SaveSections.EntityField.DodgeDirection)
+                    {
+                        continue;
+                    }
+
+                    if (er.Type == RecordType.UInt)
+                    {
+                        creatures.WriteUInt(er.Field, er.UInt());
+                    }
+                    else
+                    {
+                        creatures.WriteInt(er.Field, er.Int());
+                    }
+                }
+
+                creatures.EndRecord(em);
+            }
+
+            SaveHeader h = f.Header;
+            byte[] v1 = SaveContainer.Write(new SaveHeader(1, h.BuildVersion, h.Number, h.WorldTick, h.DateUnixMs), new[]
+            {
+                new SaveSection(SaveSections.World, f.Section(SaveSections.World).ToArray()),
+                new SaveSection(SaveSections.Chunks, f.Section(SaveSections.Chunks).ToArray()),
+                new SaveSection(SaveSections.Creatures, creatures.ToArray()),
+            });
+
+            Simulation loaded = SaveFixtures.Load(live.BaseBytes, v1);
+            Assert.Equal(live.Sim.EntityCount, loaded.EntityCount);
+            for (int i = 0; i < loaded.EntityCount; i++)
+            {
+                SimEntity a = live.Sim.Entities[i];
+                SimEntity b = loaded.Entities[i];
+                Assert.Equal(a.Id, b.Id);
+                Assert.Equal(a.Mover.Position, b.Mover.Position);
+                Assert.Equal(a.Mover.Carry, b.Mover.Carry);
+                Assert.Equal(default(Dodge), b.Mover.Dodge);
+            }
+
+            Assert.Equal(StateHash.Compute(live.Sim).World, StateHash.Compute(loaded).World);
+        }
+
+        /// <summary>
+        /// Такт кадрами ввода с уворотом: сущность 0 жмёт один раз (в такте 0) — дальше её счётчик «с начала» доходит до 255;
+        /// остальные — раз в 25 тактов (50 кадров > рывок + откат 39) со сдвигом по номеру, направление крутится.
+        /// </summary>
+        private static void StepDodging(Simulation sim, int t)
+        {
+            Span<InputFrame> frames = stackalloc InputFrame[2];
+            for (int i = 0; i < sim.EntityCount; i++)
+            {
+                bool press = i == 0 ? t == 0 : (t + 5 * i) % 25 == 0;
+                Input8 dir = Input8.FromIndex((t / 13 + i) % 8);
+                frames[0] = new InputFrame(dir, press ? InputButtons.Dodge : (ushort)0);
+                frames[1] = new InputFrame(dir);
+                sim.SetFramesAt(i, frames);
+            }
+
+            sim.Step();
+            sim.RefillPools();
+        }
+
+        private static Dodge[] DodgesOf(Simulation sim)
+        {
+            var d = new Dodge[sim.EntityCount];
+            for (int i = 0; i < d.Length; i++)
+            {
+                d[i] = sim.Entities[i].Mover.Dodge;
+            }
+
+            return d;
+        }
+
         /// <summary>Незнакомые поле и раздел в настоящем сохранении: загрузка их пропускает (6.3, 6.7).</summary>
         [Fact]
         public void D00_Save_UnknownFieldAndSection_Skipped()
@@ -696,10 +830,10 @@ namespace Orpheus.Tests
             _out.WriteLine(text.Length > 3000 ? text.Substring(0, 3000) + "…" : text);
             foreach (string s in new[]
                      {
-                         "состояние: целый", "ORPHSAVE, формат 1", "номер 127", "такт 30", "SHA-256: сошёлся",
+                         "состояние: целый", $"ORPHSAVE, формат {SaveModule.FormatVersion}", "номер 127", "такт 30", "SHA-256: сошёлся",
                          "[МИР] id 1", "[ЧАНКИ] id 2", "[СУЩЕСТВА] id 6", "CRC32 0x", "1 имя: «Долина»",
                          $"2 зерно: {Seed}", "3 ширина: 1024", "1 чанк: запись", "4 ревизия:", "5 сжатый блок:",
-                         "1 сущность: запись", "3 x, 1/256 тайла:", "7 скорость ×10: 512",
+                         "1 сущность: запись", "3 x, 1/256 тайла:", "7 скорость ×10: 512", "13 уворот: направление:",
                      })
             {
                 Assert.Contains(s, text);

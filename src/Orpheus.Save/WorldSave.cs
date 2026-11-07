@@ -96,11 +96,11 @@ namespace Orpheus.Save
     }
 
     /// <summary>
-    /// Мир в контейнер и обратно (docs/07, 6.2–6.3; версия формата 1). Разделы:
+    /// Мир в контейнер и обратно (docs/07, 6.2–6.3; версия формата 2, читается и 1). Разделы:
     /// <list type="bullet">
     /// <item>МИР — имя, зерно, форма, версия генератора, SHA-256 снимка генерации (<c>world.base</c>), следующий номер сущности;</item>
     /// <item>ЧАНКИ — изменённые после генерации чанки (0-005: <see cref="Chunk.ChangedSinceBase"/>): карта, x, y, ревизия, сжатый блок;</item>
-    /// <item>СУЩЕСТВА — минимально: сущности такта со всеми полями хэша состояния (0-006).</item>
+    /// <item>СУЩЕСТВА — минимально: сущности такта со всеми полями хэша состояния (0-006; уворот — с формата 2, 0-029).</item>
     /// </list>
     /// Загрузка: снимок генерации → поверх изменённые чанки → сущности и такт. Хэш состояния после загрузки
     /// равен хэшу на такте сохранения (тест <c>D00_Save_RoundTrip_*</c>).
@@ -196,6 +196,10 @@ namespace Orpheus.Save
                 e.WriteInt(SaveSections.EntityField.SpeedX10, x.Mover.UnitsPerTickX10);
                 e.WriteUInt(SaveSections.EntityField.Direction, x.Input.DirectionCode);
                 e.WriteUInt(SaveSections.EntityField.Buttons, x.Input.Buttons);
+                e.WriteUInt(SaveSections.EntityField.DodgeElapsed, x.Mover.Dodge.Elapsed);
+                e.WriteUInt(SaveSections.EntityField.DodgeDashLeft, x.Mover.Dodge.DashLeft);
+                e.WriteUInt(SaveSections.EntityField.DodgeCooldown, x.Mover.Dodge.Cooldown);
+                e.WriteUInt(SaveSections.EntityField.DodgeDirection, x.Mover.Dodge.Direction);
                 e.EndRecord(mark);
             }
 
@@ -356,7 +360,7 @@ namespace Orpheus.Save
                 int index = coords.Count;
                 if (map != 0)
                 {
-                    throw new InvalidDataException($"Чанк № {index}: карта {map} — отдельных карт в формате 1 нет.");
+                    throw new InvalidDataException($"Чанк № {index}: карта {map} — отдельных карт в формате {SaveModule.FormatVersion} нет.");
                 }
 
                 if ((uint)x >= (uint)shape.ChunksX || (uint)y >= (uint)shape.ChunksY || data == null)
@@ -422,6 +426,7 @@ namespace Orpheus.Save
             int speed = MovementTick.BaseSpeedX10;
             int direction = 0;
             int buttons = 0;
+            Dodge dodge = default; // формат 1 полей уворота не пишет — уворот нулевой («ещё не было»)
             while (r.Next())
             {
                 switch (r.Field)
@@ -453,6 +458,18 @@ namespace Orpheus.Save
                     case SaveSections.EntityField.Buttons:
                         buttons = r.UIntAsInt(ushort.MaxValue);
                         break;
+                    case SaveSections.EntityField.DodgeElapsed:
+                        dodge.Elapsed = (byte)r.UIntAsInt(Dodge.ElapsedCap);
+                        break;
+                    case SaveSections.EntityField.DodgeDashLeft:
+                        dodge.DashLeft = (byte)r.UIntAsInt(Dodge.DashFrames);
+                        break;
+                    case SaveSections.EntityField.DodgeCooldown:
+                        dodge.Cooldown = (byte)r.UIntAsInt(Dodge.CooldownFrames);
+                        break;
+                    case SaveSections.EntityField.DodgeDirection:
+                        dodge.Direction = (byte)r.UIntAsInt(InputFrame.MaxDirectionCode);
+                        break;
                 }
             }
 
@@ -470,7 +487,7 @@ namespace Orpheus.Save
             {
                 Id = id,
                 Kind = (byte)kind,
-                Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY) },
+                Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge },
                 Input = InputFrame.FromCode((byte)direction, (ushort)buttons),
             };
         }

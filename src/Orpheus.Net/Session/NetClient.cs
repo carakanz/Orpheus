@@ -200,6 +200,18 @@ namespace Orpheus.Net.Session
         /// <summary>Токен хозяина для входа (до подключения): игра, запустившая сервер, входит хозяином.</summary>
         public HostToken HostToken { get; set; }
 
+        /// <summary>«Замах начат» (0-029): каждое пришедшее сообщение, с повторами — отсеивает получатель (атакующий + s).</summary>
+        public Action<SwingStartMessage>? SwingStarted { get; set; }
+
+        /// <summary>«Удар решён» по своему персонажу (0-029).</summary>
+        public Action<MeleeResultMessage>? MeleeResolved { get; set; }
+
+        /// <summary>Сообщений «замах начат» принято (с повторами).</summary>
+        public long SwingMessages { get; private set; }
+
+        /// <summary>Сообщений «удар решён» принято.</summary>
+        public long MeleeResults { get; private set; }
+
         /// <summary>Ответ на «Открыть для друзей»; не было — null.</summary>
         public OpenResultMessage? OpenResult { get; private set; }
 
@@ -404,6 +416,14 @@ namespace Orpheus.Net.Session
                         break;
                     case MessageType.Pong:
                         break;
+                    case MessageType.SwingStart when State == NetClientState.InGame:
+                        SwingMessages++;
+                        SwingStarted?.Invoke(SwingStartMessage.Read(data));
+                        break;
+                    case MessageType.MeleeResult when State == NetClientState.InGame:
+                        MeleeResults++;
+                        MeleeResolved?.Invoke(MeleeResultMessage.Read(data));
+                        break;
                     case MessageType.OpenResult when State == NetClientState.InGame:
                         OpenResult = OpenResultMessage.Read(data);
                         break;
@@ -414,6 +434,8 @@ namespace Orpheus.Net.Session
                         break;
                     case MessageType.Snapshot:
                         break; // снимок обогнал «вход принят» (другой канал) — пропускаем
+                    case MessageType.SwingStart:
+                        break; // замах обогнал «вход принят» — так же
                     default:
                         BadMessages++;
                         LastBadMessage = $"тип {data[0]} в состоянии {State}";

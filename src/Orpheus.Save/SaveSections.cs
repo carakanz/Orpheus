@@ -5,7 +5,7 @@ namespace Orpheus.Save
     /// <summary>
     /// Разделы контейнера (docs/07, 6.3) и номера полей их записей. Номер поля, однажды выпущенный,
     /// не меняет смысла и не переиспользуется (6.7: «новое поле с умолчанием миграции не требует»).
-    /// В версии формата 1 пишутся МИР, ЧАНКИ и СУЩЕСТВА; остальные id закреплены за будущими разделами.
+    /// В версиях формата 1–2 пишутся МИР, ЧАНКИ и СУЩЕСТВА; остальные id закреплены за будущими разделами.
     /// </summary>
     public static class SaveSections
     {
@@ -85,7 +85,7 @@ namespace Orpheus.Save
             public const int Entity = 1;
         }
 
-        /// <summary>Поля записи сущности (минимально: то, что есть в такте 0-006).</summary>
+        /// <summary>Поля записи сущности (минимально: то, что есть в такте 0-006; уворот — с формата 2, 0-029).</summary>
         public static class EntityField
         {
             public const int Id = 1;
@@ -97,6 +97,18 @@ namespace Orpheus.Save
             public const int SpeedX10 = 7;
             public const int Direction = 8;
             public const int Buttons = 9;
+
+            /// <summary>Уворот (<c>Mover.Dodge</c>, формат 2): кадров от начала рывка, 0…255. Нет поля (формат 1) — 0.</summary>
+            public const int DodgeElapsed = 10;
+
+            /// <summary>Уворот: кадров рывка осталось, 0…15.</summary>
+            public const int DodgeDashLeft = 11;
+
+            /// <summary>Уворот: кадров отката осталось, 0…24.</summary>
+            public const int DodgeCooldown = 12;
+
+            /// <summary>Уворот: направление рывка, код 0…8 (0 — уворота не было).</summary>
+            public const int DodgeDirection = 13;
         }
 
         /// <summary>Схема записей раздела для <c>orpheus-save dump</c>: имена полей и вложенные схемы. null — схемы нет.</summary>
@@ -136,7 +148,11 @@ namespace Orpheus.Save
                 .Field(EntityField.CarryY, "остаток y")
                 .Field(EntityField.SpeedX10, "скорость ×10")
                 .Field(EntityField.Direction, "ввод: направление")
-                .Field(EntityField.Buttons, "ввод: кнопки"));
+                .Field(EntityField.Buttons, "ввод: кнопки")
+                .Field(EntityField.DodgeElapsed, "уворот: кадров с начала")
+                .Field(EntityField.DodgeDashLeft, "уворот: рывка осталось")
+                .Field(EntityField.DodgeCooldown, "уворот: отката осталось")
+                .Field(EntityField.DodgeDirection, "уворот: направление"));
     }
 
     /// <summary>Имена полей записи и схемы вложенных записей (только для текстового вывода).</summary>
