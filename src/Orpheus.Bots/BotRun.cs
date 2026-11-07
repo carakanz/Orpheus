@@ -109,8 +109,8 @@ namespace Orpheus.Bots
         /// Сценарий не выполнен (код выхода ботов 1): <c>run_seam</c> — пройдены не все заданные круги, невязка круга ≠ 0
         /// или сверка кадров не сошлась (<see cref="RunSeamBot.FrameMismatches"/>); <c>seam_watch</c> — скачок показа сверх
         /// траектории снимков больше 0,022 тайла хоть в одном окне 1/30 с (<see cref="SeamWatch.OverExcess"/>), нет замеров
-        /// или бегущего не видно с какой-то стороны шва (<see cref="SeamWatch.Passed"/>). Буквальный сдвиг против 0,22 тайла
-        /// (<see cref="SeamWatch.Over30"/>) код выхода не меняет — он в отчёте (<c>passedLiteral</c>).
+        /// или бегущего не видно с какой-то стороны шва (<see cref="SeamWatch.Passed"/>). Сдвиг за 1/30 с времени показа против 0,22 тайла
+        /// + квант снимка (<see cref="SeamWatch.Over30"/>, <see cref="SeamWatch.LimitShown30Tiles"/>) код выхода не меняет — он в отчёте (<c>passedLiteral</c>).
         /// </summary>
         public bool ScenarioFailed { get; set; }
 
@@ -567,13 +567,13 @@ namespace Orpheus.Bots
         /// <summary>Строка замера наблюдателя для консоли.</summary>
         public static string WatchText(SeamWatch w) => string.Format(CultureInfo.InvariantCulture,
             "кадров {0}, в показе {1} (x: восток {2} / запад {3}; y: юг {4} / север {5}), переходов шва x {6}, y {7}; " +
-            "за 1/30 с: замеров {8}, наибольший сдвиг {9:0.000} т (окно {10:0.0} мс), сверх 0,22 — {11} (из них окно > 36,7 мс — {12}; ещё {22} в первую секунду показа — не в счёт); " +
+            "за 1/30 с времени показа: замеров {8}, наибольший сдвиг {9:0.000} т (окно {10:0.0} мс; по местным часам {23:0.000} т), сверх {24:0.000} (0,22 + квант снимка) — {11} (из них окно > 36,7 мс — {12}; ещё {22} в первую секунду показа — не в счёт); " +
             "за 1/60 с: наибольший {13:0.000} т, сверх 0,11 — {14}; скачок сверх траектории снимков за 1/30 с: наибольший {18:0.0000} т, " +
             "сверх {19:0.000} — {20}, расхождение ≤ {21:0.0000} т; показ: на новейшем {15}, догон {16}, перестановок {17}",
             w.Frames, w.FramesInView, w.ViewEastOfX, w.ViewWestOfX, w.ViewSouthOfY, w.ViewNorthOfY, w.CrossingsX, w.CrossingsY,
             w.Steps30, w.MaxStep30Tiles, w.MaxStep30WindowUs / 1000.0, w.Over30, w.Over30LateWindow, w.MaxStep60Tiles, w.Over60,
             w.Interp.HoldFrames, w.Interp.CatchUpSteps, w.Interp.ClockResets, w.MaxExcess30Tiles, SeamWatch.LimitExcessTiles, w.OverExcess,
-            w.MaxDeviationTiles, w.Over30Warmup);
+            w.MaxDeviationTiles, w.Over30Warmup, w.MaxStep30LocalTiles, SeamWatch.LimitShown30Tiles);
 
         private static string Progress(NetBot b)
         {
@@ -757,6 +757,8 @@ namespace Orpheus.Bots
                     w.WriteNumber("crossingsY", s.CrossingsY);
                     w.WriteNumber("steps30", s.Steps30);
                     w.WriteNumber("maxStep30Tiles", Math.Round(s.MaxStep30Tiles, 4));
+                    w.WriteNumber("maxStep30LocalTiles", Math.Round(s.MaxStep30LocalTiles, 4));
+                    w.WriteNumber("limitStep30Tiles", Math.Round(SeamWatch.LimitShown30Tiles, 5));
                     w.WriteNumber("maxStep30WindowMs", Math.Round(s.MaxStep30WindowUs / 1000.0, 2));
                     w.WriteNumber("over30", s.Over30);
                     w.WriteNumber("over30Warmup", s.Over30Warmup);

@@ -8,7 +8,8 @@ namespace Orpheus.Net.Session
     /// <summary>
     /// Наблюдатель у шва (карточка 0-027; docs/08, 3.0 приёмка 0.2): показывает чужих так же, как клиент Unity —
     /// <see cref="RemoteInterpolation"/> на время «сервер сейчас − 100 мс», — и меряет, насколько показанная позиция чужого
-    /// сдвинулась за 1/30 с (два кадра 60 Гц) и за кадр 60 Гц. Предел приёмки — 6 т/с × 1/30 с × 1,1 = 0,22 тайла
+    /// сдвинулась за 1/30 с (два кадра 60 Гц) и за кадр 60 Гц. Предел приёмки — 6 т/с × 1/30 с × 1,1 = 0,22 тайла плюс
+    /// квант позиции в снимке 1/32 т (<see cref="LimitShown30Tiles"/> ≈ 0,251), сдвиг — за 1/30 с времени показа
     /// (60 Гц — 0,11, для справки). Сдвиг — разность по тору между соседними кадрами (<see cref="Torus.Delta(in MapShape, WorldPos, WorldPos)"/>),
     /// сложенная в непрерывную траекторию: без заворота переход шва дал бы скачок ≈ ширины карты.
     /// <para>
@@ -28,6 +29,21 @@ namespace Orpheus.Net.Session
     {
         /// <summary>Предел сдвига за 1/30 с: 6 т/с × 1/30 с × 1,1, тайла.</summary>
         public const double LimitPer30Tiles = 6.0 / 30 * 1.1;
+
+        /// <summary>Квант позиции чужого в снимке, тайла: 1/256 → 1/32 (<see cref="SnapshotLayout.QuantShift"/>).</summary>
+        public const double SnapshotQuantTiles = (1 << SnapshotLayout.QuantShift) / (double)Torus.SubTilesPerTile;
+
+        /// <summary>
+        /// Предел сдвига показа за 1/30 с <b>времени показа</b> (<see cref="Over30"/>; проверка 0-027, повторная):
+        /// 6 т/с × 1/30 с × 1,1 + квант позиции в снимке 1/32 т ≈ 0,251 тайла. Квант: за такт бегущий идёт 51,2 unit, в снимке
+        /// это 48 или 56 unit (0,219 т), и буквальные 0,22 держатся на запасе 0,32 unit — штатная подстройка часов показа
+        /// (±1 %, <see cref="RemoteInterpolation.MaxSkew"/>) уже дала бы ложный провал. Рывок шва 0,3 т (0,52 т с шагом) ловится
+        /// с запасом. <c>08</c> 0.2 этим не меняется — вопрос [док] в backlog.
+        /// </summary>
+        public const double LimitShown30Tiles = LimitPer30Tiles + SnapshotQuantTiles;
+
+        /// <summary>Время показа за «1/30 с», мкс: сдвиг за окно приводится к нему (<see cref="Over30"/>).</summary>
+        public const double Window30Us = 1_000_000 / 30.0;
 
         /// <summary>Предел сдвига за кадр 60 Гц (для справки): 6 т/с × 1/60 с × 1,1, тайла.</summary>
         public const double LimitPer60Tiles = 6.0 / 60 * 1.1;
@@ -74,6 +90,8 @@ namespace Orpheus.Net.Session
             public double PrevUy;
             public long PrevLocalUs;
             public long LocalUs;
+            public long PrevRenderUs; // время показа кадр назад и в этом кадре, мкс
+            public long RenderUs;
             public int Run;        // кадров подряд в показе
             public bool EastOfX;   // сторона шва x = 0 в прошлом кадре
             public bool SouthOfY;
@@ -145,16 +163,23 @@ namespace Orpheus.Net.Session
         /// <summary>Замеров сдвига за 1/30 с (окно из трёх кадров подряд в показе).</summary>
         public long Steps30 { get; private set; }
 
-        /// <summary>Наибольший сдвиг за 1/30 с (кроме первой секунды показа чужого), тайла.</summary>
+        /// <summary>
+        /// Наибольший сдвиг за 1/30 с времени показа (кроме первой секунды показа чужого), тайла: сдвиг за два кадра,
+        /// умноженный на min(1; 1/30 с ÷ время показа за эти кадры) — ускоренный показ (догон часов, ±1 %) и опоздавший
+        /// кадр цикла не в счёт, замедленный не растягивается.
+        /// </summary>
         public double MaxStep30Tiles { get; private set; }
+
+        /// <summary>Наибольший сдвиг за 1/30 с по местным часам (два кадра, как есть; для справки), тайла.</summary>
+        public double MaxStep30LocalTiles { get; private set; }
 
         /// <summary>Местное время окна наибольшего сдвига за 1/30 с, мкс (≈ 33 333 при ровном цикле).</summary>
         public long MaxStep30WindowUs { get; private set; }
 
-        /// <summary>Сдвигов за 1/30 с больше <see cref="LimitPer30Tiles"/> (кроме первой секунды показа чужого, <see cref="WarmupUs"/>).</summary>
+        /// <summary>Сдвигов за 1/30 с времени показа больше <see cref="LimitShown30Tiles"/> (кроме первой секунды показа чужого, <see cref="WarmupUs"/>).</summary>
         public long Over30 { get; private set; }
 
-        /// <summary>Сдвигов за 1/30 с больше <see cref="LimitPer30Tiles"/> в первую секунду показа чужого — не в счёт.</summary>
+        /// <summary>Сдвигов за 1/30 с больше <see cref="LimitShown30Tiles"/> в первую секунду показа чужого — не в счёт.</summary>
         public long Over30Warmup { get; private set; }
 
         /// <summary>Из них — в окне дольше 1,1 × 1/30 с по местным часам (опоздал кадр цикла бота, а не показ).</summary>
@@ -190,13 +215,13 @@ namespace Orpheus.Net.Session
         /// <summary>
         /// Приёмка 0.2 у наблюдателя (решение 0-027, вопрос [док]): скачков показа сверх траектории снимков нет
         /// (<see cref="OverExcess"/> = 0), чужой в показе по обе стороны каждого шва, замеры есть. Сдвиг за 1/30 с против
-        /// 0,22 тайла (<see cref="Over30"/>) — в отчёте, но при разбросе он ловит неровный ход бегущего на сервере, а не шов.
+        /// 0,22 тайла + квант (<see cref="Over30"/>) — в отчёте, но при разбросе он ловит неровный ход бегущего на сервере, а не шов.
         /// </summary>
         public bool Passed => OverExcess == 0 && Steps30 > 0 && ViewEastOfX > 0 && ViewWestOfX > 0 && ViewSouthOfY > 0 && ViewNorthOfY > 0;
 
         /// <summary>
-        /// То же, но и по сдвигу за 1/30 с ≤ 0,22 тайла буквально (08 3.0, 0.2), кроме первой секунды показа чужого
-        /// (<see cref="WarmupUs"/>). Держится на сети без разброса и потерь (тест CI по петле, проверка 0-027 п. 1); при σ 10 —
+        /// То же, но и по сдвигу за 1/30 с времени показа ≤ 0,22 тайла + квант снимка (<see cref="LimitShown30Tiles"/>;
+        /// 08 3.0, 0.2), кроме первой секунды показа чужого (<see cref="WarmupUs"/>). Держится на сети без разброса и потерь (тест CI по петле, проверка 0-027 п. 1); при σ 10 —
         /// нет: неровный ход бегущего на сервере (07 2.7), известный дефект, backlog [сеть, док].
         /// </summary>
         public bool PassedLiteral => Passed && Over30 == 0;
@@ -401,13 +426,22 @@ namespace Orpheus.Net.Session
                 {
                     double wx = ux - tr.PrevUx;
                     double wy = uy - tr.PrevUy;
-                    double step30 = Math.Sqrt(wx * wx + wy * wy) / U;
+                    double stepLocal = Math.Sqrt(wx * wx + wy * wy) / U;
                     long window = localUs - tr.PrevLocalUs;
+                    // Сдвиг за 1/30 с времени показа: показ, идущий быстрее местных часов (подстройка ±1 %, догон), и
+                    // опоздавший кадр цикла дают больше за два кадра, но не быстрее по времени показа (проверка 0-027, П-5).
+                    long renderWindow = Interp.RenderTimeUs - tr.PrevRenderUs;
+                    double step30 = renderWindow > Window30Us ? stepLocal * (Window30Us / renderWindow) : stepLocal;
                     Steps30++;
                     MaxWindowUs = Math.Max(MaxWindowUs, window);
+                    if (!warmup)
+                    {
+                        MaxStep30LocalTiles = Math.Max(MaxStep30LocalTiles, stepLocal);
+                    }
+
                     if (warmup)
                     {
-                        if (step30 > LimitPer30Tiles)
+                        if (step30 > LimitShown30Tiles)
                         {
                             Over30Warmup++;
                         }
@@ -427,7 +461,7 @@ namespace Orpheus.Net.Session
                         OverExcess++;
                     }
 
-                    if (!warmup && step30 > LimitPer30Tiles)
+                    if (!warmup && step30 > LimitShown30Tiles)
                     {
                         Over30++;
                         if (window * 10 > 2 * FrameUs * 11)
@@ -456,6 +490,7 @@ namespace Orpheus.Net.Session
                 tr.PrevRx = tr.Rx;
                 tr.PrevRy = tr.Ry;
                 tr.PrevLocalUs = tr.LocalUs;
+                tr.PrevRenderUs = tr.RenderUs;
                 tr.Ux = ux;
                 tr.Uy = uy;
                 tr.Rx = rx;
@@ -474,6 +509,7 @@ namespace Orpheus.Net.Session
                 tr.Base0RX = rx;
                 tr.Base0RY = ry;
                 tr.PrevLocalUs = localUs;
+                tr.PrevRenderUs = Interp.RenderTimeUs;
             }
 
             tr.Frame = _frame;
@@ -481,6 +517,7 @@ namespace Orpheus.Net.Session
             tr.Dx = dx;
             tr.Dy = dy;
             tr.LocalUs = localUs;
+            tr.RenderUs = Interp.RenderTimeUs;
             tr.EastOfX = east;
             tr.SouthOfY = south;
             _tracks[id] = tr;

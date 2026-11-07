@@ -232,8 +232,10 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Приёмка 0.2 буквально (проверка 0-027, правка 1): связь в памяти, RTT 100 <b>без разброса и потерь</b>, 4 круга (≈ 690 с
-        /// виртуальных, в тесте — доли секунды). У наблюдателя сдвиг показанной позиции бегущего за 1/30 с ≤ 6 т/с × 1/30 с × 1,1 =
-        /// 0,22 тайла во <b>всех</b> окнах (<c>Over30 == 0</c>), кроме первой секунды показа (<see cref="SeamWatch.WarmupUs"/>: первые
+        /// виртуальных, в тесте — доли секунды). У наблюдателя сдвиг показанной позиции бегущего за 1/30 с <b>времени показа</b>
+        /// ≤ 6 т/с × 1/30 с × 1,1 + квант позиции в снимке 1/32 т ≈ 0,251 тайла (<see cref="SeamWatch.LimitShown30Tiles"/>;
+        /// повторная проверка 0-027: буквальные 0,22 по местным часам держались на 0,001 т и краснели от штатной подстройки
+        /// часов показа ±1 %, мутация П-5) во <b>всех</b> окнах (<c>Over30 == 0</c>), кроме первой секунды показа (<see cref="SeamWatch.WarmupUs"/>: первые
         /// кадры ввода бегущего приходят пачкой); переходы обоих швов в показе. Ловит рывок шва в симуляции и в снимке, которого
         /// не видит «скачок сверх траектории» (мутации П-1а, П-1б, П-2).
         /// </summary>
@@ -242,8 +244,8 @@ namespace Orpheus.Tests
         {
             LoopRun r = RunLoopback(jitter: 0, lossPercent: 0);
             AssertLoopRun(r);
-            Assert.True(r.Watch.Over30 == 0, $"сдвиг за 1/30 с сверх 0,22 тайла: {r.Watch.Over30} окон, наибольший {r.Watch.MaxStep30Tiles:0.000} т");
-            Assert.True(r.Watch.MaxStep30Tiles <= SeamWatch.LimitPer30Tiles, $"наибольший сдвиг {r.Watch.MaxStep30Tiles:0.000} т");
+            Assert.True(r.Watch.Over30 == 0, $"сдвиг за 1/30 с показа сверх {SeamWatch.LimitShown30Tiles:0.000} тайла: {r.Watch.Over30} окон, наибольший {r.Watch.MaxStep30Tiles:0.0000} т (по местным часам {r.Watch.MaxStep30LocalTiles:0.0000} т)");
+            Assert.True(r.Watch.MaxStep30Tiles <= SeamWatch.LimitShown30Tiles, $"наибольший сдвиг {r.Watch.MaxStep30Tiles:0.0000} т");
             Assert.True(r.Watch.PassedLiteral);
         }
 
