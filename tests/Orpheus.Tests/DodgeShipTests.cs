@@ -15,9 +15,11 @@ using Xunit.Abstractions;
 namespace Orpheus.Tests
 {
     /// <summary>
-    /// Шип 0-029: уворот по сети без опережения — манекен бьёт ближним (d = 0,4 с) по таймеру, бот жмёт уворот в случайный
-    /// кадр окна [конец показанного замаха − 0,2 с; − 17 мс] на своём экране, сервер решает удар в кадре конца замаха
-    /// времени персонажа, ожидая ввод не дольше W = 100 мс (docs/07 2.7, 2.13 п. 3, 4.6; `02` 2.5, 2.7 п. 5).
+    /// Шип уворота (0-029, повтор 0-033 со схемой `07` 2.7 целиком): манекен бьёт ближним (d = 0,4 с) по таймеру; клиент
+    /// нумерует кадры с опережением L; бот показывает замах честно — с прихода сообщения и не короче min(d; 0,3 с) (2.9) — и
+    /// жмёт уворот в случайный кадр окна [конец показа − 0,2 с; − 17 мс] на своём экране; сервер решает удар в кадре
+    /// s + max(d, D_p + min(d; 0,3 с)) времени персонажа, ожидая ввод не дольше W = 100 мс; опоздавшие нажатия «липкие»
+    /// (docs/07 2.7, 2.9, 2.13 п. 3–4, 4.6; `02` 2.5, 15.1).
     /// Время — виртуальное (петля + имитатор связи), сервер и бот в одном потоке.
     /// </summary>
     public sealed class DodgeShipTests
@@ -43,14 +45,14 @@ namespace Orpheus.Tests
             public override string ToString() =>
                 $"{Bot.Summary()}; сервер: замахов {Server.SwingsStarted}, решено {Server.ThreatsResolved}, попаданий {Server.ThreatHits}, " +
                 $"по последнему {Server.ThreatsByLastKnown}, ожидание ≤ {Server.MaxThreatWaitFrames} (ср. {(Server.ThreatsResolved == 0 ? 0 : (double)Server.ThreatWaitFramesTotal / Server.ThreatsResolved):F1}) кадров, " +
-                $"опоздали {Server.FramesLate}, сам {Server.FramesSelfStepped}, отключений {Server.Disconnects}; правок {Pred?.Resynced}, {Seconds:F0} с";
+                $"опоздали {Server.FramesLate}, сам {Server.FramesSelfStepped}, отключений {Server.Disconnects}, липких {Server.StickyPresses}; L {Client.LeadFrames} (≤ {Client.MaxLeadFrames}) кадров; правок {Pred?.Resynced}, {Seconds:F0} с";
         }
 
         /// <summary>
         /// Прогон шипа: <paramref name="swings"/> замахов по боту (сначала — 3 с на вход и часы), ожидание сервера
         /// <paramref name="waitFrames"/> кадров. Имитатор — на стороне клиента (обе стороны), null — без задержки.
         /// </summary>
-        public static ShipRun Run(NetSimSettings? sim, int swings = 100, int waitFrames = 6, int botIndex = 0)
+        public static ShipRun Run(NetSimSettings? sim, int swings = 100, int waitFrames = 6, int botIndex = 0, int latestLead = DodgeBot.LatestLeadFrames)
         {
             WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
             var simulation = new Simulation(world, maxEntities: 8);
@@ -70,6 +72,7 @@ namespace Orpheus.Tests
             var client = new NetClient(ct, LoopbackTransport.ServerPeer, "dodge", NetModule.Version);
             var bot = new NetBot(client, DodgeBot.Name, botIndex)
             {
+                DodgeLatestLead = latestLead,
                 PredictionFactory = c => new LocalPrediction(c.Shape, simulation.Solid, new WorldPos(c.Shape.WidthUnits / 2, c.Shape.HeightUnits / 2)),
             };
 
@@ -179,31 +182,9 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Таблица шипа (0-029, шаг 5): RTT 100 / 200 / 250 / 300 (σ 10, потери 1 %) и 300 пачками σ 20, 100 замахов.
-        /// Ожидание сервера ≤ W, отключений нет, все 100 замахов в счёте. Критерий «≥ 95 из 100» держится до RTT 250;
-        /// при RTT 300 без опережения L шип не проходит (замер 0-029: 86 и 83 из 100) — строка фиксирует это числом:
-        /// ввод кадров C − 2 … C приходит позже W, и нажатия в последние ~35 мс окна не доходят к решению.
-        /// </summary>
-        [Theory]
-        [InlineData(100, 10, false, 95)]
-        [InlineData(200, 10, false, 95)]
-        [InlineData(250, 10, false, 95)]
-        [InlineData(300, 10, false, 75)]
-        [InlineData(300, 20, true, 70)]
-        public void D07_S2_13_P3_DodgeShip_Rtt(int rttMs, int jitterMs, bool burst, int minCounted)
-        {
-            ShipRun r = Run(Sim(rttMs, jitterMs, burst, 29));
-            _out.WriteLine($"RTT {rttMs}±{jitterMs}{(burst ? " пачками" : "")}, потери 1 %: {r}");
-            Assert.Equal(100, r.Bot.Scored);
-            Assert.True(r.Bot.Counted >= minCounted, $"засчитано {r.Bot.Counted} из 100, нужно ≥ {minCounted}");
-            Assert.InRange(r.Server.MaxThreatWaitFrames, 0, 6);
-            Assert.Equal(0, r.Server.Disconnects);
-            Assert.Equal(r.Bot.Hits, r.Bot.PressNotArrived); // промахов уворота, кроме недошедших нажатий, нет
-        }
-
-        /// <summary>
-        /// Разброс по зёрнам имитатора (8 зёрен на строку): числа для «Замер». Проверяет только инварианты — ожидание ≤ W,
-        /// все замахи в счёте, попадания — только недошедшие нажатия.
+        /// Таблица шипа (0-033, шаг 5): RTT 100 / 200 / 250 / 300 (σ 10, потери 1 %) и 300 пачками σ 20, 100 замахов, показ
+        /// честный. Критерий 2.13 п. 3: ≥ 95 из 100 на каждой строке. Ожидание сервера ≤ W, отключений нет, все 100 замахов в
+        /// счёте; попадания — только недошедшие нажатия.
         /// </summary>
         [Theory]
         [InlineData(100, 10, false)]
@@ -211,23 +192,66 @@ namespace Orpheus.Tests
         [InlineData(250, 10, false)]
         [InlineData(300, 10, false)]
         [InlineData(300, 20, true)]
+        public void D07_S2_13_P3_DodgeShip_Rtt(int rttMs, int jitterMs, bool burst)
+        {
+            ShipRun r = Run(Sim(rttMs, jitterMs, burst, 29));
+            _out.WriteLine($"RTT {rttMs}±{jitterMs}{(burst ? " пачками" : "")}, потери 1 %: {r}");
+            Assert.Equal(100, r.Bot.Scored);
+            Assert.True(r.Bot.Counted >= 95, $"засчитано {r.Bot.Counted} из 100, нужно ≥ 95");
+            Assert.InRange(r.Server.MaxThreatWaitFrames, 0, 6);
+            Assert.Equal(0, r.Server.Disconnects);
+            Assert.Equal(r.Bot.Hits, r.Bot.PressNotArrived); // промахов уворота, кроме недошедших нажатий, нет
+        }
+
+        /// <summary>
+        /// Критерий шипа на 4 зёрнах (29 / 701 / 702 / 703, у бота свой номер — зерно % 50, как в проверке 0-029): ≥ 95 из
+        /// 100 при RTT 100…300 и 400 (2.7: опоздавших 0,01 % до 600 мс). Числа — в «Замер».
+        /// </summary>
+        [Theory]
+        [InlineData(100, 10, false)]
+        [InlineData(200, 10, false)]
+        [InlineData(250, 10, false)]
+        [InlineData(300, 10, false)]
+        [InlineData(300, 20, true)]
+        [InlineData(400, 10, false)]
         public void D07_S2_13_P3_DodgeShip_Seeds(int rttMs, int jitterMs, bool burst)
         {
-            var counted = new int[8];
+            ulong[] seeds = { 29, 701, 702, 703 };
+            var counted = new int[seeds.Length];
             int maxWait = 0;
-            for (int i = 0; i < counted.Length; i++)
+            for (int i = 0; i < seeds.Length; i++)
             {
-                ShipRun r = Run(Sim(rttMs, jitterMs, burst, 101 + (ulong)i), botIndex: 7 + i);
+                ShipRun r = Run(Sim(rttMs, jitterMs, burst, seeds[i]), botIndex: (int)(seeds[i] % 50));
+                _out.WriteLine($"зерно {seeds[i]}: {r}");
                 counted[i] = r.Bot.Counted;
                 maxWait = Math.Max(maxWait, r.Server.MaxThreatWaitFrames);
-                Assert.Equal(100, r.Bot.Scored);
-                Assert.Equal(r.Bot.Hits, r.Bot.PressNotArrived);
                 Assert.Equal(0, r.Server.Disconnects);
+                Assert.True(r.Bot.Counted >= 95, $"зерно {seeds[i]}: засчитано {r.Bot.Counted} из {r.Bot.Scored}, нужно ≥ 95");
             }
 
-            Array.Sort(counted);
-            _out.WriteLine($"RTT {rttMs}±{jitterMs}{(burst ? " пачками" : "")}: засчитано по 8 зёрнам {string.Join(" ", counted)} (мин. {counted[0]}, медиана {counted[4]}), ожидание ≤ {maxWait}");
+            _out.WriteLine($"RTT {rttMs}±{jitterMs}{(burst ? " пачками" : "")}: засчитано по зёрнам {string.Join(" / ", counted)}, ожидание ≤ {maxWait}");
             Assert.InRange(maxWait, 0, 6);
+        }
+
+        /// <summary>
+        /// RTT 600 (2.13 п. 4): уворот, нажатый за ≥ 0,1 с до конца показанного замаха, — ≥ 90 из 100 на 4 зёрнах. D_p
+        /// упирается в 500 мс (owd 300 + L ≈ 250), показ кончается до 6 кадров позже решения — нажатия в последние 0,1 с
+        /// опаздывают (строка с окном до 17 мс — только число, «Замер»).
+        /// </summary>
+        [Fact]
+        public void D07_S2_13_P4_DodgeShip_Rtt600()
+        {
+            ulong[] seeds = { 29, 701, 702, 703 };
+            for (int i = 0; i < seeds.Length; i++)
+            {
+                ShipRun r = Run(Sim(600, 10, false, seeds[i]), botIndex: (int)(seeds[i] % 50), latestLead: 6);
+                ShipRun late = Run(Sim(600, 10, false, seeds[i]), botIndex: (int)(seeds[i] % 50));
+                _out.WriteLine($"зерно {seeds[i]}, окно до 0,1 с: {r}");
+                _out.WriteLine($"зерно {seeds[i]}, окно до 17 мс: {late}");
+                Assert.Equal(0, r.Server.Disconnects);
+                Assert.True(r.Bot.Counted >= 90, $"зерно {seeds[i]}: засчитано {r.Bot.Counted} из {r.Bot.Scored}, нужно ≥ 90");
+                Assert.True(r.Client.LeadFrames <= InputMessage.MaxLeadFrames && r.Bot.MaxDelayFrames <= ThreatTiming.MaxDelayFrames);
+            }
         }
     }
 }

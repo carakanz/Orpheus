@@ -63,11 +63,15 @@ namespace Orpheus.Net.Session
         private bool _hasFrame;
         private uint _cooldownUntil;
 
-        public DodgeBot(MapShape map, ulong seed)
+        public DodgeBot(MapShape map, ulong seed, int latestLeadFrames = LatestLeadFrames)
         {
+            LatestLead = Math.Max(LatestLeadFrames, Math.Min(EarliestLeadFrames, latestLeadFrames));
             _map = map;
             _rng = new DetRandom(seed);
         }
+
+        /// <summary>Конец окна нажатия до конца показа, кадров: 1 (17 мс, 2.13 п. 3) или 6 (0,1 с, 2.13 п. 4 — RTT 600).</summary>
+        public int LatestLead { get; }
 
         /// <summary>Замахов увидено (без повторов).</summary>
         public int SwingsSeen { get; private set; }
@@ -111,6 +115,9 @@ namespace Orpheus.Net.Session
         /// <summary>Конец показа позже кадра решения сервера (D_p меньше настоящей задержки показа): замахов.</summary>
         public int ShownPastResolve { get; private set; }
 
+        /// <summary>Насколько конец показа позже кадра решения, наибольшее, кадров.</summary>
+        public int MaxShownPastFrames { get; private set; }
+
         /// <summary>Наибольшая D_p из сообщений, кадров.</summary>
         public int MaxDelayFrames { get; private set; }
 
@@ -145,6 +152,7 @@ namespace Orpheus.Net.Session
             if ((int)(shownEnd - resolve) > 0)
             {
                 ShownPastResolve++;
+                MaxShownPastFrames = Math.Max(MaxShownPastFrames, (int)(shownEnd - resolve));
             }
             else
             {
@@ -155,7 +163,7 @@ namespace Orpheus.Net.Session
             int shown = (int)(shownEnd - seen);
             MinShownFrames = SwingsSeen == 1 ? shown : Math.Min(MinShownFrames, shown);
             uint lo = shownEnd - EarliestLeadFrames;
-            uint hi = shownEnd - LatestLeadFrames;
+            uint hi = shownEnd - (uint)LatestLead;
             if ((int)(seen - lo) > 0)
             {
                 lo = seen;
@@ -272,7 +280,7 @@ namespace Orpheus.Net.Session
         /// <summary>Строка итога.</summary>
         public string Summary() =>
             $"засчитано {Counted} из {Scored} (попаданий {Hits}, по последнему известному {ByLastKnown}, нажатие не дошло {PressNotArrived}, " +
-            $"показ ≥ {MinShownFrames} кадров, D ≤ {MaxDelayFrames}, показ позже решения {ShownPastResolve}, " +
+            $"показ ≥ {MinShownFrames} кадров, D ≤ {MaxDelayFrames}, показ позже решения {ShownPastResolve} (≤ {MaxShownPastFrames}), " +
             $"нехватка кадров ≤ {MaxMissingFrames}, ожидание ≤ {MaxWaitedFrames}); замахов {SwingsSeen}, не успел увидеть {TooLate}, не в счёт {NotScored}, неизвестных итогов {UnknownResults}";
     }
 }

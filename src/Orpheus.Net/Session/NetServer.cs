@@ -127,7 +127,7 @@ namespace Orpheus.Net.Session
             /// <summary>99-й процентиль o за окно, кадров (считается раз в такт).</summary>
             public int OwdP99;
 
-            /// <summary>«Запас прихода кадров» при нынешнем L — отчёт в снимке: W − 1 + L − o₉₉, кадров (1-й процентиль запаса).</summary>
+            /// <summary>«Запас прихода кадров» при нынешнем L — отчёт в снимке: W + L − o₉₉, кадров (1-й процентиль запаса).</summary>
             public int Margin;
 
             /// <summary>
@@ -258,6 +258,12 @@ namespace Orpheus.Net.Session
 
         /// <summary>Наименьшая учитываемая задержка прихода, кадров (часы клиента впереди — o меньше нуля).</summary>
         public const int OwdMin = -32;
+
+        /// <summary>
+        /// Добавка к D_p, кадров (0-033): «замах начат» уходит после шага такта, а кадр начала s — внутри такта (1–2 кадра раньше
+        /// отправки); задержка прихода o этого не содержит. Без добавки показ у клиента бывал на 1–3 кадра короче 0,3 с.
+        /// </summary>
+        public const int SwingSendFrames = 1;
 
         /// <summary>Опоздавший кадр старше этого (кадров до времени персонажа) — не «липкий»: копия из давнего пакета.</summary>
         public const int StickyHorizonFrames = 32;
@@ -768,8 +774,8 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
-        /// Раз в такт (0-033, 2.7): o₉₉ за 2 с; «запас прихода кадров» W − 1 + L − o₉₉ (кадр f доходит к решению, если
-        /// разобран не позже кадра сервера f + W − 1); D_p = o₉₉ + L (≤ 30) — когда по игроку нет нерешённых угроз.
+        /// Раз в такт (0-033, 2.7): o₉₉ за 2 с; «запас прихода кадров» W + L − o₉₉ (кадр f доходит к решению, если
+        /// разобран не позже кадра сервера f + W: решение «по последнему известному» — в первом опросе после f + W − 2, кадры этого опроса уже применены); D_p = o₉₉ + L (≤ 30) — когда по игроку нет нерешённых угроз.
         /// </summary>
         private void UpdateLeadStats(Player p)
         {
@@ -793,10 +799,10 @@ namespace Orpheus.Net.Session
                 p.OwdP99 = 0;
             }
 
-            p.Margin = InputWaitFrames - 1 + p.Lead - p.OwdP99;
+            p.Margin = InputWaitFrames + p.Lead - p.OwdP99;
             if (!HasPendingThreat(p))
             {
-                p.DelayFrames = Math.Max(0, Math.Min(ThreatTiming.MaxDelayFrames, p.OwdP99 + p.Lead));
+                p.DelayFrames = Math.Max(0, Math.Min(ThreatTiming.MaxDelayFrames, p.OwdP99 + p.Lead + SwingSendFrames));
             }
         }
 
