@@ -45,9 +45,9 @@ namespace Orpheus.Server
     public sealed class ServerOptions
     {
         public const string Usage =
-            "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander[,N:...]]\n" +
+            "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander|shuttle[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень]\n" +
-            "              [--port P [--public] [--max-players N]] [--spawn-seam]\n" +
+            "              [--port P [--public] [--max-players N]] [--spawn-seam (net-smoke: появление у шва)]\n" +
             "              [--mode single|host --host-token <32 hex> [--open-address all|<IPv4>] [--open-port P] [--host-grace <сек>]]\n" +
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]";
 

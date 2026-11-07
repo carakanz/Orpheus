@@ -90,6 +90,33 @@ namespace Orpheus.Core.World
             return n;
         }
 
+        /// <summary>
+        /// Блок выхода 8 × 6 с центром <paramref name="center"/> (<see cref="BlockCenter"/>): чанки
+        /// [cx − 4, cx + 3] × [cy − 3, cy + 2], свёрнутые по тору, в <paramref name="result"/> (≥ <see cref="MaxChunks"/>),
+        /// по рядам. Окно никогда не выходит из этого блока: сервер берёт из него сущности обзора (docs/07, 4.4).
+        /// Возвращает число чанков.
+        /// </summary>
+        public static int KeepBlock(in MapShape map, ChunkCoord center, Span<ChunkCoord> result)
+        {
+            if (result.Length < MaxChunks)
+            {
+                throw new ArgumentException($"Нужно место на {MaxChunks} чанков, есть {result.Length}.", nameof(result));
+            }
+
+            AxisRange(center.X, KeepWidth, map.ChunksX, map.Wraps, out int startX, out int countX);
+            AxisRange(center.Y, KeepHeight, map.ChunksY, map.Wraps, out int startY, out int countY);
+            int n = 0;
+            for (int j = 0; j < countY; j++)
+            {
+                for (int i = 0; i < countX; i++)
+                {
+                    result[n++] = Torus.Wrap(map, new ChunkCoord(startX + i, startY + j));
+                }
+            }
+
+            return n;
+        }
+
         // Блок длины span с центром на границе center: [center − span/2, center + span/2 − 1].
         // Тор: не длиннее карты (каждый чанк один раз). Плоская карта: обрезка по краям.
         private static void AxisRange(int center, int span, int size, bool wraps, out int start, out int count)

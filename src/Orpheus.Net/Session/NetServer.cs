@@ -41,12 +41,6 @@ namespace Orpheus.Net.Session
     /// </summary>
     public sealed class NetServer : ITransportHandler
     {
-        /// <summary>Окно интереса: ±половина окна чанков клиента 6 × 4 (3.5) — ±96 × ±64 тайла.</summary>
-        public const int InterestHalfWidthUnits = ChunkWindow.Width * Torus.ChunkSize / 2 * Torus.SubTilesPerTile;
-
-        /// <inheritdoc cref="InterestHalfWidthUnits"/>
-        public const int InterestHalfHeightUnits = ChunkWindow.Height * Torus.ChunkSize / 2 * Torus.SubTilesPerTile;
-
         private enum PlayerState : byte
         {
             AwaitingLogin,
@@ -100,6 +94,38 @@ namespace Orpheus.Net.Session
 
             /// <summary>Время последнего пришедшего сообщения (мкс по часам <see cref="Poll"/>; 0-024 — отсчёт 60 с хоста).</summary>
             public long LastHeardMicros;
+
+            /// <summary>Обзор (4.4; 0-022); создаётся при входе в игру.</summary>
+            public ViewState? View;
+        }
+
+        /// <summary>
+        /// Обзор игрока (docs/07, 4.4; 0-022): окно чанков 6 × 4 с выходом 8 × 6 (<see cref="ChunkWindow"/>, то же, что
+        /// у клиента, 3.5) и сущности, бывшие в обзоре прошлого такта, — по номеру, отсортированы.
+        /// </summary>
+        private sealed class ViewState
+        {
+            /// <summary>Центр блока окна (<see cref="ChunkWindow.BlockCenter"/>); окно пересчитывается, когда он сменился.</summary>
+            public ChunkCoord Center;
+            public bool HasWindow;
+            public ChunkCoord[] Window = new ChunkCoord[ChunkWindow.MaxChunks];
+            public ChunkCoord[] WindowNext = new ChunkCoord[ChunkWindow.MaxChunks];
+            public int WindowCount;
+
+            /// <summary>Блок выхода 8 × 6 вокруг центра: отсюда берутся сущности обзора.</summary>
+            public readonly ChunkCoord[] Keep = new ChunkCoord[ChunkWindow.MaxChunks];
+            public int KeepCount;
+
+            /// <summary>Чанк блока 8 × 6 (по номеру в <see cref="Keep"/>) — в окне: вход в обзор.</summary>
+            public readonly bool[] KeepInWindow = new bool[ChunkWindow.MaxChunks];
+
+            /// <summary>
+            /// Номера чужих сущностей в обзоре прошлого такта; сортируются при первом поиске (<see cref="IdsSorted"/>) —
+            /// пока все сущности обзора в окне, поиска нет и сортировки тоже.
+            /// </summary>
+            public readonly int[] Ids = new int[Snapshot.MaxEntities];
+            public int IdCount;
+            public bool IdsSorted;
         }
 
         /// <summary>
@@ -159,13 +185,18 @@ namespace Orpheus.Net.Session
         private readonly SnapshotEntity[] _cur = new SnapshotEntity[Snapshot.MaxEntities];
         private readonly SnapshotEntity[] _merged = new SnapshotEntity[Snapshot.MaxEntities];
         private readonly SnapshotDeltaMessage _delta = new SnapshotDeltaMessage();
-        private readonly bool[] _matched = new bool[Snapshot.MaxEntities];
+        private readonly int[] _baseOf = new int[Snapshot.MaxEntities];
         private readonly int[] _removedIdx = new int[Snapshot.MaxEntities];
         private readonly int[] _updBase = new int[Snapshot.MaxEntities];
         private readonly int[] _updCur = new int[Snapshot.MaxEntities];
         private readonly DeltaFields[] _updFields = new DeltaFields[Snapshot.MaxEntities];
         private readonly int[] _addCur = new int[Snapshot.MaxEntities];
         private readonly InputFrame[] _frameBuf = new InputFrame[FramesPerTickLimit];
+
+        // Обзор (0-022): ключи кандидатов «квадрат расстояния до своего << 20 | место» — сортировка без выделений,
+        // ближние первыми, при равенстве — по месту (по номеру).
+        private readonly long[] _candKeys;
+        private const int CandSlotBits = 20;
         private SelfState _self;
         private int _spawned;
         private long _nowMicros;
@@ -222,6 +253,12 @@ namespace Orpheus.Net.Session
             _maxPlayers = maxPlayers;
             _version = version;
             _layout = new SnapshotLayout(sim.Shape);
+            if (sim.Capacity >= 1 << CandSlotBits)
+            {
+                throw new ArgumentException($"Ёмкость симуляции {sim.Capacity} ≥ 2^{CandSlotBits}: не помещается в ключ обзора.", nameof(sim));
+            }
+
+            _candKeys = new long[sim.Capacity];
             GenerationHash = StateHash.Generation(sim.World);
         }
 
@@ -254,6 +291,15 @@ namespace Orpheus.Net.Session
 
         /// <summary>Снимков отправлено (полных и дельт).</summary>
         public long SnapshotsSent { get; private set; }
+
+        /// <summary>Пересчётов окна обзора (4.4: только когда центр блока окна сменился; 0-022).</summary>
+        public long ViewWindowRecalcs { get; private set; }
+
+        /// <summary>Обзоров, не влезших в снимок целиком: отсортированы ближними первыми (4.3; 0-022).</summary>
+        public long ViewsSortedByDistance { get; private set; }
+
+        /// <summary>Сущностей вне окна, оставленных в обзоре гистерезисом (были в обзоре, ещё в блоке 8 × 6).</summary>
+        public long ViewKeptByHysteresis { get; private set; }
 
         /// <summary>Байт снимков отправлено (полных и дельт).</summary>
         public long SnapshotBytes { get; private set; }
@@ -599,7 +645,7 @@ namespace Orpheus.Net.Session
 
                 Mover me = entities[selfSlot].Mover;
                 _self = new SelfState(me.Position, me.Carry); // подтверждённое состояние без кванта (2.6 п. 2; 0-019)
-                int curCount = BuildView(entities, selfSlot, _cur);
+                int curCount = BuildView(pl, entities, selfSlot, _cur);
                 SentRing ring = pl.Ring ??= new SentRing();
                 int bi = ring.Find(pl.LastSnapshotAck);
                 bool keyframe = KeyframePeriod <= 1 || tick % KeyframePeriod == 0;
@@ -655,15 +701,23 @@ namespace Orpheus.Net.Session
         /// Дельта к базе в <see cref="_buf"/>; состояние клиента после неё — в <see cref="_merged"/>. Дельта не меньше
         /// полного — −1 (вызывающий шлёт полный). Сервер читает свою же дельту и склеивает её той же
         /// <see cref="SnapshotDeltaMessage.ApplyTo"/>, что и клиент, — номера сущностей в базе совпадают по построению.
+        /// <para>
+        /// Бюджет 1200 (4.3; 0-022 — ближние первыми): исчезнувшие (≤ 255 байт) влезают всегда; изменившиеся и новые
+        /// берутся по порядку обзора — свой, затем ближние — пока влезают; первая не влезшая и все дальше неё не
+        /// пишутся (не влезшее изменение клиент оставит из базы, не влезшую новую дошлёт следующая дельта).
+        /// </para>
         /// </summary>
         private int TryWriteDelta(uint tick, Player pl, SnapshotEntity[] baseEnts, int baseCount, int curCount,
                                   out bool truncated, out int mergedCount)
         {
             truncated = false;
             mergedCount = 0;
-            Array.Clear(_matched, 0, curCount);
+            for (int ci = 0; ci < curCount; ci++)
+            {
+                _baseOf[ci] = -1;
+            }
+
             int removedN = 0;
-            int updatedN = 0;
             int bits = SnapshotDeltaMessage.HeaderBytes * 8 + _layout.SelfBits;
             for (int j = 0; j < baseCount; j++)
             {
@@ -676,61 +730,87 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                _matched[ci] = true;
+                _baseOf[ci] = j;
+            }
+
+            // Записи по порядку обзора: размер всей дельты (сравнить с полным) и сколько влезает в бюджет.
+            int limitBits = NetSettings.SnapshotBudget * 8;
+            int totalBits = bits;
+            int updatedN = 0;
+            int addedN = 0;
+            for (int ci = 0; ci < curCount; ci++)
+            {
+                int j = _baseOf[ci];
+                int rec;
                 DeltaFields f = DeltaFields.None;
-                if (_cur[ci].Position != b.Position)
+                if (j >= 0)
                 {
-                    f |= DeltaFields.Position;
+                    SnapshotEntity b = baseEnts[j];
+                    if (_cur[ci].Position != b.Position)
+                    {
+                        f |= DeltaFields.Position;
+                    }
+
+                    if (_cur[ci].Direction != b.Direction)
+                    {
+                        f |= DeltaFields.Direction;
+                    }
+
+                    if (f == DeltaFields.None)
+                    {
+                        continue;
+                    }
+
+                    rec = SnapshotDeltaMessage.UpdatedBits(f, _layout);
+                }
+                else
+                {
+                    rec = _layout.EntityBits;
                 }
 
-                if (_cur[ci].Direction != b.Direction)
+                totalBits += rec;
+                if (truncated || bits + rec > limitBits)
                 {
-                    f |= DeltaFields.Direction;
+                    truncated = true; // эта и все дальше — в следующую дельту
+                    continue;
                 }
 
-                if (f != DeltaFields.None)
+                bits += rec;
+                if (j >= 0)
                 {
                     _updBase[updatedN] = j;
                     _updCur[updatedN] = ci;
                     _updFields[updatedN] = f;
                     updatedN++;
-                    bits += SnapshotDeltaMessage.UpdatedBits(f, _layout);
                 }
-            }
-
-            int addedN = 0;
-            for (int ci = 0; ci < curCount; ci++)
-            {
-                if (!_matched[ci])
+                else
                 {
                     _addCur[addedN++] = ci;
-                    bits += _layout.EntityBits;
                 }
             }
 
-            if ((bits + 7) / 8 >= _layout.SizeFor(curCount))
+            if ((totalBits + 7) / 8 >= _layout.SizeFor(curCount))
             {
+                truncated = false;
                 return -1;
             }
 
-            // Бюджет: исчезнувшие (≤ 255 байт) влезают всегда; дальше — изменения (своя сущность — номер 0, первой),
-            // затем новые. Не влезло — дельта обрезана, остальное дошлёт следующая.
             var w = new SnapshotDeltaWriter(_buf, _layout, tick, pl.LastApplied, pl.LastSnapshotAck, _self);
             for (int i = 0; i < removedN; i++)
             {
                 w.TryAddRemoved(_removedIdx[i]);
             }
 
-            for (int i = 0; i < updatedN && !truncated; i++)
+            for (int i = 0; i < updatedN; i++)
             {
                 SnapshotEntity e = _cur[_updCur[i]];
-                truncated = !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction);
+                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction);
             }
 
-            for (int i = 0; i < addedN && !truncated; i++)
+            for (int i = 0; i < addedN; i++)
             {
                 SnapshotEntity e = _cur[_addCur[i]];
-                truncated = !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction);
+                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction);
             }
 
             int len = w.Finish();
@@ -755,26 +835,107 @@ namespace Orpheus.Net.Session
             return w.Finish();
         }
 
-        /// <summary>Интерес-окно вокруг себя (свой — первым), позиции квантованы; число сущностей.</summary>
-        private int BuildView(ReadOnlySpan<SimEntity> entities, int selfSlot, SnapshotEntity[] cur)
+        /// <summary>
+        /// Обзор игрока (docs/07, 4.4; 0-022) в <paramref name="cur"/>: свой — первым; позиции квантованы; число сущностей.
+        /// Не влезает в снимок (больше <see cref="Snapshot.MaxEntities"/> или 1200 байт) — остальные ближние первыми
+        /// (<see cref="Torus.Dist2"/> до своего), дальние отбрасывает обрезка (4.3: приоритет с копилкой — «потом»).
+        /// <list type="bullet">
+        /// <item>Окно — <see cref="ChunkWindow.Update"/>, как окно чанков клиента (3.5): пересчёт только когда сменился центр
+        /// блока окна (персонаж перешёл к другой ближайшей границе чанков), иначе окно то же.</item>
+        /// <item>Сущности — из сетки по чанкам (<see cref="Simulation.Grid"/>) блока выхода 8 × 6: входит сущность, чей чанк
+        /// в окне; уже бывшая в обзоре остаётся, пока её чанк в блоке 8 × 6 (гистерезис «как у чанков»).</item>
+        /// </list>
+        /// </summary>
+        private int BuildView(Player pl, ReadOnlySpan<SimEntity> entities, int selfSlot, SnapshotEntity[] cur)
         {
+            MapShape shape = _sim.Shape;
             WorldPos self = entities[selfSlot].Mover.Position;
-            int n = 0;
-            cur[n++] = Quantize(entities[selfSlot]);
-            for (int i = 0; i < entities.Length && n < Snapshot.MaxEntities; i++)
+            ViewState v = pl.View ??= new ViewState();
+            ChunkCoord center = ChunkWindow.BlockCenter(shape, self);
+            if (!v.HasWindow || center != v.Center)
             {
-                if (i == selfSlot)
+                int wn = ChunkWindow.Update(shape, self, new ReadOnlySpan<ChunkCoord>(v.Window, 0, v.WindowCount), v.WindowNext);
+                (v.Window, v.WindowNext) = (v.WindowNext, v.Window);
+                v.WindowCount = wn;
+                v.KeepCount = ChunkWindow.KeepBlock(shape, center, v.Keep);
+                var window = new ReadOnlySpan<ChunkCoord>(v.Window, 0, v.WindowCount);
+                for (int k = 0; k < v.KeepCount; k++)
+                {
+                    v.KeepInWindow[k] = ChunkSets.Contains(window, v.Keep[k]);
+                }
+
+                v.Center = center;
+                v.HasWindow = true;
+                ViewWindowRecalcs++;
+            }
+
+            EntityChunkGrid grid = _sim.Grid;
+            int nc = 0;
+            for (int k = 0; k < v.KeepCount; k++)
+            {
+                ChunkCoord c = v.Keep[k];
+                int slot = grid.First(c);
+                if (slot < 0)
                 {
                     continue;
                 }
 
-                Int2 d = Torus.Delta(_sim.Shape, self, entities[i].Mover.Position);
-                if (Math.Abs(d.X) <= InterestHalfWidthUnits && Math.Abs(d.Y) <= InterestHalfHeightUnits)
+                bool inWindow = v.KeepInWindow[k];
+                for (; slot >= 0; slot = grid.Next(slot))
                 {
-                    cur[n++] = Quantize(entities[i]);
+                    if (slot == selfSlot)
+                    {
+                        continue;
+                    }
+
+                    if (!inWindow)
+                    {
+                        if (!v.IdsSorted)
+                        {
+                            Array.Sort(v.Ids, 0, v.IdCount);
+                            v.IdsSorted = true;
+                        }
+
+                        if (Array.BinarySearch(v.Ids, 0, v.IdCount, entities[slot].Id) < 0)
+                        {
+                            continue; // вне окна и не была в обзоре — не входит
+                        }
+
+                        ViewKeptByHysteresis++;
+                    }
+
+                    _candKeys[nc++] = slot;
                 }
             }
 
+            // Всё влезает в полный снимок (а дельта шлётся, только если она меньше полного) — обрезки не будет, порядок
+            // не важен: остаётся порядок обхода (чанки блока по рядам, в чанке — по номеру). Иначе — ближние первыми.
+            if (nc + 1 > Snapshot.MaxEntities || _layout.SizeFor(nc + 1) > NetSettings.SnapshotBudget)
+            {
+                for (int i = 0; i < nc; i++)
+                {
+                    long d2 = Torus.Dist2(shape, self, entities[(int)_candKeys[i]].Mover.Position);
+                    _candKeys[i] = (d2 << CandSlotBits) | _candKeys[i];
+                }
+
+                Array.Sort(_candKeys, 0, nc);
+                ViewsSortedByDistance++;
+            }
+
+            int n = 0;
+            cur[n++] = Quantize(entities[selfSlot]);
+            for (int i = 0; i < nc && n < Snapshot.MaxEntities; i++)
+            {
+                cur[n++] = Quantize(entities[(int)(_candKeys[i] & ((1L << CandSlotBits) - 1))]);
+            }
+
+            v.IdCount = n - 1;
+            for (int i = 1; i < n; i++)
+            {
+                v.Ids[i - 1] = cur[i].Id;
+            }
+
+            v.IdsSorted = false;
             return n;
         }
 
