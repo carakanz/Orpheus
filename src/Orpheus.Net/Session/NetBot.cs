@@ -69,6 +69,9 @@ namespace Orpheus.Net.Session
         /// <summary>Сценарий <c>dodge</c>: конец окна нажатия до конца показа замаха, кадров (<see cref="DodgeBot.LatestLead"/>).</summary>
         public int DodgeLatestLead { get; set; } = DodgeBot.LatestLeadFrames;
 
+        /// <summary>Сценарий <c>dodge</c>: опыт «позднее нажатие» (<see cref="DodgeBot.LatePressFrames"/>), 0 — выкл.</summary>
+        public int DodgeLatePress { get; set; }
+
         /// <summary>Сценарий.</summary>
         public string Script => _script;
 
@@ -110,7 +113,10 @@ namespace Orpheus.Net.Session
             {
                 if (_dodge == null)
                 {
-                    var dodge = new DodgeBot(Client.Shape, Client.Accept.WorldSeed ^ (ulong)(_botIndex + 1) * 0x9E3779B97F4A7C15UL, DodgeLatestLead);
+                    var dodge = new DodgeBot(Client.Shape, Client.Accept.WorldSeed ^ (ulong)(_botIndex + 1) * 0x9E3779B97F4A7C15UL, DodgeLatestLead)
+                    {
+                        LatePressFrames = DodgeLatePress,
+                    };
                     _dodge = dodge;
                     Client.SwingStarted = m => dodge.OnSwing(m);
                     Client.MeleeResolved = m => dodge.OnResult(m);

@@ -864,14 +864,27 @@ namespace Orpheus.Tests
             Assert.Equal(1, p.Server.StickyPresses);
             Assert.True(p.Server.FramesLate >= 2);
             Assert.True(p.Sim.GetEntity(p.Id).Mover.Dodge.Dashing, $"рывка нет: {p.Sim.GetEntity(p.Id).Mover.Dodge}");
+            int dashes = 0;
+            bool was = true;
             for (int k = 0; k < 40; k++)
             {
                 p.Send(walk);
                 p.Send(walk);
                 p.Tick();
+                bool dashing = p.Sim.GetEntity(p.Id).Mover.Dodge.Dashing;
+                if (dashing && !was)
+                {
+                    dashes++;
+                }
+
+                was = dashing;
             }
 
             Assert.Equal(1, p.Server.StickyPresses); // копии опоздавшего кадра не нажимают ещё раз
+            // «Липкое» нажатие гасится, как только применено (з. 4 проверки 0-033): за 40 тактов после переноса (больше рывка
+            // и отката) рывок не начинается снова — иначе уворот жался бы в каждом кадре навсегда.
+            Assert.True(40 * MovementTick.FramesPerTick > Dodge.DashFrames + Dodge.CooldownFrames);
+            Assert.Equal(0, dashes);
         }
 
         /// <summary>

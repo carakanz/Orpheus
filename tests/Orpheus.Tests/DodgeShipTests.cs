@@ -52,7 +52,8 @@ namespace Orpheus.Tests
         /// Прогон шипа: <paramref name="swings"/> замахов по боту (сначала — 3 с на вход и часы), ожидание сервера
         /// <paramref name="waitFrames"/> кадров. Имитатор — на стороне клиента (обе стороны), null — без задержки.
         /// </summary>
-        public static ShipRun Run(NetSimSettings? sim, int swings = 100, int waitFrames = 6, int botIndex = 0, int latestLead = DodgeBot.LatestLeadFrames)
+        public static ShipRun Run(NetSimSettings? sim, int swings = 100, int waitFrames = 6, int botIndex = 0, int latestLead = DodgeBot.LatestLeadFrames,
+            Func<ITransport, ITransport>? wrap = null, int latePress = 0)
         {
             WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
             var simulation = new Simulation(world, maxEntities: 8);
@@ -68,11 +69,17 @@ namespace Orpheus.Tests
                 ct = new NetSimTransport(ct, sim.Value);
             }
 
+            if (wrap != null)
+            {
+                ct = wrap(ct);
+            }
+
             using ITransport clientTransport = ct;
             var client = new NetClient(ct, LoopbackTransport.ServerPeer, "dodge", NetModule.Version);
             var bot = new NetBot(client, DodgeBot.Name, botIndex)
             {
                 DodgeLatestLead = latestLead,
+                DodgeLatePress = latePress,
                 PredictionFactory = c => new LocalPrediction(c.Shape, simulation.Solid, new WorldPos(c.Shape.WidthUnits / 2, c.Shape.HeightUnits / 2)),
             };
 
@@ -279,6 +286,72 @@ namespace Orpheus.Tests
 
             _out.WriteLine($"RTT {rttMs}±{jitterMs}{(burst ? " пачками" : "")}: засчитано по зёрнам {string.Join(" / ", counted)}, ожидание ≤ {maxWait}");
             Assert.InRange(maxWait, 0, 6);
+        }
+
+        /// <summary>Нечестный клиент: в каждом пакете ввода поле L подменено, номера кадров — как у честного (опыт проверки 0-033).</summary>
+        public sealed class LeadRewrite : ITransport
+        {
+            private readonly ITransport _inner;
+            private readonly sbyte _lead;
+
+            public LeadRewrite(ITransport inner, sbyte lead)
+            {
+                _inner = inner;
+                _lead = lead;
+            }
+
+            public int Rewritten { get; private set; }
+
+            public void Poll(long nowMicros, ITransportHandler handler) => _inner.Poll(nowMicros, handler);
+
+            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+            {
+                if (data.Length == InputMessage.Bytes && data[0] == (byte)MessageType.Input)
+                {
+                    byte[] copy = data.ToArray();
+                    copy[InputMessage.Bytes - 1] = (byte)_lead; // L — последний байт
+                    Rewritten++;
+                    _inner.Send(peer, channel, copy);
+                    return;
+                }
+
+                _inner.Send(peer, channel, data);
+            }
+
+            public void Flush() => _inner.Flush();
+
+            public void Disconnect(int peer, ReadOnlySpan<byte> payload) => _inner.Disconnect(peer, payload);
+
+            public int RoundTripMs(int peer) => _inner.RoundTripMs(peer);
+
+            public void Dispose() => _inner.Dispose();
+        }
+
+        /// <summary>
+        /// З. 2 проверки 0-033: D_p — по замеру сервера (эхо снимков), поле L пакета ввода его не двигает. Нечестный клиент при
+        /// RTT 100 шлёт L = 24 при честных номерах: D_p — как у честного (≤ 8, а не 30), и нажатие через 200–380 мс после конца
+        /// настоящего замаха (кадры s + 36 … s + 47) не засчитывается — попадание, как у честного. Мутация «D_p из поля L» краснит.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_DelayFrames_IgnoresLeadField_LatePressNotCounted()
+        {
+            foreach (ulong seed in new ulong[] { 11, 404 })
+            {
+                LeadRewrite? lr = null;
+                ShipRun honest = Run(Sim(100, 10, false, seed), swings: 40, botIndex: (int)(seed % 50), latePress: 12);
+                ShipRun cheat = Run(Sim(100, 10, false, seed), swings: 40, botIndex: (int)(seed % 50), latePress: 12,
+                    wrap: t => lr = new LeadRewrite(t, InputMessage.MaxLeadFrames));
+                _out.WriteLine($"зерно {seed}, честный: {honest}");
+                _out.WriteLine($"зерно {seed}, L = 24: {cheat}; подменено пакетов {lr!.Rewritten}");
+                Assert.True(lr.Rewritten > 1000);
+                Assert.Equal(0, cheat.Client.LeadFrames); // своё L клиента — 0: запас от поля L не зависит
+                Assert.InRange(cheat.Bot.MaxDelayFrames, 1, 8);
+                Assert.Equal(honest.Bot.MaxDelayFrames, cheat.Bot.MaxDelayFrames);
+                // Итог «удар решён» приходит раньше позднего нажатия — бот его не засчитывает себе; счёт — по серверу.
+                Assert.True(cheat.Bot.PressedInTime >= 39, $"нажатий {cheat.Bot.PressedInTime}");
+                Assert.Equal(40, honest.Server.ThreatHits);
+                Assert.Equal(40, cheat.Server.ThreatHits); // позднее нажатие — попадание, как у честного
+            }
         }
 
         /// <summary>

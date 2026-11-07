@@ -73,6 +73,12 @@ namespace Orpheus.Net.Session
         /// <summary>Конец окна нажатия до конца показа, кадров: 1 (17 мс, 2.13 п. 3) или 6 (0,1 с, 2.13 п. 4 — RTT 600).</summary>
         public int LatestLead { get; }
 
+        /// <summary>
+        /// Опыт «позднее нажатие» (з. 2 проверки 0-033), 0 — выкл.: жать не по показу, а в кадр s + d + N … s + d + N + 11 (номер
+        /// кадра от начала замаха), т. е. через N кадров после конца настоящего замаха. Честный сервер такие нажатия не засчитывает.
+        /// </summary>
+        public int LatePressFrames { get; set; }
+
         /// <summary>Замахов увидено (без повторов).</summary>
         public int SwingsSeen { get; private set; }
 
@@ -177,6 +183,10 @@ namespace Orpheus.Net.Session
             }
 
             r.PressFrame = lo + (uint)_rng.NextInt((int)(hi - lo) + 1);
+            if (LatePressFrames > 0)
+            {
+                r.PressFrame = m.StartFrame + m.WindupFrames + (uint)LatePressFrames + (uint)_rng.NextInt(EarliestLeadFrames);
+            }
         }
 
         /// <summary>Пришло «удар решён».</summary>
