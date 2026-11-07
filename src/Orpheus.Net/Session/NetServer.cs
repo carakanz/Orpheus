@@ -497,6 +497,32 @@ namespace Orpheus.Net.Session
             return false;
         }
 
+        /// <summary>
+        /// Чанки, которые сервер считает доставленными игроку с сущностью <paramref name="entityId"/> (набор окна, 3.5, 3.7;
+        /// 0-026), — в <paramref name="into"/> (≥ <see cref="ChunkWindow.MaxChunks"/>). Возвращает число; нет игрока — −1.
+        /// Для проверок «набор клиента = набор сервера».
+        /// </summary>
+        public int CopyHeldChunks(int entityId, Span<ChunkCoord> into)
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if (p.State == PlayerState.InGame && p.EntityId == entityId)
+                {
+                    HeldChunks? held = p.Held;
+                    if (held == null)
+                    {
+                        return 0;
+                    }
+
+                    new ReadOnlySpan<ChunkCoord>(held.Coords, 0, held.Count).CopyTo(into);
+                    return held.Count;
+                }
+            }
+
+            return -1;
+        }
+
         /// <summary>Кадров ввода игрока с сущностью <paramref name="entityId"/> пришло и ждёт шага (очередь); нет игрока — −1.</summary>
         public int BacklogOf(int entityId)
         {

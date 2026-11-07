@@ -15,6 +15,11 @@ namespace Orpheus.Net.Session
     /// <item><b>Пачка</b> — применяется, только если ревизия чанка у клиента ровно предыдущая (3.7 «Порядок»); иначе —
     /// запрос чанка целиком, и до его прихода пачки этого чанка пропускаются. Старая пачка (ревизия не новее) — пропуск.</item>
     /// <item><b>Центр окна</b> — выбросить чанки вне 8 × 6 вокруг него (<see cref="ChunkWindow.InKeep"/>, 3.5).</item>
+    /// <item><b>Пачка к чанку, которого нет</b> (честный сервер такого не шлёт: значит, чанк потерян — например, сообщение
+    /// «чанк» отвергнуто как испорченное) — запрос чанка целиком, а не тихий пропуск: иначе сервер считает чанк
+    /// доставленным и дыра остаётся навсегда (П по 0-026, Н1).</item>
+    /// <item><b>Не больше <see cref="ChunkWindow.MaxChunks"/> чанков</b>: лишний новый чанк отвергается
+    /// (<see cref="ProtocolException"/>, счётчик <see cref="ChunksRejected"/>), а не доходит до экрана (П по 0-026, Н4).</item>
     /// </list>
     /// </summary>
     public sealed class ClientWorld
@@ -48,8 +53,14 @@ namespace Orpheus.Net.Session
         /// <summary>Пачек не к той ревизии — запрошен чанк целиком (3.7 «Порядок»).</summary>
         public long PatchGaps { get; private set; }
 
-        /// <summary>Пачек пропущено: чанка нет, ждём копию по запросу или пачка старая.</summary>
+        /// <summary>Пачек пропущено: ждём копию по запросу или пачка старая.</summary>
         public long PatchesSkipped { get; private set; }
+
+        /// <summary>Пачек к чанку, которого у клиента нет, — запрошен чанк целиком (Н1).</summary>
+        public long PatchesToMissing { get; private set; }
+
+        /// <summary>Чанков отвергнуто: новый чанк сверх <see cref="ChunkWindow.MaxChunks"/> (Н4).</summary>
+        public long ChunksRejected { get; private set; }
 
         /// <summary>Запросов «чанк целиком» отправлено.</summary>
         public long Requests { get; private set; }
@@ -94,6 +105,13 @@ namespace Orpheus.Net.Session
 
         private void OnChunk(ChunkMessage m)
         {
+            if (World.ChunkCount >= ChunkWindow.MaxChunks && World.FindChunk(m.Chunk) == null)
+            {
+                ChunksRejected++;
+                throw new ProtocolException(
+                    $"Чанк ({m.Chunk.X}, {m.Chunk.Y}): у клиента уже {World.ChunkCount} чанков, больше {ChunkWindow.MaxChunks} нельзя.");
+            }
+
             byte[] compressed = m.Compressed.ToArray();
             byte[] blob;
             try
@@ -119,6 +137,16 @@ namespace Orpheus.Net.Session
         private void OnPatch(in TilePatch patch)
         {
             Chunk? chunk = World.FindChunk(patch.Chunk);
+            if (chunk == null && !_awaiting.Contains(patch.Chunk) && _awaiting.Count < ChunkWindow.MaxChunks)
+            {
+                // Сервер считает чанк нашим (шлёт пачку), а его нет: без запроса пачки так и пропускались бы (Н1).
+                PatchesToMissing++;
+                _awaiting.Add(patch.Chunk);
+                Requests++;
+                _request(patch.Chunk);
+                return;
+            }
+
             if (chunk == null || _awaiting.Contains(patch.Chunk) || unchecked((int)(patch.Revision - chunk.Revision)) <= 0)
             {
                 PatchesSkipped++;
@@ -167,6 +195,11 @@ namespace Orpheus.Net.Session
                 ChunksDropped++;
                 ChunkRemoved?.Invoke(_drop[i]);
             }
+
+            // Ожидания вне 8 × 6 (запрос чанка, которого нет, — сервер его уже не пришлёт) снимаются тоже.
+            // Порядок обхода не важен: снимаются все такие сразу.
+            MapShape shape = Shape;
+            _awaiting.RemoveWhere(c => !ChunkWindow.InKeep(shape, center, c));
         }
     }
 }

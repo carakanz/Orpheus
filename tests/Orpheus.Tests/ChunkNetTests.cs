@@ -52,7 +52,7 @@ namespace Orpheus.Tests
             {
                 Assert.Equal(NetClientState.InGame, c.State);
                 Assert.Equal(ChunkWindow.Width * ChunkWindow.Height, c.World!.ChunkCount);
-                AssertSameAsServer(c, world);
+                AssertSameAsServer(rig, c);
             }
 
             Assert.Equal(4 * 24, rig.Server.ChunksSent);
@@ -76,12 +76,12 @@ namespace Orpheus.Tests
             // Новый клиент: копия изменённого чанка — заново, один раз; остальные 23 — из кэша.
             NetClient fifth = rig.Join();
             rig.Run(10);
-            AssertSameAsServer(fifth, world);
+            AssertSameAsServer(rig, fifth);
             Assert.Equal(25, rig.Server.ChunkCompressions);
             Assert.Equal(5 * 24, rig.Server.ChunksSent);
             foreach (NetClient c in clients)
             {
-                AssertSameAsServer(c, world);
+                AssertSameAsServer(rig, c);
                 Assert.Equal(3, c.World!.PatchesApplied);
             }
         }
@@ -144,7 +144,7 @@ namespace Orpheus.Tests
                 rig.Input = default;
                 rig.Run(10 + delay * 30 / 1000 * 2);
                 Assert.True(c.World!.SameAs(world, target), $"прогон {run} (задержка {delay} мс): чанк {target} у клиента ≠ сервер");
-                AssertSameAsServer(c, world);
+                AssertSameAsServer(rig, c);
                 Assert.Equal(0, c.BadMessages);
                 sent += (int)rig.Server.PatchesSent;
             }
@@ -190,7 +190,7 @@ namespace Orpheus.Tests
             Assert.True(perSec <= 512, $"подгрузка {perSec:F0} Б/с");
             Assert.True(rig.Server.ChunksSent > 100, $"чанков {rig.Server.ChunksSent}: бег не шёл");
             Assert.True(c.World!.ChunksDropped > 100);
-            AssertSameAsServer(c, world);
+            AssertSameAsServer(rig, c);
             Assert.Equal(0, c.BadMessages);
             _ = ran;
         }
@@ -220,7 +220,66 @@ namespace Orpheus.Tests
             Assert.Equal(24 + ChunkWindow.Height, rig.Server.ChunksSent);
             Assert.Equal(0, rig.Server.WindowMessagesSent);
             Assert.Equal(0, c.World!.ChunksDropped);
-            AssertSameAsServer(c, world);
+            AssertSameAsServer(rig, c);
+        }
+
+        /// <summary>
+        /// Б1 (П по 0-026): бег на восток 600 тактов, затем на запад 1200 (связь в памяти) — на каждом такте набор чанков
+        /// клиента = набору сервера и весь блок 6 × 4 вокруг серверной позиции у клиента есть: дыр нет ни по пути туда, ни на
+        /// обратном пути через выброшенные раньше чанки. Мутация П2 «клиент выбрасывает по центру, сдвинутому на чанк» — красная.
+        /// </summary>
+        [Fact]
+        public void D07_S3_5_RunEastThenWest_ClientSetEqualsServer_EveryTick()
+        {
+            WorldModel world = Flat();
+            using var rig = new ChunkRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            rig.Run(10);
+            int checks = 0;
+            rig.AfterTick = () =>
+            {
+                c.Poll(rig.NowMicros);
+                AssertSameSetAsServer(rig, c, $"такт {checks + 1}: ");
+                checks++;
+            };
+            rig.Input = InputFrameEast;
+            rig.Run(600);
+            long droppedEast = c.World!.ChunksDropped;
+            rig.Input = InputFrameWest;
+            rig.Run(1200);
+            rig.AfterTick = null;
+            Assert.Equal(1800, checks);
+            Assert.True(droppedEast > 0 && c.World.ChunksDropped > droppedEast,
+                $"выброшено {droppedEast} / {c.World.ChunksDropped}: окно не уезжало в обе стороны");
+            AssertSameAsServer(rig, c);
+            Assert.Equal(0, c.BadMessages);
+        }
+
+        /// <summary>
+        /// Б1 через имитатор (RTT 120 ± 20, потери 1 %, 3 зерна): восток — запад — восток с остановками; после каждого
+        /// затишья набор клиента = набору сервера, 6 × 4 вокруг серверной позиции без дыр, чанки побайтно = сервер.
+        /// </summary>
+        [Fact]
+        public void D07_S3_5_RunBackAndForth_ThroughSimulator_NoHolesAfterQuiet()
+        {
+            WorldModel world = Flat();
+            for (ulong seed = 1; seed <= 3; seed++)
+            {
+                using var rig = new ChunkRig(world, _ => TileCenter(300, 200));
+                NetClient c = rig.Join(NetSimSettings.FromRtt(120, 20, 1.0, seed));
+                rig.Run(20);
+                foreach ((InputFrame dir, int ticks) in new[] { (InputFrameEast, 400), (InputFrameWest, 800), (InputFrameEast, 300) })
+                {
+                    rig.Input = dir;
+                    rig.Run(ticks);
+                    rig.Input = default;
+                    rig.Run(20); // затишье: всё отправленное дошло
+                    AssertSameAsServer(rig, c);
+                }
+
+                Assert.True(c.World!.ChunksDropped > 0, $"зерно {seed}: окно не уезжало");
+                Assert.Equal(0, c.BadMessages);
+            }
         }
 
         /// <summary>
@@ -255,7 +314,7 @@ namespace Orpheus.Tests
             Assert.Equal(0, c.BadMessages);
             Assert.True(expected.SetEquals(c.World!.World.GetChunkCoords().ToArray()),
                 "окно у шва: " + string.Join(" ", c.World.World.GetChunkCoords().ToArray().Select(k => $"({k.X},{k.Y})")));
-            AssertSameAsServer(c, world);
+            AssertSameAsServer(rig, c);
         }
 
         // ---------- Порядок, разрыв, вход заново ----------
@@ -290,7 +349,7 @@ namespace Orpheus.Tests
             rig.Run(3);
             Assert.Equal(1, c.World.PatchesApplied);
             Assert.True(c.World.SameAs(world, chunk));
-            AssertSameAsServer(c, world);
+            AssertSameAsServer(rig, c);
         }
 
         /// <summary>Потеря связи и вход заново: окно приходит заново целиком, с правками, сделанными без клиента.</summary>
@@ -311,7 +370,7 @@ namespace Orpheus.Tests
             rig.Run(10);
             Assert.Equal(24, b.World!.ChunkCount);
             Assert.Equal(48, rig.Server.ChunksSent);
-            AssertSameAsServer(b, world);
+            AssertSameAsServer(rig, b);
         }
 
         /// <summary>
@@ -346,7 +405,7 @@ namespace Orpheus.Tests
             rig.AfterTick = () =>
             {
                 observer.Poll(rig.NowMicros);
-                AssertSameAsServer(observer, world);
+                AssertSameAsServer(rig, observer);
                 checks++;
             };
             rig.Run(300);
@@ -392,16 +451,94 @@ namespace Orpheus.Tests
             Assert.Equal(4, c.BadMessages);
             Assert.Equal(7u, c.World.World.FindChunk(at)!.Revision);
 
-            // Пачка к чанку, которого нет, — пропуск; к своему — ровно следующая ревизия.
+            // Пачка к чанку, которого нет, — запрос чанка целиком (Н1); к своему — ровно следующая ревизия.
             t.Push(NetChannel.World, NetTests.Encode(b => ChunkPatchMessage.Write(b,
                 new TilePatch(0, new ChunkCoord(9, 9), 1, new[] { new TileEdit(1, FloorId.Dirt, ObjectId.Empty) }))));
             t.Push(NetChannel.World, NetTests.Encode(b => ChunkPatchMessage.Write(b,
                 new TilePatch(0, at, 8, new[] { new TileEdit(5, FloorId.Dirt, ObjectId.Empty) }))));
+            long sentBefore = t.Sent;
             c.Poll(2);
             Assert.Equal(4, c.BadMessages);
-            Assert.Equal(1, c.World.PatchesSkipped);
+            Assert.Equal(0, c.World.PatchesSkipped);
+            Assert.Equal(1, c.World.PatchesToMissing);
+            Assert.Equal(1, c.World.Requests);
+            Assert.True(t.Sent > sentBefore, "запрос чанка не ушёл");
             Assert.Equal(1, c.World.PatchesApplied);
             Assert.Equal(FloorId.Dirt, c.World.World.FindChunk(at)!.GetFloor(5));
+        }
+
+        /// <summary>
+        /// Н1 (П по 0-026): сообщение «чанк» потеряно у клиента (как отвергнутое испорченным) — сервер считает чанк
+        /// доставленным и шлёт к нему пачку. Клиент не пропускает её молча, а просит чанк целиком; получает — набор и тайлы
+        /// = сервер. Мутация «пачка к отсутствующему чанку — пропуск без запроса» — красная.
+        /// </summary>
+        [Fact]
+        public void D07_S3_7_PatchToMissingChunk_RequestsChunk_ThenSame()
+        {
+            WorldModel world = Flat();
+            var tile = new TileCoord(300, 200);
+            ChunkCoord lost = Torus.ChunkOf(world.Shape, tile);
+            int lostCount = 0;
+            using var rig = new ChunkRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join(wrap: t => new DropTap(t, data => data[0] == (byte)MessageType.Chunk &&
+                ChunkMessage.Read(data, world.Shape).Chunk == lost && lostCount++ == 0));
+            rig.Run(10);
+            Assert.Equal(1, lostCount);
+            Assert.Null(c.World!.World.FindChunk(lost));
+            Assert.Equal(ChunkWindow.Width * ChunkWindow.Height - 1, c.World.ChunkCount);
+
+            rig.BeforeStep = () => rig.Sim.RequestEdit(tile, FloorId.Stone, ObjectId.Torch);
+            rig.Run(1);
+            rig.BeforeStep = null;
+            rig.Run(5);
+            Assert.Equal(1, c.World.PatchesToMissing);
+            Assert.Equal(1, rig.Server.ChunkRequests);
+            Assert.True(c.World.SameAs(world, lost), "потерянный чанк не пришёл заново");
+            AssertSameAsServer(rig, c);
+            Assert.Equal(0, c.BadMessages);
+        }
+
+        /// <summary>
+        /// Н4 (П по 0-026): у клиента не больше 48 чанков — 49-й новый чанк отвергается (плохое сообщение и счётчик) и не
+        /// доходит до <see cref="ClientWorld.ChunkChanged"/> (экран Unity бросил бы исключение в кадре). Копия уже
+        /// бывшего чанка при 48 принимается.
+        /// </summary>
+        [Fact]
+        public void D07_S3_5_Client_At48Chunks_ExtraChunkRejected()
+        {
+            MapShape shape = MapShape.World(1024);
+            var t = new PushTransport();
+            var c = new NetClient(t, LoopbackTransport.ServerPeer, "c", NetModule.Version);
+            byte[] z = new Chunk().Compress();
+            t.Push(h => h.OnConnected(LoopbackTransport.ServerPeer));
+            t.Push(NetChannel.Facts, NetTests.Encode(b => new LoginAcceptMessage
+            {
+                EntityId = 5, ServerTick = 8, MapWidth = shape.Width, MapHeight = shape.Height, Wraps = true, TickRate = 30,
+            }.Write(b)));
+            c.Poll(0);
+            int shown = 0;
+            c.World!.ChunkChanged = _ => shown++;
+            for (int i = 0; i < ChunkWindow.MaxChunks + 1; i++)
+            {
+                var at = new ChunkCoord(i % 10, i / 10);
+                t.Push(NetChannel.World, NetTests.Encode(b => ChunkMessage.Write(b, 0, at, 1, z)));
+            }
+
+            c.Poll(1);
+            Assert.Equal(ChunkWindow.MaxChunks, c.World.ChunkCount);
+            Assert.Equal(ChunkWindow.MaxChunks, shown);
+            Assert.Equal(1, c.World.ChunksRejected);
+            Assert.Equal(1, c.BadMessages);
+            Assert.Null(c.World.World.FindChunk(new ChunkCoord(8, 4)));
+
+            t.Push(NetChannel.World, NetTests.Encode(b => ChunkMessage.Write(b, 0, new ChunkCoord(9, 4), 1, z)));
+            t.Push(NetChannel.World, NetTests.Encode(b => ChunkMessage.Write(b, 0, new ChunkCoord(0, 0), 2, z)));
+            c.Poll(2);
+            Assert.Equal(2, c.World.ChunksRejected);
+            Assert.Equal(2, c.BadMessages);
+            Assert.Equal(ChunkWindow.MaxChunks + 1, shown); // только копия бывшего чанка (0, 0)
+            Assert.Equal(2u, c.World.World.FindChunk(new ChunkCoord(0, 0))!.Revision);
+            Assert.Equal(ChunkWindow.MaxChunks, c.World.ChunkCount);
         }
 
         // ---------- «Золотые» байты ----------
@@ -417,27 +554,30 @@ namespace Orpheus.Tests
             MapShape shape = MapShape.World(1024);
             var layout = new SnapshotLayout(shape);
             _golden.Clear();
-            Golden("10 00 03 00 04 00 2a 00 00 00 aa bb cc",
+            byte[] gChunk = Golden("10 00 03 00 04 00 2a 00 00 00 aa bb cc",
                 b => ChunkMessage.Write(b, 0, new ChunkCoord(3, 4), 42, new byte[] { 0xAA, 0xBB, 0xCC }));
             var patch = new TilePatch(0, new ChunkCoord(31, 1), 0x01020304, new[]
             {
                 new TileEdit(5, FloorId.Stone, ObjectId.Torch),
                 new TileEdit(1023, FloorId.WoodFloor, ObjectId.Carpet, new BuildRecord(0x0102, 0x0304, 5, FloorId.Grass, 0x0607)),
             });
-            Golden("11 00 1f 00 01 00 04 03 02 01 02 00 05 00 03 01 00 ff 83 08 02 00 02 01 04 03 05 01 07 06",
+            byte[] gPatch = Golden("11 00 1f 00 01 00 04 03 02 01 02 00 05 00 03 01 00 ff 83 08 02 00 02 01 04 03 05 01 07 06",
                 b => ChunkPatchMessage.Write(b, patch));
-            Golden("12 00 1f 00 00 00", b => new ChunkWindowMessage { Center = new ChunkCoord(31, 0) }.Write(b));
-            Golden("13 00 01 00 02 00", b => new ChunkRequestMessage { Chunk = new ChunkCoord(1, 2) }.Write(b));
+            var window = new ChunkWindowMessage { Center = new ChunkCoord(31, 0) };
+            byte[] gWindow = Golden("12 00 1f 00 00 00", b => window.Write(b));
+            var request = new ChunkRequestMessage { Chunk = new ChunkCoord(1, 2) };
+            byte[] gRequest = Golden("13 00 01 00 02 00", b => request.Write(b));
 
-            Golden("01 00 00 04 00 02 00 0a d0 9e d1 80 d1 84 d0 b5 d0 b9 00",
-                b => new LoginMessage { Version = new NetVersion(0, 4, 2), Name = "Орфей" }.Write(b));
-            Golden("02 40 e2 01 00 00 28 6b ee 00 10 00 00 00 10 00 00 01 be ba fe ca ef be ad de 1e ef cd ab 89 67 45 23 01",
-                b => new LoginAcceptMessage
-                {
-                    EntityId = 123456, ServerTick = 4_000_000_000, MapWidth = 4096, MapHeight = 4096, Wraps = true,
-                    WorldSeed = 0xDEADBEEF_CAFEBABE, TickRate = 30, GenerationHash = 0x0123_4567_89AB_CDEF,
-                }.Write(b));
-            Golden("04 f0 ff ff ff 01 ff 34 12 01 80 00 00 ff ff 00 00 08 11 01 00 ff ff 05 c8 40 9c 02 01 4d 00 00 00 ff ff ff 7f fb", b => new InputMessage
+            var login = new LoginMessage { Version = new NetVersion(0, 4, 2), Name = "Орфей" };
+            byte[] gLogin = Golden("01 00 00 04 00 02 00 0a d0 9e d1 80 d1 84 d0 b5 d0 b9 00", b => login.Write(b));
+            var accept = new LoginAcceptMessage
+            {
+                EntityId = 123456, ServerTick = 4_000_000_000, MapWidth = 4096, MapHeight = 4096, Wraps = true,
+                WorldSeed = 0xDEADBEEF_CAFEBABE, TickRate = 30, GenerationHash = 0x0123_4567_89AB_CDEF,
+            };
+            byte[] gAccept = Golden("02 40 e2 01 00 00 28 6b ee 00 10 00 00 00 10 00 00 01 be ba fe ca ef be ad de 1e ef cd ab 89 67 45 23 01",
+                b => accept.Write(b));
+            var input = new InputMessage
             {
                 FirstFrame = 0xFFFF_FFF0,
                 Frame0 = new WireFrame { Direction = 1, Power = 255, Aim = 0x1234, Buttons = 0x8001 },
@@ -445,10 +585,35 @@ namespace Orpheus.Tests
                 Frame2 = new WireFrame { Direction = 8, Power = 17, Aim = 1, Buttons = 0xFFFF },
                 Frame3 = new WireFrame { Direction = 5, Power = 200, Aim = 40000, Buttons = 0x0102 },
                 PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = -5,
-            }.Write(b));
-            Golden("06 04 03 02 01", b => new ClockMessage { ServerTick = 0x01020304 }.Write(b));
-            Golden("0b 04 03 02 01", b => new PingMessage { ClientUs = 0x01020304 }.Write(b));
-            Golden("0c 04 03 02 01 0d 0c 0b 0a", b => new PongMessage { ClientUs = 0x01020304, ServerTick = 0x0A0B0C0D }.Write(b));
+            };
+            byte[] gInput = Golden("04 f0 ff ff ff 01 ff 34 12 01 80 00 00 ff ff 00 00 08 11 01 00 ff ff 05 c8 40 9c 02 01 4d 00 00 00 ff ff ff 7f fb",
+                b => input.Write(b));
+            byte[] gClock = Golden("06 04 03 02 01", b => new ClockMessage { ServerTick = 0x01020304 }.Write(b));
+            byte[] gPing = Golden("0b 04 03 02 01", b => new PingMessage { ClientUs = 0x01020304 }.Write(b));
+            var pong = new PongMessage { ClientUs = 0x01020304, ServerTick = 0x0A0B0C0D };
+            byte[] gPong = Golden("0c 04 03 02 01 0d 0c 0b 0a", b => pong.Write(b));
+
+            // Разбор тех же «золотых» байт (П по 0-026, Н8): чтение даёт ровно записанные поля, а не только круг «запись → чтение».
+            ChunkMessage rChunk = ChunkMessage.Read(gChunk, shape);
+            Assert.Equal((byte)0, rChunk.Map);
+            Assert.Equal(new ChunkCoord(3, 4), rChunk.Chunk);
+            Assert.Equal(42u, rChunk.Revision);
+            Assert.Equal(new byte[] { 0xAA, 0xBB, 0xCC }, rChunk.Compressed.ToArray());
+            TilePatch rPatch = ChunkPatchMessage.Read(gPatch, shape);
+            Assert.Equal(patch.MapId, rPatch.MapId);
+            Assert.Equal(patch.Chunk, rPatch.Chunk);
+            Assert.Equal(patch.Revision, rPatch.Revision);
+            Assert.Equal(patch.Edits, rPatch.Edits);
+            Assert.Equal(window, ChunkWindowMessage.Read(gWindow, shape));
+            Assert.Equal(request, ChunkRequestMessage.Read(gRequest, shape));
+            LoginMessage rLogin = LoginMessage.Read(gLogin);
+            Assert.Equal(login.Version, rLogin.Version);
+            Assert.Equal(login.Name, rLogin.Name);
+            Assert.Equal(accept, LoginAcceptMessage.Read(gAccept));
+            Assert.Equal(input, InputMessage.Read(gInput));
+            Assert.Equal(0x01020304u, ClockMessage.Read(gClock).ServerTick);
+            Assert.Equal(0x01020304u, PingMessage.Read(gPing).ClientUs);
+            Assert.Equal(pong, PongMessage.Read(gPong));
             Golden("08", b => new OpenForFriendsMessage().Write(b));
             Golden("09 01 61 1e", b => new OpenResultMessage { Opened = true, Port = 0x1E61 }.Write(b));
             Golden("0a 03", b => new ClosingMessage { Reason = ClosingReason.Replaced }.Write(b));
@@ -531,7 +696,7 @@ namespace Orpheus.Tests
             NetClient cl = rig.Join();
             rig.Run(10);
             _out.WriteLine($"вход в мир: {rig.Server.ChunksSent} чанков, {rig.Server.ChunkBytes} байт сообщений «чанк»");
-            AssertSameAsServer(cl, world);
+            AssertSameAsServer(rig, cl);
             Assert.True(mean <= 2 * 236 && max <= 2 * 425, $"среднее {mean:F0}, наибольший {max}");
         }
 
@@ -558,22 +723,63 @@ namespace Orpheus.Tests
             }
         }
 
-        /// <summary>Каждый чанк клиента = серверу побайтно, и чанков у клиента ровно столько, сколько в окне.</summary>
-        private static void AssertSameAsServer(NetClient c, WorldModel server)
+        /// <summary>
+        /// Клиент разбирает пришедшее (<c>Poll</c>), затем: набор чанков = набору сервера (<see cref="AssertSameSetAsServer"/>),
+        /// каждый чанк клиента = серверу побайтно.
+        /// </summary>
+        private static void AssertSameAsServer(ChunkRig rig, NetClient c)
         {
+            c.Poll(rig.NowMicros);
+            AssertSameSetAsServer(rig, c);
             ClientWorld w = c.World!;
             foreach (ChunkCoord k in w.World.GetChunkCoords().ToArray())
             {
-                Assert.True(w.SameAs(server, k), $"чанк ({k.X}, {k.Y}) у клиента #{c.EntityId} ≠ сервер");
+                Assert.True(w.SameAs(rig.Sim.World, k), $"чанк ({k.X}, {k.Y}) у клиента #{c.EntityId} ≠ сервер");
+            }
+        }
+
+        /// <summary>
+        /// Главное правило окна (3.5; П по 0-026, Б1): набор чанков клиента = набору, который сервер считает доставленным
+        /// (<see cref="NetServer.CopyHeldChunks"/>), — нет ни выброшенных клиентом «лишний раз» (дыра навсегда: сервер их
+        /// больше не пришлёт), ни оставленных сверх окна; весь блок 6 × 4 вокруг <b>серверной</b> позиции персонажа у клиента
+        /// есть; чанков не больше 48. Отправленное сервером должно быть уже разобрано клиентом.
+        /// </summary>
+        private static void AssertSameSetAsServer(ChunkRig rig, NetClient c, string where = "")
+        {
+            ClientWorld w = c.World!;
+            var mine = new HashSet<ChunkCoord>(w.World.GetChunkCoords().ToArray());
+            var buf = new ChunkCoord[ChunkWindow.MaxChunks];
+            int n = rig.Server.CopyHeldChunks(c.EntityId, buf);
+            Assert.True(n >= 0, $"{where}игрока #{c.EntityId} нет на сервере");
+            var held = new HashSet<ChunkCoord>(buf.Take(n));
+            Assert.True(mine.SetEquals(held),
+                $"{where}набор клиента ≠ набор сервера: нет у клиента [{Coords(held.Except(mine))}], лишние у клиента [{Coords(mine.Except(held))}]");
+
+            MapShape shape = rig.Sim.World.Shape;
+            ChunkCoord center = ChunkWindow.BlockCenter(shape, rig.Sim.GetEntity(c.EntityId).Mover.Position);
+            var holes = new List<ChunkCoord>();
+            for (int dy = -ChunkWindow.Height / 2; dy < ChunkWindow.Height / 2; dy++)
+            {
+                for (int dx = -ChunkWindow.Width / 2; dx < ChunkWindow.Width / 2; dx++)
+                {
+                    ChunkCoord k = Torus.Wrap(shape, new ChunkCoord(center.X + dx, center.Y + dy));
+                    if (!mine.Contains(k))
+                    {
+                        holes.Add(k);
+                    }
+                }
             }
 
-            Assert.True(w.ChunkCount >= ChunkWindow.Width * ChunkWindow.Height && w.ChunkCount <= ChunkWindow.MaxChunks,
-                $"чанков у клиента {w.ChunkCount}");
+            Assert.True(holes.Count == 0, $"{where}дыры в 6 × 4 вокруг серверной позиции (центр ({center.X}, {center.Y})): [{Coords(holes)}]");
+            Assert.True(w.ChunkCount <= ChunkWindow.MaxChunks, $"{where}чанков у клиента {w.ChunkCount}");
         }
+
+        private static string Coords(IEnumerable<ChunkCoord> cs) => string.Join(" ", cs.Select(k => $"({k.X},{k.Y})"));
 
         private readonly List<string> _golden = new List<string>();
 
-        private void Golden(string hex, NetTests.Writer write)
+        /// <summary>Сверить запись с «золотыми» байтами (расхождение копится в <see cref="_golden"/>); вернуть сами золотые байты — для разбора.</summary>
+        private byte[] Golden(string hex, NetTests.Writer write)
         {
             byte[] actual = NetTests.Encode(write);
             string got = string.Join(" ", actual.Select(b => b.ToString("x2")));
@@ -581,6 +787,8 @@ namespace Orpheus.Tests
             {
                 _golden.Add($"золотые байты № {_golden.Count + 1}: ждали «{hex}», есть «{got}»");
             }
+
+            return Hex(hex);
         }
 
         private static byte[] Hex(string hex) =>
