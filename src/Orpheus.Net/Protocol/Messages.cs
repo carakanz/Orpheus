@@ -36,6 +36,21 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, в данных отключения: мир закрывается — хост вышел, сервер остановлен, вход с другого места (0-024, 7.6).</summary>
         Closing = 10,
+
+        // 0-026, мир по сети (docs/07, 3.5–3.7), канал 1. Номера с 16: 11…15 оставлены сообщениям часов (0-025),
+        // которые сливаются параллельно.
+
+        /// <summary>Сервер → клиент, канал 1: чанк целиком — заголовок и сжатая копия (3.6).</summary>
+        Chunk = 16,
+
+        /// <summary>Сервер → клиент, канал 1: пачка правок чанка за такт (3.7).</summary>
+        ChunkPatch = 17,
+
+        /// <summary>Сервер → клиент, канал 1: новый центр окна — клиент выбрасывает чанки вне 8 × 6 вокруг него (3.5).</summary>
+        ChunkWindow = 18,
+
+        /// <summary>Клиент → сервер, канал 1: «пришли чанк целиком» — пачка не к той ревизии (3.7 «Порядок»).</summary>
+        ChunkRequest = 19,
     }
 
     /// <summary>
@@ -511,13 +526,18 @@ namespace Orpheus.Net.Protocol
             }
 
             byte t = src[0];
-            if (t < (byte)MessageType.Login || t > (byte)MessageType.Closing)
+            if (!IsKnown(t))
             {
                 throw new ProtocolException($"Неизвестный тип сообщения {t}.");
             }
 
             return (MessageType)t;
         }
+
+        /// <summary>Известный тип сообщения (номера не подряд: 11…15 — у 0-025).</summary>
+        public static bool IsKnown(byte t) =>
+            (t >= (byte)MessageType.Login && t <= (byte)MessageType.Closing) ||
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.ChunkRequest);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)
