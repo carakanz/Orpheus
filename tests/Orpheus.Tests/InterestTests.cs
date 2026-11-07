@@ -33,15 +33,17 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Замер карточки 0-022: время <c>SendSnapshots</c> (сборка обзора + запись снимков) на 8 игроках × 64 сущностях —
-        /// все в одной окрестности («плотно») и враги по всей карте («врозь»). Только вывод, без порога.
+        /// все в одной окрестности («плотно») и враги по всей карте («врозь»); плюс врозь 512 — где перебор всех дорог.
+        /// Только вывод, без порога.
         /// </summary>
         [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void D07_S4_4_Measure_ViewBuild_8Players64Entities(bool dense)
+        [InlineData(true, 64)]
+        [InlineData(false, 64)]
+        [InlineData(false, 512)]
+        public void D07_S4_4_Measure_ViewBuild_8Players64Entities(bool dense, int entities)
         {
             var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
-            var sim = new Simulation(world, maxEntities: 64);
+            var sim = new Simulation(world, maxEntities: entities);
             var t = new NetTests.ScriptedTransport();
             var server = new NetServer(t, sim, n => ServerRun.SpawnPoint(world.Shape, n), 8, NetModule.Version);
             byte[] login = NetTests.Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b));
@@ -55,7 +57,7 @@ namespace Orpheus.Tests
             Assert.Equal(8, server.PlayersInGame);
 
             var rng = new DetRandom(7);
-            var bots = new SimBot[56];
+            var bots = new SimBot[entities - 8];
             for (int i = 0; i < bots.Length; i++)
             {
                 TileCoord tile = dense
@@ -65,11 +67,18 @@ namespace Orpheus.Tests
                 bots[i] = SimBot.Create(WanderBot.Name, id, i, world.Seed);
             }
 
-            const int Warmup = 60;
-            const int Measured = 900;
+            // Прогрев не короче 0,5 с: многоуровневая JIT переписывает горячие методы (уровень 1) через ~100 мс работы.
+            const int Measured = 3000;
             var sw = new Stopwatch();
-            for (int k = 0; k < Warmup + Measured; k++)
+            var warm = Stopwatch.StartNew();
+            int warmup = -1;
+            for (int k = 0; warmup < 0 || k < warmup + Measured; k++)
             {
+                if (warmup < 0 && warm.ElapsedMilliseconds >= 500)
+                {
+                    warmup = k;
+                }
+
                 for (int i = 0; i < bots.Length; i++)
                 {
                     int slot = sim.SlotOf(bots[i].EntityId);
@@ -78,7 +87,7 @@ namespace Orpheus.Tests
 
                 server.Poll(sim.Tick);
                 sim.Step();
-                if (k >= Warmup)
+                if (warmup >= 0)
                 {
                     sw.Start();
                 }
@@ -88,7 +97,7 @@ namespace Orpheus.Tests
             }
 
             double usPerTick = sw.Elapsed.TotalMilliseconds * 1000 / Measured;
-            _out.WriteLine($"{(dense ? "плотно" : "врозь")}: SendSnapshots {usPerTick:0.0} мкс/такт ({usPerTick / 8:0.0} на игрока), " +
+            _out.WriteLine($"{(dense ? "плотно" : "врозь")}, {entities} сущностей: SendSnapshots {usPerTick:0.0} мкс/такт ({usPerTick / 8:0.0} на игрока), " +
                            $"наибольший полный {server.MaxSnapshotBytes} байт, дельта {server.MaxDeltaBytes}, обрезано {server.SnapshotsTruncated}");
         }
     }

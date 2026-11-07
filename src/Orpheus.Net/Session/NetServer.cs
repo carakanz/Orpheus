@@ -281,6 +281,9 @@ namespace Orpheus.Net.Session
         /// <summary>Пересчётов окна обзора (4.4: только когда центр блока окна сменился; 0-022).</summary>
         public long ViewWindowRecalcs { get; private set; }
 
+        /// <summary>Обзоров, не влезших в снимок целиком: отсортированы ближними первыми (4.3; 0-022).</summary>
+        public long ViewsSortedByDistance { get; private set; }
+
         /// <summary>Сущностей вне окна, оставленных в обзоре гистерезисом (были в обзоре, ещё в блоке 8 × 6).</summary>
         public long ViewKeptByHysteresis { get; private set; }
 
@@ -761,9 +764,9 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
-        /// Обзор игрока (docs/07, 4.4; 0-022) в <paramref name="cur"/>: свой — первым, остальные — ближние первыми
-        /// (<see cref="Torus.Dist2"/> до своего), позиции квантованы; число сущностей (не больше <see cref="Snapshot.MaxEntities"/>:
-        /// лишние — дальние — не берутся).
+        /// Обзор игрока (docs/07, 4.4; 0-022) в <paramref name="cur"/>: свой — первым; позиции квантованы; число сущностей.
+        /// Не влезает в снимок (больше <see cref="Snapshot.MaxEntities"/> или 1200 байт) — остальные ближние первыми
+        /// (<see cref="Torus.Dist2"/> до своего), дальние отбрасывает обрезка (4.3: приоритет с копилкой — «потом»).
         /// <list type="bullet">
         /// <item>Окно — <see cref="ChunkWindow.Update"/>, как окно чанков клиента (3.5): пересчёт только когда сменился центр
         /// блока окна (персонаж перешёл к другой ближайшей границе чанков), иначе окно то же.</item>
@@ -818,12 +821,24 @@ namespace Orpheus.Net.Session
                         ViewKeptByHysteresis++;
                     }
 
-                    long d2 = Torus.Dist2(shape, self, entities[slot].Mover.Position);
-                    _candKeys[nc++] = (d2 << CandSlotBits) | (long)slot;
+                    _candKeys[nc++] = slot;
                 }
             }
 
-            Array.Sort(_candKeys, 0, nc);
+            // Всё влезает в полный снимок (а дельта шлётся, только если она меньше полного) — обрезки не будет, порядок
+            // не важен: остаётся порядок обхода (чанки блока по рядам, в чанке — по номеру). Иначе — ближние первыми.
+            if (nc + 1 > Snapshot.MaxEntities || _layout.SizeFor(nc + 1) > NetSettings.SnapshotBudget)
+            {
+                for (int i = 0; i < nc; i++)
+                {
+                    long d2 = Torus.Dist2(shape, self, entities[(int)_candKeys[i]].Mover.Position);
+                    _candKeys[i] = (d2 << CandSlotBits) | _candKeys[i];
+                }
+
+                Array.Sort(_candKeys, 0, nc);
+                ViewsSortedByDistance++;
+            }
+
             int n = 0;
             cur[n++] = Quantize(entities[selfSlot]);
             for (int i = 0; i < nc && n < Snapshot.MaxEntities; i++)
