@@ -58,6 +58,10 @@ namespace Orpheus.Core.Sim
         private readonly SimEntity[] _entities;
         private readonly InputFrame[] _pending;
         private readonly bool[] _hasPending;
+
+        // Кадры ввода на ближайший такт у сетевых персонажей (0-019): MaxFramesPerTick на место; −1 — шаг тактом по Input.
+        private readonly InputFrame[] _frames;
+        private readonly int[] _frameCount;
         private int _entityCount;
         private int _nextId = 1;
 
@@ -95,6 +99,13 @@ namespace Orpheus.Core.Sim
             _entities = new SimEntity[maxEntities];
             _pending = new InputFrame[maxEntities];
             _hasPending = new bool[maxEntities];
+            _frames = new InputFrame[maxEntities * MaxFramesPerTick];
+            _frameCount = new int[maxEntities];
+            for (int i = 0; i < maxEntities; i++)
+            {
+                _frameCount[i] = -1;
+            }
+
             _edits = new EditRequest[maxEditsPerTick];
             _editScratch = new EditRequest[maxEditsPerTick];
 
@@ -178,6 +189,7 @@ namespace Orpheus.Core.Sim
                 Input = InputFrame.None,
             };
             _hasPending[slot] = false;
+            _frameCount[slot] = -1;
             _nextId = id + 1;
             return id;
         }
@@ -198,10 +210,13 @@ namespace Orpheus.Core.Sim
             Array.Copy(_entities, slot + 1, _entities, slot, tail);
             Array.Copy(_pending, slot + 1, _pending, slot, tail);
             Array.Copy(_hasPending, slot + 1, _hasPending, slot, tail);
+            Array.Copy(_frameCount, slot + 1, _frameCount, slot, tail);
+            Array.Copy(_frames, (slot + 1) * MaxFramesPerTick, _frames, slot * MaxFramesPerTick, tail * MaxFramesPerTick);
             _entityCount--;
             _entities[_entityCount] = default;
             _pending[_entityCount] = default;
             _hasPending[_entityCount] = false;
+            _frameCount[_entityCount] = -1;
             return true;
         }
 
@@ -243,6 +258,7 @@ namespace Orpheus.Core.Sim
             {
                 _entities[i] = entities[i];
                 _hasPending[i] = false;
+                _frameCount[i] = -1;
             }
 
             _entityCount = entities.Length;
@@ -328,6 +344,32 @@ namespace Orpheus.Core.Sim
             _hasPending[slot] = true;
         }
 
+        /// <summary>Наибольшее число кадров ввода на такт у сетевого персонажа (<see cref="SetFramesAt"/>).</summary>
+        public const int MaxFramesPerTick = 8;
+
+        /// <summary>
+        /// Кадры ввода 60 Гц на ближайший такт (docs/07, 2.7 «Применение ввода»; 0-019): в такте сущность шагает каждым
+        /// кадром по порядку, полшага на кадр (<see cref="Mover.StepFrame"/>), — так же, как предсказание клиента.
+        /// Пусто — в этом такте сущность стоит (время персонажа ждёт кадров). Текущий ввод после такта — последний кадр.
+        /// Действует один такт; не вызвали — сущность шагает тактом по своему вводу (<see cref="SetInputAt"/>).
+        /// В журнал ввода кадры не пишутся (backlog [журнал]): повтор журнала — для тактового ввода.
+        /// </summary>
+        public void SetFramesAt(int slot, ReadOnlySpan<InputFrame> frames)
+        {
+            if ((uint)slot >= (uint)_entityCount)
+            {
+                throw new ArgumentOutOfRangeException(nameof(slot));
+            }
+
+            if (frames.Length > MaxFramesPerTick)
+            {
+                throw new ArgumentOutOfRangeException(nameof(frames), frames.Length, $"Кадров на такт не больше {MaxFramesPerTick}.");
+            }
+
+            frames.CopyTo(new Span<InputFrame>(_frames, slot * MaxFramesPerTick, MaxFramesPerTick));
+            _frameCount[slot] = frames.Length;
+        }
+
         /// <summary>
         /// Изменения ввода, ждущие ближайшего такта, по номеру сущности — то, что пишется в журнал ввода.
         /// Возвращает число записанных в <paramref name="dest"/>.
@@ -400,10 +442,24 @@ namespace Orpheus.Core.Sim
                 }
             }
 
-            // 2. Движение — по номеру сущности.
+            // 2. Движение — по номеру сущности: тактом по вводу или кадрами ввода (сетевой персонаж, 0-019).
             for (int i = 0; i < _entityCount; i++)
             {
-                _entities[i].Mover.Step(_shape, _entities[i].Input.Direction, _solid);
+                int frames = _frameCount[i];
+                if (frames < 0)
+                {
+                    _entities[i].Mover.Step(_shape, _entities[i].Input.Direction, _solid);
+                    continue;
+                }
+
+                for (int k = 0; k < frames; k++)
+                {
+                    InputFrame f = _frames[i * MaxFramesPerTick + k];
+                    _entities[i].Input = f;
+                    _entities[i].Mover.StepFrame(_shape, f.Direction, _solid);
+                }
+
+                _frameCount[i] = -1;
             }
 
             // 3. Правки мира: одна пачка на чанк за такт.

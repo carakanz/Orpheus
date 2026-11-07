@@ -25,6 +25,12 @@ namespace Orpheus.Core.Movement
         /// <summary>Множитель скорости: unit × 10 → unit за такт делением на 10.</summary>
         public const int SpeedScale = 10;
 
+        /// <summary>
+        /// Кадров ввода на такт: ввод 60 Гц, такт 30 Гц (docs/07, 2.6–2.7). Сетевой персонаж шагает кадр за кадром —
+        /// полшага такта на кадр (<see cref="Mover.StepFrame"/>), и клиент в предсказании, и сервер (0-019).
+        /// </summary>
+        public const int FramesPerTick = 2;
+
         /// <summary>Тактов базового бега на один тайл: 5 × 512 = 2560 unit × 10 = 256 unit.</summary>
         public const int TicksPerTile = 5;
 
