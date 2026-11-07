@@ -10,6 +10,8 @@
   3. Кладёт сборку в build/client-win/Orpheus.exe (папка build/ — в .gitignore) и рядом — OrpheusServer.exe
      (dotnet publish src/Orpheus.Server, 0-024): одиночная игра и хост запускают его дочерним процессом (docs/07, 2.3).
   4. С ключом -Smoke запускает собранный Orpheus.exe --smoke и проверяет код выхода.
+  6. С ключом -ThreadSmoke — «сервер в потоке» (0-031): Orpheus.exe --server-thread (ServerHost в потоке, локальная связь,
+     PcStorage), новый мир на -ThreadSmokeSeconds, затем загрузка — хэш загруженного совпадает с сохранённым при выходе.
   5. С ключом -HostSmoke — net-smoke хоста: Orpheus.exe --host сам запускает сервер (новый мир в build/logs/host-smoke-world,
      2 бота wander), входит хозяином, «Открыть для друзей» только на 127.0.0.2 (не на всех адресах — без окна брандмауэра),
      ходит, выходит; сервер сохраняет мир и выходит с кодом 0.
@@ -29,6 +31,13 @@ param(
     [switch] $Smoke,
     # После сборки — net-smoke хоста: клиент сам запускает OrpheusServer (0-024).
     [switch] $HostSmoke,
+    # После сборки — «сервер в потоке» (0-031): ServerHost в потоке клиента, локальная связь, PcStorage; два запуска —
+    # новый мир на -ThreadSmokeSeconds, затем загрузка (хэш загруженного = хэш сохранённого при выходе).
+    [switch] $ThreadSmoke,
+    # Длина первого запуска «сервера в потоке», с (приёмка 0.12 / 07 1.9 п. 5 — 600).
+    [int] $ThreadSmokeSeconds = 20,
+    # Только «сервер в потоке» на готовой сборке build/client-win, без сборки Unity (повтор долгого прогона).
+    [switch] $NoBuild,
     # Сборка разработки (BuildOptions.Development).
     [switch] $Development,
     [string] $UnityPath = $(if ($env:ORPHEUS_UNITY) { $env:ORPHEUS_UNITY } else { 'C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe' }),
@@ -67,6 +76,11 @@ if ($Clean) {
         if (Test-Path $d) { Remove-Item -Recurse -Force $d }
     }
 }
+
+if ($NoBuild) {
+    if (-not (Test-Path $Exe)) { Fail "-NoBuild: нет готовой сборки $Exe" }
+    Say '-NoBuild: сборка не делается — прогоны на build/client-win'
+} else {
 
 # --- 1. DLL ядра → client/Assets/Plugins/Orpheus ------------------------------------------
 $coreProjects = @()
@@ -145,6 +159,8 @@ Say 'сервер: dotnet publish Orpheus.Server → build/client-win'
 if ($LASTEXITCODE -ne 0) { Fail "dotnet publish Orpheus.Server — код $LASTEXITCODE" }
 if (-not (Test-Path $ServerExe)) { Fail "нет $ServerExe после publish" }
 
+}  # -NoBuild
+
 # --- 3. Дымовая проверка --------------------------------------------------------------------
 if ($Smoke) {
     Say 'smoke: Orpheus.exe -batchmode -nographics --smoke'
@@ -195,6 +211,45 @@ if ($HostSmoke) {
     if (-not $ready) { Fail "host-smoke: клиент не запускал сервер (нет строки '[host] сервер готов')" }
     if (-not (Select-String -Path $hostLog -Pattern '^\[host\] сервер остановлен: код 0' -Quiet)) { Fail 'host-smoke: сервер не вышел штатно с кодом 0' }
     Say 'host-smoke: код 0'
+}
+
+# --- 5. «Сервер в потоке» (0-031) ------------------------------------------------------------
+if ($ThreadSmoke) {
+    $threadWorld = Join-Path $LogDir 'thread-smoke-world'
+    if (Test-Path $threadWorld) { Remove-Item -Recurse -Force $threadWorld }
+    # Автосохранение раз в 30 с мира на длинном прогоне, раз в 5 с — на коротком: оба пути записи проходят.
+    $autosave = if ($ThreadSmokeSeconds -ge 120) { '30' } else { '5' }
+    $runs = @(
+        @{ Name = 'thread-smoke'; Seconds = $ThreadSmokeSeconds },
+        @{ Name = 'thread-smoke-load'; Seconds = 6 }
+    )
+    $hashes = @{}
+    foreach ($run in $runs) {
+        $log = Join-Path $LogDir "$($run.Name).log"
+        if (Test-Path $log) { Remove-Item -Force $log }
+        Say "$($run.Name): Orpheus.exe --server-thread --net-smoke $($run.Seconds) (мир build/logs/thread-smoke-world, 2 бота wander)"
+        $tp = Start-Process -FilePath $Exe -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $LogDir "$($run.Name).stdout.txt") -ArgumentList @(
+            '-batchmode', '-nographics', '--server-thread', '--world', "`"$threadWorld`"", '--net-smoke', "$($run.Seconds)",
+            '--server-arg', '--bots', '--server-arg', '2:wander', '--server-arg', '--autosave', '--server-arg', $autosave,
+            '-logFile', "`"$log`"")
+        $null = $tp.Handle
+        $limit = ($run.Seconds + 90) * 1000
+        if (-not $tp.WaitForExit($limit)) { try { $tp.Kill() } catch { }; Fail "$($run.Name): Orpheus.exe не вышел за $($limit / 1000) с" }
+        $tp.WaitForExit()
+        Select-String -Path $log -Pattern '^\[(smoke|thread)\]' | ForEach-Object { Write-Host "  $($_.Line)" }
+        if ($tp.ExitCode -ne 0) { Fail "$($run.Name): код выхода $($tp.ExitCode), лог: $log" }
+        if (-not (Select-String -Path $log -Pattern '^\[smoke\] done' -Quiet)) { Fail "$($run.Name): нет строки '[smoke] done' в $log" }
+        if (-not (Select-String -Path $log -Pattern '^\[thread\] сервер остановлен: код 0' -Quiet)) { Fail "$($run.Name): сервер в потоке не вышел штатно с кодом 0" }
+        $saves = Select-String -Path $log -Pattern '^\[thread\] сохранения: загружено №(\d+) \(хэш ([0-9a-f]{16})\), записано (\d+), последнее №(\d+); хэш в конце ([0-9a-f]{16})' | Select-Object -First 1
+        if (-not $saves) { Fail "$($run.Name): нет строки итога сохранений в $log" }
+        $g = $saves.Matches[0].Groups
+        $hashes[$run.Name] = @{ Loaded = [int]$g[1].Value; LoadedHash = $g[2].Value; Written = [int]$g[3].Value; Last = [int]$g[4].Value; Final = $g[5].Value }
+    }
+    $a = $hashes['thread-smoke']; $b = $hashes['thread-smoke-load']
+    if ($a.Written -lt 1) { Fail 'thread-smoke: ни одного сохранения' }
+    if ($b.Loaded -ne $a.Last) { Fail "thread-smoke-load: загружено №$($b.Loaded), а последнее сохранённое — №$($a.Last)" }
+    if ($b.LoadedHash -ne $a.Final) { Fail "thread-smoke-load: хэш загруженного $($b.LoadedHash) ≠ хэш при выходе $($a.Final)" }
+    Say "thread-smoke: код 0; сохранений $($a.Written), загружено №$($b.Loaded), хэш совпал ($($a.Final))"
 }
 
 Say ("готово: {0} ({1}), всего {2:0.0} с" -f $Exe, $Backend, $total.Elapsed.TotalSeconds)

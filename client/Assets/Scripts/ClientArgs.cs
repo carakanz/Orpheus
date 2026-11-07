@@ -74,6 +74,13 @@ namespace Orpheus.Client
         /// <summary>Одиночная / хост: сервер дочерним процессом (0-024); null — офлайн или <see cref="Connect"/>.</summary>
         public ServerMode? Mode;
 
+        /// <summary>
+        /// «Сервер в потоке» (0-031, docs/07 1.6, 2.3 «На консоли»): одиночная игра, <c>ServerHost</c> в потоке игры, клиент — через
+        /// локальную связь; сохранения — через <c>PcStorage</c>. Ключ <c>--server-thread</c> (сам включает <c>--single</c>). На ПК по
+        /// умолчанию остаётся дочерний процесс (0-024).
+        /// </summary>
+        public bool ServerThread;
+
         /// <summary>Папка мира одиночной/хоста; null — по умолчанию (<c>persistentDataPath/Worlds/world-1</c>).</summary>
         public string? WorldDir;
 
@@ -111,7 +118,7 @@ namespace Orpheus.Client
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь] " +
-            "[--single|--host] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P]";
+            "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P]";
 
         public static ClientArgs Parse(string[] args)
         {
@@ -217,6 +224,9 @@ namespace Orpheus.Client
 
                         a.Mode = mode;
                         break;
+                    case "--server-thread":
+                        a.ServerThread = true;
+                        break;
                     case "--world":
                     case "--server":
                     case "--server-arg":
@@ -278,6 +288,16 @@ namespace Orpheus.Client
 
                         break;
                 }
+            }
+
+            if (a.ServerThread)
+            {
+                if (a.Mode == ServerMode.Host || a.OpenForFriends)
+                {
+                    a.Error = "--server-thread — только одиночная игра (без --host и --open-for-friends)";
+                }
+
+                a.Mode = ServerMode.Single; // сервер в потоке — та же одиночная игра, только без дочернего процесса
             }
 
             if (a.Mode.HasValue && a.Connect != null)

@@ -153,6 +153,11 @@ namespace Orpheus.Client
                 Application.targetFrameRate = 60;
             }
 
+            if (StartThreadServer())
+            {
+                return; // 0-031: сервер в потоке, вход по локальной связи (NetGame.Thread.cs)
+            }
+
             if (_args.Mode.HasValue)
             {
                 _status = "Запуск мира…";
@@ -271,6 +276,7 @@ namespace Orpheus.Client
             long now = NowUs();
             _pollUs = now;
             PollLocalServer(now);
+            PollThreadServer(now);
             if (_client != null)
             {
                 try
@@ -364,6 +370,7 @@ namespace Orpheus.Client
             (_link ?? _transport)?.Dispose();
             _link = null;
             _transport = null;
+            ShutdownThreadServer();
             LocalServer? local = _local;
             _local = null;
             if (local != null)
