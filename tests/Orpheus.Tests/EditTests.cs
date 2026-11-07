@@ -1,0 +1,505 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
+using Orpheus.Net;
+using Orpheus.Net.Protocol;
+using Orpheus.Net.Session;
+using Orpheus.Net.Transport;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace Orpheus.Tests
+{
+    /// <summary>
+    /// Правки тайлов (0-028; docs/07, 3.7, 3.13 п. 8; `05` 1.3–1.5): правила вехи 0, проверки сервера, конфликт в такте,
+    /// предсказание и откат у клиента, существа и враги.
+    /// </summary>
+    public class EditTests
+    {
+        private const int U = 1 << Torus.SubTileBits;
+        private const long FrameMicros = 1_000_000 / 60;
+        private readonly ITestOutputHelper _out;
+
+        public EditTests(ITestOutputHelper output)
+        {
+            _out = output;
+        }
+
+        internal static WorldPos TileCenter(int x, int y) => new WorldPos(x * U + U / 2, y * U + U / 2);
+
+        private static WorldModel Flat(int size = 1024) => FlatWorldGenerator.Instance.Generate(MapShape.World(size), 1);
+
+        private static readonly InputFrame DigHold = new InputFrame(Input8.None, InputButtons.Dig);
+
+        // ---------- Правила ----------
+
+        /// <summary>Досягаемость копания 1,5 тайла (диагональ — да, через тайл — нет), радиус 6 по оси максимума через шов, линия ≤ 32.</summary>
+        [Fact]
+        public void D07_S3_7_Rules_Reach_Radius_Line()
+        {
+            MapShape map = MapShape.World(1024);
+            WorldPos c = TileCenter(0, 0);
+            Assert.True(EditRules.InDigReach(map, c, new TileCoord(1, 1)));
+            Assert.True(EditRules.InDigReach(map, c, new TileCoord(1023, 1023))); // диагональ через шов
+            Assert.False(EditRules.InDigReach(map, c, new TileCoord(2, 0)));
+            Assert.False(EditRules.InDigReach(map, new WorldPos(c.X - U * 3 / 8, c.Y), new TileCoord(1, 1))); // смещён от центра — диагональ дальше 1,5
+
+            Assert.True(EditRules.InPlaceRadius(map, c, new TileCoord(1018, 6))); // 6 через шов, угол квадрата 13 × 13
+            Assert.False(EditRules.InPlaceRadius(map, c, new TileCoord(1017, 0)));
+            Assert.False(EditRules.InPlaceRadius(map, c, new TileCoord(0, 7)));
+
+            var line = new TileCoord[EditRules.MaxLineTiles];
+            Assert.Equal(32, EditRules.Line(map, new TileCoord(1010, 5), new TileCoord(17, 5), line)); // через шов: 1010 … 1023, 0 … 17
+            Assert.Equal(new TileCoord(1023, 5), line[13]);
+            Assert.Equal(new TileCoord(0, 5), line[14]);
+            Assert.Equal(-1, EditRules.Line(map, new TileCoord(1010, 5), new TileCoord(18, 5), line));
+            Assert.Equal(5, EditRules.Line(map, new TileCoord(3, 3), new TileCoord(7, 5), line));
+            Assert.Equal(new TileCoord(7, 5), line[4]);
+
+            WorldModel w = Flat();
+            w.SetBaseTile(new TileCoord(1, 0), FloorId.Stone, ObjectId.Rock);
+            w.SetBaseTile(new TileCoord(2, 0), FloorId.Water, ObjectId.Empty);
+            w.SetBaseTile(new TileCoord(3, 0), FloorId.Grass, ObjectId.StoneWall);
+            Assert.Equal(EditReply.Accepted, EditRules.CheckDig(w, c, new TileCoord(1, 0)));
+            Assert.Equal(EditReply.Empty, EditRules.CheckDig(w, c, new TileCoord(0, 1)));
+            Assert.Equal(EditReply.NotAllowed, EditRules.CheckDig(w, TileCenter(3, 1), new TileCoord(3, 0))); // постройку не копают (снос — потом)
+            Assert.Equal(EditReply.DigFirst, EditRules.CheckPlaceTile(w, c, new TileCoord(1, 0), ObjectId.StoneWall));
+            Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(w, c, new TileCoord(2, 0), ObjectId.StoneWall));
+            Assert.Equal(EditReply.Busy, EditRules.CheckPlaceTile(w, c, new TileCoord(3, 0), ObjectId.StoneWall));
+            Assert.Equal(EditReply.NotAllowed, EditRules.CheckPlaceTile(w, c, new TileCoord(4, 0), ObjectId.Rock));
+            Assert.Equal("враг ближе 2 тайлов", EditRules.Describe(EditReply.EnemyNear));
+            Assert.Equal("занято существом", EditRules.Describe(EditReply.Occupied));
+        }
+
+        // ---------- Такт: существа и враги ----------
+
+        /// <summary>
+        /// `05` 1.3, backlog [стройка] (П по 0-004): непроходимое на тайл с существом (и на свой) — «занято существом»; непроходимое и
+        /// ловушка ближе 2 тайлов к врагу — «враг ближе 2 тайлов»; ковёр — можно. Проверка — после движения такта.
+        /// </summary>
+        [Fact]
+        public void D05_S1_3_Place_OnCreature_NearEnemy_Refused()
+        {
+            var sim = new Simulation(Flat());
+            int me = sim.AddEntity(TileCenter(100, 100));
+            sim.AddEnemy(TileCenter(110, 100));
+            var events = new List<SimEvent>();
+
+            EditResult Try(int x, int y, ushort obj)
+            {
+                sim.RequestPlayerEdit(new TileCoord(x, y), FloorId.Grass, obj, true, BuildRecord.OfPlayer(1, FloorId.Grass), me, 7);
+                sim.Step();
+                SimEvent e = sim.Events.ToArray().Single(v => v.Kind == SimEventKind.TileEdit);
+                Assert.Equal(me, e.Requester);
+                Assert.Equal(7, e.Tag);
+                return e.Result;
+            }
+
+            Assert.Equal(EditResult.Occupied, Try(100, 100, ObjectId.StoneWall)); // на себя
+            Assert.Equal(EditResult.Occupied, Try(110, 100, ObjectId.StoneWall)); // на врага
+            Assert.Equal(EditResult.EnemyNear, Try(111, 101, ObjectId.StoneWall)); // √2 < 2
+            Assert.Equal(EditResult.EnemyNear, Try(109, 101, ObjectId.Spikes)); // ловушка — тоже
+            Assert.Equal(EditResult.Applied, Try(112, 100, ObjectId.StoneWall)); // ровно 2 — можно
+            Assert.Equal(EditResult.Applied, Try(109, 100, ObjectId.Carpet)); // проходимое рядом с врагом
+            Assert.Equal(EditResult.Applied, Try(100, 100, ObjectId.Carpet)); // и под себя
+            Assert.Equal(ObjectId.Empty, sim.World.GetObject(new TileCoord(111, 101)));
+        }
+
+        /// <summary>
+        /// «Нельзя выйти сквозь стену в 1 тайл» (backlog [стройка], П по 0-004): персонаж идёт на восток к стене толщиной 1 тайл и
+        /// каждый такт ставит стену на тайл, который задевает (свой и следующий), — ни одна не встаёт, стену он не проходит.
+        /// </summary>
+        [Fact]
+        public void D05_S1_3_PlaceUnderSelf_CannotWalkThroughOneTileWall()
+        {
+            var sim = new Simulation(Flat());
+            int me = sim.AddEntity(new WorldPos(10 * U + U * 7 / 10, 50 * U + U / 2)); // задевает тайл 11
+            for (int y = 45; y <= 55; y++)
+            {
+                sim.World.SetBaseTile(new TileCoord(13, y), FloorId.Grass, ObjectId.StoneWall);
+            }
+
+            int refused = 0;
+            for (int t = 0; t < 90; t++)
+            {
+                WorldPos p = sim.GetEntity(me).Mover.Position;
+                int tx = p.X >> Torus.SubTileBits;
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    sim.RequestPlayerEdit(new TileCoord(tx + dx, 50), FloorId.Grass, ObjectId.StoneWall, true, BuildRecord.OfPlayer(1, FloorId.Grass), me, t);
+                }
+
+                sim.SetInput(me, new InputFrame(Input8.East));
+                sim.Step();
+                foreach (SimEvent e in sim.Events.ToArray())
+                {
+                    if (e.Kind == SimEventKind.TileEdit && e.Result == EditResult.Applied)
+                    {
+                        WorldPos q = sim.GetEntity(me).Mover.Position;
+                        TileCoord placed = new TileCoord((e.Chunk.X << Torus.ChunkBits) + (e.TileIndex & 31), (e.Chunk.Y << Torus.ChunkBits) + (e.TileIndex >> 5));
+                        Assert.False(Collision.CircleOverlapsTile(sim.Shape, q, placed), $"такт {t}: стена {placed} встала на персонажа {q}");
+                    }
+                    else if (e.Kind == SimEventKind.TileEdit && e.Result == EditResult.Occupied)
+                    {
+                        refused++;
+                    }
+                }
+
+                Assert.True(sim.GetEntity(me).Mover.Position.X + Collision.RadiusUnits <= 13 * U, $"такт {t}: персонаж в стене или за ней");
+            }
+
+            Assert.True(refused > 30, $"отказов «занято существом» {refused}");
+        }
+
+        // ---------- По сети ----------
+
+        /// <summary>
+        /// Копание по времени сервера (3.7): клиент жмёт «копать» у скалы и держит кнопку; через 15 кадров своим счётом предсказывает
+        /// «объект снят», сервер докапывает по тем же кадрам и отвечает «принято»; тайл у клиента = сервер, наблюдатель видит правку.
+        /// Отпустил раньше — «прервано», скала на месте.
+        /// </summary>
+        [Fact]
+        public void D07_S3_7_Dig_PredictThenConfirm_StopEarly_Interrupted()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 200);
+            var rock2 = new TileCoord(301, 201);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            world.SetBaseTile(rock2, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditRig(world, n => TileCenter(300 + 2 * n, 200));
+            NetClient c = rig.Join();
+            NetClient observer = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(10);
+
+            ushort id = c.StartDig(rock);
+            rig.InputOf = k => k == c ? DigHold : InputFrame.None;
+            int predictedAt = -1;
+            for (int t = 0; t < 20 && replies.Count == 0; t++)
+            {
+                rig.Run(1);
+                if (predictedAt < 0 && c.World!.World.GetObject(rock) == ObjectId.Empty)
+                {
+                    predictedAt = t;
+                }
+            }
+
+            Assert.Single(replies);
+            Assert.Equal(id, replies[0].RequestId);
+            Assert.Equal(EditReply.Accepted, replies[0].Reply);
+            Assert.InRange(predictedAt, 6, 8); // 15 кадров = 7,5 такта
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
+            rig.Run(2);
+            ChunkCoord ch = Torus.ChunkOf(world.Shape, rock);
+            Assert.True(c.World!.SameAs(rig.Sim.World, ch));
+            Assert.True(observer.World!.SameAs(rig.Sim.World, ch));
+            Assert.Equal(1, c.World.PredictionsConfirmed);
+
+            // Отпустил раньше: «прервано», скала на месте, предсказания не было.
+            replies.Clear();
+            ushort id2 = c.StartDig(rock2);
+            rig.Run(3);
+            c.StopDig();
+            rig.InputOf = null;
+            rig.Run(10);
+            Assert.Single(replies);
+            Assert.Equal(id2, replies[0].RequestId);
+            Assert.Equal(EditReply.Interrupted, replies[0].Reply);
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock2));
+            Assert.Equal(0, c.World.PredictionsRolledBack);
+        }
+
+        /// <summary>
+        /// Проверки сервера (3.7): копать дальше 1,5 тайла — «далеко», пустой тайл — «пусто», постройку — «нельзя»; поставить дальше
+        /// радиуса 6 — «далеко»; линия длиннее 32 не уходит. Тайлы сервера не меняются.
+        /// </summary>
+        [Fact]
+        public void D07_S3_7_ServerChecks_Reach_Empty_Radius()
+        {
+            WorldModel world = Flat();
+            world.SetBaseTile(new TileCoord(303, 200), FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditRig(world, n => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(10);
+            WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
+
+            c.StartDig(new TileCoord(303, 200)); // 3 тайла
+            rig.InputOf = _ => DigHold;
+            rig.Run(12);
+            c.StartDig(new TileCoord(301, 200)); // пусто
+            rig.Run(2);
+            ushort far = c.Place(new TileCoord(307, 200), new TileCoord(307, 200), ObjectId.StoneWall, self); // 7 по оси
+            rig.Run(2);
+            Assert.Equal(0, c.Place(new TileCoord(300, 210), new TileCoord(340, 210), ObjectId.StoneWall, self));
+
+            Assert.Equal(new[] { EditReply.OutOfReach, EditReply.Empty, EditReply.OutOfReach }, replies.Select(r => r.Reply).ToArray());
+            Assert.Equal(far, replies[2].RequestId);
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(new TileCoord(303, 200)));
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(new TileCoord(307, 200)));
+            Assert.Equal(0, c.World!.PendingPredictions);
+        }
+
+        /// <summary>
+        /// 3.13 п. 8 (`05` 1.4): два клиента ставят стену в один тайл в один такт — правка одна (ревизия +1), стена первого,
+        /// второй получил «занято» и откатил призрак (тайл = сервер). То же с копанием одной скалы: докопали в один такт — правка одна,
+        /// второму «занято».
+        /// </summary>
+        [Fact]
+        public void D07_S3_13_8_TwoClients_SameTile_SameTick_OneEdit_SecondBusy()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 201);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditRig(world, n => TileCenter(300 + 2 * n, 200));
+            NetClient a = rig.Join();
+            NetClient b = rig.Join();
+            var ra = new List<TileReplyMessage>();
+            var rb = new List<TileReplyMessage>();
+            var flashes = new List<(TileCoord, EditReply)>();
+            a.EditReplied = ra.Add;
+            b.EditReplied = rb.Add;
+            rig.Run(10);
+            b.World!.RolledBack = (t, r) => flashes.Add((t, r));
+
+            var wall = new TileCoord(301, 196);
+            ChunkCoord ch = Torus.ChunkOf(world.Shape, wall);
+            uint rev = rig.Sim.World.FindChunk(ch)!.Revision;
+            a.Place(wall, wall, ObjectId.StoneWall, rig.Sim.GetEntity(a.EntityId).Mover.Position);
+            b.Place(wall, wall, ObjectId.StoneWall, rig.Sim.GetEntity(b.EntityId).Mover.Position);
+            Assert.Equal(ObjectId.StoneWall, b.World.World.GetObject(wall)); // призрак сразу
+            rig.Run(3);
+
+            Assert.Equal(EditReply.Accepted, Assert.Single(ra).Reply);
+            Assert.Equal(EditReply.Busy, Assert.Single(rb).Reply);
+            Assert.Equal(rev + 1, rig.Sim.World.FindChunk(ch)!.Revision);
+            Assert.True(rig.Sim.World.TryGetBuild(wall, out BuildRecord rec));
+            Assert.Equal((ushort)a.EntityId, rec.Owner);
+            Assert.Equal((wall, EditReply.Busy), Assert.Single(flashes));
+            Assert.True(a.World!.SameAs(rig.Sim.World, ch));
+            Assert.True(b.World.SameAs(rig.Sim.World, ch));
+
+            // Копание одной скалы обоими: правка одна, второму — «занято».
+            ra.Clear();
+            rb.Clear();
+            ChunkCoord rc = Torus.ChunkOf(world.Shape, rock);
+            uint rrev = rig.Sim.World.FindChunk(rc)!.Revision;
+            a.StartDig(rock);
+            b.StartDig(rock);
+            rig.InputOf = _ => DigHold;
+            rig.Run(12);
+            Assert.Equal(EditReply.Accepted, Assert.Single(ra).Reply);
+            Assert.Equal(EditReply.Busy, Assert.Single(rb).Reply);
+            Assert.Equal(rrev + 1, rig.Sim.World.FindChunk(rc)!.Revision);
+            Assert.True(a.World.SameAs(rig.Sim.World, rc));
+            Assert.True(b.World.SameAs(rig.Sim.World, rc));
+        }
+
+        /// <summary>
+        /// Отказ → откат (3.7 «Ответ»): RTT 100 мс, клиент ставит стену на тайл, где стоит второй игрок (клиент существ не проверяет —
+        /// предсказывает); сервер — «занято существом»; тайл клиента = сервер не позже RTT + 1 такт после запроса, вспышка с причиной.
+        /// </summary>
+        [Theory]
+        [InlineData(100)]
+        [InlineData(200)]
+        public void D07_S3_7_Refused_RollbackWithinRttPlusTick(int rttMs)
+        {
+            WorldModel world = Flat();
+            using var rig = new EditRig(world, n => TileCenter(300 + 3 * n, 200));
+            var link = new NetSimSettings { DelayMs = rttMs / 2, Seed = 3 };
+            NetClient c = rig.Join(link);
+            NetClient other = rig.Join();
+            rig.Run(40);
+            var flashes = new List<(TileCoord, EditReply)>();
+            c.World!.RolledBack = (t, r) => flashes.Add((t, r));
+
+            var target = new TileCoord(303, 200); // под вторым игроком
+            long sentAt = rig.NowMicros;
+            c.Place(target, target, ObjectId.StoneWall, rig.Sim.GetEntity(c.EntityId).Mover.Position);
+            Assert.Equal(ObjectId.StoneWall, c.World.World.GetObject(target));
+            long backAt = -1;
+            rig.AfterClientPoll = k =>
+            {
+                if (k == c && backAt < 0 && c.World.World.GetObject(target) == rig.Sim.World.GetObject(target))
+                {
+                    backAt = rig.NowMicros;
+                }
+            };
+            rig.Run(20);
+
+            // Предел: RTT + 1 такт (запрос ждёт такта сервера) + 2 кадра 60 Гц — имитатор отпускает пакет только в Poll клиента,
+            // раз в кадр, в каждую сторону.
+            long limit = rttMs * 1000L + 1_000_000 / Simulation.TickRate + 2 * FrameMicros;
+            _out.WriteLine($"RTT {rttMs} мс: откат через {(backAt - sentAt) / 1000.0:0.0} мс (предел RTT + 1 такт + 2 кадра = {limit / 1000.0:0.0} мс)");
+            Assert.InRange(backAt - sentAt, rttMs * 1000L, limit);
+            Assert.Equal((target, EditReply.Occupied), Assert.Single(flashes));
+            rig.Run(10);
+            Assert.True(c.World.SameAs(rig.Sim.World, Torus.ChunkOf(world.Shape, target)));
+            Assert.Equal(1, c.World.PredictionsRolledBack);
+        }
+
+        /// <summary>
+        /// Линия до 32 тайлов (`05` 1.5): тайлы по порядку, тайл с существом и рядом с врагом пропускается, линия идёт дальше; маска
+        /// ответа — принятые тайлы; у клиента после ответа тайлы = сервер. Ведро 20 тайлов/с: две линии по 32 подряд — вторая
+        /// почти вся «слишком быстро».
+        /// </summary>
+        [Fact]
+        public void D05_S1_5_Line_SkipsCreatures_Mask_RateLimit()
+        {
+            WorldModel world = Flat();
+            using var rig = new EditRig(world, n => TileCenter(300 + 4 * n, 200));
+            NetClient c = rig.Join();
+            NetClient other = rig.Join(); // стоит на (304, 200)
+            rig.Sim.AddEnemy(TileCenter(299, 203));
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(10);
+
+            WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
+            c.Place(new TileCoord(296, 202), new TileCoord(306, 202), ObjectId.StoneWall, self); // мимо врага (299, 203)
+            c.Place(new TileCoord(302, 200), new TileCoord(305, 200), ObjectId.WoodFence, self); // через второго игрока
+            rig.Run(3);
+            Assert.Equal(2, replies.Count);
+            uint m1 = replies[0].Mask;
+            Assert.Equal(EditReply.Accepted, replies[0].Reply);
+            Assert.Equal(EditReply.EnemyNear, replies[0].FirstRefusal);
+            Assert.Equal(0b111_1110_0011u, m1); // 296, 297 и 301…306; 298…300 — ближе 2 к врагу
+            Assert.Equal(EditReply.Occupied, replies[1].FirstRefusal);
+            Assert.Equal(0b1011u, replies[1].Mask); // 304 задевает второй игрок (радиус 0,4)
+            for (int x = 290; x < 310; x++)
+            {
+                for (int y = 199; y <= 203; y++)
+                {
+                    Assert.Equal(rig.Sim.World.GetObject(new TileCoord(x, y)), c.World!.World.GetObject(new TileCoord(x, y)));
+                }
+            }
+
+            // Ведро: запас 32 тайла, две линии выше взяли 15, за 3 такта +2 → 19; четыре линии по 13 без паузы — принято 19.
+            replies.Clear();
+            for (int y = 194; y < 198; y++)
+            {
+                c.Place(new TileCoord(294, y), new TileCoord(306, y), ObjectId.Torch, self);
+            }
+
+            rig.Run(3);
+            int placed = replies.Sum(r => System.Numerics.BitOperations.PopCount(r.Mask));
+            Assert.Equal(19, placed);
+            Assert.Equal(4, replies.Count);
+            Assert.Equal(2, replies.Count(r => r.Reply == EditReply.TooFast && r.Mask == 0)); // третья и четвёртая — целиком (ответ сразу)
+            Assert.Single(replies, r => r.Reply == EditReply.Accepted && r.FirstRefusal == EditReply.Accepted); // 13
+            Assert.Single(replies, r => r.Reply == EditReply.Accepted && r.FirstRefusal == EditReply.TooFast);
+        }
+
+        /// <summary>«Золотые» байты сообщений 20 и 21 (протокол 7) и отказ испорченных.</summary>
+        [Fact]
+        public void D07_S2_10_GoldenBytes_TileRequest_TileReply()
+        {
+            MapShape map = MapShape.World(1024);
+            var req = new TileRequestMessage { RequestId = 0x0102, Op = TileOp.Place, From = new TileCoord(5, 6), To = new TileCoord(7, 8), Obj = ObjectId.WoodWall };
+            byte[] rb = NetTests.Encode(b => req.Write(b));
+            Assert.Equal("14 02 01 03 05 00 06 00 07 00 08 00 04 00", string.Join(" ", rb.Select(x => x.ToString("x2"))));
+            Assert.Equal(TileRequestMessage.Bytes, rb.Length);
+            TileRequestMessage back = TileRequestMessage.Read(rb, map);
+            Assert.Equal(req.To, back.To);
+            Assert.Equal(TileOp.Place, back.Op);
+
+            var rep = new TileReplyMessage { RequestId = 0x0102, Reply = EditReply.Accepted, FirstRefusal = EditReply.Occupied, Mask = 0x80000001 };
+            byte[] pb = NetTests.Encode(b => rep.Write(b));
+            Assert.Equal("15 02 01 00 04 01 00 00 80", string.Join(" ", pb.Select(x => x.ToString("x2"))));
+            Assert.Equal(0x80000001u, TileReplyMessage.Read(pb).Mask);
+
+            byte[] badOp = (byte[])rb.Clone();
+            badOp[3] = 4;
+            Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(badOp, map));
+            byte[] outside = (byte[])rb.Clone();
+            outside[9] = 0x04; // y конца 1031
+            Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(outside, map));
+            byte[] badMask = (byte[])pb.Clone();
+            badMask[5] = 0; badMask[8] = 0; // «принято» без маски
+            Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badMask));
+            Assert.Equal(7, NetModule.ProtocolVersion);
+        }
+
+        // ---------- Стенд ----------
+
+        /// <summary>
+        /// Сервер и клиенты в памяти: такт — два кадра клиентов (60 Гц; ввод — <see cref="InputOf"/>), <c>Poll</c> сервера, такт,
+        /// рассылка, <see cref="AfterTick"/>.
+        /// </summary>
+        internal sealed class EditRig : IDisposable
+        {
+            private readonly LoopbackTransport _st;
+            private long _frame;
+
+            public EditRig(WorldModel world, Func<int, WorldPos> spawn, int maxPlayers = 8)
+            {
+                Sim = new Simulation(world, maxEntities: 32);
+                _st = LoopbackTransport.CreateServer(maxPlayers + 8);
+                Server = new NetServer(_st, Sim, spawn, maxPlayers, NetModule.Version);
+            }
+
+            public Simulation Sim { get; private set; }
+            public NetServer Server { get; private set; }
+            public List<NetClient> Clients { get; } = new List<NetClient>();
+            public Func<NetClient, InputFrame>? InputOf { get; set; }
+            public Action? BeforeFrame { get; set; }
+            public Action<NetClient>? AfterClientPoll { get; set; }
+            public Action? AfterTick { get; set; }
+            public long NowMicros => _frame * FrameMicros;
+            public long Ticks { get; private set; }
+
+            public NetClient Join(NetSimSettings? sim = null)
+            {
+                ITransport t = LoopbackTransport.ConnectTo(_st);
+                if (sim.HasValue)
+                {
+                    t = new NetSimTransport(t, sim.Value);
+                }
+
+                var c = new NetClient(t, LoopbackTransport.ServerPeer, "c" + Clients.Count, NetModule.Version);
+                Clients.Add(c);
+                return c;
+            }
+
+            public void Run(int ticks)
+            {
+                for (int i = 0; i < ticks; i++)
+                {
+                    for (int f = 0; f < 2; f++, _frame++)
+                    {
+                        BeforeFrame?.Invoke();
+                        foreach (NetClient c in Clients)
+                        {
+                            c.Poll(NowMicros);
+                            AfterClientPoll?.Invoke(c);
+                            c.SendFrame(InputOf?.Invoke(c) ?? InputFrame.None);
+                        }
+                    }
+
+                    Server.Poll(NowMicros);
+                    Sim.Step();
+                    Server.SendSnapshots();
+                    Sim.RefillPools();
+                    Ticks++;
+                    AfterTick?.Invoke();
+                }
+            }
+
+            public void Dispose()
+            {
+                foreach (NetClient c in Clients)
+                {
+                    c.Transport.Dispose();
+                }
+
+                _st.Dispose();
+            }
+        }
+    }
+}
