@@ -264,7 +264,7 @@ namespace Orpheus.Platform.Pc
     /// 0-009). Убийство процесса не отличает кэш ОС от носителя, поэтому гарантию «дошло до диска» держит не
     /// обрыв, а тест: он подменяет этот класс записывающим наследником и сверяет, что <c>.tmp</c> открыт с
     /// <see cref="FileOptions.WriteThrough"/>, <c>FlushFileBuffers</c> позван до <c>MoveFileExW</c>, в флагах
-    /// <c>MOVEFILE_WRITE_THROUGH</c>. В игре — <see cref="Os"/>: один виртуальный вызов на файл, против записи
+    /// <c>MOVEFILE_WRITE_THROUGH</c>; сами листья (вызовы ОС) — отдельные тесты листьев. В игре — <see cref="Os"/>: один виртуальный вызов на файл, против записи
     /// на носитель — ничто. POSIX-ветка (<c>fsync</c>, <c>rename</c>) шва не имеет: CI идёт на Windows.
     /// </summary>
     internal class PcFileCalls
@@ -274,6 +274,10 @@ namespace Orpheus.Platform.Pc
         /// <summary><c>.tmp</c> на запись, без буфера .NET (bufferSize 1): байты сразу идут в ОС.</summary>
         public virtual FileStream CreateTmp(string path, FileOptions options) =>
             new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, 1, options);
+
+        // Листья ниже — только передача аргументов в ОС, без логики (0-020): тест D00_Save_PcFileCalls_* сверяет
+        // их поведением ОС (отказ сброса дескриптора для чтения, REPLACE_EXISTING) и телом IL. Любая правка
+        // здесь — даже «полезная» — краснит тест: флаги и порядок решает PcStorage, а не шов.
 
         public virtual bool FlushFileBuffers(SafeFileHandle file, string path) => FlushFileBuffers(file);
 
