@@ -306,8 +306,8 @@ namespace Orpheus.Net.Session
 
             _scratch.Count = _delta.ApplyTo(b.Entities, b.Count, _scratch.Entities);
             _scratch.Tick = tick;
-            _scratch.AckFrame = _delta.AckFrame;            _scratch.Self = _delta.Self;
-
+            _scratch.AckFrame = _delta.AckFrame;
+            _scratch.Self = _delta.Self;
             _scratch.IsDelta = true;
             DeltasApplied++;
             CommitSnapshot();

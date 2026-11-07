@@ -1115,7 +1115,7 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// 2.13 п. 6 на заглушке транспорта (кадр за кадром): стоп ровно через 6 тактов после последнего нового кадра,
-        /// стоп — это и движение 0, и кнопки 0; повтор того же кадра — не новый кадр (отброшен, стоп не отодвигает);
+        /// стоп — это и движение 0, и кнопки 0 (самоход 0-019 — уже без кнопок, 2.7); повтор того же кадра — не новый кадр (отброшен, стоп не отодвигает);
         /// до первого кадра после входа стопа нет; новый кадр снимает стоп.
         /// </summary>
         [Fact]
@@ -1169,9 +1169,14 @@ namespace Orpheus.Tests
                 t.Push(1, NetChannel.Unreliable, repeat);
                 Tick();
                 pos[sim.Tick] = Pos();
-                if (sim.Tick - lastFrameTick <= 6)
+                if (sim.Tick - lastFrameTick <= NetServer.SelfStepAfterTicks)
                 {
-                    Assert.True(Input() == held, $"такт {sim.Tick}: стоп раньше 6 тактов после кадра ({Input()})");
+                    Assert.True(Input() == held, $"такт {sim.Tick}: ввод сменился раньше самохода ({Input()})");
+                }
+                else if (sim.Tick - lastFrameTick <= 6)
+                {
+                    // 0-019: самоход 2.7 «Нет ввода» — последнее направление, кнопки отпущены.
+                    Assert.True(Input() == new InputFrame(held.Direction), $"такт {sim.Tick}: самоход не тем вводом ({Input()})");
                 }
                 else
                 {

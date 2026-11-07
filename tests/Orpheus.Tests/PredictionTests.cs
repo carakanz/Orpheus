@@ -426,7 +426,7 @@ namespace Orpheus.Tests
         /// <summary>
         /// Шаг 1 карточки: кадры приходят пачками (0, 4, 1, 3, 0, 0, 6, 2 … за такт) — сервер шагает каждый по порядку
         /// полшага: позиция = эталонный <see cref="Mover.StepFrame"/> по тем же кадрам, <c>AckFrame</c> = последний шагнутый.
-        /// Против ускорения: 4 кадра за такт 60 тактов — шагнуто не больше 2 × тактов + 4, остальное отброшено со счётчиком.
+        /// Против ускорения: 4 кадра за такт 60 тактов — шагнуто не больше 2 × тактов + запас ведра (20), остальное отброшено со счётчиком.
         /// </summary>
         [Fact]
         public void D07_S2_7_Server_AppliesEveryFrameInOrder_Bursts_SpeedCapped()
@@ -522,8 +522,8 @@ namespace Orpheus.Tests
 
             long applied = server.FramesApplied - appliedBefore;
             _out.WriteLine($"ускорение: отправлено 240, шагнуто {applied}, отброшено {server.FramesOverflow}");
-            Assert.InRange(applied, 120, 120 + NetServer.FramesPerTickLimit);
-            Assert.True(server.FramesOverflow > 0);
+            Assert.InRange(applied, 120, 120 + NetServer.CreditCap);
+            Assert.True(server.FramesOverflow + server.FramesTrimmed > 0);
         }
 
         /// <summary>
@@ -588,6 +588,229 @@ namespace Orpheus.Tests
             Assert.True(server.TryGetLastFrame(id, out ack));
             Assert.Equal(20u, ack);
             Assert.Equal(4, server.FramesSkipped);
+        }
+
+        /// <summary>Сервер на заглушке транспорта и игрок, шлющий кадры по одному пакету (4 кадра) — для тестов очереди.</summary>
+        private sealed class ScriptedPlayer
+        {
+            private readonly NetTests.ScriptedTransport _t = new NetTests.ScriptedTransport();
+            private InputMessage _input;
+
+            public ScriptedPlayer()
+            {
+                WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+                Sim = new Simulation(world, maxEntities: 4);
+                Server = new NetServer(_t, Sim, _ => ServerRun.SpawnPoint(world.Shape, 0), 4, NetModule.Version);
+                _t.Connect(1);
+                _t.Push(1, NetChannel.Facts, Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b)));
+                Tick();
+                Id = Server.EntityOf(1);
+                Assert.True(Id > 0);
+            }
+
+            public Simulation Sim { get; }
+
+            public NetServer Server { get; }
+
+            public int Id { get; }
+
+            /// <summary>Номер последнего отправленного кадра.</summary>
+            public uint Last => _input.LastFrame;
+
+            public WorldPos Pos => Sim.GetEntity(Id).Mover.Position;
+
+            public InputFrame Input => Sim.GetEntity(Id).Input;
+
+            /// <summary>Кадров ждёт на сервере после такта: пришло, но ещё не шагнуто (выброшенные не ждут).</summary>
+            public long Backlog => Server.BacklogOf(Id);
+
+            /// <summary>Пакет нового кадра; <paramref name="deliver"/> = false — «застрял в сети», лежит в <see cref="Held"/>.</summary>
+            public void Send(InputFrame f, bool deliver = true)
+            {
+                _input.Frame0 = _input.Frame1;
+                _input.Frame1 = _input.Frame2;
+                _input.Frame2 = _input.Frame3;
+                _input.Frame3 = WireFrame.From(f);
+                _input.FirstFrame++;
+                InputMessage m = _input;
+                byte[] b = Encode(buf => m.Write(buf));
+                if (deliver)
+                {
+                    _t.Push(1, NetChannel.Unreliable, b);
+                }
+                else
+                {
+                    Held.Add(b);
+                }
+            }
+
+            public List<byte[]> Held { get; } = new List<byte[]>();
+
+            public void Release()
+            {
+                foreach (byte[] b in Held)
+                {
+                    _t.Push(1, NetChannel.Unreliable, b);
+                }
+
+                Held.Clear();
+            }
+
+            public void Tick()
+            {
+                Server.Poll(Sim.Tick);
+                Sim.Step();
+                Server.SendSnapshots();
+            }
+        }
+
+        private static readonly InputFrame RunEast = new InputFrame(new Input8(1, 0), 0x0005);
+
+        /// <summary>
+        /// Блокирующее замечание проверки 0-019: всплеск задержки (500 / 900 мс без пакетов, потом всё пачкой) — очередь
+        /// сервера возвращается к норме (не «навсегда 20 / 44 кадра»), а обрыв после этого — стоп ровно через 6 тактов
+        /// после последнего пришедшего кадра (2.13 п. 6, как в 0-015).
+        /// </summary>
+        [Theory]
+        [InlineData(15)]
+        [InlineData(27)]
+        public void D07_S2_7_Server_DelaySpike_QueueDrains_StopStill6Ticks(int spikeTicks)
+        {
+            var p = new ScriptedPlayer();
+            for (int k = 0; k < 30; k++)
+            {
+                p.Send(RunEast);
+                p.Send(RunEast);
+                p.Tick();
+            }
+
+            Assert.Equal(0, p.Backlog);
+            for (int k = 0; k < spikeTicks; k++)
+            {
+                p.Send(RunEast, deliver: false);
+                p.Send(RunEast, deliver: false);
+                p.Tick();
+            }
+
+            p.Release(); // задержка спала: всё застрявшее — разом
+            var backlog = new List<long>();
+            for (int k = 0; k < 30; k++)
+            {
+                p.Send(RunEast);
+                p.Send(RunEast);
+                p.Tick();
+                backlog.Add(p.Backlog);
+            }
+
+            _out.WriteLine($"всплеск {spikeTicks} тактов: очередь после пачки {string.Join(" ", backlog.GetRange(0, 12))}…; " +
+                           $"выброшено {p.Server.FramesTrimmed}, самоход {p.Server.FramesSelfStepped}");
+            Assert.True(backlog[0] <= NetServer.MaxBacklogFrames, $"сразу после пачки ждёт {backlog[0]}");
+            Assert.True(backlog.GetRange(5, 25).TrueForAll(b => b == 0), $"очередь не рассосалась: {string.Join(" ", backlog)}");
+            Assert.True(p.Server.FramesTrimmed > 0);
+
+            // Обрыв: последний кадр пришёл на приёме такта lastFrameTick — стоит ровно через 6 тактов.
+            long lastFrameTick = p.Sim.Tick - 1; // кадры приняты на приёме перед последним тактом
+            var pos = new Dictionary<long, WorldPos>();
+            for (int k = 0; k < 12; k++)
+            {
+                p.Tick();
+                pos[p.Sim.Tick] = p.Pos;
+            }
+
+            Assert.NotEqual(pos[lastFrameTick + 5], pos[lastFrameTick + 6]);
+            Assert.Equal(pos[lastFrameTick + 6], pos[p.Sim.Tick]);
+            Assert.Equal(InputFrame.None, p.Input);
+        }
+
+        /// <summary>Часы клиента на 0,1 % быстрее (лишний кадр на 1000): 10 минут — очередь ограничена, лишнее выброшено.</summary>
+        [Fact]
+        public void D07_S2_7_Server_ClientClockFast_QueueBounded()
+        {
+            var p = new ScriptedPlayer();
+            long max = 0;
+            int sent = 0;
+            for (int k = 0; k < 18_000; k++)
+            {
+                int n = 2 + ((sent + 2) / 1000 > sent / 1000 ? 1 : 0); // кадр на 1000 сверх 2 за такт
+                for (int j = 0; j < n; j++)
+                {
+                    p.Send(RunEast);
+                }
+
+                sent += n;
+                p.Tick();
+                max = Math.Max(max, p.Backlog);
+            }
+
+            _out.WriteLine($"10 мин, +0,1 %: отправлено {sent}, шагнуто {p.Server.FramesApplied}, выброшено {p.Server.FramesTrimmed}, очередь max {max}");
+            Assert.True(max <= NetServer.MaxBacklogFrames, $"очередь {max}");
+            Assert.True(p.Server.FramesTrimmed > 0);
+        }
+
+        /// <summary>Предел кадров за такт (мутация A проверки 0-019): после затишья 12 кадров разом — шагнуто 6, остальные — следующим тактом.</summary>
+        [Fact]
+        public void D07_S2_7_Server_BurstAfterQuiet_Max6FramesPerTick()
+        {
+            var p = new ScriptedPlayer();
+            for (int k = 0; k < 10; k++)
+            {
+                p.Send(RunEast);
+                p.Send(RunEast);
+                p.Tick();
+            }
+
+            p.Tick(); // затишье 2 такта — меньше W, самохода нет
+            p.Tick();
+            long before = p.Server.FramesApplied;
+            for (int j = 0; j < 12; j++)
+            {
+                p.Send(RunEast);
+            }
+
+            p.Tick();
+            Assert.Equal(NetServer.FramesPerTickLimit, p.Server.FramesApplied - before);
+            Assert.Equal(6, NetServer.FramesPerTickLimit);
+            p.Tick();
+            Assert.Equal(12, p.Server.FramesApplied - before);
+            Assert.Equal(0, p.Backlog);
+            Assert.Equal(0, p.Server.FramesTrimmed);
+            Assert.Equal(0, p.Server.FramesSelfStepped);
+        }
+
+        /// <summary>
+        /// Самоход (2.7 «Нет ввода», мутация B проверки 0-019): кадры пропали — сервер шагает сам ровно 6 кадров (100 мс)
+        /// последним направлением с отпущенными кнопками, лишний пробег — ровно 6 полушагов, потом стоит.
+        /// </summary>
+        [Fact]
+        public void D07_S2_7_Server_SelfStep_Exactly6Frames_ButtonsReleased()
+        {
+            var p = new ScriptedPlayer();
+            for (int k = 0; k < 20; k++)
+            {
+                p.Send(RunEast);
+                p.Send(RunEast);
+                p.Tick();
+            }
+
+            Mover reference = p.Sim.GetEntity(p.Id).Mover;
+            for (int i = 0; i < NetServer.SelfStepFrames; i++)
+            {
+                reference.StepFrame(p.Sim.Shape, RunEast.Direction, p.Sim.Solid);
+            }
+
+            long ticksBefore = p.Server.FramesSelfStepped;
+            var buttons = new List<ushort>();
+            for (int k = 0; k < 15; k++)
+            {
+                p.Tick();
+                buttons.Add(p.Input.Buttons);
+            }
+
+            Assert.Equal(6, NetServer.SelfStepFrames);
+            Assert.Equal(6, p.Server.FramesSelfStepped - ticksBefore);
+            Assert.Equal(reference.Position, p.Pos);
+            Assert.True(buttons.GetRange(NetServer.SelfStepAfterTicks, 12).TrueForAll(b => b == 0), string.Join(" ", buttons));
+            Assert.Equal(1, p.Server.InputStops);
         }
 
         // ---------- Имитатор: Flush (замечание 1 повторной проверки 0-015, мутации F3 и F4) ----------

@@ -88,8 +88,16 @@ namespace Orpheus.Client
         bool _quitPending;
         string _status = "Подключение…";
 
-        /// <summary>Монотонные микросекунды (той же шкалы живёт транспорт и кольцо снимков).</summary>
-        public static long NowUs() => Stopwatch.GetTimestamp() * 1_000_000 / Stopwatch.Frequency;
+        /// <summary>
+        /// Монотонные микросекунды (той же шкалы живёт транспорт и кольцо снимков). Без переполнения: <c>ticks × 10⁶</c>
+        /// выходит за long через ≈ 10,7 суток работы QPC 10 МГц (проверка 0-019, з. 4) — делим сначала.
+        /// </summary>
+        public static long NowUs()
+        {
+            long ts = Stopwatch.GetTimestamp();
+            long f = Stopwatch.Frequency;
+            return ts / f * 1_000_000 + ts % f * 1_000_000 / f;
+        }
 
         public NetGame(GameBoot game, ClientArgs args)
         {
@@ -389,7 +397,7 @@ namespace Orpheus.Client
                 _inputClockUs = now;
             }
 
-            _inputAccum += (now - _inputClockUs) / 1_000_000.0;
+            _inputAccum += Math.Max(0, now - _inputClockUs) / 1_000_000.0; // шаг часов назад — ноль
             _inputClockUs = now;
             int sent = 0;
             while (_inputAccum >= InputInterval && sent < MaxSendsPerFrame)

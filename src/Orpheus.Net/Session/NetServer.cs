@@ -29,7 +29,7 @@ namespace Orpheus.Net.Session
     /// не теряет кадр) ложатся в кольцо игрока по номеру; каждый такт сервер шагает персонажа всеми пришедшими кадрами
     /// по порядку, полшага на кадр (<c>Simulation.SetFramesAt</c>) — тем же шагом, что предсказание клиента, поэтому
     /// без чужого влияния сверка «совпало» (2.6 п. 5). <c>AckFrame</c> снимка — последний шагнутый кадр. Против ускорения —
-    /// не больше <see cref="FramesPerTickLimit"/> кадров за такт и в среднем 2 (запас копится, пока кадров нет); дыра в
+    /// не больше <see cref="FramesPerTickLimit"/> кадров за такт и в среднем 2 (запас копится, пока кадров нет); ждущих больше <see cref="MaxBacklogFrames"/> — старейшие перескакиваются; дыра в
     /// номерах (кадр не пришёл, а следующие — да) ждёт <see cref="HoleWaitTicks"/> такта (перестановка) и перескакивается.
     /// </para>
     /// <para>
@@ -75,7 +75,7 @@ namespace Orpheus.Net.Session
             /// <summary>Ввод последнего шагнутого кадра (с ним сервер шагает сам, когда кадров нет).</summary>
             public InputFrame LastInput;
 
-            /// <summary>Запас кадров на такт: +2 за такт, не больше <see cref="FramesPerTickLimit"/>.</summary>
+            /// <summary>Запас кадров: +2 за такт, не больше <see cref="CreditCap"/>; за такт тратится не больше <see cref="FramesPerTickLimit"/>.</summary>
             public int Credits;
 
             /// <summary>Такт, с которого ждёт дыра в номерах кадров; нет дыры — −1.</summary>
@@ -166,10 +166,7 @@ namespace Orpheus.Net.Session
         /// <summary>Кольцо кадров ввода игрока: 64 кадра (≈ 1 с) вперёд от времени персонажа.</summary>
         public const int FrameRing = 64;
 
-        /// <summary>
-        /// Кадров за такт не больше (2 + запас 4 на пачку после затишья; 0-019): в среднем — 2, как приходят у честного
-        /// клиента; больше копиться не может — ускорения нет.
-        /// </summary>
+        /// <summary>Кадров за такт не больше 6 (2 + 4 на пачку после затишья; 0-019); в среднем — 2 (<see cref="CreditCap"/>).</summary>
         public const int FramesPerTickLimit = MovementTick.FramesPerTick + 4;
 
         /// <summary>Дыра в номерах ждёт столько тактов (переставленный пакет успевает), потом — перескок.</summary>
@@ -177,6 +174,23 @@ namespace Orpheus.Net.Session
 
         /// <summary>Нового кадра нет столько тактов (W = 100 мс, 2.7) — сервер шагает персонажа сам.</summary>
         public const int SelfStepAfterTicks = 3;
+
+        /// <summary>
+        /// Запас кадров (ведро): +2 за такт, не больше 20 (≈ 0,33 с). Пока кадров нет — копится, пачка после затишья
+        /// шагается по <see cref="FramesPerTickLimit"/> за такт, и очередь рассасывается (проверка 0-019, з. 1). За T тактов
+        /// шагается не больше 2T + 20 кадров — ускорения нет.
+        /// </summary>
+        public const int CreditCap = 20;
+
+        /// <summary>
+        /// Ждущих кадров после плана такта не больше 10 (6 на такт + запас 4; ≈ 0,17 с): лишние старейшие — перескок
+        /// (<see cref="FramesTrimmed"/>), чтобы время персонажа не отставало навсегда (задержка-пачка, дрейф часов клиента).
+        /// Пока ждёт дыра в номерах — не режется.
+        /// </summary>
+        public const int MaxBacklogFrames = FramesPerTickLimit + 4;
+
+        /// <summary>Самоход (2.7 «Нет ввода»): кадров за один разрыв — 6 (100 мс), затем стоп.</summary>
+        public const int SelfStepFrames = (InputStaleTicks - SelfStepAfterTicks) * MovementTick.FramesPerTick;
 
         /// <summary>
         /// Нового кадра ввода нет столько тактов (6 = 0,2 с, 2.13 п. 6) — ввод игрока пустой: движение 0, кнопки 0.
@@ -272,6 +286,9 @@ namespace Orpheus.Net.Session
         /// <summary>Кадров отброшено: клиент ушёл вперёд больше кольца (<see cref="FrameRing"/>) — ускорение или обрыв.</summary>
         public long FramesOverflow { get; private set; }
 
+        /// <summary>Кадров выброшено без шага: очередь длиннее <see cref="MaxBacklogFrames"/> или стоп по обрыву.</summary>
+        public long FramesTrimmed { get; private set; }
+
         /// <summary>Тактов, в которых шагнуто больше 2 кадров (пачка после затишья).</summary>
         public long BurstTicks { get; private set; }
 
@@ -311,6 +328,21 @@ namespace Orpheus.Net.Session
             return false;
         }
 
+        /// <summary>Кадров ввода игрока с сущностью <paramref name="entityId"/> пришло и ждёт шага (очередь); нет игрока — −1.</summary>
+        public int BacklogOf(int entityId)
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if (p.State == PlayerState.InGame && p.EntityId == entityId)
+                {
+                    return p.HasNext && p.HasFrame ? Math.Max(0, (int)(p.Newest - p.NextFrame) + 1) : 0;
+                }
+            }
+
+            return -1;
+        }
+
         /// <summary>До такта: события транспорта, вход, ввод; стоп тем, от кого ввода нет 0,2 с; кадры ввода на такт.</summary>
         public void Poll(long nowMicros)
         {
@@ -340,9 +372,10 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                p.Credits = Math.Min(p.Credits + MovementTick.FramesPerTick, FramesPerTickLimit);
+                p.Credits = Math.Min(p.Credits + MovementTick.FramesPerTick, CreditCap);
+                int limit = Math.Min(p.Credits, FramesPerTickLimit);
                 int n = 0;
-                while (p.HasNext && n < p.Credits)
+                while (p.HasNext && n < limit)
                 {
                     uint c = p.NextFrame;
                     int i = (int)(c % FrameRing);
@@ -386,12 +419,22 @@ namespace Orpheus.Net.Session
                 long gap = tick - p.LastInputTick;
                 if (n == 0 && p.HasApplied && !p.Stopped && gap >= SelfStepAfterTicks && gap < InputStaleTicks)
                 {
-                    while (n < MovementTick.FramesPerTick && n < p.Credits)
+                    var self = new InputFrame(p.LastInput.Direction); // 2.7 «Нет ввода»: последнее направление, кнопки отпущены
+                    while (n < MovementTick.FramesPerTick && n < limit)
                     {
-                        _frameBuf[n++] = p.LastInput; // 2.7 «Нет ввода»: сам, с последним вводом
-                        Advance(p, p.LastInput);
+                        _frameBuf[n++] = self;
+                        Advance(p, self);
                         FramesSelfStepped++;
                     }
+                }
+
+                // Очередь не копится (проверка 0-019, з. 1): запас +2 за такт при непустой очереди уходит весь, и всё сверх
+                // догона осталось бы навсегда (задержка-пачка, рывок клиента, дрейф часов) — время персонажа отстало бы
+                // больше W, а стоп 0-015 растянулся бы. После плана такта ждущих кадров больше MaxBacklogFrames — старейшие
+                // перескакиваются со счётчиком. Ускорения это не даёт: кадры только выбрасываются.
+                if (p.HasNext && p.HasFrame && p.HoleSinceTick < 0 && (int)(p.Newest - p.NextFrame) >= MaxBacklogFrames)
+                {
+                    TrimTo(p, p.Newest + 1 - MaxBacklogFrames);
                 }
 
                 if (n > MovementTick.FramesPerTick)
@@ -402,6 +445,24 @@ namespace Orpheus.Net.Session
                 p.Credits -= n;
                 _sim.SetFramesAt(slot, new ReadOnlySpan<InputFrame>(_frameBuf, 0, n));
             }
+        }
+
+        /// <summary>Выбросить ждущие кадры до <paramref name="next"/> (не шагать): время персонажа — к нему.</summary>
+        private void TrimTo(Player p, uint next)
+        {
+            for (uint f = p.NextFrame; (int)(next - f) > 0; f++)
+            {
+                int i = (int)(f % FrameRing);
+                if (p.RingValid[i] && p.RingFrame[i] == f)
+                {
+                    p.RingValid[i] = false;
+                }
+
+                FramesTrimmed++;
+            }
+
+            p.NextFrame = next;
+            p.HoleSinceTick = -1;
         }
 
         private static void Advance(Player p, InputFrame input)
@@ -431,6 +492,10 @@ namespace Orpheus.Net.Session
 
                 p.Stopped = true;
                 InputStops++;
+                if (p.HasNext && (int)(p.Newest - p.NextFrame) >= 0)
+                {
+                    TrimTo(p, p.Newest + 1); // стоп 2.13 п. 6: ждавшие кадры не дошагиваются после стопа
+                }
                 _sim.SetInput(p.EntityId, InputFrame.None);
                 p.LastInput = InputFrame.None;
             }
