@@ -166,17 +166,27 @@ namespace Orpheus.Net.Protocol
     /// </summary>
     public sealed class Snapshot
     {
-        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + число 1.</summary>
-        public const int HeaderBytes = 10;
+        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + число 1 + эпоха часов 1 (0-025).</summary>
+        public const int HeaderBytes = 11;
 
         /// <summary>Наибольшее число сущностей в снимке (поле — u8).</summary>
         public const int MaxEntities = 255;
 
         private const int CountOffset = 9;
 
+        /// <summary>Смещение байта эпохи часов.</summary>
+        public const int EpochOffset = 10;
+
         public uint Tick;
         public uint AckFrame;
         public int Count;
+
+        /// <summary>
+        /// Эпоха часов сервера (2.4 «часы после фриза» в заголовке снимка; 0-025): +1 при каждой рассылке «часы: кадр N»
+        /// (сервер отстал больше чем на 3 такта и не догоняет). Клиент, увидев новую эпоху, переставляет оценку кадра сразу —
+        /// даже если сообщение «часы» по каналу 2 ещё в пути.
+        /// </summary>
+        public byte ClockEpoch;
 
         /// <summary>Подтверждённое состояние своего персонажа после кадра <see cref="AckFrame"/> (0-019).</summary>
         public SelfState Self;
@@ -210,6 +220,7 @@ namespace Orpheus.Net.Protocol
             into.Count = Count;
             into.Self = Self;
             into.IsDelta = IsDelta;
+            into.ClockEpoch = ClockEpoch;
             Array.Copy(Entities, into.Entities, Count);
         }
 
@@ -217,6 +228,7 @@ namespace Orpheus.Net.Protocol
         public int Write(Span<byte> dest, in SnapshotLayout layout)
         {
             var w = new SnapshotWriter(dest, layout, Tick, AckFrame, Self, dest.Length);
+            w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < Count; i++)
             {
                 if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction))
@@ -235,6 +247,7 @@ namespace Orpheus.Net.Protocol
             uint tick = r.ReadUInt32();
             uint ack = r.ReadUInt32();
             int count = r.ReadByte();
+            byte epoch = r.ReadByte();
             SelfState self = SelfState.Read(ref r, layout);
             for (int i = 0; i < count; i++)
             {
@@ -259,6 +272,7 @@ namespace Orpheus.Net.Protocol
             Count = count;
             Self = self;
             IsDelta = false;
+            ClockEpoch = epoch;
         }
 
         /// <summary>Такт из заголовка, не читая всего снимка (для отбрасывания старых); годится и для дельты (0-014).</summary>
@@ -301,8 +315,12 @@ namespace Orpheus.Net.Protocol
             _w.WriteUInt32(tick);
             _w.WriteUInt32(ackFrame);
             _w.WriteByte(0); // число сущностей — в Finish
+            _w.WriteByte(0); // эпоха часов — SetClockEpoch (0-025)
             self.Write(ref _w, layout);
         }
+
+        /// <summary>«Часы после фриза» в заголовке (2.4; 0-025): эпоха часов сервера — растёт при каждой рассылке «часы: кадр N».</summary>
+        public void SetClockEpoch(byte epoch) => _dest[Snapshot.EpochOffset] = epoch;
 
         /// <summary>Сущностей записано.</summary>
         public int Count => _count;
@@ -354,8 +372,14 @@ namespace Orpheus.Net.Protocol
     /// </summary>
     public sealed class SnapshotDeltaMessage
     {
-        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + отставание базы 1 + три числа по 1.</summary>
-        public const int HeaderBytes = 13;
+        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + отставание базы 1 + три числа по 1 + эпоха часов 1 (0-025).</summary>
+        public const int HeaderBytes = 14;
+
+        /// <summary>Смещение байта эпохи часов (2.4 «часы после фриза» в заголовке снимка).</summary>
+        public const int EpochOffset = 13;
+
+        /// <summary>Эпоха часов сервера (см. <see cref="Snapshot.ClockEpoch"/>).</summary>
+        public byte ClockEpoch;
 
         /// <summary>Бит на номер сущности в базе.</summary>
         public const int IndexBits = 8;
@@ -408,6 +432,7 @@ namespace Orpheus.Net.Protocol
             int removed = r.ReadByte();
             int updated = r.ReadByte();
             int added = r.ReadByte();
+            ClockEpoch = r.ReadByte();
             if (age == 0)
             {
                 throw new ProtocolException("Дельта: отставание базы 0.");
@@ -605,8 +630,12 @@ namespace Orpheus.Net.Protocol
             _w.WriteByte(0); // числа разделов — в Finish
             _w.WriteByte(0);
             _w.WriteByte(0);
+            _w.WriteByte(0); // эпоха часов — SetClockEpoch (0-025)
             self.Write(ref _w, layout);
         }
+
+        /// <summary>«Часы после фриза» в заголовке (2.4; 0-025): эпоха часов сервера — растёт при каждой рассылке «часы: кадр N».</summary>
+        public void SetClockEpoch(byte epoch) => _dest[SnapshotDeltaMessage.EpochOffset] = epoch;
 
         /// <summary>Записано: исчезнувших, изменившихся, новых.</summary>
         public int Removed => _removed;

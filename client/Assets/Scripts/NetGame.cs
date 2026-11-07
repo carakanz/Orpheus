@@ -8,6 +8,7 @@ using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net;
+using Orpheus.Net.Hosting;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using Orpheus.Net.Transport;
@@ -32,8 +33,6 @@ namespace Orpheus.Client
     /// </summary>
     public sealed class NetGame
     {
-        const double InputInterval = 1.0 / 60.0;
-        const int MaxSendsPerFrame = 4;
         const int LoginTimeoutSec = 10;
 
         /// <summary>
@@ -52,9 +51,20 @@ namespace Orpheus.Client
 
         readonly GameBoot _g;
         readonly ClientArgs _args;
-        readonly string _host;
-        readonly int _port;
+        string _host;
+        int _port;
         readonly long _startUs = NowUs();
+        long _connectStartUs;
+
+        // Одиночная и хост (0-024): свой сервер дочерним процессом; null — --connect.
+        LocalServer? _local;
+        int? _localExitCode;
+        bool _localWasOurs;
+        bool _openSent;
+        bool _openLogged;
+
+        /// <summary>Запуск мира может идти до 30 с (ожидание готовности лаунчера) — до него тайм-аут входа не считается.</summary>
+        const int LaunchTimeoutSec = 30;
 
         long _pollUs;
         RemoteInterpolation? _remote;
@@ -93,8 +103,6 @@ namespace Orpheus.Client
         LocalPrediction? _pred;
         int _localId;
         ScreenshotRun? _screenshot;
-        double _inputAccum;
-        long _inputClockUs;
         long _inGameSinceUs;
         long _hudSnaps;
         long _hudTimeUs;
@@ -117,17 +125,52 @@ namespace Orpheus.Client
         {
             _g = game;
             _args = args;
-            int colon = args.Connect!.LastIndexOf(':');
-            _host = args.Connect.Substring(0, colon);
-            _port = int.Parse(args.Connect.Substring(colon + 1), CultureInfo.InvariantCulture);
+            if (args.Connect != null)
+            {
+                int colon = args.Connect.LastIndexOf(':');
+                _host = args.Connect.Substring(0, colon);
+                _port = int.Parse(args.Connect.Substring(colon + 1), CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                _host = "127.0.0.1"; // клиент хоста ходит к своему серверу через петлю (07, 2.3); порт сообщит сервер
+                _port = 0;
+            }
+
             _heroSprite = _g.Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
             _entityRoot = new GameObject("Entities");
         }
 
-        /// <summary>Старт: UDP-соединение с сервером. Хост не найден — сразу «отказ» (окно с текстом).</summary>
+        /// <summary>
+        /// Старт: <c>--connect</c> — сразу UDP-соединение; одиночная/хост (0-024) — найти сервер мира по замку или запустить
+        /// его лаунчером (фоном), соединение — когда сервер готов (<see cref="Frame"/>).
+        /// </summary>
         public void StartConnect()
         {
-            Debug.Log($"[net] подключение к {_host}:{_port} (версия {NetModule.Version}, имя «{_args.Name}»)");
+            if (_args.NetSmokeSeconds > 0)
+            {
+                // Как игра: 60 кадров/с, а не ~80 000 в пакетном режиме (замечание 9 проверки 0-012).
+                QualitySettings.vSyncCount = 0;
+                Application.targetFrameRate = 60;
+            }
+
+            if (_args.Mode.HasValue)
+            {
+                _status = "Запуск мира…";
+                _local = new LocalServer(_args);
+                _local.Begin();
+                return;
+            }
+
+            Connect(default);
+        }
+
+        /// <summary>UDP-соединение с сервером; токен хозяина — у игры, запустившей сервер. Хост не найден — сразу «отказ».</summary>
+        void Connect(HostToken token)
+        {
+            _connectStartUs = NowUs();
+            Debug.Log($"[net] подключение к {_host}:{_port} (версия {NetModule.Version}, имя «{_args.Name}»" +
+                      $"{(token.IsEmpty ? "" : ", хозяином")})");
             try
             {
                 _transport = LiteNetTransport.Connect(_host, _port);
@@ -149,12 +192,72 @@ namespace Orpheus.Client
             }
 
             _client = new NetClient(_link, _transport.ServerPeer, _args.Name, NetModule.Version);
+            _client.HostToken = token; // до первого Poll: вход уходит, когда соединение установлено
             _client.SnapshotApplied = OnSnapshot;
-            if (_args.NetSmokeSeconds > 0)
+        }
+
+        /// <summary>Свой сервер (0-024): запуск закончился → соединение; не поднялся или вышел во время игры → текст в окне.</summary>
+        void PollLocalServer(long now)
+        {
+            LocalServer? local = _local;
+            if (local == null || _fatal)
             {
-                // Как игра: 60 кадров/с, а не ~80 000 в пакетном режиме (замечание 9 проверки 0-012).
-                QualitySettings.vSyncCount = 0;
-                Application.targetFrameRate = 60;
+                return;
+            }
+
+            local.Poll();
+            if (local.Error != null)
+            {
+                _fatal = true;
+                _status = local.Error;
+                return;
+            }
+
+            if (_client == null)
+            {
+                if (local.Endpoint is ServerEndpoint ep)
+                {
+                    _port = ep.Port;
+                    Connect(ep.Token);
+                }
+
+                return;
+            }
+
+            if (local.HasExited(now))
+            {
+                // 2.3: упал сам сервер — понятный текст сразу, а не «Связь с хостом потеряна» через 10 с тайм-аута.
+                _fatal = true;
+                _status = local.StoppedText();
+                Debug.LogError("[net] " + _status);
+                _client.Disconnect();
+            }
+        }
+
+        /// <summary>«Открыть для друзей» (2.13 п. 9): ключ --open-for-friends сразу после входа или клавиша F2 (меню — потом).</summary>
+        void OpenForFriendsFrame()
+        {
+            NetClient? c = _client;
+            if (_local == null || c == null || !InGame)
+            {
+                return;
+            }
+
+            bool key = Keyboard.current?.f2Key.wasPressedThisFrame == true;
+            if ((_args.OpenForFriends && !_openSent) || key)
+            {
+                _openSent = true;
+                _openLogged = false;
+                c.RequestOpenForFriends();
+                Debug.Log("[host] «Открыть для друзей» отправлено");
+            }
+
+            if (!_openLogged && c.OpenResult is OpenResultMessage r)
+            {
+                _openLogged = true;
+                Debug.Log(r.Opened
+                    ? $"[host] открыто для друзей: UDP-порт {r.Port} ({_args.OpenAddress ?? "все адреса"})"
+                    : "[host] открыть для друзей не удалось");
             }
         }
 
@@ -168,6 +271,7 @@ namespace Orpheus.Client
         {
             long now = NowUs();
             _pollUs = now;
+            PollLocalServer(now);
             if (_client != null)
             {
                 try
@@ -184,11 +288,16 @@ namespace Orpheus.Client
 
             UpdateZoom();
 
-            NetClientState state = _client?.State ?? NetClientState.Disconnected;
+            NetClientState state = _client?.State ?? (_fatal ? NetClientState.Disconnected : NetClientState.Connecting);
             switch (state)
             {
                 case NetClientState.Connecting:
-                    if ((now - _startUs) / 1_000_000 >= LoginTimeoutSec && !_fatal)
+                    if (_client == null)
+                    {
+                        break; // свой сервер ещё запускается (лаунчер ждёт готовности сам, до 30 с)
+                    }
+
+                    if ((now - _connectStartUs) / 1_000_000 >= LoginTimeoutSec && !_fatal)
                     {
                         // Нет сервера — через 10 с понятный текст вместо вечного «Подключение…» (замечание 7 проверки 0-012).
                         _fatal = true;
@@ -200,7 +309,7 @@ namespace Orpheus.Client
                     break;
                 case NetClientState.LoggingIn:
                     _status = "Вход…";
-                    if ((now - _startUs) / 1_000_000 >= LoginTimeoutSec)
+                    if ((now - _connectStartUs) / 1_000_000 >= LoginTimeoutSec)
                     {
                         _status = "Сервер не ответил на вход";
                     }
@@ -223,8 +332,9 @@ namespace Orpheus.Client
                     }
 
                     _fatal = true;
+                    // 0-024: «Хост вышел. Мир сохранён у него», «Связь с хостом потеряна» и т. п. — по причине закрытия (7.6).
                     _status = _view != null
-                        ? "Связь потеряна: " + (_client?.DisconnectReason ?? NetDisconnectReason.Other)
+                        ? (_client?.DisconnectText ?? "Связь с хостом потеряна") + $" ({_client?.DisconnectReason ?? NetDisconnectReason.Other})"
                         : $"Не удалось подключиться к {_host}:{_port}: " +
                           (_client?.DisconnectReason == NetDisconnectReason.ConnectFailed ? "сервер не отвечает" : $"{_client?.DisconnectReason}");
                     Debug.LogError("[net] " + _status);
@@ -241,16 +351,28 @@ namespace Orpheus.Client
                 }
             }
 
+            OpenForFriendsFrame();
             _screenshot?.AfterFrame();
             NetSmokeCheck(now, state);
             UpdateHud(now);
             QuitIfEscaped();
         }
 
+        /// <summary>Выход: отключиться; свой сервер — штатно остановить (сохранить мир и выйти, 0-024). Повторный вызов — ничего.</summary>
         public void Shutdown()
         {
             _client?.Disconnect();
             (_link ?? _transport)?.Dispose();
+            _link = null;
+            _transport = null;
+            LocalServer? local = _local;
+            _local = null;
+            if (local != null)
+            {
+                _localWasOurs = !local.FoundByLock && local.Endpoint.HasValue;
+                local.Dispose();
+                _localExitCode = local.ExitCode;
+            }
         }
 
         // ---------- мир по зерну сервера ----------
@@ -284,6 +406,7 @@ namespace Orpheus.Client
             _netRules = new Simulation(_world, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
             _pred = new LocalPrediction(_map, _netRules.Solid, spawn);
             _remote = new RemoteInterpolation(_map);
+            _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height} зерно 0x{accept.WorldSeed:X}, " +
                       $"хэш генерации 0x{genHash:X16} = серверу, " +
                       $"такт {accept.ServerTick}; генерация {sw.Elapsed.TotalMilliseconds:0} мс " +
@@ -292,6 +415,13 @@ namespace Orpheus.Client
             _g.Character.position = _origin.ToUnity(spawn);
             _inGameSinceUs = NowUs();
             _hudTimeUs = _inGameSinceUs;
+            if (_local != null)
+            {
+                Debug.Log($"[host] вход хозяином: {(_inGameSinceUs - _startUs) / 1e6:0.00} с от старта сетевого режима " +
+                          $"({Time.realtimeSinceStartupAsDouble:0.00} с от запуска игры), сервер " +
+                          (_local.FoundByLock ? "найден по замку" : $"готов за {_local.ReadySeconds:0.00} с"));
+            }
+
             _hudSnaps = _client!.SnapshotsApplied;
         }
 
@@ -331,28 +461,16 @@ namespace Orpheus.Client
         void SendInput(long now)
         {
             NetClient c = _client!;
-            // Часы ввода — монотонные мкс, не Time.unscaledDeltaTime: в -batchmode Unity завышает время очень коротких
-            // кадров (net-smoke 0-019: ~79 кадров ввода в секунду вместо 60), и сервер, шагающий 2 кадра за такт, отстаёт.
-            if (_inputClockUs == 0)
-            {
-                _inputClockUs = now;
-            }
-
-            _inputAccum += Math.Max(0, now - _inputClockUs) / 1_000_000.0; // шаг часов назад — ноль
-            _inputClockUs = now;
-            int sent = 0;
-            while (_inputAccum >= InputInterval && sent < MaxSendsPerFrame)
+            // Часы ввода (docs/07 2.4, 2.7; 0-025): номер кадра идёт за оценкой кадра сервера (часы клиента по снимкам и
+            // пингу) — NetClient.FramesDue, 0…4 кадра за кадр рисования. Время — монотонные мкс, не Time.unscaledDeltaTime:
+            // в -batchmode Unity завышает время очень коротких кадров (net-smoke 0-019). После фриза сервера часы
+            // переставляются, следующий кадр перенумеровывается (NetClient.SendFrame, LocalPrediction.Sent).
+            int n = c.FramesDue(now);
+            for (int k = 0; k < n; k++)
             {
                 InputFrame frame = _args.NetSmokeSeconds > 0 ? ScriptedSmokeFrame(now) : GameBoot.ToFrame(_g.Move.ReadValue<Vector2>());
                 c.SendFrame(frame);
                 _pred!.Sent(c.Frame, frame);
-                _inputAccum -= InputInterval;
-                sent++;
-            }
-
-            if (_inputAccum > 1.0)
-            {
-                _inputAccum = 0; // окно свернули — не «прыгаем» ретрансляцией старых кадров
             }
         }
 
@@ -553,7 +671,7 @@ namespace Orpheus.Client
                 return;
             }
 
-            if (_fatal || state == NetClientState.Rejected || state == NetClientState.Disconnected || _transport == null)
+            if (_fatal || state == NetClientState.Rejected || state == NetClientState.Disconnected || (_transport == null && _local == null))
             {
                 Fail($"[smoke] FAILED: {_status}");
                 return;
@@ -613,6 +731,13 @@ namespace Orpheus.Client
                     return;
                 }
 
+                if (_args.OpenForFriends && _client.OpenResult?.Opened != true)
+                {
+                    Fail("[smoke] FAILED: «Открыть для друзей» — " +
+                         (_client.OpenResult.HasValue ? "сервер ответил «не открыто»" : "ответа нет (вход не хозяином?)"));
+                    return;
+                }
+
                 Debug.Log($"[smoke] world: хэш генерации 0x{StateHash.Generation(_world!):X16} = серверу (зерно 0x{_client.Accept.WorldSeed:X})");
                 Debug.Log($"[smoke] input: кадров ввода {_client.InputsSent} за {(now - _inGameSinceUs) / 1e6:0.00} с " +
                           $"({_client.InputsSent / Math.Max((now - _inGameSinceUs) / 1e6, 1e-3):0.0} в секунду)");
@@ -628,7 +753,8 @@ namespace Orpheus.Client
                               : "; без имитатора"));
                 Quit(0);
             }
-            else if ((now - _startUs) / 1_000_000 >= _args.NetSmokeSeconds + LoginTimeoutSec)
+            else if ((now - (_connectStartUs != 0 ? _connectStartUs : _startUs + LaunchTimeoutSec * 1_000_000L)) / 1_000_000
+                     >= _args.NetSmokeSeconds + LoginTimeoutSec)
             {
                 Fail($"[smoke] FAILED: тайм-аут, состояние — {_status}");
             }
@@ -657,6 +783,14 @@ namespace Orpheus.Client
 
             _quitPending = true;
             Shutdown();
+            if (_args.NetSmokeSeconds > 0 && code == 0 && _localWasOurs && _localExitCode != 0)
+            {
+                // net-smoke хоста: сервер обязан сохранить мир и выйти сам по «stop» (код 0), а не быть снятым.
+                Debug.LogError("[smoke] FAILED: свой сервер вышел с кодом " +
+                               (_localExitCode.HasValue ? _localExitCode.Value.ToString(CultureInfo.InvariantCulture) : "— (не вышел)"));
+                code = 1;
+            }
+
             Application.Quit(code);
         }
     }

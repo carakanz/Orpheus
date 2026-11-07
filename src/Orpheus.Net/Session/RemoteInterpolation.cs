@@ -115,6 +115,7 @@ namespace Orpheus.Net.Session
         private long _frameDtUs;  // приращение времени показа за кадр
         private long _realDtUs;   // приращение местного времени за кадр
         private bool _resetFrame; // в этом кадре показ переставлен вперёд — шаг не мерим
+        private bool _clockReset; // «часы после фриза»: следующий снимок начинает окно медианы заново
         private long _frame;
         private bool _held;
         private int _ia;
@@ -219,6 +220,13 @@ namespace Orpheus.Net.Session
                 _count++;
             }
 
+            if (_clockReset)
+            {
+                _clockReset = false;
+                _sampleCount = 0;
+                _sampleHead = 0;
+            }
+
             _samples[_sampleHead] = TickTimeUs(s.Tick) - localUs;
             _sampleHead = (_sampleHead + 1) % ClockWindow;
             if (_sampleCount < ClockWindow)
@@ -247,6 +255,13 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
+        /// «Часы после фриза» сервера (2.4; NetClient.ClockReset, 0-025): окно медианы часов показа — заново, следующий снимок
+        /// задаёт «сервер сейчас» сам. Без этого медиана 30 образцов переходит на новую шкалу через ~15 снимков (0,5 с) —
+        /// чужие стояли бы и прыгали ступеньками (проверка 0-021 з. 2).
+        /// </summary>
+        public void OnClockReset() => _clockReset = true;
+
+        /// <summary>
         /// Начало кадра рисования: время показа идёт к «сервер сейчас» − 100 мс со скоростью <see cref="PlaybackRate"/>,
         /// не дальше новейшего снимка и никогда назад; пара снимков вокруг него. Снимков нет — false (рисовать нечего).
         /// </summary>
@@ -259,6 +274,7 @@ namespace Orpheus.Net.Session
 
             _frame++;
             _held = false;
+            bool wasReset = _resetFrame;
             _resetFrame = false;
             long realDt = _hasRender ? Math.Max(0, localUs - _lastLocalUs) : 0; // местные часы назад — ноль
             _lastLocalUs = localUs;
@@ -274,7 +290,11 @@ namespace Orpheus.Net.Session
                 if (err > JumpUs)
                 {
                     t = target; // фриз хоста — перестановка вперёд
-                    ClockResets++;
+                    if (!wasReset)
+                    {
+                        ClockResets++; // эпизод, а не кадр (проверка 0-021, backlog; 0-025)
+                    }
+
                     _resetFrame = true;
                     PlaybackRate = 1.0;
                 }

@@ -8,6 +8,8 @@ using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net;
+using Orpheus.Net.Hosting;
+using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using Orpheus.Net.Transport;
 using Orpheus.Platform.Pc;
@@ -90,6 +92,21 @@ namespace Orpheus.Server
 
         /// <summary>Сеть: контрольных полных кадров отправлено (0-014).</summary>
         public long FullFramesSent { get; set; }
+
+        /// <summary>Сервер игры (0-024): вышел, потому что хозяин не вернулся за отведённое время («хост вышел»).</summary>
+        public bool HostLeft { get; set; }
+
+        /// <summary>Записей <c>host.lock</c> удалось (0-024).</summary>
+        public int HostLockWrites { get; set; }
+
+        /// <summary>Попыток записи <c>host.lock</c> не удалось — каждая повторена вне такта (0-024).</summary>
+        public int HostLockFailures { get; set; }
+
+        /// <summary>Сервер игры: хозяин возвращался после ухода (раз).</summary>
+        public int HostReturns { get; set; }
+
+        /// <summary>Сервер игры: порт «Открыть для друзей»; не открывали — −1.</summary>
+        public int OpenedPort { get; set; } = -1;
     }
 
     /// <summary>
@@ -109,6 +126,12 @@ namespace Orpheus.Server
         /// <summary>Файл снимка генерации в папке мира (docs/07, 6.3).</summary>
         public const string BaseFileName = "world.base";
 
+        /// <summary>
+        /// Строка готовности в stdout (0-024): сервер слушает порт — лаунчер игры и скрипты ждут её, а не паузу
+        /// «на всякий случай». Вид: <c>orpheus-ready port=P</c>.
+        /// </summary>
+        public const string ReadyMarker = "orpheus-ready";
+
         /// <summary>Генератор при <c>--create</c> и при повторе без папки мира: генератор сборки (<see cref="WorldGenModule.Current"/>, 0-007).</summary>
         public static IWorldGenerator Generator { get; set; } = WorldGenModule.Current;
 
@@ -119,7 +142,7 @@ namespace Orpheus.Server
             var result = new ServerResult();
             try
             {
-                RunCore(o, log, result, stop);
+                RunCore(o, log, console, result, stop);
             }
             catch (Exception e) when (e is IOException || e is InvalidDataException || e is ArgumentException || e is UnauthorizedAccessException)
             {
@@ -130,7 +153,7 @@ namespace Orpheus.Server
             return result;
         }
 
-        private static void RunCore(ServerOptions o, JsonLog log, ServerResult result, CancellationToken stop)
+        private static void RunCore(ServerOptions o, JsonLog log, TextWriter? console, ServerResult result, CancellationToken stop)
         {
             InputJournalReader? replay = o.ReplayPath != null
                 ? new InputJournalReader(new FileStream(o.ReplayPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16))
@@ -199,16 +222,25 @@ namespace Orpheus.Server
                     };
                 }
 
-                using LiteNetTransport? transport = o.Port.HasValue ? LiteNetTransport.Listen(o.Port.Value, o.MaxPlayers, o.LoopbackOnly) : null;
-                NetServer? net = transport != null ? CreateNetServer(o, sim, bots.Length, spawnCenter, transport, log, result) : null;
+                LiteNetTransport? transport = o.Port.HasValue ? LiteNetTransport.Listen(o.Port.Value, o.MaxPlayers, o.LoopbackOnly) : null;
+                // Сервер игры: петля + «Открыть для друзей» вторым сокетом под тем же NetServer (0-024).
+                MuxTransport? mux = transport != null && o.Mode.HasValue ? new MuxTransport(transport) : null;
+                using ITransport? netTransport = (ITransport?)mux ?? transport;
+                NetServer? net = transport != null ? CreateNetServer(o, sim, bots.Length, spawnCenter, netTransport!, transport.LocalPort, log, result) : null;
                 if (net != null)
                 {
                     net.GenerationHash = opened.GenerationHash;
                 }
 
+                HostSession? host = net != null && mux != null ? SetUpHost(o, opened, sim, net, mux, transport!.LocalPort, () => saver, log, result) : null;
+                if (net != null)
+                {
+                    Ready(console, transport!.LocalPort);
+                }
+
                 try
                 {
-                    Loop(o, sim, bots, record, replay, net, saver, log, result, stop);
+                    Loop(o, sim, bots, record, replay, net, host, saver, log, result, stop);
                 }
                 finally
                 {
@@ -242,6 +274,19 @@ namespace Orpheus.Server
                     result.LastSavedNumber = saver.LastNumber;
                 }
 
+                if (opened.HostLockWriter != null)
+                {
+                    result.HostLockWrites = opened.HostLockWriter.Written;
+                    result.HostLockFailures = opened.HostLockWriter.Failures;
+                }
+
+                if (host != null)
+                {
+                    // 7.6: мир сохранён — всем «Хост вышел. Мир сохранён у него» (или «сервер остановлен»), затем выход.
+                    CloseWorld(net!, netTransport!, result.HostLeft ? ClosingReason.HostLeft : ClosingReason.Stopped, log, sim.Tick);
+                    result.HostReturns = host.Returns;
+                }
+
                 result.FinalHash = StateHash.Compute(sim).Total;
             }
             finally
@@ -250,9 +295,110 @@ namespace Orpheus.Server
             }
         }
 
+        // ---------- Сервер игры (0-024, docs/07 2.3, 2.13 п. 9, 7.6) ----------
+
+        /// <summary>
+        /// Токен хозяина, «Открыть для друзей» (второй сокет в <paramref name="mux"/>), ожидание упавшей игры хоста и
+        /// файл-замок <c>host.lock</c> с портом и токеном.
+        /// </summary>
+        private static HostSession SetUpHost(
+            ServerOptions o, OpenedWorld opened, Simulation sim, NetServer net, MuxTransport mux, int port,
+            Func<WorldSaver?> saver, JsonLog log, ServerResult result)
+        {
+            var host = new HostSession(o.HostGraceSeconds * 1_000_000L, 0);
+            var lockInfo = new HostLock
+            {
+                Port = port,
+                Token = o.HostToken.ToString(),
+                ProcessId = Environment.ProcessId,
+                Mode = o.Mode == ServerMode.Host ? "host" : "single",
+            };
+            net.HostToken = o.HostToken;
+            net.HostJoined = () =>
+            {
+                host.Joined();
+                log.Info(sim.Tick, "net", host.Returns > 0 ? "хозяин вернулся" : "хозяин вошёл", ("returns", host.Returns));
+            };
+            net.HostLeft = (lastHeard, now) =>
+            {
+                host.Left(lastHeard, now);
+                int others = net.PlayersInGame;
+                log.Warn(sim.Tick, "net", "хозяин ушёл — ждём его", ("graceSec", o.HostGraceSeconds),
+                    ("silentMs", (now - lastHeard) / 1000), ("others", others));
+                if (others == 0)
+                {
+                    saver()?.SaveNow(sim, "хозяин ушёл"); // 2.3: других игроков нет — сохранить сразу и ждать те же 60 с
+                }
+            };
+            net.OpenForFriends = () =>
+            {
+                LiteNetTransport pub = LiteNetTransport.Listen(o.OpenPort, o.MaxPlayers, o.OpenAddress);
+                mux.Add(pub);
+                result.OpenedPort = pub.LocalPort;
+                log.Info(sim.Tick, "net", "открыто для друзей: слушаю UDP", ("address", o.OpenAddress?.ToString() ?? "все"), ("port", pub.LocalPort));
+                lockInfo.OpenPort = pub.LocalPort;
+                // Не в потоке такта и не падая: файл может быть открыт игрой, антивирусом (замечания 1 и 6 проверки).
+                opened.HostLockWriter?.Request(lockInfo, sim.Tick);
+                return pub.LocalPort;
+            };
+
+            opened.HostLockLog = log; // удалить при штатном выходе — до того, как отпущен замок мира
+            opened.HostLockWriter = new HostLockWriter(opened.Storage!, Path.GetFullPath(o.WorldDir!), log);
+            opened.HostLockWriter.Request(lockInfo, sim.Tick);
+            opened.HostLockWriter.WaitWritten(1000); // к строке готовности замок обычно уже на диске; нет — допишется в фоне
+            log.Info(sim.Tick, "net", "сервер игры", ("mode", lockInfo.Mode), ("graceSec", o.HostGraceSeconds),
+                ("openAddress", o.OpenAddress?.ToString() ?? "все"), ("openPort", o.OpenPort), ("lock", HostLockFile.PathIn(o.WorldDir!)));
+            return host;
+        }
+
+        private static void Ready(TextWriter? console, int port)
+        {
+            try
+            {
+                console?.WriteLine($"{ReadyMarker} port={port}");
+                console?.Flush();
+            }
+            catch (IOException)
+            {
+                // вывода нет (игра-родитель закрыла трубу) — сервер работает дальше
+            }
+        }
+
+        private static void CloseWorld(NetServer net, ITransport transport, ClosingReason reason, JsonLog log, long tick)
+        {
+            log.Info(tick, "net", reason == ClosingReason.HostLeft ? "хост вышел: мир сохранён, игроки отключены" : "сервер остановлен: игроки отключены",
+                ("players", net.PlayersInGame));
+            net.CloseAll(reason);
+
+            // Дать отключениям с причиной уйти до закрытия сокетов (без этого клиенты узнают лишь по тайм-ауту).
+            var w = Stopwatch.StartNew();
+            var sink = new NullHandler();
+            while (w.ElapsedMilliseconds < 50)
+            {
+                transport.Poll(w.Elapsed.Ticks / 10, sink);
+                transport.Flush();
+                Thread.Sleep(10);
+            }
+        }
+
+        private sealed class NullHandler : ITransportHandler
+        {
+            public void OnConnected(int peer)
+            {
+            }
+
+            public void OnDisconnected(int peer, NetDisconnectReason reason, ReadOnlySpan<byte> payload)
+            {
+            }
+
+            public void OnReceive(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+            {
+            }
+        }
+
         // ---------- Сеть ----------
 
-        private static NetServer CreateNetServer(ServerOptions o, Simulation sim, int firstPlayer, TileCoord center, LiteNetTransport transport, JsonLog log, ServerResult result)
+        private static NetServer CreateNetServer(ServerOptions o, Simulation sim, int firstPlayer, TileCoord center, ITransport transport, int port, JsonLog log, ServerResult result)
         {
             var net = new NetServer(transport, sim, n => SpawnPoint(sim.Shape, firstPlayer + n, center), o.MaxPlayers, NetModule.Version);
             net.Log = (level, msg) =>
@@ -270,8 +416,8 @@ namespace Orpheus.Server
                         break;
                 }
             };
-            result.Port = transport.LocalPort;
-            log.Info(sim.Tick, "net", "слушаю UDP", ("port", transport.LocalPort), ("maxPlayers", o.MaxPlayers),
+            result.Port = port;
+            log.Info(sim.Tick, "net", "слушаю UDP", ("port", port), ("loopbackOnly", o.LoopbackOnly), ("maxPlayers", o.MaxPlayers),
                 ("version", NetModule.Version.ToString()), ("mtu", NetSettings.Mtu));
             return net;
         }
@@ -280,7 +426,7 @@ namespace Orpheus.Server
 
         private static void Loop(
             ServerOptions o, Simulation sim, SimBot[] bots, InputJournalWriter? record, InputJournalReader? replay,
-            NetServer? net, WorldSaver? saver, JsonLog log, ServerResult result, CancellationToken stop)
+            NetServer? net, HostSession? host, WorldSaver? saver, JsonLog log, ServerResult result, CancellationToken stop)
         {
             long startTick = sim.Tick;
             var pending = new EntityInput[sim.EntityCount + 1];
@@ -299,7 +445,16 @@ namespace Orpheus.Server
                 long tick = sim.Tick + 1;
 
                 // Сеть: события транспорта, вход, ввод игроков — в потоке такта, до такта (2.10).
-                net?.Poll(watch.Elapsed.Ticks / (TimeSpan.TicksPerMillisecond / 1000));
+                long nowMicros = watch.Elapsed.Ticks / (TimeSpan.TicksPerMillisecond / 1000);
+                net?.Poll(nowMicros);
+                if (host != null && host.Expired(nowMicros))
+                {
+                    // 7.6: игра хоста не вернулась за отведённое время — «хост вышел»: сохранить, разослать, завершиться.
+                    result.HostLeft = true;
+                    log.Warn(sim.Tick, "net", host.EverJoined ? "хост не вернулся — закрываю мир" : "хозяин так и не вошёл — закрываю мир",
+                        ("graceSec", host.GraceMicros / 1_000_000), ("players", net!.PlayersInGame));
+                    break;
+                }
 
                 // Источник ввода: боты или журнал.
                 for (int i = 0; i < bots.Length; i++)
@@ -379,6 +534,15 @@ namespace Orpheus.Server
 
                 if (clock != null)
                 {
+                    foreach ((long Tick, int Ms) f in o.DebugFreezes)
+                    {
+                        if (f.Tick == tick)
+                        {
+                            log.Warn(tick, "perf", "отладочная заморозка такта", ("ms", f.Ms)); // 2.13 п. 5 (0-025)
+                            Thread.Sleep(f.Ms);
+                        }
+                    }
+
                     long dropped = clock.WaitNext(stop);
                     if (dropped > 0)
                     {
@@ -450,7 +614,29 @@ namespace Orpheus.Server
             public LoadedWorldState? Loaded;
             public string Name = string.Empty;
 
-            public void Dispose() => Lock?.Dispose();
+            /// <summary>Сервер игры записал <c>host.lock</c> (0-024): удалить при выходе, пока замок мира ещё наш.</summary>
+            public JsonLog? HostLockLog;
+
+            /// <summary>Запись <c>host.lock</c> в фоне; останавливается до удаления замка.</summary>
+            public HostLockWriter? HostLockWriter;
+
+            public void Dispose()
+            {
+                HostLockWriter?.Dispose();
+                if (HostLockLog != null && Storage != null && Folder != null)
+                {
+                    try
+                    {
+                        HostLockFile.Delete(Storage, Folder.Dir);
+                    }
+                    catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+                    {
+                        HostLockLog.Warn(0, "save", "файл-замок хоста не удалён", ("error", e.Message));
+                    }
+                }
+
+                Lock?.Dispose();
+            }
         }
 
         private static OpenedWorld OpenWorld(ServerOptions o, JournalHeader? replay, JsonLog log)

@@ -9,6 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Orpheus.Core\Orpheus.Core.csproj" />
     <ProjectReference Include="..\Orpheus.Net\Orpheus.Net.csproj" />
+    <ProjectReference Include="..\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
+    <!-- «Игра хоста» без Unity (0-024): сервер дочерним процессом через PcServerLauncher. -->
+    <ProjectReference Include="..\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
   </ItemGroup>
 
   <ItemGroup>

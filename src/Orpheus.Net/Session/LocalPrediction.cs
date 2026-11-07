@@ -67,6 +67,11 @@ namespace Orpheus.Net.Session
         private uint _firstFrame;
         private bool _hasHistory;
         private bool _synced;
+        private bool _await;     // после перенумерации: ack прежних номеров не сравнивать (0-025)
+        private uint _awaitFrom; // первый кадр новых номеров
+
+        /// <summary>Порог приёмки 2.13 п. 1: 0,5 тайла = 128 unit.</summary>
+        public const int HalfTileUnits = 128;
 
         // Гашение: смещение картинки от предсказанной позиции, затухает к нулю за _errDurUs.
         private Int2 _err;
@@ -100,6 +105,21 @@ namespace Orpheus.Net.Session
         /// <summary>Наибольшее расхождение предсказания с сервером, unit (1/256 тайла), по всем сверкам после установки.</summary>
         public int MaxDevUnits { get; private set; }
 
+        /// <summary>
+        /// Сверок со сравнением (11.3, 0-025): предсказанная позиция в кадре ack против серверной в тот же кадр — каждый
+        /// снимок после установки, кроме переполнения и ack прежних номеров после перенумерации.
+        /// </summary>
+        public long Compared { get; private set; }
+
+        /// <summary>Из них расхождение больше 0,5 тайла (<see cref="HalfTileUnits"/>; 2.13 п. 1).</summary>
+        public long ComparedOverHalfTile { get; private set; }
+
+        /// <summary>Перенумераций (номер кадра не подряд: часы клиента переставлены, 0-025).</summary>
+        public long Renumbers { get; private set; }
+
+        /// <summary>Снимков, пропущенных после перенумерации: ack ещё в прежних номерах.</summary>
+        public long IgnoredAcks { get; private set; }
+
         /// <summary>Расхождение на последней сверке, unit.</summary>
         public int LastDevUnits { get; private set; }
 
@@ -118,6 +138,25 @@ namespace Orpheus.Net.Session
         /// </summary>
         public void Sent(uint frame, InputFrame input)
         {
+            if (_hasHistory && _count > 0 && frame != NewestFrame + 1)
+            {
+                // Перенумерация (NetClient.SendFrame, 0-025): часы переставлены, номер — по оценке. Клиент шлёт три кадра
+                // перед новым копиями нового — шагаем так же; прежние номера в кольце несравнимы с новыми — кольцо заново,
+                // ack прежних номеров до первого нового пропускаются.
+                Renumbers++;
+                _before = _mover;
+                _beforePre = true;
+                _head = _count = 0;
+                _firstFrame = frame - 3;
+                _await = true;
+                _awaitFrom = frame - 3;
+                for (uint k = 3; k >= 1; k--)
+                {
+                    _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid); // копии — с кнопками, как шлёт клиент (0-029)
+                    Push(frame - k, input);
+                }
+            }
+
             if (!_hasHistory)
             {
                 _hasHistory = true;
@@ -144,6 +183,7 @@ namespace Orpheus.Net.Session
             _head = _count = 0;
             _hasHistory = false;
             _synced = false;
+            _await = false;
             _err = default;
             _errDurUs = 0;
         }
@@ -157,6 +197,19 @@ namespace Orpheus.Net.Session
             if (!server.Present)
             {
                 return;
+            }
+
+            if (_await)
+            {
+                if (_count > 0 && (int)(ackFrame - _awaitFrom) >= 0 && (int)(NewestFrame - ackFrame) >= 0 || _count >= BufferSize)
+                {
+                    _await = false;
+                }
+                else
+                {
+                    IgnoredAcks++;
+                    return;
+                }
             }
 
             Reconciled++;
@@ -194,6 +247,12 @@ namespace Orpheus.Net.Session
                 long d2 = Torus.Dist2(_map, predicted.Position, server.Position);
                 LastDevUnits = Units(d2);
                 MaxDevUnits = Math.Max(MaxDevUnits, LastDevUnits);
+                Compared++;
+                if (LastDevUnits > HalfTileUnits)
+                {
+                    ComparedOverHalfTile++;
+                }
+
                 if (d2 <= MatchDist2 && predicted.Carry == server.Carry)
                 {
                     return; // совпало (2.6 п. 3)

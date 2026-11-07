@@ -75,7 +75,7 @@ namespace Orpheus.Tests
             Assert.Equal(m.Version, back.Version);
             Assert.Equal(m.Name, back.Name);
             Assert.Equal(a, Encode(b => back.Write(b)));
-            Assert.Equal(1 + 6 + 1 + 10, a.Length); // «Орфей» — 10 байт UTF-8
+            Assert.Equal(1 + 6 + 1 + 10 + 1, a.Length); // «Орфей» — 10 байт UTF-8; флаг токена хозяина — 1 байт (0-024)
         }
 
         [Fact]
@@ -1231,7 +1231,7 @@ namespace Orpheus.Tests
             Assert.Equal(NetClientState.InGame, c.State);
             Assert.Equal(10u, c.Latest.Tick);
             c.SendFrame(default);
-            Assert.Equal(1, t.Flushes); // кадр ввода уходит сразу — один сброс отправки на кадр (0-015)
+            Assert.Equal(1, t.Flushes - c.PingsSent); // кадр ввода уходит сразу — один сброс отправки на кадр (0-015); пинг часов (0-025) — свой
 
             WorldPos moved = SnapshotLayout.Quantize(new WorldPos(101 * U, 200 * U));
             t.Push(LoopbackTransport.ServerPeer, NetChannel.Unreliable, Delta(layout, 50, 42, moved)); // ячейка 10 — такт 10, не 42

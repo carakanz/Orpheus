@@ -60,7 +60,7 @@ namespace Orpheus.Client
         public float Zoom { get; private set; } = 1f;
         public double GenerationMs { get; private set; }
 
-        /// <summary>Сетевой режим (0-012); null — офлайн (локальный такт).</summary>
+        /// <summary>Сетевой режим (0-012), в том числе одиночная и хост (0-024); null — офлайн (локальный такт).</summary>
         public NetGame? Net { get; private set; }
 
         // Действия ввода — для сетевого режима (тот же клавишно-геймпадный ввод).
@@ -86,7 +86,8 @@ namespace Orpheus.Client
         void Awake()
         {
             Args = ClientArgs.Parse(Environment.GetCommandLineArgs());
-            if (Args.Error != null && Args.Connect == null)
+            bool netMode = Args.Connect != null || Args.Mode.HasValue;
+            if (Args.Error != null && !netMode)
             {
                 Debug.LogWarning("[boot] аргументы: " + Args.Error + " — взято значение по умолчанию");
             }
@@ -94,7 +95,8 @@ namespace Orpheus.Client
             CreateInput();
 
             // Сетевой режим (0-012): мир присылает сервер, поэтому здесь только связь; окно — сразу с HUD-текстом.
-            if (Args.Connect != null)
+            // Одиночная и хост (0-024) — тот же сетевой режим: сервер — дочерний процесс, вход через 127.0.0.1 (07, 2.3).
+            if (netMode)
             {
                 if (Args.Error != null)
                 {
