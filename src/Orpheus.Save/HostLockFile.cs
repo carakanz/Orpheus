@@ -53,7 +53,10 @@ namespace Orpheus.Save
             storage.WriteAtomic(PathIn(worldDir), Encoding.UTF8.GetBytes(sb.ToString()));
         }
 
-        /// <summary>Прочитать; нет файла или он не того вида — null.</summary>
+        /// <summary>
+        /// Прочитать; нет файла, он не того вида (битый после пропажи света: нули, обрывок, мусор) или занят — null,
+        /// без исключения: поиск сервера такой замок пропускает.
+        /// </summary>
         public static HostLock? TryRead(IPlatformStorage storage, string worldDir)
         {
             string path = PathIn(worldDir);
@@ -67,9 +70,9 @@ namespace Orpheus.Save
             {
                 text = Encoding.UTF8.GetString(storage.ReadAllBytes(path));
             }
-            catch (IOException)
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
             {
-                return null;
+                return null; // занят (сервер как раз переносит новый замок на место, антивирус) — спросят ещё раз
             }
 
             string[] lines = text.Split('\n');

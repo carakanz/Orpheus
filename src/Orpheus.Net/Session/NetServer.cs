@@ -1035,6 +1035,14 @@ namespace Orpheus.Net.Session
                         return;
                     }
 
+                    // Версия — до разбора остального входа: у другой сборки он может быть другого вида (2.10).
+                    NetVersion version = LoginMessage.ReadVersion(data);
+                    if (version != _version)
+                    {
+                        Reject(p, LoginRejectReason.VersionMismatch, $"версия клиента {version}, сервера {_version}");
+                        return;
+                    }
+
                     OnLogin(p, LoginMessage.Read(data));
                     return;
                 }

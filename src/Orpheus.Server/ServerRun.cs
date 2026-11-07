@@ -96,6 +96,12 @@ namespace Orpheus.Server
         /// <summary>Сервер игры (0-024): вышел, потому что хозяин не вернулся за отведённое время («хост вышел»).</summary>
         public bool HostLeft { get; set; }
 
+        /// <summary>Записей <c>host.lock</c> удалось (0-024).</summary>
+        public int HostLockWrites { get; set; }
+
+        /// <summary>Попыток записи <c>host.lock</c> не удалось — каждая повторена вне такта (0-024).</summary>
+        public int HostLockFailures { get; set; }
+
         /// <summary>Сервер игры: хозяин возвращался после ухода (раз).</summary>
         public int HostReturns { get; set; }
 
@@ -268,6 +274,12 @@ namespace Orpheus.Server
                     result.LastSavedNumber = saver.LastNumber;
                 }
 
+                if (opened.HostLockWriter != null)
+                {
+                    result.HostLockWrites = opened.HostLockWriter.Written;
+                    result.HostLockFailures = opened.HostLockWriter.Failures;
+                }
+
                 if (host != null)
                 {
                     // 7.6: мир сохранён — всем «Хост вышел. Мир сохранён у него» (или «сервер остановлен»), затем выход.
@@ -325,16 +337,15 @@ namespace Orpheus.Server
                 result.OpenedPort = pub.LocalPort;
                 log.Info(sim.Tick, "net", "открыто для друзей: слушаю UDP", ("address", o.OpenAddress?.ToString() ?? "все"), ("port", pub.LocalPort));
                 lockInfo.OpenPort = pub.LocalPort;
-                if (opened.Storage != null && o.WorldDir != null)
-                {
-                    HostLockFile.Write(opened.Storage, Path.GetFullPath(o.WorldDir), lockInfo);
-                }
-
+                // Не в потоке такта и не падая: файл может быть открыт игрой, антивирусом (замечания 1 и 6 проверки).
+                opened.HostLockWriter?.Request(lockInfo, sim.Tick);
                 return pub.LocalPort;
             };
 
-            HostLockFile.Write(opened.Storage!, Path.GetFullPath(o.WorldDir!), lockInfo);
             opened.HostLockLog = log; // удалить при штатном выходе — до того, как отпущен замок мира
+            opened.HostLockWriter = new HostLockWriter(opened.Storage!, Path.GetFullPath(o.WorldDir!), log);
+            opened.HostLockWriter.Request(lockInfo, sim.Tick);
+            opened.HostLockWriter.WaitWritten(1000); // к строке готовности замок обычно уже на диске; нет — допишется в фоне
             log.Info(sim.Tick, "net", "сервер игры", ("mode", lockInfo.Mode), ("graceSec", o.HostGraceSeconds),
                 ("openAddress", o.OpenAddress?.ToString() ?? "все"), ("openPort", o.OpenPort), ("lock", HostLockFile.PathIn(o.WorldDir!)));
             return host;
@@ -597,8 +608,12 @@ namespace Orpheus.Server
             /// <summary>Сервер игры записал <c>host.lock</c> (0-024): удалить при выходе, пока замок мира ещё наш.</summary>
             public JsonLog? HostLockLog;
 
+            /// <summary>Запись <c>host.lock</c> в фоне; останавливается до удаления замка.</summary>
+            public HostLockWriter? HostLockWriter;
+
             public void Dispose()
             {
+                HostLockWriter?.Dispose();
                 if (HostLockLog != null && Storage != null && Folder != null)
                 {
                     try

@@ -372,6 +372,443 @@ namespace Orpheus.Tests
             }
         }
 
+        // ---------- Правки по проверке 0-024 ----------
+
+        /// <summary>
+        /// Замечание 1: «Открыть для друзей», а <c>host.lock</c> открыт на чтение другим дескриптором (так его читает
+        /// вернувшаяся игра, антивирус, индексатор) — перенос нового замка на место отказывает. Сервер живёт, порт открыт,
+        /// замок дописывается вне такта после закрытия дескриптора, мир при остановке сохраняется штатно.
+        /// </summary>
+        [Fact]
+        public void D07_S7_6_ServerRun_OpenForFriends_LockHeldOpen_ServerLives_LockUpdatedLater()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "orpheus-lockheld-" + Guid.NewGuid().ToString("N"));
+            NetClient? host = null;
+            try
+            {
+                using var srv = new InProcServer(dir);
+                int port = srv.WaitReady(20_000);
+                host = UdpClient(port, "хост", Token);
+                Assert.True(Pump(() => host.State == NetClientState.InGame, 10_000, host), $"хозяин не вошёл: {host.State} {host.RejectText}");
+
+                string lockPath = HostLockFile.PathIn(dir);
+                var storage = new PcStorage();
+                Assert.Equal(-1, HostLockFile.TryRead(storage, dir)!.OpenPort);
+                int openPort;
+                using (new FileStream(lockPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    host.RequestOpenForFriends();
+                    Assert.True(Pump(() => host.OpenResult.HasValue && srv.Text.Contains("файл-замок хоста не записан"), 10_000, host),
+                        "нет итога «Открыть для друзей» или предупреждения о замке");
+                    Assert.True(host.OpenResult!.Value.Opened);
+                    openPort = host.OpenResult.Value.Port;
+                    Pump(() => false, 500, host); // замок всё ещё занят — повторы идут, сервер работает
+                    Assert.False(srv.Exited, "сервер упал из-за замка");
+                    Assert.Equal(NetClientState.InGame, host.State);
+                    Assert.Equal(-1, HostLockFile.TryRead(storage, dir)!.OpenPort); // старый замок цел
+                }
+
+                Assert.True(Pump(() => HostLockFile.TryRead(storage, dir)?.OpenPort == openPort, 5_000, host), "замок не обновился после закрытия дескриптора");
+                Assert.False(srv.Exited);
+
+                ServerResult r = srv.Stop(30_000);
+                _out.WriteLine($"неудачных записей замка {r.HostLockFailures}, удачных {r.HostLockWrites}, сохранений {r.SavesWritten}, порт друзей {openPort}");
+                Assert.Equal(0, r.ExitCode);
+                Assert.True(r.HostLockFailures >= 1);
+                Assert.True(r.HostLockWrites >= 2);
+                Assert.True(r.SavesWritten >= 1, "мир не сохранён при остановке");
+                Assert.True(r.LastSavedNumber > 0);
+                Assert.Equal(openPort, r.OpenedPort);
+                Assert.False(File.Exists(lockPath), "host.lock не удалён при выходе");
+            }
+            finally
+            {
+                host?.Transport.Dispose();
+                Directory.Delete(dir, true);
+            }
+        }
+
+        /// <summary>
+        /// Замечание 2 (мутация П5): игра хоста ушла, других игроков нет — мир сохраняется сразу (2.3), а не через 60 с
+        /// ожидания: у Автора нет ИБП, и до выхода сервера мир иначе держится только в памяти.
+        /// </summary>
+        [Fact]
+        public void D07_S2_3_ServerRun_HostLeftAlone_SavedAtOnce()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "orpheus-leftalone-" + Guid.NewGuid().ToString("N"));
+            NetClient? host = null;
+            try
+            {
+                using var srv = new InProcServer(dir); // ожидание хозяина — 60 с по умолчанию
+                int port = srv.WaitReady(20_000);
+                host = UdpClient(port, "хост", Token);
+                Assert.True(Pump(() => host.State == NetClientState.InGame, 10_000, host), $"хозяин не вошёл: {host.State}");
+                Pump(() => false, 500, host);
+                Assert.DoesNotContain("\"msg\":\"сохранено\"", srv.Text); // автосохранение — раз в 2 мин, до ухода сохранений нет
+
+                host.Disconnect();
+                var w = System.Diagnostics.Stopwatch.StartNew();
+                bool saved = SpinWait.SpinUntil(() => SavedLine(srv.Text, "хозяин ушёл"), 10_000);
+                _out.WriteLine($"сохранено через {w.Elapsed.TotalSeconds:0.00} с после ухода хозяина");
+                Assert.True(saved, "хозяин ушёл, других нет — мир не сохранён сразу");
+                Assert.False(srv.Exited); // и ждёт его дальше
+
+                ServerResult r = srv.Stop(30_000);
+                Assert.Equal(0, r.ExitCode);
+                Assert.False(r.HostLeft);
+                Assert.True(r.SavesWritten >= 1);
+            }
+            finally
+            {
+                host?.Transport.Dispose();
+                Directory.Delete(dir, true);
+            }
+        }
+
+        /// <summary>
+        /// Замечание 3 (мутация П1): замок пишется атомарно — <c>.tmp</c>, сброс на носитель, потом перенос на место
+        /// (у Автора нет ИБП). Битый замок (нули после пропажи света, обрывок, мусор, занятый файл) поиск сервера
+        /// пропускает, а не падает.
+        /// </summary>
+        [Fact]
+        public void D07_S7_6_HostLockFile_Atomic_FlushedBeforeMoved_BrokenIgnored()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "orpheus-hostlock-atomic-" + Guid.NewGuid().ToString("N"));
+            var stages = new List<(string Path, PcWriteStage Stage)>();
+            var storage = new PcStorage { Probe = (path, stage, at, total) => stages.Add((path, stage)) };
+            try
+            {
+                storage.CreateDirectory(dir);
+                string lockPath = Path.GetFullPath(HostLockFile.PathIn(dir));
+                var l = new HostLock { Port = 50123, Token = Token.ToString(), ProcessId = 4242, Mode = "host", OpenPort = 50124 };
+                HostLockFile.Write(storage, dir, l);
+                List<PcWriteStage> mine = stages.Where(s => s.Path == lockPath).Select(s => s.Stage).ToList();
+                Assert.Contains(PcWriteStage.Flushed, mine);
+                Assert.Equal(PcWriteStage.Moved, mine.Last());
+                Assert.True(mine.IndexOf(PcWriteStage.Flushed) < mine.IndexOf(PcWriteStage.Moved), "перенос раньше сброса на носитель");
+                Assert.False(File.Exists(lockPath + WorldFolder.TmpSuffix));
+                byte[] good = File.ReadAllBytes(lockPath);
+
+                var launcher = new PcServerLauncher(Path.Combine(dir, "OrpheusServer.exe"));
+                using (new WorldFolder(storage, dir).Lock())
+                {
+                    Assert.Equal(50123, launcher.FindRunning(dir)!.Value.Port);
+
+                    var broken = new List<byte[]> { Array.Empty<byte>(), new byte[512], new byte[] { 0xff, 0xfe, 0x00, 0xc3 } };
+                    var rnd = new Random(24);
+                    for (int i = 0; i < 20; i++)
+                    {
+                        var b = new byte[rnd.Next(1, 300)];
+                        rnd.NextBytes(b);
+                        broken.Add(b);
+                    }
+
+                    for (int cut = 0; cut < good.Length; cut++)
+                    {
+                        broken.Add(good.AsSpan(0, cut).ToArray());
+                    }
+
+                    foreach (byte[] b in broken)
+                    {
+                        File.WriteAllBytes(lockPath, b);
+                        HostLock? back = HostLockFile.TryRead(storage, dir);
+                        ServerEndpoint? e = launcher.FindRunning(dir);
+                        if (e.HasValue)
+                        {
+                            // Обрывок после строки токена: порт и токен те же — подключиться можно; чужих не бывает.
+                            Assert.Equal(50123, e.Value.Port);
+                            Assert.Equal(Token, e.Value.Token);
+                        }
+
+                        Assert.True(back == null || back.Port > 0);
+                    }
+
+                    // Замок занят без общего доступа (антивирус) — не исключение, а «не нашёл».
+                    File.WriteAllBytes(lockPath, good);
+                    using (new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                        Assert.Null(HostLockFile.TryRead(storage, dir));
+                        Assert.Null(launcher.FindRunning(dir));
+                    }
+
+                    Assert.NotNull(launcher.FindRunning(dir));
+                }
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+
+        /// <summary>
+        /// Замечание 5: версия входа сверяется до разбора остального. Клиент протокола 2 (вход без флага токена) у сервера 3
+        /// и клиент 3 у сервера 2 (тот вход не разобрал — «вход испорчен» с версией 0.0.2) видят «Версии не совпадают».
+        /// </summary>
+        [Fact]
+        public void D07_S2_10_Login_VersionCheckedBeforeRest_BothWays()
+        {
+            var v2 = new NetVersion(0, 0, 2);
+            Assert.NotEqual(v2, NetModule.Version);
+
+            // Клиент 2 → сервер 3: вход старого вида (тип, версия, длина имени, имя — без флага токена).
+            using (var h = new HostHarness())
+            {
+                var raw = LoopbackTransport.ConnectTo(h.Primary);
+                var rec = new PayloadRec();
+                raw.Poll(0, rec);
+                var buf = new byte[64];
+                var w = new BitWriter(buf);
+                w.WriteByte((byte)MessageType.Login);
+                v2.Write(ref w);
+                byte[] name = System.Text.Encoding.UTF8.GetBytes("старый");
+                w.WriteByte((byte)name.Length);
+                w.WriteBytes(name);
+                int len = w.BytesWritten;
+                Assert.Throws<ProtocolException>(() => LoginMessage.Read(buf.AsSpan(0, len))); // целиком сервер 3 его не разберёт
+                raw.Send(LoopbackTransport.ServerPeer, NetChannel.Facts, buf.AsSpan(0, len));
+                h.Run(3);
+                raw.Poll(h.Now, rec);
+                Assert.NotNull(rec.Payload);
+                LoginRejectMessage reject = LoginRejectMessage.Read(rec.Payload);
+                Assert.Equal(LoginRejectReason.VersionMismatch, reject.Reason);
+                Assert.Equal(NetModule.Version, reject.ServerVersion);
+                Assert.StartsWith("Версии не совпадают", reject.Describe(v2));
+                raw.Dispose();
+            }
+
+            // Клиент 3 → сервер 2: старый сервер не разобрал вход нового вида и ответил «вход испорчен» со своей версией.
+            var oldServer = LoopbackTransport.CreateServer(4);
+            var client = new NetClient(LoopbackTransport.ConnectTo(oldServer), LoopbackTransport.ServerPeer, "хост", NetModule.Version) { HostToken = Token };
+            var old = new OldServer(oldServer, v2);
+            for (int i = 0; i < 5 && client.State != NetClientState.Rejected; i++)
+            {
+                client.Poll(i * TickMicros);
+                oldServer.Poll(i * TickMicros, old);
+            }
+
+            client.Poll(10 * TickMicros);
+            Assert.True(old.LoginsSeen >= 1);
+            Assert.Equal(NetClientState.Rejected, client.State);
+            Assert.Equal(LoginRejectReason.BadLogin, client.Reject!.Value.Reason);
+            Assert.Equal($"Версии не совпадают: у сервера 0.0.2, у тебя {NetModule.Version}", client.RejectText);
+            Assert.Equal("Вход не удался", new LoginRejectMessage { Reason = LoginRejectReason.BadLogin, ServerVersion = NetModule.Version }.Describe(NetModule.Version));
+            client.Transport.Dispose();
+            oldServer.Dispose();
+        }
+
+        private static bool SavedLine(string text, string reason)
+        {
+            foreach (string line in text.Split('\n'))
+            {
+                if (line.Contains("\"msg\":\"сохранено\"") && line.Contains($"\"reason\":\"{reason}\""))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static NetClient UdpClient(int port, string name, HostToken token)
+        {
+            LiteNetTransport t = LiteNetTransport.Connect("127.0.0.1", port);
+            return new NetClient(t, t.ServerPeer, name, NetModule.Version) { HostToken = token };
+        }
+
+        /// <summary>Крутить клиентов (опрос и пустой ввод), пока не <paramref name="done"/> или не выйдет время.</summary>
+        private static bool Pump(Func<bool> done, int timeoutMs, params NetClient[] clients)
+        {
+            var w = System.Diagnostics.Stopwatch.StartNew();
+            while (w.ElapsedMilliseconds < timeoutMs)
+            {
+                foreach (NetClient c in clients)
+                {
+                    c.Poll(w.Elapsed.Ticks / 10);
+                    if (c.State == NetClientState.InGame)
+                    {
+                        c.SendFrame(default);
+                    }
+                }
+
+                if (done())
+                {
+                    return true;
+                }
+
+                Thread.Sleep(15);
+            }
+
+            return done();
+        }
+
+        private sealed class PayloadRec : ITransportHandler
+        {
+            public byte[]? Payload { get; private set; }
+
+            public void OnConnected(int peer)
+            {
+            }
+
+            public void OnDisconnected(int peer, NetDisconnectReason reason, ReadOnlySpan<byte> payload) => Payload = payload.ToArray();
+
+            public void OnReceive(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+            {
+            }
+        }
+
+        /// <summary>Сервер протокола 2 глазами клиента 3: вход нового вида не разобран — «вход испорчен» со своей версией.</summary>
+        private sealed class OldServer : ITransportHandler
+        {
+            private readonly LoopbackTransport _t;
+            private readonly NetVersion _version;
+
+            public OldServer(LoopbackTransport t, NetVersion version)
+            {
+                _t = t;
+                _version = version;
+            }
+
+            public int LoginsSeen { get; private set; }
+
+            public void OnConnected(int peer)
+            {
+            }
+
+            public void OnDisconnected(int peer, NetDisconnectReason reason, ReadOnlySpan<byte> payload)
+            {
+            }
+
+            public void OnReceive(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+            {
+                if (data.Length > 0 && data[0] == (byte)MessageType.Login)
+                {
+                    LoginsSeen++;
+                    var buf = new byte[LoginRejectMessage.Bytes];
+                    int n = new LoginRejectMessage { Reason = LoginRejectReason.BadLogin, ServerVersion = _version }.Write(buf);
+                    _t.Disconnect(peer, buf.AsSpan(0, n));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Сервер игры целиком в процессе теста (в своём потоке): UDP только на петле, «Открыть для друзей» — на 127.0.0.2.
+        /// </summary>
+        private sealed class InProcServer : IDisposable
+        {
+            private readonly CancellationTokenSource _stop = new CancellationTokenSource();
+            private readonly Thread _thread;
+            private readonly LockedWriter _console = new LockedWriter();
+            private ServerResult? _result;
+            private Exception? _error;
+
+            public InProcServer(string dir, params string[] extra)
+            {
+                var args = new List<string>
+                {
+                    "--world", dir, "--create", "--seed", "11", "--size", "1024", "--port", "0", "--mode", "host",
+                    "--host-token", Token.ToString(), "--open-address", "127.0.0.2", "--open-port", "0",
+                };
+                args.AddRange(extra);
+                ServerOptions o = ServerOptions.Parse(args.ToArray());
+                _thread = new Thread(() =>
+                {
+                    try
+                    {
+                        _result = ServerRun.Run(o, _console, _stop.Token);
+                    }
+                    catch (Exception e)
+                    {
+                        _error = e;
+                    }
+                })
+                { IsBackground = true, Name = "server" };
+                _thread.Start();
+            }
+
+            public string Text => _console.Text;
+
+            public bool Exited => !_thread.IsAlive;
+
+            public int WaitReady(int timeoutMs)
+            {
+                string marker = ServerRun.ReadyMarker + " port=";
+                int port = -1;
+                Assert.True(SpinWait.SpinUntil(() =>
+                {
+                    string t = Text;
+                    int at = t.IndexOf(marker, StringComparison.Ordinal);
+                    if (at < 0)
+                    {
+                        return Exited;
+                    }
+
+                    int end = t.IndexOfAny(new[] { '\r', '\n' }, at);
+                    port = int.Parse(t.Substring(at + marker.Length, end - at - marker.Length), System.Globalization.CultureInfo.InvariantCulture);
+                    return true;
+                }, timeoutMs), "сервер не готов");
+                Assert.True(port > 0, $"сервер вышел до готовности: {_error}\n{Text}");
+                return port;
+            }
+
+            public ServerResult Stop(int timeoutMs)
+            {
+                _stop.Cancel();
+                Assert.True(_thread.Join(timeoutMs), "сервер не остановился");
+                Assert.Null(_error);
+                return _result!;
+            }
+
+            public void Dispose()
+            {
+                _stop.Cancel();
+                _thread.Join(30_000);
+                _stop.Dispose();
+            }
+        }
+
+        /// <summary>Вывод сервера: пишут поток такта и фоновый поток замка, читает тест.</summary>
+        private sealed class LockedWriter : TextWriter
+        {
+            private readonly System.Text.StringBuilder _sb = new System.Text.StringBuilder();
+
+            public override System.Text.Encoding Encoding => System.Text.Encoding.UTF8;
+
+            public string Text
+            {
+                get
+                {
+                    lock (_sb)
+                    {
+                        return _sb.ToString();
+                    }
+                }
+            }
+
+            public override void Write(char value)
+            {
+                lock (_sb)
+                {
+                    _sb.Append(value);
+                }
+            }
+
+            public override void Write(string? value)
+            {
+                lock (_sb)
+                {
+                    _sb.Append(value);
+                }
+            }
+
+            public override void WriteLine(string? value)
+            {
+                lock (_sb)
+                {
+                    _sb.Append(value).Append('\n');
+                }
+            }
+        }
+
         // ---------- 1.6: Process только в ПК-слое ----------
 
         [Fact]

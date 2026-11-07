@@ -149,11 +149,18 @@ namespace Orpheus.Platform.Pc
             HostLock? l = HostLockFile.TryRead(_storage, dir);
             if (l == null || !HostToken.TryParse(l.Token, out HostToken token))
             {
-                return null;
+                return null; // нет замка или он битый — сервера по нему не найти, это не ошибка игры
             }
 
             // Файл остаётся после пропажи света; жив ли сервер — по замку мира, который он держит.
-            return HostLockFile.IsWorldHeld(_storage, dir) ? new ServerEndpoint(l.Port, token, l.ProcessId) : (ServerEndpoint?)null;
+            try
+            {
+                return HostLockFile.IsWorldHeld(_storage, dir) ? new ServerEndpoint(l.Port, token, l.ProcessId) : (ServerEndpoint?)null;
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                return null;
+            }
         }
 
         private static string OperatingSystemExe(string name) =>

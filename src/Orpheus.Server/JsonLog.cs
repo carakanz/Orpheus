@@ -38,6 +38,9 @@ namespace Orpheus.Server
         private TextWriter? _console;
         private readonly Dictionary<string, LogLevel> _levels = new Dictionary<string, LogLevel>(StringComparer.Ordinal);
         private readonly MemoryStream _line = new MemoryStream(512);
+
+        // Пишут поток такта и фоновые: запись host.lock (0-024) — строки не перемешиваются.
+        private readonly object _sync = new object();
         private StreamWriter? _file;
         private string? _fileDate;
 
@@ -90,6 +93,14 @@ namespace Orpheus.Server
                 return;
             }
 
+            lock (_sync)
+            {
+                WriteLocked(level, tick, cat, msg, data);
+            }
+        }
+
+        private void WriteLocked(LogLevel level, long tick, string cat, string msg, (string Key, object? Value)[] data)
+        {
             DateTime now = DateTime.UtcNow;
             _line.SetLength(0);
             using (var w = new Utf8JsonWriter(_line, WriterOptions))
@@ -135,8 +146,11 @@ namespace Orpheus.Server
 
         public void Dispose()
         {
-            _file?.Dispose();
-            _file = null;
+            lock (_sync)
+            {
+                _file?.Dispose();
+                _file = null;
+            }
         }
 
         private StreamWriter? FileFor(DateTime now)

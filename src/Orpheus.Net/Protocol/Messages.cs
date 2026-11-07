@@ -131,6 +131,17 @@ namespace Orpheus.Net.Protocol
             return w.BytesWritten;
         }
 
+        /// <summary>
+        /// Только версия из входа — до разбора остального (замечание 5 проверки 0-024): формат входа меняется от
+        /// протокола к протоколу (в 3 — флаг токена), и клиент другой сборки должен видеть «Версии не совпадают»,
+        /// а не «Вход не удался». Тип и версия (первые 7 байт) — неизменны во всех протоколах.
+        /// </summary>
+        public static NetVersion ReadVersion(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Login);
+            return NetVersion.Read(ref r);
+        }
+
         public static LoginMessage Read(ReadOnlySpan<byte> src)
         {
             var r = Codec.Begin(src, MessageType.Login);
@@ -279,6 +290,13 @@ namespace Orpheus.Net.Protocol
         /// <summary>Текст для игрока.</summary>
         public string Describe(NetVersion mine)
         {
+            // Сервер другой сборки мог не разобрать наш вход и ответить «вход испорчен» (сервер протокола 2 не знает флага
+            // токена) — версия в отказе всё равно его: о ней игроку и сказать.
+            if (ServerVersion != mine)
+            {
+                return $"Версии не совпадают: у сервера {ServerVersion}, у тебя {mine}";
+            }
+
             switch (Reason)
             {
                 case LoginRejectReason.VersionMismatch:

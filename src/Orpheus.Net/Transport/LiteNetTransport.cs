@@ -73,6 +73,7 @@ namespace Orpheus.Net.Transport
             bool started = loopbackOnly ? t._manager.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, port) : t._manager.Start(port);
             if (!started)
             {
+                t.Dispose(); // порт занят: созданный NetManager не оставлять
                 throw new SocketException((int)SocketError.AddressAlreadyInUse);
             }
 
@@ -101,6 +102,7 @@ namespace Orpheus.Net.Transport
             t._manager.IPv6Enabled = false;
             if (!t._manager.Start(address, IPAddress.IPv6None, port))
             {
+                t.Dispose();
                 throw new SocketException((int)SocketError.AddressAlreadyInUse);
             }
 
@@ -117,6 +119,7 @@ namespace Orpheus.Net.Transport
             bool started = IsLoopbackHost(host) ? t._manager.Start(IPAddress.Loopback, IPAddress.IPv6Loopback, 0) : t._manager.Start();
             if (!started)
             {
+                t.Dispose();
                 throw new SocketException((int)SocketError.SocketError);
             }
 
