@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -1595,6 +1596,12 @@ namespace Orpheus.Tests
             _out.WriteLine($"сверка по такту: {run.Checked} снимков, ошибка ≤ {run.MaxErrorUnits} unit; отставание снимка от такта сервера при приёме: " +
                            $"≤ {run.MaxLagTicks} тактов ({run.MaxLagTicks * 0.2:F1} тайла при 6 т/с), среднее {run.MeanLagTicks:F2}; " +
                            $"больше 2 тактов — {run.LagOver2} из {run.Snapshots}");
+            {
+                long[] lat = run.Samples.Where(x => x.SentUs >= 0).Select(x => x.ReceivedUs - x.SentUs).OrderBy(x => x).ToArray();
+                string P(double q) => (lat[(int)Math.Min(lat.Length - 1, q * lat.Length)] / 1000.0).ToString("F1");
+                _out.WriteLine($"задержка отправка→приём, мс: p0 {P(0)}, p10 {P(0.1)}, p50 {P(0.5)}, p90 {P(0.9)}, p99 {P(0.99)}, p99.9 {P(0.999)}, max {P(1)}; {run.Cpu}");
+            }
+
             Assert.Equal(2, r.InGame);
             Assert.Equal(0, r.Disconnects);
             Assert.True(run.Checked > 2 * 60 * 25, $"{run.Checked}");
@@ -1621,7 +1628,28 @@ namespace Orpheus.Tests
             /// <summary>Принятых снимков всего / с отставанием больше 2 тактов (0-015, 2.13 п. 1).</summary>
             public long Snapshots;
             public long LagOver2;
+
+            /// <summary>Снимки по порядку приёма (0-032): такт, когда отправлен, когда принят, такт сервера при приёме.</summary>
+            public List<UdpSample> Samples = new List<UdpSample>();
+
+            /// <summary>Время отправки такта сервером (после <c>SendSnapshots</c> с <c>Flush</c>), мкс общих часов; −1 — не было.</summary>
+            public long[] SentUs = Array.Empty<long>();
+
+            /// <summary>Загрузка процессора машины во время прогона.</summary>
+            public CpuLoad.Summary Cpu;
         }
+
+        private struct UdpSample
+        {
+            public int Bot;
+            public uint Tick;
+            public long SentUs;
+            public long ReceivedUs;
+            public long ServerTick;
+        }
+
+        /// <summary>Общие часы сервера и ботов в одном процессе теста, мкс.</summary>
+        private static long NowUs() => Stopwatch.GetTimestamp() * 1_000_000 / Stopwatch.Frequency;
 
         private UdpRun RunUdp(int bots, double seconds, int rttMs, double lossPercent, Action<BotOptions> extra)
         {
@@ -1629,8 +1657,15 @@ namespace Orpheus.Tests
             ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", "42", "--size", "1024", "--port", port.ToString() });
             var history = new ConcurrentDictionary<long, WorldPos>();
             long serverTick = 0;
+            var run = new UdpRun { SentUs = new long[(int)(seconds * Simulation.TickRate) + 30 * 60] };
+            Array.Fill(run.SentUs, -1L);
             so.AfterTick = sim =>
             {
+                if (sim.Tick < run.SentUs.Length)
+                {
+                    Volatile.Write(ref run.SentUs[sim.Tick], NowUs());
+                }
+
                 foreach (SimEntity e in sim.Entities)
                 {
                     history[((long)e.Id << 32) | (uint)sim.Tick] = e.Mover.Position;
@@ -1639,10 +1674,10 @@ namespace Orpheus.Tests
                 Volatile.Write(ref serverTick, sim.Tick);
             };
 
+            using var cpu = new CpuLoad();
             using var stopServer = new CancellationTokenSource();
             Task<ServerResult> server = Task.Run(() => ServerRun.Run(so, null, stopServer.Token));
 
-            var run = new UdpRun();
             long lagSum = 0;
             var shape = MapShape.World(1024);
             var bo = BotOptions.Parse(new[]
@@ -1653,7 +1688,17 @@ namespace Orpheus.Tests
             });
             bo.OnSnapshot = (index, snap, entityId) =>
             {
-                long lag = Volatile.Read(ref serverTick) - snap.Tick;
+                long now = NowUs();
+                long st = Volatile.Read(ref serverTick);
+                long lag = st - snap.Tick;
+                run.Samples.Add(new UdpSample
+                {
+                    Bot = index,
+                    Tick = snap.Tick,
+                    SentUs = snap.Tick < run.SentUs.Length ? Volatile.Read(ref run.SentUs[snap.Tick]) : -1,
+                    ReceivedUs = now,
+                    ServerTick = st,
+                });
                 lagSum += lag;
                 run.Snapshots++;
                 if (lag > 2)
@@ -1676,6 +1721,7 @@ namespace Orpheus.Tests
             }
             finally
             {
+                run.Cpu = cpu.Stop();
                 Thread.Sleep(300); // отключения ботов доходят до сервера
                 stopServer.Cancel();
                 run.Server = server.GetAwaiter().GetResult();
@@ -1683,6 +1729,29 @@ namespace Orpheus.Tests
 
             run.MeanLagTicks = run.Checked > 0 ? lagSum / (double)run.Checked : 0;
             Assert.Equal(0, run.Server.ExitCode);
+            string? trace = Environment.GetEnvironmentVariable("ORPHEUS_UDP_TRACE");
+            if (!string.IsNullOrEmpty(trace) && seconds >= 30)
+            {
+                using var w = new System.IO.StreamWriter(trace);
+                w.WriteLine("bot,tick,sentUs,receivedUs,serverTick");
+                foreach (UdpSample x in run.Samples)
+                {
+                    w.WriteLine($"{x.Bot},{x.Tick},{x.SentUs},{x.ReceivedUs},{x.ServerTick}");
+                }
+
+                using var w2 = new System.IO.StreamWriter(trace + ".ticks.csv");
+                w2.WriteLine("tick,sentUs");
+                for (int t = 0; t < run.SentUs.Length; t++)
+                {
+                    if (run.SentUs[t] >= 0)
+                    {
+                        w2.WriteLine($"{t},{run.SentUs[t]}");
+                    }
+                }
+
+                _out.WriteLine($"трасса: {trace}; загрузка: {run.Cpu}");
+            }
+
             return run;
         }
 
