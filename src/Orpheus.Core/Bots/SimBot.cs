@@ -1,4 +1,5 @@
 using System;
+using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Rng;
 using Orpheus.Core.Sim;
@@ -20,23 +21,33 @@ namespace Orpheus.Core.Bots
         /// <summary>Номер сущности, которой бот управляет.</summary>
         public int EntityId { get; }
 
-        /// <summary>Сценарий: <c>idle</c>, <c>wander</c>, <c>shuttle</c>.</summary>
+        /// <summary>Сценарий: <c>idle</c>, <c>wander</c>, <c>shuttle</c>, <c>run_seam</c>, <c>seam_watch</c>.</summary>
         public abstract string Script { get; }
 
         /// <summary>Кадр ввода перед тактом <paramref name="tick"/> (номер такта, который сейчас выполнится).</summary>
         public abstract InputFrame Think(long tick, in SimEntity self);
 
-        /// <summary>Сценарии, которые есть: <c>idle</c>, <c>wander</c>, <c>shuttle</c>.</summary>
-        public static readonly string[] Scripts = { IdleBot.Name, WanderBot.Name, ShuttleBot.Name };
+        /// <summary>Сценарии, которые есть: <c>idle</c>, <c>wander</c>, <c>shuttle</c>, <c>run_seam</c>, <c>seam_watch</c>.</summary>
+        public static readonly string[] Scripts = { IdleBot.Name, WanderBot.Name, ShuttleBot.Name, RunSeamBot.Name, SeamWatchBot.Name };
 
         /// <summary>
         /// Бот сценария <paramref name="script"/> для сущности <paramref name="entityId"/>; <paramref name="botIndex"/> —
-        /// номер бота по порядку (зерно потока бота). Неизвестный сценарий — исключение.
+        /// номер бота по порядку (зерно потока бота). Неизвестный сценарий — исключение. Без формы карты — без <c>run_seam</c>.
         /// </summary>
-        public static SimBot Create(string script, int entityId, int botIndex, ulong worldSeed)
+        public static SimBot Create(string script, int entityId, int botIndex, ulong worldSeed) =>
+            script == RunSeamBot.Name
+                ? throw new ArgumentException($"Сценарию «{script}» нужна форма карты.", nameof(script))
+                : Create(script, entityId, botIndex, worldSeed, default);
+
+        /// <summary>Бот сценария <paramref name="script"/> на карте <paramref name="map"/> (нужна <c>run_seam</c>).</summary>
+        public static SimBot Create(string script, int entityId, int botIndex, ulong worldSeed, in MapShape map)
         {
             switch (script)
             {
+                case RunSeamBot.Name:
+                    return new RunSeamBot(entityId, map);
+                case SeamWatchBot.Name:
+                    return new SeamWatchBot(entityId);
                 case IdleBot.Name:
                     return new IdleBot(entityId);
                 case WanderBot.Name:

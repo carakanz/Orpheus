@@ -24,7 +24,7 @@ namespace Orpheus.Bots
     public sealed class BotOptions
     {
         public const string Usage =
-            "Orpheus.Bots --connect host:port [--count N] [--script idle|wander|dodge] [--rtt мс] [--jitter мс] [--burst]\n" +
+            "Orpheus.Bots --connect host:port [--count N] [--script idle|wander|shuttle|run_seam|seam_watch|dodge|dig_line] [--laps all|axes] [--rtt мс] [--jitter мс] [--burst]\n" +
             "             [--loss %] [--dup %] [--reorder %] [--seed N] [--minutes M | --seconds S] [--report <json>]\n" +
             "             [--name префикс] [--version x.y.z] [--host-token <32 hex>] [--open-for-friends]\n" +
             "Orpheus.Bots --launch <OrpheusServer> --world <папка> [--create-seed N] [--mode single|host] [--open-address A]\n" +
@@ -50,6 +50,9 @@ namespace Orpheus.Bots
         public int Port { get; set; }
         public int Count { get; set; } = 1;
         public string Script { get; set; } = "wander";
+
+        /// <summary>Круги <c>run_seam</c> (<c>--laps</c>): <c>all</c> — четыре (по умолчанию), <c>axes</c> — восток и север.</summary>
+        public string RunLaps { get; set; } = RunSeamBot.LapsAll;
         public int RttMs { get; set; }
         public int JitterMs { get; set; }
         public bool Burst { get; set; }
@@ -100,9 +103,17 @@ namespace Orpheus.Bots
                         break;
                     case "--script":
                         o.Script = Value(args, ref i);
-                        if (Array.IndexOf(SimBot.Scripts, o.Script) < 0 && o.Script != DodgeBot.Name)
+                        if (Array.IndexOf(SimBot.Scripts, o.Script) < 0 && o.Script != DodgeBot.Name && o.Script != DigLineBot.Name)
                         {
-                            throw new ArgumentException($"--script: сценария «{o.Script}» нет; есть: {string.Join(", ", SimBot.Scripts)}, {DodgeBot.Name}.");
+                            throw new ArgumentException($"--script: сценария «{o.Script}» нет; есть: {string.Join(", ", SimBot.Scripts)}, {DodgeBot.Name}, {DigLineBot.Name}.");
+                        }
+
+                        break;
+                    case "--laps":
+                        o.RunLaps = Value(args, ref i);
+                        if (o.RunLaps != RunSeamBot.LapsAll && o.RunLaps != RunSeamBot.LapsAxes)
+                        {
+                            throw new ArgumentException($"--laps: «{o.RunLaps}» — нет; есть {RunSeamBot.LapsAll}, {RunSeamBot.LapsAxes}.");
                         }
 
                         break;

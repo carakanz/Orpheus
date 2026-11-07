@@ -30,7 +30,7 @@ namespace Orpheus.Client
     /// Кадр ведётся из <see cref="GameBoot.Update"/>: poll → состояние → ввод → предсказание → переезд начала → окно →
     /// персонаж и камера → чужие → HUD.
     /// </summary>
-    public sealed class NetGame
+    public sealed partial class NetGame
     {
         const int LoginTimeoutSec = 10;
 
@@ -398,6 +398,7 @@ namespace Orpheus.Client
 
             cw.ChunkChanged = c => view.ShowChunk(c);
             cw.ChunkRemoved = c => view.HideChunk(c);
+            cw.RolledBack = OnRolledBack; // 0-028: откат правки — красная вспышка с причиной
             _localPos = spawn;
 
             // Проходимость — тот же IsBlocked ядра, что в такте сервера; предсказание стартует из точки поселения.
@@ -462,9 +463,15 @@ namespace Orpheus.Client
             // в -batchmode Unity завышает время очень коротких кадров (net-smoke 0-019). После фриза сервера часы
             // переставляются, следующий кадр перенумеровывается (NetClient.SendFrame, LocalPrediction.Sent).
             int n = c.FramesDue(now);
+            ushort editButtons = UpdateEdits(now); // 0-028: копание под курсором, стена по ПКМ
             for (int k = 0; k < n; k++)
             {
                 InputFrame frame = _args.NetSmokeSeconds > 0 ? ScriptedSmokeFrame(now) : GameBoot.ToFrame(_g.Move.ReadValue<Vector2>());
+                if (editButtons != 0)
+                {
+                    frame = new InputFrame(frame.Direction, (ushort)(frame.Buttons | editButtons));
+                }
+
                 c.SendFrame(frame);
                 _pred!.Sent(c.Frame, frame);
             }
@@ -503,6 +510,7 @@ namespace Orpheus.Client
             }
 
             _view!.PlaceNodes(); // набор чанков — от сервера (ShowChunk/HideChunk); здесь только места от якоря
+            RenderFlashes(now);
             _g.Character.gameObject.SetActive(true);
             _g.Character.position = _origin!.ToUnity(me) + new Vector3(dx / sub, -dy / sub, 0f);
             _g.Camera.transform.position = _g.Character.position + GameBoot.CameraOffset;
@@ -660,7 +668,7 @@ namespace Orpheus.Client
                 $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} расх {_pred?.MaxDevUnits ?? 0}u" +
                 $"  показ −{(_remote?.BufferUs ?? 0) / 1000} мс (стоит {_remote?.HoldFrames ?? 0})  якорь {_origin?.Anchor.X},{_origin?.Anchor.Y}" +
                 $"{(_pred != null && _pred.Overflows > 0 ? $" (задержка > {LocalPrediction.BufferSize / 60} с: {_pred.Overflows})" : "")}  " +
-                $"zoom x{_g.Zoom:0.00}  {fps:0} fps";
+                $"zoom x{_g.Zoom:0.00}  {fps:0} fps{EditHud(now)}";
         }
 
         void NetSmokeCheck(long now, NetClientState state)

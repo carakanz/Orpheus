@@ -280,6 +280,32 @@ namespace Orpheus.Core.World
         }
 
         /// <summary>
+        /// Клиент: тайл предсказанной правки или отката к копии сервера (docs/07, 3.7 «Ответ»; 0-028) — тайл ровно как в
+        /// правке, <b>без ревизии и без «грязи»</b>: ревизия остаётся серверной, следующая пачка сервера ложится как обычно.
+        /// </summary>
+        public void SetLocalTile(in TileEdit edit)
+        {
+            CheckIndex(edit.Index);
+            WriteTile(edit.Index, edit.Floor, edit.Obj);
+            if (edit.HasRecord)
+            {
+                Builds()[edit.Index] = edit.Record;
+            }
+            else
+            {
+                _builds?.Remove(edit.Index);
+            }
+
+            _copy = null;
+        }
+
+        /// <summary>Тайл как правка (пол, объект, запись постройки, если есть) — для копии сервера под предсказанием.</summary>
+        public TileEdit GetTileEdit(int index) =>
+            TryGetBuild(index, out BuildRecord record)
+                ? new TileEdit((ushort)index, GetFloor(index), GetObject(index), record)
+                : new TileEdit((ushort)index, GetFloor(index), GetObject(index));
+
+        /// <summary>
         /// Применить пачку с сервера (клиент): только если ревизия чанка — ровно предыдущая (3.7, «Порядок»).
         /// false — разрыв ревизий, чанк не тронут: клиент просит чанк целиком.
         /// </summary>

@@ -32,7 +32,7 @@ namespace Orpheus.Net.Session
     /// Предсказания пока нет — клиент только применяет снимки: <see cref="Latest"/> — новейший по такту, старые и
     /// дубли (перестановка, имитатор) отбрасываются. Времени внутри нет: темп задаёт вызывающий.
     /// </summary>
-    public sealed class NetClient : ITransportHandler
+    public sealed partial class NetClient : ITransportHandler
     {
         private readonly ITransport _transport;
         private readonly int _serverPeer;
@@ -363,6 +363,7 @@ namespace Orpheus.Net.Session
             _transport.Send(_serverPeer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
             _transport.Flush(); // кадр ввода — сразу: задержка ввода — бюджет уворота (2.13 п. 3; 0-015)
             InputsSent++;
+            OnFrameSent(frame); // 0-028: прогресс копания своим счётом
         }
 
         /// <summary>Выйти.</summary>
@@ -469,6 +470,9 @@ namespace Orpheus.Net.Session
                     case MessageType.MeleeResult when State == NetClientState.InGame:
                         MeleeResults++;
                         MeleeResolved?.Invoke(MeleeResultMessage.Read(data));
+                        break;
+                    case MessageType.TileReply when State == NetClientState.InGame:
+                        OnTileReply(TileReplyMessage.Read(data)); // 0-028
                         break;
                     case MessageType.OpenResult when State == NetClientState.InGame:
                         OpenResult = OpenResultMessage.Read(data);
