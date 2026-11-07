@@ -103,7 +103,7 @@ namespace Orpheus.Net.Hosting
 
     /// <summary>
     /// Запуск <c>OrpheusServer</c> (docs/07, 1.6 и 2.3): на ПК — дочерний процесс (<c>Orpheus.Platform.Pc.PcServerLauncher</c>;
-    /// <c>System.Diagnostics.Process</c> только там), на консоли — потом «сервер в потоке» за этим же интерфейсом (0-031).
+    /// процессы ОС запускаются только там), на консоли — потом «сервер в потоке» за этим же интерфейсом (0-031).
     /// </summary>
     public interface IServerLauncher
     {

@@ -73,7 +73,7 @@ namespace Orpheus.Tests
             Assert.Equal(m.Version, back.Version);
             Assert.Equal(m.Name, back.Name);
             Assert.Equal(a, Encode(b => back.Write(b)));
-            Assert.Equal(1 + 6 + 1 + 10, a.Length); // «Орфей» — 10 байт UTF-8
+            Assert.Equal(1 + 6 + 1 + 10 + 1, a.Length); // «Орфей» — 10 байт UTF-8; флаг токена хозяина — 1 байт (0-024)
         }
 
         [Fact]
