@@ -1,6 +1,6 @@
 path,status,owner,notes
-client/Assets/Art/_TEMP/TEMP_tile_meadow.png,placeholder,К,пол «луг» 128x128 (00 5.1)
+client/Assets/Art/_TEMP/TEMP_tile_meadow.png,placeholder,К,"пол «луг» 128x128; стиль Б, A-002, источник art/style/chosen/ref_meadow.png, обработка tools/art_process.py"
 client/Assets/Art/_TEMP/TEMP_tile_stone.png,placeholder,К,пол «камень» 128x128 (00 5.1)
-client/Assets/Art/_TEMP/TEMP_char_orpheus.png,placeholder,К,"персонаж-заглушка 128x192, опора внизу по центру (00 5.1)"
-client/Assets/Art/_TEMP/TEMP_obj_tree.png,placeholder,К,"объект «дерево» 128x192, опора — центр нижнего тайла (00 5.1)"
-client/Assets/Art/_TEMP/TEMP_obj_rock.png,placeholder,К,"объект «скала» 128x192, опора — центр нижнего тайла (00 5.1)"
+client/Assets/Art/_TEMP/TEMP_char_orpheus.png,placeholder,К,"персонаж 128x192, опора внизу по центру; стиль Б, A-002, источник art/style/chosen/ref_orpheus.png, обработка tools/art_process.py"
+client/Assets/Art/_TEMP/TEMP_obj_tree.png,placeholder,К,"объект «дерево» 128x192, опора — центр нижнего тайла; стиль Б, A-002, источник art/style/chosen/ref_tree.png, обработка tools/art_process.py"
+client/Assets/Art/_TEMP/TEMP_obj_rock.png,placeholder,К,"объект «скала» 128x192, опора — центр нижнего тайла; стиль Б, A-002, источник art/style/chosen/ref_rock.png, обработка tools/art_process.py"

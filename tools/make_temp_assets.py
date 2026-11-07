@@ -9,6 +9,8 @@
 Размеры — по docs/00_vision.md, 5.1: тайл 128 x 128, персонаж 128 x 192; объекты на тайле
 (дерево, скала) — 128 x 192: нижний квадрат — сам тайл, верх заходит на тайл выше (наклон, 00 5.1).
 Картинки детерминированы (фиксированное зерно): повторный запуск даёт те же байты.
+A-002: заглушки, у которых в манифесте пометка «стиль Б», — уже картинки стиля Б (tools/art_process.py a002);
+генератор их не перезаписывает (ключ --force — перезаписать всё).
 
 Запуск из корня репозитория:  python tools/make_temp_assets.py
 """
@@ -169,10 +171,22 @@ def update_manifest(paths_notes: list[tuple[str, str]]) -> int:
     return added
 
 
+def styled() -> set[str]:
+    """Пути заглушек, уже заменённых картинками стиля Б (A-002): их не трогаем."""
+    if not MANIFEST.exists():
+        return set()
+    with MANIFEST.open(encoding="utf-8", newline="") as f:
+        return {r["path"] for r in csv.DictReader(f) if "стиль Б" in (r.get("notes") or "")}
+
+
 def main() -> int:
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
+    keep = set() if "--force" in sys.argv[1:] else styled()
     entries = []
     for i, (name, (gen, notes)) in enumerate(ASSETS.items()):
+        if rel(TEMP_DIR / name) in keep and (TEMP_DIR / name).exists():
+            print(f"{rel(TEMP_DIR / name)}  пропуск: картинка стиля Б (A-002)")
+            continue
         img = gen(random.Random(20261030 + i))
         mark_corner(img)
         out = TEMP_DIR / name
