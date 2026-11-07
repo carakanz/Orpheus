@@ -151,6 +151,7 @@ namespace Orpheus.Server
                 result.StartTick = sim.Tick;
 
                 SimBot[] bots = Array.Empty<SimBot>();
+                TileCoord spawnCenter = DefaultSpawnCenter(world.Shape);
                 if (replay != null)
                 {
                     foreach (JournalSpawn s in replay.Header.Spawns)
@@ -165,7 +166,8 @@ namespace Orpheus.Server
                 }
                 else
                 {
-                    bots = SpawnBots(sim, o);
+                    spawnCenter = SpawnCenter(sim, o, log);
+                    bots = SpawnBots(sim, o, spawnCenter);
                 }
 
                 using InputJournalWriter? record = o.RecordPath != null
@@ -198,7 +200,12 @@ namespace Orpheus.Server
                 }
 
                 using LiteNetTransport? transport = o.Port.HasValue ? LiteNetTransport.Listen(o.Port.Value, o.MaxPlayers, o.LoopbackOnly) : null;
-                NetServer? net = transport != null ? CreateNetServer(o, sim, bots.Length, transport, log, result) : null;
+                NetServer? net = transport != null ? CreateNetServer(o, sim, bots.Length, spawnCenter, transport, log, result) : null;
+                if (net != null)
+                {
+                    net.GenerationHash = opened.GenerationHash;
+                }
+
                 try
                 {
                     Loop(o, sim, bots, record, replay, net, saver, log, result, stop);
@@ -245,9 +252,9 @@ namespace Orpheus.Server
 
         // ---------- Сеть ----------
 
-        private static NetServer CreateNetServer(ServerOptions o, Simulation sim, int firstPlayer, LiteNetTransport transport, JsonLog log, ServerResult result)
+        private static NetServer CreateNetServer(ServerOptions o, Simulation sim, int firstPlayer, TileCoord center, LiteNetTransport transport, JsonLog log, ServerResult result)
         {
-            var net = new NetServer(transport, sim, n => SpawnPoint(sim.Shape, firstPlayer + n), o.MaxPlayers, NetModule.Version);
+            var net = new NetServer(transport, sim, n => SpawnPoint(sim.Shape, firstPlayer + n, center), o.MaxPlayers, NetModule.Version);
             net.Log = (level, msg) =>
             {
                 switch (level)
@@ -437,6 +444,9 @@ namespace Orpheus.Server
             public WorldFolder? Folder;
             public IDisposable? Lock;
             public byte[]? BaseSha;
+
+            /// <summary>Хэш снимка генерации до наложения сохранения (0-017): уходит клиентам во «вход принят».</summary>
+            public ulong GenerationHash;
             public LoadedWorldState? Loaded;
             public string Name = string.Empty;
 
@@ -473,6 +483,7 @@ namespace Orpheus.Server
                 if (o.Create || opened.Folder == null)
                 {
                     opened.World = Generator.Generate(MapShape.World(size), seed);
+                    opened.GenerationHash = StateHash.Generation(opened.World);
                     if (opened.Folder != null)
                     {
                         byte[] baseBytes = WorldSnapshot.WriteBase(opened.World);
@@ -492,6 +503,7 @@ namespace Orpheus.Server
                     byte[] baseBytes = folder.ReadBase();
                     opened.World = WorldSnapshot.LoadBase(baseBytes);
                     opened.BaseSha = WorldSnapshot.StoredHash(baseBytes);
+                    opened.GenerationHash = StateHash.Generation(opened.World);
                     if (replay == null)
                     {
                         LoadLatest(opened, log);
@@ -561,14 +573,78 @@ namespace Orpheus.Server
         /// Точка появления бота № <paramref name="index"/>: центр карты, ряды по 8 через 2 тайла
         /// (в стартовой зоне 32 × 32 у центра, которую генератор 0-007 держит пустой).
         /// </summary>
-        public static WorldPos SpawnPoint(MapShape shape, int index)
+        public static WorldPos SpawnPoint(MapShape shape, int index) => SpawnPoint(shape, index, DefaultSpawnCenter(shape));
+
+        /// <summary>
+        /// Точка появления № <paramref name="index"/> от центра <paramref name="center"/>: тайлы (cx − 7 + 2·(i mod 8),
+        /// cy − 1 + 2·(i div 8)) по тору.
+        /// </summary>
+        public static WorldPos SpawnPoint(MapShape shape, int index, TileCoord center)
         {
-            int tx = shape.Width / 2 + (index % 8) * 2 - 7;
-            int ty = shape.Height / 2 + (index / 8) * 2 - 1;
-            return new WorldPos((tx << Torus.SubTileBits) + Torus.SubTilesPerTile / 2, (ty << Torus.SubTileBits) + Torus.SubTilesPerTile / 2);
+            var t = Torus.Wrap(shape, new TileCoord(center.X + (index % 8) * 2 - 7, center.Y + (index / 8) * 2 - 1));
+            return new WorldPos((t.X << Torus.SubTileBits) + Torus.SubTilesPerTile / 2, (t.Y << Torus.SubTileBits) + Torus.SubTilesPerTile / 2);
         }
 
-        private static SimBot[] SpawnBots(Simulation sim, ServerOptions o)
+        /// <summary>Центр появления по умолчанию — середина карты.</summary>
+        public static TileCoord DefaultSpawnCenter(MapShape shape) => new TileCoord(shape.Width / 2, shape.Height / 2);
+
+        /// <summary>
+        /// Центр появления <c>--spawn-seam</c> (0-017, net-smoke шва): первый ряд (cy − 1) ставится у шва x = 0 — ряд
+        /// появления x от W − 8 через 2 тайла, — на строке, где тайлы x ∈ [W − <see cref="SeamLaneBefore"/>,
+        /// <see cref="SeamLaneAfter"/>) проходимы: боты <c>shuttle</c> и игрок на ней ходят через шов без препятствий.
+        /// Строки ищутся от середины наружу (повторяемо для зерна); чистой нет — середина карты и предупреждение.
+        /// </summary>
+        public static TileCoord SeamSpawnCenter(Simulation sim, out bool clear)
+        {
+            MapShape shape = sim.Shape;
+            int w = shape.Width;
+            int h = shape.Height;
+            for (int k = 0; k < h; k++)
+            {
+                int row = (h / 2 + ((k & 1) == 0 ? k / 2 : -(k / 2 + 1)) + h) % h;
+                clear = true;
+                for (int x = -SeamLaneBefore; x < SeamLaneAfter && clear; x++)
+                {
+                    clear = !sim.IsBlocked(shape, Torus.Wrap(shape, new TileCoord(x, row)));
+                }
+
+                if (clear)
+                {
+                    return new TileCoord(w - 1, row + 1);
+                }
+            }
+
+            clear = false;
+            return DefaultSpawnCenter(shape);
+        }
+
+        /// <summary>Чистая полоса шва: от W − 12 до 16 — ряд появления W − 8…, ход shuttle 12 тайлов, игрок net-smoke 12 тайлов на восток.</summary>
+        public const int SeamLaneBefore = 12;
+
+        /// <inheritdoc cref="SeamLaneBefore"/>
+        public const int SeamLaneAfter = 16;
+
+        private static TileCoord SpawnCenter(Simulation sim, ServerOptions o, JsonLog log)
+        {
+            if (!o.SpawnSeam)
+            {
+                return DefaultSpawnCenter(sim.Shape);
+            }
+
+            TileCoord c = SeamSpawnCenter(sim, out bool clear);
+            if (clear)
+            {
+                log.Info(sim.Tick, "world", "появление у шва x = 0", ("row", c.Y - 1), ("fromX", c.X - 7));
+            }
+            else
+            {
+                log.Warn(sim.Tick, "world", "чистой полосы у шва нет — появление в середине");
+            }
+
+            return c;
+        }
+
+        private static SimBot[] SpawnBots(Simulation sim, ServerOptions o, TileCoord center)
         {
             var bots = new SimBot[CountBots(o)];
             int index = 0;
@@ -577,7 +653,7 @@ namespace Orpheus.Server
                 for (int k = 0; k < g.Count; k++, index++)
                 {
                     // Загруженный мир: боты берут сущности из сохранения по порядку, недостающих — ставят.
-                    int id = index < sim.EntityCount ? sim.Entities[index].Id : sim.AddEntity(SpawnPoint(sim.Shape, index));
+                    int id = index < sim.EntityCount ? sim.Entities[index].Id : sim.AddEntity(SpawnPoint(sim.Shape, index, center));
                     bots[index] = SimBot.Create(g.Script, id, index, sim.World.Seed);
                 }
             }

@@ -145,6 +145,42 @@ namespace Orpheus.Core.Sim
             return h.Value;
         }
 
+        /// <summary>
+        /// Хэш снимка генерации (карточка 0-017; docs/07, 3.4): форма карты и плотные слои всех чанков по порядку (Y, X),
+        /// пустой чанк — отметкой. Считается сразу после генерации или загрузки <c>world.base</c>, до правок сохранения:
+        /// сервер шлёт его во «вход принят», клиент, перегенерировавший мир по зерну, сверяет свой. Совпал — у клиента
+        /// тот же мир; нет — другой генератор или зерно. Без выделений; 1024² — ~3 МБ слоёв, миллисекунды.
+        /// </summary>
+        public static ulong Generation(WorldModel world)
+        {
+            if (world == null)
+            {
+                throw new ArgumentNullException(nameof(world));
+            }
+
+            var h = new Hasher64(2);
+            MapShape shape = world.Shape;
+            h.Add(shape.Width);
+            h.Add(shape.Height);
+            h.Add(shape.Wraps ? 1 : 0);
+            for (int cy = 0; cy < shape.ChunksY; cy++)
+            {
+                for (int cx = 0; cx < shape.ChunksX; cx++)
+                {
+                    Chunk? chunk = world.FindChunk(new ChunkCoord(cx, cy));
+                    if (chunk == null)
+                    {
+                        h.Add(-1);
+                        continue;
+                    }
+
+                    h.AddBytes(chunk.Layers);
+                }
+            }
+
+            return h.Value;
+        }
+
         /// <summary>Хэш мира: изменённые после генерации чанки по порядку и флаги мира. Без выделений.</summary>
         public static ulong World(WorldModel world)
         {

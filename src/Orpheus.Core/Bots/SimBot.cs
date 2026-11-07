@@ -20,14 +20,14 @@ namespace Orpheus.Core.Bots
         /// <summary>Номер сущности, которой бот управляет.</summary>
         public int EntityId { get; }
 
-        /// <summary>Сценарий: <c>idle</c>, <c>wander</c>.</summary>
+        /// <summary>Сценарий: <c>idle</c>, <c>wander</c>, <c>shuttle</c>.</summary>
         public abstract string Script { get; }
 
         /// <summary>Кадр ввода перед тактом <paramref name="tick"/> (номер такта, который сейчас выполнится).</summary>
         public abstract InputFrame Think(long tick, in SimEntity self);
 
-        /// <summary>Сценарии, которые есть: <c>idle</c>, <c>wander</c>.</summary>
-        public static readonly string[] Scripts = { IdleBot.Name, WanderBot.Name };
+        /// <summary>Сценарии, которые есть: <c>idle</c>, <c>wander</c>, <c>shuttle</c>.</summary>
+        public static readonly string[] Scripts = { IdleBot.Name, WanderBot.Name, ShuttleBot.Name };
 
         /// <summary>
         /// Бот сценария <paramref name="script"/> для сущности <paramref name="entityId"/>; <paramref name="botIndex"/> —
@@ -41,6 +41,8 @@ namespace Orpheus.Core.Bots
                     return new IdleBot(entityId);
                 case WanderBot.Name:
                     return new WanderBot(entityId, botIndex, worldSeed);
+                case ShuttleBot.Name:
+                    return new ShuttleBot(entityId);
                 default:
                     throw new ArgumentException($"Неизвестный сценарий бота «{script}»; есть: {string.Join(", ", Scripts)}.", nameof(script));
             }
@@ -60,6 +62,29 @@ namespace Orpheus.Core.Bots
         public override string Script => Name;
 
         public override InputFrame Think(long tick, in SimEntity self) => InputFrame.None;
+    }
+
+    /// <summary>
+    /// Сценарий <c>shuttle</c> (0-017, net-smoke шва): челнок по строке — <see cref="LegTicks"/> тактов на восток,
+    /// столько же на запад, по номеру такта. 60 тактов базового бега — 12 тайлов: бот, поставленный у шва
+    /// (<c>--spawn-seam</c>), переходит его каждые 2 с.
+    /// </summary>
+    public sealed class ShuttleBot : SimBot
+    {
+        public const string Name = "shuttle";
+
+        /// <summary>Тактов в одну сторону: 2 с.</summary>
+        public const int LegTicks = Simulation.TickRate * 2;
+
+        public ShuttleBot(int entityId)
+            : base(entityId)
+        {
+        }
+
+        public override string Script => Name;
+
+        public override InputFrame Think(long tick, in SimEntity self) =>
+            new InputFrame((tick / LegTicks & 1) == 0 ? Input8.East : Input8.West);
     }
 
     /// <summary>

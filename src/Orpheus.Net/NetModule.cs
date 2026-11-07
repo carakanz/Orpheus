@@ -8,7 +8,7 @@ namespace Orpheus.Net
     public static class NetModule
     {
         /// <summary>Версия протокола: растёт с каждым несовместимым изменением схемы сообщений.</summary>
-        public const int ProtocolVersion = 1;
+        public const int ProtocolVersion = 2; // 2 — хэш генерации во «входе принят» (0-017)
 
         /// <summary>
         /// Версия сборки, которую сверяет вход (2.10: «клиент и сервер разных сборок не соединяются»). Пока номера
