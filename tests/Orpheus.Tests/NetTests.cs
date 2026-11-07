@@ -926,6 +926,8 @@ namespace Orpheus.Tests
 
             public void Disconnect(int peer, ReadOnlySpan<byte> payload) => _inner.Disconnect(peer, payload);
 
+            public void Flush() => _inner.Flush();
+
             public int RoundTripMs(int peer) => _inner.RoundTripMs(peer);
 
             public void Dispose() => _inner.Dispose();
@@ -1066,11 +1068,12 @@ namespace Orpheus.Tests
                     stoppedFrom--;
                 }
 
-                // Конечную позицию персонаж занял на такте cut + stoppedFrom + 1 — не позже чем через 6 тактов (0,2 с,
-                // 2.13 п. 6) после последнего кадра. Порог — число документа, не константа сервера.
+                // Конечную позицию персонаж занял на такте cut + stoppedFrom + 1 — ровно через 6 тактов (0,2 с, 2.13 п. 6)
+                // после последнего кадра: не позже (норма документа) и не раньше (ранний стоп — ложные стопы при живой
+                // связи). Порог — число документа, не константа сервера.
                 long lastFrameTick = cut - 1;
                 long stoppedTick = cut + stoppedFrom + 1;
-                Assert.True(stoppedTick - lastFrameTick <= 6, $"обрыв {round}: стоит только с такта {stoppedTick}, последний кадр на такте {lastFrameTick}");
+                Assert.True(stoppedTick - lastFrameTick == 6, $"обрыв {round}: стоит с такта {stoppedTick}, последний кадр на такте {lastFrameTick}");
                 Assert.Equal(stopsBefore + 1, h.Server.InputStops);
                 Assert.False(Moving(id));
                 Assert.Equal(2, h.Server.PlayersInGame);
@@ -1092,6 +1095,86 @@ namespace Orpheus.Tests
             }
 
             _out.WriteLine(string.Join("\n", report));
+        }
+
+        /// <summary>
+        /// 2.13 п. 6 на заглушке транспорта (кадр за кадром): стоп ровно через 6 тактов после последнего нового кадра,
+        /// стоп — это и движение 0, и кнопки 0; повтор того же кадра — не новый кадр (отброшен, стоп не отодвигает);
+        /// до первого кадра после входа стопа нет; новый кадр снимает стоп.
+        /// </summary>
+        [Fact]
+        public void D07_S2_13_6_Scripted_StopExactly6Ticks_ClearsButtons_RepeatIsNotNewFrame()
+        {
+            var world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            var sim = new Simulation(world, maxEntities: 8);
+            var t = new ScriptedTransport();
+            var server = new NetServer(t, sim, n => ServerRun.SpawnPoint(world.Shape, n), 4, NetModule.Version);
+            t.Connect(1);
+            t.Push(1, NetChannel.Facts, Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b)));
+
+            void Tick()
+            {
+                server.Poll(sim.Tick);
+                sim.Step();
+                server.SendSnapshots();
+            }
+
+            // До первого кадра — стопа нет (ввод и так пустой), счётчик не врёт.
+            for (int k = 0; k < 20; k++)
+            {
+                Tick();
+            }
+
+            int id = server.EntityOf(1);
+            Assert.True(id > 0);
+            Assert.Equal(0, server.InputStops);
+            InputFrame Input() => sim.Entities[sim.SlotOf(id)].Input;
+            WorldPos Pos() => sim.Entities[sim.SlotOf(id)].Mover.Position;
+
+            var held = new InputFrame(Input8.FromIndex(2), 0x0005); // идёт и держит кнопки
+            uint frame = 0;
+            byte[] Packet(uint f) => Encode(b => new InputMessage { FirstFrame = f, Frame3 = WireFrame.From(held) }.Write(b));
+            for (int k = 0; k < 10; k++)
+            {
+                t.Push(1, NetChannel.Unreliable, Packet(++frame));
+                Tick();
+            }
+
+            Assert.Equal(held, Input());
+            long lastFrameTick = sim.Tick - 1; // последний новый кадр принят на приёме такта lastFrameTick
+            byte[] repeat = Packet(frame);
+            long accepted = server.InputsAccepted;
+            long dropped = server.InputsDropped;
+
+            // Дальше приходит только повтор последнего пакета (дубль) — новых кадров нет.
+            var pos = new Dictionary<long, WorldPos> { [sim.Tick] = Pos() };
+            for (int k = 0; k < 12; k++)
+            {
+                t.Push(1, NetChannel.Unreliable, repeat);
+                Tick();
+                pos[sim.Tick] = Pos();
+                if (sim.Tick - lastFrameTick <= 6)
+                {
+                    Assert.True(Input() == held, $"такт {sim.Tick}: стоп раньше 6 тактов после кадра ({Input()})");
+                }
+                else
+                {
+                    Assert.True(Input() == InputFrame.None, $"такт {sim.Tick}: через {sim.Tick - lastFrameTick} тактов ввод {Input()}, а не пустой");
+                }
+            }
+
+            Assert.Equal(0, Input().Buttons);
+            Assert.NotEqual(pos[lastFrameTick + 5], pos[lastFrameTick + 6]); // идёт до 6-го такта
+            Assert.Equal(pos[lastFrameTick + 6], pos[sim.Tick]);              // и стоит с него
+            Assert.Equal(accepted, server.InputsAccepted);                   // повтор того же кадра не принят
+            Assert.Equal(dropped + 12, server.InputsDropped);
+            Assert.Equal(1, server.InputStops);
+
+            // Новый кадр снимает стоп.
+            t.Push(1, NetChannel.Unreliable, Packet(++frame));
+            Tick();
+            Assert.Equal(held, Input());
+            Assert.Equal(1, server.InputStops);
         }
 
         /// <summary>
@@ -1206,6 +1289,7 @@ namespace Orpheus.Tests
 
             public readonly List<Event> Events = new List<Event>();
             public readonly List<(int Peer, NetChannel Channel)> Sent = new List<(int, NetChannel)>();
+            public long Flushes;
 
             public void Poll(long nowMicros, ITransportHandler handler)
             {
@@ -1222,6 +1306,8 @@ namespace Orpheus.Tests
             public void Disconnect(int peer, ReadOnlySpan<byte> payload)
             {
             }
+
+            public void Flush() => Flushes++;
 
             public int RoundTripMs(int peer) => 0;
 
@@ -1446,6 +1532,7 @@ namespace Orpheus.Tests
 
             long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             Assert.Equal(8 * Ticks, server.SnapshotsSent);
+            Assert.Equal(Ticks, t.Flushes); // один сброс отправки на такт, а не на каждый снимок (0-015)
             Assert.Equal(8 * 2 * Ticks, server.InputsAccepted);
             Assert.Equal(0, allocated);
         }
@@ -1456,6 +1543,8 @@ namespace Orpheus.Tests
             private readonly List<(int Peer, NetChannel Channel, byte[]? Data)> _queue = new List<(int, NetChannel, byte[]?)>(64);
 
             public long Sent;
+
+            public long Flushes;
 
             public void Connect(int peer) => _queue.Add((peer, NetChannel.Unreliable, null));
 
@@ -1484,6 +1573,8 @@ namespace Orpheus.Tests
             public void Disconnect(int peer, ReadOnlySpan<byte> payload)
             {
             }
+
+            public void Flush() => Flushes++;
 
             public int RoundTripMs(int peer) => 0;
 
@@ -1540,13 +1631,13 @@ namespace Orpheus.Tests
             Assert.True(run.Checked > 2 * 60 * 25, $"{run.Checked}");
             Assert.True(run.MaxErrorUnits <= U / 2, $"{run.MaxErrorUnits}");
 
-            // 2.13 п. 1 (замечание 2 проверки 0-008): отставание снимка от такта сервера при приёме. Задержка 50 мс в одну
-            // сторону — 1,5 такта; цикл ботов 60 Гц добавляет два шага ожидания по ≤ 16,7 мс (приём из сокета и выдача из
-            // имитатора), поэтому 3 такта бывают штатно (~1 % снимков), 4 и больше — уже задержка сверх сети.
+            // 2.13 п. 1 (замечание 2 проверки 0-008): отставание снимка от такта сервера при приёме ≤ 2 тактов (0,4 тайла
+            // при 6 т/с) у всех снимков. Задержка 50 мс в одну сторону — 1,5 такта; отправка сразу после такта
+            // (ITransport.Flush, 0-015) — без неё LiteNetLib держал снимок до UpdateTime (15 мс) и 3 такта были у 1–5 %.
             // Метрики «предсказание клиента против сервера в тот же момент» (порог 0,5 тайла) в ядре пока нет — предсказание
             // 0-013 живёт в Unity; см. work/backlog.md, после 0-019.
-            Assert.True(run.LagOver2 * 20 <= run.Snapshots, $"отставание > 2 тактов у {run.LagOver2} из {run.Snapshots} снимков (> 5 %)");
-            Assert.True(run.MaxLagTicks <= 4, $"отставание снимка до {run.MaxLagTicks} тактов");
+            Assert.True(run.LagOver2 == 0 && run.MaxLagTicks <= 2,
+                        $"отставание > 2 тактов у {run.LagOver2} из {run.Snapshots} снимков, максимум {run.MaxLagTicks}");
         }
 
         private sealed class UdpRun

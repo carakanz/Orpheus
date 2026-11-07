@@ -83,6 +83,13 @@ namespace Orpheus.Net.Transport
         /// </summary>
         void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data);
 
+        /// <summary>
+        /// Отправить накопленное сейчас, не дожидаясь своего цикла транспорта (0-015). Зовётся один раз после пачки
+        /// отправок: сервер — после снимков такта, клиент — после кадра ввода. LiteNetLib без этого шлёт раз в
+        /// <c>UpdateTime</c> (15 мс, в Windows дольше) — до трети такта к задержке снимка и кадра ввода.
+        /// </summary>
+        void Flush();
+
         /// <summary>Закрыть соединение; <paramref name="payload"/> получит другая сторона (например, отказ входа).</summary>
         void Disconnect(int peer, ReadOnlySpan<byte> payload);
 

@@ -256,6 +256,7 @@ namespace Orpheus.Net.Session
 
         /// <summary>
         /// 2.13 п. 6: от игрока нет нового кадра <see cref="InputStaleTicks"/> тактов — пустой ввод на ближайший такт.
+        /// До первого кадра после входа ввод и так пустой — стопа нет и в <see cref="InputStops"/> он не считается.
         /// Зовётся после приёма пакетов такта: если сервер сам стоял (заморозка, п. 5), пакеты, пришедшие за это
         /// время, уже приняты и стопа не будет.
         /// </summary>
@@ -265,7 +266,7 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < _players.Count; i++)
             {
                 Player p = _players[i];
-                if (p.State != PlayerState.InGame || p.Stopped || tick - p.LastInputTick < InputStaleTicks)
+                if (p.State != PlayerState.InGame || !p.HasFrame || p.Stopped || tick - p.LastInputTick < InputStaleTicks)
                 {
                     continue;
                 }
@@ -348,6 +349,8 @@ namespace Orpheus.Net.Session
                 SnapshotsSent++;
                 SnapshotBytes += len;
             }
+
+            _transport.Flush(); // снимки такта — сразу, а не по таймеру транспорта (0-015)
         }
 
         /// <summary>
@@ -509,6 +512,8 @@ namespace Orpheus.Net.Session
                     _transport.Send(_players[p].Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
                 }
             }
+
+            _transport.Flush();
         }
 
         private static bool Add(ref SnapshotWriter w, in SimEntity e) =>

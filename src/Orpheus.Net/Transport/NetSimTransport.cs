@@ -221,6 +221,13 @@ namespace Orpheus.Net.Transport
             FlushOutbound();
         }
 
+        /// <summary>Отдать дошедшие по сроку пакеты обёрнутому транспорту и сбросить его отправку.</summary>
+        public void Flush()
+        {
+            FlushOutbound();
+            _inner.Flush();
+        }
+
         public void Disconnect(int peer, ReadOnlySpan<byte> payload)
         {
             FlushOutbound();
