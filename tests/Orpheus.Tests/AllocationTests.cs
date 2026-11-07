@@ -1,9 +1,11 @@
 using System;
 using Orpheus.Core.Bots;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Pathing;
 using Orpheus.Core.Sim;
+using Orpheus.Core.Trig;
 using Orpheus.Core.World;
 using Orpheus.Net;
 using Orpheus.Net.Protocol;
@@ -316,6 +318,63 @@ namespace Orpheus.Tests
             Assert.Equal(0, inTick);
             Assert.Equal(misses, world.BuildMaps.Misses);
             Assert.True(total > 0, "постройки в новых чанках должны были брать словари из пула");
+        }
+
+        // ---------- Уворот и манекен (0-029) ----------
+
+        /// <summary>
+        /// Уворот и ближний удар врага в такте (0-029): кадры с уворотом через <see cref="Simulation.SetFramesAt"/>, рывок в стену,
+        /// манекен, очередь угроз, сектор и решение удара — 0 байт.
+        /// </summary>
+        [Fact]
+        public void D02_S2_2_DodgeDummyThreats_NoAllocations()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 42);
+            var sim = new Simulation(world, maxEntities: 4);
+            int slot = sim.SlotOf(sim.AddEntity(new WorldPos(300 * U, 300 * U)));
+            MapShape map = world.Shape;
+            TileSolid wall = (MapShape _, TileCoord t) => t.Y == 290 && t.X >= 280 && t.X <= 320;
+            var me = Mover.At(map, new WorldPos(300 * U + 384, 292 * U));
+            var dummy = new MeleeDummy(9, new WorldPos(300 * U, 292 * U), Angle16.FromRaw(0), 30);
+            var queue = new ThreatQueue(8);
+            var frames = new InputFrame[2];
+            uint frame = 0;
+            int hits = 0;
+            Action pass = () =>
+            {
+                for (int k = 0; k < 600; k++, frame++)
+                {
+                    queue.Expire(frame);
+                    if (dummy.Step(frame, out Threat t))
+                    {
+                        queue.Add(t);
+                    }
+
+                    bool press = frame % 40 == 0;
+                    Input8 dir = (frame / 40) % 2 == 0 ? Input8.North : Input8.South;
+                    me.StepFrame(map, dir, press, wall);
+                    for (int i = 0; i < queue.Count; i++)
+                    {
+                        if (queue[i].ContactFrame == frame && MeleeHit.Lands(map, queue[i], me))
+                        {
+                            hits++;
+                        }
+                    }
+
+                    if (k % 2 == 0)
+                    {
+                        frames[0] = new InputFrame(dir, press ? InputButtons.Dodge : (ushort)0);
+                        frames[1] = new InputFrame(dir);
+                        sim.SetFramesAt(slot, frames);
+                        sim.Step();
+                    }
+                }
+            };
+
+            long allocated = AllocatedInPass(pass);
+            _out.WriteLine($"600 кадров уворота и манекена: выделено {allocated} байт, попаданий {hits}");
+            Assert.Equal(0, allocated);
+            Assert.True(hits > 0, "манекен ни разу не попал — сценарий пустой");
         }
 
         // ---------- Поиск пути (0-023) ----------
