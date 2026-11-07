@@ -197,7 +197,7 @@ namespace Orpheus.Bots
 
     /// <summary>
     /// Боты по сети (docs/07, 11.3): N клиентов в одном потоке, кадр 60 Гц на таймере высокого разрешения
-    /// (<see cref="TickClock"/> сервера), у каждого — свой имитатор связи (2.10) со своим зерном.
+    /// (<see cref="PcTickClock"/> сервера), у каждого — свой имитатор связи (2.10) со своим зерном.
     /// </summary>
     public static class BotRun
     {
@@ -288,7 +288,7 @@ namespace Orpheus.Bots
             double finishedAt = -1;
             bool openSent = false;
             bool openReported = false;
-            using (var clock = new TickClock(FrameRate))
+            using (var clock = new PcTickClock(FrameRate))
             {
                 double nextStatus = 10;
                 while (watch.Elapsed.TotalSeconds < o.Seconds && !stop.IsCancellationRequested)

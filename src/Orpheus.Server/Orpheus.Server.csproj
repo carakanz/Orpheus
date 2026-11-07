@@ -12,6 +12,8 @@
     <ProjectReference Include="..\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
     <ProjectReference Include="..\Orpheus.Net\Orpheus.Net.csproj" />
     <ProjectReference Include="..\Orpheus.Save\Orpheus.Save.csproj" />
+    <!-- Цикл сервера — библиотека netstandard2.1 (0-031); здесь — оболочка ПК: Program, ServerRun, JsonLog, отчёт. -->
+    <ProjectReference Include="..\Orpheus.ServerHost\Orpheus.ServerHost.csproj" />
     <ProjectReference Include="..\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
   </ItemGroup>
 

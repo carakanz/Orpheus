@@ -100,14 +100,14 @@ namespace Orpheus.Server
             _mark = now;
             Array.Clear(_partTs, 0, PartCount);
             Array.Clear(_partAlloc, 0, PartCount);
-            _alloc0 = _allocMark = GC.GetAllocatedBytesForCurrentThread();
+            _alloc0 = _allocMark = HostRuntime.AllocatedBytes();
         }
 
         /// <summary>Закончилась часть <paramref name="part"/>: время с прошлой отметки — ей.</summary>
         public void Mark(TickPart part)
         {
             long now = Stopwatch.GetTimestamp();
-            long alloc = GC.GetAllocatedBytesForCurrentThread();
+            long alloc = HostRuntime.AllocatedBytes();
             _partTs[(int)part] += now - _mark;
             _partAlloc[(int)part] += alloc - _allocMark;
             _mark = now;
@@ -118,7 +118,7 @@ namespace Orpheus.Server
         public void EndTick()
         {
             long now = Stopwatch.GetTimestamp();
-            long allocNow = GC.GetAllocatedBytesForCurrentThread();
+            long allocNow = HostRuntime.AllocatedBytes();
             long alloc = allocNow - _alloc0;
             _partTs[(int)TickPart.Other] += now - _mark; // неразмеченный хвост — в «прочее»
             _partAlloc[(int)TickPart.Other] += allocNow - _allocMark;
