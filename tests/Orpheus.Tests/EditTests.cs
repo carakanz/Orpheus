@@ -396,6 +396,118 @@ namespace Orpheus.Tests
             Assert.Single(replies, r => r.Reply == EditReply.Accepted && r.FirstRefusal == EditReply.TooFast);
         }
 
+        /// <summary>
+        /// Подделанный кадр в «копать: начало» (3.7: время копания — по кадрам сервера). Сырые запросы в обход <see cref="NetClient"/>:
+        /// кадр 1 (давно прошёл, кнопка зажата 40 кадров) кредита не даёт — 12 новых кадров мало, 18 хватает; кадр на 10⁶ вперёд —
+        /// копание не начинается за 60 кадров с зажатой кнопкой. Линия 33 тайла через шов — «нельзя» (проверка П по 0-028, З2).
+        /// </summary>
+        [Fact]
+        public void D07_S3_7_ServerChecks_ForgedDigFrame_PastNoCredit_FutureNever_RawLineOver32()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 200);
+            var rock2 = new TileCoord(299, 200);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            world.SetBaseTile(rock2, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditRig(world, n => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.InputOf = _ => DigHold; // кнопка зажата давно: 40 кадров «копания» до запроса
+            rig.Run(20);
+
+            // Прошлое: кадр 1 — засчитывать нечего, нужно 15 новых кадров (7,5 такта).
+            RawRequest(c, new TileRequestMessage { RequestId = 900, Op = TileOp.DigStart, Frame = 1, From = rock, To = rock });
+            rig.Run(6); // 12 кадров
+            Assert.Empty(replies);
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
+            rig.Run(3);
+            Assert.Single(replies);
+            Assert.Equal(EditReply.Accepted, replies[0].Reply);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
+
+            // Будущее: кадр далеко впереди — не начинается, не копается.
+            replies.Clear();
+            RawRequest(c, new TileRequestMessage { RequestId = 901, Op = TileOp.DigStart, Frame = c.Frame + 1_000_000, From = rock2, To = rock2 });
+            rig.Run(30);
+            Assert.Empty(replies);
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock2));
+
+            // Линия длиннее 32 сырым запросом — «нельзя»; объект не ставится.
+            RawRequest(c, new TileRequestMessage { RequestId = 902, Op = TileOp.Place, Frame = c.Frame + 1, From = new TileCoord(1010, 5), To = new TileCoord(18, 5), Obj = ObjectId.StoneWall });
+            rig.Run(2);
+            Assert.Single(replies);
+            Assert.Equal(EditReply.NotAllowed, replies[0].Reply);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(new TileCoord(1010, 5)));
+        }
+
+        /// <summary>
+        /// Ответ на каждый запрос (проверка П по 0-028, З3): персонажа нет (в будущем — смерть до возрождения) — постановка и начало
+        /// копания получают «нельзя», идущее копание — «прервано». Предсказанная стена откатывается, вечного призрака у клиента нет.
+        /// </summary>
+        [Fact]
+        public void D07_S3_7_NoCharacter_EveryRequestAnswered_NoEternalPrediction()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 200);
+            var rock2 = new TileCoord(299, 200);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            world.SetBaseTile(rock2, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditRig(world, n => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(10);
+
+            // Копание идёт — персонаж пропал: «прервано».
+            ushort dig = c.StartDig(rock);
+            rig.InputOf = _ => DigHold;
+            rig.Run(3);
+            Assert.Empty(replies);
+            Assert.True(rig.Sim.RemoveEntity(c.EntityId));
+            rig.Run(2);
+            Assert.Single(replies);
+            Assert.Equal(dig, replies[0].RequestId);
+            Assert.Equal(EditReply.Interrupted, replies[0].Reply);
+            Assert.False(c.Digging);
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
+
+            // Постановка без персонажа: клиент предсказал стену, сервер — «нельзя», предсказание снято.
+            rig.InputOf = null;
+            replies.Clear();
+            var wallTile = new TileCoord(302, 202);
+            ushort place = c.Place(wallTile, wallTile, ObjectId.StoneWall, TileCenter(300, 200));
+            Assert.NotEqual(0, place);
+            Assert.True(c.World!.IsPredicted(wallTile));
+            Assert.Equal(1, c.World.PendingPredictions);
+            rig.Run(2);
+            Assert.Single(replies);
+            Assert.Equal(place, replies[0].RequestId);
+            Assert.Equal(EditReply.NotAllowed, replies[0].Reply);
+            Assert.Equal(0, c.World.PendingPredictions);
+            Assert.False(c.World.IsPredicted(wallTile));
+            Assert.Equal(ObjectId.Empty, c.World.World.GetObject(wallTile));
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(wallTile));
+
+            // Начало копания без персонажа — «нельзя»; «конец» после него ответа не ждёт.
+            replies.Clear();
+            ushort dig2 = c.StartDig(rock2);
+            rig.Run(2);
+            Assert.Single(replies);
+            Assert.Equal(dig2, replies[0].RequestId);
+            Assert.Equal(EditReply.NotAllowed, replies[0].Reply);
+            Assert.False(c.Digging);
+            Assert.Equal(0, c.World.PendingPredictions);
+        }
+
+        private static void RawRequest(NetClient c, TileRequestMessage m)
+        {
+            var buf = new byte[TileRequestMessage.Bytes];
+            int n = m.Write(buf);
+            c.Transport.Send(LoopbackTransport.ServerPeer, NetChannel.Facts, new ReadOnlySpan<byte>(buf, 0, n));
+            c.Transport.Flush();
+        }
+
         /// <summary>«Золотые» байты сообщений 20 и 21 (протокол 7) и отказ испорченных.</summary>
         [Fact]
         public void D07_S2_10_GoldenBytes_TileRequest_TileReply()

@@ -578,6 +578,11 @@ namespace Orpheus.Net.Session
                 int slot = _sim.SlotOf(p.EntityId);
                 if (slot < 0)
                 {
+                    if (p.Edits != null)
+                    {
+                        DropDig(p, p.Edits); // 0-028: персонажа нет — копанию «прервано»
+                    }
+
                     continue;
                 }
 

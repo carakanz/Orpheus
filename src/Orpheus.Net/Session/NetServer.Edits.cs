@@ -21,7 +21,8 @@ namespace Orpheus.Net.Session
     /// после движения. Тайлы по порядку; часть — отказ, остальные встают (маска ответа).</item>
     /// <item><b>Конфликт.</b> Два запроса на тайл в один такт — побеждает пришедший первым (порядок очереди такта), второй —
     /// «занято» (3.13 п. 8).</item>
-    /// <item><b>Ответ</b> — после такта, когда исход известен; отказ до такта — сразу.</item>
+    /// <item><b>Ответ</b> — после такта, когда исход известен; отказ до такта — сразу. Ответ есть на каждый запрос: персонажа нет —
+    /// «нельзя», идущее копание — «прервано».</item>
     /// </list>
     /// Инвентаря и ресурсов в вехе 0 нет — правки без них (допущение 0-028, <c>[док]</c>).
     /// </summary>
@@ -87,6 +88,13 @@ namespace Orpheus.Net.Session
             int slot = _sim.SlotOf(p.EntityId);
             if (slot < 0)
             {
+                // Персонажа нет (в будущем — смерть до возрождения): ответ всё равно, иначе предсказание клиента осталось бы навсегда.
+                DropDig(p, s);
+                if (m.Op != TileOp.DigStop)
+                {
+                    Reply(p, m.RequestId, EditReply.NotAllowed, EditReply.NotAllowed, 0);
+                }
+
                 return;
             }
 
@@ -112,6 +120,25 @@ namespace Orpheus.Net.Session
             if (!p.HasApplied || (int)(m.Frame - (p.LastApplied + 1)) <= 0)
             {
                 ApplyPendingDig(p, s, pos); // кадр запроса уже наступил — сразу
+            }
+        }
+
+        /// <summary>
+        /// Персонажа нет: идущее копание и ждущее начало — «прервано» (кадров для них не будет, без ответа предсказание клиента
+        /// осталось бы навсегда).
+        /// </summary>
+        private void DropDig(Player p, EditState s)
+        {
+            if (s.HasPending && s.PendingOp == TileOp.DigStart)
+            {
+                Reply(p, s.PendingRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
+            }
+
+            s.HasPending = false;
+            if (s.Digging)
+            {
+                Reply(p, s.DigRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
+                s.Digging = false;
             }
         }
 
