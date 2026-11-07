@@ -1,0 +1,39 @@
+{
+  "set": "set2",
+  "about": "A-001, повтор пола: в set1 луг вышел «плиткой в рамке». Без слов tile/tileable; трава уходит за все четыре края кадра. Только луг, 3 варианта × 2.",
+  "count": 2,
+  "style": "default",
+  "common": {
+    "camera_object": "top-down game view tilted at about 45 degrees, high three-quarter overhead camera looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_floor": "a full-frame painting of open grassy ground seen from straight above, like looking down at your feet, the grass and ground continue past all four edges of the picture and are cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no rocks, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark"
+  },
+  "variants": [
+    {
+      "key": "a_gouache",
+      "title": "А — живописная гуашь",
+      "note": "крупные мазки, без контура, тёплый солнечный свет",
+      "prompt": "painterly hand-painted gouache illustration, thick opaque brush strokes with visible bristle texture, soft painted edges and no outlines, forms built from broad planes of color, warm golden afternoon sunlight, rich warm palette of ochre, olive green, terracotta and sun-bleached cream, glowing warm highlights and cool violet shadows"
+    },
+    {
+      "key": "b_inkcel",
+      "title": "Б — контур и плоский цвет",
+      "note": "тёмный цветной контур, плоские заливки, две ступени светотени",
+      "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish"
+    },
+    {
+      "key": "c_watercolor",
+      "title": "В — акварель и тушь",
+      "note": "приглушённая палитра, бумага, мотивы античной керамики",
+      "prompt": "loose watercolor wash illustration with fine sepia ink linework, transparent layered washes with soft blooms and granulation, visible cold-press paper grain, muted desaturated palette of faded terracotta, sage green, umber and parchment, accents and ornaments in the style of ancient Greek black-figure pottery with meander key patterns, delicate and airy"
+    }
+  ],
+  "subjects": [
+    {
+      "key": "meadow",
+      "title": "Пол «луг»",
+      "kind": "floor",
+      "seed": 2102,
+      "prompt": "a sunny Greek meadow floor: short lush green grass seen from above, small patches of clover, scattered tiny white and yellow wildflowers, a few small pebbles, gentle natural variation of green tones"
+    }
+  ]
+}
