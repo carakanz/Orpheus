@@ -42,13 +42,22 @@ namespace Orpheus.Client
         bool _smokePauseShown;
         bool _smokePauseShot;
 
-        /// <summary>Кадр паузы (вместо прежнего «Esc — выход»): клавиша, надпись, net-smoke.</summary>
+        /// <summary>
+        /// Кадр паузы: в игре Esc / Start — пауза, Q в паузе — выход; вне игры (подключение, «Не удалось подключиться»,
+        /// «Хост вышел» и другие окончательные статусы) Esc и Q, как до 0-036, закрывают игру (проверка 0-036, з. 1).
+        /// </summary>
         void PauseFrame()
         {
             NetClient? c = _client;
             if (c == null || !InGame || _fatal)
             {
                 ShowPause(null);
+                Keyboard? kb = Keyboard.current;
+                if (_args.NetSmokeSeconds == 0 && kb != null && (kb.escapeKey.wasPressedThisFrame || kb.qKey.wasPressedThisFrame))
+                {
+                    Quit(0);
+                }
+
                 return;
             }
 

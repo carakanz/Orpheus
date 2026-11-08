@@ -20,7 +20,7 @@ namespace Orpheus.Tests
     /// <summary>
     /// Пауза (карточка 0-036; BRIEF п. 11b — у любого игрока есть возможность поставить паузу; `07` 2.3, 2.4). Связка в памяти,
     /// как у часов 0-025 (<see cref="ClockTests"/>): <see cref="NetServer"/> + клиенты с предсказанием через имитатор связи;
-    /// такт сервера — по расписанию 33,3 мс, в паузе цикл сервера крутится тем же шагом без такта (как <c>ServerRun</c>).
+    /// такт сервера — по расписанию 33,3 мс, в паузе цикл сервера крутится тем же шагом без такта (как цикл <c>ServerHost</c>).
     /// </summary>
     public class PauseTests
     {
@@ -128,7 +128,7 @@ namespace Orpheus.Tests
                 Server.Poll(Now);
                 if (Server.Paused)
                 {
-                    Server.SendPausedSnapshots(); // ServerRun: такт стоит, сеть живёт
+                    Server.SendPausedSnapshots(); // цикл ServerHost: такт стоит, сеть живёт
                     PausedCycles++;
                 }
                 else
@@ -251,6 +251,7 @@ namespace Orpheus.Tests
             rig.RunUntil(pauseAt + 1_000_000);
             Assert.True(rig.Server.Paused);
             long tick0 = rig.Sim.Tick;
+            var credits0 = new int[3];
             var pos0 = new WorldPos[3];
             var self0 = new WorldPos[3];
             var pred0 = new WorldPos[3];
@@ -262,6 +263,8 @@ namespace Orpheus.Tests
                 Assert.True(c.Paused, $"клиент {i} не узнал о паузе");
                 Assert.Equal("c0", c.PausedBy);
                 pos0[i] = rig.PosOf(i);
+                credits0[i] = rig.Server.CreditsOf(c.EntityId);
+                Assert.InRange(credits0[i], 0, NetServer.CreditCap);
                 self0[i] = c.Latest.Self.Position;
                 pred0[i] = rig.Clients[i].P!.Position;
                 inputs0[i] = c.InputsSent;
@@ -289,13 +292,33 @@ namespace Orpheus.Tests
                 Assert.Equal(inputs0[i], c.InputsSent);
                 Assert.Equal(est0[i], c.Clock.Estimate(rig.Now));
                 Assert.Equal(NetClientState.InGame, c.State);
+                Assert.Equal(credits0[i], rig.Server.CreditsOf(c.EntityId)); // запас кадров в паузе не копится (мутация П3)
             }
 
             var atResume = new Counters(rig);
+            long burst0 = rig.Server.BurstTicks;
             rig.Clients[2].C.RequestPause(false);
+
+            // Сразу после снятия: кадров за такт — не больше обычного (пачки из накопленного в паузе запаса нет).
+            long resumeTick = rig.Sim.Tick, framesPrev = rig.Server.FramesApplied, maxFramesPerTick = 0;
+            var maxCredits = new int[3];
+            rig.AfterCycle = () =>
+            {
+                if (rig.Sim.Tick > resumeTick && rig.Sim.Tick <= resumeTick + 2 * Simulation.TickRate)
+                {
+                    maxFramesPerTick = Math.Max(maxFramesPerTick, rig.Server.FramesApplied - framesPrev);
+                    for (int i = 0; i < 3; i++)
+                    {
+                        maxCredits[i] = Math.Max(maxCredits[i], rig.Server.CreditsOf(rig.Clients[i].C.EntityId));
+                    }
+                }
+
+                framesPrev = rig.Server.FramesApplied;
+            };
 
             // Ввод «север» после паузы: применён сервером в обычный срок; всё время после — без правок.
             rig.RunUntil(northAt);
+            rig.AfterCycle = null;
             long tickAtNorth = rig.Sim.Tick, northTick = -1;
             int y0 = rig.PosOf(0).Y;
             rig.AfterCycle = () =>
@@ -312,7 +335,8 @@ namespace Orpheus.Tests
             _out.WriteLine($"  на снятии — {atResume}");
             _out.WriteLine($"  после 6 с — {after}");
             _out.WriteLine($"  сервер: пауз {sv.PausesSet}/{sv.PausesCleared}, циклов в паузе {rig.PausedCycles}, такт стоял на {tick0}, отключений {sv.Disconnects}; " +
-                           $"«север» применён через {northTick - tickAtNorth} тактов");
+                           $"«север» применён через {northTick - tickAtNorth} тактов; после снятия: кадров за такт ≤ {maxFramesPerTick} (3 игрока), " +
+                           $"пачек {sv.BurstTicks - burst0}, запас до паузы {string.Join("/", credits0)}, после ≤ {string.Join("/", maxCredits)}");
             for (int i = 0; i < 3; i++)
             {
                 NetClient c = rig.Clients[i].C;
@@ -345,6 +369,19 @@ namespace Orpheus.Tests
             }
 
             Assert.InRange(northTick - tickAtNorth, 0, 10);
+
+            // П3 (проверка 0-036): после снятия запас не выше, чем до паузы (+ один такт), пачек до предела 6 кадров нет.
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.True(maxCredits[i] <= Math.Max(credits0[i], NetServer.FramesPerTickLimit) + MovementTick.FramesPerTick,
+                    $"клиент {i}: запас после паузы {maxCredits[i]}, до — {credits0[i]}");
+            }
+
+            if (lossPercent == 0)
+            {
+                // Ровная связь: после снятия кадров за такт ≤ 3 на игрока (замер: 9 на троих), а не до предела 6 из лишнего запаса.
+                Assert.True(maxFramesPerTick <= 3 * (MovementTick.FramesPerTick + 1), $"после паузы {maxFramesPerTick} кадров за такт на 3 игроков");
+            }
         }
 
         /// <summary>
@@ -640,7 +677,7 @@ namespace Orpheus.Tests
         }
     }
 
-    /// <summary>Пауза по UDP (0-036): сервер в процессе теста (цикл <c>ServerRun</c> с паузой), боты с предсказанием.</summary>
+    /// <summary>Пауза по UDP (0-036): сервер в процессе теста (<c>ServerRun</c> → цикл <c>ServerHost</c> с паузой), боты с предсказанием.</summary>
     [Collection(ClockUdpCollection.Name)]
     public class PauseUdpTests
     {
@@ -694,7 +731,7 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// CI: цикл <c>ServerRun</c> в паузе — 1 бот (одиночная), пауза 1,5 с: бот стоял, такт сервера за прогон — меньше
+        /// CI: цикл <c>ServerHost</c> (через <c>ServerRun</c>) в паузе — 1 бот (одиночная), пауза 1,5 с: бот стоял, такт сервера за прогон — меньше
         /// времени на длину паузы, 0 правок после, 0 отключений.
         /// </summary>
         [Fact]

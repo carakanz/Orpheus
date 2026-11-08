@@ -690,6 +690,24 @@ namespace Orpheus.Net.Session
             return -1;
         }
 
+        /// <summary>
+        /// Запас кадров игрока с сущностью <paramref name="entityId"/> (0-019: +2 за такт, не больше <see cref="CreditCap"/>);
+        /// нет игрока — −1. Для проверок «в паузе запас не копится» (0-036).
+        /// </summary>
+        public int CreditsOf(int entityId)
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if (p.State == PlayerState.InGame && p.EntityId == entityId)
+                {
+                    return p.Credits;
+                }
+            }
+
+            return -1;
+        }
+
         /// <summary>Кадров ввода игрока с сущностью <paramref name="entityId"/> пришло и ждёт шага (очередь); нет игрока — −1.</summary>
         public int BacklogOf(int entityId)
         {

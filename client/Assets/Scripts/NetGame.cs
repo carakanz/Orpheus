@@ -860,7 +860,7 @@ namespace Orpheus.Client
             Quit(1);
         }
 
-        void QuitIfEscaped() => PauseFrame(); // 0-036: Esc / Start — пауза, выход — Q в паузе (NetGame.Pause.cs)
+        void QuitIfEscaped() => PauseFrame(); // 0-036: в игре Esc / Start — пауза, выход — Q в паузе; вне игры Esc и Q — выход (NetGame.Pause.cs)
 
         void Quit(int code)
         {
