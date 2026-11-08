@@ -44,7 +44,7 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Манекен в (x0, y), бьёт на восток; персонаж в 1,5 т восточнее (в секторе: 384 &lt; 384 + 102). Свободный путь до
+        /// Манекен в (x0, y), бьёт на восток; персонаж в 1,4 т восточнее — на досягаемость «тело + меч» (в секторе: 358 &lt; 358 + 102). Свободный путь до
         /// стены на север — <paramref name="gapUnits"/> (≤ 0 — стены нет). Уворот на север нажат за
         /// <paramref name="pressBefore"/> кадров до касания (−1 — без уворота). Удар — по состоянию после кадра касания.
         /// </summary>
@@ -262,15 +262,18 @@ namespace Orpheus.Tests
         // ---------- Сектор `02` 3.1, угроза и манекен `07` 2.7 ----------
 
         /// <summary>
-        /// Сектор «Ближнего» (дуга 90°, 1,5 т): по оси — до 1,5 т + радиус (касание — мимо); сзади — мимо; сбоку у края дуги
-        /// круг задевает край сектора; через шов тора — так же.
+        /// Сектор «Ближнего» (дуга 90°, «персонаж + оружие» = 0,4 + 1,0 = 1,4 т, 0-034): по оси — до 1,4 т + радиус (касание —
+        /// мимо); сзади — мимо; сбоку у края дуги круг задевает край сектора; через шов тора — так же.
         /// </summary>
         [Fact]
         public void D02_S3_1_Sector_ReachArcEdgesSeam()
         {
             var o = new WorldPos(10 * U, 10 * U);
             var sec = new MeleeSector(o, Angle16.FromRaw(0), EnemyMelee.ReachUnits, EnemyMelee.HalfArcSteps);
+            Assert.Equal(358, EnemyMelee.ReachUnits); // 102 + 256 (было 384 = 1,5 т)
+            Assert.Equal(Reach.BodyRadiusUnits + Reach.SwordUnits, EnemyMelee.ReachUnits);
             int far = EnemyMelee.ReachUnits + R;
+            Assert.False(sec.Overlaps(Map, new WorldPos(o.X + 384 + R - 1, o.Y), R)); // прежние 1,5 т — уже мимо
             Assert.True(sec.Overlaps(Map, new WorldPos(o.X + far - 1, o.Y), R));
             Assert.False(sec.Overlaps(Map, new WorldPos(o.X + far, o.Y), R));
             Assert.True(sec.Overlaps(Map, o, R));

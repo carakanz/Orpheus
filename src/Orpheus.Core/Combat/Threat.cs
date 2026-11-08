@@ -5,13 +5,14 @@ using Orpheus.Core.Movement;
 namespace Orpheus.Core.Combat
 {
     /// <summary>
-    /// Ближний удар врага (docs/02, 8.1, архетип «Ближний»; 3.1 — только размер сектора): дуга 90°, досягаемость 1,5 т,
-    /// замах / удар / отход 0,40 / 0,10 / 0,60 с — в кадрах ввода 60 Гц. Числа — предварительные, как в документе.
+    /// Ближний удар врага (docs/02, 8.1, архетип «Ближний»; 3.1 — только размер сектора): дуга 90°, досягаемость
+    /// «персонаж + оружие» (слово Автора 08.11, 0-034) — тело 0,4 т + меч 1,0 т = 1,4 т, замах / удар / отход 0,40 / 0,10 /
+    /// 0,60 с — в кадрах ввода 60 Гц. Числа — предварительные, как в документе.
     /// </summary>
     public static class EnemyMelee
     {
-        /// <summary>Досягаемость 1,5 т = 384 unit.</summary>
-        public const int ReachUnits = 384;
+        /// <summary>Досягаемость — тело + меч (<see cref="Reach.SwordStrikeUnits"/>): 1,4 т = 358 unit (было 1,5 т, `02` 8.1).</summary>
+        public const int ReachUnits = Reach.SwordStrikeUnits;
 
         /// <summary>Половина дуги 90°: 45° = 8192 шага угла.</summary>
         public const int HalfArcSteps = 8192;
