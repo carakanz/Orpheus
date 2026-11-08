@@ -22,6 +22,7 @@ namespace Orpheus.Client.Anim
         Vector3 _lastRoot;
         bool _hasLast;
         Vector2 _vel;
+        static int s_created;
 
         public readonly ProceduralAnimator Animator = new ProceduralAnimator();
 
@@ -45,8 +46,8 @@ namespace Orpheus.Client.Anim
                 _ghosts[i] = g;
             }
 
-            // Толпа не шагает в ногу: фаза — от номера объекта.
-            Animator.PhaseOffset = (root.GetInstanceID() & 0xFF) / 97f;
+            // Толпа не шагает в ногу: фаза — по порядку создания.
+            Animator.PhaseOffset = (s_created++ % 7) * 0.37f;
         }
 
         public Transform Root => _root;

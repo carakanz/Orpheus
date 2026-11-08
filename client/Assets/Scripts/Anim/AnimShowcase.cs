@@ -153,7 +153,7 @@ namespace Orpheus.Client.Anim
         Vector3 WalkerHome => _c + new Vector3(-5f, 3f, 0f);
         Vector3 DodgerHome => _c + new Vector3(-6f, -3f, 0f);
         Vector3 DummyPos => _c + new Vector3(2.5f, 3f, 0f);
-        Vector3 VictimHome => DummyPos + new Vector3(-1.1f, 0f, 0f);
+        Vector3 VictimHome => DummyPos + new Vector3(-1.3f, 0f, 0f);
         Vector3 DiggerPos => _tree + new Vector3(-1f, 0f, 0f);
 
         /// <summary>Каждый кадр после расстановки GameBoot: время сценария, позы, камера.</summary>
@@ -340,8 +340,8 @@ namespace Orpheus.Client.Anim
                         Times = new[] { 2.62f, 2.70f, 2.76f, 2.82f, 2.90f, 3.02f }, CropW = 900, CropH = 520 },
                     new Shot { Name = "swing_hit", Focus = () => (DummyPos + VictimHome) * 0.5f, Ortho = ShotsOrtho,
                         Times = new[] { 4.45f, 4.62f, 4.84f, 4.91f, 4.96f, 5.25f }, CropW = 640, CropH = 560 },
-                    new Shot { Name = "swing_dodge", Focus = () => DummyPos + new Vector3(-0.6f, 1.2f, 0f), Ortho = 2.6f,
-                        Times = new[] { 6.10f, 6.24f, 6.30f, 6.40f, 6.48f, 6.64f }, CropW = 640, CropH = 680 },
+                    new Shot { Name = "swing_dodge", Focus = () => DummyPos + new Vector3(-0.6f, 1.0f, 0f), Ortho = 2.6f,
+                        Times = new[] { 6.10f, 6.24f, 6.30f, 6.40f, 6.48f, 6.64f }, CropW = 640, CropH = 620 },
                     new Shot { Name = "dig", Focus = () => (DiggerPos + _tree) * 0.5f, Ortho = ShotsOrtho, Times = Series(7.00f, 0.05f), CropW = 560, CropH = 560 },
                 };
 
@@ -390,7 +390,7 @@ namespace Orpheus.Client.Anim
             const int gap = 4;
             var strip = new Texture2D(s.Times.Length * (w + gap) - gap, h, TextureFormat.RGB24, false);
             var fill = new Color[strip.width * strip.height];
-            Color outline = AnimAssets.ToColor(AnimParams.SectorRim, 1f);
+            Color outline = AnimAssets.ToColor(AnimParams.Outline, 1f);
             for (int i = 0; i < fill.Length; i++)
             {
                 fill[i] = outline;

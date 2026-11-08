@@ -96,14 +96,18 @@ namespace Orpheus.Client.Anim
         public const float RecoverSec = 0.60f;
 
         /// <summary>Сектор удара на земле: доля прозрачности заливки и обода, толщина обода (доля радиуса).</summary>
-        public const float SectorFillAlpha = 0.30f;
-        public const float SectorRimAlpha = 0.85f;
+        public const float SectorFillAlpha = 0.42f;
+        public const float SectorRimAlpha = 0.9f;
         public const float SectorRimWidth = 0.07f;
 
-        /// <summary>Сектор — тёплый красный (#953920), обод — контурный сливовый (#381125), вспышка удара — золото (#EBB229).</summary>
+        /// <summary>Сектор и обод — тёплый красный (#953920), рамка лент кадров — контурный сливовый (#381125), вспышка удара — золото (#EBB229).</summary>
         public static readonly float[] SectorFill = { 0.584f, 0.224f, 0.125f, 1f };
-        public static readonly float[] SectorRim = { 0.220f, 0.067f, 0.145f, 1f };
+        public static readonly float[] SectorRim = { 0.584f, 0.224f, 0.125f, 1f };
+        public static readonly float[] Outline = { 0.220f, 0.067f, 0.145f, 1f };
         public static readonly float[] StrikeFlash = { 0.922f, 0.698f, 0.161f, 1f };
+
+        /// <summary>Сектор лежит на земле: центр — у ступней (спрайт опирается на 0,4 т ниже центра существа), тайлов.</summary>
+        public const float SectorGroundY = -0.32f;
 
         /// <summary>Вспышка сектора в момент удара гаснет за столько секунд.</summary>
         public const float StrikeFlashSec = 0.18f;
@@ -132,12 +136,12 @@ namespace Orpheus.Client.Anim
         public const float DigPokeMaxSec = 0.42f;
 
         /// <summary>Длина толчка к тайлу, тайлов, наклон, градусов, и доля периода на выпад (остальное — возврат).</summary>
-        public const float DigPoke = 0.14f;
+        public const float DigPoke = 0.18f;
         public const float DigLeanDeg = 9f;
         public const float DigThrustShare = 0.3f;
 
         /// <summary>Пыль и щепки на каждый толчок: число, скорость (т/с), жизнь (с).</summary>
-        public const int DigDust = 5;
+        public const int DigDust = 7;
         public const float DigDustSpeed = 1.8f;
         public const float DigDustLife = 0.45f;
 
@@ -150,6 +154,6 @@ namespace Orpheus.Client.Anim
         public const float ParticleGravity = 7f;
 
         /// <summary>Размер частицы, тайлов.</summary>
-        public const float ParticleSize = 0.09f;
+        public const float ParticleSize = 0.14f;
     }
 }

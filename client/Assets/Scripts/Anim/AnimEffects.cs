@@ -92,7 +92,7 @@ namespace Orpheus.Client.Anim
         public void Show(Vector3 center, Vector2 axis, float reach, float halfArc, float fill, float flash, float fade)
         {
             _go.SetActive(true);
-            _go.transform.position = new Vector3(center.x, center.y, 0f);
+            _go.transform.position = new Vector3(center.x, center.y + AnimParams.SectorGroundY, 0f);
             _v.Clear();
             _c.Clear();
             _t.Clear();
