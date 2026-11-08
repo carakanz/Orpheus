@@ -277,17 +277,37 @@ namespace Orpheus.Save
         /// Записать поколение <paramref name="number"/> атомарно, затем удалить поколения старше трёх последних.
         /// Возвращает имена удалённых. Номер должен быть больше всех в папке (<see cref="NextNumber"/>).
         /// </summary>
-        public List<string> WriteGeneration(ulong number, ReadOnlySpan<byte> data)
+        public List<string> WriteGeneration(ulong number, ReadOnlySpan<byte> data) => WriteGeneration(number, data, 0);
+
+        /// <summary>
+        /// То же, но поколение <paramref name="replaces"/> (0 — нет) заменяется новым (0-037: частые сохранения по поводу
+        /// «вход/уход» не плодят поколений): новое пишется атомарно под новым номером, как всегда, и только после этого
+        /// — оно уже целое на диске — удаляется заменённое, затем поколения старше трёх последних. Поверх целого файла
+        /// не пишется ничего (6.5); пропал свет до удаления — в папке останется и заменённое, это не беда.
+        /// </summary>
+        public List<string> WriteGeneration(ulong number, ReadOnlySpan<byte> data, ulong replaces)
         {
             if (number <= _maxNumber)
             {
                 throw new ArgumentOutOfRangeException(nameof(number), number, $"Номер поколения должен быть больше {_maxNumber}: поверх прежних не пишем.");
             }
 
+            if (replaces >= number)
+            {
+                throw new ArgumentOutOfRangeException(nameof(replaces), replaces, $"Заменить можно только поколение старше {number}.");
+            }
+
             _storage.CreateDirectory(Dir);
             _storage.WriteAtomic(Path.Combine(Dir, GenerationFileName(number)), data);
             _maxNumber = number;
-            return Prune();
+            var deleted = new List<string>();
+            if (replaces != 0 && TryDelete(GenerationFileName(replaces)))
+            {
+                deleted.Add(GenerationFileName(replaces));
+            }
+
+            deleted.AddRange(Prune());
+            return deleted;
         }
 
         /// <summary>Удалить поколения <c>.save</c> старше <see cref="KeepGenerations"/> последних. Ошибка удаления — не беда: пропускаем.</summary>
@@ -298,27 +318,38 @@ namespace Orpheus.Save
             for (int i = 0; i < numbers.Length - KeepGenerations; i++)
             {
                 string name = GenerationFileName(numbers[i]);
-                string path = Path.Combine(Dir, name);
-                if (!_storage.FileExists(path))
+                if (TryDelete(name))
                 {
-                    continue; // имя без ведущих нулей, положенное руками, — не трогаем
-                }
-
-                try
-                {
-                    _storage.Delete(path);
                     deleted.Add(name);
-                }
-                catch (IOException)
-                {
-                    // файл держит копирование — удалим в следующий раз
-                }
-                catch (UnauthorizedAccessException)
-                {
                 }
             }
 
             return deleted;
+        }
+
+        /// <summary>Удалить поколение <paramref name="name"/>; нет такого файла или удалить не вышло — false.</summary>
+        private bool TryDelete(string name)
+        {
+            string path = Path.Combine(Dir, name);
+            if (!_storage.FileExists(path))
+            {
+                return false; // имя без ведущих нулей, положенное руками, — не трогаем
+            }
+
+            try
+            {
+                _storage.Delete(path);
+                return true;
+            }
+            catch (IOException)
+            {
+                // файл держит копирование — удалим в следующий раз
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            return false;
         }
 
         private string MoveToDamaged(string name)

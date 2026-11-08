@@ -40,6 +40,9 @@ namespace Orpheus.Server
         /// <summary>Номер последнего записанного поколения.</summary>
         public ulong LastSavedNumber { get; set; }
 
+        /// <summary>Из записанных сохранений — заменили последнее поколение серии поводов «вход/уход» (0-037).</summary>
+        public int SavesReplaced { get; set; }
+
         /// <summary>Хэш состояния в конце запуска (после сохранения при остановке).</summary>
         public ulong FinalHash { get; set; }
 
@@ -284,8 +287,10 @@ namespace Orpheus.Server
                 {
                     net.GenerationHash = opened.GenerationHash;
                     net.Characters = characters;
-                    // 6.4, 7.5: персонаж пишется в сохранение в течение 1 с после ухода (идёт запись — со следующей).
-                    net.CharacterLeft = _ => saver?.SaveNow(sim, "игрок вышел");
+                    // 6.4, 7.5: вход нового персонажа и уход — в сохранение в течение 1 с: повод пишется на ближайшей границе
+                    // такта, а идёт прошлая запись — сразу после её конца (0-037).
+                    net.CharacterCreated = _ => saver?.Request("игрок вошёл");
+                    net.CharacterLeft = _ => saver?.Request("игрок вышел");
                 }
 
                 HostSession? host = net != null && mux != null ? SetUpHost(o, opened, sim, net, mux, port, services.ProcessId, () => saver, log, result) : null;
@@ -333,6 +338,7 @@ namespace Orpheus.Server
                     saver.SaveOnStop(sim);
                     result.SavesWritten = saver.Written;
                     result.LastSavedNumber = saver.LastNumber;
+                    result.SavesReplaced = saver.Replaced;
                 }
 
                 if (opened.HostLockWriter != null)
@@ -389,7 +395,7 @@ namespace Orpheus.Server
                     ("silentMs", (now - lastHeard) / 1000), ("others", others));
                 if (others == 0)
                 {
-                    saver()?.SaveNow(sim, "хозяин ушёл"); // 2.3: других игроков нет — сохранить сразу и ждать те же 60 с
+                    saver()?.Request("хозяин ушёл"); // 2.3: других игроков нет — сохранить сразу и ждать те же 60 с
                 }
             };
             net.OpenForFriends = () =>

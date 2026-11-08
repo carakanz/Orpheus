@@ -580,6 +580,13 @@ namespace Orpheus.Net.Session
         /// </summary>
         public Action<string>? CharacterLeft { get; set; }
 
+        /// <summary>
+        /// Создан новый персонаж (первый вход под этим ключом; вернувшийся не в счёт): аргумент — имя. Зовётся в потоке такта
+        /// из <see cref="Poll"/> после «вход принят» — сервер сохраняет мир (docs/07 6.4: «игрок вошёл (создан персонаж) —
+        /// в течение 1 с»; 0-037).
+        /// </summary>
+        public Action<string>? CharacterCreated { get; set; }
+
         /// <summary>Вернувшихся персонажей (вход по известному ключу).</summary>
         public int CharactersReturned { get; private set; }
 
@@ -1578,6 +1585,15 @@ namespace Orpheus.Net.Session
                     return;
                 }
 
+                // Имя чужого персонажа хозяину не даётся (0-037, docs/07 7.3: два персонажа мира не носят одно имя) — до
+                // вытеснения прежнего соединения хозяина: отказ не должен выбивать из мира его игру.
+                int taken = Characters.FindPlayer(m.Name);
+                if (taken >= 0)
+                {
+                    Reject(p, LoginRejectReason.NameTaken, $"имя «{m.Name}» — у персонажа игрока «{Characters[taken].Name}»");
+                    return;
+                }
+
                 // Один токен с двух мест (7.7): новый вход вытесняет прежний — у упавшей игры хоста соединение
                 // висит до тайм-аута транспорта, а вернувшийся хост входит сразу.
                 for (int i = _players.Count - 1; i >= 0; i--)
@@ -1689,6 +1705,11 @@ namespace Orpheus.Net.Session
             if (p.IsHost)
             {
                 HostJoined?.Invoke();
+            }
+
+            if (character < 0)
+            {
+                CharacterCreated?.Invoke(m.Name);
             }
         }
 
