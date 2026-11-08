@@ -121,7 +121,7 @@ namespace Orpheus.Client
                 _pauseOverlay = new GameObject("Pause");
                 _pauseOverlay.transform.SetParent(canvas.transform, false);
                 var shade = _pauseOverlay.AddComponent<Image>();
-                shade.color = new Color(0f, 0f, 0f, 0.45f);
+                shade.color = new Color(0f, 0f, 0f, 0.6f); // линейное пространство: 0,6 — экран темнее на ≈ 40 %
                 shade.raycastTarget = false;
                 RectTransform srt = shade.rectTransform;
                 srt.anchorMin = Vector2.zero;
