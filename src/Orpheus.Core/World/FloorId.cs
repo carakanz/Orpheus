@@ -38,8 +38,11 @@ namespace Orpheus.Core.World
         public const byte StoneFloor = 9;
         public const byte Platform = 10;
 
+        /// <summary>Лесная подстилка — природный пол леса (`01` 3 «Лес»: трава и хвоя; генератор v1, 1-017).</summary>
+        public const byte ForestFloor = 11;
+
         /// <summary>Наибольший описанный id: таблица заполнена до него включительно.</summary>
-        public const byte MaxKnown = 10;
+        public const byte MaxKnown = 11;
 
         /// <summary>Размер таблицы свойств (id 0…<see cref="MaxKnown"/>).</summary>
         public const int TableSize = MaxKnown + 1;
@@ -77,6 +80,7 @@ namespace Orpheus.Core.World
             Properties.Solid | Properties.Passable | Properties.Built, // WoodFloor
             Properties.Solid | Properties.Passable | Properties.Built, // StoneFloor
             Properties.Solid | Properties.Passable | Properties.Built, // Platform (настил)
+            Properties.Solid | Properties.Passable | Properties.Natural, // ForestFloor
         };
 
         /// <summary>Свойства id; неизвестный id (выше <see cref="MaxKnown"/>) — <see cref="Properties.None"/>.</summary>

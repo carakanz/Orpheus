@@ -28,9 +28,9 @@ namespace Orpheus.Tests
         /// <see cref="MacroGenerator.GeneratorVersion"/>.
         /// </summary>
         [Theory]
-        [InlineData(1024, BiomeSet.Slice, 1UL, "aa55fc70effa594fb7e95b75f9a6186aeb12cba7d16579905b0f6ba7ad41f430")]
-        [InlineData(1024, BiomeSet.Full, 1UL, "69016a23bd90d98b4a9f91bdbbb10af5a861637497587c379b2b0be9b3c52cc8")]
-        [InlineData(2048, BiomeSet.Full, 1UL, "ada631144b3e64a244daf45a1a957916335a9f2d8ab7340422dce102df6d0577")]
+        [InlineData(1024, BiomeSet.Slice, 1UL, "234abc390691f79a053e7f4b07c84d93c66a49f7a235ca5117a0e49fc630b507")]
+        [InlineData(1024, BiomeSet.Full, 1UL, "2be6c4633eee84d48875412d40c34667a45c94c2c22c06365e8757b32fc8cf30")]
+        [InlineData(2048, BiomeSet.Full, 1UL, "6baf332999ffaabf935d102f3e07e9244f180019154501effcc61606811aef66")]
         public void D15_Macro_GoldenHash(int size, BiomeSet set, ulong seed, string expected)
         {
             Assert.Equal(expected, MacroGenerator.Generate(size, seed, set).Map.HashHex());
@@ -341,7 +341,7 @@ namespace Orpheus.Tests
             double ms = sw.Elapsed.TotalMilliseconds;
             string h1 = a.Map.HashHex();
             Assert.Equal(h1, MacroGenerator.Generate(4096, 1, BiomeSet.Full).Map.HashHex());
-            Assert.Equal("492397a5323384af0f1e0b14df6c2051ab9433d0b877db51e1c7b3e15695cd0d", h1);
+            Assert.Equal("a131176afcea23f648560793091621ac24a0d1c18593051b7c5d7f8916692f40", h1);
             Assert.Equal("deab6d0c3a075527714b65e9e7cad7ee30ddc2c7019621048971c6ee9eefd503", a.Fields.HashHex());
             _out.WriteLine($"4096², этапы 1–2: {ms:F0} мс, хэш {h1}");
             Assert.True(ms < 5000, $"{ms:F0} мс");

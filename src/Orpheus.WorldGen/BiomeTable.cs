@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Orpheus.WorldGen
 {
@@ -87,16 +88,17 @@ namespace Orpheus.WorldGen
         /// Набор «срез» (`01` 2, «Набор «срез»»): пещеры 8 % по наибольшей c среди ячеек с h в верхней четверти,
         /// горы 14 % по наибольшей h, лес 33 % по наибольшей m, луга — остаток.
         /// </summary>
-        public static readonly BiomeRow[] Slice =
+        /// <remarks>Только чтение (замечание П по 1-016): строки не подменить снаружи — ни элементом, ни приведением к массиву.</remarks>
+        public static readonly IReadOnlyList<BiomeRow> Slice = Array.AsReadOnly(new[]
         {
             new BiomeRow(Biome.Cave, 8, BiomeSource.UpperQuarterH, BiomeKey.C, largest: true),
             new BiomeRow(Biome.Mountain, 14, BiomeSource.All, BiomeKey.H, largest: true),
             new BiomeRow(Biome.Forest, 33, BiomeSource.All, BiomeKey.M, largest: true),
             BiomeRow.Rest(Biome.Meadow),
-        };
+        });
 
         /// <summary>Таблица набора; полный набор (пояса, Перекрёсток, вода) — следующая карточка, пока нет.</summary>
-        public static BiomeRow[]? For(BiomeSet set)
+        public static IReadOnlyList<BiomeRow>? For(BiomeSet set)
         {
             if (set == BiomeSet.Slice)
             {

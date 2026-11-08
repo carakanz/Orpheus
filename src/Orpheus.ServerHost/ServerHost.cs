@@ -160,8 +160,21 @@ namespace Orpheus.Server
         /// </summary>
         public const string ReadyMarker = "orpheus-ready";
 
-        /// <summary>Генератор при <c>--create</c> и при повторе без папки мира: генератор сборки (<see cref="WorldGenModule.Current"/>, 0-007).</summary>
-        public static IWorldGenerator Generator { get; set; } = WorldGenModule.Current;
+        /// <summary>
+        /// Генератор нового мира (1-017): при <c>--create</c> — по ключу <c>--gen</c> (<see cref="WorldGenModule.ForKey"/>, по умолчанию v1);
+        /// при повторе журнала без папки мира — по версии генератора из журнала (старый журнал заглушки повторяется заглушкой).
+        /// Загрузка мира генератор не зовёт: снимок генерации читается с диска со своей версией.
+        /// </summary>
+        public static IWorldGenerator GeneratorFor(ServerOptions o, JournalHeader? replay)
+        {
+            if (replay == null)
+            {
+                return WorldGenModule.ForKey(o.Gen);
+            }
+
+            return WorldGenModule.ForVersion(replay.GeneratorVersion)
+                ?? throw new InvalidDataException($"Журнал записан генератором v{replay.GeneratorVersion}: в этой сборке такого нет.");
+        }
 
         /// <summary>Запуск в текущем потоке до конца (<c>--ticks</c>, конец журнала, «хост вышел») или отмены <paramref name="stop"/>.</summary>
         public static ServerResult Run(ServerOptions o, ServerHostServices services, CancellationToken stop = default)
@@ -791,7 +804,7 @@ namespace Orpheus.Server
                 var watch = Stopwatch.StartNew();
                 if (o.Create || opened.Folder == null)
                 {
-                    opened.World = Generator.Generate(MapShape.World(size), seed);
+                    opened.World = GeneratorFor(o, replay).Generate(MapShape.World(size), seed);
                     opened.GenerationHash = StateHash.Generation(opened.World);
                     if (opened.Folder != null)
                     {

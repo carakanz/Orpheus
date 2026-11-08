@@ -16,8 +16,11 @@ namespace Orpheus.WorldGen
     /// </summary>
     public static class MacroGenerator
     {
-        /// <summary>Версия генератора v2 (пишется в заголовок макрокарты; растёт при любом изменении результата).</summary>
-        public const int GeneratorVersion = 3;
+        /// <summary>
+        /// Версия генератора v2 (пишется в заголовок макрокарты и в мир <see cref="GeneratorV1"/>; растёт при любом изменении результата).
+        /// 2 — этапы 1–2, 3 — этап 3, 4 — этапы 7, 11, 12 и мир на тайлах (1-017). Номер 1 — у заглушки, не пересекается.
+        /// </summary>
+        public const int GeneratorVersion = 4;
 
         /// <summary>Этап 1 «Кольца и зоны» (в его потоке — смещение осей поясов: этап 1 его читает).</summary>
         public const int StageZones = 1;
@@ -32,6 +35,9 @@ namespace Orpheus.WorldGen
         public const int FieldShiftCold = 5;
         public const int FieldEdge = 6;
         public const int FieldDetail = 7;
+
+        /// <summary>Деталь границ, вторая ось (сдвиг по y на этапе 11; `01` 2 даёт одно поле детали — допущение 1-017).</summary>
+        public const int FieldDetailY = 8;
 
         /// <summary>Октавы полей (`01` 2, таблица «Поля шума»; ячейки до min(·, W/2)).</summary>
         public static readonly int[] CellsH = { 1024, 512, 256, 128 };

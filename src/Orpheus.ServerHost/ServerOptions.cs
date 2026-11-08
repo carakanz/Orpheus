@@ -45,7 +45,7 @@ namespace Orpheus.Server
     public sealed class ServerOptions
     {
         public const string Usage =
-            "OrpheusServer --world <папка> [--create --seed N --size 1024|4096] [--sim] [--bots N:idle|wander|shuttle|run_seam[,N:...]]\n" +
+            "OrpheusServer --world <папка> [--create --seed N --size 1024|4096 [--gen v1|stub]] [--sim] [--bots N:idle|wander|shuttle|run_seam[,N:...]]\n" +
             "              [--ticks N] [--hash] [--record <журнал>] [--replay <журнал>] [--logs <папка>] [--log кат=уровень]\n" +
             "              [--port P [--public] [--max-players N]] [--spawn-seam (net-smoke: появление у шва)]\n" +
             "              [--debug-run-lanes (run_seam: расчищенные полосы, появление в углу швов; мир в памяти)]\n" +
@@ -78,6 +78,15 @@ namespace Orpheus.Server
         public bool SeedGiven { get; set; }
         public int Size { get; set; } = 1024;
         public bool SizeGiven { get; set; }
+
+        /// <summary>
+        /// Генератор нового мира (<c>--gen v1|stub</c>, 1-017): по умолчанию — v1 (генератор v2 на тайлах), <c>stub</c> — заглушка 0-007
+        /// для тестов. Только для создания мира: загрузка читает снимок генерации со своей версией, повтор журнала без папки
+        /// мира берёт генератор по версии из журнала.
+        /// </summary>
+        public string Gen { get; set; } = Orpheus.WorldGen.WorldGenModule.DefaultKey;
+
+        public bool GenGiven { get; set; }
         public bool Sim { get; set; }
         public List<BotGroup> Bots { get; } = new List<BotGroup>();
         public long Ticks { get; set; } = long.MaxValue;
@@ -185,6 +194,11 @@ namespace Orpheus.Server
                             throw new ArgumentException($"--size: размер мира 1024 или 4096 (docs/00, 5.1), а не {o.Size}.");
                         }
 
+                        break;
+                    case "--gen":
+                        o.Gen = Value(args, ref i);
+                        Orpheus.WorldGen.WorldGenModule.ForKey(o.Gen); // неизвестный ключ — ошибка разбора
+                        o.GenGiven = true;
                         break;
                     case "--sim":
                         o.Sim = true;
@@ -379,6 +393,11 @@ namespace Orpheus.Server
             if (o.DebugRunLanes && (o.WorldDir != null || o.ReplayPath != null || o.RecordPath != null || o.SpawnSeam))
             {
                 throw new ArgumentException("--debug-run-lanes — только мир в памяти (--create без --world), без --record/--replay и --spawn-seam.");
+            }
+
+            if (o.GenGiven && o.ReplayPath != null)
+            {
+                throw new ArgumentException("--gen и --replay вместе нельзя: генератор повтора — по версии из журнала.");
             }
 
             if (o.Mode.HasValue)

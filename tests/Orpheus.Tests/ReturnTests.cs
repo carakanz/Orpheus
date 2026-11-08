@@ -282,14 +282,14 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Настоящий файл формата 2 (записан сборкой <c>25e7c2b</c> = main до 0-035: сервер 1024², зерно 5, 2 бота и 3 игрока
-        /// по сети в мире на миг остановки) — читается: персонажей нет (в формате 2 они не записаны), сущности — как были.
+        /// по сети в мире на миг остановки; мир — заглушки v1, как тогда) — читается: персонажей нет (в формате 2 они не записаны), сущности — как были.
         /// Пересохранение даёт формат 3 с тем же хэшем такта.
         /// </summary>
         [Fact]
         public void D07_S6_7_Save_Format2_RealFile_Loads_ResavedAsFormat3()
         {
             byte[] v2 = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format2_players.save"));
-            WorldModel generated = WorldGenModule.Current.Generate(MapShape.World(1024), 5);
+            WorldModel generated = WorldGenModule.Stub.Generate(MapShape.World(1024), 5);
             byte[] baseBytes = WorldSnapshot.WriteBase(generated);
             SaveFile f = SaveContainer.Read(v2);
             Assert.True(f.IsOk, f.Error);

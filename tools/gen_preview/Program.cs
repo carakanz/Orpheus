@@ -21,6 +21,7 @@ namespace Orpheus.Tools.GenPreview
     /// осям: оба шва тора проходят крестом через середину — бесшовность видна глазом. Жёлтая рамка — стартовая зона.
     /// </para>
     /// <para>Ключ <c>--macro</c> — макрокарта и поля генератора v2 (карточка 1-015), см. <see cref="MacroPreview"/>.</para>
+    /// <para>Ключ <c>--world</c> — мир генератора v1 на тайлах (карточка 1-017), см. <see cref="WorldPreview"/>.</para>
     /// </summary>
     internal static class Program
     {
@@ -37,6 +38,11 @@ namespace Orpheus.Tools.GenPreview
             if (Array.IndexOf(args, "--macro") >= 0)
             {
                 return MacroPreview.Run(args, FindRoot());
+            }
+
+            if (Array.IndexOf(args, "--world") >= 0)
+            {
+                return WorldPreview.Run(args, FindRoot());
             }
 
             int size = 1024;

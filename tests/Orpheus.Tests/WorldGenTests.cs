@@ -144,7 +144,7 @@ namespace Orpheus.Tests
 
             WorldModel loaded = WorldSnapshot.LoadBase(a);
             Assert.Equal(StubGenerator.GeneratorVersion, loaded.GeneratorVersion);
-            Assert.Equal(WorldGenModule.GeneratorVersion, loaded.GeneratorVersion);
+            Assert.NotEqual(WorldGenModule.GeneratorVersion, loaded.GeneratorVersion); // с 1-017 генератор сборки — v1, у заглушки свой номер
             Assert.Equal(Seed, loaded.Seed);
             Assert.Equal(Small * Small / Chunk.TileCount, loaded.ChunkCount);
             Assert.Equal(WorldSnapshot.StoredHash(a), WorldSnapshot.ContentHash(loaded));
