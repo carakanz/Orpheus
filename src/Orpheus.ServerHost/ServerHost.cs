@@ -304,12 +304,20 @@ namespace Orpheus.Server
                 services.Ready?.Invoke(port);
                 using var metrics = new ServerMetrics(
                     new TickMetrics(o.Sim ? 0 : 1_000_000L / Simulation.TickRate), traffic, () => net?.PlayersInGame ?? 0, o.MetricsSeconds, stats);
+                var guard = new StepGuard();
+                bool loopDone = false;
                 try
                 {
-                    Loop(o, sim, bots, record, replay, net, host, saver, services.CreateClock, log, result, metrics, stop);
+                    Loop(o, sim, bots, record, replay, net, host, saver, services.CreateClock, log, result, metrics, stop, guard);
+                    loopDone = true;
                 }
                 finally
                 {
+                    if (!loopDone)
+                    {
+                        SaveAfterError(saver, sim, guard, log, result);
+                    }
+
                     if (net != null)
                     {
                         result.LoginsAccepted = net.LoginsAccepted;
@@ -360,6 +368,46 @@ namespace Orpheus.Server
             finally
             {
                 replay?.Dispose();
+            }
+        }
+
+        /// <summary>Такт идёт (<see cref="Simulation.Step"/> не вернулся): мир посреди такта — сохранять его нельзя.</summary>
+        private sealed class StepGuard
+        {
+            public bool InStep;
+        }
+
+        /// <summary>
+        /// Остановка с ошибкой (исключение из цикла такта; 0-037, з. 5 проверки): мир на границе такта цел — сохранить его,
+        /// как при штатной остановке: иначе пропали бы все поводы и такты с последнего сохранения. Ошибка посреди такта —
+        /// не сохранять: полутакт стал бы новейшим поколением, а последнее целое и так на диске. Своя ошибка сохранения
+        /// исходную не заслоняет — только в лог.
+        /// </summary>
+        private static void SaveAfterError(WorldSaver? saver, Simulation sim, StepGuard guard, IServerLog log, ServerResult result)
+        {
+            if (saver == null)
+            {
+                return;
+            }
+
+            if (guard.InStep)
+            {
+                log.Error(sim.Tick, "save", "остановка с ошибкой посреди такта — мир не сохраняю, последнее поколение целое",
+                    ("number", saver.LastNumber));
+                return;
+            }
+
+            try
+            {
+                saver.SaveOnStop(sim);
+                result.SavesWritten = saver.Written;
+                result.LastSavedNumber = saver.LastNumber;
+                result.SavesReplaced = saver.Replaced;
+                log.Warn(sim.Tick, "save", "остановка с ошибкой: мир на границе такта сохранён", ("number", saver.LastNumber));
+            }
+            catch (Exception e)
+            {
+                log.Error(sim.Tick, "save", "остановка с ошибкой: сохранить мир не вышло — " + e.Message, ("exception", e.GetType().Name));
             }
         }
 
@@ -526,7 +574,7 @@ namespace Orpheus.Server
         private static void Loop(
             ServerOptions o, Simulation sim, SimBot[] bots, InputJournalWriter? record, InputJournalReader? replay,
             NetServer? net, HostSession? host, WorldSaver? saver, Func<int, TickPacer>? createClock, IServerLog log, ServerResult result,
-            ServerMetrics metrics, CancellationToken stop)
+            ServerMetrics metrics, CancellationToken stop, StepGuard guard)
         {
             long startTick = sim.Tick;
             TickMetrics tm = metrics.Tick;
@@ -599,11 +647,18 @@ namespace Orpheus.Server
                 }
 
                 tm.Mark(TickPart.Other);
+                guard.InStep = true;
                 sim.Step();
+                guard.InStep = false;
                 tm.Mark(TickPart.Sim);
                 net?.SendSnapshots(); // снимок каждому игроку каждый такт — 30 Гц: дельта к подтверждённой базе или полный (2.4, 4.3; 0-014)
                 tm.Mark(TickPart.Net);
                 sim.RefillPools(); // вне такта: запас словарей построек (backlog [такт сервера])
+                if (o.DebugSaveRequestTicks > 0 && tick % o.DebugSaveRequestTicks == 0)
+                {
+                    saver?.Request("отладка: повод"); // --debug-save-request (0-037): серии замен без сети
+                }
+
                 saver?.AfterTick(sim); // граница такта: автосохранение (0-009)
                 tm.Mark(TickPart.Save);
                 o.AfterTick?.Invoke(sim);
@@ -860,9 +915,17 @@ namespace Orpheus.Server
                 log.Warn(0, "save", "целый .tmp без переименования (обрыв после сброса) — продвинут", ("file", rec.LatestName));
             }
 
+            string leftover = rec.ReplacedLeftover != 0 ? WorldFolder.GenerationFileName(rec.ReplacedLeftover) : string.Empty;
             foreach (string name in rec.Pruned)
             {
-                log.Info(0, "save", "поколение старше трёх последних — удалено при старте", ("file", name));
+                if (name == leftover)
+                {
+                    log.Warn(0, "save", "заменённое поколение серии осталось после обрыва — удалено при старте", ("file", name), ("replacedBy", rec.LatestName));
+                }
+                else
+                {
+                    log.Info(0, "save", "поколение старше трёх последних — удалено при старте", ("file", name));
+                }
             }
 
             if (rec.Latest != null)

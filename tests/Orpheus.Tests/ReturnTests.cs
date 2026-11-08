@@ -194,6 +194,48 @@ namespace Orpheus.Tests
             Assert.Equal(new[] { "Орфей", "Эвридика" }, created);
         }
 
+        /// <summary>
+        /// З. 4 проверки 0-037: отказ хозяину по имени (пустое из пробелов) не вытесняет его прежнее соединение — игра
+        /// хоста остаётся в мире. «Сервер полон» хозяину не грозит, пока в мире его прежнее соединение: оно и освободит место.
+        /// </summary>
+        [Fact]
+        public void D07_S7_7_Loopback_HostBadName_Rejected_OldHostStays_FullServerStillReplaces()
+        {
+            using var h = new Harness();
+            NetClient host = h.Connect("Орфей", Token);
+            h.Run(3);
+            Assert.Equal(NetClientState.InGame, host.State);
+
+            foreach (string bad in new[] { "   ", "\t" }) // пустое из пробелов; длинное клиент и не отправит
+            {
+                NetClient again = h.Connect(bad, Token);
+                h.Run(3);
+                Assert.Equal(NetClientState.Rejected, again.State);
+                Assert.Equal(LoginRejectReason.BadName, again.Reject!.Value.Reason);
+                Assert.Equal(NetClientState.InGame, host.State); // прежнее соединение хозяина не выбито
+                Assert.Null(host.Closing);
+            }
+
+            // Мир полон (хозяин + 7): вход хозяина заново — вытесняет прежнее соединение, а не «сервер полон».
+            var others = new List<NetClient>();
+            for (int i = 0; i < 7; i++)
+            {
+                others.Add(h.Connect("игрок" + i, default));
+            }
+
+            h.Run(3);
+            Assert.All(others, c => Assert.Equal(NetClientState.InGame, c.State));
+            Assert.Equal(8, h.Server.PlayersInGame);
+            NetClient extra = h.Connect("лишний", default);
+            h.Run(3);
+            Assert.Equal(LoginRejectReason.ServerFull, extra.Reject!.Value.Reason);
+            NetClient back = h.Connect("Орфей", Token);
+            h.Run(3);
+            Assert.Equal(NetClientState.InGame, back.State);
+            Assert.Equal(ClosingReason.Replaced, host.Closing);
+            Assert.Equal(8, h.Server.PlayersInGame);
+        }
+
         [Fact]
         public void D07_S7_4_Loopback_PlaceBlocked_NearestFreeTile_ThenSpawn()
         {

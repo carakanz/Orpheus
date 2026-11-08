@@ -51,6 +51,7 @@ namespace Orpheus.Server
             "              [--debug-run-lanes (run_seam: расчищенные полосы, появление в углу швов; мир в памяти)]\n" +
             "              [--mode single|host --host-token <32 hex> [--open-address all|<IPv4>] [--open-port P] [--host-grace <сек>]]\n" +
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]\n" +
+            "              [--debug-save-request <тактов> (повод сохранить каждые N тактов — серии замен без сети)]\n" +
             "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]] [--dummy [--dummy-wait <кадры>]]\n" +
             "              [--metrics <сек> (метрики такта в лог, 0 — только итог; по умолчанию 10)] [--report <json>]";
 
@@ -98,6 +99,12 @@ namespace Orpheus.Server
 
         /// <summary>Отладочное наполнение сохранения в КБ (приёмка 0.4, docs/08 3.0): 0 — обычной игрой не пишется.</summary>
         public int DebugSavePadKb { get; set; }
+
+        /// <summary>
+        /// Отладочный повод сохранить каждые N тактов (<c>--debug-save-request</c>, 0-037): серии заменяющих сохранений без
+        /// сети — для тестов обрыва внутри заменяющего сохранения (<c>SaveKillTests</c>). 0 — нет (обычная игра).
+        /// </summary>
+        public int DebugSaveRequestTicks { get; set; }
 
         /// <summary>Заданный миг обрыва для приёмки 0.4 (<c>--debug-save-plan</c>), синтаксис — <see cref="SaveCrashHook.Fixed"/>.</summary>
         public string? DebugSavePlan { get; set; }
@@ -283,6 +290,14 @@ namespace Orpheus.Server
                         break;
                     case "--debug-save-plan":
                         o.DebugSavePlan = Value(args, ref i);
+                        break;
+                    case "--debug-save-request":
+                        o.DebugSaveRequestTicks = ParseInt(a, Value(args, ref i));
+                        if (o.DebugSaveRequestTicks < 1)
+                        {
+                            throw new ArgumentException($"--debug-save-request: тактов от 1, а не {o.DebugSaveRequestTicks}.");
+                        }
+
                         break;
                     case "--debug-freeze":
                         foreach (string part in Value(args, ref i).Split(','))

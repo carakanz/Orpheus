@@ -166,6 +166,179 @@ namespace Orpheus.Tests
             Assert.Equal("остановка", log.Saves[1].Reason);
         }
 
+        // ---------- Обрыв питания внутри заменяющего сохранения (з. 1 проверки 0-037) ----------
+
+        /// <summary>
+        /// Обрыв в каждый миг заменяющего сохранения (серия поводов, поколение 5 заменяет 4; в папке ещё автосохранения 1 и 2).
+        /// Хранилище раскладывает запись на шаги носителя — половина <c>.tmp</c>, целый <c>.tmp</c>, перенос в <c>.save</c>,
+        /// каждое удаление — и в k-й шаг «гаснет свет»: снимок носителя, дальше любая запись — отказ. Старт на снимке обязан
+        /// взять новейшее поколение, целиком побывавшее на носителе (такт и хэш — как в начале его записи), и оставить в
+        /// папке оба автосохранения: заменённое, не успевшее удалиться, убирается первым (з. 2). Порядок «сначала новое,
+        /// потом удаление» держит этот тест: удаление заменённого до записи (мутация М1) — на шаге 1 новейшего целого нет.
+        /// </summary>
+        [Fact]
+        public void D07_S6_5_Saver_CrashInsideReplacingSave_EveryMoment_LoadsNewestIntact()
+        {
+            const int intervalSec = 2;
+            int interval = intervalSec * Simulation.TickRate;
+            SaveFixtures.LiveWorld live = SaveFixtures.Create(1024, Seed, bots: 1);
+            int moments = -1;
+            for (int k = 0; k < 50 && moments < 0; k++)
+            {
+                var storage = new CrashStorage();
+                string dir = MemoryDir();
+                var hook = new BeginHook();
+                var log = new SaveLog();
+                var saver = new WorldSaver(new WorldFolder(storage, dir), live.BaseSha, "t", log, intervalSec, live.Sim.Tick, false, hook);
+                RunLive(live, saver, 2 * interval); // автосохранения 1, 2
+                saver.Request("игрок вошёл");
+                RunLive(live, saver, 3); // 3 — начало серии
+                saver.Request("игрок вышел");
+                RunLive(live, saver, 3); // 4 заменяет 3
+                Assert.Equal(new ulong[] { 1, 2, 4 }, new WorldFolder(storage, dir).ListGenerations());
+
+                storage.Arm(k);
+                saver.Request("игрок вошёл");
+                RunLive(live, saver, 3); // 5 заменяет 4 — обрыв на шаге k
+                if (!storage.Crashed)
+                {
+                    // Шагов меньше k: запись дошла до конца без обрыва.
+                    moments = k;
+                    Assert.Equal(4ul, log.Saves[log.Saves.Count - 1].Replaces);
+                    Assert.Equal(new ulong[] { 1, 2, 5 }, new WorldFolder(storage, dir).ListGenerations());
+                    _out.WriteLine($"шагов носителя в заменяющем сохранении: {k} — {string.Join(" → ", storage.Trace)}");
+                    break;
+                }
+
+                MemoryStorage disk = storage.Frozen!;
+                ulong expected = storage.NewestDurable;
+                WorldRecovery rec = new WorldFolder(disk, dir).Recover();
+                _out.WriteLine($"обрыв перед шагом {k} ({storage.CrashedBefore}): загружено {rec.LatestNumber}, ждали {expected}; " +
+                               $"битых {rec.Damaged.Count}, лишнее заменённое {rec.ReplacedLeftover}");
+                Assert.Equal(expected, rec.LatestNumber);
+                Assert.Equal(hook.Begins[expected].Tick, rec.Latest!.Header.WorldTick);
+                Simulation loaded = SaveFixtures.Load(live.BaseBytes, disk.ReadAllBytes(Path.Combine(dir, rec.LatestName!)));
+                Assert.Equal(hook.Begins[expected].Tick, loaded.Tick);
+                Assert.Equal(hook.Begins[expected].Hash, StateHash.Compute(loaded).Total);
+
+                // Оба поколения автосохранения на месте; лишнего заменённого нет (з. 2).
+                Assert.Equal(new ulong[] { 1, 2, expected }, new WorldFolder(disk, dir).ListGenerations());
+                Assert.DoesNotContain(disk.ListFiles(dir), n => n.EndsWith(WorldFolder.TmpSuffix, StringComparison.Ordinal));
+            }
+
+            // Половина .tmp, целый .tmp, перенос, удаление заменённого — все миги пройдены.
+            Assert.True(moments >= 4, $"шагов носителя {moments}: тест не дошёл до всех мигов");
+        }
+
+        /// <summary>
+        /// З. 2: заменённое поколение серии не удалилось (файл держит антивирус). Очистка не удаляет вместо него самое старое
+        /// автосохранение; следующая замена убирает и его. После перезапуска заменённое, оставшееся рядом с заменившим,
+        /// узнаётся по полю файла и тоже убирается первым.
+        /// </summary>
+        [Fact]
+        public void D07_S6_6_Saver_ReplacedNotDeleted_LeftoverRemovedFirst_AutosavesKept()
+        {
+            const int intervalSec = 2;
+            int interval = intervalSec * Simulation.TickRate;
+            SaveFixtures.LiveWorld live = SaveFixtures.Create(1024, Seed, bots: 1);
+            var storage = new CrashStorage();
+            string dir = MemoryDir();
+            var folder = new WorldFolder(storage, dir);
+            var log = new SaveLog();
+            var saver = new WorldSaver(folder, live.BaseSha, "t", log, intervalSec, live.Sim.Tick, false, null);
+            RunLive(live, saver, 2 * interval);
+            saver.Request("игрок вошёл");
+            RunLive(live, saver, 3);
+            Assert.Equal(new ulong[] { 1, 2, 3 }, folder.ListGenerations());
+
+            storage.Locked.Add(WorldFolder.GenerationFileName(3));
+            saver.Request("игрок вышел");
+            RunLive(live, saver, 3); // 4 заменяет 3, удалить 3 не вышло
+            Assert.Equal(3ul, log.Saves[log.Saves.Count - 1].Replaces);
+            Assert.Equal(new ulong[] { 1, 2, 3, 4 }, folder.ListGenerations()); // 1 не тронут
+
+            saver.Request("игрок вошёл");
+            RunLive(live, saver, 3); // 5 заменяет 4; 3 всё ещё держат
+            Assert.Equal(new ulong[] { 1, 2, 3, 5 }, folder.ListGenerations());
+
+            storage.Locked.Clear();
+            saver.Request("игрок вышел");
+            RunLive(live, saver, 3); // 6 заменяет 5, и 3 наконец убран
+            Assert.Equal(new ulong[] { 1, 2, 6 }, folder.ListGenerations());
+
+            // Перезапуск: заменённое 6-м — рядом (обрыв до удаления) — старт убирает его, а не 1.
+            storage.Locked.Add(WorldFolder.GenerationFileName(6));
+            saver.Request("игрок вошёл");
+            RunLive(live, saver, 3); // 7 заменяет 6, 6 держат
+            Assert.Equal(new ulong[] { 1, 2, 6, 7 }, folder.ListGenerations());
+            storage.Locked.Clear();
+            WorldRecovery rec = new WorldFolder(storage, dir).Recover();
+            Assert.Equal(7ul, rec.LatestNumber);
+            Assert.Equal(6ul, rec.ReplacedLeftover);
+            Assert.Equal(new ulong[] { 1, 2, 7 }, new WorldFolder(storage, dir).ListGenerations());
+        }
+
+        /// <summary>
+        /// Поле «заменяет» не действует на копию из резервных, положенную руками под большим номером (6.6): номер в
+        /// заголовке не совпал с именем — старт не удаляет по нему поколение, чистка идёт как обычно.
+        /// </summary>
+        [Fact]
+        public void D07_S6_6_Folder_ManualCopyOfReplacingSave_DoesNotDeleteByField()
+        {
+            const int intervalSec = 2;
+            int interval = intervalSec * Simulation.TickRate;
+            SaveFixtures.LiveWorld live = SaveFixtures.Create(1024, Seed, bots: 1);
+            var storage = new CrashStorage();
+            string dir = MemoryDir();
+            var saver = new WorldSaver(new WorldFolder(storage, dir), live.BaseSha, "t", new SaveLog(), intervalSec, live.Sim.Tick, false, null);
+            RunLive(live, saver, 2 * interval);
+            saver.Request("игрок вошёл");
+            RunLive(live, saver, 3);
+            saver.Request("игрок вышел");
+            RunLive(live, saver, 3); // 4 заменяет 3: в папке 1, 2, 4
+            byte[] four = storage.ReadAllBytes(Path.Combine(dir, WorldFolder.GenerationFileName(4)));
+            Assert.Equal(3ul, WorldSave.ReadReplaces(SaveContainer.Read(four)));
+
+            // Восстановление по 6.6: копия 4 под номером 9 — «заменяет 3», а рядом ниже — 4.
+            storage.WriteAtomic(Path.Combine(dir, WorldFolder.GenerationFileName(9)), four);
+            WorldRecovery rec = new WorldFolder(storage, dir).Recover();
+            Assert.Equal(9ul, rec.LatestNumber);
+            Assert.Equal(0ul, rec.ReplacedLeftover);
+            Assert.Equal(new ulong[] { 2, 4, 9 }, new WorldFolder(storage, dir).ListGenerations());
+        }
+
+        /// <summary>
+        /// З. 5: остановка с ошибкой (исключение из цикла такта на границе такта, код 2) — мир цел, и он сохраняется, как при
+        /// штатной остановке: такт ошибки — в новейшем поколении, а не только то, что успело автосохранение.
+        /// </summary>
+        [Fact]
+        public void D07_S6_4_ServerRun_StopWithError_AtTickBoundary_WorldSaved()
+        {
+            var storage = new MemoryStorage();
+            string world = MemoryDir();
+            var log = new SaveLog();
+            ServerOptions o = ServerOptions.Parse(new[]
+            {
+                "--world", world, "--create", "--seed", "11", "--size", "1024", "--sim", "--bots", "1:wander", "--ticks", "200",
+                "--autosave", "120", "--metrics", "0",
+            });
+            o.AfterTick = sim =>
+            {
+                if (sim.Tick == 50)
+                {
+                    throw new IOException("тест: отказ посреди работы");
+                }
+            };
+
+            ServerResult r = ServerHost.Run(o, new ServerHostServices { Log = log, Storage = storage });
+            Assert.Equal(2, r.ExitCode);
+            Assert.Equal(1, r.SavesWritten);
+            Assert.Equal("остановка", log.Saves.Single().Reason);
+            WorldRecovery rec = new WorldFolder(storage, world).Recover();
+            Assert.Equal(1ul, rec.LatestNumber);
+            Assert.Equal(50, rec.Latest!.Header.WorldTick);
+        }
+
         // ---------- Сервер в потоке: настоящие вход и уход ----------
 
         /// <summary>
@@ -256,6 +429,49 @@ namespace Orpheus.Tests
                 }
 
                 Assert.False(saver.Writing, "запись не кончилась");
+            }
+        }
+
+        /// <summary>
+        /// <paramref name="ticks"/> тактов живого мира (ввод бота, правки тайлов — снимки разные); после каждого — граница
+        /// такта и ожидание фоновой записи.
+        /// </summary>
+        private static void RunLive(SaveFixtures.LiveWorld live, WorldSaver saver, int ticks)
+        {
+            for (int t = 0; t < ticks; t++)
+            {
+                live.Run(1, 2);
+                saver.AfterTick(live.Sim);
+                var w = Stopwatch.StartNew();
+                while (saver.Writing && w.ElapsedMilliseconds < 10_000)
+                {
+                    Thread.Sleep(1);
+                    saver.AfterTick(live.Sim);
+                }
+
+                Assert.False(saver.Writing, "запись не кончилась");
+            }
+        }
+
+        /// <summary>Крючок записи: номер поколения → такт и хэш состояния в начале записи (как строка <c>save-begin</c>).</summary>
+        private sealed class BeginHook : ISaveHook
+        {
+            public Dictionary<ulong, (long Tick, ulong Hash)> Begins { get; } = new Dictionary<ulong, (long, ulong)>();
+
+            public string Plan => "тест";
+
+            public void Attach(IPlatformStorage storage)
+            {
+            }
+
+            public void OnLoaded(ulong number, long tick, ulong hash)
+            {
+            }
+
+            public void OnBegin(ulong number, long tick, ulong hash) => Begins[number] = (tick, hash);
+
+            public void OnDone(ulong number)
+            {
             }
         }
 
@@ -492,6 +708,133 @@ namespace Orpheus.Tests
             public string Name { get; }
             public double BeginMs { get; }
             public double EndMs { get; }
+        }
+    }
+
+    /// <summary>
+    /// Хранилище с обрывом питания (0-037, з. 1 проверки): носитель — <see cref="MemoryStorage"/>, а атомарная запись
+    /// разложена на шаги, как на диске: половина <c>.tmp</c> → целый <c>.tmp</c> (сброшен) → перенос в конечное имя; каждое
+    /// удаление и перенос — тоже шаг. <see cref="Arm"/>(k): перед k-м шагом «гаснет свет» — снимок носителя
+    /// (<see cref="Frozen"/>), и дальше любая запись — отказ (<see cref="IOException"/>: процесса уже нет). Помнит, какие
+    /// поколения целиком побывали на носителе: новейшее из них старт обязан загрузить (6.5).
+    /// <see cref="Locked"/> — файлы, которые «держит антивирус»: удаление — отказ.
+    /// </summary>
+    internal sealed class CrashStorage : IPlatformStorage
+    {
+        private readonly MemoryStorage _disk = new MemoryStorage();
+        private readonly object _sync = new object();
+        private readonly List<string> _trace = new List<string>();
+        private int _crashAt = -1;
+        private int _steps;
+        private bool _dead;
+        private ulong _durable;
+
+        /// <summary>Снимок носителя в миг обрыва; null — обрыва не было.</summary>
+        public MemoryStorage? Frozen { get; private set; }
+
+        public bool Crashed => Frozen != null;
+
+        /// <summary>Перед каким шагом погас свет.</summary>
+        public string? CrashedBefore { get; private set; }
+
+        /// <summary>Новейшее поколение, целиком побывавшее на носителе к мигу обрыва (сейчас, если обрыва не было).</summary>
+        public ulong NewestDurable { get; private set; }
+
+        /// <summary>Файлы (имена), удаление которых — отказ.</summary>
+        public HashSet<string> Locked { get; } = new HashSet<string>(StringComparer.Ordinal);
+
+        /// <summary>Шаги носителя после <see cref="Arm"/>.</summary>
+        public string[] Trace
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _trace.ToArray();
+                }
+            }
+        }
+
+        /// <summary>Обрыв перед шагом <paramref name="crashAt"/> (с 0), считая от этого вызова.</summary>
+        public void Arm(int crashAt)
+        {
+            lock (_sync)
+            {
+                _crashAt = crashAt;
+                _steps = 0;
+                _trace.Clear();
+            }
+        }
+
+        public bool FileExists(string path) => _disk.FileExists(path);
+
+        public bool DirectoryExists(string path) => _disk.DirectoryExists(path);
+
+        public void CreateDirectory(string path) => _disk.CreateDirectory(path);
+
+        public string[] ListFiles(string directory) => _disk.ListFiles(directory);
+
+        public byte[] ReadAllBytes(string path) => _disk.ReadAllBytes(path);
+
+        public void WriteAtomic(string path, ReadOnlySpan<byte> data)
+        {
+            byte[] bytes = data.ToArray();
+            string tmp = path + WorldFolder.TmpSuffix;
+            string name = Path.GetFileName(path);
+            bool generation = WorldFolder.TryParseGeneration(name, out ulong number, out bool isTmp) && !isTmp;
+            Step("пишем " + name + WorldFolder.TmpSuffix, () => _disk.WriteAtomic(tmp, bytes.AsSpan(0, bytes.Length / 2)));
+            Step("сброшен " + name + WorldFolder.TmpSuffix, () =>
+            {
+                _disk.WriteAtomic(tmp, bytes);
+                if (generation && number > _durable)
+                {
+                    _durable = number;
+                    NewestDurable = number;
+                }
+            });
+            Step("перенос в " + name, () => _disk.MoveDurable(tmp, path, true));
+        }
+
+        public void MoveDurable(string from, string to, bool replaceExisting) =>
+            Step("перенос " + Path.GetFileName(from), () => _disk.MoveDurable(from, to, replaceExisting));
+
+        public void Delete(string path)
+        {
+            string name = Path.GetFileName(path);
+            if (Locked.Contains(name))
+            {
+                throw new IOException($"{name} держит другой процесс (тест)");
+            }
+
+            Step("удаляем " + name, () => _disk.Delete(path));
+        }
+
+        public IDisposable? TryLock(string path) => _disk.TryLock(path);
+
+        private void Step(string what, Action apply)
+        {
+            lock (_sync)
+            {
+                if (_dead)
+                {
+                    throw new IOException("обрыв питания (тест): процесса уже нет — " + what);
+                }
+
+                if (_crashAt >= 0 && _steps == _crashAt)
+                {
+                    Frozen = _disk.Snapshot();
+                    CrashedBefore = what;
+                    _dead = true;
+                    throw new IOException("обрыв питания (тест) перед шагом: " + what);
+                }
+
+                apply();
+                if (_crashAt >= 0)
+                {
+                    _steps++;
+                    _trace.Add(what);
+                }
+            }
         }
     }
 }

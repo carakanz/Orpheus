@@ -399,6 +399,23 @@ namespace Orpheus.Tests
             }
         }
 
+        /// <summary>Копия содержимого «носителя» на этот миг (файлы и папки, без замков) — так выглядит диск после обрыва (0-037).</summary>
+        public MemoryStorage Snapshot()
+        {
+            var copy = new MemoryStorage();
+            lock (_sync)
+            {
+                foreach (KeyValuePair<string, byte[]> f in _files)
+                {
+                    copy._files[f.Key] = (byte[])f.Value.Clone();
+                }
+
+                copy._dirs.UnionWith(_dirs);
+            }
+
+            return copy;
+        }
+
         private static string Norm(string path) => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
 
         private sealed class Release : IDisposable

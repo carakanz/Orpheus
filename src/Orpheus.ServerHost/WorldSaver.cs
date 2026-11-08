@@ -187,7 +187,7 @@ namespace Orpheus.Server
                 var w = Stopwatch.StartNew();
                 try
                 {
-                    byte[] bytes = WorldSave.Build(data, number, date, _padKb);
+                    byte[] bytes = WorldSave.Build(data, number, date, _padKb, replaces); // номер заменённого — в файле: старт уберёт его после обрыва
                     List<string> deleted = folder.WriteGeneration(number, bytes, replaces);
                     crash?.OnDone(number);
                     return new SaveOutcome(number, tick, reason, series, replaces, requests, bytes.Length, data.ChunkCoords.Length, captureMs, w.Elapsed.TotalMilliseconds, deleted, null);
