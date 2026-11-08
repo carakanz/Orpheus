@@ -408,11 +408,12 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. an old Mediterranean olive tree, thick gnarled twisted trunk split into two, a dense rounded canopy of small silvery-green leaves with a few dark olives, short roots spreading at the base, the whole tree from roots to crown in frame. high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "running",
+    "status": "error",
     "picker_url": "/?set=20261107-233943-f482e5",
     "queued": "2026-11-07 23:39",
     "images": [],
-    "checked": "2026-11-08 00:44"
+    "checked": "2026-11-08 12:32",
+    "error": "Timed out after 1800.0s waiting for prompt 69887b63-a8c8-4f6a-b577-aaab43a17ddd"
   },
   {
     "id": "20261107-233943-b6e3bd",
@@ -424,11 +425,12 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a lean grey wolf, a hostile enemy creature, standing on all four legs in an aggressive stance, head lowered, teeth bared, ears back, shaggy grey-brown fur with a pale belly, bushy tail, three-quarter side view seen from above, the whole body from nose to tail in frame. high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "queued",
+    "status": "error",
     "picker_url": "/?set=20261107-233943-b6e3bd",
     "queued": "2026-11-07 23:39",
     "images": [],
-    "checked": "2026-11-08 00:44"
+    "checked": "2026-11-08 12:32",
+    "error": "Timed out after 1800.0s waiting for prompt c12c46eb-57f9-4b37-965a-8ba64316e1b8"
   },
   {
     "id": "20261107-233943-de5126",
@@ -440,10 +442,11 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a rocky Greek hillside floor: flat pale grey limestone ground broken into large irregular slabs with thin dark cracks between them, a little sandy grit and a few tiny tufts of dry grass in the cracks, gentle natural variation of warm grey tones. a full-frame painting of open ground seen from straight above, like looking down at your feet, the ground continues past all four edges of the picture and is cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark",
-    "status": "queued",
+    "status": "error",
     "picker_url": "/?set=20261107-233943-de5126",
     "queued": "2026-11-07 23:39",
     "images": [],
-    "checked": "2026-11-08 00:44"
+    "checked": "2026-11-08 12:32",
+    "error": "Timed out after 1800.0s waiting for prompt e4e1ca2c-77ca-4756-8a9f-4dc9a9c65327"
   }
 ]
