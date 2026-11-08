@@ -68,6 +68,7 @@ namespace Orpheus.Client
         public InputAction ZoomAxis => _zoom;
         public InputAction ZoomIn => _zoomIn;
         public InputAction ZoomOut => _zoomOut;
+        public InputAction Dodge => _dodge;
 
         /// <summary>Ввод скриптом (smoke): если задан, клавиатура и геймпад не читаются.</summary>
         public InputFrame? ScriptedInput { get; set; }
@@ -79,6 +80,7 @@ namespace Orpheus.Client
         InputAction _zoom = null!;
         InputAction _zoomIn = null!;
         InputAction _zoomOut = null!;
+        InputAction _dodge = null!;
         SmokeRun? _smoke;
         ScreenshotRun? _screenshot;
         int _hudFrame;
@@ -143,6 +145,7 @@ namespace Orpheus.Client
             _move?.Dispose();
             _zoom?.Dispose();
             _zoomIn?.Dispose();
+            _dodge?.Dispose();
             _zoomOut?.Dispose();
             _smoke?.Dispose();
             Net?.Shutdown();
@@ -183,10 +186,20 @@ namespace Orpheus.Client
             _zoom = new InputAction("Zoom", InputActionType.PassThrough, "<Mouse>/scroll/y");
             _zoomIn = new InputAction("ZoomIn", InputActionType.Button, "<Gamepad>/rightShoulder");
             _zoomOut = new InputAction("ZoomOut", InputActionType.Button, "<Gamepad>/leftShoulder");
+
+            // Уворот (слово Автора 08.11, 0-034): «что-то вроде Shift или X + стрелка» — Shift (любой) или X вместе с направлением
+            // движения (WASD, стрелки, стик); на геймпаде — правая кнопка ромба (B / ○). Без направления — ничего (NetGame).
+            // Все привязки — здесь, одним местом; переназначение — потом.
+            _dodge = new InputAction("Dodge", InputActionType.Button);
+            _dodge.AddBinding("<Keyboard>/leftShift");
+            _dodge.AddBinding("<Keyboard>/rightShift");
+            _dodge.AddBinding("<Keyboard>/x");
+            _dodge.AddBinding("<Gamepad>/buttonEast");
             _move.Enable();
             _zoom.Enable();
             _zoomIn.Enable();
             _zoomOut.Enable();
+            _dodge.Enable();
             SetZoom(MaxZoom);
         }
 
