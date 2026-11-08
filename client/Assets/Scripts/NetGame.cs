@@ -102,6 +102,7 @@ namespace Orpheus.Client
         LocalPrediction? _pred;
         int _localId;
         ScreenshotRun? _screenshot;
+        Anim.NetAnimation? _anim; // K-001: процедурная анимация — только отображение
         long _inGameSinceUs;
         long _hudSnaps;
         long _hudTimeUs;
@@ -406,6 +407,7 @@ namespace Orpheus.Client
             _pred = new LocalPrediction(_map, _netRules.Solid, spawn);
             _remote = new RemoteInterpolation(_map);
             _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
+            _anim = new Anim.NetAnimation(_g, _client, _origin, _world, _entityRoot.transform);
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height}, такт {accept.ServerTick}; " +
                       $"мир — чанки от сервера (генератора у клиента нет), пришло уже {cw.ChunksReceived}");
             _g.Character.gameObject.SetActive(true);
@@ -590,6 +592,7 @@ namespace Orpheus.Client
                     GameObject go = GetEntity(id);
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
+                    _anim?.Remote(id, go.transform);
                 }
             }
 
@@ -601,6 +604,7 @@ namespace Orpheus.Client
                 }
             }
 
+            _anim?.Frame(now, _pred!);
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeFrame(me, dx, dy);

@@ -83,6 +83,8 @@ namespace Orpheus.Client
         InputAction _dodge = null!;
         SmokeRun? _smoke;
         ScreenshotRun? _screenshot;
+        Anim.ActorRig? _heroRig;        // K-001: ходьба и дыхание своего персонажа офлайн
+        Anim.AnimShowcase? _showcase;   // K-001: показ анимации и замер (--anim-shots, --anim-bench)
         int _hudFrame;
 
         void Awake()
@@ -138,6 +140,12 @@ namespace Orpheus.Client
             {
                 _screenshot = new ScreenshotRun(this, Args.ScreenshotPath);
             }
+            else if (Args.AnimShotsDir != null || Args.AnimBenchSeconds > 0)
+            {
+                _showcase = new Anim.AnimShowcase(this, Args.AnimShotsDir, Args.AnimBenchSeconds);
+            }
+
+            _heroRig = new Anim.ActorRig(Character);
         }
 
         void OnDestroy()
@@ -251,10 +259,12 @@ namespace Orpheus.Client
 
             // 5. Персонаж и камера.
             PlaceCharacterAndCamera();
+            _heroRig?.AnimateWalk(Time.deltaTime);
 
             UpdateHud();
             _smoke?.AfterFrame();
             _screenshot?.AfterFrame();
+            _showcase?.AfterFrame();
         }
 
         /// <summary>Персонаж — в интерполированной позиции от якоря; камера — над ним.</summary>
