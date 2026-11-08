@@ -169,8 +169,10 @@ namespace Orpheus.Save
         /// Собрать файл сохранения (любой поток). Дата — мс Unix UTC от вызывающего.
         /// <paramref name="padKb"/> — отладочное наполнение раздела «ОТЛАДКА» в КБ (приёмка 0.4, ключ сервера
         /// <c>--debug-save-pad</c>): грузчик его пропускает, в обычной игре 0.
+        /// <paramref name="replaces"/> — поколение, которое это сохранение заменяет (0-037, поле МИР
+        /// <see cref="SaveSections.WorldField.Replaces"/>); 0 — поле не пишется, файл тот же, что и до 0-037.
         /// </summary>
-        public static byte[] Build(WorldSaveData d, ulong number, long dateUnixMs, int padKb = 0)
+        public static byte[] Build(WorldSaveData d, ulong number, long dateUnixMs, int padKb = 0, ulong replaces = 0)
         {
             if (d == null)
             {
@@ -186,6 +188,11 @@ namespace Orpheus.Save
             w.WriteUInt(SaveSections.WorldField.GeneratorVersion, (ulong)d.GeneratorVersion);
             w.WriteBytes(SaveSections.WorldField.BaseSha256, d.BaseSha256);
             w.WriteUInt(SaveSections.WorldField.NextEntityId, (ulong)d.NextEntityId);
+            if (replaces != 0)
+            {
+                w.WriteUInt(SaveSections.WorldField.Replaces, replaces);
+            }
+
             byte[] worldSection = w.ToArray();
 
             var c = new RecordWriter(d.ChunkCoords.Length * 320 + 16);
@@ -264,6 +271,29 @@ namespace Orpheus.Save
             }
 
             return SaveContainer.Write(header, sections.ToArray());
+        }
+
+        /// <summary>
+        /// Какое поколение заменяет целый файл <paramref name="file"/> (поле МИР <see cref="SaveSections.WorldField.Replaces"/>,
+        /// 0-037); не заменяет или файл не целый — 0. Разбирается только раздел МИР — без снимка генерации.
+        /// </summary>
+        public static ulong ReadReplaces(SaveFile file)
+        {
+            if (file == null || !file.IsOk || !file.HasSection(SaveSections.World))
+            {
+                return 0;
+            }
+
+            var r = new RecordReader(file.Section(SaveSections.World));
+            while (r.Next())
+            {
+                if (r.Field == SaveSections.WorldField.Replaces)
+                {
+                    return r.UInt();
+                }
+            }
+
+            return 0;
         }
 
         /// <summary>Записи раздела «ОТЛАДКА»: байты детерминированного узора по номеру поколения (приёмка 0.4).</summary>

@@ -150,6 +150,92 @@ namespace Orpheus.Tests
             Assert.Equal(LoginRejectReason.BadName, blank.Reject!.Value.Reason);
         }
 
+        /// <summary>
+        /// Хозяин не берёт имя чужого персонажа (0-037, docs/07 7.3): ни игрока в мире, ни ушедшего — «имя занято»; отказ
+        /// не вытесняет его прежнее соединение. Своё имя и новое свободное — можно. Новый персонаж — повод сохранить мир,
+        /// вернувшийся — нет.
+        /// </summary>
+        [Fact]
+        public void D07_S7_3_Loopback_HostTakesPlayerName_NameTaken_OldHostStays()
+        {
+            using var h = new Harness();
+            var created = new List<string>();
+            h.Server.CharacterCreated = name => created.Add(name);
+            NetClient host = h.Connect("Орфей", Token);
+            NetClient friend = h.Connect("Эвридика", default);
+            h.Run(3);
+            Assert.Equal(new[] { "Орфей", "Эвридика" }, created);
+
+            NetClient taker = h.Connect("ЭВРИДИКА", Token);
+            h.Run(3);
+            Assert.Equal(NetClientState.Rejected, taker.State);
+            Assert.Equal(LoginRejectReason.NameTaken, taker.Reject!.Value.Reason);
+            Assert.Equal(NetClientState.InGame, host.State); // прежнее соединение хозяина не выбито
+            Assert.Null(host.Closing);
+
+            // Игрок ушёл — имя всё равно его.
+            friend.Disconnect();
+            h.Run(3);
+            NetClient taker2 = h.Connect("эвридика", Token);
+            h.Run(3);
+            Assert.Equal(LoginRejectReason.NameTaken, taker2.Reject!.Value.Reason);
+            Assert.Equal(NetClientState.InGame, host.State);
+
+            // Своё имя и новое свободное — вход (вытесняет прежнее соединение), персонаж тот же — не повод.
+            NetClient renamed = h.Connect("Орфей Фракийский", Token);
+            h.Run(2);
+            Assert.Equal(NetClientState.InGame, renamed.State);
+            Assert.Equal(ClosingReason.Replaced, host.Closing);
+            Assert.Equal("Орфей Фракийский", h.Server.Characters[h.Server.Characters.FindHost()].Name);
+            NetClient back = h.Connect("Эвридика", default);
+            h.Run(2);
+            Assert.Equal(NetClientState.InGame, back.State);
+            Assert.Equal(2, h.Server.Characters.Count);
+            Assert.Equal(new[] { "Орфей", "Эвридика" }, created);
+        }
+
+        /// <summary>
+        /// З. 4 проверки 0-037: отказ хозяину по имени (пустое из пробелов) не вытесняет его прежнее соединение — игра
+        /// хоста остаётся в мире. «Сервер полон» хозяину не грозит, пока в мире его прежнее соединение: оно и освободит место.
+        /// </summary>
+        [Fact]
+        public void D07_S7_7_Loopback_HostBadName_Rejected_OldHostStays_FullServerStillReplaces()
+        {
+            using var h = new Harness();
+            NetClient host = h.Connect("Орфей", Token);
+            h.Run(3);
+            Assert.Equal(NetClientState.InGame, host.State);
+
+            foreach (string bad in new[] { "   ", "\t" }) // пустое из пробелов; длинное клиент и не отправит
+            {
+                NetClient again = h.Connect(bad, Token);
+                h.Run(3);
+                Assert.Equal(NetClientState.Rejected, again.State);
+                Assert.Equal(LoginRejectReason.BadName, again.Reject!.Value.Reason);
+                Assert.Equal(NetClientState.InGame, host.State); // прежнее соединение хозяина не выбито
+                Assert.Null(host.Closing);
+            }
+
+            // Мир полон (хозяин + 7): вход хозяина заново — вытесняет прежнее соединение, а не «сервер полон».
+            var others = new List<NetClient>();
+            for (int i = 0; i < 7; i++)
+            {
+                others.Add(h.Connect("игрок" + i, default));
+            }
+
+            h.Run(3);
+            Assert.All(others, c => Assert.Equal(NetClientState.InGame, c.State));
+            Assert.Equal(8, h.Server.PlayersInGame);
+            NetClient extra = h.Connect("лишний", default);
+            h.Run(3);
+            Assert.Equal(LoginRejectReason.ServerFull, extra.Reject!.Value.Reason);
+            NetClient back = h.Connect("Орфей", Token);
+            h.Run(3);
+            Assert.Equal(NetClientState.InGame, back.State);
+            Assert.Equal(ClosingReason.Replaced, host.Closing);
+            Assert.Equal(8, h.Server.PlayersInGame);
+        }
+
         [Fact]
         public void D07_S7_4_Loopback_PlaceBlocked_NearestFreeTile_ThenSpawn()
         {

@@ -592,6 +592,13 @@ namespace Orpheus.Net.Session
         /// </summary>
         public Action<string>? CharacterLeft { get; set; }
 
+        /// <summary>
+        /// Создан новый персонаж (первый вход под этим ключом; вернувшийся не в счёт): аргумент — имя. Зовётся в потоке такта
+        /// из <see cref="Poll"/> после «вход принят» — сервер сохраняет мир (docs/07 6.4: «игрок вошёл (создан персонаж) —
+        /// в течение 1 с»; 0-037).
+        /// </summary>
+        public Action<string>? CharacterCreated { get; set; }
+
         /// <summary>Вернувшихся персонажей (вход по известному ключу).</summary>
         public int CharactersReturned { get; private set; }
 
@@ -1616,6 +1623,21 @@ namespace Orpheus.Net.Session
             }
         }
 
+        /// <summary>Соединения хозяина в мире, кроме <paramref name="except"/>, — их вытеснит новый вход хозяина.</summary>
+        private int CountHostsInGame(Player except)
+        {
+            int n = 0;
+            foreach (Player old in _players)
+            {
+                if (old != except && old.IsHost && old.State == PlayerState.InGame)
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        }
+
         private void OnLogin(Player p, LoginMessage m)
         {
             if (m.Version != _version)
@@ -1624,14 +1646,43 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            if (!m.Token.IsEmpty)
+            bool isHost = !m.Token.IsEmpty;
+            if (isHost && (HostToken.IsEmpty || m.Token != HostToken))
             {
-                if (HostToken.IsEmpty || m.Token != HostToken)
+                Reject(p, LoginRejectReason.BadToken, HostToken.IsEmpty ? "у сервера нет хозяина" : "токен хозяина не тот");
+                return;
+            }
+
+            // Все отказы хозяину — до вытеснения его прежнего соединения (0-037, з. 4 проверки): отказ не должен выбивать из
+            // мира его игру.
+            string? nameError = LoginMessage.NameError(m.Name);
+            if (nameError != null)
+            {
+                Reject(p, LoginRejectReason.BadName, nameError);
+                return;
+            }
+
+            if (isHost)
+            {
+                // Имя чужого персонажа хозяину не даётся (0-037, docs/07 7.3: два персонажа мира не носят одно имя).
+                int taken = Characters.FindPlayer(m.Name);
+                if (taken >= 0)
                 {
-                    Reject(p, LoginRejectReason.BadToken, HostToken.IsEmpty ? "у сервера нет хозяина" : "токен хозяина не тот");
+                    Reject(p, LoginRejectReason.NameTaken, $"имя «{m.Name}» — у персонажа игрока «{Characters[taken].Name}»");
                     return;
                 }
+            }
 
+            // Место прежнего соединения хозяина освободится при вытеснении — оно в счёт не идёт.
+            int replacing = isHost ? CountHostsInGame(p) : 0;
+            if (PlayersInGame - replacing >= _maxPlayers)
+            {
+                Reject(p, LoginRejectReason.ServerFull, $"мест {_maxPlayers}");
+                return;
+            }
+
+            if (isHost)
+            {
                 // Один токен с двух мест (7.7): новый вход вытесняет прежний — у упавшей игры хоста соединение
                 // висит до тайм-аута транспорта, а вернувшийся хост входит сразу.
                 for (int i = _players.Count - 1; i >= 0; i--)
@@ -1646,20 +1697,6 @@ namespace Orpheus.Net.Session
                         Log?.Invoke(NetLogLevel.Warn, $"хозяин вошёл заново — прежнее соединение {old.Peer} (#{old.EntityId}) вытеснено");
                     }
                 }
-            }
-
-            bool isHost = !m.Token.IsEmpty;
-            string? nameError = LoginMessage.NameError(m.Name);
-            if (nameError != null)
-            {
-                Reject(p, LoginRejectReason.BadName, nameError);
-                return;
-            }
-
-            if (PlayersInGame >= _maxPlayers)
-            {
-                Reject(p, LoginRejectReason.ServerFull, $"мест {_maxPlayers}");
-                return;
             }
 
             // Персонаж по ключу (0-035): хозяин — по токену, остальные — по имени в мире. Имя живого игрока и имя
@@ -1744,6 +1781,11 @@ namespace Orpheus.Net.Session
             if (p.IsHost)
             {
                 HostJoined?.Invoke();
+            }
+
+            if (character < 0)
+            {
+                CharacterCreated?.Invoke(m.Name);
             }
         }
 
