@@ -601,6 +601,8 @@ namespace Orpheus.Tests
             byte[] gSwing = Golden("0d 01 00 ff 7f fc ff ff ff 18 ff ff 03 00 05 00 00 00 00 80 80 01 00 20 0d", b => swing.Write(b));
             var melee = new MeleeResultMessage { AttackerId = 7, StartFrame = 1234, Hit = true, ByLastKnown = true, WaitedFrames = 6, MissingFrames = 3, DecidedAtFrame = 1264 };
             byte[] gMelee = Golden("0e 07 00 00 00 d2 04 00 00 03 06 03 f0 04 00 00", b => melee.Write(b));
+            var reject = new LoginRejectMessage { Reason = LoginRejectReason.NameTaken, ServerVersion = new NetVersion(0, 4, 2) };
+            byte[] gReject = Golden("03 06 00 00 04 00 02 00", b => reject.Write(b)); // причина 6 «имя занято» (0-035, П з. 5)
 
             // Разбор тех же «золотых» байт (П по 0-026, Н8): чтение даёт ровно записанные поля, а не только круг «запись → чтение».
             ChunkMessage rChunk = ChunkMessage.Read(gChunk, shape);
@@ -640,9 +642,15 @@ namespace Orpheus.Tests
             Assert.Equal(melee.WaitedFrames, rMelee.WaitedFrames);
             Assert.Equal(melee.MissingFrames, rMelee.MissingFrames);
             Assert.Equal(melee.DecidedAtFrame, rMelee.DecidedAtFrame);
+            LoginRejectMessage rReject = LoginRejectMessage.Read(gReject);
+            Assert.Equal(LoginRejectReason.NameTaken, rReject.Reason);
+            Assert.Equal(new NetVersion(0, 4, 2), rReject.ServerVersion);
             Golden("08", b => new OpenForFriendsMessage().Write(b));
             Golden("09 01 61 1e", b => new OpenResultMessage { Opened = true, Port = 0x1E61 }.Write(b));
             Golden("0a 03", b => new ClosingMessage { Reason = ClosingReason.Replaced }.Write(b));
+            byte[] gPauseReq = Golden("16 01", b => new PauseRequestMessage { Paused = true }.Write(b)); // 0-036, протокол 10
+            var pauseState = new PauseStateMessage { Paused = true, ServerTick = 0x01020304, ByEntity = 7, ByName = "Эвр" };
+            byte[] gPauseState = Golden("17 01 04 03 02 01 07 00 00 00 06 d0 ad d0 b2 d1 80", b => pauseState.Write(b));
             byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f d6 9b 05 00 00 00 00 7d 00 7d c0 34 01 00 00 08 b8 ff 01 00 08", b =>
             {
                 var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, ClockEpoch = 0xA5, Count = 2, Self = new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7), new Dodge { Elapsed = 0xA3, DashLeft = 15, Cooldown = 17, Direction = 6 }) { LeadMargin = -3, DelayFrames = 19 } };
@@ -666,6 +674,11 @@ namespace Orpheus.Tests
             Assert.Equal(-3, rSnap.Self.LeadMargin);
             Assert.Equal(19, rSnap.Self.DelayFrames);
             Assert.Equal(2, rSnap.Count);
+            Assert.True(PauseRequestMessage.Read(gPauseReq).Paused);
+            Assert.Equal(pauseState, PauseStateMessage.Read(gPauseState));
+            Assert.Equal(string.Empty, PauseStateMessage.Read(Hex("17 00 00 00 00 00 00 00 00 00 00")).ByName); // снял сервер сам
+            Assert.Throws<ProtocolException>(() => PauseRequestMessage.Read(Hex("16 02")));
+            Assert.Throws<ProtocolException>(() => PauseStateMessage.Read(Hex("17 01 00 00 00 00 00 00 00 00 21")));
         }
 
         /// <summary>

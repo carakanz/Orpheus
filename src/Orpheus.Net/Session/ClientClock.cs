@@ -48,6 +48,8 @@ namespace Orpheus.Net.Session
         private double _baseTick;
         private long _baseUs;
         private double _rate = 1.0;
+        private bool _held;
+        private long _heldUs;
 
         /// <summary>Оценка есть (было начало: вход, первый образец).</summary>
         public bool Valid { get; private set; }
@@ -76,8 +78,55 @@ namespace Orpheus.Net.Session
         /// <summary>Наибольшая ошибка окна после последнего образца, тактов (+ — оценка отстаёт).</summary>
         public double WindowErrorTicks { get; private set; }
 
-        /// <summary>Оценка кадра сервера (такт, дробно) в момент <paramref name="nowUs"/>; до начала — 0.</summary>
-        public double Estimate(long nowUs) => Valid ? _baseTick + (nowUs - _baseUs) * _rate / TickUs : 0.0;
+        /// <summary>Оценка кадра сервера (такт, дробно) в момент <paramref name="nowUs"/>; до начала — 0. Часы стоят (пауза) — на миге остановки.</summary>
+        public double Estimate(long nowUs) => Valid ? _baseTick + ((_held ? _heldUs : nowUs) - _baseUs) * _rate / TickUs : 0.0;
+
+        /// <summary>Часы стоят: пауза сервера (0-036).</summary>
+        public bool Held => _held;
+
+        /// <summary>Образцов, пропущенных, пока часы стояли (заголовки снимков, ответы на пинг в паузе).</summary>
+        public long SamplesWhileHeld { get; private set; }
+
+        /// <summary>Сколько всего часы стояли, мкс.</summary>
+        public long HeldTotalUs { get; private set; }
+
+        /// <summary>
+        /// Пауза (0-036): часы встают на нынешней оценке — такт сервера стоит, и номер кадра ввода не растёт. Образцы, пока
+        /// стоят, не сравниваются с оценкой (сервер стоит на такте паузы, а не отстаёт); RTT из ответов на пинг — копится.
+        /// </summary>
+        public void Hold(long nowUs)
+        {
+            if (_held)
+            {
+                return;
+            }
+
+            _held = true;
+            _heldUs = nowUs;
+        }
+
+        /// <summary>
+        /// Пауза снята: часы идут дальше с того же места — время паузы вынуто из линии часов и из окна образцов (ни скачка,
+        /// ни перестановки). Возвращает, сколько стояли, мкс (0 — не стояли).
+        /// </summary>
+        public long Release(long nowUs)
+        {
+            if (!_held)
+            {
+                return 0;
+            }
+
+            long d = Math.Max(0, nowUs - _heldUs);
+            _held = false;
+            _baseUs += d;
+            for (int i = 0; i < _count; i++)
+            {
+                _sampleUs[i] += d;
+            }
+
+            HeldTotalUs += d;
+            return d;
+        }
 
         /// <summary>Номер кадра ввода 60 Гц по оценке (L = 0, 2.7): два кадра на такт.</summary>
         public uint FrameAt(long nowUs) => (uint)(long)Math.Floor(Estimate(nowUs) * 2.0);
@@ -130,6 +179,12 @@ namespace Orpheus.Net.Session
         public void OnSample(uint serverTickAtSend, long nowUs)
         {
             double s = serverTickAtSend + OwdUs / TickUs;
+            if (_held && Valid)
+            {
+                SamplesWhileHeld++; // пауза: сервер стоит на такте паузы — образец не про ход часов (0-036)
+                return;
+            }
+
             Samples++;
             if (!Valid)
             {
@@ -193,6 +248,11 @@ namespace Orpheus.Net.Session
         {
             _baseTick = tick;
             _baseUs = nowUs;
+            if (_held)
+            {
+                _heldUs = nowUs; // стоят — на новой оценке
+            }
+
             _rate = 1.0;
             _count = 0;
             _head = 0;

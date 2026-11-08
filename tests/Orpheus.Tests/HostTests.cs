@@ -77,7 +77,7 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 0 }));
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 4 }));
             Assert.Equal("Хост вышел. Мир сохранён у него", new ClosingMessage { Reason = ClosingReason.HostLeft }.Describe());
-            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.TileReply + 1 })); // последний тип — TileReply (0-028)
+            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.PauseState + 1 })); // последний тип — PauseState (0-036)
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.MeleeResult + 1 })); // 15 не занят: после MeleeResult (0-029)
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { 15 }));
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.Chunk - 1 })); // … и до Chunk (0-026)
@@ -450,8 +450,11 @@ namespace Orpheus.Tests
                 int port = srv.WaitReady(20_000);
                 host = UdpClient(port, "хост", Token);
                 Assert.True(Pump(() => host.State == NetClientState.InGame, 10_000, host), $"хозяин не вошёл: {host.State}");
+                // Хозяин вошёл впервые — создан персонаж: сохранение сразу (6.4, 0-037); автосохранение — раз в 2 мин, его нет.
+                Assert.True(Pump(() => SavedLine(srv.Text, "игрок вошёл"), 5_000, host), "вход хозяина (новый персонаж) не сохранён");
                 Pump(() => false, 500, host);
-                Assert.DoesNotContain("\"msg\":\"сохранено\"", srv.Text); // автосохранение — раз в 2 мин, до ухода сохранений нет
+                Assert.False(SavedLine(srv.Text, "автосохранение"));
+                Assert.False(SavedLine(srv.Text, "хозяин ушёл"));
 
                 host.Disconnect();
                 var w = System.Diagnostics.Stopwatch.StartNew();

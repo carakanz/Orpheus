@@ -27,12 +27,22 @@ namespace Orpheus.Bots
             "Orpheus.Bots --connect host:port [--count N] [--script idle|wander|shuttle|run_seam|seam_watch|dodge|dig_line] [--laps all|axes] [--rtt мс] [--jitter мс] [--burst]\n" +
             "             [--loss %] [--dup %] [--reorder %] [--seed N] [--minutes M | --seconds S] [--report <json>]\n" +
             "             [--name префикс] [--version x.y.z] [--host-token <32 hex>] [--open-for-friends]\n" +
+            "             [--pause-at S [--pause-for S]]\n" +
             "Orpheus.Bots --launch <OrpheusServer> --world <папка> [--create-seed N] [--mode single|host] [--open-address A]\n" +
             "             [--open-port P] [--host-grace сек] [--server-arg ключ]... [ключи ботов без --connect]\n" +
             "Orpheus.Bots --find <папка мира> [ключи ботов без --connect]";
 
         /// <summary>Токен хозяина: бот 0 входит хозяином (остальные — обычными игроками).</summary>
         public HostToken HostToken { get; set; }
+
+        /// <summary>
+        /// Пауза (0-036): на секунде <see cref="PauseAt"/> от старта бот 0 ставит паузу, через <see cref="PauseFor"/> с её снимает
+        /// последний бот (снять может любой). &lt; 0 — паузы нет.
+        /// </summary>
+        public double PauseAt { get; set; } = -1;
+
+        /// <inheritdoc cref="PauseAt"/>
+        public double PauseFor { get; set; } = 10;
 
         /// <summary>Бот 0 после входа жмёт «Открыть для друзей».</summary>
         public bool OpenForFriends { get; set; }
@@ -163,6 +173,12 @@ namespace Orpheus.Bots
                         }
 
                         o.HostToken = token;
+                        break;
+                    case "--pause-at":
+                        o.PauseAt = Number(a, Value(args, ref i));
+                        break;
+                    case "--pause-for":
+                        o.PauseFor = Number(a, Value(args, ref i));
                         break;
                     case "--open-for-friends":
                         o.OpenForFriends = true;

@@ -41,8 +41,17 @@ namespace Orpheus.Save
         /// <summary>Сколько файлов поколений проверено (SHA-256 и CRC).</summary>
         public int Checked { get; internal set; }
 
-        /// <summary>Поколения <c>.save</c> старше трёх последних — удалены при старте (см. <see cref="WorldFolder.KeepGenerations"/>).</summary>
+        /// <summary>
+        /// Удалены при старте: поколения <c>.save</c> старше трёх последних (см. <see cref="WorldFolder.KeepGenerations"/>)
+        /// и заменённое поколение серии, оставшееся после обрыва (<see cref="ReplacedLeftover"/>).
+        /// </summary>
         public List<string> Pruned { get; } = new List<string>();
+
+        /// <summary>
+        /// Взятое поколение заменяло поколение серии (0-037), а то осталось в папке — обрыв между записью нового и удалением
+        /// заменённого. Номер оставшегося (0 — нет): оно убирается первым и в «три последних» не считается.
+        /// </summary>
+        public ulong ReplacedLeftover { get; internal set; }
     }
 
     /// <summary>
@@ -76,6 +85,13 @@ namespace Orpheus.Save
 
         private readonly IPlatformStorage _storage;
         private ulong _maxNumber;
+
+        /// <summary>
+        /// Заменённые поколения серии (0-037), которые не удалось удалить (обрыв перед удалением, файл держит антивирус или
+        /// копирование): <see cref="Prune"/> удаляет их первыми и не считает в «три последних» — иначе вместо лишнего
+        /// поколения серии ушло бы самое старое поколение автосохранения.
+        /// </summary>
+        private readonly SortedSet<ulong> _leftovers = new SortedSet<ulong>();
 
         public WorldFolder(IPlatformStorage storage, string directory)
         {
@@ -267,6 +283,16 @@ namespace Orpheus.Save
             result.LatestNumber = number;
             result.LatestName = name;
 
+            // Взятое поколение заменяло поколение серии, а то осталось (обрыв до удаления) — оно лишнее: убрать его, а не
+            // старейшее автосохранение. Верим полю, только если файл лежит под своим номером (не копия из резервных,
+            // положенная руками, 6.6) и заменённое — ближайшее поколение ниже взятого.
+            ulong replaced = ReplacedBy(file!);
+            if (replaced != 0 && file!.Header.Number == number && replaced < number && NearestBelow(number) == replaced)
+            {
+                _leftovers.Add(replaced);
+                result.ReplacedLeftover = replaced;
+            }
+
             // «Три последних» считаем по папке, а не только по удачной записи: после обрыва prune не
             // успевает, и при повторных обрывах папка растёт (продвинутые .tmp, ручные правки).
             result.Pruned.AddRange(Prune());
@@ -277,48 +303,128 @@ namespace Orpheus.Save
         /// Записать поколение <paramref name="number"/> атомарно, затем удалить поколения старше трёх последних.
         /// Возвращает имена удалённых. Номер должен быть больше всех в папке (<see cref="NextNumber"/>).
         /// </summary>
-        public List<string> WriteGeneration(ulong number, ReadOnlySpan<byte> data)
+        public List<string> WriteGeneration(ulong number, ReadOnlySpan<byte> data) => WriteGeneration(number, data, 0);
+
+        /// <summary>
+        /// То же, но поколение <paramref name="replaces"/> (0 — нет) заменяется новым (0-037: частые сохранения по поводу
+        /// «вход/уход» не плодят поколений): новое пишется атомарно под новым номером, как всегда, и только после этого
+        /// — оно уже целое на диске — удаляется заменённое, затем поколения старше трёх последних. Поверх целого файла
+        /// не пишется ничего (6.5). Пропал свет до удаления — в папке останется и заменённое: новое помнит его номер
+        /// (поле МИР <see cref="SaveSections.WorldField.Replaces"/>, пишет вызывающий), и старт уберёт именно его
+        /// (<see cref="Recover"/>). Удаление не вышло (файл держит антивирус) — его уберёт следующая очистка, первым.
+        /// <para>Порядок «сначала новое, потом удаление» держат тесты обрыва внутри заменяющего сохранения
+        /// (<c>SaveEventTests.…CrashInsideReplacingSave…</c>, <c>SaveKillTests.…ReplacingSave…</c>).</para>
+        /// </summary>
+        public List<string> WriteGeneration(ulong number, ReadOnlySpan<byte> data, ulong replaces)
         {
             if (number <= _maxNumber)
             {
                 throw new ArgumentOutOfRangeException(nameof(number), number, $"Номер поколения должен быть больше {_maxNumber}: поверх прежних не пишем.");
             }
 
+            if (replaces >= number)
+            {
+                throw new ArgumentOutOfRangeException(nameof(replaces), replaces, $"Заменить можно только поколение старше {number}.");
+            }
+
             _storage.CreateDirectory(Dir);
             _storage.WriteAtomic(Path.Combine(Dir, GenerationFileName(number)), data);
             _maxNumber = number;
+            if (replaces != 0)
+            {
+                // Новое целое на диске — заменённое лишнее. Удаление не вышло — Prune уберёт его первым (_leftovers).
+                _leftovers.Add(replaces);
+            }
+
             return Prune();
         }
 
-        /// <summary>Удалить поколения <c>.save</c> старше <see cref="KeepGenerations"/> последних. Ошибка удаления — не беда: пропускаем.</summary>
+        /// <summary>
+        /// Удалить лишнее: сначала заменённые поколения серии, оставшиеся в папке, затем поколения <c>.save</c> старше
+        /// <see cref="KeepGenerations"/> последних (заменённые в их счёт не входят). Ошибка удаления — не беда: пропускаем.
+        /// </summary>
         public List<string> Prune()
         {
             var deleted = new List<string>();
-            ulong[] numbers = ListGenerations();
-            for (int i = 0; i < numbers.Length - KeepGenerations; i++)
+            foreach (ulong n in new List<ulong>(_leftovers))
             {
-                string name = GenerationFileName(numbers[i]);
-                string path = Path.Combine(Dir, name);
-                if (!_storage.FileExists(path))
+                string name = GenerationFileName(n);
+                if (!_storage.FileExists(Path.Combine(Dir, name)))
                 {
-                    continue; // имя без ведущих нулей, положенное руками, — не трогаем
+                    _leftovers.Remove(n);
                 }
-
-                try
+                else if (TryDelete(name))
                 {
-                    _storage.Delete(path);
+                    _leftovers.Remove(n);
                     deleted.Add(name);
                 }
-                catch (IOException)
+            }
+
+            var numbers = new List<ulong>(ListGenerations());
+            numbers.RemoveAll(n => _leftovers.Contains(n));
+            for (int i = 0; i < numbers.Count - KeepGenerations; i++)
+            {
+                string name = GenerationFileName(numbers[i]);
+                if (TryDelete(name))
                 {
-                    // файл держит копирование — удалим в следующий раз
-                }
-                catch (UnauthorizedAccessException)
-                {
+                    deleted.Add(name);
                 }
             }
 
             return deleted;
+        }
+
+        /// <summary>Заменённое поколение из поля целого файла (0 — нет; поле не читается — тоже 0: лишнее уберётся как обычно).</summary>
+        private static ulong ReplacedBy(SaveFile file)
+        {
+            try
+            {
+                return WorldSave.ReadReplaces(file);
+            }
+            catch (InvalidDataException)
+            {
+                return 0;
+            }
+        }
+
+        /// <summary>Ближайшее поколение <c>.save</c> ниже <paramref name="number"/> (0 — нет).</summary>
+        private ulong NearestBelow(ulong number)
+        {
+            ulong best = 0;
+            foreach (ulong n in ListGenerations())
+            {
+                if (n < number && n > best)
+                {
+                    best = n;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>Удалить поколение <paramref name="name"/>; нет такого файла или удалить не вышло — false.</summary>
+        private bool TryDelete(string name)
+        {
+            string path = Path.Combine(Dir, name);
+            if (!_storage.FileExists(path))
+            {
+                return false; // имя без ведущих нулей, положенное руками, — не трогаем
+            }
+
+            try
+            {
+                _storage.Delete(path);
+                return true;
+            }
+            catch (IOException)
+            {
+                // файл держит копирование — удалим в следующий раз
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            return false;
         }
 
         private string MoveToDamaged(string name)
