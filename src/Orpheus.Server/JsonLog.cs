@@ -7,15 +7,6 @@ using System.Text.Json;
 
 namespace Orpheus.Server
 {
-    /// <summary>Уровень записи лога (docs/07, 11.6).</summary>
-    public enum LogLevel
-    {
-        Debug = 0,
-        Info = 1,
-        Warn = 2,
-        Error = 3,
-    }
-
     /// <summary>
     /// Лог JSON-строками (docs/07, 11.6): одна запись — одна строка
     /// <c>{"time":…,"tick":…,"level":…,"cat":…,"msg":…,"data":{…}}</c>.
@@ -24,7 +15,7 @@ namespace Orpheus.Server
     /// Категории: <c>net</c>, <c>world</c>, <c>save</c>, <c>ai</c>, <c>combat</c>, <c>story</c>, <c>perf</c>, <c>admin</c>.
     /// Лог — вне симуляции: время здесь настенное, в хэш ничего не идёт.
     /// </summary>
-    public sealed class JsonLog : IDisposable
+    public sealed class JsonLog : IServerLog, IDisposable
     {
         public static readonly string[] Categories = { "net", "world", "save", "ai", "combat", "story", "perf", "admin" };
 

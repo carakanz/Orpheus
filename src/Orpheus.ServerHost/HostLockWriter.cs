@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using Orpheus.Save;
@@ -27,7 +28,7 @@ namespace Orpheus.Server
 
         private readonly IPlatformStorage _storage;
         private readonly string _dir;
-        private readonly JsonLog _log;
+        private readonly IServerLog _log;
         private readonly object _gate = new object();
         private readonly Thread _thread;
 
@@ -38,7 +39,7 @@ namespace Orpheus.Server
         private int _written;
         private int _failures;
 
-        public HostLockWriter(IPlatformStorage storage, string worldDir, JsonLog log)
+        public HostLockWriter(IPlatformStorage storage, string worldDir, IServerLog log)
         {
             _storage = storage;
             _dir = worldDir;
@@ -86,12 +87,12 @@ namespace Orpheus.Server
         /// <summary>Дождаться, пока всё попрошенное записано; не успело за <paramref name="timeoutMs"/> — false (повторы идут дальше).</summary>
         public bool WaitWritten(int timeoutMs)
         {
-            long deadline = Environment.TickCount64 + timeoutMs;
+            var waited = Stopwatch.StartNew(); // Environment.TickCount64 нет в netstandard2.1
             lock (_gate)
             {
                 while (_pending != null || _busy)
                 {
-                    long left = deadline - Environment.TickCount64;
+                    long left = timeoutMs - waited.ElapsedMilliseconds;
                     if (left <= 0)
                     {
                         return false;

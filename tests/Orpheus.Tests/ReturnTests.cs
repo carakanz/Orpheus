@@ -402,6 +402,58 @@ namespace Orpheus.Tests
             }
         }
 
+        // ---------- Сервер в потоке (0-031): тот же персонаж там же ----------
+
+        /// <summary>
+        /// Режим «сервер в потоке» (0-031 + 0-035): <see cref="ServerHost"/> в своём потоке, клиент по локальной связи,
+        /// сохранения — через хранилище платформы (в памяти). Вышел — уход сохранён («игрок вышел»); вошёл снова — то же
+        /// место; сервер остановлен и запущен заново из сохранения — персонажи мира восстановлены, снова то же место.
+        /// </summary>
+        [Fact]
+        public void D07_S7_4_ServerThread_PlayerLeavesAndReturns_RestartBetween_SamePlace()
+        {
+            var storage = new MemoryStorage();
+            string world = Path.Combine(Path.GetTempPath(), "orpheus-return-thread-" + Guid.NewGuid().ToString("N")); // в памяти, на диске нет
+            WorldPos at;
+            using (var srv = new ThreadServerRun(storage, world, create: true))
+            {
+                var clients = new List<NetClient>();
+                NetClient first = srv.Connect("одиночка", clients);
+                Assert.True(Pump(() => first.HasSnapshot && first.Latest.Self.Present, 10_000, clients.ToArray()), $"не вошёл: {first.State}");
+                Walk(first, new InputFrame(Input8.NorthEast), 600, clients);
+                at = Settled(first, clients);
+                Assert.NotEqual(ServerRun.SpawnPoint(MapShape.World(1024), 0), at);
+                first.Disconnect();
+                Pump(() => false, 100, clients.ToArray());
+                Assert.True(SpinWait.SpinUntil(() => srv.Log.Saved("игрок вышел"), 5_000), "уход игрока не сохранён");
+
+                clients.Clear();
+                NetClient again = srv.Connect("Одиночка", clients); // имя без учёта регистра — тот же персонаж
+                Assert.True(Pump(() => again.HasSnapshot && again.Latest.Self.Present, 10_000, clients.ToArray()), $"не вошёл снова: {again.State}");
+                Assert.Equal(at, Settled(again, clients));
+                again.Disconnect();
+                Pump(() => false, 100, clients.ToArray());
+                ServerResult r = srv.Stop();
+                Assert.Equal(0, r.ExitCode);
+                Assert.True(r.SavesWritten >= 2, $"сохранений {r.SavesWritten}");
+            }
+
+            using (var srv = new ThreadServerRun(storage, world, create: false))
+            {
+                Assert.True(srv.Log.Has("персонажи мира"), "персонажи мира не восстановлены после загрузки");
+                var clients = new List<NetClient>();
+                NetClient back = srv.Connect("одиночка", clients);
+                NetClient fresh = srv.Connect("новенький", clients);
+                Assert.True(Pump(() => back.HasSnapshot && back.Latest.Self.Present && fresh.HasSnapshot && fresh.Latest.Self.Present, 10_000, clients.ToArray()),
+                    $"не вошли: {back.State} {fresh.State}");
+                Assert.Equal(at, Settled(back, clients));
+                Assert.Equal(ServerRun.SpawnPoint(MapShape.World(1024), 0), Settled(fresh, clients));
+                Assert.Equal(0, srv.Stop().ExitCode);
+            }
+
+            Assert.False(Directory.Exists(world), "сохранение мимо хранилища: папка мира появилась на диске");
+        }
+
         // ---------- Помощники ----------
 
         private static NetClient Udp(int port, string name, HostToken token, List<NetClient> all)
@@ -557,6 +609,92 @@ namespace Orpheus.Tests
                 }
 
                 _server.Dispose();
+            }
+        }
+
+        /// <summary>Сервер в потоке (0-031) на локальной связи и хранилище в памяти; клиенты — по той же связи.</summary>
+        private sealed class ThreadServerRun : IDisposable
+        {
+            private readonly LoopbackTransport _link = LoopbackTransport.CreateServer(4);
+            private readonly ServerThread _host;
+            private readonly List<LoopbackTransport> _clients = new List<LoopbackTransport>();
+
+            public ThreadServerRun(MemoryStorage storage, string world, bool create)
+            {
+                var args = new List<string> { "--world", world, "--metrics", "0" };
+                if (create)
+                {
+                    args.AddRange(new[] { "--create", "--seed", "11", "--size", "1024" });
+                }
+
+                var services = new ServerHostServices { Log = Log, Storage = storage, LocalTransport = _link };
+                _host = ServerThread.Start(ServerOptions.Parse(args.ToArray()), services, "server-0-035-thread");
+                Assert.True(SpinWait.SpinUntil(() => _host.IsReady || _host.HasExited, 20_000), "сервер в потоке не готов");
+                Assert.True(_host.IsReady, $"сервер в потоке вышел до готовности: {_host.Error}");
+            }
+
+            public RecordLog Log { get; } = new RecordLog();
+
+            public NetClient Connect(string name, List<NetClient> all)
+            {
+                LoopbackTransport t = LoopbackTransport.ConnectTo(_link);
+                _clients.Add(t);
+                var c = new NetClient(t, LoopbackTransport.ServerPeer, name, NetModule.Version);
+                all.Add(c);
+                return c;
+            }
+
+            public ServerResult Stop()
+            {
+                Assert.True(_host.Stop(30_000), "сервер в потоке не остановился");
+                return _host.Result ?? throw new Xunit.Sdk.XunitException("нет итога: " + _host.Error);
+            }
+
+            public void Dispose()
+            {
+                _host.Dispose();
+                foreach (LoopbackTransport t in _clients)
+                {
+                    t.Dispose();
+                }
+            }
+        }
+
+        /// <summary>Лог сервера в потоке: сообщения и причины сохранений.</summary>
+        private sealed class RecordLog : IServerLog
+        {
+            private readonly List<string> _lines = new List<string>();
+
+            public bool Enabled(string cat, LogLevel level) => level >= LogLevel.Info;
+
+            public void Write(LogLevel level, long tick, string cat, string msg, (string Key, object? Value)[] data)
+            {
+                string reason = string.Empty;
+                foreach ((string key, object? value) in data)
+                {
+                    reason = key == "reason" ? value?.ToString() ?? string.Empty : reason;
+                }
+
+                lock (_lines)
+                {
+                    _lines.Add(msg + "|" + reason);
+                }
+            }
+
+            public bool Has(string msg)
+            {
+                lock (_lines)
+                {
+                    return _lines.Exists(l => l.StartsWith(msg + "|", StringComparison.Ordinal));
+                }
+            }
+
+            public bool Saved(string reason)
+            {
+                lock (_lines)
+                {
+                    return _lines.Contains("сохранено|" + reason);
+                }
             }
         }
 

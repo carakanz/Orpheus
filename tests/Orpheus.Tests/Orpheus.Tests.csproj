@@ -25,6 +25,8 @@
     <ProjectReference Include="..\..\src\Orpheus.Save\Orpheus.Save.csproj" />
     <!-- Сервер (exe): тесты D00_Sim_* гоняют его цикл такта в процессе теста через ServerRun.Run. -->
     <ProjectReference Include="..\..\src\Orpheus.Server\Orpheus.Server.csproj" />
+    <!-- Цикл сервера библиотекой (0-031): тесты D07_S1_9_5_* гоняют ServerHost в потоке по локальной связи. -->
+    <ProjectReference Include="..\..\src\Orpheus.ServerHost\Orpheus.ServerHost.csproj" />
     <!-- Боты по сети (exe): тесты D00_Net_Udp_* гоняют BotRun.Run в процессе теста. -->
     <ProjectReference Include="..\..\src\Orpheus.Bots\Orpheus.Bots.csproj" />
     <!-- Анализатор как обычная библиотека: тесты D00_Analyzer_* создают DeterminismAnalyzer напрямую. -->
