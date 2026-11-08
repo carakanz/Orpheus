@@ -170,6 +170,10 @@ namespace Orpheus.Tests
             Assert.All(all, s => Assert.InRange(s.ForestTrees, 100.0, 140.0));
             Assert.All(all, s => Assert.True(s.Copper >= HearthStage.CopperNeeded, $"зерно {s.Seed}: меди {s.Copper}"));
             Assert.All(all, s => Assert.True(s.Reach >= 0.99, $"зерно {s.Seed}: достижимо {100 * s.Reach:F3} %"));
+
+            // Норма карточки — 99 %, но её держит и мир без этапа 12 (отрезаны карманы в 1–10 тайлов между деревьями;
+            // мутация 3 М). Этап 12 присоединяет все такие компоненты — значит, ровно 100 %.
+            Assert.All(all, s => Assert.True(s.Reach == 1.0, $"зерно {s.Seed}: достижимо {100 * s.Reach:F4} % — этап 12 не всё присоединил"));
             Assert.All(all, s => Assert.InRange(s.MountMass, 40.0, 46.0));
             Assert.All(all, s => Assert.True(s.MaxShareDiff <= 1.0, $"зерно {s.Seed}: {s.MaxShareDiff:F2} п. п."));
         }
