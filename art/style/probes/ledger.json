@@ -313,11 +313,14 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a sunny Greek meadow floor: short lush green grass seen from above, small patches of clover, scattered tiny white and yellow wildflowers, a few small pebbles, gentle natural variation of green tones. a full-frame painting of open grassy ground seen from straight above, like looking down at your feet, the grass and ground continue past all four edges of the picture and are cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no rocks, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark",
-    "status": "running",
+    "status": "done",
     "picker_url": "/?set=20261107-151934-14175d",
     "queued": "2026-11-07 15:19",
-    "images": [],
-    "checked": "2026-11-07 18:11"
+    "images": [
+      "/files/concepts/20261107-151934-14175d/concept_0.png",
+      "/files/concepts/20261107-151934-14175d/concept_1.png"
+    ],
+    "checked": "2026-11-07 23:39"
   },
   {
     "id": "20261107-151934-5fa087",
@@ -329,10 +332,118 @@
     "count": 2,
     "style": "default",
     "prompt": "loose watercolor wash illustration with fine sepia ink linework, transparent layered washes with soft blooms and granulation, visible cold-press paper grain, muted desaturated palette of faded terracotta, sage green, umber and parchment, accents and ornaments in the style of ancient Greek black-figure pottery with meander key patterns, delicate and airy. a sunny Greek meadow floor: short lush green grass seen from above, small patches of clover, scattered tiny white and yellow wildflowers, a few small pebbles, gentle natural variation of green tones. a full-frame painting of open grassy ground seen from straight above, like looking down at your feet, the grass and ground continue past all four edges of the picture and are cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no rocks, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark",
-    "status": "queued",
+    "status": "done",
     "picker_url": "/?set=20261107-151934-5fa087",
     "queued": "2026-11-07 15:19",
+    "images": [
+      "/files/concepts/20261107-151934-5fa087/concept_0.png",
+      "/files/concepts/20261107-151934-5fa087/concept_1.png"
+    ],
+    "checked": "2026-11-07 23:39"
+  },
+  {
+    "id": "20261107-233943-668ac4",
+    "set": "a002",
+    "set_file": "art/style/sets/a002.json",
+    "variant": "b_inkcel",
+    "subject": "orpheus",
+    "seed": 1111,
+    "count": 2,
+    "style": "default",
+    "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. Orpheus, a young ancient Greek bard, full body standing figure from head to feet, slender build, curly dark brown hair with a green laurel wreath, calm gentle face, short white chiton with a blue meander border, a light ochre cloak over one shoulder, brown leather sandals, holding a golden wooden lyre with two curved horn-like arms, a tortoiseshell sound box and strings against his chest, three-quarter view from above, feet near the bottom of the frame. high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "status": "done",
+    "picker_url": "/?set=20261107-233943-668ac4",
+    "queued": "2026-11-07 23:39",
+    "images": [
+      "/files/concepts/20261107-233943-668ac4/concept_0.png",
+      "/files/concepts/20261107-233943-668ac4/concept_1.png"
+    ],
+    "checked": "2026-11-08 00:05"
+  },
+  {
+    "id": "20261107-233943-996b8d",
+    "set": "a002",
+    "set_file": "art/style/sets/a002.json",
+    "variant": "b_inkcel",
+    "subject": "meadow",
+    "seed": 1112,
+    "count": 2,
+    "style": "default",
+    "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a sunny Greek meadow floor: short lush green grass seen from above, small patches of clover, scattered tiny white and yellow wildflowers, a few small pebbles, gentle natural variation of green tones. a full-frame painting of open ground seen from straight above, like looking down at your feet, the ground continues past all four edges of the picture and is cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark",
+    "status": "done",
+    "picker_url": "/?set=20261107-233943-996b8d",
+    "queued": "2026-11-07 23:39",
+    "images": [
+      "/files/concepts/20261107-233943-996b8d/concept_0.png",
+      "/files/concepts/20261107-233943-996b8d/concept_1.png"
+    ],
+    "checked": "2026-11-08 00:24"
+  },
+  {
+    "id": "20261107-233943-498375",
+    "set": "a002",
+    "set_file": "art/style/sets/a002.json",
+    "variant": "b_inkcel",
+    "subject": "rock",
+    "seed": 1113,
+    "count": 2,
+    "style": "default",
+    "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a large weathered pale grey limestone boulder, chunky rounded block with a flattish top, deep cracks and chipped edges, a few patches of yellow lichen and green moss, small tufts of grass at its base. high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "status": "done",
+    "picker_url": "/?set=20261107-233943-498375",
+    "queued": "2026-11-07 23:39",
+    "images": [
+      "/files/concepts/20261107-233943-498375/concept_0.png",
+      "/files/concepts/20261107-233943-498375/concept_1.png"
+    ],
+    "checked": "2026-11-08 00:44"
+  },
+  {
+    "id": "20261107-233943-f482e5",
+    "set": "a002",
+    "set_file": "art/style/sets/a002.json",
+    "variant": "b_inkcel",
+    "subject": "tree",
+    "seed": 1114,
+    "count": 2,
+    "style": "default",
+    "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. an old Mediterranean olive tree, thick gnarled twisted trunk split into two, a dense rounded canopy of small silvery-green leaves with a few dark olives, short roots spreading at the base, the whole tree from roots to crown in frame. high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "status": "running",
+    "picker_url": "/?set=20261107-233943-f482e5",
+    "queued": "2026-11-07 23:39",
     "images": [],
-    "checked": "2026-11-07 18:11"
+    "checked": "2026-11-08 00:44"
+  },
+  {
+    "id": "20261107-233943-b6e3bd",
+    "set": "a002",
+    "set_file": "art/style/sets/a002.json",
+    "variant": "b_inkcel",
+    "subject": "wolf",
+    "seed": 1115,
+    "count": 2,
+    "style": "default",
+    "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a lean grey wolf, a hostile enemy creature, standing on all four legs in an aggressive stance, head lowered, teeth bared, ears back, shaggy grey-brown fur with a pale belly, bushy tail, three-quarter side view seen from above, the whole body from nose to tail in frame. high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "status": "queued",
+    "picker_url": "/?set=20261107-233943-b6e3bd",
+    "queued": "2026-11-07 23:39",
+    "images": [],
+    "checked": "2026-11-08 00:44"
+  },
+  {
+    "id": "20261107-233943-de5126",
+    "set": "a002",
+    "set_file": "art/style/sets/a002.json",
+    "variant": "b_inkcel",
+    "subject": "stone",
+    "seed": 1116,
+    "count": 2,
+    "style": "default",
+    "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a rocky Greek hillside floor: flat pale grey limestone ground broken into large irregular slabs with thin dark cracks between them, a little sandy grit and a few tiny tufts of dry grass in the cracks, gentle natural variation of warm grey tones. a full-frame painting of open ground seen from straight above, like looking down at your feet, the ground continues past all four edges of the picture and is cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark",
+    "status": "queued",
+    "picker_url": "/?set=20261107-233943-de5126",
+    "queued": "2026-11-07 23:39",
+    "images": [],
+    "checked": "2026-11-08 00:44"
   }
 ]
