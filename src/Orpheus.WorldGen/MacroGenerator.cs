@@ -17,7 +17,7 @@ namespace Orpheus.WorldGen
     public static class MacroGenerator
     {
         /// <summary>Версия генератора v2 (пишется в заголовок макрокарты; растёт при любом изменении результата).</summary>
-        public const int GeneratorVersion = 2;
+        public const int GeneratorVersion = 3;
 
         /// <summary>Этап 1 «Кольца и зоны» (в его потоке — смещение осей поясов: этап 1 его читает).</summary>
         public const int StageZones = 1;
@@ -75,12 +75,16 @@ namespace Orpheus.WorldGen
         /// <summary>Деталь границ (ячейка 32, 2 октавы) — на тайлах, для этапа 11; на макрокарте не хранится.</summary>
         public static FieldNoise CreateDetail(int w, ulong seed) => new FieldNoise(FieldSeed(seed, StageFields, FieldDetail), w, CellsDetail, ridged: false);
 
-        /// <summary>Этапы 1–2 целиком: макрокарта (биом пока не назначен) и данные этапов для следующих.</summary>
+        /// <summary>
+        /// Этапы 1–3: макрокарта с биомами (этап 3 — пока только набор «срез», `BiomeStage`; у полного набора биом
+        /// остаётся <see cref="MacroMap.BiomeNone"/>) и данные этапов для следующих.
+        /// </summary>
         public static MacroWorld Generate(int worldSize, ulong seed, BiomeSet set)
         {
             var map = new MacroMap(worldSize, seed, GeneratorVersion, set);
             ZoneData zones = Stage1Zones(map);
             FieldData fields = Stage2Fields(map);
+            BiomeStage.Run(map, fields);
             return new MacroWorld(map, zones, fields);
         }
 
@@ -318,5 +322,36 @@ namespace Orpheus.WorldGen
 
         /// <summary>Шум края пояса (ячейка 256, 2 октавы); ±80 тайлов на 4096² — пересчёт на этапе 3.</summary>
         public ushort[] Edge { get; }
+
+        /// <summary>
+        /// SHA-256 полей в полной точности: H, M, C, Edge подряд, u16 little-endian (замечание П по 1-015: в хэш макрокарты
+        /// идут только старшие байты h, m, c, а край не идёт вовсе).
+        /// </summary>
+        public string HashHex()
+        {
+            int n = H.Length;
+            var b = new byte[4 * 2 * n];
+            int at = 0;
+            foreach (ushort[] f in new[] { H, M, C, Edge })
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    b[at++] = (byte)f[i];
+                    b[at++] = (byte)(f[i] >> 8);
+                }
+            }
+
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                byte[] d = sha.ComputeHash(b);
+                var sb = new System.Text.StringBuilder(64);
+                foreach (byte x in d)
+                {
+                    sb.Append(x.ToString("x2", System.Globalization.CultureInfo.InvariantCulture));
+                }
+
+                return sb.ToString();
+            }
+        }
     }
 }

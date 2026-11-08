@@ -15,8 +15,8 @@ namespace Orpheus.Tools.GenPreview
     /// </para>
     /// <para>
     /// Файлы: <c>fields_&lt;W&gt;_&lt;зерно&gt;.bin</c> (с <c>--dump</c>) — заголовок <c>OFLD</c>, W, зерно, набор, M; поля h, m, c, край
-    /// (u16, M·M); смещения осей (i32, M ×2); d, dH, dC, dA (i32, M·M); байт зоны (M·M). PNG для первых N зёрен:
-    /// <c>h_…</c>, <c>m_…</c>, <c>c_…</c>, <c>edge_…</c>, <c>zones_…</c> и те же со сдвигом на W/2 (<c>…_seam.png</c>) — шов крестом посередине.
+    /// (u16, M·M); смещения осей (i32, M ×2); d, dH, dC, dA (i32, M·M); байт зоны (M·M); биом этапа 3 (M·M, номера <see cref="Biome"/>; с 1-016). PNG для первых N зёрен:
+    /// <c>h_…</c>, <c>m_…</c>, <c>c_…</c>, <c>edge_…</c>, <c>zones_…</c>, <c>biome_…</c> (цвета модели) и те же со сдвигом на W/2 (<c>…_seam.png</c>) — шов крестом посередине.
     /// </para>
     /// </summary>
     internal static class MacroPreview
@@ -80,14 +80,26 @@ namespace Orpheus.Tools.GenPreview
 
                 if (s == seedFrom)
                 {
-                    Console.WriteLine($"зерно {s}: хэш макрокарты {world.Map.HashHex()}");
+                    Console.WriteLine($"зерно {s}: хэш макрокарты {world.Map.HashHex()}, полей {world.Fields.HashHex()}");
+                    int[] cnt = BiomeStage.CountCells(world.Map);
+                    int n = world.Map.Size * world.Map.Size;
+                    var parts = new List<string>();
+                    for (int b = 0; b <= Biome.Count; b++)
+                    {
+                        if (cnt[b] > 0)
+                        {
+                            parts.Add($"{(b == Biome.Count ? "нет" : b.ToString())}: {100.0 * cnt[b] / n:F2} %");
+                        }
+                    }
+
+                    Console.WriteLine($"зерно {s}: доли биомов {string.Join(", ", parts)}");
                 }
             }
 
             times.Sort();
             string rest = times.Count == 0 ? "" :
                 $"; остальные {times.Count}: медиана {times[times.Count / 2]:F1} мс, худшее {times[times.Count - 1]:F1} мс";
-            Console.WriteLine($"{size}² ({set}), этапы 1–2: первое зерно {first:F1} мс (с JIT){rest}");
+            Console.WriteLine($"{size}² ({set}), этапы 1–3: первое зерно {first:F1} мс (с JIT){rest}");
             Console.WriteLine($"папка: {Path.GetFullPath(outDir)}");
             return 0;
         }
@@ -129,6 +141,7 @@ namespace Orpheus.Tools.GenPreview
             }
 
             bw.Write(map.Zone);
+            bw.Write(map.Biome);
             bw.Flush();
             return ms.ToArray();
         }
@@ -148,7 +161,19 @@ namespace Orpheus.Tools.GenPreview
             Both("c", i => Gray(world.Fields.C[i]));
             Both("edge", i => Gray(world.Fields.Edge[i]));
             Both("zones", i => ZoneColor(world.Map.Zone[i]));
+            Both("biome", i => BiomeColor(world.Map.Biome[i]));
         }
+
+        // Цвета биомов — как COL в worldgen_model.py; не размечено — пурпурный.
+        private static readonly byte[][] BiomeColors =
+        {
+            new byte[] { 150, 200, 90 }, new byte[] { 40, 110, 50 }, new byte[] { 20, 150, 90 }, new byte[] { 110, 100, 60 },
+            new byte[] { 130, 130, 130 }, new byte[] { 60, 50, 70 }, new byte[] { 230, 205, 120 }, new byte[] { 235, 235, 235 },
+            new byte[] { 200, 215, 225 }, new byte[] { 150, 200, 245 }, new byte[] { 210, 60, 20 }, new byte[] { 60, 110, 200 },
+            new byte[] { 90, 90, 90 },
+        };
+
+        private static byte[] BiomeColor(byte b) => b < BiomeColors.Length ? BiomeColors[b] : new byte[] { 255, 0, 255 };
 
         private static byte[] Gray(ushort v)
         {
