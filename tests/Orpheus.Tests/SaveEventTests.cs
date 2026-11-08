@@ -89,8 +89,9 @@ namespace Orpheus.Tests
             SaveRecord second = log.Saves[1];
             Assert.Equal("игрок вышел", second.Reason);
             Assert.Equal(2, second.Requests);
+            Assert.Equal(1ul, second.Replaces); // та же серия поводов: поколение входа заменено поколением ухода
+            Assert.Equal(new ulong[] { 2 }, new WorldFolder(storage, dir).ListGenerations());
             Assert.All(CharactersIn(storage, dir, 2, live), c => Assert.Equal(0, c.EntityId)); // оба вне мира
-            Assert.All(CharactersIn(storage, dir, 1, live), c => Assert.True(c.EntityId > 0)); // прошлое — до ухода
         }
 
         /// <summary>
@@ -168,7 +169,7 @@ namespace Orpheus.Tests
         // ---------- Сервер в потоке: настоящие вход и уход ----------
 
         /// <summary>
-        /// Сервер в потоке (локальная связь, хранилище с задвижкой, отладочное наполнение 2 МБ): вход нового персонажа
+        /// Сервер в потоке (локальная связь, хранилище с задвижкой, отладочное наполнение 512 КБ): вход нового персонажа
         /// сохраняется; уход во время долгой записи — в файле ≤ 1 с после её конца; вернувшийся вход не сохраняется;
         /// частые переподключения не плодят поколений; после перезапуска ушедший — на своём месте.
         /// </summary>
@@ -178,7 +179,7 @@ namespace Orpheus.Tests
             var storage = new GatedStorage();
             string world = MemoryDir();
             var clients = new List<NetClient>();
-            using (var srv = new Server(storage, world, create: true, "--debug-save-pad", "2048"))
+            using (var srv = new Server(storage, world, create: true, "--debug-save-pad", "512"))
             {
                 NetClient a = srv.Connect("первый", clients);
                 Assert.True(Pump(() => a.State == NetClientState.InGame && srv.Log.Count("игрок вошёл") == 1, 10_000, clients), "вход первого не сохранён");
