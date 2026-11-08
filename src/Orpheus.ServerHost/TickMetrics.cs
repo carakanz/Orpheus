@@ -127,6 +127,15 @@ namespace Orpheus.Server
             Total.AddTick(total, _partTs, _partAlloc, alloc);
         }
 
+        /// <summary>
+        /// Начатый <see cref="BeginTick"/> цикл оказался не тактом (пауза 0-036: такт мира не шагает) — не считать его ни в
+        /// тактах, ни в промежутках: следующий <see cref="BeginTick"/> промежуток не пишет (пауза — не простой).
+        /// </summary>
+        public void CancelTick()
+        {
+            _prevStart = -1;
+        }
+
         /// <summary>Начать новое окно.</summary>
         public void ResetWindow() => Window.Reset();
 
