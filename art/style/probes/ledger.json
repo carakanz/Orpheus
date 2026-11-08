@@ -459,11 +459,13 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a burly ancient Greek bandit swordsman, a hostile human enemy, full body standing figure from head to feet, stocky broad-shouldered build, big head, scruffy black beard, a red cloth headband, bare tanned muscular arms, a sleeveless dark brown leather tunic with a wide dark red sash, a short ragged red cloak, brown leather boots, holding a short leaf-shaped bronze sword in the right hand, standing in a neutral relaxed idle pose, no helmet, no shield, no armor, facing toward the viewer, front view, three-quarter view from above, feet near the bottom of the frame. high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "running",
+    "status": "done",
     "picker_url": "/?set=20261108-140327-62ecc8",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:35",
+    "error": "Timed out after 1800.0s waiting for prompt 035f7bb5-6bfb-4d88-a257-736d1903e2fe",
+    "rescued": "ComfyUI history 035f7bb5-6bfb-4d88-a257-736d1903e2fe (2026-11-08 14:42): сервер ассетов не дождался очереди ComfyUI"
   },
   {
     "id": "20261108-140327-5aced4",
@@ -475,11 +477,11 @@
     "count": 2,
     "style": "default",
     "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish. a burly ancient Greek bandit swordsman, a hostile human enemy, full body standing figure from head to feet, stocky broad-shouldered build, big head, scruffy black beard, a red cloth headband, bare tanned muscular arms, a sleeveless dark brown leather tunic with a wide dark red sash, a short ragged red cloak, brown leather boots, holding a short leaf-shaped bronze sword in the right hand, standing in a neutral relaxed idle pose, no helmet, no shield, no armor, seen from behind with the back turned to the viewer, back view, the back of the head visible, face not visible, three-quarter view from above, feet near the bottom of the frame. high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
-    "status": "queued",
+    "status": "running",
     "picker_url": "/?set=20261108-140327-5aced4",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-787542",
@@ -495,7 +497,7 @@
     "picker_url": "/?set=20261108-140327-787542",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-51c645",
@@ -511,7 +513,7 @@
     "picker_url": "/?set=20261108-140327-51c645",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-d18235",
@@ -527,7 +529,7 @@
     "picker_url": "/?set=20261108-140327-d18235",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-074277",
@@ -543,7 +545,7 @@
     "picker_url": "/?set=20261108-140327-074277",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-e99a42",
@@ -559,7 +561,7 @@
     "picker_url": "/?set=20261108-140327-e99a42",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-0fa2aa",
@@ -575,7 +577,7 @@
     "picker_url": "/?set=20261108-140327-0fa2aa",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-bcd61a",
@@ -591,7 +593,7 @@
     "picker_url": "/?set=20261108-140327-bcd61a",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-921a2e",
@@ -607,7 +609,7 @@
     "picker_url": "/?set=20261108-140327-921a2e",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-3fc119",
@@ -623,7 +625,7 @@
     "picker_url": "/?set=20261108-140327-3fc119",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-8819bd",
@@ -639,7 +641,7 @@
     "picker_url": "/?set=20261108-140327-8819bd",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-002332",
@@ -655,7 +657,7 @@
     "picker_url": "/?set=20261108-140327-002332",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-d65616",
@@ -671,7 +673,7 @@
     "picker_url": "/?set=20261108-140327-d65616",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-4592eb",
@@ -687,7 +689,7 @@
     "picker_url": "/?set=20261108-140327-4592eb",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-187a35",
@@ -703,7 +705,7 @@
     "picker_url": "/?set=20261108-140327-187a35",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-717112",
@@ -719,7 +721,7 @@
     "picker_url": "/?set=20261108-140327-717112",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-0d00d3",
@@ -735,7 +737,7 @@
     "picker_url": "/?set=20261108-140327-0d00d3",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-be8872",
@@ -751,7 +753,7 @@
     "picker_url": "/?set=20261108-140327-be8872",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-3965a3",
@@ -767,7 +769,7 @@
     "picker_url": "/?set=20261108-140327-3965a3",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-7eed80",
@@ -783,7 +785,7 @@
     "picker_url": "/?set=20261108-140327-7eed80",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-0e00e5",
@@ -799,7 +801,7 @@
     "picker_url": "/?set=20261108-140327-0e00e5",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-c58fee",
@@ -815,7 +817,7 @@
     "picker_url": "/?set=20261108-140327-c58fee",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140327-78b67d",
@@ -831,7 +833,7 @@
     "picker_url": "/?set=20261108-140327-78b67d",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140328-d72a4c",
@@ -847,7 +849,7 @@
     "picker_url": "/?set=20261108-140328-d72a4c",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140328-ebccf7",
@@ -863,7 +865,7 @@
     "picker_url": "/?set=20261108-140328-ebccf7",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140328-cb32a2",
@@ -879,7 +881,7 @@
     "picker_url": "/?set=20261108-140328-cb32a2",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140328-5fe956",
@@ -895,7 +897,7 @@
     "picker_url": "/?set=20261108-140328-5fe956",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   },
   {
     "id": "20261108-140328-8a9c7b",
@@ -911,6 +913,6 @@
     "picker_url": "/?set=20261108-140328-8a9c7b",
     "queued": "2026-11-08 14:03",
     "images": [],
-    "checked": "2026-11-08 14:07"
+    "checked": "2026-11-08 14:42"
   }
 ]

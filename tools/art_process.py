@@ -610,6 +610,13 @@ def cmd_assets(set_files: list[str], sheet: Path, review: Path | None) -> int:
     return 1 if failed else 0
 
 
+def sheet_floor() -> Image.Image:
+    """Пол луга для листа: уголок заглушки закрыт соседним куском, иначе он повторяется на каждом тайле."""
+    floor = Image.open(TEMP_DIR / "TEMP_tile_meadow.png").convert("RGBA")
+    floor.paste(floor.crop((MARK_SIZE, 0, 2 * MARK_SIZE, MARK_SIZE)), (0, 0))
+    return floor
+
+
 def _font(px: int):
     from PIL import ImageFont
     try:
@@ -639,7 +646,7 @@ def scene(assets: list[Image.Image], floor: Image.Image, tile_px: int, cols: int
 def build_sheet_1024(made: list[tuple[str, dict, Image.Image]], waiting: list[tuple[str, dict]], path: Path) -> None:
     """Лист сверки 1-024 (карточка, шаг 4): все заглушки при 48 px на тайл (экран 1080p) на полу луга."""
     t = 48
-    floor = Image.open(TEMP_DIR / "TEMP_tile_meadow.png").convert("RGBA")
+    floor = sheet_floor()
     font, small = _font(15), _font(12)
     by = {spec["name"]: im for _, spec, im in made}
     orpheus = Image.open(TEMP_DIR / "TEMP_char_orpheus.png").convert("RGBA")
@@ -763,7 +770,7 @@ def build_sheet_1024(made: list[tuple[str, dict, Image.Image]], waiting: list[tu
 
 def build_review(cand: list[tuple[str, list[tuple[str, Image.Image]]]], path: Path) -> None:
     """Все скачанные варианты каждого предмета при 96 px на тайл — чтобы выбрать `pick` в наборе."""
-    floor = Image.open(TEMP_DIR / "TEMP_tile_meadow.png").convert("RGBA")
+    floor = sheet_floor()
     font = _font(12)
     rows = [(k, [(n, scene([im], floor, 96, 2)) for n, im in alts]) for k, alts in cand]
     w = max(220 + sum(c.width + 10 for _, c in cells) for _, cells in rows) if rows else 400
