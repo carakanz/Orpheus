@@ -295,6 +295,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Токен хозяина не тот (0-024).</summary>
         BadToken = 5,
+
+        /// <summary>Имя занято (0-035, docs/07 7.3): игрок с этим именем сейчас в мире, или так зовут персонажа хозяина.</summary>
+        NameTaken = 6,
     }
 
     /// <summary>Вход отклонён: причина и версия сервера — для «Версии не совпадают: у сервера …, у тебя …».</summary>
@@ -319,7 +322,7 @@ namespace Orpheus.Net.Protocol
         {
             var r = Codec.Begin(src, MessageType.LoginReject);
             byte reason = r.ReadByte();
-            if (reason < (byte)LoginRejectReason.VersionMismatch || reason > (byte)LoginRejectReason.BadToken)
+            if (reason < (byte)LoginRejectReason.VersionMismatch || reason > (byte)LoginRejectReason.NameTaken)
             {
                 throw new ProtocolException($"Отказ входа: причина {reason}.");
             }
@@ -349,6 +352,8 @@ namespace Orpheus.Net.Protocol
                     return "Имя не подходит: 1–32 байта";
                 case LoginRejectReason.BadToken:
                     return "Токен хозяина не подходит: мир открыт другой игрой";
+                case LoginRejectReason.NameTaken:
+                    return "Имя занято: в этом мире так зовут другого героя";
                 default:
                     return "Вход не удался";
             }

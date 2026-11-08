@@ -197,6 +197,14 @@ namespace Orpheus.Server
                     result.LoadedNumber = opened.Loaded.Number;
                 }
 
+                // Персонажи мира (0-035): бывшие в мире на такте сохранения — теперь вне мира, их места — за ключом.
+                // До ботов: боты берут загруженные сущности по порядку.
+                CharacterRoster characters = CharacterRoster.Restore(opened.Loaded?.Characters, sim);
+                if (characters.Count > 0)
+                {
+                    log.Info(sim.Tick, "save", "персонажи мира", ("characters", characters.Count), ("entities", sim.EntityCount));
+                }
+
                 result.StartTick = sim.Tick;
 
                 SimBot[] bots = Array.Empty<SimBot>();
@@ -245,6 +253,7 @@ namespace Orpheus.Server
                     saver = new WorldSaver(opened.Folder, opened.BaseSha!, opened.Name, log, o.AutosaveSeconds, sim.Tick, opened.Loaded != null, crash, o.DebugSavePadKb)
                     {
                         WaitForPrevious = o.Sim,
+                        Characters = characters.Capture,
                     };
                 }
 
@@ -259,6 +268,9 @@ namespace Orpheus.Server
                 if (net != null)
                 {
                     net.GenerationHash = opened.GenerationHash;
+                    net.Characters = characters;
+                    // 6.4, 7.5: персонаж пишется в сохранение в течение 1 с после ухода (идёт запись — со следующей).
+                    net.CharacterLeft = _ => saver?.SaveNow(sim, "игрок вышел");
                 }
 
                 HostSession? host = net != null && mux != null ? SetUpHost(o, opened, sim, net, mux, transport!.LocalPort, () => saver, log, result) : null;
