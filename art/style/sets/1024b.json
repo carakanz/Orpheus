@@ -1,0 +1,532 @@
+{
+  "set": "1024b",
+  "about": "1-024: оружие и инструменты (в руке и иконкой), постройки, иконки материалов, куст, гранит, медь — шаблон STYLE.md без перечня палитры (объекты), цвета в описании предмета, серое — на голубом фоне (порог cover). Заглушки: tools/art_process.py assets.",
+  "count": 1,
+  "style": "default",
+  "common": {
+    "camera_object": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_object_blue": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat solid light sky-blue background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_item": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees, a single hand-held item lying diagonally across the frame from the lower left corner to the upper right corner, handle at the lower left, large in the frame, the whole item fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no hands, no person, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_item_blue": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees, a single hand-held item lying diagonally across the frame from the lower left corner to the upper right corner, handle at the lower left, large in the frame, the whole item fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat solid light sky-blue background, no hands, no person, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_material": "a single small game inventory item centered in the frame, seen from above at a three-quarter angle like in a top-down survival crafting game, large in the frame, the whole item fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_material_blue": "a single small game inventory item centered in the frame, seen from above at a three-quarter angle like in a top-down survival crafting game, large in the frame, the whole item fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat solid light sky-blue background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_wall": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees, the top surface and the front face both visible, a single straight building section centered in the frame and facing the viewer squarely, the whole section fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_wall_blue": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees, the top surface and the front face both visible, a single straight building section centered in the frame and facing the viewer squarely, the whole section fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat solid light sky-blue background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_floor": "a full-frame painting of open ground seen from straight above, like looking down at your feet, the ground continues past all four edges of the picture and is cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark"
+  },
+  "variants": [
+    {
+      "key": "b_inkcel",
+      "title": "Б — контур и плоский цвет",
+      "note": "объекты: стиль без перечня палитры",
+      "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, smooth vector-like finish"
+    }
+  ],
+  "subjects": [
+    {
+      "key": "sword",
+      "title": "деревянный меч",
+      "kind": "object",
+      "seed": 2431,
+      "camera": "camera_item",
+      "prompt": "a simple wooden sword, a straight flat blade carved from light golden tan wood with a darker wood grain, a short wooden crossguard, a grip wrapped in dark brown leather, a round wooden pommel, the blade tip at the upper right end",
+      "assets": [
+        {
+          "name": "TEMP_held_sword.png",
+          "mode": "held",
+          "size": [
+            128,
+            128
+          ],
+          "note": "деревянный меч в руке: 128x128, рукоять внизу по центру, остриё вверх"
+        },
+        {
+          "name": "TEMP_icon_sword.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка «деревянный меч» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "bow",
+      "title": "простой лук",
+      "kind": "object",
+      "seed": 2432,
+      "camera": "camera_item",
+      "prompt": "a simple short hunting bow, a single smoothly curved stave of golden-brown wood, a dark brown leather grip wrap in the middle, a thin pale bowstring, no arrow",
+      "assets": [
+        {
+          "name": "TEMP_held_bow.png",
+          "mode": "held",
+          "size": [
+            128,
+            128
+          ],
+          "note": "простой лук в руке: 128x128, рукоять внизу по центру, остриё вверх"
+        },
+        {
+          "name": "TEMP_icon_bow.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка «простой лук» 128x128"
+        }
+      ],
+      "min_cover": 0.04
+    },
+    {
+      "key": "arrow",
+      "title": "стрела",
+      "kind": "object",
+      "seed": 2433,
+      "camera": "camera_item",
+      "prompt": "a single arrow, a long thin straight wooden shaft, a sharp dark grey flint arrowhead at the upper right end, red and white feather fletching at the lower left end",
+      "assets": [
+        {
+          "name": "TEMP_proj_arrow.png",
+          "mode": "held",
+          "size": [
+            128,
+            128
+          ],
+          "note": "стрела в полёте: 128x128, остриё вверх, опора в центре",
+          "scale": 0.65
+        },
+        {
+          "name": "TEMP_icon_arrow.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка «стрела» 128x128"
+        }
+      ],
+      "min_cover": 0.02
+    },
+    {
+      "key": "pickaxe",
+      "title": "каменная кирка",
+      "kind": "object",
+      "seed": 2434,
+      "camera": "camera_item_blue",
+      "prompt": "a primitive stone pickaxe, a curved pointed double-ended head of chipped grey-white flint with teal-grey shadow sides, lashed with brown leather cord to a sturdy golden-brown wooden handle, the head at the upper right end",
+      "assets": [
+        {
+          "name": "TEMP_held_pickaxe.png",
+          "mode": "held",
+          "size": [
+            128,
+            128
+          ],
+          "note": "каменная кирка в руке: 128x128, рукоять внизу по центру, остриё вверх"
+        },
+        {
+          "name": "TEMP_icon_pickaxe.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка «каменная кирка» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "axe",
+      "title": "каменный топор",
+      "kind": "object",
+      "seed": 2435,
+      "camera": "camera_item_blue",
+      "prompt": "a primitive stone axe, a wedge-shaped head of chipped grey-white flint with teal-grey shadow sides, lashed with brown leather cord to a sturdy golden-brown wooden handle, the head at the upper right end",
+      "assets": [
+        {
+          "name": "TEMP_held_axe.png",
+          "mode": "held",
+          "size": [
+            128,
+            128
+          ],
+          "note": "каменный топор в руке: 128x128, рукоять внизу по центру, остриё вверх"
+        },
+        {
+          "name": "TEMP_icon_axe.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка «каменный топор» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "hammer",
+      "title": "молот",
+      "kind": "object",
+      "seed": 2436,
+      "camera": "camera_item",
+      "prompt": "a builder mallet hammer, a big barrel-shaped head of dark reddish-brown wood bound with two shiny orange copper bands, a sturdy golden-brown wooden handle, the head at the upper right end",
+      "assets": [
+        {
+          "name": "TEMP_held_hammer.png",
+          "mode": "held",
+          "size": [
+            128,
+            128
+          ],
+          "note": "молот в руке: 128x128, рукоять внизу по центру, остриё вверх"
+        },
+        {
+          "name": "TEMP_icon_hammer.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка «молот» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "floor_wood",
+      "title": "Пол деревянный",
+      "kind": "floor",
+      "seed": 2441,
+      "prompt": "a floor of wooden planks seen from straight above: long straight parallel boards of warm golden-brown wood running horizontally, thin dark gaps between the boards, a few knots and small wooden pegs, gentle natural variation of wood tones",
+      "assets": [
+        {
+          "name": "TEMP_tile_floor_wood.png",
+          "mode": "floor",
+          "size": [
+            128,
+            128
+          ],
+          "note": "пол деревянный (постройка) 128x128"
+        }
+      ]
+    },
+    {
+      "key": "floor_stone",
+      "title": "Пол каменный",
+      "kind": "floor",
+      "seed": 2442,
+      "prompt": "a paved floor of flat cut stone slabs seen from straight above: large rectangular slabs of pale grey-white limestone laid in rows with thin dark joints, slight teal-grey shading, a few small cracks, gentle natural variation of warm grey tones",
+      "assets": [
+        {
+          "name": "TEMP_tile_floor_stone.png",
+          "mode": "floor",
+          "size": [
+            128,
+            128
+          ],
+          "note": "пол каменный (постройка) 128x128"
+        }
+      ]
+    },
+    {
+      "key": "wall_wood",
+      "title": "Стена деревянная",
+      "kind": "object",
+      "seed": 2443,
+      "camera": "camera_wall",
+      "prompt": "a single straight section of a wooden palisade wall: a row of five thick vertical logs with sharpened pointed tops, warm brown bark and golden cut wood, bound together with two horizontal ropes, standing upright, about as wide as it is tall",
+      "assets": [
+        {
+          "name": "TEMP_obj_wall_wood.png",
+          "mode": "fill",
+          "size": [
+            128,
+            192
+          ],
+          "base": 192,
+          "fill_h": 192,
+          "note": "стена деревянная 128x192 (05 1.3), один спрайт на все соединения до ответа 1-020"
+        }
+      ]
+    },
+    {
+      "key": "wall_stone",
+      "title": "Стена каменная",
+      "kind": "object",
+      "seed": 2444,
+      "camera": "camera_wall_blue",
+      "prompt": "a single straight section of a thick dry stone wall: rough blocks of grey-white limestone stacked in courses with dark joints, a flat top of capstones, teal-grey shadow on the front face, about as wide as it is tall",
+      "assets": [
+        {
+          "name": "TEMP_obj_wall_stone.png",
+          "mode": "fill",
+          "size": [
+            128,
+            192
+          ],
+          "base": 192,
+          "fill_h": 192,
+          "note": "стена каменная 128x192 (05 1.3), один спрайт на все соединения до ответа 1-020"
+        }
+      ]
+    },
+    {
+      "key": "fence",
+      "title": "Забор",
+      "kind": "object",
+      "seed": 2445,
+      "camera": "camera_wall",
+      "prompt": "a single short straight section of a low rustic wooden fence: two thick wooden posts and two horizontal split-log rails between them, warm brown wood, low and wider than tall",
+      "assets": [
+        {
+          "name": "TEMP_obj_fence.png",
+          "mode": "fill",
+          "size": [
+            128,
+            192
+          ],
+          "base": 184,
+          "fill_h": 112,
+          "note": "забор 128x192, ниже стены, на всю ширину тайла"
+        }
+      ]
+    },
+    {
+      "key": "door_closed",
+      "title": "Дверь закрыта",
+      "kind": "object",
+      "seed": 2450,
+      "camera": "camera_wall",
+      "prompt": "a single sturdy wooden door standing in a thick wooden door frame, the door closed, vertical planks of warm brown wood with two wooden crossbars and a rope ring handle, a flat stone threshold, the whole door frame in frame",
+      "assets": [
+        {
+          "name": "TEMP_obj_door_closed.png",
+          "mode": "fill",
+          "size": [
+            128,
+            192
+          ],
+          "base": 192,
+          "fill_h": 192,
+          "note": "дверь закрыта 128x192, в разрыве стены"
+        }
+      ]
+    },
+    {
+      "key": "door_open",
+      "title": "Дверь открыта",
+      "kind": "object",
+      "seed": 2450,
+      "camera": "camera_wall",
+      "prompt": "a single sturdy wooden door frame with the wooden door swung wide open to the side, the dark empty doorway visible through the frame, vertical planks of warm brown wood with two wooden crossbars, a flat stone threshold, the whole door frame in frame",
+      "assets": [
+        {
+          "name": "TEMP_obj_door_open.png",
+          "mode": "fill",
+          "size": [
+            128,
+            192
+          ],
+          "base": 192,
+          "fill_h": 192,
+          "note": "дверь открыта 128x192, в разрыве стены"
+        }
+      ]
+    },
+    {
+      "key": "torch",
+      "title": "Факел",
+      "kind": "object",
+      "seed": 2451,
+      "prompt": "a standing torch: a tall straight wooden pole stuck upright in a small pile of stones, at the top a bundle of rags soaked in resin burning with a bright orange and yellow flame outlined in dark plum-brown, the whole torch from base to flame tip in frame",
+      "assets": [
+        {
+          "name": "TEMP_obj_torch.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 178,
+          "note": "факел 128x192, опора — центр нижнего тайла"
+        }
+      ]
+    },
+    {
+      "key": "debris",
+      "title": "Обломки",
+      "kind": "object",
+      "seed": 2452,
+      "prompt": "a small low pile of rubble: broken wooden planks, splinters, a snapped log and a few rough stone chunks, lying flat on the ground, wider than tall",
+      "assets": [
+        {
+          "name": "TEMP_obj_debris.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 176,
+          "scale": 0.8,
+          "note": "обломки 128x192, опора — центр нижнего тайла"
+        }
+      ]
+    },
+    {
+      "key": "mat_wood",
+      "title": "Иконка: древесина",
+      "kind": "object",
+      "seed": 2461,
+      "camera": "camera_material",
+      "prompt": "a bundle of three short chopped wooden logs stacked together, warm brown bark, pale golden cut ends with growth rings",
+      "assets": [
+        {
+          "name": "TEMP_icon_mat_wood.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка материала «древесина» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "mat_stone",
+      "title": "Иконка: камень",
+      "kind": "object",
+      "seed": 2462,
+      "camera": "camera_material_blue",
+      "prompt": "a small heap of three rough chunks of grey-white stone with teal-grey shadow sides",
+      "assets": [
+        {
+          "name": "TEMP_icon_mat_stone.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка материала «камень» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "mat_resin",
+      "title": "Иконка: смола",
+      "kind": "object",
+      "seed": 2463,
+      "camera": "camera_material",
+      "prompt": "a lump of sticky golden-orange pine resin, glossy translucent amber with a bright highlight and a few drips",
+      "assets": [
+        {
+          "name": "TEMP_icon_mat_resin.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка материала «смола» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "mat_fiber",
+      "title": "Иконка: волокно",
+      "kind": "object",
+      "seed": 2464,
+      "camera": "camera_material",
+      "prompt": "a coiled bundle of plant fiber: a twisted hank of pale yellow-green flax fibers tied in the middle with a knot",
+      "assets": [
+        {
+          "name": "TEMP_icon_mat_fiber.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка материала «волокно» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "mat_copper_ore",
+      "title": "Иконка: медная руда",
+      "kind": "object",
+      "seed": 2465,
+      "camera": "camera_material",
+      "prompt": "a single chunk of rough dark brown rock with veins and nuggets of shiny orange copper metal and a few patches of green verdigris",
+      "assets": [
+        {
+          "name": "TEMP_icon_mat_copper_ore.png",
+          "mode": "icon",
+          "size": [
+            128,
+            128
+          ],
+          "note": "иконка материала «медная руда» 128x128"
+        }
+      ]
+    },
+    {
+      "key": "bush",
+      "title": "Куст",
+      "kind": "object",
+      "seed": 2471,
+      "prompt": "a round leafy shrub: a dense rounded bush of small bright leaf-green leaves with darker blue-green shadow, a few red berries, low and wider than tall, short woody brown stems at the base, the whole bush in frame",
+      "assets": [
+        {
+          "name": "TEMP_obj_bush.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 178,
+          "scale": 0.85,
+          "note": "куст 128x192, опора — центр нижнего тайла (1-017)"
+        }
+      ]
+    },
+    {
+      "key": "granite",
+      "title": "Гранит",
+      "kind": "object",
+      "seed": 2472,
+      "camera": "camera_object_blue",
+      "prompt": "a large blocky granite boulder: an angular chunky block with a flat top, speckled pink-grey granite with black and white flecks, a darker teal-grey shadow side, a few cracks",
+      "assets": [
+        {
+          "name": "TEMP_obj_granite.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 182,
+          "note": "гранит 128x192, опора — центр нижнего тайла (1-017)"
+        }
+      ]
+    },
+    {
+      "key": "copper",
+      "title": "Залежь меди",
+      "kind": "object",
+      "seed": 2473,
+      "prompt": "a copper ore outcrop: a low chunky mound of dark brown rock with thick veins and big nuggets of shiny orange copper metal and patches of green verdigris, a few small loose chunks at its base",
+      "assets": [
+        {
+          "name": "TEMP_obj_copper.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 182,
+          "note": "залежь меди 128x192, опора — центр нижнего тайла (1-017)"
+        }
+      ]
+    }
+  ]
+}

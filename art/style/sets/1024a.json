@@ -1,0 +1,141 @@
+{
+  "set": "1024a",
+  "about": "1-024: разбойники вехи 1 (мечник и лучник, вниз / вверх / вбок, нейтральная поза) — шаблон STYLE.md, полный стиль с палитрой (персонажи), цвета в описании предмета. Заглушки: tools/art_process.py assets.",
+  "count": 2,
+  "style": "default",
+  "common": {
+    "camera_object": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_object_blue": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat solid light sky-blue background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_item": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees, a single hand-held item lying diagonally across the frame from the lower left corner to the upper right corner, handle at the lower left, large in the frame, the whole item fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no hands, no person, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_item_blue": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees, a single hand-held item lying diagonally across the frame from the lower left corner to the upper right corner, handle at the lower left, large in the frame, the whole item fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat solid light sky-blue background, no hands, no person, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_material": "a single small game inventory item centered in the frame, seen from above at a three-quarter angle like in a top-down survival crafting game, large in the frame, the whole item fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_material_blue": "a single small game inventory item centered in the frame, seen from above at a three-quarter angle like in a top-down survival crafting game, large in the frame, the whole item fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat solid light sky-blue background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_wall": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees, the top surface and the front face both visible, a single straight building section centered in the frame and facing the viewer squarely, the whole section fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_wall_blue": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees, the top surface and the front face both visible, a single straight building section centered in the frame and facing the viewer squarely, the whole section fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat solid light sky-blue background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_floor": "a full-frame painting of open ground seen from straight above, like looking down at your feet, the ground continues past all four edges of the picture and is cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark"
+  },
+  "variants": [
+    {
+      "key": "b_inkcel",
+      "title": "Б — контур и плоский цвет",
+      "note": "персонажи: полный стиль",
+      "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish"
+    }
+  ],
+  "subjects": [
+    {
+      "key": "bandit_sword_down",
+      "title": "Разбойник-мечник, вниз",
+      "kind": "object",
+      "seed": 2410,
+      "prompt": "a burly ancient Greek bandit swordsman, a hostile human enemy, full body standing figure from head to feet, stocky broad-shouldered build, big head, scruffy black beard, a red cloth headband, bare tanned muscular arms, a sleeveless dark brown leather tunic with a wide dark red sash, a short ragged red cloak, brown leather boots, holding a short leaf-shaped bronze sword in the right hand, standing in a neutral relaxed idle pose, no helmet, no shield, no armor, facing toward the viewer, front view, three-quarter view from above, feet near the bottom of the frame",
+      "assets": [
+        {
+          "name": "TEMP_char_bandit_sword_down.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 186,
+          "note": "разбойник-мечник, вниз, персонаж 128x192, опора внизу по центру"
+        }
+      ]
+    },
+    {
+      "key": "bandit_sword_up",
+      "title": "Разбойник-мечник, вверх",
+      "kind": "object",
+      "seed": 2410,
+      "prompt": "a burly ancient Greek bandit swordsman, a hostile human enemy, full body standing figure from head to feet, stocky broad-shouldered build, big head, scruffy black beard, a red cloth headband, bare tanned muscular arms, a sleeveless dark brown leather tunic with a wide dark red sash, a short ragged red cloak, brown leather boots, holding a short leaf-shaped bronze sword in the right hand, standing in a neutral relaxed idle pose, no helmet, no shield, no armor, seen from behind with the back turned to the viewer, back view, the back of the head visible, face not visible, three-quarter view from above, feet near the bottom of the frame",
+      "assets": [
+        {
+          "name": "TEMP_char_bandit_sword_up.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 186,
+          "note": "разбойник-мечник, вверх, персонаж 128x192, опора внизу по центру"
+        }
+      ]
+    },
+    {
+      "key": "bandit_sword_side",
+      "title": "Разбойник-мечник, вбок",
+      "kind": "object",
+      "seed": 2410,
+      "prompt": "a burly ancient Greek bandit swordsman, a hostile human enemy, full body standing figure from head to feet, stocky broad-shouldered build, big head, scruffy black beard, a red cloth headband, bare tanned muscular arms, a sleeveless dark brown leather tunic with a wide dark red sash, a short ragged red cloak, brown leather boots, holding a short leaf-shaped bronze sword in the right hand, standing in a neutral relaxed idle pose, no helmet, no shield, no armor, in side profile facing to the right, side view, three-quarter view from above, feet near the bottom of the frame",
+      "assets": [
+        {
+          "name": "TEMP_char_bandit_sword_side.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 186,
+          "note": "разбойник-мечник, вбок, персонаж 128x192, опора внизу по центру"
+        }
+      ]
+    },
+    {
+      "key": "bandit_archer_down",
+      "title": "Разбойник-лучник, вниз",
+      "kind": "object",
+      "seed": 2420,
+      "prompt": "a lean tall ancient Greek bandit archer, a hostile human enemy, full body standing figure from head to feet, slim wiry build, big head, a dark green hooded cloak with the hood up, the lower face covered by a tan cloth scarf, a light brown leather vest over a green tunic, dark trousers wrapped with leather straps, holding a tall curved wooden longbow upright in one hand, a quiver of red-fletched arrows on the back, standing in a neutral relaxed idle pose, no helmet, no armor, facing toward the viewer, front view, three-quarter view from above, feet near the bottom of the frame",
+      "assets": [
+        {
+          "name": "TEMP_char_bandit_archer_down.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 186,
+          "note": "разбойник-лучник, вниз, персонаж 128x192, опора внизу по центру"
+        }
+      ]
+    },
+    {
+      "key": "bandit_archer_up",
+      "title": "Разбойник-лучник, вверх",
+      "kind": "object",
+      "seed": 2420,
+      "prompt": "a lean tall ancient Greek bandit archer, a hostile human enemy, full body standing figure from head to feet, slim wiry build, big head, a dark green hooded cloak with the hood up, the lower face covered by a tan cloth scarf, a light brown leather vest over a green tunic, dark trousers wrapped with leather straps, holding a tall curved wooden longbow upright in one hand, a quiver of red-fletched arrows on the back, standing in a neutral relaxed idle pose, no helmet, no armor, seen from behind with the back turned to the viewer, back view, the back of the head visible, face not visible, three-quarter view from above, feet near the bottom of the frame",
+      "assets": [
+        {
+          "name": "TEMP_char_bandit_archer_up.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 186,
+          "note": "разбойник-лучник, вверх, персонаж 128x192, опора внизу по центру"
+        }
+      ]
+    },
+    {
+      "key": "bandit_archer_side",
+      "title": "Разбойник-лучник, вбок",
+      "kind": "object",
+      "seed": 2420,
+      "prompt": "a lean tall ancient Greek bandit archer, a hostile human enemy, full body standing figure from head to feet, slim wiry build, big head, a dark green hooded cloak with the hood up, the lower face covered by a tan cloth scarf, a light brown leather vest over a green tunic, dark trousers wrapped with leather straps, holding a tall curved wooden longbow upright in one hand, a quiver of red-fletched arrows on the back, standing in a neutral relaxed idle pose, no helmet, no armor, in side profile facing to the right, side view, three-quarter view from above, feet near the bottom of the frame",
+      "assets": [
+        {
+          "name": "TEMP_char_bandit_archer_side.png",
+          "mode": "object",
+          "size": [
+            128,
+            192
+          ],
+          "base": 186,
+          "note": "разбойник-лучник, вбок, персонаж 128x192, опора внизу по центру"
+        }
+      ]
+    }
+  ]
+}

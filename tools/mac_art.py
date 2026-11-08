@@ -71,7 +71,9 @@ def load_set(path):
 
 
 def build_prompt(data, variant, subject):
-    camera = data["common"]["camera_floor" if subject["kind"] == "floor" else "camera_object"]
+    # своя камера предмета (1-024): «camera» — ключ из common, например камера с контрастным фоном для серого
+    key = subject.get("camera") or ("camera_floor" if subject["kind"] == "floor" else "camera_object")
+    camera = data["common"][key]
     return f"{variant['prompt']}. {subject['prompt']}. {camera}"
 
 
