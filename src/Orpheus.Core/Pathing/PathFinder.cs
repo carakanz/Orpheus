@@ -19,8 +19,9 @@ namespace Orpheus.Core.Pathing
     /// </para>
     /// <para>
     /// Цель в окне — сначала заливка от цели (не больше <see cref="EnclosureFillLimit"/> тайлов): область
-    /// замкнута в окне и старт снаружи — A* не запускается, итог <see cref="PathStatus.Enclosed"/> (9.2: «сразу
-    /// упёрся»). Заливка — замена записей областей `05`, которых в вехе 0 нет.
+    /// замкнута в окне и старт снаружи — итог <see cref="PathStatus.Enclosed"/>, путь — к краю области, ближайшему к цели
+    /// (слово Автора 08.11, 0-034: «к краю, который ближе всего к игроку»): к проходимому тайлу вне области, ближайшему к
+    /// цели по тору, A* к нему. Заливка — замена записей областей `05`, которых в вехе 0 нет.
     /// </para>
     /// Без выделений после конструктора: все массивы — на окно, метки поиска вместо очистки.
     /// </summary>
@@ -74,6 +75,10 @@ namespace Orpheus.Core.Pathing
         private int _originY;
         private int _goalX;
         private int _goalY;
+        private int _fillMinX;
+        private int _fillMinY;
+        private int _fillMaxX;
+        private int _fillMaxY;
 
         public PathFinder(int maxExpanded = DefaultMaxExpanded, int enclosureFillLimit = DefaultEnclosureFillLimit)
         {
@@ -158,8 +163,20 @@ namespace Orpheus.Core.Pathing
             int goalIndex = goalInside ? _goalY * WindowSize + _goalX : -1;
             if (goalInside && GoalEnclosed(goalIndex))
             {
+                // К краю области, ближайшему к цели: тайл вне области — новая цель A*; итог — «замкнута» с путём к краю.
+                int edge = NearestOutside();
+                _goalX = edge % WindowSize;
+                _goalY = edge / WindowSize;
+                if (edge != StartIndex)
+                {
+                    AStar(edge, result);
+                }
+                else
+                {
+                    result.End = start;
+                }
+
                 result.Status = PathStatus.Enclosed;
-                result.End = start;
                 return PathStatus.Enclosed;
             }
 
@@ -293,12 +310,18 @@ namespace Orpheus.Core.Pathing
             int tail = 0;
             _fill[tail++] = (short)goalIndex;
             _flags[goalIndex] |= FlagFilled;
+            _fillMinX = _fillMaxX = goalIndex % WindowSize;
+            _fillMinY = _fillMaxY = goalIndex / WindowSize;
             bool enclosed = true;
             while (head < tail)
             {
                 int index = _fill[head++];
                 int x = index % WindowSize;
                 int y = index / WindowSize;
+                _fillMinX = Math.Min(_fillMinX, x);
+                _fillMaxX = Math.Max(_fillMaxX, x);
+                _fillMinY = Math.Min(_fillMinY, y);
+                _fillMaxY = Math.Max(_fillMaxY, y);
                 if (x == 0 || y == 0 || x == WindowSize - 1 || y == WindowSize - 1)
                 {
                     enclosed = false;
@@ -331,6 +354,54 @@ namespace Orpheus.Core.Pathing
 
             TotalFilled += tail;
             return enclosed;
+        }
+
+        /// <summary>
+        /// Проходимый тайл окна вне залитой области, ближайший к цели (квадрат расстояния в окне — оно же по тору); при равенстве —
+        /// ближе к старту, затем меньший индекс. Обход: рамка области целиком (r = 0: там бывают тайлы вне области), затем кольца
+        /// вокруг рамки; кольцо r лежит не ближе r к цели, поэтому обход кончается, как только r² больше лучшего. Старт проходим
+        /// и вне области — кандидат есть всегда.
+        /// </summary>
+        private int NearestOutside()
+        {
+            int best = -1;
+            long bestD = long.MaxValue;
+            long bestS = long.MaxValue;
+            for (int r = 0; r < WindowSize && (long)r * r <= bestD; r++)
+            {
+                int x0 = _fillMinX - r;
+                int x1 = _fillMaxX + r;
+                int y0 = _fillMinY - r;
+                int y1 = _fillMaxY + r;
+                for (int y = y0; y <= y1; y++)
+                {
+                    int step = r == 0 || y == y0 || y == y1 ? 1 : x1 - x0;
+                    for (int x = x0; x <= x1; x += step)
+                    {
+                        if (!InWindow(x, y))
+                        {
+                            continue;
+                        }
+
+                        int i = y * WindowSize + x;
+                        long d = Dist2ToGoal(i);
+                        if (d > bestD || CostAt(i) == PathCost.Blocked || (_flags[i] & FlagFilled) != 0)
+                        {
+                            continue; // CostAt — метка поиска на тайле, флаг заливки уже не старый
+                        }
+
+                        long sd = new Int2(x - WindowHalf, y - WindowHalf).LengthSquared;
+                        if (d < bestD || sd < bestS || (sd == bestS && i < best))
+                        {
+                            best = i;
+                            bestD = d;
+                            bestS = sd;
+                        }
+                    }
+                }
+            }
+
+            return best < 0 ? StartIndex : best;
         }
 
         // ---------- Окно ----------

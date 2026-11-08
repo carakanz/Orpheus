@@ -199,8 +199,7 @@ namespace Orpheus.Net.Session
         // Досягаемость с запасом 1/4 тайла: своя позиция — из снимка, сервер её уже обогнал.
         private bool InReach(WorldPos pos, TileCoord t)
         {
-            const int reach = EditRules.DigReachUnits - U / 4;
-            return Torus.Dist2(_shape, pos, EditRules.CenterOf(t)) <= (long)reach * reach;
+            return EditRules.InReach(_shape, pos, t, EditRules.DigReachUnits - U / 4);
         }
 
         private void NextRow()
@@ -259,7 +258,7 @@ namespace Orpheus.Net.Session
 
         private bool Dig(NetClient client, ClientWorld world, WorldPos pos, TileCoord t, ushort obj, bool inBand)
         {
-            if (!EditRules.IsDiggable(obj) || world.IsPredicted(t) || !InReach(pos, t))
+            if (!EditRules.IsDiggable(obj, client.DigTimes) || world.IsPredicted(t) || !InReach(pos, t))
             {
                 return false;
             }

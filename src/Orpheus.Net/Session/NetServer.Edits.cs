@@ -11,14 +11,16 @@ namespace Orpheus.Net.Session
     /// Правки тайлов от клиентов (docs/07, 3.7; 0-028): запросы «копать: начало / конец» и «поставить линию» по каналу 2,
     /// проверки сервера вехи 0, прогресс копания по кадрам ввода, ответ «принято» / «отказ: причина» каждому запросу.
     /// <list type="bullet">
-    /// <item><b>Копать.</b> Начало — проверка «что копать» и досягаемости 1,5 тайла (<see cref="EditRules.CheckDig"/>); прогресс
-    /// копится по кадрам ввода, шагнутым сервером, с зажатым <see cref="InputButtons.Dig"/> (время сервера, а не клиента).
-    /// Докопали (<see cref="EditRules.DigFrames"/>) — ещё раз досягаемость из позиции перед тактом и «тайл тот же, что в начале»
+    /// <item><b>Копать.</b> Начало — проверка «что копать» (время по <see cref="DigTimes"/>, 0 — «нельзя») и досягаемости
+    /// «персонаж + инструмент» (<see cref="EditRules.CheckDig"/>); прогресс копится по кадрам ввода, шагнутым сервером, с зажатым
+    /// <see cref="InputButtons.Dig"/> (время сервера, а не клиента). Докопали (<see cref="DigTimes.FramesOf"/> объекта, взятого в
+    /// начале) — ещё раз досягаемость из позиции перед тактом и «тайл тот же, что в начале»
     /// (иначе «пусто»), затем правка в такт (<c>Simulation.RequestPlayerEdit</c>). Новое начало до конца — прежнему «прервано»;
     /// конец (кнопку отпустили) — «прервано».</item>
     /// <item><b>Поставить.</b> Линия до 32 тайлов (<see cref="EditRules.Line"/>), каждый тайл — радиус 6, тайл свободен, не жидкость,
-    /// враг-манекен; не больше 20 тайлов/с (ведро: 32 тайла запаса, +20 в секунду). Существа и враги-сущности проверяет такт
-    /// после движения. Тайлы по порядку; часть — отказ, остальные встают (маска ответа).</item>
+    /// враг-манекен; предела «тайлов в секунду» нет (слово Автора 08.11, 0-034). Существа и враги-сущности проверяет такт
+    /// после движения. Тайлы по порядку; часть — отказ, остальные встают (маска ответа). Полна очередь такта или ждущих ответа
+    /// линий игрока (<see cref="MaxPendingPlaces"/>) — «очередь полна».</item>
     /// <item><b>Конфликт.</b> Два запроса на тайл в один такт — побеждает пришедший первым (порядок очереди такта), второй —
     /// «занято» (3.13 п. 8).</item>
     /// <item><b>Ответ</b> — после такта, когда исход известен; отказ до такта — сразу. Ответ есть на каждый запрос: персонажа нет —
@@ -28,13 +30,7 @@ namespace Orpheus.Net.Session
     /// </summary>
     public sealed partial class NetServer
     {
-        /// <summary>Ведро постановок: запас в третях тайла — 32 тайла (линия целиком).</summary>
-        public const int PlaceBucketThirds = EditRules.MaxLineTiles * 3;
-
-        /// <summary>Пополнение ведра за такт: 2 трети тайла → 20 тайлов в секунду (3.7).</summary>
-        public const int PlaceRefillThirdsPerTick = EditRules.PlaceTilesPerSecond * 3 / Simulation.TickRate;
-
-        /// <summary>Ждущих ответа постановок у игрока не больше (за такт) — сверх отказ «слишком быстро».</summary>
+        /// <summary>Ждущих ответа линий у игрока не больше (за такт) — сверх отказ «очередь полна».</summary>
         public const int MaxPendingPlaces = 16;
 
         private const int TagDig = 1 << 21;
@@ -47,6 +43,7 @@ namespace Orpheus.Net.Session
             public TileCoord DigTile;
             public ushort DigObj;
             public int DigProgress;
+            public int DigFrames;
 
             // Ждущий запрос копания (начало или конец) — действует с кадра PendingFrame (кадр запроса клиента).
             public bool HasPending;
@@ -54,8 +51,6 @@ namespace Orpheus.Net.Session
             public ushort PendingRequest;
             public TileCoord PendingTile;
             public uint PendingFrame;
-
-            public int PlaceThirds = PlaceBucketThirds;
 
             public readonly ushort[] PendingId = new ushort[MaxPendingPlaces];
             public readonly uint[] PendingMask = new uint[MaxPendingPlaces];
@@ -77,6 +72,12 @@ namespace Orpheus.Net.Session
 
         /// <summary>Докопано (правка копания ушла в такт).</summary>
         public long DigsCompleted { get; private set; }
+
+        /// <summary>
+        /// Таблица времени копания «база × модификатор» (0-034). Правится на ходу (база, модификатор объекта); у клиентов — своя
+        /// (<see cref="NetClient.DigTimes"/>), по умолчанию такая же. Идущее копание дописывает время, взятое в начале.
+        /// </summary>
+        public DigTimes DigTimes { get; } = new DigTimes();
 
         /// <summary>Байт ответов на правки.</summary>
         public long ReplyBytes { get; private set; }
@@ -163,7 +164,7 @@ namespace Orpheus.Net.Session
                 s.Digging = false;
             }
 
-            EditReply check = EditRules.CheckDig(_sim.World, pos, s.PendingTile);
+            EditReply check = EditRules.CheckDig(_sim.World, pos, s.PendingTile, DigTimes);
             if (check != EditReply.Accepted)
             {
                 Reply(p, s.PendingRequest, check, check, 0);
@@ -174,6 +175,7 @@ namespace Orpheus.Net.Session
             s.DigRequest = s.PendingRequest;
             s.DigTile = s.PendingTile;
             s.DigObj = _sim.World.GetObject(s.PendingTile);
+            s.DigFrames = DigTimes.FramesOf(s.DigObj);
             s.DigProgress = 0;
         }
 
@@ -188,7 +190,7 @@ namespace Orpheus.Net.Session
 
             if (s.PendingCount == MaxPendingPlaces)
             {
-                Reply(p, m.RequestId, EditReply.TooFast, EditReply.TooFast, 0);
+                Reply(p, m.RequestId, EditReply.QueueFull, EditReply.QueueFull, 0);
                 return;
             }
 
@@ -197,7 +199,7 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < n; i++)
             {
                 TileCoord t = _line[i];
-                EditReply check = s.PlaceThirds < 3 ? EditReply.TooFast : EditRules.CheckPlaceTile(_sim.World, pos, t, m.Obj);
+                EditReply check = EditRules.CheckPlaceTile(_sim.World, pos, t, m.Obj);
                 if (check == EditReply.Accepted && _hasDummy && EditRules.NeedsClearance(m.Obj) && EditRules.EnemyTooClose(_sim.Shape, _dummy.Position, t))
                 {
                     check = EditReply.EnemyNear;
@@ -208,7 +210,7 @@ namespace Orpheus.Net.Session
                 if (check == EditReply.Accepted &&
                     !_sim.RequestPlayerEdit(t, floor, m.Obj, true, BuildRecord.OfPlayer((ushort)p.EntityId, floor), p.EntityId, tag))
                 {
-                    check = EditReply.TooFast; // очередь такта полна
+                    check = EditReply.QueueFull; // очередь такта полна
                 }
 
                 if (check != EditReply.Accepted)
@@ -221,7 +223,6 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                s.PlaceThirds -= 3;
                 queued++;
             }
 
@@ -239,8 +240,8 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
-        /// План такта (из <see cref="PlanFrames"/>): ведро постановок +2/3 тайла; прогресс копания по кадрам такта с зажатым
-        /// копанием; докопали — проверки и правка в такт.
+        /// План такта (из <see cref="PlanFrames"/>): прогресс копания по кадрам такта с зажатым копанием; докопали — проверки и
+        /// правка в такт.
         /// </summary>
         private void AdvanceEdits(Player p, int slot, int frames)
         {
@@ -250,7 +251,6 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            s.PlaceThirds = Math.Min(PlaceBucketThirds, s.PlaceThirds + PlaceRefillThirdsPerTick);
             WorldPos pos = _sim.Entities[slot].Mover.Position;
             for (int i = 0; i < frames; i++)
             {
@@ -259,7 +259,7 @@ namespace Orpheus.Net.Session
                     ApplyPendingDig(p, s, pos);
                 }
 
-                if (s.Digging && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= EditRules.DigFrames)
+                if (s.Digging && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= s.DigFrames)
                 {
                     CompleteDig(p, s, pos);
                 }
@@ -270,7 +270,7 @@ namespace Orpheus.Net.Session
         private void CompleteDig(Player p, EditState s, WorldPos pos)
         {
             s.Digging = false;
-            EditReply check = EditRules.CheckDig(_sim.World, pos, s.DigTile);
+            EditReply check = EditRules.CheckDig(_sim.World, pos, s.DigTile, DigTimes);
             if (check == EditReply.Accepted && _sim.World.GetObject(s.DigTile) != s.DigObj)
             {
                 check = EditReply.Empty; // тайл не тот, что в начале копания (3.7)
@@ -279,7 +279,7 @@ namespace Orpheus.Net.Session
             if (check == EditReply.Accepted &&
                 !_sim.RequestPlayerEdit(s.DigTile, _sim.World.GetFloor(s.DigTile), ObjectId.Empty, false, default, p.EntityId, TagDig | (s.DigRequest << TagLineBits)))
             {
-                check = EditReply.TooFast;
+                check = EditReply.QueueFull;
             }
 
             if (check != EditReply.Accepted)

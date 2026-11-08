@@ -48,8 +48,17 @@ namespace Orpheus.Net.Session
         /// <summary>Тайл текущего копания.</summary>
         public TileCoord DigTile => _digTile;
 
-        /// <summary>Кадров копания насчитано своим вводом (0…<see cref="EditRules.DigFrames"/>).</summary>
+        /// <summary>Кадров копания насчитано своим вводом (0…<see cref="DigFrames"/>).</summary>
         public int DigProgress { get; private set; }
+
+        /// <summary>Кадров нужно на текущее копание: время объекта по <see cref="DigTimes"/>, взятое в начале (0 — неразрушим).</summary>
+        public int DigFrames { get; private set; }
+
+        /// <summary>
+        /// Таблица времени копания «база × модификатор» (0-034) — должна совпадать с таблицей сервера
+        /// (<see cref="NetServer.DigTimes"/>); по умолчанию такая же.
+        /// </summary>
+        public DigTimes DigTimes { get; } = new DigTimes();
 
         /// <summary>
         /// «Копать: начало» (канал 2): тайл <paramref name="tile"/>. Прежнее недокопанное копание сервер прервёт сам. Не в игре — 0.
@@ -69,6 +78,7 @@ namespace Orpheus.Net.Session
             _digRequest = id;
             _digTile = t;
             _digObj = World.World.GetObject(t);
+            DigFrames = DigTimes.FramesOf(_digObj);
             DigProgress = 0;
             SendRequest(new TileRequestMessage { RequestId = id, Op = TileOp.DigStart, Frame = _input.LastFrame + 1, From = t, To = t });
             return id;
@@ -151,7 +161,12 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            if (++DigProgress < EditRules.DigFrames)
+            if (DigFrames == 0)
+            {
+                return; // неразрушим (или тайл пуст) — копить нечего, ответ сервера придёт «нельзя» / «пусто»
+            }
+
+            if (++DigProgress < DigFrames)
             {
                 return;
             }

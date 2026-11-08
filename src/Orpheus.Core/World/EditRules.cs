@@ -1,4 +1,5 @@
 using System;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 
@@ -16,7 +17,7 @@ namespace Orpheus.Core.World
         /// <summary>«занято»: тайл в этом такте уже правлен пришедшим раньше (3.7 «Конфликт», `05` 1.4) или на нём постройка.</summary>
         Busy = 1,
 
-        /// <summary>«далеко»: копание дальше 1,5 тайла от центра персонажа, постановка — дальше радиуса 6.</summary>
+        /// <summary>«далеко»: копание дальше «персонаж + инструмент» (<see cref="Reach.DigUnits"/>), постановка — дальше радиуса 6.</summary>
         OutOfReach = 2,
 
         /// <summary>«пусто»: копать нечего — тайл уже пуст или не тот, что в начале копания (`07` 3.7 «Как играется»).</summary>
@@ -34,19 +35,26 @@ namespace Orpheus.Core.World
         /// <summary>«нужен настил» (`05` 1.3): пол — жидкость.</summary>
         NeedPlatform = 7,
 
-        /// <summary>«слишком быстро»: больше 20 тайлов в секунду (3.7) — строки в `05` нет, допущение 0-028.</summary>
-        TooFast = 8,
+        /// <summary>
+        /// «очередь полна»: очередь правок такта или ждущих ответа линий игрока заполнена (защита сервера, не правило игры).
+        /// Байт 8 прежде был «слишком быстро» (предел 20 тайлов/с); предел снят по слову Автора 08.11 (0-034), байт — тот же.
+        /// </summary>
+        QueueFull = 8,
 
         /// <summary>«прервано»: кнопку отпустили или начали копать другой тайл до конца копания (допущение 0-028).</summary>
         Interrupted = 9,
 
-        /// <summary>«нельзя»: не копается / не ставится в вехе 0, линия длиннее 32, испорченный запрос (допущение 0-028).</summary>
+        /// <summary>
+        /// «нельзя»: не копается (время копания 0 — неразрушим, 0-034) / не ставится в вехе 0, линия длиннее 32, испорченный
+        /// запрос (допущение 0-028).
+        /// </summary>
         NotAllowed = 10,
     }
 
     /// <summary>
     /// Правила правок тайлов вехи 0 (docs/07, 3.7; `05` 1.3–1.5) — одно место для сервера, клиента и ботов. Все числа —
-    /// <i>(прикидка)</i>; время копания скалы — вопрос <c>[док]</c> карточки 0-028, до ответа — <see cref="DigFrames"/>.
+    /// <i>(прикидка)</i>; время копания — таблица <see cref="DigTimes"/> «база × модификатор», досягаемость — <see cref="Reach"/>
+    /// (слово Автора 08.11, 0-034).
     /// Ярус инструмента, зоны `01`, права, ресурсы и инвентарь — не в вехе 0 (допущения 0-028, backlog <c>[док]</c>).
     /// </summary>
     public static class EditRules
@@ -54,22 +62,16 @@ namespace Orpheus.Core.World
         private const int U = Torus.SubTilesPerTile;
 
         /// <summary>
-        /// Время копания природного объекта — кадров ввода 60 Гц с зажатой кнопкой копания: 15 = 0,25 с
-        /// <i>(прикидка 0-028; `[док]`: чисел копания в вехе 0 нет)</i>. Одно место на всё.
+        /// Досягаемость копания — «персонаж + инструмент» (<see cref="Reach.DigUnits"/>, 0-034): от центра персонажа до ближайшей
+        /// точки тайла, в единицах.
         /// </summary>
-        public const int DigFrames = 15;
-
-        /// <summary>Досягаемость копания — 1,5 тайла от центра персонажа до центра тайла (`05` 1.3), в единицах.</summary>
-        public const int DigReachUnits = U * 3 / 2;
+        public const int DigReachUnits = Reach.DigUnits;
 
         /// <summary>Радиус постановки — 6 тайлов от тайла персонажа по оси максимума (квадрат 13 × 13, `05` 1.3).</summary>
         public const int PlaceRadiusTiles = 6;
 
         /// <summary>Линия постановки — до 32 тайлов (`05` 1.5).</summary>
         public const int MaxLineTiles = 32;
-
-        /// <summary>Постановок не больше 20 тайлов в секунду (3.7).</summary>
-        public const int PlaceTilesPerSecond = 20;
 
         /// <summary>Непроходимое и ловушку — не ближе 2 тайлов от центра врага до центра тайла (`05` 1.3), в единицах.</summary>
         public const int EnemyClearanceUnits = 2 * U;
@@ -87,7 +89,7 @@ namespace Orpheus.Core.World
                 case EditReply.EnemyNear: return "враг ближе 2 тайлов";
                 case EditReply.DigFirst: return "сначала выкопать";
                 case EditReply.NeedPlatform: return "нужен настил";
-                case EditReply.TooFast: return "слишком быстро";
+                case EditReply.QueueFull: return "очередь полна";
                 case EditReply.Interrupted: return "прервано";
                 default: return "нельзя";
             }
@@ -109,9 +111,20 @@ namespace Orpheus.Core.World
         /// <summary>Центр тайла в единицах мира.</summary>
         public static WorldPos CenterOf(TileCoord t) => new WorldPos(t.X * U + U / 2, t.Y * U + U / 2);
 
-        /// <summary>Тайл в досягаемости копания: центр персонажа — центр тайла ≤ 1,5 тайла, по тору.</summary>
-        public static bool InDigReach(in MapShape map, WorldPos center, TileCoord tile) =>
-            Torus.Dist2(map, center, CenterOf(Torus.Wrap(map, tile))) <= (long)DigReachUnits * DigReachUnits;
+        /// <summary>Тайл в досягаемости копания: от центра персонажа до ближайшей точки тайла ≤ <see cref="DigReachUnits"/>, по тору.</summary>
+        public static bool InDigReach(in MapShape map, WorldPos center, TileCoord tile) => InReach(map, center, tile, DigReachUnits);
+
+        /// <summary>
+        /// От <paramref name="center"/> до ближайшей точки тайла (квадрат стороной 1 т) не дальше <paramref name="reachUnits"/>, по
+        /// тору. Внутри тайла — 0.
+        /// </summary>
+        public static bool InReach(in MapShape map, WorldPos center, TileCoord tile, int reachUnits)
+        {
+            Int2 d = Torus.Delta(map, center, CenterOf(Torus.Wrap(map, tile)));
+            long dx = Math.Max(0, Math.Abs(d.X) - U / 2);
+            long dy = Math.Max(0, Math.Abs(d.Y) - U / 2);
+            return dx * dx + dy * dy <= (long)reachUnits * reachUnits;
+        }
 
         /// <summary>Тайл в радиусе постановки: от тайла персонажа ≤ 6 по оси максимума, по тору (`05` 1.4: через шов — тоже).</summary>
         public static bool InPlaceRadius(in MapShape map, WorldPos center, TileCoord tile)
@@ -155,10 +168,14 @@ namespace Orpheus.Core.World
         /// <summary>Непроходимый объект: его не ставят на тайл с существом (ловушка — проходима, на существо можно).</summary>
         public static bool BlocksCreature(ushort obj) => !ObjectId.IsPassable(obj);
 
+        /// <summary>Объект копается по таблице <paramref name="times"/>: <see cref="IsDiggable"/> и время копания не 0.</summary>
+        public static bool IsDiggable(ushort obj, DigTimes times) => IsDiggable(obj) && times.FramesOf(obj) > 0;
+
         /// <summary>
-        /// Проверка копания по тайлу мира (без сущностей): что копать и досягаемость. Принято — <see cref="EditReply.Accepted"/>.
+        /// Проверка копания по тайлу мира (без сущностей): что копать (время по <paramref name="times"/>; 0 — «нельзя») и
+        /// досягаемость. Принято — <see cref="EditReply.Accepted"/>.
         /// </summary>
-        public static EditReply CheckDig(WorldModel world, WorldPos center, TileCoord tile)
+        public static EditReply CheckDig(WorldModel world, WorldPos center, TileCoord tile, DigTimes times)
         {
             if (!InDigReach(world.Shape, center, tile))
             {
@@ -171,7 +188,7 @@ namespace Orpheus.Core.World
                 return EditReply.Empty;
             }
 
-            return IsDiggable(obj) ? EditReply.Accepted : EditReply.NotAllowed;
+            return IsDiggable(obj, times) ? EditReply.Accepted : EditReply.NotAllowed;
         }
 
         /// <summary>
