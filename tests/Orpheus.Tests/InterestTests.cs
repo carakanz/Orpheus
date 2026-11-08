@@ -48,11 +48,10 @@ namespace Orpheus.Tests
             var sim = new Simulation(world, maxEntities: entities);
             var t = new NetTests.ScriptedTransport();
             var server = new NetServer(t, sim, n => ServerRun.SpawnPoint(world.Shape, n), 8, NetModule.Version);
-            byte[] login = NetTests.Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" }.Write(b));
             for (int peer = 1; peer <= 8; peer++)
             {
                 t.Connect(peer);
-                t.Push(peer, NetChannel.Facts, login);
+                t.Push(peer, NetChannel.Facts, NetTests.Encode(b => new LoginMessage { Version = NetModule.Version, Name = "p" + peer }.Write(b))); // имена разные (0-035)
             }
 
             server.Poll(0);

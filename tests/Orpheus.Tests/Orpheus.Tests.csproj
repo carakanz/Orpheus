@@ -28,4 +28,9 @@
     <ProjectReference Include="..\..\tools\orpheus-save\orpheus-save.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- «Золотые» сохранения (docs/07 6.7): настоящие файлы старых форматов, записанные старыми сборками (0-035). -->
+    <None Include="Golden\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
