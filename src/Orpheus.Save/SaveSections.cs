@@ -58,6 +58,13 @@ namespace Orpheus.Save
             public const int GeneratorVersion = 6;
             public const int BaseSha256 = 7;
             public const int NextEntityId = 8;
+
+            /// <summary>
+            /// Поколение, которое это сохранение заменяет (0-037, серия поводов «вход/уход»); нет поля — 0. Пишется только
+            /// у заменяющих: по нему старт узнаёт заменённое, не удалённое из-за обрыва, и убирает его, а не поколение
+            /// автосохранения (<see cref="WorldFolder.Recover"/>).
+            /// </summary>
+            public const int Replaces = 9;
         }
 
         /// <summary>Раздел ЧАНКИ: повторяющееся поле <see cref="Chunk"/> — вложенная запись чанка.</summary>
@@ -162,7 +169,8 @@ namespace Orpheus.Save
             .Field(WorldField.Wraps, "тор")
             .Field(WorldField.GeneratorVersion, "версия генератора")
             .Field(WorldField.BaseSha256, "SHA-256 снимка генерации")
-            .Field(WorldField.NextEntityId, "следующий номер сущности");
+            .Field(WorldField.NextEntityId, "следующий номер сущности")
+            .Field(WorldField.Replaces, "заменяет поколение");
 
         private static readonly RecordSchema ChunksSchema = new RecordSchema()
             .Field(ChunksField.Chunk, "чанк", new RecordSchema()

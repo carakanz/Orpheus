@@ -182,6 +182,69 @@ namespace Orpheus.Tests
             Assert.Equal(stage == "Writing" ? 1 : 0, DamagedFiles(world).Length);
         }
 
+        /// <summary>
+        /// Обрыв внутри заменяющего сохранения (0-037, з. 1 проверки): поводы каждые 10 тактов (<c>--debug-save-request</c>,
+        /// автосохранение 120 с — не мешает) — сохранения запуска идут одной серией, 2-е заменяет 1-е, 3-е заменяет 2-е; на
+        /// 3-м процесс замирает в заданный миг и снимается. <paramref name="autosaves"/>: в папке до этого два поколения
+        /// автосохранений (1, 2 — их серия не трогает); без них в папке только поколения серии — опыт П, где удаление
+        /// заменённого до записи (мутация М1) оставляло один огрызок и «Все поколения мира повреждены».
+        /// </summary>
+        /// <param name="loadIndex">Какое по счёту сохранение второго запуска обязано загрузиться (0 — первое).</param>
+        /// <param name="gens">Поколения в папке сразу после убийства.</param>
+        /// <param name="gensAfter">Поколения после перезапуска: заменённое, не успевшее удалиться, убрано, автосохранения — на месте.</param>
+        [Theory]
+        [Trait("Category", "Big")]
+        [InlineData("writing:50@3", true, 1, "1,2,4", "1,2,4")]
+        [InlineData("written@3", true, 2, "1,2,4", "1,2,5")]
+        [InlineData("flushed@3", true, 2, "1,2,4", "1,2,5")]
+        [InlineData("moved@3", true, 2, "1,2,4,5", "1,2,5")]
+        [InlineData("pruned@3", true, 2, "1,2,5", "1,2,5")]
+        [InlineData("writing:50@3", false, 1, "2", "2")]
+        [InlineData("moved@3", false, 2, "2,3", "3")]
+        public void D00_Save_Kill_ReplacingSave_EachStage_LoadsNewestIntact(string plan, bool autosaves, int loadIndex, string gens, string gensAfter)
+        {
+            string world = World("replace-" + (autosaves ? "a-" : "s-") + plan.Replace(':', '-').Replace('@', '_'));
+            if (autosaves)
+            {
+                var first = new List<string>();
+                Assert.Equal(0, RunServer(world, RunArgs(60, create: true, plan: "moved@99"), killOnCrash: false, first, out _));
+                Assert.Equal(new ulong[] { 1, 2 }, Generations(world));
+            }
+
+            var log = new List<string>();
+            RunServer(world, ReplaceArgs(create: !autosaves, plan), killOnCrash: true, log, out _);
+            List<(ulong Number, long Tick, string Hash)> saves = SaveBegins(log);
+            Assert.True(saves.Count >= 3, $"сохранений меньше трёх: {string.Join(" | ", log)}");
+            (string stage, _, _) = CrashPoint(log);
+            ulong[] afterKill = Generations(world);
+
+            // Сначала — открывается ли мир вообще (с М1 при серии без автосохранений — нет), потом — папка.
+            var witness = new List<string>();
+            int code = RunServer(world, WitnessArgs(), killOnCrash: false, witness, out string stdout);
+            Assert.True(code == 0, $"мир не открылся (код {code}), в папке после обрыва {string.Join(",", afterKill)}: {stdout}");
+            Assert.Equal(ParseNumbers(gens), afterKill);
+            (ulong number, long tick, string hash) = LoadedLine(witness);
+            (ulong wantNumber, long wantTick, string wantHash) = saves[loadIndex];
+            Assert.Equal(wantNumber, number);
+            Assert.Equal(wantTick, tick);
+            Assert.Equal(wantHash, hash); // боты — сущности, не персонажи: хэш загруженного равен хэшу на начале записи
+
+            Assert.Empty(TmpFiles(world));
+            Assert.Equal(ParseNumbers(gensAfter), Generations(world));
+            Assert.Equal(stage == "Writing" ? 1 : 0, DamagedFiles(world).Length);
+        }
+
+        /// <summary>Запуск с поводами каждые 10 тактов: автосохранение 120 с, наполнение — как у остальных.</summary>
+        private static string[] ReplaceArgs(bool create, string plan)
+        {
+            var args = new List<string>(RunArgs(200, create, plan));
+            int at = args.IndexOf("--autosave");
+            args[at + 1] = "120";
+            args.Add("--debug-save-request");
+            args.Add("10");
+            return args.ToArray();
+        }
+
         [Fact]
         [Trait("Category", "Big")]
         public void D00_Save_Kill_FirstGeneration_RestartRefuses_AndLeavesFilesAlone()

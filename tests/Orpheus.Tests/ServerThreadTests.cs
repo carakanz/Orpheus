@@ -151,6 +151,114 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// Пауза в режиме «сервер в потоке» (0-036; цикл <see cref="ServerHost"/>): клиент по локальной связи ставит паузу на 3 с
+        /// и снимает — в паузе такт мира стоит (такт сервера за прогон меньше времени на длину паузы), клиент остаётся в игре и
+        /// после продолжает получать снимки; автосохранение раз в 1 с мира (<c>--autosave 1</c>) в паузе не идёт — интервал по
+        /// тактам мира, а не по циклам сервера (мутация П4 проверки 0-036: два автосохранения одного такта). Циклы паузы —
+        /// не такты: в метриках времени такта их нет (з. 3 проверки).
+        /// </summary>
+        [Fact]
+        public void D0036_ServerThread_Pause3s_TicksStand_NoAutosavesInPause()
+        {
+            var storage = new MemoryStorage();
+            string world = Path.Combine(_dir, "world-pause");
+            var log = new CaptureLog();
+            LoopbackTransport serverLink = LoopbackTransport.CreateServer(4);
+            var services = new ServerHostServices
+            {
+                Log = log,
+                Storage = storage,
+                CreateClock = rate => new PcTickClock(rate * Speed),
+                LocalTransport = serverLink,
+            };
+            ServerOptions o = ServerOptions.Parse(new[] { "--world", world, "--create", "--seed", "36", "--size", "1024", "--autosave", "1", "--metrics", "0" });
+
+            const double playSec = 1.5, pauseSec = 3;
+            ServerResult res;
+            long pauseFromUs = -1, pauseToUs = -1, snapshotsAtResume = 0, snapshotsEnd;
+            using (ServerThread host = ServerThread.Start(o, services))
+            {
+                Assert.True(SpinWait.SpinUntil(() => host.IsReady || host.HasExited, 30_000) && host.IsReady,
+                    $"сервер в потоке не готов: {host.Error?.Message} {string.Join(" | ", log.Errors)}");
+                using var clientLink = LoopbackTransport.ConnectTo(serverLink);
+                var client = new NetClient(clientLink, LoopbackTransport.ServerPeer, "одиночка", NetModule.Version);
+                var clock = Stopwatch.StartNew();
+                long inGameAt = -1, requestedAt = -1, releasedAt = -1;
+                while (!host.HasExited)
+                {
+                    long now = clock.Elapsed.Ticks / 10;
+                    client.Poll(now);
+                    if (client.State == NetClientState.InGame)
+                    {
+                        inGameAt = inGameAt < 0 ? now : inGameAt;
+                        int n = client.FramesDue(now);
+                        for (int k = 0; k < n; k++)
+                        {
+                            client.SendFrame(new InputFrame(Input8.FromStick(1024, 0)));
+                        }
+
+                        if (requestedAt < 0 && now - inGameAt > playSec * 1e6)
+                        {
+                            client.RequestPause(true);
+                            requestedAt = now;
+                        }
+                        else if (requestedAt >= 0 && pauseFromUs < 0 && client.Paused)
+                        {
+                            pauseFromUs = log.Clock.Elapsed.Ticks / 10;
+                        }
+                        else if (pauseFromUs >= 0 && releasedAt < 0 && now - requestedAt > pauseSec * 1e6)
+                        {
+                            client.RequestPause(false);
+                            releasedAt = now;
+                            snapshotsAtResume = client.SnapshotsApplied;
+                        }
+                        else if (releasedAt >= 0 && pauseToUs < 0 && !client.Paused)
+                        {
+                            pauseToUs = log.Clock.Elapsed.Ticks / 10;
+                        }
+                        else if (pauseToUs >= 0 && now - releasedAt > playSec * 1e6)
+                        {
+                            break;
+                        }
+                    }
+
+                    Assert.True(clock.Elapsed.TotalSeconds < 30, $"прогон затянулся: состояние {client.State}, пауза {client.Paused}");
+                    Thread.Sleep(2);
+                }
+
+                Assert.Equal(NetClientState.InGame, client.State);
+                snapshotsEnd = client.SnapshotsApplied;
+                Assert.True(host.Stop(30_000), "сервер в потоке не остановился");
+                res = host.Result ?? throw new Xunit.Sdk.XunitException("нет итога: " + host.Error);
+            }
+
+            (long Tick, long AtUs)[] saves = log.AutosavesCopy();
+            int inPause = 0;
+            foreach ((long _, long at) in saves)
+            {
+                inPause += at > pauseFromUs && at < pauseToUs ? 1 : 0;
+            }
+
+            _out.WriteLine($"тактов {res.Ticks} за {res.Seconds:0.00} с (часы ×{Speed}), пауза {(pauseToUs - pauseFromUs) / 1e6:0.00} с, " +
+                           $"снимков после снятия {snapshotsEnd - snapshotsAtResume}; автосохранений {saves.Length}, в паузе {inPause}, " +
+                           $"такты: {string.Join(", ", Array.ConvertAll(saves, x => x.Tick.ToString()))}; такт среднее {res.Metrics?.TickMeanMs:0.000} мс, " +
+                           $"тактов в метриках {res.Metrics?.Ticks}");
+            Assert.Equal(0, res.ExitCode);
+            Assert.Empty(log.Errors);
+            Assert.True(pauseFromUs > 0 && pauseToUs > pauseFromUs, "клиент не увидел паузу и её снятие");
+            Assert.True(res.Ticks < (res.Seconds - pauseSec + 0.5) * Simulation.TickRate * Speed, $"тактов {res.Ticks} за {res.Seconds:0.00} с — пауза не остановила такт");
+            Assert.True(snapshotsEnd - snapshotsAtResume > playSec * Simulation.TickRate, $"снимков после снятия {snapshotsEnd - snapshotsAtResume}");
+            Assert.True(saves.Length >= 2, $"автосохранений {saves.Length}"); // до паузы и после: раз в 1 с мира
+            for (int i = 1; i < saves.Length; i++)
+            {
+                Assert.True(saves[i].Tick - saves[i - 1].Tick >= Simulation.TickRate, $"автосохранения на тактах {saves[i - 1].Tick} и {saves[i].Tick} — чаще 1 с мира");
+            }
+
+            Assert.InRange(inPause, 0, 1); // одно — только начатое до паузы (запись в фоне) и законченное в ней
+            Assert.Equal(res.Ticks, res.Metrics?.Ticks); // циклы паузы — не такты: в метриках времени такта их нет
+        }
+
+        /// <summary>
         /// Правила сборки ServerHost (0-031, `07` 1.3 и 1.6): netstandard2.1; без Unity, System.Text.Json, генерации кода; в
         /// исходниках — без рефлексии, P/Invoke, Console, Process и прямых файлов ОС (File/Directory/FileStream): файлы мира —
         /// только через <see cref="IPlatformStorage"/>. То же правило «файлы только через хранилище» — для Orpheus.Save.
@@ -229,6 +337,20 @@ namespace Orpheus.Tests
             /// <summary>Причины сохранений («сохранено», ключ reason).</summary>
             public List<string> SaveReasons { get; } = new List<string>();
 
+            /// <summary>Такты мира автосохранений (ключ tick) и миг записи в лог по <see cref="Clock"/>, мкс.</summary>
+            public List<(long Tick, long AtUs)> Autosaves { get; } = new List<(long Tick, long AtUs)>();
+
+            /// <summary>Часы теста для отметок <see cref="Autosaves"/>.</summary>
+            public Stopwatch Clock { get; } = Stopwatch.StartNew();
+
+            public (long Tick, long AtUs)[] AutosavesCopy()
+            {
+                lock (_sync)
+                {
+                    return Autosaves.ToArray();
+                }
+            }
+
             public bool Saved(string reason)
             {
                 lock (_sync)
@@ -253,12 +375,24 @@ namespace Orpheus.Tests
                     }
                     else if (msg == "сохранено")
                     {
+                        string reason = string.Empty;
+                        long savedTick = -1;
                         foreach ((string key, object? value) in data)
                         {
                             if (key == "reason")
                             {
-                                SaveReasons.Add(value?.ToString() ?? string.Empty);
+                                reason = value?.ToString() ?? string.Empty;
+                                SaveReasons.Add(reason);
                             }
+                            else if (key == "tick" && value is long t)
+                            {
+                                savedTick = t;
+                            }
+                        }
+
+                        if (reason == "автосохранение")
+                        {
+                            Autosaves.Add((savedTick, Clock.Elapsed.Ticks / 10));
                         }
                     }
                 }
@@ -397,6 +531,23 @@ namespace Orpheus.Tests
             {
                 throw new DirectoryNotFoundException("Нет папки в хранилище: " + dir);
             }
+        }
+
+        /// <summary>Копия содержимого «носителя» на этот миг (файлы и папки, без замков) — так выглядит диск после обрыва (0-037).</summary>
+        public MemoryStorage Snapshot()
+        {
+            var copy = new MemoryStorage();
+            lock (_sync)
+            {
+                foreach (KeyValuePair<string, byte[]> f in _files)
+                {
+                    copy._files[f.Key] = (byte[])f.Value.Clone();
+                }
+
+                copy._dirs.UnionWith(_dirs);
+            }
+
+            return copy;
         }
 
         private static string Norm(string path) => Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);

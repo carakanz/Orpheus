@@ -75,6 +75,33 @@ namespace Orpheus.Bots
         /// <summary>Сообщений «часы» принято.</summary>
         public long ClocksReceived { get; set; }
 
+        /// <summary>Пауза (0-036): пауз, в которые бот вставал; сколько стоял, с; кто поставил последнюю (снял — кто снял).</summary>
+        public long Pauses { get; set; }
+
+        /// <inheritdoc cref="Pauses"/>
+        public double PausedSeconds { get; set; }
+
+        /// <inheritdoc cref="Pauses"/>
+        public string PausedBy { get; set; } = string.Empty;
+
+        /// <summary>Кадров в паузе, где снимок или предсказание сдвинулись (после 0,5 с от входа в паузу).</summary>
+        public long PauseMovedFrames { get; set; }
+
+        /// <summary>Кадров ввода, ушедших в паузе (после того как бот о ней узнал).</summary>
+        public long PauseInputsSent { get; set; }
+
+        /// <summary>Правок предсказания после снятия паузы; пауза не снималась — −1.</summary>
+        public long PredResyncedAfterPause { get; set; } = -1;
+
+        /// <summary>Образцов часов, пропущенных в паузе; пауз, снятых по снимку раньше сообщения; устаревших «пауза».</summary>
+        public long ClockSamplesWhileHeld { get; set; }
+
+        /// <inheritdoc cref="ClockSamplesWhileHeld"/>
+        public long PausesReleasedBySnapshot { get; set; }
+
+        /// <inheritdoc cref="ClockSamplesWhileHeld"/>
+        public long PausesStale { get; set; }
+
         /// <summary>Сценарий <c>dig_line</c> (0-028): итог строкой; иначе null.</summary>
         public string? DigLine { get; set; }
         public int RocksDug { get; set; }
@@ -288,6 +315,7 @@ namespace Orpheus.Bots
             double finishedAt = -1;
             bool openSent = false;
             bool openReported = false;
+            BotPause? pause = o.PauseAt >= 0 ? new BotPause(bots, o.PauseAt, o.PauseFor) : null; // 0-036
             using (var clock = new PcTickClock(FrameRate))
             {
                 double nextStatus = 10;
@@ -312,6 +340,8 @@ namespace Orpheus.Bots
                     {
                         break;
                     }
+
+                    pause?.Frame(watch.Elapsed.TotalSeconds);
 
                     // run_seam / seam_watch: сценарий кончился сам у всех — ещё 1 с (последние снимки), и выход.
                     bool allFinished = true;
@@ -402,6 +432,15 @@ namespace Orpheus.Bots
                     FrameRenumbers = c.FrameRenumbers,
                     OwdMs = c.Clock.OwdUs / 1000.0,
                     ClocksReceived = c.ClocksReceived,
+                    Pauses = c.Pauses,
+                    PausedSeconds = c.PausedTotalUs / 1e6,
+                    PausedBy = c.PausedBy,
+                    PauseMovedFrames = pause?.MovedFrames[i] ?? 0,
+                    PauseInputsSent = pause?.InputsInPause[i] ?? 0,
+                    PredResyncedAfterPause = pause?.ResyncedAfter(i) ?? -1,
+                    ClockSamplesWhileHeld = c.Clock.SamplesWhileHeld,
+                    PausesReleasedBySnapshot = c.PausesReleasedBySnapshot,
+                    PausesStale = c.PausesStale,
                 };
                 LocalPrediction? pred = bots[i].Prediction;
                 if (pred != null)
@@ -720,6 +759,15 @@ namespace Orpheus.Bots
                 w.WriteNumber("clocksReceived", b.ClocksReceived);
                 w.WriteNumber("frameRenumbers", b.FrameRenumbers);
                 w.WriteNumber("owdMs", Math.Round(b.OwdMs, 2));
+                w.WriteNumber("pauses", b.Pauses);
+                w.WriteNumber("pausedSeconds", Math.Round(b.PausedSeconds, 3));
+                w.WriteString("pausedBy", b.PausedBy);
+                w.WriteNumber("pauseMovedFrames", b.PauseMovedFrames);
+                w.WriteNumber("pauseInputsSent", b.PauseInputsSent);
+                w.WriteNumber("predResyncedAfterPause", b.PredResyncedAfterPause);
+                w.WriteNumber("clockSamplesWhileHeld", b.ClockSamplesWhileHeld);
+                w.WriteNumber("pausesReleasedBySnapshot", b.PausesReleasedBySnapshot);
+                w.WriteNumber("pausesStale", b.PausesStale);
                 if (b.DigLine != null)
                 {
                     w.WriteString("digLine", b.DigLine);

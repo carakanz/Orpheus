@@ -292,7 +292,11 @@ namespace Orpheus.Net.Session
         {
             _nowUs = nowMicros;
             _transport.Poll(nowMicros, this);
-            StepLead(nowMicros);
+            if (!_paused)
+            {
+                StepLead(nowMicros); // 0-036: в паузе L не шагает
+            }
+
             if (State == NetClientState.InGame && nowMicros - _lastPingUs >= PingIntervalUs)
             {
                 _lastPingUs = nowMicros;
@@ -473,6 +477,9 @@ namespace Orpheus.Net.Session
                         break;
                     case MessageType.TileReply when State == NetClientState.InGame:
                         OnTileReply(TileReplyMessage.Read(data)); // 0-028
+                        break;
+                    case MessageType.PauseState when State == NetClientState.InGame:
+                        OnPauseState(PauseStateMessage.Read(data)); // 0-036
                         break;
                     case MessageType.OpenResult when State == NetClientState.InGame:
                         OpenResult = OpenResultMessage.Read(data);
@@ -674,7 +681,12 @@ namespace Orpheus.Net.Session
             _latest.CopyTo(_bases[slot]);
             _baseValid[slot] = true;
             SnapshotsApplied++;
-            OnLeadReport(_latest.Self.LeadMargin, _nowUs);
+            ResumeIfSnapshotNewer(tick); // 0-036: до образца часов — он уже на идущих часах
+            if (!_paused)
+            {
+                OnLeadReport(_latest.Self.LeadMargin, _nowUs); // в паузе (снимок вошедшему) отчёт старый — не трогает L
+            }
+
             if ((int)(tick - ServerTick) > 0)
             {
                 ServerTick = tick;

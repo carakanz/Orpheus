@@ -94,7 +94,7 @@ namespace Orpheus.Server
                 return;
             }
 
-            if (due && _pending != null && WaitForPrevious)
+            if (_pending != null && WaitForPrevious)
             {
                 _pending.Wait();
                 Poll(sim.Tick);
@@ -118,8 +118,9 @@ namespace Orpheus.Server
         }
 
         /// <summary>
-        /// Режим симуляции: пора сохранять, а прошлая запись не кончилась — дождаться её, а не отложить. Такты там
-        /// идут без часов, и без ожидания точки сохранения зависели бы от скорости диска; так они ровно через интервал.
+        /// Режим симуляции: пора сохранять (или есть повод), а прошлая запись не кончилась — дождаться её, а не отложить.
+        /// Такты там идут без часов, и без ожидания точки сохранения зависели бы от скорости диска; так они ровно через
+        /// интервал, а повод (<c>--debug-save-request</c>, 0-037) — в свой такт.
         /// </summary>
         public bool WaitForPrevious { get; set; }
 
@@ -187,7 +188,7 @@ namespace Orpheus.Server
                 var w = Stopwatch.StartNew();
                 try
                 {
-                    byte[] bytes = WorldSave.Build(data, number, date, _padKb);
+                    byte[] bytes = WorldSave.Build(data, number, date, _padKb, replaces); // номер заменённого — в файле: старт уберёт его после обрыва
                     List<string> deleted = folder.WriteGeneration(number, bytes, replaces);
                     crash?.OnDone(number);
                     return new SaveOutcome(number, tick, reason, series, replaces, requests, bytes.Length, data.ChunkCoords.Length, captureMs, w.Elapsed.TotalMilliseconds, deleted, null);

@@ -118,6 +118,8 @@ namespace Orpheus.Net.Session
         private bool _clockReset; // «часы после фриза»: следующий снимок начинает окно медианы заново
         private long _frame;
         private bool _held;
+        private bool _paused;     // 0-036: пауза — время показа стоит
+        private long _pausedAtUs;
         private int _ia;
         private int _ib;
         private double _frac;
@@ -227,7 +229,8 @@ namespace Orpheus.Net.Session
                 _sampleHead = 0;
             }
 
-            _samples[_sampleHead] = TickTimeUs(s.Tick) - localUs;
+            // В паузе такт сервера стоит — образец как в миг паузы (после снятия окно сдвигается на всю паузу, 0-036).
+            _samples[_sampleHead] = TickTimeUs(s.Tick) - (_paused ? _pausedAtUs : localUs);
             _sampleHead = (_sampleHead + 1) % ClockWindow;
             if (_sampleCount < ClockWindow)
             {
@@ -261,6 +264,40 @@ namespace Orpheus.Net.Session
         /// </summary>
         public void OnClockReset() => _clockReset = true;
 
+        /// <summary>Кадров рисования в паузе (время показа стояло).</summary>
+        public long PausedFrames { get; private set; }
+
+        /// <summary>
+        /// Пауза (0-036; NetClient.PauseChanged): время показа встаёт; после снятия идёт дальше с того же места — время паузы
+        /// вынуто из часов показа (смещение и окно образцов сдвигаются на него), без перестановки и без догона.
+        /// </summary>
+        public void OnPause(bool paused, long localUs)
+        {
+            if (paused == _paused)
+            {
+                return;
+            }
+
+            _paused = paused;
+            if (paused)
+            {
+                _pausedAtUs = localUs;
+                return;
+            }
+
+            long d = Math.Max(0, localUs - _pausedAtUs);
+            _offsetUs -= d;
+            for (int i = 0; i < _sampleCount; i++)
+            {
+                _samples[i] -= d;
+            }
+
+            if (_hasRender)
+            {
+                _lastLocalUs += d;
+            }
+        }
+
         /// <summary>
         /// Начало кадра рисования: время показа идёт к «сервер сейчас» − 100 мс со скоростью <see cref="PlaybackRate"/>,
         /// не дальше новейшего снимка и никогда назад; пара снимков вокруг него. Снимков нет — false (рисовать нечего).
@@ -270,6 +307,17 @@ namespace Orpheus.Net.Session
             if (_sampleCount == 0 || _count == 0)
             {
                 return false;
+            }
+
+            if (_paused)
+            {
+                if (_hasRender)
+                {
+                    PausedFrames++;
+                    return true; // пауза: пара снимков и доля — с прошлого кадра, чужие стоят
+                }
+
+                localUs = _pausedAtUs; // вошёл в паузу: первый показ — на миг паузы
             }
 
             _frame++;

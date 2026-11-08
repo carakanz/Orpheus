@@ -162,6 +162,18 @@ namespace Orpheus.Net.Session
             /// <summary>Такт заголовка первого снимка после «часов» — пакет, подтвердивший его, уже знает новую шкалу.</summary>
             public uint ClockStaleSnapshot;
 
+            /// <summary>Такт последнего снимка этому игроку (0-036: в паузе снимок такта паузы — только тем, кто его не получал).</summary>
+            public uint SentTick;
+            public bool HasSentTick;
+
+            /// <summary>
+            /// После паузы (0-036): на сколько кадров время персонажа отставало от кадра сервера на снятии. Кадры, пришедшие в
+            /// паузе, шагаются по два за такт с тем же отставанием, а не залпом: иначе очередь кончится раньше, чем дойдут
+            /// кадры, отправленные после снятия, — сервер шагнул бы сам. 0 — как обычно; обнуляется, когда очередь паузы
+            /// кончилась.
+            /// </summary>
+            public int ResumeLag;
+
             /// <summary>Правки тайлов (0-028): копание, ведро постановок, ждущие ответа; создаётся с первым запросом.</summary>
             public EditState? Edits;
         }
@@ -685,6 +697,24 @@ namespace Orpheus.Net.Session
             return -1;
         }
 
+        /// <summary>
+        /// Запас кадров игрока с сущностью <paramref name="entityId"/> (0-019: +2 за такт, не больше <see cref="CreditCap"/>);
+        /// нет игрока — −1. Для проверок «в паузе запас не копится» (0-036).
+        /// </summary>
+        public int CreditsOf(int entityId)
+        {
+            for (int i = 0; i < _players.Count; i++)
+            {
+                Player p = _players[i];
+                if (p.State == PlayerState.InGame && p.EntityId == entityId)
+                {
+                    return p.Credits;
+                }
+            }
+
+            return -1;
+        }
+
         /// <summary>Кадров ввода игрока с сущностью <paramref name="entityId"/> пришло и ждёт шага (очередь); нет игрока — −1.</summary>
         public int BacklogOf(int entityId)
         {
@@ -706,6 +736,12 @@ namespace Orpheus.Net.Session
             _nowMicros = nowMicros;
             _transport.Poll(nowMicros, this);
             DropSilentConnections();
+            ClearPauseIfEmpty(); // 0-036
+            if (Paused)
+            {
+                return; // 0-036: пауза — кадров на такт нет, такта не будет; стоп по молчанию не считается (такт стоит)
+            }
+
             StopStaleInputs();
             PlanFrames();
         }
@@ -741,7 +777,7 @@ namespace Orpheus.Net.Session
                 int limit = Math.Min(p.Credits, FramesPerTickLimit);
                 int n = 0;
                 // 2.7: не дальше кадров этого такта; часы клиента на старой шкале (после фриза) — без потолка, по запасу.
-                uint cap = p.ClockStale ? unchecked(p.NextFrame + FrameRing) : unchecked(ServerFrame + MovementTick.FramesPerTick);
+                uint cap = p.ClockStale ? unchecked(p.NextFrame + FrameRing) : unchecked(ServerFrame + MovementTick.FramesPerTick - (uint)p.ResumeLag);
                 while (p.HasNext && n < limit)
                 {
                     uint c = p.NextFrame;
@@ -818,6 +854,11 @@ namespace Orpheus.Net.Session
                 if (n > MovementTick.FramesPerTick)
                 {
                     BurstTicks++;
+                }
+
+                if (p.ResumeLag > 0 && (!p.HasFrame || (int)(p.Newest - cap) < 0))
+                {
+                    p.ResumeLag = 0; // 0-036: очередь паузы кончилась — дальше кадры приходят к сроку, как до паузы
                 }
 
                 p.Credits -= n;
@@ -955,74 +996,81 @@ namespace Orpheus.Net.Session
             for (int p = 0; p < _players.Count; p++)
             {
                 Player pl = _players[p];
-                if (pl.State != PlayerState.InGame)
+                if (pl.State == PlayerState.InGame)
                 {
-                    continue;
+                    SendSnapshotTo(pl, entities, tick);
                 }
-
-                int selfSlot = _sim.SlotOf(pl.EntityId);
-                if (selfSlot < 0)
-                {
-                    continue;
-                }
-
-                Mover me = entities[selfSlot].Mover;
-                _self = new SelfState(me.Position, me.Carry, me.Dodge) // подтверждённое состояние без кванта (2.6 п. 2; 0-019), с уворотом (0-029)
-                {
-                    LeadMargin = (sbyte)Math.Max(-SelfState.MarginBias, Math.Min(SelfState.MarginBias - 1, pl.Margin)), // 0-033
-                    DelayFrames = (byte)pl.DelayFrames,
-                };
-                int curCount = BuildView(pl, entities, selfSlot, _cur);
-                SentRing ring = pl.Ring ??= new SentRing();
-                int bi = ring.Find(pl.LastSnapshotAck);
-                bool keyframe = KeyframePeriod <= 1 || tick % KeyframePeriod == 0;
-                uint age = tick - pl.LastSnapshotAck;
-
-                int len = -1;
-                bool truncated = false;
-                if (bi >= 0 && !keyframe && age >= 1 && age <= SnapshotDeltaMessage.MaxBaselineAge)
-                {
-                    len = TryWriteDelta(tick, pl, ring.Ents[bi], ring.Count[bi], curCount, out truncated, out int mergedCount);
-                    if (len > 0)
-                    {
-                        ring.Push(tick, _merged, mergedCount);
-                        DeltasSent++;
-                        DeltaBytes += len;
-                        if (len > MaxDeltaBytes)
-                        {
-                            MaxDeltaBytes = len;
-                        }
-                    }
-                }
-
-                if (len < 0)
-                {
-                    len = WriteFull(tick, pl, curCount, out int written);
-                    truncated = written < curCount;
-                    ring.Push(tick, _cur, written); // у клиента будет ровно то, что влезло
-                    FullSent++;
-                    if (len > MaxSnapshotBytes)
-                    {
-                        MaxSnapshotBytes = len;
-                    }
-                }
-
-                if (truncated)
-                {
-                    SnapshotsTruncated++;
-                    if (SnapshotsTruncated == 1 || SnapshotsTruncated % 300 == 0)
-                    {
-                        Log?.Invoke(NetLogLevel.Error, $"снимок для #{pl.EntityId} больше {NetSettings.SnapshotBudget} байт: обрезан (всего обрезано {SnapshotsTruncated})");
-                    }
-                }
-
-                _transport.Send(pl.Peer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
-                SnapshotsSent++;
-                SnapshotBytes += len;
             }
 
             SendSwings();
             _transport.Flush(); // снимки такта — сразу, а не по таймеру транспорта (0-015)
+        }
+
+        /// <summary>Снимок такта <paramref name="tick"/> одному игроку (дельта или полный); персонажа нет — false.</summary>
+        private bool SendSnapshotTo(Player pl, ReadOnlySpan<SimEntity> entities, uint tick)
+        {
+            int selfSlot = _sim.SlotOf(pl.EntityId);
+            if (selfSlot < 0)
+            {
+                return false;
+            }
+
+            Mover me = entities[selfSlot].Mover;
+            _self = new SelfState(me.Position, me.Carry, me.Dodge) // подтверждённое состояние без кванта (2.6 п. 2; 0-019), с уворотом (0-029)
+            {
+                LeadMargin = (sbyte)Math.Max(-SelfState.MarginBias, Math.Min(SelfState.MarginBias - 1, pl.Margin)), // 0-033
+                DelayFrames = (byte)pl.DelayFrames,
+            };
+            int curCount = BuildView(pl, entities, selfSlot, _cur);
+            SentRing ring = pl.Ring ??= new SentRing();
+            int bi = ring.Find(pl.LastSnapshotAck);
+            bool keyframe = KeyframePeriod <= 1 || tick % KeyframePeriod == 0;
+            uint age = tick - pl.LastSnapshotAck;
+
+            int len = -1;
+            bool truncated = false;
+            if (bi >= 0 && !keyframe && age >= 1 && age <= SnapshotDeltaMessage.MaxBaselineAge)
+            {
+                len = TryWriteDelta(tick, pl, ring.Ents[bi], ring.Count[bi], curCount, out truncated, out int mergedCount);
+                if (len > 0)
+                {
+                    ring.Push(tick, _merged, mergedCount);
+                    DeltasSent++;
+                    DeltaBytes += len;
+                    if (len > MaxDeltaBytes)
+                    {
+                        MaxDeltaBytes = len;
+                    }
+                }
+            }
+
+            if (len < 0)
+            {
+                len = WriteFull(tick, pl, curCount, out int written);
+                truncated = written < curCount;
+                ring.Push(tick, _cur, written); // у клиента будет ровно то, что влезло
+                FullSent++;
+                if (len > MaxSnapshotBytes)
+                {
+                    MaxSnapshotBytes = len;
+                }
+            }
+
+            if (truncated)
+            {
+                SnapshotsTruncated++;
+                if (SnapshotsTruncated == 1 || SnapshotsTruncated % 300 == 0)
+                {
+                    Log?.Invoke(NetLogLevel.Error, $"снимок для #{pl.EntityId} больше {NetSettings.SnapshotBudget} байт: обрезан (всего обрезано {SnapshotsTruncated})");
+                }
+            }
+
+            _transport.Send(pl.Peer, NetChannel.Unreliable, new ReadOnlySpan<byte>(_buf, 0, len));
+            SnapshotsSent++;
+            SnapshotBytes += len;
+            pl.SentTick = tick;
+            pl.HasSentTick = true;
+            return true;
         }
 
         /// <summary>
@@ -1547,6 +1595,12 @@ namespace Orpheus.Net.Session
                     return;
                 }
 
+                if (type == MessageType.PauseRequest && channel == NetChannel.Facts)
+                {
+                    OnPauseRequest(p, PauseRequestMessage.Read(data)); // 0-036
+                    return;
+                }
+
                 if (type == MessageType.OpenForFriends && channel == NetChannel.Facts)
                 {
                     OpenForFriendsMessage.Read(data);
@@ -1569,6 +1623,21 @@ namespace Orpheus.Net.Session
             }
         }
 
+        /// <summary>Соединения хозяина в мире, кроме <paramref name="except"/>, — их вытеснит новый вход хозяина.</summary>
+        private int CountHostsInGame(Player except)
+        {
+            int n = 0;
+            foreach (Player old in _players)
+            {
+                if (old != except && old.IsHost && old.State == PlayerState.InGame)
+                {
+                    n++;
+                }
+            }
+
+            return n;
+        }
+
         private void OnLogin(Player p, LoginMessage m)
         {
             if (m.Version != _version)
@@ -1577,23 +1646,43 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            if (!m.Token.IsEmpty)
+            bool isHost = !m.Token.IsEmpty;
+            if (isHost && (HostToken.IsEmpty || m.Token != HostToken))
             {
-                if (HostToken.IsEmpty || m.Token != HostToken)
-                {
-                    Reject(p, LoginRejectReason.BadToken, HostToken.IsEmpty ? "у сервера нет хозяина" : "токен хозяина не тот");
-                    return;
-                }
+                Reject(p, LoginRejectReason.BadToken, HostToken.IsEmpty ? "у сервера нет хозяина" : "токен хозяина не тот");
+                return;
+            }
 
-                // Имя чужого персонажа хозяину не даётся (0-037, docs/07 7.3: два персонажа мира не носят одно имя) — до
-                // вытеснения прежнего соединения хозяина: отказ не должен выбивать из мира его игру.
+            // Все отказы хозяину — до вытеснения его прежнего соединения (0-037, з. 4 проверки): отказ не должен выбивать из
+            // мира его игру.
+            string? nameError = LoginMessage.NameError(m.Name);
+            if (nameError != null)
+            {
+                Reject(p, LoginRejectReason.BadName, nameError);
+                return;
+            }
+
+            if (isHost)
+            {
+                // Имя чужого персонажа хозяину не даётся (0-037, docs/07 7.3: два персонажа мира не носят одно имя).
                 int taken = Characters.FindPlayer(m.Name);
                 if (taken >= 0)
                 {
                     Reject(p, LoginRejectReason.NameTaken, $"имя «{m.Name}» — у персонажа игрока «{Characters[taken].Name}»");
                     return;
                 }
+            }
 
+            // Место прежнего соединения хозяина освободится при вытеснении — оно в счёт не идёт.
+            int replacing = isHost ? CountHostsInGame(p) : 0;
+            if (PlayersInGame - replacing >= _maxPlayers)
+            {
+                Reject(p, LoginRejectReason.ServerFull, $"мест {_maxPlayers}");
+                return;
+            }
+
+            if (isHost)
+            {
                 // Один токен с двух мест (7.7): новый вход вытесняет прежний — у упавшей игры хоста соединение
                 // висит до тайм-аута транспорта, а вернувшийся хост входит сразу.
                 for (int i = _players.Count - 1; i >= 0; i--)
@@ -1608,20 +1697,6 @@ namespace Orpheus.Net.Session
                         Log?.Invoke(NetLogLevel.Warn, $"хозяин вошёл заново — прежнее соединение {old.Peer} (#{old.EntityId}) вытеснено");
                     }
                 }
-            }
-
-            bool isHost = !m.Token.IsEmpty;
-            string? nameError = LoginMessage.NameError(m.Name);
-            if (nameError != null)
-            {
-                Reject(p, LoginRejectReason.BadName, nameError);
-                return;
-            }
-
-            if (PlayersInGame >= _maxPlayers)
-            {
-                Reject(p, LoginRejectReason.ServerFull, $"мест {_maxPlayers}");
-                return;
             }
 
             // Персонаж по ключу (0-035): хозяин — по токену, остальные — по имени в мире. Имя живого игрока и имя
@@ -1702,6 +1777,7 @@ namespace Orpheus.Net.Session
             }.Write(_buf);
             _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             Log?.Invoke(NetLogLevel.Info, $"вход{(p.IsHost ? " хозяина" : "")}: «{m.Name}» → #{id} ({where}), соединение {p.Peer}");
+            SendPauseTo(p); // 0-036: вошёл в паузу — сразу узнаёт, что пауза и кто поставил
             if (p.IsHost)
             {
                 HostJoined?.Invoke();
@@ -1917,11 +1993,15 @@ namespace Orpheus.Net.Session
             // Задержка прихода (0-033): o = кадр сервера сейчас − новейший кадр + L. Эхо снимка (з. 2 проверки 0-033): первый пакет,
             // подтвердивший более новый снимок S, — номер кадра клиента в миг, когда снимок S (ушедший в кадре сервера 2·S) у
             // него. Подтверждение снимка, которого сервер ещё не слал, — не эхо; на старой шкале часов (после фриза) — тоже.
+            // В паузе кадр сервера стоит: приход и эхо пакетов, бывших в пути, мерили бы паузу, а не связь (0-036).
             p.Lead = m.Lead;
-            p.Arrival.Record(unchecked((int)(ServerFrame - m.LastFrame)) + m.Lead);
-            if ((int)(m.LastSnapshot - p.LastSnapshotAck) > 0 && (int)(m.LastSnapshot - (uint)_sim.Tick) <= 0 && !p.ClockStale)
+            if (!Paused)
             {
-                p.Echo.Record(unchecked((int)(m.LastFrame - m.LastSnapshot * 2)));
+                p.Arrival.Record(unchecked((int)(ServerFrame - m.LastFrame)) + m.Lead);
+                if ((int)(m.LastSnapshot - p.LastSnapshotAck) > 0 && (int)(m.LastSnapshot - (uint)_sim.Tick) <= 0 && !p.ClockStale)
+                {
+                    p.Echo.Record(unchecked((int)(m.LastFrame - m.LastSnapshot * 2)));
+                }
             }
             p.Newest = m.LastFrame;
             p.HasFrame = true;
