@@ -381,7 +381,7 @@ namespace Orpheus.Tests
 
             Assert.Contains(DodgesOf(live.Sim), d => d.Direction != 0);
             SaveFile f = SaveContainer.Read(WorldSave.Build(WorldSave.Capture(live.Sim, live.BaseSha, "v1"), 4, 0));
-            Assert.Equal(2u, f.Header.FormatVersion);
+            Assert.Equal(SaveModule.FormatVersion, f.Header.FormatVersion);
 
             // Формат 1: те же записи сущностей без полей 10–13, заголовок версии 1.
             var creatures = new RecordWriter();

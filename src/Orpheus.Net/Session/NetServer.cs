@@ -566,6 +566,29 @@ namespace Orpheus.Net.Session
         /// </summary>
         public Action<long, long>? HostLeft { get; set; }
 
+        // ---------- Персонажи мира (0-035, docs/07 7.4, 7.5) ----------
+
+        /// <summary>
+        /// Персонажи мира: кто бывал и где стоял. Сервер ставит загруженных из сохранения (<see cref="CharacterRoster.Restore"/>)
+        /// до первого входа; по умолчанию — пусто.
+        /// </summary>
+        public CharacterRoster Characters { get; set; } = new CharacterRoster();
+
+        /// <summary>
+        /// Персонаж ушёл из мира (отключение, тайм-аут, вытеснение не в счёт): аргумент — имя. Зовётся после <see cref="HostLeft"/>
+        /// в потоке такта из <see cref="Poll"/> — сервер сохраняет мир (docs/07 6.4, 7.5: «в течение 1 с после исчезновения тела»).
+        /// </summary>
+        public Action<string>? CharacterLeft { get; set; }
+
+        /// <summary>Вернувшихся персонажей (вход по известному ключу).</summary>
+        public int CharactersReturned { get; private set; }
+
+        /// <summary>Из них поставлены не на место выхода (тайл занят) — рядом или у точки появления.</summary>
+        public int CharactersMoved { get; private set; }
+
+        /// <summary>Тайлов вокруг места выхода, где ищется свободное, если место занято (7.4: «иначе ближайший свободный тайл»).</summary>
+        public const int PlaceSearchTiles = 8;
+
         /// <summary>Хозяин в игре.</summary>
         public bool HostInGame
         {
@@ -1440,13 +1463,15 @@ namespace Orpheus.Net.Session
             if (p.State == PlayerState.InGame)
             {
                 Disconnects++;
-                _sim.RemoveEntity(p.EntityId);
+                LeaveWorld(p.EntityId);
                 Log?.Invoke(reason == NetDisconnectReason.Timeout ? NetLogLevel.Warn : NetLogLevel.Info,
                     $"{(p.IsHost ? "хозяин" : "игрок")} «{p.Name}» (#{p.EntityId}) ушёл: {reason}");
                 if (p.IsHost)
                 {
                     HostLeft?.Invoke(p.LastHeardMicros, _nowMicros);
                 }
+
+                CharacterLeft?.Invoke(p.Name);
             }
         }
 
@@ -1561,12 +1586,20 @@ namespace Orpheus.Net.Session
                     if (old != p && old.IsHost && old.State == PlayerState.InGame)
                     {
                         _players.RemoveAt(i);
-                        _sim.RemoveEntity(old.EntityId);
+                        LeaveWorld(old.EntityId);
                         int n = new ClosingMessage { Reason = ClosingReason.Replaced }.Write(_buf);
                         _transport.Disconnect(old.Peer, new ReadOnlySpan<byte>(_buf, 0, n));
                         Log?.Invoke(NetLogLevel.Warn, $"хозяин вошёл заново — прежнее соединение {old.Peer} (#{old.EntityId}) вытеснено");
                     }
                 }
+            }
+
+            bool isHost = !m.Token.IsEmpty;
+            string? nameError = LoginMessage.NameError(m.Name);
+            if (nameError != null)
+            {
+                Reject(p, LoginRejectReason.BadName, nameError);
+                return;
             }
 
             if (PlayersInGame >= _maxPlayers)
@@ -1575,10 +1608,46 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            // Персонаж по ключу (0-035): хозяин — по токену, остальные — по имени в мире. Имя живого игрока и имя
+            // персонажа хозяина другому не даются (7.3: два персонажа мира не носят одно имя).
+            int character;
+            if (isHost)
+            {
+                character = Characters.FindHost();
+            }
+            else
+            {
+                int hostAt = Characters.FindHost();
+                if (hostAt >= 0 && CharacterNames.Same(Characters[hostAt].Name, m.Name))
+                {
+                    Reject(p, LoginRejectReason.NameTaken, $"имя «{m.Name}» — у персонажа хозяина");
+                    return;
+                }
+
+                character = Characters.FindPlayer(m.Name);
+                if (character >= 0 && Characters[character].EntityId > 0)
+                {
+                    Reject(p, LoginRejectReason.NameTaken, $"«{m.Name}» уже в мире (#{Characters[character].EntityId})");
+                    return;
+                }
+            }
+
             int id;
+            string where;
             try
             {
-                id = _sim.AddEntity(_spawn(_spawned));
+                if (character >= 0)
+                {
+                    Mover mover = Characters[character].Mover;
+                    mover.Position = PlaceFor(mover.Position, out where);
+                    id = _sim.AddEntity(mover);
+                }
+                else
+                {
+                    id = _sim.AddEntity(_spawn(_spawned));
+                    _spawned++;
+                    where = "новый";
+                }
             }
             catch (InvalidOperationException)
             {
@@ -1586,11 +1655,20 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            _spawned++;
+            if (character >= 0)
+            {
+                Characters.SetInWorld(character, id, m.Name);
+                CharactersReturned++;
+            }
+            else
+            {
+                Characters.AddInWorld(isHost, m.Name, id);
+            }
+
             p.State = PlayerState.InGame;
             p.EntityId = id;
             p.Name = m.Name;
-            p.IsHost = !m.Token.IsEmpty;
+            p.IsHost = isHost;
             p.LastInputTick = _sim.Tick;
             p.Credits = FramesPerTickLimit;
             p.ThreatsFrom = ServerFrame;
@@ -1607,11 +1685,87 @@ namespace Orpheus.Net.Session
                 GenerationHash = GenerationHash,
             }.Write(_buf);
             _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
-            Log?.Invoke(NetLogLevel.Info, $"вход{(p.IsHost ? " хозяина" : "")}: «{m.Name}» → #{id}, соединение {p.Peer}");
+            Log?.Invoke(NetLogLevel.Info, $"вход{(p.IsHost ? " хозяина" : "")}: «{m.Name}» → #{id} ({where}), соединение {p.Peer}");
             if (p.IsHost)
             {
                 HostJoined?.Invoke();
             }
+        }
+
+        /// <summary>Сущность игрока уходит из мира (вне такта): движение — за его персонажем (0-035), сущность — из такта.</summary>
+        private void LeaveWorld(int entityId)
+        {
+            int character = Characters.FindEntity(entityId);
+            if (character >= 0)
+            {
+                Characters.Park(character, _sim);
+            }
+            else
+            {
+                _sim.RemoveEntity(entityId);
+            }
+        }
+
+        /// <summary>
+        /// Место вернувшегося (docs/07 7.4): место выхода, если там можно стоять; иначе центр ближайшего свободного тайла
+        /// в <see cref="PlaceSearchTiles"/> вокруг (по расстоянию, при равенстве — первый в обходе кольца); иначе точка появления.
+        /// Данжей пока нет — «внутри недоступного данжа» не проверяется.
+        /// </summary>
+        private WorldPos PlaceFor(WorldPos saved, out string where)
+        {
+            MapShape shape = _sim.Shape;
+            TileSolid solid = _sim.Solid;
+            if (!Collision.TouchesSolid(shape, saved, solid))
+            {
+                where = "вернулся на место";
+                return saved;
+            }
+
+            TileCoord t0 = Torus.TileOf(shape, saved);
+            for (int r = 1; r <= PlaceSearchTiles; r++)
+            {
+                bool found = false;
+                WorldPos best = default;
+                long bestD2 = long.MaxValue;
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    for (int dx = -r; dx <= r; dx++)
+                    {
+                        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r)
+                        {
+                            continue;
+                        }
+
+                        TileCoord t = Torus.Wrap(shape, new TileCoord(t0.X + dx, t0.Y + dy));
+                        var c = new WorldPos((t.X << Torus.SubTileBits) + Torus.SubTilesPerTile / 2, (t.Y << Torus.SubTileBits) + Torus.SubTilesPerTile / 2);
+                        if (Collision.TouchesSolid(shape, c, solid))
+                        {
+                            continue;
+                        }
+
+                        long d2 = Torus.Dist2(shape, saved, c);
+                        if (d2 < bestD2)
+                        {
+                            bestD2 = d2;
+                            best = c;
+                            found = true;
+                        }
+                    }
+                }
+
+                if (found)
+                {
+                    CharactersMoved++;
+                    where = $"вернулся: место занято, рядом в {r} тайл.";
+                    return best;
+                }
+            }
+
+            CharactersMoved++;
+            where = "вернулся: рядом занято, у точки появления";
+            WorldPos spawn = _spawn(_spawned);
+            _spawned++;
+            return spawn;
         }
 
         /// <summary>«Открыть для друзей» (2.13 п. 9): только хозяин; уже открыт — тот же порт; итог — хозяину.</summary>

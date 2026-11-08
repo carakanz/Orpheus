@@ -13,6 +13,11 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.3.1" />
   </ItemGroup>
 
+  <!-- K-001: чистый слой процедурной анимации клиента (без Unity) — компилируется в тесты ссылкой. -->
+  <ItemGroup>
+    <Compile Include="..\..\client\Assets\Scripts\Anim\Pose\*.cs" Link="ClientAnim\%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Orpheus.Core\Orpheus.Core.csproj" />
     <ProjectReference Include="..\..\src\Orpheus.WorldGen\Orpheus.WorldGen.csproj" />
@@ -28,6 +33,11 @@
     <ProjectReference Include="..\..\src\Orpheus.Analyzers\Orpheus.Analyzers.csproj" />
     <ProjectReference Include="..\..\src\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
     <ProjectReference Include="..\..\tools\orpheus-save\orpheus-save.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- «Золотые» сохранения (docs/07 6.7): настоящие файлы старых форматов, записанные старыми сборками (0-035). -->
+    <None Include="Golden\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

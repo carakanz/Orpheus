@@ -85,6 +85,9 @@ namespace Orpheus.Server
         /// </summary>
         public bool WaitForPrevious { get; set; }
 
+        /// <summary>Персонажи мира на границу такта (0-035, раздел ПЕРСОНАЖИ); null — нет.</summary>
+        public Func<CharacterRecord[]>? Characters { get; set; }
+
         /// <summary>
         /// Сохранить сейчас, не дожидаясь интервала (0-024, docs/07 2.3: игра хоста упала и других игроков нет), — в фоне,
         /// как автосохранение; идёт прошлая запись или такт уже сохранён — ничего.
@@ -122,7 +125,7 @@ namespace Orpheus.Server
         private void Start(Simulation sim, string reason)
         {
             var watch = Stopwatch.StartNew();
-            WorldSaveData data = WorldSave.Capture(sim, _baseSha, _name);
+            WorldSaveData data = WorldSave.Capture(sim, _baseSha, _name, Characters?.Invoke());
             double captureMs = watch.Elapsed.TotalMilliseconds;
             ulong number = _folder.NextNumber;
             long tick = sim.Tick;

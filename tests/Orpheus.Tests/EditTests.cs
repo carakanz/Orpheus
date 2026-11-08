@@ -37,16 +37,23 @@ namespace Orpheus.Tests
 
         // ---------- Правила ----------
 
-        /// <summary>Досягаемость копания 1,5 тайла (диагональ — да, через тайл — нет), радиус 6 по оси максимума через шов, линия ≤ 32.</summary>
+        /// <summary>
+        /// Досягаемость копания «персонаж + инструмент» (0-034): 0,4 + 0,75 = 1,15 т до ближайшей точки тайла — из центра тайла
+        /// диагональ да, через тайл нет; у края своего тайла — через тайл да. Радиус 6 по оси максимума через шов, линия ≤ 32.
+        /// </summary>
         [Fact]
         public void D07_S3_7_Rules_Reach_Radius_Line()
         {
             MapShape map = MapShape.World(1024);
             WorldPos c = TileCenter(0, 0);
+            Assert.Equal(294, EditRules.DigReachUnits); // 102 + 192
             Assert.True(EditRules.InDigReach(map, c, new TileCoord(1, 1)));
             Assert.True(EditRules.InDigReach(map, c, new TileCoord(1023, 1023))); // диагональ через шов
-            Assert.False(EditRules.InDigReach(map, c, new TileCoord(2, 0)));
-            Assert.False(EditRules.InDigReach(map, new WorldPos(c.X - U * 3 / 8, c.Y), new TileCoord(1, 1))); // смещён от центра — диагональ дальше 1,5
+            Assert.False(EditRules.InDigReach(map, c, new TileCoord(2, 0))); // 1,5 т до края > 1,15
+            Assert.True(EditRules.InDigReach(map, new WorldPos(c.X - U * 3 / 8, c.Y), new TileCoord(1, 1))); // смещён: 0,875 × 0,5 — да
+            Assert.True(EditRules.InDigReach(map, new WorldPos(c.X + 90, c.Y), new TileCoord(2, 0))); // у края: 384 − 90 = 294 — ровно
+            Assert.False(EditRules.InDigReach(map, new WorldPos(c.X + 89, c.Y), new TileCoord(2, 0))); // на 1 unit дальше
+            Assert.False(EditRules.InDigReach(map, new WorldPos(c.X + 90, c.Y), new TileCoord(2, 1))); // через тайл по диагонали — нет
 
             Assert.True(EditRules.InPlaceRadius(map, c, new TileCoord(1018, 6))); // 6 через шов, угол квадрата 13 × 13
             Assert.False(EditRules.InPlaceRadius(map, c, new TileCoord(1017, 0)));
@@ -64,9 +71,12 @@ namespace Orpheus.Tests
             w.SetBaseTile(new TileCoord(1, 0), FloorId.Stone, ObjectId.Rock);
             w.SetBaseTile(new TileCoord(2, 0), FloorId.Water, ObjectId.Empty);
             w.SetBaseTile(new TileCoord(3, 0), FloorId.Grass, ObjectId.StoneWall);
-            Assert.Equal(EditReply.Accepted, EditRules.CheckDig(w, c, new TileCoord(1, 0)));
-            Assert.Equal(EditReply.Empty, EditRules.CheckDig(w, c, new TileCoord(0, 1)));
-            Assert.Equal(EditReply.NotAllowed, EditRules.CheckDig(w, TileCenter(3, 1), new TileCoord(3, 0))); // постройку не копают (снос — потом)
+            var times = new DigTimes();
+            Assert.Equal(EditReply.Accepted, EditRules.CheckDig(w, c, new TileCoord(1, 0), times));
+            Assert.Equal(EditReply.Empty, EditRules.CheckDig(w, c, new TileCoord(0, 1), times));
+            Assert.Equal(EditReply.NotAllowed, EditRules.CheckDig(w, TileCenter(3, 1), new TileCoord(3, 0), times)); // постройку не копают (снос — потом)
+            times.SetModifier(ObjectId.Rock, 0);
+            Assert.Equal(EditReply.NotAllowed, EditRules.CheckDig(w, c, new TileCoord(1, 0), times)); // время 0 — неразрушима
             Assert.Equal(EditReply.DigFirst, EditRules.CheckPlaceTile(w, c, new TileCoord(1, 0), ObjectId.StoneWall));
             Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(w, c, new TileCoord(2, 0), ObjectId.StoneWall));
             Assert.Equal(EditReply.Busy, EditRules.CheckPlaceTile(w, c, new TileCoord(3, 0), ObjectId.StoneWall));
@@ -215,7 +225,107 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Проверки сервера (3.7): копать дальше 1,5 тайла — «далеко», пустой тайл — «пусто», постройку — «нельзя»; поставить дальше
+        /// Время копания «база × модификатор» (слово Автора 08.11, 0-034): таблица по умолчанию — скала 15 кадров (0,25 с), дерево
+        /// 18, залежь 30, пень 9, постройки 0; округление к ближайшему, не меньше кадра; база 0 или модификатор 0 — неразрушим.
+        /// </summary>
+        [Fact]
+        public void D05_S1_3_DigTimes_BaseTimesModifier_ZeroIndestructible()
+        {
+            var t = new DigTimes();
+            Assert.Equal(15, t.BaseFrames);
+            Assert.Equal(15, t.FramesOf(ObjectId.Rock));
+            Assert.Equal(18, t.FramesOf(ObjectId.Tree));
+            Assert.Equal(30, t.FramesOf(ObjectId.Ore));
+            Assert.Equal(9, t.FramesOf(ObjectId.Stump));
+            Assert.Equal(0, t.FramesOf(ObjectId.StoneWall));
+            Assert.Equal(0, t.FramesOf(ObjectId.Empty));
+            Assert.Equal(0, t.FramesOf(ObjectId.MakePart(1, 0)));
+            Assert.True(EditRules.IsDiggable(ObjectId.Stump, t));
+
+            t.BaseFrames = 30; // база правится — все времена за ней
+            Assert.Equal(30, t.FramesOf(ObjectId.Rock));
+            Assert.Equal(18, t.FramesOf(ObjectId.Stump));
+            t.SetModifier(ObjectId.Rock, 1); // 0,3 кадра — не меньше 1
+            Assert.Equal(1, t.FramesOf(ObjectId.Rock));
+            t.SetModifier(ObjectId.Stump, 0); // время 0 — разрушить нельзя
+            Assert.Equal(0, t.FramesOf(ObjectId.Stump));
+            Assert.False(EditRules.IsDiggable(ObjectId.Stump, t));
+            t.BaseFrames = 0;
+            Assert.Equal(0, t.FramesOf(ObjectId.Tree));
+            Assert.Throws<ArgumentOutOfRangeException>(() => t.SetModifier(ObjectId.Empty, 100));
+            Assert.Throws<ArgumentOutOfRangeException>(() => t.SetModifier(ObjectId.Rock, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => t.BaseFrames = -1);
+        }
+
+        /// <summary>
+        /// Копание по таблице на сервере и клиенте (0-034): залежь (×2) копается вдвое дольше скалы; правка таблицы (модификатор
+        /// залежи ×0,5 у сервера и клиента) меняет время; пень с модификатором 0 — «нельзя», пень на месте, предсказания нет.
+        /// </summary>
+        [Fact]
+        public void D05_S1_3_DigTimes_ServerAndClient_DifferentItems_EditChangesTime_ZeroRefused()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 200);
+            var ore = new TileCoord(299, 200);
+            var ore2 = new TileCoord(300, 201);
+            var stump = new TileCoord(300, 199);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            world.SetBaseTile(ore, FloorId.Stone, ObjectId.Ore);
+            world.SetBaseTile(ore2, FloorId.Stone, ObjectId.Ore);
+            world.SetBaseTile(stump, FloorId.Grass, ObjectId.Stump);
+            using var rig = new EditRig(world, n => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(10);
+
+            int DigTicks(TileCoord tile, out EditReply reply)
+            {
+                replies.Clear();
+                c.StartDig(tile);
+                rig.InputOf = _ => DigHold;
+                int t = 0;
+                while (replies.Count == 0 && t < 60)
+                {
+                    rig.Run(1);
+                    t++;
+                }
+
+                rig.InputOf = null;
+                rig.Run(3);
+                reply = replies.Count > 0 ? replies[0].Reply : EditReply.NotAllowed;
+                return t;
+            }
+
+            int rockTicks = DigTicks(rock, out EditReply r1);
+            Assert.Equal(EditReply.Accepted, r1);
+            Assert.Equal(15, c.DigFrames);
+            int oreTicks = DigTicks(ore, out EditReply r2);
+            Assert.Equal(EditReply.Accepted, r2);
+            Assert.Equal(30, c.DigFrames);
+            Assert.InRange(oreTicks - rockTicks, 7, 8); // +15 кадров = 7,5 такта
+
+            rig.Server.DigTimes.SetModifier(ObjectId.Ore, 50); // правка таблицы — у сервера и клиента
+            c.DigTimes.SetModifier(ObjectId.Ore, 50);
+            int ore2Ticks = DigTicks(ore2, out EditReply r3);
+            Assert.Equal(EditReply.Accepted, r3);
+            Assert.Equal(8, c.DigFrames); // 7,5 → 8
+            Assert.InRange(ore2Ticks, rockTicks - 4, rockTicks - 3);
+
+            rig.Server.DigTimes.SetModifier(ObjectId.Stump, 0);
+            c.DigTimes.SetModifier(ObjectId.Stump, 0);
+            DigTicks(stump, out EditReply r4);
+            Assert.Equal(EditReply.NotAllowed, r4);
+            Assert.Equal(ObjectId.Stump, rig.Sim.World.GetObject(stump));
+            Assert.Equal(ObjectId.Stump, c.World!.World.GetObject(stump));
+            Assert.Equal(0, c.World.PredictionsRolledBack);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(ore));
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(ore2));
+        }
+
+        /// <summary>
+        /// Проверки сервера (3.7): копать дальше «персонаж + инструмент» — «далеко», пустой тайл — «пусто», постройку — «нельзя»; поставить дальше
         /// радиуса 6 — «далеко»; линия длиннее 32 не уходит. Тайлы сервера не меняются.
         /// </summary>
         [Fact]
@@ -346,11 +456,11 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Линия до 32 тайлов (`05` 1.5): тайлы по порядку, тайл с существом и рядом с врагом пропускается, линия идёт дальше; маска
-        /// ответа — принятые тайлы; у клиента после ответа тайлы = сервер. Ведро 20 тайлов/с: две линии по 32 подряд — вторая
-        /// почти вся «слишком быстро».
+        /// ответа — принятые тайлы; у клиента после ответа тайлы = сервер. Предела «20 тайлов/с» нет (слово Автора 08.11, 0-034):
+        /// четыре линии по 13 без паузы встают целиком.
         /// </summary>
         [Fact]
-        public void D05_S1_5_Line_SkipsCreatures_Mask_RateLimit()
+        public void D05_S1_5_Line_SkipsCreatures_Mask_NoRateLimit()
         {
             WorldModel world = Flat();
             using var rig = new EditRig(world, n => TileCenter(300 + 4 * n, 200));
@@ -380,7 +490,7 @@ namespace Orpheus.Tests
                 }
             }
 
-            // Ведро: запас 32 тайла, две линии выше взяли 15, за 3 такта +2 → 19; четыре линии по 13 без паузы — принято 19.
+            // Предела нет: четыре линии по 13 без паузы (было: ведро 20/с пропускало 19) — принято 52.
             replies.Clear();
             for (int y = 194; y < 198; y++)
             {
@@ -389,11 +499,10 @@ namespace Orpheus.Tests
 
             rig.Run(3);
             int placed = replies.Sum(r => System.Numerics.BitOperations.PopCount(r.Mask));
-            Assert.Equal(19, placed);
+            Assert.Equal(52, placed);
             Assert.Equal(4, replies.Count);
-            Assert.Equal(2, replies.Count(r => r.Reply == EditReply.TooFast && r.Mask == 0)); // третья и четвёртая — целиком (ответ сразу)
-            Assert.Single(replies, r => r.Reply == EditReply.Accepted && r.FirstRefusal == EditReply.Accepted); // 13
-            Assert.Single(replies, r => r.Reply == EditReply.Accepted && r.FirstRefusal == EditReply.TooFast);
+            Assert.All(replies, r => Assert.Equal(EditReply.Accepted, r.FirstRefusal));
+            Assert.All(replies, r => Assert.Equal(0x1FFFu, r.Mask));
         }
 
         /// <summary>
@@ -536,7 +645,7 @@ namespace Orpheus.Tests
             byte[] badMask = (byte[])pb.Clone();
             badMask[5] = 0; badMask[8] = 0; // «принято» без маски
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badMask));
-            Assert.Equal(8, NetModule.ProtocolVersion); // 7 — сообщения 20–21 (0-028), 8 — опережение L (0-033)
+            Assert.Equal(9, NetModule.ProtocolVersion); // 7 — сообщения 20–21 (0-028), 8 — опережение L (0-033), 9 — «имя занято» (0-035)
         }
 
         // ---------- Стенд ----------

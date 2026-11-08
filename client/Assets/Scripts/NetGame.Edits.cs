@@ -70,7 +70,7 @@ namespace Orpheus.Client
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
-            if (!c.Digging && EditRules.IsDiggable(_world!.GetObject(tile)) && EditRules.InDigReach(_map, _localPos, tile))
+            if (!c.Digging && EditRules.IsDiggable(_world!.GetObject(tile), c.DigTimes) && EditRules.InDigReach(_map, _localPos, tile))
             {
                 c.StartDig(tile);
             }

@@ -102,6 +102,7 @@ namespace Orpheus.Client
         LocalPrediction? _pred;
         int _localId;
         ScreenshotRun? _screenshot;
+        Anim.NetAnimation? _anim; // K-001: процедурная анимация — только отображение
         long _inGameSinceUs;
         long _hudSnaps;
         long _hudTimeUs;
@@ -413,6 +414,7 @@ namespace Orpheus.Client
             _pred = new LocalPrediction(_map, _netRules.Solid, spawn);
             _remote = new RemoteInterpolation(_map);
             _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
+            _anim = new Anim.NetAnimation(_g, _client, _origin, _world, _entityRoot.transform);
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height}, такт {accept.ServerTick}; " +
                       $"мир — чанки от сервера (генератора у клиента нет), пришло уже {cw.ChunksReceived}");
             _g.Character.gameObject.SetActive(true);
@@ -471,17 +473,74 @@ namespace Orpheus.Client
             // переставляются, следующий кадр перенумеровывается (NetClient.SendFrame, LocalPrediction.Sent).
             int n = c.FramesDue(now);
             ushort editButtons = UpdateEdits(now); // 0-028: копание под курсором, стена по ПКМ
+            if (_args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame())
+            {
+                _dodgeWait = DodgeWaitFrames; // 0-034: нажатие ждёт направления до 0,1 с
+                DodgePresses++;
+            }
+
             for (int k = 0; k < n; k++)
             {
                 InputFrame frame = _args.NetSmokeSeconds > 0 ? ScriptedSmokeFrame(now) : GameBoot.ToFrame(_g.Move.ReadValue<Vector2>());
-                if (editButtons != 0)
+                ushort buttons = editButtons;
+                if (_dodgeWait > 0)
                 {
-                    frame = new InputFrame(frame.Direction, (ushort)(frame.Buttons | editButtons));
+                    if (frame.Direction.IsMoving)
+                    {
+                        buttons |= InputButtons.Dodge; // бит — в одном кадре: нажатие, не удержание (`02` 2.2)
+                        _dodgeWait = 0;
+                        DodgesSent++;
+                    }
+                    else
+                    {
+                        _dodgeWait--; // без направления — ничего (слово Автора 08.11)
+                    }
+                }
+
+                if (buttons != 0)
+                {
+                    frame = new InputFrame(frame.Direction, (ushort)(frame.Buttons | buttons));
                 }
 
                 c.SendFrame(frame);
                 _pred!.Sent(c.Frame, frame);
             }
+        }
+
+        /// <summary>
+        /// Нажатие уворота ждёт направления движения столько кадров ввода (6 = 0,1 с): «Shift + стрелка» нажимают не строго
+        /// одновременно. Не дождалось — пропадает (уворота без направления нет, 0-034).
+        /// </summary>
+        public const int DodgeWaitFrames = 6;
+
+        int _dodgeWait;
+        bool _smokeDodgeDone;
+
+        /// <summary>
+        /// Net-smoke жмёт уворот, только без имитации сети и не у шва: с потерями «липкое» нажатие сервер вправе применить в другом
+        /// кадре (2.7), а у шва замер чужих и переезды проверяют своё.
+        /// </summary>
+        bool SmokeDodges => _args.NetSimRttMs == 0 && _args.NetSimJitterMs == 0 && _args.NetSimLossPercent == 0 && !_args.NetSmokeSeam;
+
+        /// <summary>Нажатий уворота (Shift, X, B/○) и отправленных кадров с битом уворота (HUD, net-smoke).</summary>
+        public int DodgePresses { get; private set; }
+
+        /// <inheritdoc cref="DodgePresses"/>
+        public int DodgesSent { get; private set; }
+
+        /// <summary>
+        /// Net-smoke без помех сети и шва (<see cref="SmokeDodges"/>): одно нажатие уворота на 1,5 с — в беге на восток (вместе с
+        /// направлением). Сервер должен повторить рывок: иначе предсказание разойдётся на 3 тайла и smoke упадёт по правкам.
+        /// </summary>
+        bool ScriptedSmokeDodge(long now)
+        {
+            if (!SmokeDodges || _smokeDodgeDone || now - _inGameSinceUs < 1_500_000)
+            {
+                return false;
+            }
+
+            _smokeDodgeDone = true;
+            return true;
         }
 
         /// <summary>Скрипт net-smoke: стоять 0,5 с, 2 с на восток, 2 с на север, дальше стоять.</summary>
@@ -540,6 +599,7 @@ namespace Orpheus.Client
                     GameObject go = GetEntity(id);
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
+                    _anim?.Remote(id, go.transform);
                 }
             }
 
@@ -551,6 +611,7 @@ namespace Orpheus.Client
                 }
             }
 
+            _anim?.Frame(now, _pred!);
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeFrame(me, dx, dy);
@@ -703,6 +764,14 @@ namespace Orpheus.Client
                 {
                     Fail($"[smoke] FAILED: предсказание — сдвиг на сервере {moved} unit (нужно ≥ {2 * 256}), правок {p.Resynced} " +
                          $"(нужно ≤ {MaxSmokeCorrections}), макс.расхождение {p.MaxDevUnits} unit (нужно ≤ {MaxSmokeDevUnits}), установок {p.Initial}, сверок {p.Reconciled}");
+                    return;
+                }
+
+                // Уворот (0-034): скриптовое нажатие ушло одним кадром с направлением; что сервер его повторил — проверка выше.
+                Debug.Log($"[smoke] уворот: нажатий {DodgePresses}, кадров с битом {DodgesSent}");
+                if (SmokeDodges && (DodgePresses != 1 || DodgesSent != 1))
+                {
+                    Fail($"[smoke] FAILED: уворот — нажатий {DodgePresses}, кадров с битом {DodgesSent} (нужно 1 и 1)");
                     return;
                 }
 

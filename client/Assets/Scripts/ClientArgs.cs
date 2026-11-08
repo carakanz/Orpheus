@@ -92,6 +92,14 @@ namespace Orpheus.Client
 
         public bool OpenForFriends;
 
+        /// <summary>
+        /// K-001, офлайн: <c>--anim-shots &lt;папка&gt;</c> — показ процедурной анимации (ходьба, уворот, замах с сектором, попадание,
+        /// копание) и серии кадров в PNG (<c>K-001_*.png</c>); <c>--anim-bench &lt;сек&gt;</c> — замер fps с 8 персонажами и
+        /// 40 врагами-болванками. Нужен вывод на экран — без <c>-batchmode -nographics</c>.
+        /// </summary>
+        public string? AnimShotsDir;
+        public int AnimBenchSeconds;
+
         /// <summary>Адрес «Открыть для друзей»; null — все адреса (игра).</summary>
         public string? OpenAddress;
 
@@ -118,7 +126,7 @@ namespace Orpheus.Client
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь] " +
-            "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P]";
+            "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] [--anim-shots папка] [--anim-bench сек]";
 
         public static ClientArgs Parse(string[] args)
         {
@@ -284,6 +292,28 @@ namespace Orpheus.Client
                         else
                         {
                             a.ScreenshotPath = next;
+                        }
+
+                        break;
+                    case "--anim-shots":
+                        i++;
+                        if (string.IsNullOrEmpty(next))
+                        {
+                            a.Error = "--anim-shots: нет папки";
+                        }
+                        else
+                        {
+                            a.AnimShotsDir = next;
+                        }
+
+                        break;
+                    case "--anim-bench":
+                        i++;
+                        if (!int.TryParse(next, NumberStyles.Integer, CultureInfo.InvariantCulture, out a.AnimBenchSeconds)
+                            || a.AnimBenchSeconds < 1 || a.AnimBenchSeconds > 600)
+                        {
+                            a.Error = $"--anim-bench: нужно секунд 1…600, дано '{next}'";
+                            a.AnimBenchSeconds = 0;
                         }
 
                         break;

@@ -114,6 +114,9 @@ namespace Orpheus.Tests
                 Assert.Equal(NetClientState.InGame, client.State);
                 snapshots = client.SnapshotsApplied;
                 client.Disconnect();
+                // 0-035: персонаж, бывший в мире на такте сохранения, при загрузке уходит из мира (хэш после загрузки другой) —
+                // дождаться, пока сервер заметит уход и сохранит его, тогда при остановке в мире только боты.
+                Assert.True(SpinWait.SpinUntil(() => log.Saved("игрок вышел") || host.HasExited, 10_000), "уход игрока не сохранён");
                 Assert.True(host.Stop(30_000), "сервер в потоке не остановился");
                 first = host.Result ?? throw new Xunit.Sdk.XunitException("нет итога: " + host.Error);
                 _out.WriteLine($"[{storageKind}] готов за {readySec:0.00} с, в игре с {inGameAt / 1e6:0.00} с; тактов {first.Ticks} за {first.Seconds:0.00} с " +
@@ -223,6 +226,17 @@ namespace Orpheus.Tests
 
             public List<string> Warnings { get; } = new List<string>();
 
+            /// <summary>Причины сохранений («сохранено», ключ reason).</summary>
+            public List<string> SaveReasons { get; } = new List<string>();
+
+            public bool Saved(string reason)
+            {
+                lock (_sync)
+                {
+                    return SaveReasons.Contains(reason);
+                }
+            }
+
             public bool Enabled(string cat, LogLevel level) => level >= LogLevel.Info;
 
             public void Write(LogLevel level, long tick, string cat, string msg, (string Key, object? Value)[] data)
@@ -236,6 +250,16 @@ namespace Orpheus.Tests
                     else if (level == LogLevel.Warn)
                     {
                         Warnings.Add($"{tick} {cat} {msg}");
+                    }
+                    else if (msg == "сохранено")
+                    {
+                        foreach ((string key, object? value) in data)
+                        {
+                            if (key == "reason")
+                            {
+                                SaveReasons.Add(value?.ToString() ?? string.Empty);
+                            }
+                        }
                     }
                 }
             }

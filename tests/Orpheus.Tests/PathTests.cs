@@ -182,8 +182,13 @@ namespace Orpheus.Tests
 
         // ---------- Цель в замкнутой области ----------
 
+        /// <summary>
+        /// Цель в замкнутой области, враг снаружи (слово Автора 08.11, 0-034): итог «замкнута», путь — к проходимому тайлу вне
+        /// области, ближайшему к цели (по тору; при равенстве — ближе к врагу). Через шов: коробка вокруг (6, 20), враг в (60, 20) —
+        /// к (3, 20) у западной стены, 7 шагов прямо.
+        /// </summary>
         [Fact]
-        public void D02_S9_2_GoalEnclosed_ZeroAStarRuns()
+        public void D02_S9_2_GoalEnclosed_PathToEdgeNearestGoal()
         {
             var map = new GridTerrain(MapShape.World(64));
             TileCoord goal = T(6, 20);
@@ -191,18 +196,48 @@ namespace Orpheus.Tests
             var finder = new PathFinder();
             var path = new PathBuffer();
             Assert.Equal(PathStatus.Enclosed, finder.Find(map, T(60, 20), goal, PathMode.Walker, path));
-            Assert.Equal(0, finder.AStarRuns);
-            Assert.Equal(0, path.Length);
-            Assert.Equal(0, path.Expanded);
-
-            // Враг внутри той же коробки — путь есть, A* работает.
-            Assert.Equal(PathStatus.Found, finder.Find(map, T(5, 19), goal, PathMode.Walker, path));
             Assert.Equal(1, finder.AStarRuns);
+            Assert.Equal(T(3, 20), path.End); // (3, 20) и (9, 20) — оба в 3 от цели; (3, 20) ближе к врагу
+            Assert.Equal(new[] { T(61, 20), T(62, 20), T(63, 20), T(0, 20), T(1, 20), T(2, 20), T(3, 20) }, Steps(path));
+            AssertConnected(map.Shape, T(60, 20), path);
+
+            // Враг внутри той же коробки — путь есть, обычный A*.
+            Assert.Equal(PathStatus.Found, finder.Find(map, T(5, 19), goal, PathMode.Walker, path));
+            Assert.Equal(2, finder.AStarRuns);
 
             // Дверь (проход в стене коробки) — уже не замкнута.
             map.Open(T(4, 20));
             Assert.Equal(PathStatus.Found, finder.Find(map, T(60, 20), goal, PathMode.Walker, path));
-            Assert.Equal(2, finder.AStarRuns);
+            Assert.Equal(3, finder.AStarRuns);
+            Assert.Equal(goal, path.End);
+        }
+
+        /// <summary>
+        /// Ближний к цели край — на дальней от врага стороне (0-034): коробка 7 × 7 внутри стен толщиной 2, цель у восточной стены,
+        /// враг на западе — обходит коробку к тайлу за восточной стеной (за 2 тайла стены), а не встаёт у западной.
+        /// Враг уже у ближнего края — путь пуст, итог «замкнута».
+        /// </summary>
+        [Fact]
+        public void D02_S9_2_GoalEnclosed_FarSideEdge_WalksAround_ThickWalls()
+        {
+            var map = new GridTerrain(MapShape.World(128));
+            TileCoord center = T(40, 40);
+            Box(map, center, 4);
+            Box(map, center, 5); // стены толщиной 2: x = 35, 36 и 44, 45
+            TileCoord goal = T(43, 40); // у восточной стены
+            var finder = new PathFinder();
+            var path = new PathBuffer();
+            Assert.Equal(PathStatus.Enclosed, finder.Find(map, T(25, 40), goal, PathMode.Walker, path));
+            Assert.Equal(T(46, 40), path.End); // 3 от цели; западный край (34, 40) — в 9
+            AssertConnected(map.Shape, T(25, 40), path);
+            foreach (TileCoord t in Steps(path))
+            {
+                Assert.True(Math.Abs(t.X - center.X) > 5 || Math.Abs(t.Y - center.Y) > 5); // в обход, не сквозь коробку
+            }
+
+            Assert.Equal(PathStatus.Enclosed, finder.Find(map, T(46, 40), goal, PathMode.Walker, path));
+            Assert.Equal(0, path.Length);
+            Assert.Equal(T(46, 40), path.End);
         }
 
         [Fact]

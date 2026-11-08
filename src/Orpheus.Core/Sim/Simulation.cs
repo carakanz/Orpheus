@@ -181,6 +181,21 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
+        /// Вернуть персонажа в мир с его движением (0-035, docs/07 7.4: вернувшийся игрок — тот же персонаж там же):
+        /// позиция (свернётся в карту), остаток скорости, скорость, уворот — как в <paramref name="mover"/>; ввод пустой.
+        /// Номер — следующий по счёту (номера не переиспользуются). Вне такта. Возвращает номер.
+        /// </summary>
+        public int AddEntity(in Mover mover)
+        {
+            int id = AddEntity(mover.Position, mover.UnitsPerTickX10);
+            int slot = SlotOf(id);
+            WorldPos at = _entities[slot].Mover.Position;
+            _entities[slot].Mover = mover;
+            _entities[slot].Mover.Position = at;
+            return id;
+        }
+
+        /// <summary>
         /// Добавить врага-заглушку (<see cref="SimEntity.KindEnemy"/>; 0-028 — для правила «не ближе 2 тайлов к врагу»): стоит,
         /// пока ему не дали ввод. Номер — следующий. Возвращает номер.
         /// </summary>
