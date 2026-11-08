@@ -5,7 +5,8 @@ namespace Orpheus.Editor
 {
     /// <summary>
     /// Настройки импорта картинок из Assets/Art при первом импорте (docs/00_vision.md, 5.1):
-    /// спрайт, 128 px на тайл, без mip-карт. Персонажи (имя содержит "_char_") — опора внизу по центру.
+    /// спрайт, 128 px на тайл, без mip-карт. Персонажи (имя содержит "_char_") и оружие в руке ("_held_", 1-024:
+    /// рукоять внизу по центру, остриё вверх) — опора внизу по центру.
     /// Объекты на тайле (имя содержит "_obj_", 128 × 192) — опора в центре нижнего квадрата 128 × 128
     /// (на высоте 64 px = 1/3 картинки): нижний квадрат ложится на свой тайл, верх заходит на тайл выше (наклон, 00 5.1).
     /// Срабатывает только для новых файлов: ручные правки .meta не перетираются.
@@ -35,7 +36,7 @@ namespace Orpheus.Editor
             var settings = new TextureImporterSettings();
             importer.ReadTextureSettings(settings);
             settings.spriteMeshType = SpriteMeshType.FullRect;
-            if (assetPath.Contains("_char_"))
+            if (assetPath.Contains("_char_") || assetPath.Contains("_held_"))
             {
                 settings.spriteAlignment = (int)SpriteAlignment.BottomCenter;
             }
