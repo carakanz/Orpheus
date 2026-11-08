@@ -14,9 +14,4 @@
     <ProjectReference Include="..\Orpheus.Platform.Pc\Orpheus.Platform.Pc.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Часы кадра 60 Гц — те же, что у такта сервера (ожидающий таймер высокого разрешения, не Thread.Sleep). -->
-    <Compile Include="..\Orpheus.Server\TickClock.cs" Link="TickClock.cs" />
-  </ItemGroup>
-
 </Project>

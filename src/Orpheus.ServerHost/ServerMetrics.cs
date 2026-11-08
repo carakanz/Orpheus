@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Text.Json;
 
 namespace Orpheus.Server
 {
@@ -137,39 +135,6 @@ namespace Orpheus.Server
         private static double R(double v) => Math.Round(v, 4);
     }
 
-    /// <summary>Отчёт сервера (<c>--report</c>, 0-030): итог запуска и все окна метрик.</summary>
-    public sealed class ServerReport
-    {
-        public string Mode { get; set; } = "";
-        public int Size { get; set; }
-        public string Bots { get; set; } = "";
-        public int Port { get; set; } = -1;
-        public string Machine { get; set; } = "";
-        public string Configuration { get; set; } = "";
-
-        /// <summary>От запуска процесса до строки готовности (порт слушается), с; без сети — до начала цикла тактов.</summary>
-        public double ReadySeconds { get; set; }
-
-        /// <summary>Рабочий набор и пик рабочего набора в миг готовности, МБ.</summary>
-        public double ReadyWorkingSetMb { get; set; }
-        public double ReadyPeakWorkingSetMb { get; set; }
-        public double ReadyPrivateMb { get; set; }
-
-        public MetricsSample Total { get; set; } = new MetricsSample();
-        public List<MetricsSample> Windows { get; set; } = new List<MetricsSample>();
-
-        public void Write(string path)
-        {
-            string? dir = Path.GetDirectoryName(Path.GetFullPath(path));
-            if (!string.IsNullOrEmpty(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            File.WriteAllText(path, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
-        }
-    }
-
     /// <summary>
     /// Сборщик метрик сервера (0-030): такт из <see cref="TickMetrics"/>, память и сборки мусора процесса, трафик из
     /// <see cref="CountingTransport"/>. <see cref="Due"/> — пора ли выводить окно (раз в <c>--metrics</c> с), <see cref="TakeWindow"/>
@@ -180,16 +145,15 @@ namespace Orpheus.Server
         private readonly CountingTransport? _traffic;
         private readonly Func<int> _clients;
         private readonly long _periodTs;
-        private readonly Process _process = Process.GetCurrentProcess();
+        private readonly IRuntimeStats _stats;
         private readonly long[] _peerOut0 = new long[CountingTransport.MaxPeers];
         private readonly long[] _peerIn0 = new long[CountingTransport.MaxPeers];
         private readonly int[] _gc0 = new int[3];
         private readonly int[] _gcStart = new int[3];
-        private readonly long[] _gcIndex = new long[3];
         private long _windowTs;
         private long _startTs;
-        private TimeSpan _pause0;
-        private TimeSpan _pauseStart;
+        private double _pause0;
+        private double _pauseStart;
         private long _out0;
         private long _in0;
 
@@ -203,9 +167,11 @@ namespace Orpheus.Server
         private double _maxInClient;
 
         /// <param name="periodSeconds">Окно, с; 0 — окна не выводятся (только итог).</param>
-        public ServerMetrics(TickMetrics tick, CountingTransport? traffic, Func<int> clients, double periodSeconds)
+        /// <param name="stats">Память и паузы сборки мусора: процесс ОС в <c>OrpheusServer</c>, переносимо — в потоке игры (0-031).</param>
+        public ServerMetrics(TickMetrics tick, CountingTransport? traffic, Func<int> clients, double periodSeconds, IRuntimeStats? stats = null)
         {
             Tick = tick;
+            _stats = stats ?? new PortableRuntimeStats();
             _traffic = traffic;
             _clients = clients;
             _periodTs = periodSeconds > 0 ? (long)(periodSeconds * Stopwatch.Frequency) : 0;
@@ -225,11 +191,8 @@ namespace Orpheus.Server
                 _gc0[g] = _gcStart[g] = GC.CollectionCount(g);
             }
 
-            _pause0 = _pauseStart = GC.GetTotalPauseDuration();
-            foreach (GCKind kind in Kinds)
-            {
-                _gcIndex[(int)kind - 1] = GC.GetGCMemoryInfo(kind).Index;
-            }
+            _pause0 = _pauseStart = _stats.GcPauseTotalMs();
+            _stats.TakeGcPauseMaxMs();
 
             _out0 = _traffic?.BytesOut ?? 0;
             _in0 = _traffic?.BytesIn ?? 0;
@@ -270,21 +233,10 @@ namespace Orpheus.Server
                 }
             }
 
-            TimeSpan pause = GC.GetTotalPauseDuration();
-            s.GcPauseTotalMs = (pause - _pause0).TotalMilliseconds;
+            double pause = _stats.GcPauseTotalMs();
+            s.GcPauseTotalMs = pause - _pause0;
             _pause0 = pause;
-            foreach (GCKind kind in Kinds)
-            {
-                GCMemoryInfo info = GC.GetGCMemoryInfo(kind);
-                if (info.Index != _gcIndex[(int)kind - 1])
-                {
-                    _gcIndex[(int)kind - 1] = info.Index;
-                    foreach (TimeSpan p in info.PauseDurations)
-                    {
-                        s.GcPauseMaxMs = Math.Max(s.GcPauseMaxMs, p.TotalMilliseconds);
-                    }
-                }
-            }
+            s.GcPauseMaxMs = _stats.TakeGcPauseMaxMs();
 
             FillMemory(s);
 
@@ -344,7 +296,7 @@ namespace Orpheus.Server
             s.Gc0 = GC.CollectionCount(0) - _gcStart[0];
             s.Gc1 = GC.CollectionCount(1) - _gcStart[1];
             s.Gc2 = GC.CollectionCount(2) - _gcStart[2];
-            s.GcPauseTotalMs = (GC.GetTotalPauseDuration() - _pauseStart).TotalMilliseconds;
+            s.GcPauseTotalMs = _stats.GcPauseTotalMs() - _pauseStart;
             s.GcPauseMaxMs = _maxPause;
             FillMemory(s);
             s.WorkingSetMb = Math.Max(s.WorkingSetMb, _maxWorkingSet);
@@ -368,25 +320,10 @@ namespace Orpheus.Server
             return s;
         }
 
-        /// <summary>Память процесса сейчас: рабочий набор, пик, частная, МБ.</summary>
-        public static (double WorkingSetMb, double PeakWorkingSetMb, double PrivateMb) ProcessMemory()
+        /// <summary>Рантайм ничего не держит: процесс ОС, если он есть, закрывает тот, кто его создал.</summary>
+        public void Dispose()
         {
-            using Process p = Process.GetCurrentProcess();
-            return (p.WorkingSet64 / Mb, p.PeakWorkingSet64 / Mb, p.PrivateMemorySize64 / Mb);
         }
-
-        /// <summary>Секунд с запуска процесса (по времени старта процесса в ОС).</summary>
-        public static double SecondsSinceProcessStart()
-        {
-            using Process p = Process.GetCurrentProcess();
-            return (DateTime.Now - p.StartTime).TotalSeconds;
-        }
-
-        public void Dispose() => _process.Dispose();
-
-        private const double Mb = 1024.0 * 1024.0;
-
-        private static readonly GCKind[] Kinds = { GCKind.Ephemeral, GCKind.FullBlocking, GCKind.Background };
 
         private static void FillTick(MetricsSample s, TickStats t)
         {
@@ -420,11 +357,11 @@ namespace Orpheus.Server
 
         private void FillMemory(MetricsSample s)
         {
-            _process.Refresh();
-            s.WorkingSetMb = _process.WorkingSet64 / Mb;
-            s.PeakWorkingSetMb = _process.PeakWorkingSet64 / Mb;
-            s.PrivateMb = _process.PrivateMemorySize64 / Mb;
-            s.HeapMb = GC.GetGCMemoryInfo().HeapSizeBytes / Mb;
+            RuntimeMemory m = _stats.Memory();
+            s.WorkingSetMb = m.WorkingSetMb;
+            s.PeakWorkingSetMb = m.PeakWorkingSetMb;
+            s.PrivateMb = m.PrivateMb;
+            s.HeapMb = m.HeapMb;
         }
     }
 }

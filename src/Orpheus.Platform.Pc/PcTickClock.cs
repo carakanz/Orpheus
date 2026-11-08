@@ -1,35 +1,23 @@
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
+using Orpheus.Server;
 
-namespace Orpheus.Server
+namespace Orpheus.Platform.Pc
 {
     /// <summary>
-    /// Часы такта обычного режима (docs/07, 2.4): такт 33,3 мс, ожидание на таймере высокого разрешения —
-    /// Windows: ожидающий таймер с <c>CREATE_WAITABLE_TIMER_HIGH_RESOLUTION</c>, Linux: <c>clock_nanosleep</c>;
-    /// не <c>Thread.Sleep</c> (запасной путь — только если таймера нет).
-    /// <para>
-    /// Отставание: такт длился дольше — следующий сразу; до 3 тактов догоняется. Больше 3 тактов (100 мс) —
-    /// лишние такты не догоняются (отсчёт переставляется), <see cref="WaitNext"/> возвращает число брошенных
-    /// тактов — сервер пишет предупреждение «перегрузка».
-    /// </para>
-    /// В режиме симуляции часов нет вовсе — такты идут подряд.
+    /// Часы такта «ПК» (docs/07, 2.4; вынесено из OrpheusServer в 0-031): правила такта и отставания — <see cref="TickPacer"/>
+    /// (ServerHost), ожидание — на таймере высокого разрешения: Windows — ожидающий таймер с
+    /// <c>CREATE_WAITABLE_TIMER_HIGH_RESOLUTION</c>, Linux — <c>clock_nanosleep</c>; не <c>Thread.Sleep</c> (запасной путь — только
+    /// если таймера нет). P/Invoke — только здесь, в платформенном слое (1.6). Те же часы — кадр 60 Гц у ботов.
     /// </summary>
-    public sealed class TickClock : IDisposable
+    public sealed class PcTickClock : TickPacer
     {
-        /// <summary>Наибольшее догоняемое отставание, тактов.</summary>
-        public const int MaxCatchUpTicks = 3;
-
-        private readonly long _tickTicks; // длина такта в тиках Stopwatch
-        private readonly Stopwatch _watch = Stopwatch.StartNew();
         private readonly IntPtr _winTimer;
-        private long _next;
 
-        public TickClock(int tickRate)
+        public PcTickClock(int tickRate)
+            : base(tickRate)
         {
-            _tickTicks = Stopwatch.Frequency / tickRate;
-            _next = _tickTicks;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 _winTimer = CreateWaitableTimerExW(IntPtr.Zero, null, CreateWaitableTimerHighResolution, TimerAllAccess);
@@ -37,41 +25,12 @@ namespace Orpheus.Server
         }
 
         /// <summary>Как ждём: для лога.</summary>
-        public string Method =>
+        public override string Method =>
             _winTimer != IntPtr.Zero ? "waitable-timer-high-res"
             : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "clock_nanosleep"
             : "thread-sleep";
 
-        /// <summary>
-        /// Ждать начала следующего такта. Возвращает число брошенных тактов (0 — всё в срок или догнали).
-        /// </summary>
-        public long WaitNext(CancellationToken stop)
-        {
-            long now = _watch.ElapsedTicks;
-            long behind = now - _next;
-            long dropped = 0;
-            if (behind > _tickTicks * MaxCatchUpTicks)
-            {
-                dropped = behind / _tickTicks - MaxCatchUpTicks;
-                _next += dropped * _tickTicks;
-            }
-
-            while (!stop.IsCancellationRequested)
-            {
-                long wait = _next - _watch.ElapsedTicks;
-                if (wait <= 0)
-                {
-                    break;
-                }
-
-                Sleep(wait * 1_000_000_000 / Stopwatch.Frequency);
-            }
-
-            _next += _tickTicks;
-            return dropped;
-        }
-
-        public void Dispose()
+        protected override void Dispose(bool disposing)
         {
             if (_winTimer != IntPtr.Zero)
             {
@@ -79,7 +38,7 @@ namespace Orpheus.Server
             }
         }
 
-        private void Sleep(long nanos)
+        protected override void Sleep(long nanos)
         {
             if (_winTimer != IntPtr.Zero)
             {

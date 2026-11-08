@@ -100,14 +100,14 @@ namespace Orpheus.Server
             _mark = now;
             Array.Clear(_partTs, 0, PartCount);
             Array.Clear(_partAlloc, 0, PartCount);
-            _alloc0 = _allocMark = GC.GetAllocatedBytesForCurrentThread();
+            _alloc0 = _allocMark = HostRuntime.AllocatedBytes();
         }
 
         /// <summary>Закончилась часть <paramref name="part"/>: время с прошлой отметки — ей.</summary>
         public void Mark(TickPart part)
         {
             long now = Stopwatch.GetTimestamp();
-            long alloc = GC.GetAllocatedBytesForCurrentThread();
+            long alloc = HostRuntime.AllocatedBytes();
             _partTs[(int)part] += now - _mark;
             _partAlloc[(int)part] += alloc - _allocMark;
             _mark = now;
@@ -118,13 +118,22 @@ namespace Orpheus.Server
         public void EndTick()
         {
             long now = Stopwatch.GetTimestamp();
-            long allocNow = GC.GetAllocatedBytesForCurrentThread();
+            long allocNow = HostRuntime.AllocatedBytes();
             long alloc = allocNow - _alloc0;
             _partTs[(int)TickPart.Other] += now - _mark; // неразмеченный хвост — в «прочее»
             _partAlloc[(int)TickPart.Other] += allocNow - _allocMark;
             long total = Micros(now - _tickStart);
             Window.AddTick(total, _partTs, _partAlloc, alloc);
             Total.AddTick(total, _partTs, _partAlloc, alloc);
+        }
+
+        /// <summary>
+        /// Начатый <see cref="BeginTick"/> цикл оказался не тактом (пауза 0-036: такт мира не шагает) — не считать его ни в
+        /// тактах, ни в промежутках: следующий <see cref="BeginTick"/> промежуток не пишет (пауза — не простой).
+        /// </summary>
+        public void CancelTick()
+        {
+            _prevStart = -1;
         }
 
         /// <summary>Начать новое окно.</summary>

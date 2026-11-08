@@ -20,7 +20,7 @@ namespace Orpheus.Net.Session
     /// </summary>
     public sealed partial class NetServer
     {
-        /// <summary>Пауза стоит: такт мира не шагается (<c>ServerRun</c> и стенды тестов спрашивают перед тактом).</summary>
+        /// <summary>Пауза стоит: такт мира не шагается (цикл <c>ServerHost</c> и стенды тестов спрашивают перед тактом).</summary>
         public bool Paused { get; private set; }
 
         /// <summary>Такт, на котором стоит пауза (последний шагнутый).</summary>
