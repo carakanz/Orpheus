@@ -451,7 +451,7 @@ namespace Orpheus.Client
         void CheckTiles(string where)
         {
             int mismatches = CheckViewTiles(_g.View, _g.World, _map, where, out int checkedTiles, out int samples,
-                line => Debug.Log("[smoke] " + line), msg => Fail(msg));
+                out bool _, line => Debug.Log("[smoke] " + line), msg => Fail(msg));
             _samples += samples;
             _tileMismatches += mismatches;
             _tilesChecked += checkedTiles;
@@ -461,14 +461,16 @@ namespace Orpheus.Client
         /// Тайлы окна: Tilemap каждого узла против чанка ядра (офлайн — мир генератора, сеть — чанки от сервера, 0-026);
         /// по одному образцу каждого вида — строкой <c>sample</c> для сверки с картинкой gen_preview того же зерна
         /// (<c>tools/check_smoke_tiles.py</c>). Возвращает число расхождений (первые 5 — в <paramref name="fail"/>).
+        /// <paramref name="windowHasStoneFloor"/> — есть ли в окне пол гор (<c>FloorId.Stone</c>): у Очага в v1 (1-017)
+        /// окно — луга стартовой зоны, гранита в нём нет по построению, поэтому там образец — три вида, не четыре.
         /// </summary>
         public static int CheckViewTiles(WorldView view, WorldModel world, MapShape map, string where, out int checkedTiles,
-            out int samples, Action<string> log, Action<string> fail)
+            out int samples, out bool windowHasStoneFloor, Action<string> log, Action<string> fail)
         {
             int mismatches = 0;
             checkedTiles = 0;
             samples = 0;
-            bool tree = false, rock = false, stone = false, grass = false;
+            bool tree = false, rock = false, stone = false, grass = false, sawStoneFloor = false;
             ReadOnlySpan<ChunkCoord> chunks = view.Chunks;
             for (int k = 0; k < chunks.Length; k++)
             {
@@ -493,6 +495,10 @@ namespace Orpheus.Client
                         TileBase? f = node.Floor.GetTile(cell);
                         TileBase? o = node.Objects.GetTile(cell);
                         checkedTiles++;
+                        if (floor == FloorId.Stone)
+                        {
+                            sawStoneFloor = true;
+                        }
                         if (f != view.FloorTile(floor) || o != view.ObjectTile(obj))
                         {
                             if (mismatches++ < 5)
@@ -522,6 +528,7 @@ namespace Orpheus.Client
                 }
             }
 
+            windowHasStoneFloor = sawStoneFloor;
             log($"tiles {where}: чанков {chunks.Length}, тайлов {checkedTiles}, расхождений {mismatches}");
             return mismatches;
         }

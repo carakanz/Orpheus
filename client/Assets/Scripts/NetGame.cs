@@ -823,14 +823,18 @@ namespace Orpheus.Client
 
                 ClientWorld cw = _client.World!;
                 int tileErrors = SmokeRun.CheckViewTiles(_view!, _world!, _map, "net", out int tilesChecked, out int samples,
-                    line => Debug.Log("[smoke] " + line), msg => Debug.LogError("[smoke] " + msg));
+                    out bool windowHasStone, line => Debug.Log("[smoke] " + line), msg => Debug.LogError("[smoke] " + msg));
                 Debug.Log($"[smoke] world: чанков от сервера {cw.ChunksReceived}, пачек {cw.PatchesApplied}, разрывов {cw.PatchGaps}, " +
                           $"выброшено {cw.ChunksDropped}, сейчас {cw.ChunkCount} (max {cw.MaxChunkCount}); тайлов проверено {tilesChecked}, " +
-                          $"расхождений Tilemap/ядро {tileErrors}, образцов {samples}; зерно сервера 0x{_client.Accept.WorldSeed:X} " +
+                          $"расхождений Tilemap/ядро {tileErrors}, образцов {samples} (пол гор в окне: {(windowHasStone ? "есть" : "нет")}); " +
+                          $"зерно сервера 0x{_client.Accept.WorldSeed:X} " +
                           $"(только для сверки образцов с gen_preview: tools/check_smoke_tiles.py)");
-                if (tileErrors > 0 || samples < 4 || cw.ChunkCount < ChunkWindow.Width * ChunkWindow.Height)
+                // 1-017: у Очага окно — луга стартовой зоны, пола гор там нет по построению генератора,
+                // поэтому образцов три (трава, дерево, скала); гранит в окне — четвертый обязателен.
+                int needSamples = windowHasStone ? 4 : 3;
+                if (tileErrors > 0 || samples < needSamples || cw.ChunkCount < ChunkWindow.Width * ChunkWindow.Height)
                 {
-                    Fail($"[smoke] FAILED: тайлы — расхождений {tileErrors}, образцов {samples}, чанков {cw.ChunkCount}");
+                    Fail($"[smoke] FAILED: тайлы — расхождений {tileErrors}, образцов {samples} (нужно ≥ {needSamples}), чанков {cw.ChunkCount}");
                     return;
                 }
                 Debug.Log($"[smoke] input: кадров ввода {_client.InputsSent} за {(now - _inGameSinceUs) / 1e6:0.00} с " +
