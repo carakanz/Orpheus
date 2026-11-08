@@ -216,11 +216,13 @@ namespace Orpheus.Tests
             List<(ulong Number, long Tick, string Hash)> saves = SaveBegins(log);
             Assert.True(saves.Count >= 3, $"сохранений меньше трёх: {string.Join(" | ", log)}");
             (string stage, _, _) = CrashPoint(log);
-            Assert.Equal(ParseNumbers(gens), Generations(world));
+            ulong[] afterKill = Generations(world);
 
+            // Сначала — открывается ли мир вообще (с М1 при серии без автосохранений — нет), потом — папка.
             var witness = new List<string>();
             int code = RunServer(world, WitnessArgs(), killOnCrash: false, witness, out string stdout);
-            Assert.True(code == 0, $"мир не открылся (код {code}): {stdout}");
+            Assert.True(code == 0, $"мир не открылся (код {code}), в папке после обрыва {string.Join(",", afterKill)}: {stdout}");
+            Assert.Equal(ParseNumbers(gens), afterKill);
             (ulong number, long tick, string hash) = LoadedLine(witness);
             (ulong wantNumber, long wantTick, string wantHash) = saves[loadIndex];
             Assert.Equal(wantNumber, number);
