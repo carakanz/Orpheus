@@ -1,6 +1,8 @@
 using System;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
+using Orpheus.Core.Trig;
 using Orpheus.Core.World;
 
 namespace Orpheus.Core.Sim
@@ -31,6 +33,9 @@ namespace Orpheus.Core.Sim
     /// <item><b>Движение</b>: сущности по номеру, каждая — <see cref="Mover.Step"/> по своему вводу
     /// (коллизия с тайлами мира, каким он был в начале такта); перешедшие границу чанка переносятся в сетке
     /// <see cref="Grid"/> (docs/07, 4.4).</item>
+    /// <item><b>Бой</b> (1-001, `02` 6, 8.3, 13.5): таймеры здоровья (неуязвимость, «в бою», регенерация),
+    /// детерминированный цикл атаки врага (замах фиксирует сектор началом, удар — в конце замаха по позиции цели),
+    /// смерть и возрождение у <see cref="Simulation.RespawnCenter"/>; трупы удалённых враг — в конце такта.</item>
     /// <item><b>Правки мира пачками</b>: запросы такта (<see cref="RequestEdit(TileCoord, byte, ushort)"/>)
     /// группируются по чанку — <b>одна пачка на чанк за такт</b> (3.7, backlog [такт сервера]): чанки по
     /// порядку (Y, затем X), внутри чанка — по порядку прихода; на чанк один вызов
@@ -116,6 +121,11 @@ namespace Orpheus.Core.Sim
             _batchOf = new int[maxEditsPerTick];
             _preResult = new EditResult[maxEditsPerTick];
 
+            // Точка возрождения по умолчанию — центр карты (SpawnCenter ботов, ServerHost.DefaultSpawnCenter).
+            _respawnCenter = new WorldPos(
+                (_shape.Width / 2 << Torus.SubTileBits) + Torus.SubTilesPerTile / 2,
+                (_shape.Height / 2 << Torus.SubTileBits) + Torus.SubTilesPerTile / 2);
+
             // Событий на такт: исход каждой правки + ревизия каждого чанка — не больше 2 × правок.
             _events = new SimEvent[maxEditsPerTick * 2];
             _buildMapReserve = reserveBuildMaps;
@@ -197,12 +207,17 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Добавить врага-заглушку (<see cref="SimEntity.KindEnemy"/>; 0-028 — для правила «не ближе 2 тайлов к врагу»): стоит,
-        /// пока ему не дали ввод. Номер — следующий. Возвращает номер.
+        /// пока ему не дали ввод. Здоровье архетипа «Ближний» (35), сам не замахивается (<see cref="StartAttack"/> — удар,
+        /// <see cref="EnableAttackCycle"/> — манекен). Номер — следующий. Возвращает номер.
         /// </summary>
         public int AddEnemy(WorldPos position)
         {
             int id = AddEntity(position);
-            _entities[SlotOf(id)].Kind = SimEntity.KindEnemy;
+            int slot = SlotOf(id);
+            _entities[slot].Kind = SimEntity.KindEnemy;
+            _entities[slot].MaxHealth = MaxHealthMeleeEnemy;
+            _entities[slot].Health = MaxHealthMeleeEnemy;
+            _entities[slot].AttackRaw = (byte)StrikeRawMelee;
             return id;
         }
 
@@ -229,6 +244,12 @@ namespace Orpheus.Core.Sim
                 Kind = SimEntity.KindCharacter,
                 Mover = Mover.At(_shape, position, unitsPerTickX10),
                 Input = InputFrame.None,
+                Health = MaxHealthCharacter,
+                MaxHealth = MaxHealthCharacter,
+                Mass = 1,
+                RegenTicks = RegenDelayTicks,
+                AttackTarget = -1,
+                AttackPeriod = -1,
             };
             _hasPending[slot] = false;
             _frameCount[slot] = -1;
@@ -300,7 +321,7 @@ namespace Orpheus.Core.Sim
 
             for (int i = 0; i < entities.Length; i++)
             {
-                _entities[i] = entities[i];
+                _entities[i] = RestoreDefaults(entities[i]);
                 _hasPending[i] = false;
                 _frameCount[i] = -1;
             }
@@ -313,6 +334,46 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Следующий номер сущности (пишется в сохранение: номера не переиспользуются).</summary>
         public int NextEntityId => _nextId;
+
+        /// <summary>
+        /// Здоровье и боевые таймеры (1-001) в формат сохранений 0-037 не входят («Не трогать» карточки):
+        /// при загрузке сущность получает полные значения — вернувшийся персонаж входит с полным здоровьем
+        /// (решение Продюсера, `08` 3.1: сохранения персонажей сверх позиции и сумки отложены).
+        /// </summary>
+        private static SimEntity RestoreDefaults(SimEntity e)
+        {
+            if (e.MaxHealth <= 0)
+            {
+                e.MaxHealth = (short)(e.Kind == SimEntity.KindEnemy ? MaxHealthMeleeEnemy : MaxHealthCharacter);
+            }
+
+            if (e.Health <= 0)
+            {
+                e.Health = e.MaxHealth;
+            }
+
+            if (e.Mass == 0)
+            {
+                e.Mass = 1;
+            }
+
+            if (e.RegenTicks == 0)
+            {
+                e.RegenTicks = RegenDelayTicks;
+            }
+
+            if (e.AttackTarget == 0)
+            {
+                e.AttackTarget = -1;
+            }
+
+            if (e.AttackPeriod == 0)
+            {
+                e.AttackPeriod = -1;
+            }
+
+            return e;
+        }
 
         /// <summary>Место сущности в списке по номеру; нет — −1.</summary>
         public int SlotOf(int entityId)
@@ -501,6 +562,11 @@ namespace Orpheus.Core.Sim
             // 2. Движение — по номеру сущности: тактом по вводу или кадрами ввода (сетевой персонаж, 0-019).
             for (int i = 0; i < _entityCount; i++)
             {
+                if (!_entities[i].Alive)
+                {
+                    continue; // мёртвый (труп, ждёт возрождения) не движется (1-001, 13.5, 8.3)
+                }
+
                 int frames = _frameCount[i];
                 if (frames < 0)
                 {
@@ -518,22 +584,36 @@ namespace Orpheus.Core.Sim
                 _frameCount[i] = -1;
             }
 
+            // 3. Бой (1-001): таймеры здоровья, атаки врагов, смерть и возрождение — после движения,
+            // сетка подхватывает teleport возрождения ниже.
+            StepCombat(tick);
+
             // Сетка по чанкам: перешедшие границу чанка переносятся (4.4).
             for (int i = 0; i < _entityCount; i++)
             {
                 _grid.Update(i, Torus.ChunkOf(_shape, _entities[i].Mover.Position));
             }
 
-            // 3. Правки мира: одна пачка на чанк за такт.
+            // 4. Правки мира: одна пачка на чанк за такт.
             ApplyEditBatches(tick);
 
-            // 4. События: буфер такта закрыт; переполнение — ошибка ёмкости, а не тихая потеря.
+            // 5. События: буфер такта закрыт; переполнение — ошибка ёмкости, а не тихая потеря.
             if (_eventsOverflow)
             {
                 throw new InvalidOperationException($"Такт {tick}: событий больше {_events.Length}.");
             }
 
             Tick = tick;
+
+            // 6. Трупы (8.3; 1-001): враг с истёкшим тайром трупа удаляется (RemoveEntity — сдвиг списка,
+            // Rebuild сетки; в конце такта — «вне такта»). Порядок: от хвоста (по убыванию номера) — сдвиги не мешают.
+            for (int i = _entityCount - 1; i >= 0; i--)
+            {
+                if (_entities[i].Kind == SimEntity.KindEnemy && _entities[i].Health <= 0 && _entities[i].DeadTicks == 0)
+                {
+                    RemoveEntity(_entities[i].Id);
+                }
+            }
         }
 
         private void ApplyEditBatches(long tick)
@@ -607,6 +687,11 @@ namespace Orpheus.Core.Sim
             EditResult result = EditResult.Applied;
             for (int i = 0; i < _entityCount; i++)
             {
+                if (!_entities[i].Alive)
+                {
+                    continue; // труп без коллизии (8.3; 1-001): правке не мешает
+                }
+
                 WorldPos p = _entities[i].Mover.Position;
                 if (blocks && EditRules.Overlaps(_shape, p, tile))
                 {
@@ -620,6 +705,358 @@ namespace Orpheus.Core.Sim
             }
 
             return result;
+        }
+
+        // ---------- Бой (1-001: `02` 6.1–6.6, 8.1–8.3, 13.5) ----------
+
+        /// <summary>Здоровье персонажа (уровень 0, `02` 6.3: 100 + 10 × уровень, уровень в вехе 1 — 0).</summary>
+        public const int MaxHealthCharacter = 100;
+
+        /// <summary>Здоровье врага архетипа «Ближний» (манекен, разбойник — `02` 8.2).</summary>
+        public const int MaxHealthMeleeEnemy = 35;
+
+        /// <summary>Сырой урон удара «Ближний» (`02` 8.2: 10 ударов убивают персонажа 100 HP без брони).</summary>
+        public const int StrikeRawMelee = 10;
+
+        /// <summary>Неуязвимость после урона: 0,4 с = 12 тактов (`02` 6.3; только у персонажа, у врагов нет).</summary>
+        public const int InvulnStrikeTicks = 12;
+
+        /// <summary>Неуязвимость после возрождения: 3 с = 90 тактов, снимается первой атакой (13.5).</summary>
+        public const int InvulnRespawnTicks = 90;
+
+        /// <summary>Регенерация через 6 с = 180 тактов после последнего полученного урона (`02` 6.3; приёмка 6.10 п. 3).</summary>
+        public const int RegenDelayTicks = 180;
+
+        /// <summary>Сотых накопителя регенерации на +1 HP: +MaxHealth за такт → 3000 = 1 %/с (без float).</summary>
+        public const int RegenCarryPerHealth = 3000;
+
+        /// <summary>Флаг «в бою»: 8 с = 240 тактов после нанесённого или полученного урона (`02` 6.3).</summary>
+        public const int CombatFlagTicks = 240;
+
+        /// <summary>Смерть персонажа → возрождение через 5 с = 150 тактов (13.5; приёмка 13.6 п. 1).</summary>
+        public const int RespawnDelayTicks = 150;
+
+        /// <summary>Враг: 0,5 с анимации смерти + 10 с трупа без коллизии = 315 тактов, затем удаление (`02` 8.3).</summary>
+        public const int CorpseTicks = 315;
+
+        /// <summary>Замах «Ближний»: 0,4 с = 12 тактов (`02` 8.1).</summary>
+        public const int WindupTicks = 12;
+
+        /// <summary>Отход после удара: 0,6 с = 18 тактов (`02` 8.1).</summary>
+        public const int RecoverTicks = 18;
+
+        /// <summary>Отход после прерывания: 0,5 с = 15 тактов (`02` 6.6).</summary>
+        public const int InterruptRecoverTicks = 15;
+
+        /// <summary>Иммунитет к повторному прерыванию: 1,5 с = 45 тактов (`02` 6.6; приёмка 6.10 п. 4).</summary>
+        public const int InterruptImmuneTicks = 45;
+
+        /// <summary>Прерывание замаха врага: урон ≥ 15 % максимума цели (`02` 6.6).</summary>
+        public const int InterruptPctEnemy = 15;
+
+        /// <summary>Прерывание действия персонажа: удар ≥ 10 % его максимума (`02` 6.6; хук натяжения лука — 1-006).</summary>
+        public const int InterruptPctCharacter = 10;
+
+        /// <summary>Цикл манекена 1-001: замах через этот период после конца отхода (≈ период <see cref="MeleeDummy"/>, 1,1 с).</summary>
+        public const int DummyPeriodTicks = 33;
+
+        private WorldPos _respawnCenter;
+
+        /// <summary>
+        /// Точка возрождения (13.5; решение 1-001: в вехе 1 — точка появления персонажа, <c>SpawnCenter</c> ботов):
+        /// по умолчанию — центр карты (<see cref="ServerHost" /><c>.DefaultSpawnCenter</c>), сервер ставит свою (шов 0-017).
+        /// </summary>
+        public WorldPos RespawnCenter
+        {
+            get => _respawnCenter;
+            set => _respawnCenter = Torus.Wrap(_shape, value);
+        }
+
+        /// <summary>
+        /// Фаза боя такта (после движения): таймеры (неуязвимость, «в бою», регенерация), цикл атаки врага
+        /// (замах фиксирован началом: сектор замирает — попадание по позиции цели в конце замаха), смерть и
+        /// возрождение. Порядок — по номеру сущности; только целые, без выделений (повтор журнала, 11.5).
+        /// </summary>
+        private void StepCombat(long tick)
+        {
+            for (int i = 0; i < _entityCount; i++)
+            {
+                ref SimEntity e = ref _entities[i];
+
+                if (e.DeadTicks > 0)
+                {
+                    e.DeadTicks--;
+                    if (e.DeadTicks == 0 && e.IsCharacter)
+                    {
+                        Respawn(ref e, tick);
+                    }
+
+                    continue;
+                }
+
+                if (e.Health <= 0)
+                {
+                    continue; // труп врага в такт удаления
+                }
+
+                if (e.InvulnTicks > 0)
+                {
+                    e.InvulnTicks--;
+                }
+
+                if (e.CombatTicks > 0)
+                {
+                    e.CombatTicks--;
+                }
+
+                if (e.RegenTicks < RegenDelayTicks)
+                {
+                    e.RegenTicks++;
+                }
+                else if (e.Health < e.MaxHealth)
+                {
+                    e.RegenCarryX100 += e.MaxHealth;
+                    if (e.RegenCarryX100 >= RegenCarryPerHealth)
+                    {
+                        int heal = e.RegenCarryX100 / RegenCarryPerHealth;
+                        e.RegenCarryX100 -= heal * RegenCarryPerHealth;
+                        e.Health = (short)Math.Min(e.MaxHealth, e.Health + heal);
+                    }
+                }
+
+                if (e.Kind != SimEntity.KindEnemy)
+                {
+                    continue; // персонаж сам не замахивается (атаки игрока — 1-003…1-006)
+                }
+
+                if (e.AttackImmune > 0)
+                {
+                    e.AttackImmune--;
+                }
+
+                if (e.AttackWindup > 0)
+                {
+                    e.AttackWindup--;
+                    if (e.AttackWindup == 0)
+                    {
+                        var sector = new MeleeSector(e.AttackOrigin, Angle16.FromRaw(e.AttackFacingRaw),
+                            EnemyMelee.ReachUnits, EnemyMelee.HalfArcSteps);
+                        int slot = SlotOf(e.AttackTarget);
+                        if (slot >= 0 && _entities[slot].Alive &&
+                            sector.Overlaps(_shape, _entities[slot].Mover.Position, Collision.RadiusUnits))
+                        {
+                            ApplyStrike(_entities[slot].Id, e.Id, e.AttackRaw, e.Mover.Position, knockback: true);
+                        }
+
+                        e.AttackRecover = RecoverTicks;
+                        e.AttackTarget = -1;
+                    }
+
+                    continue;
+                }
+
+                if (e.AttackRecover > 0)
+                {
+                    e.AttackRecover--;
+                }
+
+                if (e.AttackPeriod > 0 && e.AttackRecover == 0)
+                {
+                    int target = NearestCharacterSlot(e.Mover.Position, EnemyMelee.ReachUnits + Collision.RadiusUnits);
+                    if (target >= 0)
+                    {
+                        BeginWindup(ref e, _entities[target]);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Удар решён («попал», конвейер 0-029/0-033; 1-001, шаг 3): здоровье цели минусуется по формуле 6.1,
+        /// неуязвимость 0,4 с (только персонаж, `02` 6.3), регенерация обнуляется, «в бою» — 8 с обеим сторонам,
+        /// отбрасывание от <paramref name="knockOrigin"/> (`02` 6.5; живой цели, смерть — без него),
+        /// прерывание замаха врага (≥ 15 % максимума цели, отход 0,5 с, иммунитет 1,5 с, `02` 6.6),
+        /// смерть (`02` 8.3 / 13.5: персонаж — 5 с до возрождения, враг — труп 315 тактов).
+        /// Нет цели / труп / персонаж в неуязвимости / урон 0 — возврат 0 без изменений.
+        /// Зовётся и в такте (атака врага), и вне такта (решение сервером угрозы в <c>Decide</c>, 0-033).
+        /// События «урон» и «смерть» — в буфер такта (0 нет: вне такта, сервер читает по своему счёту).
+        /// Возвращает урон после брони.
+        /// </summary>
+        public int ApplyStrike(int targetId, int attackerId, int rawDamage, WorldPos knockOrigin = default, bool knockback = false, byte damageKind = 0)
+        {
+            int slot = SlotOf(targetId);
+            if (slot < 0)
+            {
+                return 0;
+            }
+
+            ref SimEntity target = ref _entities[slot];
+            if (!target.Alive)
+            {
+                return 0;
+            }
+
+            if (target.IsCharacter && target.InvulnTicks > 0)
+            {
+                return 0; // неуязвимость уворота — на уровне Mover.Dodge (проверяет решалка 0-033), здесь — после удара/снаряда
+            }
+
+            int damage = DamageMath.Apply(rawDamage, target.Armor);
+            if (damage <= 0)
+            {
+                return 0;
+            }
+
+            target.Health = (short)(target.Health - damage);
+            if (target.IsCharacter)
+            {
+                target.InvulnTicks = InvulnStrikeTicks; // 0,4 с (`02` 6.3; у врагов неуязвимости нет)
+            }
+
+            target.RegenTicks = 0;
+            target.RegenCarryX100 = 0;
+            target.CombatTicks = CombatFlagTicks;
+
+            int attackerSlot = SlotOf(attackerId);
+            if (attackerSlot >= 0)
+            {
+                _entities[attackerSlot].CombatTicks = CombatFlagTicks; // «в бою» и за нанесённый урон (6.3)
+
+                // Прерывание (6.6): цель — враг в замахе, урон ≥ 15 % максимума цели, иммунитет не выставлен.
+                if (target.Kind == SimEntity.KindEnemy && target.AttackWindup > 0 && target.AttackImmune == 0 &&
+                    DamageMath.AtLeastPercent(damage, target.MaxHealth, InterruptPctEnemy))
+                {
+                    target.AttackWindup = 0;
+                    target.AttackRecover = InterruptRecoverTicks;
+                    target.AttackImmune = InterruptImmuneTicks;
+                    target.AttackTarget = -1;
+                }
+
+                // Персонажа прерывает удар ≥ 10 % его максимума (6.6) — хук: действия персонажа в такте появляются в 1-006.
+            }
+
+            AddEvent(new SimEvent(SimEventKind.Damage, Tick, default, -1, EditResult.Applied, 0,
+                requester: attackerId, victim: target.Id, damage: damage, damageType: damageKind));
+
+            if (target.Health <= 0)
+            {
+                target.Health = 0;
+                target.DeadTicks = target.IsCharacter ? RespawnDelayTicks : CorpseTicks;
+                target.AttackWindup = 0;
+                target.AttackRecover = 0;
+                target.AttackImmune = 0;
+                target.AttackTarget = -1;
+                target.Input = InputFrame.None;
+                AddEvent(new SimEvent(SimEventKind.Death, Tick, default, -1, EditResult.Applied, 0,
+                    requester: attackerId, victim: target.Id, damage: damage, damageType: damageKind));
+                return damage;
+            }
+
+            if (knockback)
+            {
+                // 6.5: рывок от источника на база ÷ масса; живая цель (смерть — падение без рывка);
+                // стена останавливает без урона (Mover.StepFrame); ввод цели в рывке не действует.
+                target.Mover.StartKnock(_shape, knockOrigin, target.Mass, Input8.East);
+            }
+
+            return damage;
+        }
+
+        /// <summary>
+        /// Начать замах врага на персонажа (1-001, `02` 8.1): сектор фиксируется началом замаха
+        /// (позиция врага + направление на цель). Враг жив, замахa нет, цель жива — иначе false.
+        /// </summary>
+        public bool StartAttack(int attackerId, int targetId)
+        {
+            int a = SlotOf(attackerId);
+            int t = SlotOf(targetId);
+            if (a < 0 || t < 0)
+            {
+                return false;
+            }
+
+            ref SimEntity e = ref _entities[a];
+            if (e.Kind != SimEntity.KindEnemy || !e.Alive || e.AttackWindup > 0)
+            {
+                return false;
+            }
+
+            ref SimEntity target = ref _entities[t];
+            if (!target.Alive)
+            {
+                return false;
+            }
+
+            BeginWindup(ref e, target);
+            return true;
+        }
+
+        /// <summary>
+        /// Цикл манекена (приёмка 1-001: «Ближний» бьёт по таймеру): замах через <paramref name="periodTicks"/>
+        /// тактов после конца отхода, цель — ближайший живой персонаж; 0 / −1 — выключить. <paramref name="rawDamage"/> — сырой урон.
+        /// </summary>
+        public bool EnableAttackCycle(int enemyId, int periodTicks, int rawDamage = StrikeRawMelee)
+        {
+            int slot = SlotOf(enemyId);
+            if (slot < 0 || _entities[slot].Kind != SimEntity.KindEnemy || periodTicks < -1)
+            {
+                return false;
+            }
+
+            _entities[slot].AttackPeriod = periodTicks;
+            if (rawDamage > 0)
+            {
+                _entities[slot].AttackRaw = (byte)Math.Min(255, rawDamage);
+            }
+
+            return true;
+        }
+
+        /// <summary>Ближайший живой персонаж к <paramref name="from"/> (перебор по номеру, дистанция на центр ≤
+        /// <paramref name="maxDistUnits"/>; при равенстве — меньший номер); нет — −1.</summary>
+        private int NearestCharacterSlot(WorldPos from, int maxDistUnits)
+        {
+            int best = -1;
+            long bestD = long.MaxValue;
+            long limit = (long)maxDistUnits * maxDistUnits;
+            for (int i = 0; i < _entityCount; i++)
+            {
+                if (!_entities[i].IsCharacter || !_entities[i].Alive)
+                {
+                    continue;
+                }
+
+                Int2 d = Torus.Delta(_shape, from, _entities[i].Mover.Position);
+                long dist = d.LengthSquared;
+                if (dist <= limit && (best < 0 || dist < bestD))
+                {
+                    bestD = dist;
+                    best = i;
+                }
+            }
+
+            return best;
+        }
+
+        private void BeginWindup(ref SimEntity attacker, in SimEntity target)
+        {
+            attacker.AttackWindup = WindupTicks;
+            attacker.AttackOrigin = attacker.Mover.Position;
+            attacker.AttackFacingRaw = (short)(int)Angle16.FromDirection(Torus.Delta(_shape, attacker.Mover.Position, target.Mover.Position)).Raw;
+            attacker.AttackTarget = target.Id;
+        }
+
+        /// <summary>Возрождение (13.5, 1-001): точка старта, полное здоровье, 3 с неуязвимости (снимается первой атакой), без потерь.</summary>
+        private void Respawn(ref SimEntity e, long tick)
+        {
+            e.Health = e.MaxHealth;
+            e.Mover = new Mover(Torus.Wrap(_shape, _respawnCenter), e.Mover.UnitsPerTickX10);
+            e.InvulnTicks = InvulnRespawnTicks;
+            e.RegenTicks = RegenDelayTicks;
+            e.RegenCarryX100 = 0;
+            e.CombatTicks = 0;
+            e.Input = InputFrame.None;
+            AddEvent(new SimEvent(SimEventKind.Respawn, tick, default, -1, EditResult.Applied, 0, victim: e.Id));
         }
 
         private void AddEvent(in SimEvent e)
