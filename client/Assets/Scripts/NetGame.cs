@@ -742,7 +742,7 @@ namespace Orpheus.Client
             }
 
             if (InGame && (now - _inGameSinceUs) / 1_000_000 >= Math.Max(2, _args.NetSmokeSeconds)
-                && _client!.SnapshotsApplied >= 10)
+                && _client!.SnapshotsApplied >= 10 && SmokePauseDone) // 0-036: пауза по скрипту прошла
             {
                 // Предсказание (0-013, 0-019): сдвиг — по подтверждённому серверному состоянию (не клиент сам с собой);
                 // на чистом движении правок ≤ 2, расхождение предсказания с сервером ≤ 8 unit на всех сверках.
@@ -849,13 +849,7 @@ namespace Orpheus.Client
             Quit(1);
         }
 
-        void QuitIfEscaped()
-        {
-            if (_args.NetSmokeSeconds == 0 && Keyboard.current?.escapeKey.wasPressedThisFrame == true)
-            {
-                Quit(0);
-            }
-        }
+        void QuitIfEscaped() => PauseFrame(); // 0-036: Esc / Start — пауза, выход — Q в паузе (NetGame.Pause.cs)
 
         void Quit(int code)
         {
