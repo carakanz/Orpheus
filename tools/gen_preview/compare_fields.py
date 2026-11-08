@@ -37,6 +37,8 @@ def read_dump(path):
     for k in ('d', 'dH', 'dC', 'dA'):
         out[k] = np.frombuffer(raw, '<i4', n, at).reshape(M, M).astype(float); at += 4 * n
     out['zone'] = np.frombuffer(raw, 'u1', n, at).reshape(M, M); at += n
+    if at < len(raw):                    # с 1-016: биом этапа 3 (номера как в модели, 255 — не размечено)
+        out['biome'] = np.frombuffer(raw, 'u1', n, at).reshape(M, M); at += n
     assert at == len(raw), (path, at, len(raw))
     return out
 
