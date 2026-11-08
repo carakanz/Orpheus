@@ -18,8 +18,9 @@ namespace Orpheus.Save
     {
         internal WorldSaveData(
             string name, ulong seed, MapShape shape, int generatorVersion, byte[] baseSha256, long tick, int nextEntityId,
-            ChunkCoord[] coords, uint[] revisions, byte[]?[] compressed, byte[]?[] raw, SimEntity[] entities)
+            ChunkCoord[] coords, uint[] revisions, byte[]?[] compressed, byte[]?[] raw, SimEntity[] entities, CharacterRecord[] characters)
         {
+            Characters = characters;
             Name = name;
             Seed = seed;
             Shape = shape;
@@ -54,13 +55,18 @@ namespace Orpheus.Save
 
         /// <summary>Сущности по номеру (копии).</summary>
         public SimEntity[] Entities { get; }
+
+        /// <summary>Персонажи мира — мировая часть (копии; формат 3, 0-035).</summary>
+        public CharacterRecord[] Characters { get; }
     }
 
     /// <summary>Загруженное из сохранения состояние такта (мир уже положен в <see cref="WorldModel"/>).</summary>
     public sealed class LoadedWorldState
     {
-        internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks)
+        internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks, CharacterRecord[] characters, uint format)
         {
+            Characters = characters;
+            FormatVersion = format;
             Number = number;
             Tick = tick;
             Name = name;
@@ -83,6 +89,16 @@ namespace Orpheus.Save
         /// <summary>Сколько изменённых чанков положено поверх снимка генерации.</summary>
         public int ChunkCount { get; }
 
+        /// <summary>
+        /// Персонажи мира (формат 3, 0-035): у бывших в мире на такте сохранения <see cref="CharacterRecord.EntityId"/> —
+        /// номер сущности из <see cref="Entities"/>, у вышедших — движение на миг ухода. Формат 1–2 — пусто: кто из сущностей
+        /// игрок, там не записано.
+        /// </summary>
+        public CharacterRecord[] Characters { get; }
+
+        /// <summary>Версия формата прочитанного файла.</summary>
+        public uint FormatVersion { get; }
+
         /// <summary>Положить сущности и такт в пустую симуляцию этого мира.</summary>
         public void RestoreInto(Simulation sim)
         {
@@ -96,11 +112,12 @@ namespace Orpheus.Save
     }
 
     /// <summary>
-    /// Мир в контейнер и обратно (docs/07, 6.2–6.3; версия формата 2, читается и 1). Разделы:
+    /// Мир в контейнер и обратно (docs/07, 6.2–6.3; версия формата 3, читаются и 1–2). Разделы:
     /// <list type="bullet">
     /// <item>МИР — имя, зерно, форма, версия генератора, SHA-256 снимка генерации (<c>world.base</c>), следующий номер сущности;</item>
     /// <item>ЧАНКИ — изменённые после генерации чанки (0-005: <see cref="Chunk.ChangedSinceBase"/>): карта, x, y, ревизия, сжатый блок;</item>
-    /// <item>СУЩЕСТВА — минимально: сущности такта со всеми полями хэша состояния (0-006; уворот — с формата 2, 0-029).</item>
+    /// <item>СУЩЕСТВА — минимально: сущности такта со всеми полями хэша состояния (0-006; уворот — с формата 2, 0-029);</item>
+    /// <item>ПЕРСОНАЖИ — с формата 3 (0-035): ключ персонажа (хозяин или имя) и где он — сущность в мире или движение на миг ухода.</item>
     /// </list>
     /// Загрузка: снимок генерации → поверх изменённые чанки → сущности и такт. Хэш состояния после загрузки
     /// равен хэшу на такте сохранения (тест <c>D00_Save_RoundTrip_*</c>).
@@ -111,7 +128,8 @@ namespace Orpheus.Save
         /// Снять состояние на границе такта — между <see cref="Simulation.Step"/> (основной поток, быстро:
         /// ссылки на свежие копии, копии сырых блоков остальных изменённых чанков, копия списка сущностей).
         /// </summary>
-        public static WorldSaveData Capture(Simulation sim, byte[] baseSha256, string name)
+        /// <param name="characters">Персонажи мира (0-035) на ту же границу такта; null — нет.</param>
+        public static WorldSaveData Capture(Simulation sim, byte[] baseSha256, string name, CharacterRecord[]? characters = null)
         {
             if (sim == null)
             {
@@ -143,7 +161,8 @@ namespace Orpheus.Save
 
             return new WorldSaveData(
                 name ?? string.Empty, world.Seed, world.Shape, world.GeneratorVersion, (byte[])baseSha256.Clone(),
-                sim.Tick, sim.NextEntityId, coords, revisions, compressed, raw, sim.Entities.ToArray());
+                sim.Tick, sim.NextEntityId, coords, revisions, compressed, raw, sim.Entities.ToArray(),
+                characters != null ? (CharacterRecord[])characters.Clone() : Array.Empty<CharacterRecord>());
         }
 
         /// <summary>
@@ -203,12 +222,40 @@ namespace Orpheus.Save
                 e.EndRecord(mark);
             }
 
+            var ch = new RecordWriter(d.Characters.Length * 48 + 16);
+            for (int i = 0; i < d.Characters.Length; i++)
+            {
+                CharacterRecord x = d.Characters[i];
+                int mark = ch.BeginRecord(SaveSections.CharactersField.Character);
+                ch.WriteBool(SaveSections.CharacterField.Host, x.IsHost);
+                ch.WriteText(SaveSections.CharacterField.Name, x.Name ?? string.Empty);
+                if (x.EntityId > 0)
+                {
+                    ch.WriteUInt(SaveSections.CharacterField.EntityId, (ulong)(uint)x.EntityId);
+                }
+                else
+                {
+                    ch.WriteInt(SaveSections.CharacterField.X, x.Mover.Position.X);
+                    ch.WriteInt(SaveSections.CharacterField.Y, x.Mover.Position.Y);
+                    ch.WriteInt(SaveSections.CharacterField.CarryX, x.Mover.Carry.X);
+                    ch.WriteInt(SaveSections.CharacterField.CarryY, x.Mover.Carry.Y);
+                    ch.WriteInt(SaveSections.CharacterField.SpeedX10, x.Mover.UnitsPerTickX10);
+                    ch.WriteUInt(SaveSections.CharacterField.DodgeElapsed, x.Mover.Dodge.Elapsed);
+                    ch.WriteUInt(SaveSections.CharacterField.DodgeDashLeft, x.Mover.Dodge.DashLeft);
+                    ch.WriteUInt(SaveSections.CharacterField.DodgeCooldown, x.Mover.Dodge.Cooldown);
+                    ch.WriteUInt(SaveSections.CharacterField.DodgeDirection, x.Mover.Dodge.Direction);
+                }
+
+                ch.EndRecord(mark);
+            }
+
             var header = new SaveHeader(SaveModule.FormatVersion, SaveModule.BuildVersion, number, d.Tick, dateUnixMs);
             var sections = new List<SaveSection>
             {
                 new SaveSection(SaveSections.World, worldSection),
                 new SaveSection(SaveSections.Chunks, c.ToArray()),
                 new SaveSection(SaveSections.Creatures, e.ToArray()),
+                new SaveSection(SaveSections.Characters, ch.ToArray()),
             };
 
             if (padKb > 0)
@@ -406,13 +453,135 @@ namespace Orpheus.Save
                 entities.Add(e);
             }
 
+            // ПЕРСОНАЖИ (формат 3; в формате 1–2 раздела нет — пусто).
+            var characters = new List<CharacterRecord>();
+            if (file.HasSection(SaveSections.Characters))
+            {
+                r = new RecordReader(file.Section(SaveSections.Characters));
+                while (r.Next())
+                {
+                    if (r.Field != SaveSections.CharactersField.Character)
+                    {
+                        continue;
+                    }
+
+                    CharacterRecord ch = ReadCharacter(r.Record(), shape, characters.Count);
+                    CheckCharacter(ch, characters, entities);
+                    characters.Add(ch);
+                }
+            }
+
             // Всё разобрано — кладём чанки.
             for (int i = 0; i < coords.Count; i++)
             {
                 world.GetOrCreateChunk(coords[i]).Load(blobs[i], copies[i], revisions[i], changedSinceBase: true);
             }
 
-            return new LoadedWorldState(file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count);
+            return new LoadedWorldState(
+                file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count, characters.ToArray(), file.Header.FormatVersion);
+        }
+
+        private static CharacterRecord ReadCharacter(RecordReader r, MapShape shape, int index)
+        {
+            var c = new CharacterRecord { Name = string.Empty };
+            int x = 0;
+            int y = 0;
+            int carryX = 0;
+            int carryY = 0;
+            int speed = MovementTick.BaseSpeedX10;
+            Dodge dodge = default;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.CharacterField.Host:
+                        c.IsHost = r.Bool();
+                        break;
+                    case SaveSections.CharacterField.Name:
+                        c.Name = r.Text();
+                        break;
+                    case SaveSections.CharacterField.EntityId:
+                        c.EntityId = r.UIntAsInt();
+                        break;
+                    case SaveSections.CharacterField.X:
+                        x = r.IntAsInt();
+                        break;
+                    case SaveSections.CharacterField.Y:
+                        y = r.IntAsInt();
+                        break;
+                    case SaveSections.CharacterField.CarryX:
+                        carryX = r.IntAsInt();
+                        break;
+                    case SaveSections.CharacterField.CarryY:
+                        carryY = r.IntAsInt();
+                        break;
+                    case SaveSections.CharacterField.SpeedX10:
+                        speed = r.IntAsInt();
+                        break;
+                    case SaveSections.CharacterField.DodgeElapsed:
+                        dodge.Elapsed = (byte)r.UIntAsInt(Dodge.ElapsedCap);
+                        break;
+                    case SaveSections.CharacterField.DodgeDashLeft:
+                        dodge.DashLeft = (byte)r.UIntAsInt(Dodge.DashFrames);
+                        break;
+                    case SaveSections.CharacterField.DodgeCooldown:
+                        dodge.Cooldown = (byte)r.UIntAsInt(Dodge.CooldownFrames);
+                        break;
+                    case SaveSections.CharacterField.DodgeDirection:
+                        dodge.Direction = (byte)r.UIntAsInt(InputFrame.MaxDirectionCode);
+                        break;
+                }
+            }
+
+            // Длина имени не проверяется: имя проверил вход, а из-за подписи мир не должен перестать грузиться.
+            if (c.EntityId < 0)
+            {
+                throw new InvalidDataException($"Персонаж № {index} «{c.Name}»: номер сущности {c.EntityId}.");
+            }
+
+            if (c.EntityId == 0 && ((uint)x >= (uint)shape.WidthUnits || (uint)y >= (uint)shape.HeightUnits))
+            {
+                throw new InvalidDataException($"Персонаж «{c.Name}»: позиция ({x}, {y}) вне карты {shape}.");
+            }
+
+            c.Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge };
+            return c;
+        }
+
+        /// <summary>Ключи не повторяются (один хозяин; имена — по <see cref="CharacterNames.Same"/>); сущность персонажа в мире есть и она — персонаж.</summary>
+        private static void CheckCharacter(in CharacterRecord c, List<CharacterRecord> before, List<SimEntity> entities)
+        {
+            for (int i = 0; i < before.Count; i++)
+            {
+                CharacterRecord o = before[i];
+                if (c.IsHost && o.IsHost)
+                {
+                    throw new InvalidDataException($"Два персонажа хозяина: «{o.Name}» и «{c.Name}».");
+                }
+
+                if (!c.IsHost && !o.IsHost && CharacterNames.Same(c.Name, o.Name))
+                {
+                    throw new InvalidDataException($"Два персонажа с именем «{c.Name}».");
+                }
+
+                if (c.EntityId > 0 && c.EntityId == o.EntityId)
+                {
+                    throw new InvalidDataException($"Персонажи «{o.Name}» и «{c.Name}» — одна сущность #{c.EntityId}.");
+                }
+            }
+
+            if (c.EntityId > 0)
+            {
+                for (int i = 0; i < entities.Count; i++)
+                {
+                    if (entities[i].Id == c.EntityId && entities[i].Kind == SimEntity.KindCharacter)
+                    {
+                        return;
+                    }
+                }
+
+                throw new InvalidDataException($"Персонаж «{c.Name}»: сущности-персонажа #{c.EntityId} в разделе СУЩЕСТВА нет.");
+            }
         }
 
         private static SimEntity ReadEntity(RecordReader r, MapShape shape)

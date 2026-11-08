@@ -111,12 +111,46 @@ namespace Orpheus.Save
             public const int DodgeDirection = 13;
         }
 
+        /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>
+        public static class CharactersField
+        {
+            public const int Character = 1;
+        }
+
+        /// <summary>
+        /// Поля записи персонажа (формат 3, 0-035; docs/07 6.2 «Персонажи — мировая часть», 7.4 «Вернулся»): ключ
+        /// (хозяин или имя), номер сущности, если персонаж в мире на такте сохранения (его движение — в разделе СУЩЕСТВА),
+        /// иначе — движение на миг ухода.
+        /// </summary>
+        public static class CharacterField
+        {
+            /// <summary>Персонаж хозяина мира (ключ — токен хозяина, а не имя).</summary>
+            public const int Host = 1;
+
+            /// <summary>Имя (UTF-8, 1–32 байта).</summary>
+            public const int Name = 2;
+
+            /// <summary>Номер сущности в разделе СУЩЕСТВА; нет поля или 0 — персонаж вне мира, движение — в полях ниже.</summary>
+            public const int EntityId = 3;
+
+            public const int X = 4;
+            public const int Y = 5;
+            public const int CarryX = 6;
+            public const int CarryY = 7;
+            public const int SpeedX10 = 8;
+            public const int DodgeElapsed = 9;
+            public const int DodgeDashLeft = 10;
+            public const int DodgeCooldown = 11;
+            public const int DodgeDirection = 12;
+        }
+
         /// <summary>Схема записей раздела для <c>orpheus-save dump</c>: имена полей и вложенные схемы. null — схемы нет.</summary>
         public static RecordSchema? Schema(uint id) => id switch
         {
             World => WorldSchema,
             Chunks => ChunksSchema,
             Creatures => CreaturesSchema,
+            Characters => CharactersSchema,
             _ => null,
         };
 
@@ -153,6 +187,21 @@ namespace Orpheus.Save
                 .Field(EntityField.DodgeDashLeft, "уворот: рывка осталось")
                 .Field(EntityField.DodgeCooldown, "уворот: отката осталось")
                 .Field(EntityField.DodgeDirection, "уворот: направление"));
+
+        private static readonly RecordSchema CharactersSchema = new RecordSchema()
+            .Field(CharactersField.Character, "персонаж", new RecordSchema()
+                .Field(CharacterField.Host, "хозяин")
+                .Field(CharacterField.Name, "имя")
+                .Field(CharacterField.EntityId, "сущность (0 — вне мира)")
+                .Field(CharacterField.X, "x, 1/256 тайла")
+                .Field(CharacterField.Y, "y, 1/256 тайла")
+                .Field(CharacterField.CarryX, "остаток x")
+                .Field(CharacterField.CarryY, "остаток y")
+                .Field(CharacterField.SpeedX10, "скорость ×10")
+                .Field(CharacterField.DodgeElapsed, "уворот: кадров с начала")
+                .Field(CharacterField.DodgeDashLeft, "уворот: рывка осталось")
+                .Field(CharacterField.DodgeCooldown, "уворот: отката осталось")
+                .Field(CharacterField.DodgeDirection, "уворот: направление"));
     }
 
     /// <summary>Имена полей записи и схемы вложенных записей (только для текстового вывода).</summary>
