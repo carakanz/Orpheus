@@ -20,6 +20,7 @@ namespace Orpheus.Tools.GenPreview
     /// Файлы: <c>map_&lt;size&gt;_&lt;seed&gt;.png</c> — карта как есть; <c>…_seam.png</c> — та же карта, сдвинутая на W/2 по обеим
     /// осям: оба шва тора проходят крестом через середину — бесшовность видна глазом. Жёлтая рамка — стартовая зона.
     /// </para>
+    /// <para>Ключ <c>--macro</c> — макрокарта и поля генератора v2 (карточка 1-015), см. <see cref="MacroPreview"/>.</para>
     /// </summary>
     internal static class Program
     {
@@ -33,6 +34,11 @@ namespace Orpheus.Tools.GenPreview
 
         private static int Main(string[] args)
         {
+            if (Array.IndexOf(args, "--macro") >= 0)
+            {
+                return MacroPreview.Run(args, FindRoot());
+            }
+
             int size = 1024;
             ulong seed = 0x0E5_0007UL;
             string? basePath = null;
@@ -138,7 +144,7 @@ namespace Orpheus.Tools.GenPreview
 
         // ---------- PNG: RGB 8 бит, фильтр 0, zlib ----------
 
-        private static void WritePng(string path, byte[] rgb, int width, int height)
+        internal static void WritePng(string path, byte[] rgb, int width, int height)
         {
             using var file = File.Create(path);
             file.Write(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A });

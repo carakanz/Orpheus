@@ -78,6 +78,14 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: ответ на запрос правки — «принято» или «отказ: причина» (3.7 «Ответ»).</summary>
         TileReply = 21,
+
+        // 0-036, пауза (BRIEF п. 11b: у любого игрока есть возможность поставить паузу), канал 2. Протокол 10.
+
+        /// <summary>Клиент → сервер, канал 2: «поставить паузу» / «продолжить».</summary>
+        PauseRequest = 22,
+
+        /// <summary>Сервер → клиент, канал 2: пауза поставлена или снята — кто, на каком такте (всем; вошедшему в паузу — после входа).</summary>
+        PauseState = 23,
     }
 
     /// <summary>
@@ -767,12 +775,12 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>
-        /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026) и 20…21 (правки тайлов, 0-028; последний —
-        /// TileReply); 15 не занят.
+        /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028) и 22…23 (пауза,
+        /// 0-036; последний — PauseState); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.TileReply);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.PauseState);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)
