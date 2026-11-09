@@ -645,7 +645,7 @@ namespace Orpheus.Tests
             byte[] badMask = (byte[])pb.Clone();
             badMask[5] = 0; badMask[8] = 0; // «принято» без маски
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badMask));
-            Assert.Equal(10, NetModule.ProtocolVersion); // 7 — сообщения 20–21 (0-028), 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036)
+            Assert.Equal(11, NetModule.ProtocolVersion); // 7 — сообщения 20–21 (0-028), 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001)
         }
 
         // ---------- Стенд ----------

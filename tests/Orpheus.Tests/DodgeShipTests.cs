@@ -349,8 +349,11 @@ namespace Orpheus.Tests
                 Assert.Equal(honest.Bot.MaxDelayFrames, cheat.Bot.MaxDelayFrames);
                 // Итог «удар решён» приходит раньше позднего нажатия — бот его не засчитывает себе; счёт — по серверу.
                 Assert.True(cheat.Bot.PressedInTime >= 39, $"нажатий {cheat.Bot.PressedInTime}");
-                Assert.Equal(40, honest.Server.ThreatHits);
-                Assert.Equal(40, cheat.Server.ThreatHits); // позднее нажатие — попадание, как у честного
+                // 1-001: удар теперь наносит урон и отбрасывание — корабль умирается и возрождается у центра,
+                // 1–2 замаха из 40 промахиваются из-за смены геометрии. Смысл з. 2 (D_p по замеру, позднее
+                // нажатие не меняет счёт сервера) — в совпадении попаданий честного и нечестного.
+                Assert.True(honest.Server.ThreatHits >= 35, $"попаданий {honest.Server.ThreatHits}");
+                Assert.Equal(honest.Server.ThreatHits, cheat.Server.ThreatHits); // позднее нажатие — попадание, как у честного
             }
         }
 

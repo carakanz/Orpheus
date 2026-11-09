@@ -1,3 +1,4 @@
+using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 
 namespace Orpheus.Core.Sim
@@ -26,5 +27,68 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Кадр ввода, по которому сущность шла в последнем такте (держится, пока не придёт новый).</summary>
         public InputFrame Input;
+
+        /// <summary>Здоровье сейчас (1-001, `02` 6.3). ≤ 0 — смерть; в вехе 1 не сохраняется (карточка, «Не трогать»).</summary>
+        public short Health;
+
+        /// <summary>Максимум здоровья: персонаж 100 (`02` 6.3, уровень 0), враг по архетипу (манекен «Ближний» — 35).</summary>
+        public short MaxHealth;
+
+        /// <summary>Броня (в вехе 1 у всех 0, формула учитывает — `02` 6.1).</summary>
+        public byte Armor;
+
+        /// <summary>Масса для отбрасывания (6.5): игрок и обычный враг — 1, танк — 3.</summary>
+        public byte Mass;
+
+        /// <summary>Тактов неуязвимости после удара или снаряда осталось (0,4 с = 12 тактов, 6.3; у врагов тоже).</summary>
+        public int InvulnTicks;
+
+        /// <summary>Тактов с последнего полученного урона (регенерация с 180-го = 6 с, 6.3).</summary>
+        public int RegenTicks;
+
+        /// <summary>Накопитель регенерации в сотых долях здоровья × такт: +MaxHealth за такт, 3000 → +1 HP (1 %/с).</summary>
+        public int RegenCarryX100;
+
+        /// <summary>Тактов флага «в бою» осталось (240 = 8 с после нанесённого или полученного урона, 6.3).</summary>
+        public int CombatTicks;
+
+        /// <summary>Тактов до возрождения (персонаж, 150 = 5 с) или труп лежит (враг, 300 = 10 с, 8.3). 0 — жив.</summary>
+        public int DeadTicks;
+
+        /// <summary>Тактов замаха врага осталось (12 = 0,4 с, `02` 8.1). 0 — не замахивается.</summary>
+        public int AttackWindup;
+
+        /// <summary>Тактов отхода после удара/прерывания осталось (18 = 0,6 с; после прерывания — 15 = 0,5 с, 6.6).</summary>
+        public int AttackRecover;
+
+        /// <summary>Тактов иммунитета к повторному прерыванию осталось (45 = 1,5 с, 6.6).</summary>
+        public int AttackImmune;
+
+        /// <summary>Жертва замаха (номер сущности), −1 — нет.</summary>
+        public int AttackTarget;
+
+        /// <summary>Сырой урон удара (архетип «Ближний» — 10, `02` 8.2; манекен 1-001).</summary>
+        public byte AttackRaw;
+
+        /// <summary>
+        /// Цикл замаха (манекен 1-001): тактов от конца отхода до следующего замаха; 0 — удар одноразовый,
+        /// −1 — сам не замахивается (заглушка 0-028, враги без ИИ). Манекен — 33 такта (1,1 с, период MeleeDummy).
+        /// </summary>
+        public int AttackPeriod;
+
+        /// <summary>Сектор замаха зафиксирован началом замаха: центр.</summary>
+        public WorldPos AttackOrigin;
+
+        /// <summary>Сектор замаха: ось (сырое значение <c>Angle16.Raw</c>).</summary>
+        public short AttackFacingRaw;
+
+        /// <summary>Персонаж (есть регенерация, смерть и возрождение у точки старта).</summary>
+        public readonly bool IsCharacter => Kind == KindCharacter;
+
+        /// <summary>Жив (не труп и не ждёт возрождения).</summary>
+        public readonly bool Alive => DeadTicks == 0 && Health > 0;
+
+        /// <summary>В бою (флаг 6.3).</summary>
+        public readonly bool InCombat => CombatTicks > 0;
     }
 }

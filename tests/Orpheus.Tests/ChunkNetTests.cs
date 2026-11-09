@@ -599,8 +599,8 @@ namespace Orpheus.Tests
                 Axis = 32768, ReachUnits = 384, HalfArcSteps = 8192, DelayFrames = 13,
             };
             byte[] gSwing = Golden("0d 01 00 ff 7f fc ff ff ff 18 ff ff 03 00 05 00 00 00 00 80 80 01 00 20 0d", b => swing.Write(b));
-            var melee = new MeleeResultMessage { AttackerId = 7, StartFrame = 1234, Hit = true, ByLastKnown = true, WaitedFrames = 6, MissingFrames = 3, DecidedAtFrame = 1264 };
-            byte[] gMelee = Golden("0e 07 00 00 00 d2 04 00 00 03 06 03 f0 04 00 00", b => melee.Write(b));
+            var melee = new MeleeResultMessage { AttackerId = 7, StartFrame = 1234, Hit = true, ByLastKnown = true, WaitedFrames = 6, MissingFrames = 3, DecidedAtFrame = 1264, Damage = 10 };
+            byte[] gMelee = Golden("0e 07 00 00 00 d2 04 00 00 03 06 03 f0 04 00 00 0a", b => melee.Write(b)); // + урон 1 байт (1-001, протокол 11)
             var reject = new LoginRejectMessage { Reason = LoginRejectReason.NameTaken, ServerVersion = new NetVersion(0, 4, 2) };
             byte[] gReject = Golden("03 06 00 00 04 00 02 00", b => reject.Write(b)); // причина 6 «имя занято» (0-035, П з. 5)
 
@@ -642,6 +642,7 @@ namespace Orpheus.Tests
             Assert.Equal(melee.WaitedFrames, rMelee.WaitedFrames);
             Assert.Equal(melee.MissingFrames, rMelee.MissingFrames);
             Assert.Equal(melee.DecidedAtFrame, rMelee.DecidedAtFrame);
+            Assert.Equal(melee.Damage, rMelee.Damage); // 1-001
             LoginRejectMessage rReject = LoginRejectMessage.Read(gReject);
             Assert.Equal(LoginRejectReason.NameTaken, rReject.Reason);
             Assert.Equal(new NetVersion(0, 4, 2), rReject.ServerVersion);
@@ -651,14 +652,14 @@ namespace Orpheus.Tests
             byte[] gPauseReq = Golden("16 01", b => new PauseRequestMessage { Paused = true }.Write(b)); // 0-036, протокол 10
             var pauseState = new PauseStateMessage { Paused = true, ServerTick = 0x01020304, ByEntity = 7, ByName = "Эвр" };
             byte[] gPauseState = Golden("17 01 04 03 02 01 07 00 00 00 06 d0 ad d0 b2 d1 80", b => pauseState.Write(b));
-            byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f d6 9b 05 00 00 00 00 7d 00 7d c0 34 01 00 00 08 b8 ff 01 00 08", b =>
+            byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f 46 06 a0 37 0b 00 00 00 00 fa 00 fa 80 01 34 01 00 00 08 b8 ff 01 00 08 00", b => // бой в своём состоянии и сущностях (1-001, протокол 11)
             {
                 var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, ClockEpoch = 0xA5, Count = 2, Self = new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7), new Dodge { Elapsed = 0xA3, DashLeft = 15, Cooldown = 17, Direction = 6 }) { LeadMargin = -3, DelayFrames = 19 } };
                 snap.Entities[0] = new SnapshotEntity { Id = 5, Kind = 0, Position = SnapshotLayout.Quantize(new WorldPos(1000, 2000)), Direction = 3 };
                 snap.Entities[1] = new SnapshotEntity { Id = 77, Kind = 2, Position = SnapshotLayout.Quantize(new WorldPos(262_000, 5)), Direction = 8 };
                 return snap.Write(b, layout);
             });
-            Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 42 00 00 00 04 01 00 d3 07 e8 03 37 06 00 00 10 80 3e 10 00 08", b =>
+            Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 42 00 00 00 00 00 08 02 00 46 1f a0 0f dc 18 00 00 40 00 fa 40 00 20 64", b => // бой: свои биты + доля здоровья новой сущности (1-001)
             {
                 var w = new SnapshotDeltaWriter(b, layout, 52, 104, 10);
                 w.SetClockEpoch(0xA5);

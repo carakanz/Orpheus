@@ -479,6 +479,9 @@ namespace Orpheus.Net.Session
         /// <summary>Сущностей вне окна, оставленных в обзоре гистерезисом (были в обзоре, ещё в блоке 8 × 6).</summary>
         public long ViewKeptByHysteresis { get; private set; }
 
+        /// <summary>Событий боя разослано (смерть/возрождение, 1-001; каждому в игре).</summary>
+        public long CombatEventsSent { get; private set; }
+
         /// <summary>Байт снимков отправлено (полных и дельт).</summary>
         public long SnapshotBytes { get; private set; }
 
@@ -990,6 +993,7 @@ namespace Orpheus.Net.Session
         public void SendSnapshots()
         {
             BroadcastPatches(); // правки такта — до окон: вошедшие в окно чанки уйдут уже с ревизией после такта (3.7)
+            BroadcastCombatEvents(); // 1-001: смерть/возрождение такта — канал 2 всем в игре
             SendEditReplies(); // 0-028: «принято» / «отказ» по исходам такта
             ReadOnlySpan<SimEntity> entities = _sim.Entities;
             uint tick = (uint)_sim.Tick;
@@ -1020,6 +1024,10 @@ namespace Orpheus.Net.Session
             {
                 LeadMargin = (sbyte)Math.Max(-SelfState.MarginBias, Math.Min(SelfState.MarginBias - 1, pl.Margin)), // 0-033
                 DelayFrames = (byte)pl.DelayFrames,
+                Health = (byte)Math.Max(0, Math.Min(255, (int)entities[selfSlot].Health)), // 1-001: бой — клиент берёт целиком
+                Mass = (byte)Math.Max(1, Math.Min(4, (int)entities[selfSlot].Mass)),
+                KnockLeft = (byte)Math.Min(255, (int)me.KnockLeft),
+                KnockDir = (byte)Math.Min(255, (int)me.KnockDir),
             };
             int curCount = BuildView(pl, entities, selfSlot, _cur);
             SentRing ring = pl.Ring ??= new SentRing();
@@ -1132,6 +1140,11 @@ namespace Orpheus.Net.Session
                         f |= DeltaFields.Direction;
                     }
 
+                    if (_cur[ci].HealthPct != b.HealthPct)
+                    {
+                        f |= DeltaFields.Health; // 1-001
+                    }
+
                     if (f == DeltaFields.None)
                     {
                         continue;
@@ -1181,13 +1194,13 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < updatedN; i++)
             {
                 SnapshotEntity e = _cur[_updCur[i]];
-                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction);
+                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct);
             }
 
             for (int i = 0; i < addedN; i++)
             {
                 SnapshotEntity e = _cur[_addCur[i]];
-                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction);
+                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct);
             }
 
             int len = w.Finish();
@@ -1203,7 +1216,7 @@ namespace Orpheus.Net.Session
             w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < curCount; i++)
             {
-                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction))
+                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct))
                 {
                     break;
                 }
@@ -1324,6 +1337,7 @@ namespace Orpheus.Net.Session
             Kind = e.Kind,
             Position = SnapshotLayout.Quantize(e.Mover.Position),
             Direction = e.Input.DirectionCode,
+            HealthPct = (byte)Math.Max(0, Math.Min(100, e.Health * 100 / Math.Max(1, (int)e.MaxHealth))), // 1-001: доля HP
         };
 
         private static int IndexIn(SnapshotEntity[] ents, int count, int id)
@@ -1457,6 +1471,79 @@ namespace Orpheus.Net.Session
 
                 n = 0;
             }
+        }
+
+        /// <summary>
+        /// Труп от удара, решённого вне такта (решение угрозы сервером, 1-001 / 0-033): события такта к моменту
+        /// решения уже разосланы, а буфер событий очистит следующий <c>Step</c> — потому смерть идёт сразу, тем же
+        /// сообщением и по тому же Facts-каналу, что и события такта (<see cref="CombatEventsSent"/> общий).
+        /// </summary>
+        private void BroadcastDeath(int victim, int attacker, int damage, byte damageType)
+        {
+            int len = new DeathMessage
+            {
+                Victim = victim,
+                Attacker = attacker,
+                Damage = (byte)Math.Min(255, damage),
+                DamageType = damageType,
+            }.Write(_buf);
+            for (int p = 0; p < _players.Count; p++)
+            {
+                Player pl = _players[p];
+                if (pl.State == PlayerState.InGame)
+                {
+                    _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                }
+            }
+
+            CombatEventsSent++;
+        }
+
+        /// <summary>
+        /// События боя такта (1-001, `02` 13.5): смерть и возрождение — канал 2 (надёжный) всем в игре; урон
+        /// отдельно не шлётся — полоска здоровья приходит снимком (дельта <see cref="DeltaFields.Health"/>), удар
+        /// по игроку — «удар решён» (0-029) с уроном.
+        /// </summary>
+        private void BroadcastCombatEvents()
+        {
+            ReadOnlySpan<SimEvent> events = _sim.Events;
+            int n = 0;
+            for (int e = 0; e < events.Length; e++)
+            {
+                SimEvent ev = events[e];
+                if (ev.Kind != SimEventKind.Death && ev.Kind != SimEventKind.Respawn)
+                {
+                    continue;
+                }
+
+                n++;
+                int len;
+                if (ev.Kind == SimEventKind.Death)
+                {
+                    len = new DeathMessage
+                    {
+                        Victim = ev.Victim,
+                        Attacker = ev.Requester,
+                        Damage = (byte)Math.Min(255, ev.Damage),
+                        DamageType = ev.DamageType,
+                    }.Write(_buf);
+                }
+                else
+                {
+                    len = new RespawnMessage { Victim = ev.Victim }.Write(_buf);
+                }
+
+                for (int p = 0; p < _players.Count; p++)
+                {
+                    Player pl = _players[p];
+                    if (pl.State == PlayerState.InGame)
+                    {
+                        _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                    }
+                }
+            }
+
+            CombatEventsSent += n;
         }
 
         /// <summary>Запрос чанка целиком (3.7 «Порядок»): чанк в окне клиента — свежая копия; нет — пропуск.</summary>

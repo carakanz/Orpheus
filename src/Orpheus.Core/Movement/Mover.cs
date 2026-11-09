@@ -1,5 +1,6 @@
 using System;
 using Orpheus.Core.Geometry;
+using Orpheus.Core.Trig;
 
 namespace Orpheus.Core.Movement
 {
@@ -35,13 +36,67 @@ namespace Orpheus.Core.Movement
         /// <summary>Уворот (`02` 2.2; 0-029): рывок, неуязвимость, откат — шагается только покадрово.</summary>
         public Dodge Dodge;
 
+        /// <summary>
+        /// Отбрасывание (`02` 6.5; 1-001): как рывок, но задаётся сервером (состояние mover'а, не ввод) —
+        /// предсказание клиента воспроизводит его по снимку, как уворот 0-029. Кадров осталось; 0 — нет.
+        /// </summary>
+        public byte KnockLeft;
+
+        /// <summary>Скорость отбрасывания за кадр в unit × 10: <see cref="KnockSpeedFor"/> (база ÷ масса).</summary>
+        public int KnockSpeedX10;
+
+        /// <summary>Направление отбрасывания: код 1…8 (<see cref="Input8.DirectionIndex"/> + 1), 0 — нет.</summary>
+        public byte KnockDir;
+
+        /// <summary>Кадров отбрасывания: 0,15 с × 60 = 9 (6.5).</summary>
+        public const int KnockFrames = 9;
+
+        /// <summary>База отбрасывания за 9 кадров в unit × 10: 1 тайл = 256 unit → 2560.</summary>
+        public const int KnockBaseX10 = 2560;
+
+        /// <summary>Скорость отбрасывания за кадр в unit × 10: база ÷ масса = 2560 ÷ (9 × масса): 284 при массе 1 (1 т), 94 у танка (0,33 т).</summary>
+        public static int KnockSpeedFor(int mass)
+        {
+            if (mass < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(mass), mass, "Масса для отбрасывания < 1.");
+            }
+
+            return KnockBaseX10 / (KnockFrames * mass);
+        }
+
         public Mover(WorldPos position, int unitsPerTickX10 = MovementTick.BaseSpeedX10)
         {
             Position = position;
             Carry = default;
             UnitsPerTickX10 = unitsPerTickX10;
             Dodge = default;
+            KnockLeft = 0;
+            KnockSpeedX10 = 0;
+            KnockDir = 0;
         }
+
+        /// <summary>
+        /// Начать отбрасывание (1-001, `02` 6.5): рывок от <paramref name="origin"/> (источник удара) со скоростью
+        /// <see cref="KnockSpeedFor"/> по направлению вектора origin → позиция (квант в 8 направлений,
+        /// <see cref="Input8.FromAngle"/>; источник в позиции — направление <paramref name="fallback"/>).
+        /// </summary>
+        public void StartKnock(in MapShape map, WorldPos origin, int mass, Input8 fallback)
+        {
+            Int2 d = Torus.Delta(map, origin, Position);
+            Input8 dir = (d.X == 0 && d.Y == 0) ? fallback : Input8.FromAngle(Angle16.Atan2(d.Y, d.X));
+            if (!dir.IsMoving)
+            {
+                dir = fallback;
+            }
+
+            KnockLeft = KnockFrames;
+            KnockSpeedX10 = KnockSpeedFor(mass);
+            KnockDir = (byte)(dir.DirectionIndex + 1);
+        }
+
+        /// <summary>Направление отбрасывания как <see cref="Input8"/> (стойка, если направления нет).</summary>
+        public Input8 KnockDirection => KnockDir == 0 ? Input8.None : Input8.FromIndex(KnockDir - 1);
 
         /// <summary>Сущность в позиции, свёрнутой в карту (тор: координата за миром невозможна).</summary>
         public static Mover At(in MapShape map, WorldPos position, int unitsPerTickX10 = MovementTick.BaseSpeedX10) =>
@@ -53,6 +108,19 @@ namespace Orpheus.Core.Movement
         /// </summary>
         public WorldPos Step(in MapShape map, Input8 input, TileSolid solid)
         {
+            if (KnockLeft != 0)
+            {
+                // Отбрасывание задаётся кадров (0,15 с = 9 кадров ввода): такт — два кадра
+                // того же ввода (60 Гц = 2 × 30 Гц, MovementTick.FramesPerTick) — тот же путь, что у сетевого персонажа.
+                StepFrame(map, input, false, solid);
+                if (KnockLeft != 0)
+                {
+                    StepFrame(map, input, false, solid);
+                }
+
+                return Position;
+            }
+
             Position = MovementTick.Tick(map, Position, Carry, input, UnitsPerTickX10, solid, out Carry);
             return Position;
         }
@@ -74,6 +142,30 @@ namespace Orpheus.Core.Movement
         /// </summary>
         public WorldPos StepFrame(in MapShape map, Input8 input, bool dodgePressed, TileSolid solid)
         {
+            if (KnockLeft != 0)
+            {
+                // Отбрасывание (1-001, `02` 6.5): рывок задаёт сервер — ввод не действует («цель не действует»,
+                // «ввод игрока копится»: после конца цель идёт по текущему вводу), уворот в это время недоступен
+                // (<see cref="Movement.Dodge.Ready"/> проверяется ниже с условием KnockLeft == 0). Шаг — как рывок;
+                // упёрся в стену — остановка без урона: рывок коротается (приёмка 6.10 п. 5).
+                Input8 kdir = KnockDirection;
+                int kwantX = (Carry.X + kdir.SpeedX10(KnockSpeedX10)) / MovementTick.SpeedScale;
+                int kwantY = (Carry.Y + kdir.SpeedY10(KnockSpeedX10)) / MovementTick.SpeedScale;
+                WorldPos kfrom = Position;
+                Position = MovementTick.Tick(map, Position, Carry, kdir, KnockSpeedX10, solid, out Carry);
+                Int2 kmoved = Torus.Delta(map, kfrom, Position);
+
+                bool kstuckX = kwantX == 0 || kmoved.X != kwantX;
+                bool kstuckY = kwantY == 0 || kmoved.Y != kwantY;
+                KnockLeft--;
+                if (kstuckX && kstuckY)
+                {
+                    KnockLeft = 0;
+                }
+
+                return Position;
+            }
+
             if (dodgePressed && input.IsMoving && Dodge.Ready)
             {
                 Dodge.DashLeft = Movement.Dodge.DashFrames;

@@ -86,6 +86,14 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: пауза поставлена или снята — кто, на каком такте (всем; вошедшему в паузу — после входа).</summary>
         PauseState = 23,
+
+        // 1-001, бой (docs/02 13.5), канал 2. Протокол 11.
+
+        /// <summary>Сервер → клиент, канал 2: сущность умерла — жертва, убийца, урон добившего удара и его тип (всем).</summary>
+        Death = 24,
+
+        /// <summary>Сервер → клиент, канал 2: сущность возродилась у центра возрождения со полным здоровьем (всем).</summary>
+        Respawn = 25,
     }
 
     /// <summary>
@@ -693,14 +701,15 @@ namespace Orpheus.Net.Protocol
     }
 
     /// <summary>
-    /// «Удар решён» (0-029, тип 14): итог угрозы по этому игроку — попал или нет; решён ли по последнему известному
-    /// (ввода кадра конца замаха не дождались за W); сколько кадров сервер ждал после конца замаха и сколько кадров ввода
-    /// не хватило; кадр сервера в миг решения.
+    /// «Удар решён» (0-029, тип 14; 1-001 — с уроном): итог угрозы по этому игроку — попал или нет; решён ли по
+    /// последнему известному (ввода кадра конца замаха не дождались за W); сколько кадров сервер ждал после конца
+    /// замаха и сколько кадров ввода не хватило; кадр сервера в миг решения; урон после брони (1-001: 0 — «попал»
+    /// в геометрии, но неуязвимость/труп, урон не применён).
     /// </summary>
     public struct MeleeResultMessage
     {
-        /// <summary>Тип 1 + атакующий 4 + s 4 + флаги 1 + ждал 1 + не хватило 1 + кадр решения 4.</summary>
-        public const int Bytes = 16;
+        /// <summary>Тип 1 + атакующий 4 + s 4 + флаги 1 + ждал 1 + не хватило 1 + кадр решения 4 + урон 1 (1-001).</summary>
+        public const int Bytes = 17;
 
         public int AttackerId;
         public uint StartFrame;
@@ -718,6 +727,9 @@ namespace Orpheus.Net.Protocol
         /// <summary>Кадр сервера в миг решения.</summary>
         public uint DecidedAtFrame;
 
+        /// <summary>Урон после брони, применённый сервером (1-001, `02` 6.1); 0 — не применён.</summary>
+        public byte Damage;
+
         public int Write(Span<byte> dest)
         {
             var w = new BitWriter(dest);
@@ -728,6 +740,7 @@ namespace Orpheus.Net.Protocol
             w.WriteByte(WaitedFrames);
             w.WriteByte(MissingFrames);
             w.WriteUInt32(DecidedAtFrame);
+            w.WriteByte(Damage);
             return w.BytesWritten;
         }
 
@@ -746,12 +759,86 @@ namespace Orpheus.Net.Protocol
             m.WaitedFrames = r.ReadByte();
             m.MissingFrames = r.ReadByte();
             m.DecidedAtFrame = r.ReadUInt32();
+            m.Damage = r.ReadByte();
             r.ExpectEnd();
             return m;
         }
 
         public override string ToString() =>
-            $"удар #{AttackerId} s {StartFrame}: {(Hit ? "попал" : "мимо")}{(ByLastKnown ? ", по последнему известному" : "")}, ждал {WaitedFrames}, не хватило {MissingFrames}";
+            $"удар #{AttackerId} s {StartFrame}: {(Hit ? "попал" : "мимо")}{(ByLastKnown ? ", по последнему известному" : "")}, ждал {WaitedFrames}, не хватило {MissingFrames}, урон {Damage}";
+    }
+
+    /// <summary>
+    /// «Смерть» (1-001, тип 24; `02` 13.5): сущность (#Victim) убила сущность #Attacker (−1 — манекен/неизвестный
+    /// атакующий); урон после брони, добивший удар, и его тип. Рассылка — канал 2 всем в игре; дублирует событие
+    /// такта, полоска здоровья приходит снимком.
+    /// </summary>
+    public struct DeathMessage
+    {
+        /// <summary>Тип 1 + жертва 4 + убийца 4 + урон 1 + тип урона 1.</summary>
+        public const int Bytes = 11;
+
+        public int Victim;
+        public int Attacker;
+        public byte Damage;
+        public byte DamageType;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Death);
+            w.WriteUInt32((uint)Victim);
+            w.WriteUInt32((uint)Attacker);
+            w.WriteByte(Damage);
+            w.WriteByte(DamageType);
+            return w.BytesWritten;
+        }
+
+        public static DeathMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Death);
+            var m = new DeathMessage
+            {
+                Victim = (int)r.ReadUInt32(),
+                Attacker = (int)r.ReadUInt32(),
+                Damage = r.ReadByte(),
+                DamageType = r.ReadByte(),
+            };
+            r.ExpectEnd();
+            return m;
+        }
+
+        public override string ToString() => $"смерть #{Victim} (убийца #{Attacker}, урон {Damage}, тип {DamageType})";
+    }
+
+    /// <summary>
+    /// «Возрождение» (1-001, тип 25; `02` 13.5): сущность #Victim возродилась у центра возрождения со полным
+    /// здоровьем. Рассылка — канал 2 всем в игре.
+    /// </summary>
+    public struct RespawnMessage
+    {
+        /// <summary>Тип 1 + жертва 4.</summary>
+        public const int Bytes = 5;
+
+        public int Victim;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Respawn);
+            w.WriteUInt32((uint)Victim);
+            return w.BytesWritten;
+        }
+
+        public static RespawnMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Respawn);
+            var m = new RespawnMessage { Victim = (int)r.ReadUInt32() };
+            r.ExpectEnd();
+            return m;
+        }
+
+        public override string ToString() => $"возрождение #{Victim}";
     }
 
     /// <summary>Общее для кодека: тип сообщения.</summary>
@@ -775,12 +862,12 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>
-        /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028) и 22…23 (пауза,
-        /// 0-036; последний — PauseState); 15 не занят.
+        /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
+        /// 22…23 (пауза, 0-036) и 24…25 (смерть/возрождение, 1-001; последний — Respawn); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.PauseState);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.Respawn);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)

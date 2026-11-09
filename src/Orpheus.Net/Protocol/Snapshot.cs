@@ -19,7 +19,10 @@ namespace Orpheus.Net.Protocol
         /// <summary>Код направления ввода 0…8 (0 — стоит); для интерполяции и анимации.</summary>
         public byte Direction;
 
-        public override string ToString() => $"#{Id} k{Kind} {Position} d{Direction}";
+        /// <summary>Здоровье в процентах максимума, 0…100 (1-001): 100 — целое, 0 — труп; для полоски здоровья.</summary>
+        public byte HealthPct;
+
+        public override string ToString() => $"#{Id} k{Kind} {Position} d{Direction} hp{HealthPct}";
     }
 
     /// <summary>
@@ -54,6 +57,29 @@ namespace Orpheus.Net.Protocol
         public const int DodgeBits = DodgeElapsedBits + DodgeDashBits + DodgeCooldownBits + DodgeDirectionBits;
 
         /// <summary>
+        /// Бой своего персонажа (1-001): здоровье (8 бит, 0…255 — HP целое, максимум известен из правил:
+        /// уровень 0 — 100), масса 1…4 (2 бита — скорость отбрасывания <see cref="Mover.KnockSpeedFor"/>),
+        /// отбрасывание: кадров осталось 0…9 (4 бита) и направление 1…8 (3 бита, храним код − 1; 0 — нет).
+        /// Клиент при правке берёт их целиком, как уворот: нокбэк задаёт сервер, предсказание его шагает.
+        /// </summary>
+        public byte Health;
+
+        /// <summary>Масса (1…4) — по ней скорость отбрасывания.</summary>
+        public byte Mass;
+
+        /// <summary>Кадров отбрасывания осталось (0…9, <see cref="Mover.KnockFrames"/>).</summary>
+        public byte KnockLeft;
+
+        /// <summary>Направление отбрасывания 0…7 (код <see cref="Input8.DirectionIndex"/>; активно только при <see cref="KnockLeft"/> &gt; 0).</summary>
+        public byte KnockDir;
+
+        /// <summary>Бит на поля боя.</summary>
+        public const int HealthBits = 8, MassBits = 2, KnockLeftBits = 4, KnockDirBits = 3;
+
+        /// <summary>Бит боя всего: 17.</summary>
+        public const int CombatBits = HealthBits + MassBits + KnockLeftBits + KnockDirBits;
+
+        /// <summary>
         /// Отчёт сервера получателю (0-033, `07` 2.7): «запас прихода кадров» — 1-й процентиль за 2 с при его нынешнем
         /// опережении, кадров (−64…63; ≥ 0 — кадры приходят к сроку решения). Не состояние персонажа: в сравнение
         /// (<see cref="Equals(SelfState)"/>) не входит, пишется и без своего состояния.
@@ -80,6 +106,10 @@ namespace Orpheus.Net.Protocol
             Position = position;
             Carry = carry;
             Dodge = dodge;
+            Health = 100; // 1-001: персонаж цел, масса 1 — сервер заполняет настоящими значениями
+            Mass = 1;
+            KnockLeft = 0;
+            KnockDir = 0;
             LeadMargin = 0;
             DelayFrames = 0;
         }
@@ -88,10 +118,11 @@ namespace Orpheus.Net.Protocol
         public static bool SameDodge(in Dodge a, in Dodge b) =>
             a.Elapsed == b.Elapsed && a.DashLeft == b.DashLeft && a.Cooldown == b.Cooldown && a.Direction == b.Direction;
 
-        public bool Equals(SelfState o) => Present == o.Present && Position == o.Position && Carry == o.Carry && SameDodge(Dodge, o.Dodge);
+        public bool Equals(SelfState o) => Present == o.Present && Position == o.Position && Carry == o.Carry && SameDodge(Dodge, o.Dodge) &&
+            Health == o.Health && Mass == o.Mass && KnockLeft == o.KnockLeft && KnockDir == o.KnockDir;
         public override bool Equals(object? obj) => obj is SelfState o && Equals(o);
-        public override int GetHashCode() => Present ? Position.X ^ (Position.Y << 7) ^ (Carry.X << 3) ^ Carry.Y ^ (Dodge.Elapsed << 11) : 0;
-        public override string ToString() => Present ? $"своё {Position} c{Carry} {Dodge}" : "своё —";
+        public override int GetHashCode() => Present ? Position.X ^ (Position.Y << 7) ^ (Carry.X << 3) ^ Carry.Y ^ (Dodge.Elapsed << 11) ^ (Health << 17) ^ (KnockLeft << 21) : 0;
+        public override string ToString() => Present ? $"своё {Position} c{Carry} {Dodge} hp{Health} m{Mass} knock{KnockLeft}:{KnockDir}" : "своё —";
 
         internal void Write(ref BitWriter w, in SnapshotLayout layout)
         {
@@ -105,6 +136,10 @@ namespace Orpheus.Net.Protocol
             w.WriteBits(s.Dodge.DashLeft, DodgeDashBits);
             w.WriteBits(s.Dodge.Cooldown, DodgeCooldownBits);
             w.WriteBits(s.Dodge.Direction, DodgeDirectionBits);
+            w.WriteBits(s.Health, HealthBits);
+            w.WriteBits((uint)Math.Max(1, Math.Min(4, (int)s.Mass)) - 1, MassBits);
+            w.WriteBits(s.KnockLeft, KnockLeftBits);
+            w.WriteBits((uint)(s.KnockLeft == 0 ? 0 : Math.Min(8, (int)s.KnockDir) - 1), KnockDirBits);
             w.WriteBits((uint)(Math.Max(-MarginBias, Math.Min(MarginBias - 1, (int)LeadMargin)) + MarginBias), MarginBits);
             w.WriteBits(Math.Min(DelayFrames, (byte)ThreatTiming.MaxDelayFrames), DelayBits);
         }
@@ -123,6 +158,10 @@ namespace Orpheus.Net.Protocol
                 Cooldown = (byte)r.ReadBits(DodgeCooldownBits),
                 Direction = (byte)r.ReadBits(DodgeDirectionBits),
             };
+            byte health = (byte)r.ReadBits(HealthBits);
+            byte mass = (byte)(r.ReadBits(MassBits) + 1);
+            byte knockLeft = (byte)r.ReadBits(KnockLeftBits);
+            byte knockDir = (byte)r.ReadBits(KnockDirBits);
             sbyte margin = (sbyte)((int)r.ReadBits(MarginBits) - MarginBias);
             byte delay = (byte)r.ReadBits(DelayBits);
             if (delay > ThreatTiming.MaxDelayFrames)
@@ -133,23 +172,46 @@ namespace Orpheus.Net.Protocol
             {
                 throw new ProtocolException($"Снимок: уворот вне пределов ({dodge.DashLeft}, {dodge.Cooldown}, {dodge.Direction}).");
             }
+            if (knockLeft > Mover.KnockFrames || knockDir > 7)
+            {
+                throw new ProtocolException($"Снимок: отбрасывание вне пределов ({knockLeft}, {knockDir}).");
+            }
 
             if (x >= layout.Shape.WidthUnits || y >= layout.Shape.HeightUnits || Math.Abs(cx) > MaxCarry || Math.Abs(cy) > MaxCarry)
             {
                 throw new ProtocolException($"Снимок: своё состояние ({x}, {y}) c({cx}, {cy}) вне карты или остаток > {MaxCarry}.");
             }
 
+            var combat = new SelfState
+            {
+                LeadMargin = margin,
+                DelayFrames = delay,
+                Health = health,
+                Mass = mass,
+                KnockLeft = knockLeft,
+                KnockDir = (byte)(knockLeft == 0 ? 0 : knockDir + 1),
+            };
             if (!present)
             {
-                if (x != 0 || y != 0 || cx != 0 || cy != 0 || !SameDodge(dodge, default))
+                if (x != 0 || y != 0 || cx != 0 || cy != 0 || !SameDodge(dodge, default) ||
+                    health != 0 || knockLeft != 0 || knockDir != 0)
                 {
                     throw new ProtocolException("Снимок: своего состояния нет, а поля не пустые.");
                 }
 
-                return new SelfState { LeadMargin = margin, DelayFrames = delay };
+                return combat;
             }
 
-            return new SelfState(new WorldPos(x, y), new Int2(cx, cy), dodge) { LeadMargin = margin, DelayFrames = delay };
+            var s = new SelfState(new WorldPos(x, y), new Int2(cx, cy), dodge)
+            {
+                LeadMargin = margin,
+                DelayFrames = delay,
+                Health = health,
+                Mass = mass,
+                KnockLeft = knockLeft,
+                KnockDir = (byte)(knockLeft == 0 ? 0 : knockDir + 1),
+            };
+            return s;
         }
     }
 
@@ -166,6 +228,9 @@ namespace Orpheus.Net.Protocol
         public const int IdBits = 32;
         public const int KindBits = 8;
         public const int DirectionBits = 4;
+
+        /// <summary>Бит на долю здоровья сущности (1-001): проценты максимума 0…100.</summary>
+        public const int HealthPctBits = 7;
 
         public readonly MapShape Shape;
         public readonly int BitsX;
@@ -193,13 +258,14 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Бит на сущность.</summary>
-        public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits;
+        public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits + HealthPctBits;
 
         /// <summary>
         /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5
-        /// + уворот 21 (0-029, протокол 6). 1024² — 68 бит (≈ 9 байт), 4096² — 72 бита. Есть в каждом снимке и каждой дельте.
+        /// + уворот 21 (0-029, протокол 6) + бой 17 (1-001, протокол 11). 1024² — 85 бит (≈ 11 байт), 4096² — 89 бит.
+        /// Есть в каждом снимке и каждой дельте.
         /// </summary>
-        public int SelfBits => 1 + SelfBitsX + SelfBitsY + 2 * CarryBits + SelfState.DodgeBits + SelfState.ReportBits;
+        public int SelfBits => 1 + SelfBitsX + SelfBitsY + 2 * CarryBits + SelfState.DodgeBits + SelfState.CombatBits + SelfState.ReportBits;
 
         /// <summary>Сколько сущностей влезает в бюджет <see cref="NetSettings.SnapshotBudget"/>.</summary>
         public int MaxEntitiesInBudget => Math.Min(Snapshot.MaxEntities, ((NetSettings.SnapshotBudget - Snapshot.HeaderBytes) * 8 - SelfBits) / EntityBits);
@@ -297,7 +363,7 @@ namespace Orpheus.Net.Protocol
             w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < Count; i++)
             {
-                if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction))
+                if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction, Entities[i].HealthPct))
                 {
                     throw new ProtocolException($"Снимок: {Count} сущностей не влезли в {dest.Length} байт.");
                 }
@@ -326,6 +392,11 @@ namespace Orpheus.Net.Protocol
                     (qx << SnapshotLayout.QuantShift) | (1 << (SnapshotLayout.QuantShift - 1)),
                     (qy << SnapshotLayout.QuantShift) | (1 << (SnapshotLayout.QuantShift - 1)));
                 e.Direction = (byte)r.ReadBits(SnapshotLayout.DirectionBits);
+                e.HealthPct = (byte)r.ReadBits(SnapshotLayout.HealthPctBits);
+                if (e.HealthPct > 100)
+                {
+                    throw new ProtocolException($"Снимок: доля здоровья {e.HealthPct} % > 100.");
+                }
                 if (e.Direction > InputFrame.MaxDirectionCode || e.Position.X >= layout.Shape.WidthUnits || e.Position.Y >= layout.Shape.HeightUnits)
                 {
                     throw new ProtocolException($"Снимок: сущность {e} вне карты или с кодом направления > 8.");
@@ -392,7 +463,7 @@ namespace Orpheus.Net.Protocol
         public int Count => _count;
 
         /// <summary>Добавить сущность; не влезает — false (ничего не записано).</summary>
-        public bool TryAdd(int id, byte kind, WorldPos position, byte direction)
+        public bool TryAdd(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100)
         {
             if (_count == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
             {
@@ -404,6 +475,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits((uint)(position.X >> SnapshotLayout.QuantShift), _layout.BitsX);
             _w.WriteBits((uint)(position.Y >> SnapshotLayout.QuantShift), _layout.BitsY);
             _w.WriteBits(direction, SnapshotLayout.DirectionBits);
+            _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
             _count++;
             return true;
         }
@@ -423,6 +495,9 @@ namespace Orpheus.Net.Protocol
         None = 0,
         Position = 1,
         Direction = 2,
+
+        /// <summary>Доля здоровья (1-001): полоска HealthPct изменилась.</summary>
+        Health = 4,
     }
 
     /// <summary>
@@ -450,8 +525,8 @@ namespace Orpheus.Net.Protocol
         /// <summary>Бит на номер сущности в базе.</summary>
         public const int IndexBits = 8;
 
-        /// <summary>Бит на маску полей.</summary>
-        public const int MaskBits = 2;
+        /// <summary>Бит на маску полей (Position, Direction, Health — 1-001).</summary>
+        public const int MaskBits = 3;
 
         /// <summary>Наибольшее отставание базы (поле — u8).</summary>
         public const int MaxBaselineAge = 255;
@@ -486,7 +561,8 @@ namespace Orpheus.Net.Protocol
         /// <summary>Бит на изменившуюся сущность с полями <paramref name="fields"/>.</summary>
         public static int UpdatedBits(DeltaFields fields, in SnapshotLayout layout) =>
             IndexBits + MaskBits + ((fields & DeltaFields.Position) != 0 ? layout.BitsX + layout.BitsY : 0) +
-            ((fields & DeltaFields.Direction) != 0 ? SnapshotLayout.DirectionBits : 0);
+            ((fields & DeltaFields.Direction) != 0 ? SnapshotLayout.DirectionBits : 0) +
+            ((fields & DeltaFields.Health) != 0 ? SnapshotLayout.HealthPctBits : 0);
 
         /// <summary>Прочитать дельту в этот объект (номера базы проверяет <see cref="ApplyTo"/>).</summary>
         public void Read(ReadOnlySpan<byte> src, in SnapshotLayout layout)
@@ -534,6 +610,15 @@ namespace Orpheus.Net.Protocol
                         throw new ProtocolException($"Дельта: код направления {e.Direction} > 8.");
                     }
                 }
+
+                if ((f & DeltaFields.Health) != 0)
+                {
+                    e.HealthPct = (byte)r.ReadBits(SnapshotLayout.HealthPctBits);
+                    if (e.HealthPct > 100)
+                    {
+                        throw new ProtocolException($"Дельта: доля здоровья {e.HealthPct} % > 100.");
+                    }
+                }
             }
 
             for (int i = 0; i < added; i++)
@@ -543,6 +628,11 @@ namespace Orpheus.Net.Protocol
                 e.Kind = (byte)r.ReadBits(SnapshotLayout.KindBits);
                 e.Position = ReadPosition(ref r, layout);
                 e.Direction = (byte)r.ReadBits(SnapshotLayout.DirectionBits);
+                e.HealthPct = (byte)r.ReadBits(SnapshotLayout.HealthPctBits);
+                if (e.HealthPct > 100)
+                {
+                    throw new ProtocolException($"Дельта: доля здоровья {e.HealthPct} % > 100.");
+                }
                 if (e.Direction > InputFrame.MaxDirectionCode)
                 {
                     throw new ProtocolException($"Дельта: сущность {e} с кодом направления > 8.");
@@ -610,6 +700,11 @@ namespace Orpheus.Net.Protocol
                     if ((UpdatedFields[k] & DeltaFields.Direction) != 0)
                     {
                         e.Direction = Updated[k].Direction;
+                    }
+
+                    if ((UpdatedFields[k] & DeltaFields.Health) != 0)
+                    {
+                        e.HealthPct = Updated[k].HealthPct;
                     }
                 }
 
@@ -727,7 +822,7 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Изменившаяся сущность базы: номер, поля по маске; не влезла — false (ничего не записано).</summary>
-        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction)
+        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100)
         {
             Enter(1);
             if (fields == DeltaFields.None)
@@ -753,12 +848,17 @@ namespace Orpheus.Net.Protocol
                 _w.WriteBits(direction, SnapshotLayout.DirectionBits);
             }
 
+            if ((fields & DeltaFields.Health) != 0)
+            {
+                _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
+            }
+
             _updated++;
             return true;
         }
 
         /// <summary>Новая сущность — полной записью; не влезла — false.</summary>
-        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction)
+        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100)
         {
             Enter(2);
             if (_added == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
@@ -771,6 +871,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits((uint)(position.X >> SnapshotLayout.QuantShift), _layout.BitsX);
             _w.WriteBits((uint)(position.Y >> SnapshotLayout.QuantShift), _layout.BitsY);
             _w.WriteBits(direction, SnapshotLayout.DirectionBits);
+            _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
             _added++;
             return true;
         }
