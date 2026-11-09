@@ -1,12 +1,15 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Text;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
+using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Debug = UnityEngine.Debug;
+using Material = Orpheus.Core.Sim.Material; // HUD сумки: Sim.Material, не UnityEngine.Material
 
 namespace Orpheus.Client
 {
@@ -29,6 +32,58 @@ namespace Orpheus.Client
         }
 
         readonly List<Flash> _flashes = new List<Flash>();
+
+        // Зеркало своей сумки (1-002): наполняется сервером — «сумка» (тип 26) приходит при входе и при каждом изменении
+        // (копание, подбор). Выбранная ячейка для руки берётся из своих кадров, пока подтверждение не пришло.
+        Inventory _bag = Inventory.StartingKit();
+
+        /// <summary>Сумка от сервера (этап 4): зеркало — серверная сумка целиком, включая выбранную ячейку.</summary>
+        void OnInventory(InventoryMessage m) => _bag = m.Bag;
+
+        /// <summary>Предмет в руках: ячейка последнего отправленного кадра, содержимое — из зеркала сумки (1-002).</summary>
+        byte HeldItem => _bag.SlotAt(_pred?.SelectedSlot ?? _bag.Selected);
+
+        /// <summary>Кусок HUD про сумку (1-002): что в руках и ненулевые материалы.</summary>
+        string BagHud()
+        {
+            var sb = new StringBuilder("  в руках: ");
+            sb.Append(ItemName(HeldItem));
+            sb.Append($" [{_slot + 1}/{InputFrame.MaxSlots}]");
+            for (int m = 0; m < (int)Material.Count; m++)
+            {
+                int n = _bag.CountAt((Material)m);
+                if (n > 0)
+                {
+                    sb.Append($"  {MaterialName(m)} {n}");
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        static string ItemName(byte id) => id switch
+        {
+            Items.None => "пусто",
+            Items.StonePickaxe => "кирка",
+            Items.StoneAxe => "топор",
+            Items.Hammer => "молот",
+            Items.WoodenSword => "меч",
+            Items.SimpleBow => "лук",
+            Items.Torch => "факел",
+            _ => $"№{id}",
+        };
+
+        static string MaterialName(int m) => m switch
+        {
+            (int)Material.Wood => "древесина",
+            (int)Material.Stone => "камень",
+            (int)Material.Resin => "смола",
+            (int)Material.Fiber => "волокно",
+            (int)Material.Copper => "медь",
+            (int)Material.Arrows => "стрелы",
+            _ => "факелы",
+        };
+
         Sprite? _flashSprite;
         string _lastRefusal = string.Empty;
         long _lastRefusalUntilUs;
@@ -70,12 +125,16 @@ namespace Orpheus.Client
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
-            if (!c.Digging && EditRules.IsDiggable(_world!.GetObject(tile), c.DigTimes) && EditRules.InDigReach(_map, _localPos, tile))
+            // Копает только кирка (1-002, `06` 2.3): в руках меч — ЛКМ не начинает копание и запрос не уходит
+            // (у сервера тот же отказ молча). Досягаемость — «персонаж + предмет в руках».
+            byte held = HeldItem;
+            if (!c.Digging && Items.IsDiggingTool(held) &&
+                EditRules.IsDiggable(_world!.GetObject(tile), c.DigTimes) && EditRules.InDigReach(_map, _localPos, tile, held))
             {
                 c.StartDig(tile);
             }
 
-            return InputButtons.Dig;
+            return c.Digging ? InputButtons.Dig : (ushort)0;
         }
 
         /// <summary>

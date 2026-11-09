@@ -167,6 +167,9 @@ namespace Orpheus.Core.Sim
             h.Add(e.AttackFacingRaw);
             h.Add(e.Input.DirectionCode);
             h.Add(e.Input.Buttons);
+            h.Add(e.Input.Angle16);
+            h.Add(e.Input.Slot);
+            e.Inv.AddTo(ref h); // сумка целиком (1-002): ячейка в руках, ячейки, счётчики
             return h.Value;
         }
 

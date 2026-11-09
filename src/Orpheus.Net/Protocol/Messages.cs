@@ -94,6 +94,11 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: сущность возродилась у центра возрождения со полным здоровьем (всем).</summary>
         Respawn = 25,
+
+        // 1-002, сумка (docs/06 0), канал 2. Протокол 13.
+
+        /// <summary>Сервер → клиент, канал 2: сумка персонажа — владельцу при входе и когда содержимое изменилось (1-002).</summary>
+        Inventory = 26,
     }
 
     /// <summary>
@@ -377,12 +382,13 @@ namespace Orpheus.Net.Protocol
     }
 
     /// <summary>
-    /// Кадр ввода по сети (docs/07, 2.10): направление и сила движения (2 байта), угол прицела (2 байта),
-    /// кнопки (2 байта). Тайл под курсором при молоте — потом (задача строительства).
+    /// Кадр ввода по сети (docs/07, 2.10): направление и сила движения (2 байта), ячейка быстрой панели (1 байт, 1-002),
+    /// угол прицела (2 байта), кнопки (2 байта). Ровно <see cref="Bytes"/> = 7 байт.
+    /// Тайл под курсором при молоте — потом (задача строительства).
     /// </summary>
     public struct WireFrame : IEquatable<WireFrame>
     {
-        public const int Bytes = 6;
+        public const int Bytes = 7;
 
         /// <summary>Сила движения «полностью».</summary>
         public const byte FullPower = 255;
@@ -393,21 +399,28 @@ namespace Orpheus.Net.Protocol
         /// <summary>Сила движения 0…255 (стик); клавиши — 255. Пока не влияет на скорость.</summary>
         public byte Power;
 
+        /// <summary>Ячейка быстрой панели 0…<see cref="InputFrame.MaxSlots"/>−1 — предмет в руках (1-002).</summary>
+        public byte Slot;
+
         /// <summary>Угол прицела, u16 (65 536 шагов на круг, 0,0055°).</summary>
         public ushort Aim;
 
         /// <summary>Кнопки — битовая маска.</summary>
         public ushort Buttons;
 
-        public static WireFrame From(InputFrame f, ushort aim = 0) => new WireFrame
+        public static WireFrame From(InputFrame f) => new WireFrame
         {
             Direction = f.DirectionCode,
             Power = f.Direction.IsMoving ? FullPower : (byte)0,
-            Aim = aim,
+            Slot = f.Slot,
+            Aim = f.Angle16,
             Buttons = f.Buttons,
         };
 
-        /// <summary>Кадр такта: направление и кнопки (код направления вне 0…8 — <see cref="ProtocolException"/>).</summary>
+        /// <summary>
+        /// Кадр такта: направление, кнопки, угол и ячейка (код направления вне 0…8 или ячейка вне 0…7 —
+        /// <see cref="ProtocolException"/>).
+        /// </summary>
         public InputFrame ToInputFrame()
         {
             if (Direction > InputFrame.MaxDirectionCode)
@@ -415,13 +428,19 @@ namespace Orpheus.Net.Protocol
                 throw new ProtocolException($"Кадр ввода: код направления {Direction}.");
             }
 
-            return InputFrame.FromCode(Direction, Buttons);
+            if (Slot >= InputFrame.MaxSlots)
+            {
+                throw new ProtocolException($"Кадр ввода: ячейка {Slot}.");
+            }
+
+            return InputFrame.FromCode(Direction, Buttons, Aim, Slot);
         }
 
         public void Write(ref BitWriter w)
         {
             w.WriteByte(Direction);
             w.WriteByte(Power);
+            w.WriteByte(Slot);
             w.WriteUInt16(Aim);
             w.WriteUInt16(Buttons);
         }
@@ -430,27 +449,28 @@ namespace Orpheus.Net.Protocol
         {
             Direction = r.ReadByte(),
             Power = r.ReadByte(),
+            Slot = r.ReadByte(),
             Aim = r.ReadUInt16(),
             Buttons = r.ReadUInt16(),
         };
 
-        public bool Equals(WireFrame o) => Direction == o.Direction && Power == o.Power && Aim == o.Aim && Buttons == o.Buttons;
+        public bool Equals(WireFrame o) => Direction == o.Direction && Power == o.Power && Slot == o.Slot && Aim == o.Aim && Buttons == o.Buttons;
         public override bool Equals(object? obj) => obj is WireFrame o && Equals(o);
-        public override int GetHashCode() => (Direction << 24) ^ (Power << 16) ^ (Aim << 8) ^ Buttons;
-        public override string ToString() => $"frame(dir {Direction}, power {Power}, aim {Aim}, 0x{Buttons:X4})";
+        public override int GetHashCode() => (Direction << 24) ^ (Power << 16) ^ (Slot << 11) ^ (Aim << 8) ^ Buttons;
+        public override string ToString() => $"frame(dir {Direction}, power {Power}, slot {Slot}, aim {Aim}, 0x{Buttons:X4})";
     }
 
     /// <summary>
     /// Пакет ввода, 60 Гц, канал 0 (docs/07, 2.10): номер первого кадра, 4 кадра — три прошлых и текущий
     /// (потеря пакета не теряет нажатие), время картинки, номер последнего полученного снимка, опережение L.
-    /// Ровно <see cref="Bytes"/> = 38 байт.
+    /// Ровно <see cref="Bytes"/> = 42 байта (кадр — 7, 1-002).
     /// </summary>
     public struct InputMessage
     {
         /// <summary>Кадров в пакете.</summary>
         public const int FrameCount = 4;
 
-        /// <summary>Тип 1 + первый кадр 4 + 4 × 6 + время картинки 4 + последний снимок 4 + опережение 1 = 38.</summary>
+        /// <summary>Тип 1 + первый кадр 4 + 4 × 7 + время картинки 4 + последний снимок 4 + опережение 1 = 42.</summary>
         public const int Bytes = 1 + 4 + FrameCount * WireFrame.Bytes + 4 + 4 + 1;
 
         /// <summary>Номер самого старого кадра в пакете; текущий — <c>FirstFrame + 3</c>.</summary>
@@ -841,6 +861,74 @@ namespace Orpheus.Net.Protocol
         public override string ToString() => $"возрождение #{Victim}";
     }
 
+    /// <summary>
+    /// «Сумка» (1-002, тип 26; docs/06 0): сумка персонажа — сервер шлёт <b>владельцу</b> при входе
+    /// и когда содержимое изменилось (канал 2, надёжный). Предмет в руках для чужих сущностей —
+    /// 8 бит в снимке (<see cref="SnapshotEntity.HeldItem"/>), целиком сумка чужому игроку не нужна.
+    /// Поля: тип 1 + сущность u32 + версия u16 + payload (выбранная 1 + ячейки 8 + счётчики u16 × 7).
+    /// </summary>
+    public struct InventoryMessage
+    {
+        /// <summary>Тип 1 + сущность 4 + версия 2 + payload 23.</summary>
+        public const int Bytes = 1 + 4 + 2 + Inventory.PayloadBytes;
+
+        public int EntityId;
+
+        /// <summary>Версия сумки на сервере — растёт при каждой отправке этому игроку (порядок хранит канал 2).</summary>
+        public ushort Version;
+
+        public Inventory Bag;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Inventory);
+            w.WriteUInt32((uint)EntityId);
+            w.WriteUInt16(Version);
+            w.WriteByte(Bag.Selected);
+            for (int i = 0; i < Inventory.Slots; i++)
+            {
+                w.WriteByte(Bag.SlotAt(i));
+            }
+
+            for (int m = 0; m < (int)Material.Count; m++)
+            {
+                w.WriteUInt16((ushort)Bag.CountAt((Material)m));
+            }
+
+            return w.BytesWritten;
+        }
+
+        public static InventoryMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Inventory);
+            var m = new InventoryMessage { EntityId = (int)r.ReadUInt32(), Version = r.ReadUInt16() };
+            byte selected = r.ReadByte();
+            if (selected >= Inventory.Slots)
+            {
+                throw new ProtocolException($"Сумка: выбранная ячейка {selected} >= {Inventory.Slots}.");
+            }
+
+            var bag = new Inventory();
+            for (int i = 0; i < Inventory.Slots; i++)
+            {
+                bag.SetSlotAt(i, r.ReadByte());
+            }
+
+            for (int mt = 0; mt < (int)Material.Count; mt++)
+            {
+                bag.Add((Material)mt, r.ReadUInt16());
+            }
+
+            bag.Select(selected);
+            r.ExpectEnd();
+            m.Bag = bag;
+            return m;
+        }
+
+        public override string ToString() => $"сумка #{EntityId} в{Version} {Bag}";
+    }
+
     /// <summary>Общее для кодека: тип сообщения.</summary>
     public static class Codec
     {
@@ -863,11 +951,11 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
-        /// 22…23 (пауза, 0-036) и 24…25 (смерть/возрождение, 1-001; последний — Respawn); 15 не занят.
+        /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001) и 26 (сумка, 1-002; последний — Inventory); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.Respawn);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.Inventory);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)

@@ -476,6 +476,31 @@ namespace Orpheus.Core.Sim
             _frameCount[slot] = frames.Length;
         }
 
+        /// <summary>Ячейка кадра ввода становится выбранной (предмет в руках); уже выбрана — ничего.</summary>
+        private static void ApplySlot(ref SimEntity e, byte slot)
+        {
+            if (slot != e.Inv.Selected && slot < Inventory.Slots)
+            {
+                e.Inv.Selected = slot;
+            }
+        }
+
+        /// <summary>
+        /// Сумка сущности целиком (выдача стартового набора при входе, 1-002; возврат из записи персонажа).
+        /// Нет такой сущности — false. Вне такта.
+        /// </summary>
+        public bool SetInventory(int entityId, Inventory inv)
+        {
+            int slot = SlotOf(entityId);
+            if (slot < 0)
+            {
+                return false;
+            }
+
+            _entities[slot].Inv = inv;
+            return true;
+        }
+
         /// <summary>
         /// Изменения ввода, ждущие ближайшего такта, по номеру сущности — то, что пишется в журнал ввода.
         /// Возвращает число записанных в <paramref name="dest"/>.
@@ -556,6 +581,7 @@ namespace Orpheus.Core.Sim
                 {
                     _entities[i].Input = _pending[i];
                     _hasPending[i] = false;
+                    ApplySlot(ref _entities[i], _pending[i].Slot); // смена ячейки — тем же кадром, что и ввод (1-002)
                 }
             }
 
@@ -578,6 +604,7 @@ namespace Orpheus.Core.Sim
                 {
                     InputFrame f = _frames[i * MaxFramesPerTick + k];
                     _entities[i].Input = f;
+                    ApplySlot(ref _entities[i], f.Slot); // ячейка меняется в том же кадре, что и предсказание клиента (1-002)
                     _entities[i].Mover.StepFrame(_shape, f.Direction, f.DodgePressed, _solid); // с уворотом (0-029)
                 }
 

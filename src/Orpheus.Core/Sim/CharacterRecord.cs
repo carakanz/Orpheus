@@ -24,5 +24,9 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Движение на миг ухода (значимо при <see cref="EntityId"/> = 0).</summary>
         public Mover Mover;
+
+        /// <summary>Сумка (1-002): панель, выбранная ячейка, материалы. Значима и в мире, и вне его:
+        /// вошёл — сумка сущности берётся отсюда, ушёл — она возвращается сюда (<see cref="CharacterRoster.Park"/>).</summary>
+        public Inventory Inv;
     }
 }

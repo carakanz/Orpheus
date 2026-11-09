@@ -115,6 +115,15 @@ namespace Orpheus.Core.World
         public static bool InDigReach(in MapShape map, WorldPos center, TileCoord tile) => InReach(map, center, tile, DigReachUnits);
 
         /// <summary>
+        /// Досягаемость копания «персонаж + предмет в руках» (1-002, `06` 2.3): тело + длина предмета
+        /// (<see cref="Sim.Items.LengthUnits"/>); у предмета без своей длины — только тело.
+        /// </summary>
+        public static int DigReachUnitsFor(byte itemId) => Reach.Of(Sim.Items.LengthUnits(itemId));
+
+        /// <summary>Тайл в досягаемости копания предметом <paramref name="itemId"/> (1-002).</summary>
+        public static bool InDigReach(in MapShape map, WorldPos center, TileCoord tile, byte itemId) => InReach(map, center, tile, DigReachUnitsFor(itemId));
+
+        /// <summary>
         /// От <paramref name="center"/> до ближайшей точки тайла (квадрат стороной 1 т) не дальше <paramref name="reachUnits"/>, по
         /// тору. Внутри тайла — 0.
         /// </summary>
@@ -173,11 +182,18 @@ namespace Orpheus.Core.World
 
         /// <summary>
         /// Проверка копания по тайлу мира (без сущностей): что копать (время по <paramref name="times"/>; 0 — «нельзя») и
-        /// досягаемость. Принято — <see cref="EditReply.Accepted"/>.
+        /// досягаемость кирки (0,75 т). Принято — <see cref="EditReply.Accepted"/>.
         /// </summary>
-        public static EditReply CheckDig(WorldModel world, WorldPos center, TileCoord tile, DigTimes times)
+        public static EditReply CheckDig(WorldModel world, WorldPos center, TileCoord tile, DigTimes times) =>
+            CheckDig(world, center, tile, times, Sim.Items.StonePickaxe);
+
+        /// <summary>
+        /// То же, что <see cref="CheckDig(WorldModel, WorldPos, TileCoord, DigTimes)"/>, с предметом в руках
+        /// (1-002): досягаемость «персонаж + этот предмет» (<see cref="DigReachUnitsFor"/>).
+        /// </summary>
+        public static EditReply CheckDig(WorldModel world, WorldPos center, TileCoord tile, DigTimes times, byte itemId)
         {
-            if (!InDigReach(world.Shape, center, tile))
+            if (!InDigReach(world.Shape, center, tile, itemId))
             {
                 return EditReply.OutOfReach;
             }

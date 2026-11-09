@@ -349,7 +349,8 @@ namespace Orpheus.Server
                             ("maxDeltaBytes", net.MaxDeltaBytes),
                             ("bytesPerDelta", net.DeltasSent > 0 ? net.DeltaBytes / net.DeltasSent : 0),
                             ("bytesPerFull", net.FullSent > 0 ? (net.SnapshotBytes - net.DeltaBytes) / net.FullSent : 0),
-                            ("inputs", net.InputsAccepted), ("inputsDropped", net.InputsDropped));
+                            ("inputs", net.InputsAccepted), ("inputsDropped", net.InputsDropped),
+                            ("inventories", net.InventoriesSent));
                     }
                 }
 

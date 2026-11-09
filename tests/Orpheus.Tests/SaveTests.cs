@@ -434,6 +434,86 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// Сумка персонажа (1-002, формат 4): сохранение → загрузка — та же сумка (в мире и вне его);
+        /// формат 3 (без поля 13) грузится со стартовым набором (6.7: новое поле с умолчанием).
+        /// </summary>
+        [Fact]
+        public void D06_Save_Characters_InventoryRoundTrip_Format3DefaultsToStartingKit()
+        {
+            SaveFixtures.LiveWorld live = SaveFixtures.Create(256, Seed, bots: 2);
+            live.Run(ticks: 30, editsPerTick: 1);
+
+            var bag = Inventory.StartingKit();
+            bag.Add(Material.Wood, 70_000);
+            bag.Add(Material.Torch, 9);
+            bag.Select(5);
+            int entityId = live.Sim.Entities[0].Id;
+            var characters = new[]
+            {
+                new CharacterRecord { IsHost = true, Name = "Орфей", EntityId = entityId, Inv = bag },
+                new CharacterRecord { Name = "Эвридика", EntityId = 0, Inv = bag },
+            };
+
+            byte[] save = WorldSave.Build(WorldSave.Capture(live.Sim, live.BaseSha, "сумка", characters), 3, 0);
+            LoadedWorldState st = WorldSave.Load(SaveContainer.Read(save), WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
+            Assert.Equal(2, st.Characters.Length);
+            Assert.Equal(bag, st.Characters[0].Inv);
+            Assert.Equal(bag, st.Characters[1].Inv);
+            Assert.Equal(entityId, st.Characters[0].EntityId);
+
+            // Формат 3: те же персонажи без поля 13 — сумка по умолчанию стартовый набор.
+            SaveFile f = SaveContainer.Read(save);
+            var ch = new RecordWriter();
+            var r = new RecordReader(f.Section(SaveSections.Characters));
+            while (r.Next())
+            {
+                int cm = ch.BeginRecord(SaveSections.CharactersField.Character);
+                RecordReader cr = r.Record();
+                while (cr.Next())
+                {
+                    if (cr.Field == SaveSections.CharacterField.Inv)
+                    {
+                        continue;
+                    }
+
+                    switch (cr.Type)
+                    {
+                        case RecordType.UInt:
+                            ch.WriteUInt(cr.Field, cr.UInt());
+                            break;
+                        case RecordType.Int:
+                            ch.WriteInt(cr.Field, cr.Int());
+                            break;
+                        case RecordType.Text:
+                            ch.WriteText(cr.Field, cr.Text());
+                            break;
+                        case RecordType.Bytes:
+                            ch.WriteBytes(cr.Field, cr.Bytes());
+                            break;
+                    }
+                }
+
+                ch.EndRecord(cm);
+            }
+
+            SaveHeader h = f.Header;
+            byte[] v3 = SaveContainer.Write(new SaveHeader(3, h.BuildVersion, h.Number, h.WorldTick, h.DateUnixMs), new[]
+            {
+                new SaveSection(SaveSections.World, f.Section(SaveSections.World).ToArray()),
+                new SaveSection(SaveSections.Chunks, f.Section(SaveSections.Chunks).ToArray()),
+                new SaveSection(SaveSections.Creatures, f.Section(SaveSections.Creatures).ToArray()),
+                new SaveSection(SaveSections.Characters, ch.ToArray()),
+            });
+
+            LoadedWorldState old = WorldSave.Load(SaveContainer.Read(v3), WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
+            Assert.Equal(2, old.Characters.Length);
+            Assert.Equal(Inventory.StartingKit(), old.Characters[0].Inv);
+            Assert.Equal("Орфей", old.Characters[0].Name);
+            Assert.True(old.Characters[0].IsHost);
+            Assert.Equal(entityId, old.Characters[0].EntityId);
+        }
+
+        /// <summary>
         /// Такт кадрами ввода с уворотом: сущность 0 жмёт один раз (в такте 0) — дальше её счётчик «с начала» доходит до 255;
         /// остальные — раз в 25 тактов (50 кадров > рывок + откат 39) со сдвигом по номеру, направление крутится.
         /// </summary>

@@ -620,11 +620,92 @@ namespace Orpheus.Tests
                 Assert.Throws<EndOfStreamException>(() => r.Next()); // оборванная запись
             }
 
-            full[full.Length - 3] = 9; // код направления 9 — нет такого
+            full[full.Length - InputFrame.WireBytes] = 9; // код направления 9 — нет такого
             using (var r = new InputJournalReader(new MemoryStream(full)))
             {
                 Assert.Throws<InvalidDataException>(() => r.Next());
             }
+        }
+
+        /// <summary>
+        /// Журнал формата 1 (кадр 3 байта, без прицела и ячейки — 1-002): читается, угол и ячейка — по умолчанию,
+        /// повтор проходит такты без падения. Код направления вне 0…8 в кадре формата 1 — тот же отказ.
+        /// </summary>
+        [Fact]
+        public void D00_Sim_Journal_V1_ReplaysWithDefaultAngleAndSlot()
+        {
+            var ms = new MemoryStream();
+            void U16(ushort v) { ms.WriteByte((byte)v); ms.WriteByte((byte)(v >> 8)); }
+            void U32(uint v) { U16((ushort)v); U16((ushort)(v >> 16)); }
+            void U64(ulong v) { U32((uint)v); U32((uint)(v >> 32)); }
+
+            ms.Write(new byte[] { (byte)'O', (byte)'R', (byte)'P', (byte)'J' });
+            ms.WriteByte(1); // версия формата 1
+            U64(42); U32(64); U32(64); ms.WriteByte(0); U32(4); U64(0); U16(1);
+            U32(1); U32(100); U32(200); U32(700); // одна сущность: id 1, (100, 200), 700
+            ms.WriteByte((byte)'I'); U32(5); U16(1);
+            U32(1); ms.WriteByte(3); ms.WriteByte(0xEF); ms.WriteByte(0xBE); // кадр v1: код 3, кнопки 0xBEEF
+            ms.WriteByte((byte)'E'); U32(6);
+
+            ms.Position = 0;
+            using (var r = new InputJournalReader(ms))
+            {
+                Assert.Equal(42UL, r.Header.Seed);
+                Assert.Single(r.Header.Spawns);
+                Assert.Equal(JournalRecord.Inputs, r.Next());
+                Assert.Equal(5, r.Tick);
+                InputFrame f = r.Inputs[0].Frame;
+                Assert.Equal(Input8.South, f.Direction); // код 3 = направление 2
+                Assert.Equal(0xBEEF, f.Buttons);
+                Assert.Equal((ushort)0, f.Angle16);
+                Assert.Equal((byte)0, f.Slot);
+                Assert.Equal(JournalRecord.End, r.Next());
+            }
+
+            // Повтор: те же кадры в живой симуляции — такты идут, кадр с кнопками принят.
+            var sim = new Simulation(new WorldModel(MapShape.World(64), 42));
+            sim.AddEntityWithId(1, new WorldPos(100, 200), 700);
+            sim.SetInput(1, InputFrame.ReadV1(stackalloc byte[] { 3, 0xEF, 0xBE }));
+            for (int t = 0; t < 30; t++)
+            {
+                sim.Step();
+            }
+        }
+
+        /// <summary>Журнал формата 2 (1-002): прицел и ячейка кадра доходят до повтора побитово.</summary>
+        [Fact]
+        public void D00_Sim_Journal_V2_AngleAndSlotRoundTrip()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(64), 5);
+            var sim = new Simulation(world);
+            sim.AddEntity(new WorldPos(100, 200));
+
+            var frames = new[]
+            {
+                new InputFrame(Input8.East, 0, 1, 0), // шаг прицела 1/65 536
+                new InputFrame(Input8.East, 0, 65535, 7),
+                new InputFrame(Input8.East, InputButtons.Dig, 32768, 3),
+            };
+            var ms = new MemoryStream();
+            using (var w = new InputJournalWriter(ms, JournalHeader.Of(sim), ownsStream: false))
+            {
+                for (int i = 0; i < frames.Length; i++)
+                {
+                    w.WriteInputs((long)i + 1, new[] { new EntityInput(1, frames[i]) });
+                }
+
+                w.WriteEnd(99);
+            }
+
+            ms.Position = 0;
+            using var r = new InputJournalReader(ms);
+            for (int i = 0; i < frames.Length; i++)
+            {
+                Assert.Equal(JournalRecord.Inputs, r.Next());
+                Assert.Equal(frames[i], r.Inputs[0].Frame);
+            }
+
+            Assert.Equal(JournalRecord.End, r.Next());
         }
 
         [Fact]

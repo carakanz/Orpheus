@@ -229,13 +229,16 @@ namespace Orpheus.Save
                 e.EndRecord(mark);
             }
 
-            var ch = new RecordWriter(d.Characters.Length * 48 + 16);
+            var ch = new RecordWriter(d.Characters.Length * 80 + 16);
             for (int i = 0; i < d.Characters.Length; i++)
             {
                 CharacterRecord x = d.Characters[i];
                 int mark = ch.BeginRecord(SaveSections.CharactersField.Character);
                 ch.WriteBool(SaveSections.CharacterField.Host, x.IsHost);
                 ch.WriteText(SaveSections.CharacterField.Name, x.Name ?? string.Empty);
+                var payload = new byte[Inventory.PayloadBytes]; // сумка — всегда (1-002, формат 4): и в мире, и вне его
+                x.Inv.WritePayload(payload);
+                ch.WriteBytes(SaveSections.CharacterField.Inv, payload);
                 if (x.EntityId > 0)
                 {
                     ch.WriteUInt(SaveSections.CharacterField.EntityId, (ulong)(uint)x.EntityId);
@@ -513,7 +516,7 @@ namespace Orpheus.Save
 
         private static CharacterRecord ReadCharacter(RecordReader r, MapShape shape, int index)
         {
-            var c = new CharacterRecord { Name = string.Empty };
+            var c = new CharacterRecord { Name = string.Empty, Inv = Inventory.StartingKit() }; // сумки в формате 3 нет — стартовый набор (1-002)
             int x = 0;
             int y = 0;
             int carryX = 0;
@@ -529,6 +532,18 @@ namespace Orpheus.Save
                         break;
                     case SaveSections.CharacterField.Name:
                         c.Name = r.Text();
+                        break;
+                    case SaveSections.CharacterField.Inv:
+                        {
+                            ReadOnlySpan<byte> bag = r.Bytes();
+                            if (bag.Length != Inventory.PayloadBytes)
+                            {
+                                throw new InvalidDataException($"Персонаж № {index}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes}.");
+                            }
+
+                            c.Inv = Inventory.ReadPayload(bag);
+                        }
+
                         break;
                     case SaveSections.CharacterField.EntityId:
                         c.EntityId = r.UIntAsInt();

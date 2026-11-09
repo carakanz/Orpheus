@@ -22,7 +22,10 @@ namespace Orpheus.Net.Protocol
         /// <summary>Здоровье в процентах максимума, 0…100 (1-001): 100 — целое, 0 — труп; для полоски здоровья.</summary>
         public byte HealthPct;
 
-        public override string ToString() => $"#{Id} k{Kind} {Position} d{Direction} hp{HealthPct}";
+        /// <summary>Предмет в руках (id <see cref="Items"/>; 1-002): 0 — пусто; для картинки в руках.</summary>
+        public byte HeldItem;
+
+        public override string ToString() => $"#{Id} k{Kind} {Position} d{Direction} hp{HealthPct} h{HeldItem}";
     }
 
     /// <summary>
@@ -232,6 +235,9 @@ namespace Orpheus.Net.Protocol
         /// <summary>Бит на долю здоровья сущности (1-001): проценты максимума 0…100.</summary>
         public const int HealthPctBits = 7;
 
+        /// <summary>Бит на предмет в руках сущности (1-002): id предмета (0…<see cref="Items.Count"/>−1).</summary>
+        public const int HeldBits = 8;
+
         public readonly MapShape Shape;
         public readonly int BitsX;
         public readonly int BitsY;
@@ -258,7 +264,7 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Бит на сущность.</summary>
-        public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits + HealthPctBits;
+        public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits + HealthPctBits + HeldBits;
 
         /// <summary>
         /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5
@@ -363,7 +369,8 @@ namespace Orpheus.Net.Protocol
             w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < Count; i++)
             {
-                if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction, Entities[i].HealthPct))
+                if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction,
+                             Entities[i].HealthPct, Entities[i].HeldItem))
                 {
                     throw new ProtocolException($"Снимок: {Count} сущностей не влезли в {dest.Length} байт.");
                 }
@@ -393,6 +400,7 @@ namespace Orpheus.Net.Protocol
                     (qy << SnapshotLayout.QuantShift) | (1 << (SnapshotLayout.QuantShift - 1)));
                 e.Direction = (byte)r.ReadBits(SnapshotLayout.DirectionBits);
                 e.HealthPct = (byte)r.ReadBits(SnapshotLayout.HealthPctBits);
+                e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
                 if (e.HealthPct > 100)
                 {
                     throw new ProtocolException($"Снимок: доля здоровья {e.HealthPct} % > 100.");
@@ -463,7 +471,7 @@ namespace Orpheus.Net.Protocol
         public int Count => _count;
 
         /// <summary>Добавить сущность; не влезает — false (ничего не записано).</summary>
-        public bool TryAdd(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100)
+        public bool TryAdd(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0)
         {
             if (_count == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
             {
@@ -476,6 +484,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits((uint)(position.Y >> SnapshotLayout.QuantShift), _layout.BitsY);
             _w.WriteBits(direction, SnapshotLayout.DirectionBits);
             _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
+            _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
             _count++;
             return true;
         }
@@ -498,6 +507,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Доля здоровья (1-001): полоска HealthPct изменилась.</summary>
         Health = 4,
+
+        /// <summary>Предмет в руках (1-002): HeldItem изменился.</summary>
+        Held = 8,
     }
 
     /// <summary>
@@ -525,8 +537,8 @@ namespace Orpheus.Net.Protocol
         /// <summary>Бит на номер сущности в базе.</summary>
         public const int IndexBits = 8;
 
-        /// <summary>Бит на маску полей (Position, Direction, Health — 1-001).</summary>
-        public const int MaskBits = 3;
+        /// <summary>Бит на маску полей (Position, Direction, Health, Held — 1-002).</summary>
+        public const int MaskBits = 4;
 
         /// <summary>Наибольшее отставание базы (поле — u8).</summary>
         public const int MaxBaselineAge = 255;
@@ -562,7 +574,8 @@ namespace Orpheus.Net.Protocol
         public static int UpdatedBits(DeltaFields fields, in SnapshotLayout layout) =>
             IndexBits + MaskBits + ((fields & DeltaFields.Position) != 0 ? layout.BitsX + layout.BitsY : 0) +
             ((fields & DeltaFields.Direction) != 0 ? SnapshotLayout.DirectionBits : 0) +
-            ((fields & DeltaFields.Health) != 0 ? SnapshotLayout.HealthPctBits : 0);
+            ((fields & DeltaFields.Health) != 0 ? SnapshotLayout.HealthPctBits : 0) +
+            ((fields & DeltaFields.Held) != 0 ? SnapshotLayout.HeldBits : 0);
 
         /// <summary>Прочитать дельту в этот объект (номера базы проверяет <see cref="ApplyTo"/>).</summary>
         public void Read(ReadOnlySpan<byte> src, in SnapshotLayout layout)
@@ -619,6 +632,11 @@ namespace Orpheus.Net.Protocol
                         throw new ProtocolException($"Дельта: доля здоровья {e.HealthPct} % > 100.");
                     }
                 }
+
+                if ((f & DeltaFields.Held) != 0)
+                {
+                    e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
+                }
             }
 
             for (int i = 0; i < added; i++)
@@ -629,6 +647,7 @@ namespace Orpheus.Net.Protocol
                 e.Position = ReadPosition(ref r, layout);
                 e.Direction = (byte)r.ReadBits(SnapshotLayout.DirectionBits);
                 e.HealthPct = (byte)r.ReadBits(SnapshotLayout.HealthPctBits);
+                e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
                 if (e.HealthPct > 100)
                 {
                     throw new ProtocolException($"Дельта: доля здоровья {e.HealthPct} % > 100.");
@@ -705,6 +724,11 @@ namespace Orpheus.Net.Protocol
                     if ((UpdatedFields[k] & DeltaFields.Health) != 0)
                     {
                         e.HealthPct = Updated[k].HealthPct;
+                    }
+
+                    if ((UpdatedFields[k] & DeltaFields.Held) != 0)
+                    {
+                        e.HeldItem = Updated[k].HeldItem;
                     }
                 }
 
@@ -822,7 +846,7 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Изменившаяся сущность базы: номер, поля по маске; не влезла — false (ничего не записано).</summary>
-        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100)
+        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0)
         {
             Enter(1);
             if (fields == DeltaFields.None)
@@ -853,12 +877,17 @@ namespace Orpheus.Net.Protocol
                 _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
             }
 
+            if ((fields & DeltaFields.Held) != 0)
+            {
+                _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
+            }
+
             _updated++;
             return true;
         }
 
         /// <summary>Новая сущность — полной записью; не влезла — false.</summary>
-        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100)
+        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0)
         {
             Enter(2);
             if (_added == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
@@ -872,6 +901,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits((uint)(position.Y >> SnapshotLayout.QuantShift), _layout.BitsY);
             _w.WriteBits(direction, SnapshotLayout.DirectionBits);
             _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
+            _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
             _added++;
             return true;
         }

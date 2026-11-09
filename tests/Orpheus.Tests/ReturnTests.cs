@@ -313,12 +313,12 @@ namespace Orpheus.Tests
 
             byte[] bytes = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "мир", roster.Capture()), 9, 0);
             SaveFile f = SaveContainer.Read(bytes);
-            Assert.Equal(3u, f.Header.FormatVersion);
+            Assert.Equal(4u, f.Header.FormatVersion); // формат 4 (1-002): сумка в записи персонажа
             Assert.True(f.HasSection(SaveSections.Characters));
 
             WorldModel world = WorldSnapshot.LoadBase(live.BaseBytes);
             LoadedWorldState state = WorldSave.Load(f, world, live.BaseSha);
-            Assert.Equal(3u, state.FormatVersion);
+            Assert.Equal(4u, state.FormatVersion);
             Assert.Equal(2, state.Characters.Length);
             Assert.Equal("живой", state.Characters[0].Name);
             Assert.Equal(inWorld, state.Characters[0].EntityId);
@@ -369,10 +369,10 @@ namespace Orpheus.Tests
         /// <summary>
         /// Настоящий файл формата 2 (записан сборкой <c>25e7c2b</c> = main до 0-035: сервер 1024², зерно 5, 2 бота и 3 игрока
         /// по сети в мире на миг остановки; мир — заглушки v1, как тогда) — читается: персонажей нет (в формате 2 они не записаны), сущности — как были.
-        /// Пересохранение даёт формат 3 с тем же хэшем такта.
+        /// Пересохранение даёт нынешний формат (4 с 1-002) с тем же хэшем такта.
         /// </summary>
         [Fact]
-        public void D07_S6_7_Save_Format2_RealFile_Loads_ResavedAsFormat3()
+        public void D07_S6_7_Save_Format2_RealFile_Loads_ResavedAsFormat4()
         {
             byte[] v2 = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format2_players.save"));
             WorldModel generated = WorldGenModule.Stub.Generate(MapShape.World(1024), 5);
@@ -398,9 +398,9 @@ namespace Orpheus.Tests
             Assert.Equal(0, roster.Count);
             Assert.Equal(5, sim.EntityCount);
 
-            byte[] v3 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), state.Name, roster.Capture()), 2, 0);
-            Assert.Equal(3u, SaveContainer.Read(v3).Header.FormatVersion);
-            Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, v3)).Total);
+            byte[] v4 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), state.Name, roster.Capture()), 2, 0);
+            Assert.Equal(4u, SaveContainer.Read(v4).Header.FormatVersion); // нынешний формат (4 с 1-002)
+            Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, v4)).Total);
         }
 
         // ---------- Сервер целиком: перезапуск между уходом и возвращением ----------

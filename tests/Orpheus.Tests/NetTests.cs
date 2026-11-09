@@ -114,19 +114,19 @@ namespace Orpheus.Tests
         }
 
         [Fact]
-        public void D00_Net_Codec_Input_Is38Bytes_RoundTripBytes()
+        public void D00_Net_Codec_Input_Is42Bytes_RoundTripBytes()
         {
             var m = new InputMessage
             {
                 FirstFrame = 0xFFFF_FFF0,
-                Frame0 = new WireFrame { Direction = 1, Power = 255, Aim = 0x1234, Buttons = 0x8001 },
-                Frame1 = new WireFrame { Direction = 0, Power = 0, Aim = 65535, Buttons = 0 },
-                Frame2 = new WireFrame { Direction = 8, Power = 17, Aim = 1, Buttons = 0xFFFF },
-                Frame3 = new WireFrame { Direction = 5, Power = 200, Aim = 40000, Buttons = 0x0102 },
+                Frame0 = new WireFrame { Direction = 1, Power = 255, Slot = 3, Aim = 0x1234, Buttons = 0x8001 },
+                Frame1 = new WireFrame { Direction = 0, Power = 0, Slot = 0, Aim = 65535, Buttons = 0 },
+                Frame2 = new WireFrame { Direction = 8, Power = 17, Slot = 7, Aim = 1, Buttons = 0xFFFF },
+                Frame3 = new WireFrame { Direction = 5, Power = 200, Slot = 2, Aim = 40000, Buttons = 0x0102 },
                 PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = 24,
             };
             byte[] a = Encode(b => m.Write(b));
-            Assert.Equal(38, a.Length);
+            Assert.Equal(42, a.Length);
             Assert.Equal(InputMessage.Bytes, a.Length);
             InputMessage back = InputMessage.Read(a);
             for (int i = 0; i < InputMessage.FrameCount; i++)
@@ -140,7 +140,10 @@ namespace Orpheus.Tests
             Assert.Equal(m.LastSnapshot, back.LastSnapshot);
             Assert.Equal(m.Lead, back.Lead);
             Assert.Equal(a, Encode(b => back.Write(b)));
-            Assert.Equal(new InputFrame(Input8.West, 0x0102), back.Frame3.ToInputFrame()); // код 5 = направление 4 (запад)
+            Assert.Equal(new InputFrame(Input8.West, 0x0102, 40000, 2), back.Frame3.ToInputFrame()); // код 5 = направление 4 (запад); прицел и ячейка — с кадром (1-002)
+            InputFrame f2 = back.Frame2.ToInputFrame(); // 1-002: прицел и ячейка кадра доходят без потери
+            Assert.Equal((ushort)1, f2.Angle16);
+            Assert.Equal(7, f2.Slot);
 
             // Опережение L (0-033, протокол 7): 0…24 кадра (400 мс, 2.7); вне — испорченный пакет.
             a[a.Length - 1] = 25;

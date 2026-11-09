@@ -60,7 +60,7 @@ namespace Orpheus.Core.Sim
         /// <summary>Конец файла без записи «конец» — запись оборвана.</summary>
         None = 0,
 
-        /// <summary>Изменения ввода перед тактом: такт u32, число u16, по записи — номер u32 + кадр 3 байта.</summary>
+        /// <summary>Изменения ввода перед тактом: такт u32, число u16, по записи — номер u32 + кадр 6 байт (формат 1 — 3).</summary>
         Inputs = (byte)'I',
 
         /// <summary>Хэш после такта: такт u32, общий u64, мира u64, число u16, по сущности — номер u32 + хэш u64.</summary>
@@ -73,9 +73,12 @@ namespace Orpheus.Core.Sim
     /// <summary>
     /// Журнал ввода (docs/07, 11.5): двоичный файл «заголовок + записи». Пишутся только изменения ввода
     /// (сущность держит кадр, пока не придёт новый), поэтому 30 мин 8 ботов <c>wander</c> — десятки КБ.
-    /// <para>Заголовок: «ORPJ», версия формата 1, зерно u64, ширина u32, высота u32, тор u8,
+    /// <para>Заголовок: «ORPJ», версия формата 2, зерно u64, ширина u32, высота u32, тор u8,
     /// версия генератора u32, такт начала u64, число сущностей u16, по сущности 16 байт
     /// (номер, x, y, скорость — по int32). Все числа — младший байт первым.</para>
+    /// <para>Формат 2 (1-002): кадр ввода 6 байт — направление, кнопки, угол прицела, ячейка быстрой панели.
+    /// Формат 1 (кадр 3 байта) читается: угол и ячейка — по умолчанию. Точки сверки формата 1 — со старым
+    /// хэшем (угол/ячейка в него не входили): повтор их честно рапортует как расхождение, не падая.</para>
     /// <para>При записи с хэшем раз в 300 тактов пишется точка сверки (<see cref="JournalRecord.Checkpoint"/>):
     /// повтор сравнивает с ней свой хэш и называет такт и сущность, где разошлось (11.2).</para>
     /// </summary>
@@ -83,7 +86,10 @@ namespace Orpheus.Core.Sim
     {
         public static ReadOnlySpan<byte> Magic => new byte[] { (byte)'O', (byte)'R', (byte)'P', (byte)'J' };
 
-        public const byte FormatVersion = 1;
+        public const byte FormatVersion = 2;
+
+        /// <summary>Первая читаемая версия формата (кадр ввода 3 байта, без угла и ячейки).</summary>
+        public const byte MinFormatVersion = 1;
 
         /// <summary>Байт заголовка без списка сущностей.</summary>
         public const int HeaderBytes = 4 + 1 + 8 + 4 + 4 + 1 + 4 + 8 + 2;
@@ -270,6 +276,7 @@ namespace Orpheus.Core.Sim
     {
         private readonly Stream _in;
         private readonly bool _ownsStream;
+        private readonly byte _format;
         private byte[] _buffer = new byte[4096];
         private EntityInput[] _inputs = new EntityInput[16];
         private int _inputCount;
@@ -288,10 +295,13 @@ namespace Orpheus.Core.Sim
                 throw new InvalidDataException("Журнал ввода: нет метки ORPJ.");
             }
 
-            if (b[4] != InputJournal.FormatVersion)
+            byte ver = b[4];
+            if (ver < InputJournal.MinFormatVersion || ver > InputJournal.FormatVersion)
             {
-                throw new InvalidDataException($"Журнал ввода: версия формата {b[4]}, умею {InputJournal.FormatVersion}.");
+                throw new InvalidDataException($"Журнал ввода: версия формата {ver}, умею {InputJournal.MinFormatVersion}…{InputJournal.FormatVersion}.");
             }
+
+            _format = ver;
 
             ulong seed = Bytes.ReadUInt64(b, 5);
             int width = (int)Bytes.ReadUInt32(b, 13);
@@ -365,7 +375,8 @@ namespace Orpheus.Core.Sim
                         _inputs = new EntityInput[n];
                     }
 
-                    const int entry = 4 + InputFrame.WireBytes;
+                    int frameBytes = _format >= 2 ? InputFrame.WireBytes : InputFrame.LegacyWireBytes;
+                    int entry = 4 + frameBytes;
                     ReadExactly(n * entry);
                     for (int i = 0; i < n; i++)
                     {
@@ -373,7 +384,9 @@ namespace Orpheus.Core.Sim
                         InputFrame frame;
                         try
                         {
-                            frame = InputFrame.Read(new ReadOnlySpan<byte>(_buffer, at + 4, InputFrame.WireBytes));
+                            frame = _format >= 2
+                                ? InputFrame.Read(new ReadOnlySpan<byte>(_buffer, at + 4, frameBytes))
+                                : InputFrame.ReadV1(new ReadOnlySpan<byte>(_buffer, at + 4, InputFrame.LegacyWireBytes));
                         }
                         catch (ArgumentOutOfRangeException e)
                         {

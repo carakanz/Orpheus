@@ -225,6 +225,105 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// Досягаемость копания «персонаж + предмет в руках» (1-002, `06` 2.3): тело + длина предмета —
+        /// у лука длины нет (только тело 102), у кирки 294, меч (358) длиннее кирки; «что копать» — тот же.
+        /// </summary>
+        [Fact]
+        public void D07_S3_7_Rules_DigReach_FromItem()
+        {
+            MapShape map = MapShape.World(1024);
+            WorldPos c = TileCenter(0, 0);
+            Assert.Equal(294, EditRules.DigReachUnitsFor(Items.StonePickaxe)); // 102 + 192 — прежнее число
+            Assert.Equal(358, EditRules.DigReachUnitsFor(Items.WoodenSword));  // 102 + 256
+            Assert.Equal(102, EditRules.DigReachUnitsFor(Items.SimpleBow));    // длины нет — только тело
+            Assert.Equal(102, EditRules.DigReachUnitsFor(Items.None));
+
+            // Тайл по диагонали от центра тайла (181 unit) — киркой да, луком (102) нет.
+            var diag = new TileCoord(1, 1);
+            Assert.True(EditRules.InDigReach(map, c, diag, Items.StonePickaxe));
+            Assert.False(EditRules.InDigReach(map, c, diag, Items.SimpleBow));
+
+            // У меча рука длиннее кирки: тот же тайл из угла карты (348 unit) киркой — нет, мечом — да.
+            WorldPos corner = new WorldPos(10, 10);
+            Assert.False(EditRules.InDigReach(map, corner, diag, Items.StonePickaxe));
+            Assert.True(EditRules.InDigReach(map, corner, diag, Items.WoodenSword));
+
+            WorldModel w = Flat();
+            w.SetBaseTile(diag, FloorId.Stone, ObjectId.Rock);
+            var times = new DigTimes();
+            Assert.Equal(EditReply.Accepted, EditRules.CheckDig(w, c, diag, times, Items.StonePickaxe));
+            Assert.Equal(EditReply.OutOfReach, EditRules.CheckDig(w, c, diag, times, Items.SimpleBow));
+            // Проверка без предмета — как с киркой (старые вызовы не меняются).
+            Assert.Equal(EditRules.CheckDig(w, c, diag, times, Items.StonePickaxe), EditRules.CheckDig(w, c, diag, times));
+        }
+
+        /// <summary>
+        /// В руках меч — копание не начинается (1-002, `02` 1.1 «Основное действие»): запрос клиента сервер
+        /// молча игнорирует — правки нет и отказа нет (у меча своё действие — 1-004).
+        /// </summary>
+        [Fact]
+        public void D07_S3_7_Dig_SwordInHands_NoEditNoRefusal()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 200);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+
+            rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, 3); // ячейка 3 — деревянный меч
+            rig.Run(5);                                              // кадры дошли — на сервере в руках меч
+            Assert.Equal(Items.WoodenSword, rig.Sim.Entities[rig.Sim.SlotOf(c.EntityId)].Inv.Held);
+
+            c.StartDig(rock);
+            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 3);
+            rig.Run(30);
+            Assert.True(rig.Server.EditRequests > 0, "запрос не дошёл до сервера");
+            Assert.Empty(replies); // отказа нет
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock)); // и правки нет
+        }
+
+        /// <summary>
+        /// Смена на меч в середине копания — прогресс стоит (1-002); возврат на кирку — докапывает с того же места,
+        /// ответ «принято».
+        /// </summary>
+        [Fact]
+        public void D07_S3_7_Dig_SwitchToSword_ProgressStalls_ThenResumes()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 200);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+
+            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 0); // кирка
+            rig.Run(5); // игрок в мире
+            ushort id = c.StartDig(rock);
+            rig.Run(5); // ~10 кадров из 15 — не скопано
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
+            Assert.Empty(replies);
+
+            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 3); // меч — прогресс стоит
+            rig.Run(20);
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
+            Assert.Empty(replies);
+
+            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 0); // кирка — с того же места
+            for (int t = 0; t < 10 && replies.Count == 0; t++)
+            {
+                rig.Run(1);
+            }
+
+            Assert.Single(replies);
+            Assert.Equal(id, replies[0].RequestId);
+            Assert.Equal(EditReply.Accepted, replies[0].Reply);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
+        }
+
+        /// <summary>
         /// Время копания «база × модификатор» (слово Автора 08.11, 0-034): таблица по умолчанию — скала 15 кадров (0,25 с), дерево
         /// 18, залежь 30, пень 9, постройки 0; округление к ближайшему, не меньше кадра; база 0 или модификатор 0 — неразрушим.
         /// </summary>
@@ -645,7 +744,7 @@ namespace Orpheus.Tests
             byte[] badMask = (byte[])pb.Clone();
             badMask[5] = 0; badMask[8] = 0; // «принято» без маски
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badMask));
-            Assert.Equal(11, NetModule.ProtocolVersion); // 7 — сообщения 20–21 (0-028), 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001)
+            Assert.Equal(13, NetModule.ProtocolVersion); // 7 — сообщения 20–21 (0-028), 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002)
         }
 
         // ---------- Стенд ----------
