@@ -100,6 +100,12 @@ namespace Orpheus.Client
         public string? AnimShotsDir;
         public int AnimBenchSeconds;
 
+        /// <summary>
+        /// 1-022: <c>--tile-bench &lt;сек&gt;</c> — стенд «48 Tilemap»: бег через шов при зуме ×0,6 и поток правок
+        /// (20 тайлов/с + пачки 32 тайла), замеры fps и стоимости правок (шаг 1–2; приёмка 1.11).
+        /// </summary>
+        public int TileBenchSeconds;
+
         /// <summary>Адрес «Открыть для друзей»; null — все адреса (игра).</summary>
         public string? OpenAddress;
 
@@ -126,7 +132,8 @@ namespace Orpheus.Client
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь] " +
-            "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] [--anim-shots папка] [--anim-bench сек]";
+            "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек]";
 
         public static ClientArgs Parse(string[] args)
         {
@@ -314,6 +321,16 @@ namespace Orpheus.Client
                         {
                             a.Error = $"--anim-bench: нужно секунд 1…600, дано '{next}'";
                             a.AnimBenchSeconds = 0;
+                        }
+
+                        break;
+                    case "--tile-bench":
+                        i++;
+                        if (!int.TryParse(next, NumberStyles.Integer, CultureInfo.InvariantCulture, out a.TileBenchSeconds)
+                            || a.TileBenchSeconds < 1 || a.TileBenchSeconds > 600)
+                        {
+                            a.Error = $"--tile-bench: нужно секунд 1…600, дано '{next}'";
+                            a.TileBenchSeconds = 0;
                         }
 
                         break;

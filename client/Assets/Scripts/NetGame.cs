@@ -661,7 +661,11 @@ namespace Orpheus.Client
             // Окно задаёт сервер по своей позиции персонажа (0-026): дыры — от подтверждённой позиции последнего снимка,
             // а не от предсказания, которое впереди на RTT (у новой границы чанк ещё в пути — это не дыра).
             WorldPos confirmed = _client!.HasSnapshot && _client.Latest.Self.Present ? _client.Latest.Self.Position : me;
-            _holes += SmokeRun.WindowHoles(_map, _view, confirmed, msg => Debug.LogError($"[smoke] кадр {_renderFrames}: {msg}"));
+            // Дыры считаем с первого снимка: до него чанков от сервера нет — пустое окно на входе (connect) не дыра.
+            if (_client.HasSnapshot)
+            {
+                _holes += SmokeRun.WindowHoles(_map, _view, confirmed, msg => Debug.LogError($"[smoke] кадр {_renderFrames}: {msg}"));
+            }
             WorldPos drawn = SmokeRun.DrawnAt(_map, _view, _origin!, me, _g.Character.position, out bool ok);
             if (!ok)
             {
@@ -765,7 +769,8 @@ namespace Orpheus.Client
 
         void UpdateHud(long now)
         {
-            if (_g.DebugText == null || ++_hudFrame % 6 != 0)
+            // Выход: мир/снимок уже сняты (Quit → Shutdown), кадр рисования ещё идёт — HUD не обновляем.
+            if (_g.DebugText == null || _quitPending || ++_hudFrame % 6 != 0)
             {
                 return;
             }
@@ -910,6 +915,18 @@ namespace Orpheus.Client
                     Fail($"[smoke] FAILED: тайлы — расхождений {tileErrors}, образцов {samples} (нужно ≥ {needSamples}), чанков {cw.ChunkCount}");
                     return;
                 }
+                // 1-022, шаг 4: правка в сети — стена на свободный тайл: предсказание видно в Tilemap в тот же кадр,
+                // сервер ответил «принято», тайл в чанке — стена. Путь отката (стена на свой тайл) проверяется строкой «[edit] откат».
+                string wallLine = $"правка (1-022): проб {_smokeWallTry}, Tilemap в тот же кадр {_smokeWallFrameOk}, " +
+                                  $"принято сервером {(_smokeWallConfirmed ? "да" : "нет")}, откатов по пробе {_smokeWallRollbacks}, " +
+                                  $"всего откатов {Rollbacks}";
+                Debug.Log("[smoke] " + wallLine);
+                if (!_smokeWallConfirmed || _smokeWallFrameOk == 0)
+                {
+                    Fail($"[smoke] FAILED: {wallLine} (нужно: принято да, Tilemap в тот же кадр ≥ 1)");
+                    return;
+                }
+
                 Debug.Log($"[smoke] input: кадров ввода {_client.InputsSent} за {(now - _inGameSinceUs) / 1e6:0.00} с " +
                           $"({_client.InputsSent / Math.Max((now - _inGameSinceUs) / 1e6, 1e-3):0.0} в секунду)");
                 Debug.Log($"[smoke] done: вход #{_client.EntityId}, снимков {_client.SnapshotsApplied} " +

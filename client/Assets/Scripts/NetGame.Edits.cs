@@ -89,6 +89,16 @@ namespace Orpheus.Client
         long _lastRefusalUntilUs;
         bool _smokeEditDone;
 
+        // 1-022, шаг 4: стена на свободный тайл в net-smoke — предсказание видно в Tilemap в тот же кадр, сервер принимает.
+        TileCoord _smokeWallTile;
+        int _smokeWallTry;
+        int _smokeWallFrameOk;
+        int _smokeWallRollbacks;
+        long _smokeWallConfirmed0;
+        bool _smokeWallConfirmed;
+        bool _smokeWallDone;
+        long _smokeWallNextUs;
+
         /// <summary>Откатов показано (HUD, smoke).</summary>
         public int Rollbacks { get; private set; }
 
@@ -138,20 +148,160 @@ namespace Orpheus.Client
         }
 
         /// <summary>
-        /// Net-smoke: один раз через 0,3 с — стена на свой тайл. Сервер отказывает «занято существом» (`05` 1.3), клиент откатывает
+        /// Net-smoke: через 0,3 с — стена на свой тайл. Сервер отказывает «занято существом» (`05` 1.3), клиент откатывает
         /// призрак со вспышкой — путь отката проверяется в настоящей сборке (строка «[edit] откат» в логе).
+        /// Через 1,0 с — стена на свободный тайл (1-022, шаг 4): предсказание видно в Tilemap в тот же кадр, ответ сервера
+        /// «принято» подтверждает правку; отказ — повтор на другом тайле, до 3 проб.
         /// </summary>
         void SmokeEdit(long now, NetClient c)
         {
-            if (_smokeEditDone || now - _inGameSinceUs < 300_000)
+            long sinceUs = now - _inGameSinceUs;
+            if (!_smokeEditDone && sinceUs >= 300_000)
             {
+                _smokeEditDone = true;
+                TileCoord own = Torus.TileOf(_map, _localPos);
+                ushort id = c.Place(own, own, ObjectId.StoneWall, _localPos);
+                Debug.Log($"[edit] smoke: стена на свой тайл {own.X},{own.Y}, запрос {id}");
+            }
+
+            if (!_smokeWallDone && _smokeWallTry < 3 && sinceUs >= 1_000_000 && now >= _smokeWallNextUs)
+            {
+                PlaceSmokeWall(c, now);
+            }
+
+            ClientWorld cw = c.World!;
+            if (_smokeWallTry > 0 && !_smokeWallConfirmed && cw.PredictionsConfirmed > _smokeWallConfirmed0)
+            {
+                _smokeWallConfirmed = true;
+                _smokeWallDone = true;
+                bool inChunk = SmokeWallInChunk();
+                Debug.Log($"[edit] smoke (1-022): правка принята сервером (проба {_smokeWallTry}), тайл {_smokeWallTile.X},{_smokeWallTile.Y} " +
+                          $"в чанке = стена: {(inChunk ? "да" : "НЕТ")}");
+                if (!inChunk)
+                {
+                    Debug.LogError($"[edit] FAIL net-smoke (1-022): после «принято» тайл {_smokeWallTile.X},{_smokeWallTile.Y} в чанке не стена");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 1-022, шаг 4: стена на свободный тайл. Предсказание ложится в чанк и в Tilemap синхронно
+        /// (<c>ClientWorld.Predict → ChunkChanged → WorldView.ShowChunk</c>) — клетку Tilemap читаем сразу после вызова.
+        /// </summary>
+        void PlaceSmokeWall(NetClient c, long now)
+        {
+            _smokeWallTry++;
+            if (!TryFindFreePlaceTile(out TileCoord t))
+            {
+                Debug.LogError($"[edit] FAIL net-smoke (1-022): нет свободного тайла в радиусе {EditRules.PlaceRadiusTiles} (проба {_smokeWallTry})");
+                _smokeWallNextUs = now + 700_000;
                 return;
             }
 
-            _smokeEditDone = true;
-            TileCoord own = Torus.TileOf(_map, _localPos);
-            ushort id = c.Place(own, own, ObjectId.StoneWall, _localPos);
-            Debug.Log($"[edit] smoke: стена на свой тайл {own.X},{own.Y}, запрос {id}");
+            _smokeWallTile = t;
+            _smokeWallConfirmed0 = c.World!.PredictionsConfirmed;
+            ushort id = c.Place(t, t, ObjectId.StoneWall, _localPos);
+            bool visible = TilemapShowsWall(t);
+            Debug.Log($"[edit] smoke (1-022): стена на свободный тайл {t.X},{t.Y}, запрос {id}, проба {_smokeWallTry}, " +
+                      $"Tilemap в тот же кадр: {(visible ? "да" : "НЕТ")}");
+            if (visible)
+            {
+                _smokeWallFrameOk++;
+            }
+            else
+            {
+                Debug.LogError($"[edit] FAIL net-smoke (1-022): предсказание правки {t.X},{t.Y} не видно в Tilemap в тот же кадр");
+            }
+
+            _smokeWallNextUs = now + 1_200_000; // ждём ответ сервера; отказ сдвинет срок раньше (OnRolledBack)
+        }
+
+        /// <summary>
+        /// Свободный тайл для постановки: 6 тайлов по оси максимума от персонажа (<see cref="EditRules.PlaceRadiusTiles"/>),
+        /// тайл пуст, пол не вода/лава, проходим, чанк в окне, чужих существ ближе 3 тайлов нет (<c>`05` 1.3</c>).
+        /// Обход детерминированный: верхний ряд кольца, далее построчно.
+        /// </summary>
+        bool TryFindFreePlaceTile(out TileCoord tile)
+        {
+            TileCoord c0 = Torus.TileOf(_map, _localPos);
+            const int r = EditRules.PlaceRadiusTiles;
+            for (int dy = -r; dy <= r; dy++)
+            {
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    if (System.Math.Max(System.Math.Abs(dx), System.Math.Abs(dy)) != r)
+                    {
+                        continue;
+                    }
+
+                    TileCoord t = Torus.Wrap(_map, new TileCoord(c0.X + dx, c0.Y + dy));
+                    Chunk? chunk = _world!.FindChunk(Torus.ChunkOf(_map, t));
+                    if (chunk == null)
+                    {
+                        continue;
+                    }
+
+                    int index = Chunk.IndexOf(t.X, t.Y);
+                    if (chunk.GetObject(index) != ObjectId.Empty)
+                    {
+                        continue;
+                    }
+
+                    byte floor = chunk.GetFloor(index);
+                    if (floor == FloorId.Water || floor == FloorId.Lava || _netRules!.IsBlocked(_map, t) || RemoteNear(t, 3))
+                    {
+                        continue;
+                    }
+
+                    tile = t;
+                    return true;
+                }
+            }
+
+            tile = default;
+            return false;
+        }
+
+        /// <summary>Чужой персонаж в пределах <paramref name="tiles"/> тайлов по оси максимума (по узлам сущностей на экране).</summary>
+        bool RemoteNear(TileCoord t, int tiles)
+        {
+            foreach (KeyValuePair<int, GameObject> kv in _ents)
+            {
+                if (!kv.Value.activeSelf)
+                {
+                    continue;
+                }
+
+                TileCoord at = Torus.TileOf(_map, _origin!.FromUnity(kv.Value.transform.position));
+                Int2 d = Torus.Delta(_map, at, t);
+                if (System.Math.Max(System.Math.Abs(d.X), System.Math.Abs(d.Y)) <= tiles)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Клетка Tilemap под тайлом — та же стена, что положило предсказание (чтение в том же кадре).</summary>
+        bool TilemapShowsWall(TileCoord t)
+        {
+            ChunkCoord c = Torus.ChunkOf(_map, t);
+            if (_view == null || !_view.TryGetNode(c, out WorldView.ChunkNode node))
+            {
+                return false;
+            }
+
+            return node.Objects.GetTile(WorldView.CellOf(t.X & (Torus.ChunkSize - 1), t.Y & (Torus.ChunkSize - 1)))
+                == _view.ObjectTile(ObjectId.StoneWall);
+        }
+
+        /// <summary>Тайл в чанке ядра клиента — стена (проверка после ответа «принято»).</summary>
+        bool SmokeWallInChunk()
+        {
+            Chunk? chunk = _world!.FindChunk(Torus.ChunkOf(_map, _smokeWallTile));
+            return chunk != null &&
+                   ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(_smokeWallTile.X, _smokeWallTile.Y))) == ObjectId.StoneWall;
         }
 
         void OnRolledBack(TileCoord tile, EditReply reason)
@@ -161,6 +311,14 @@ namespace Orpheus.Client
             _lastRefusal = EditRules.Describe(reason);
             _lastRefusalUntilUs = now + FlashUs;
             Debug.Log($"[edit] откат: тайл {tile.X},{tile.Y} — «{_lastRefusal}»");
+            if (_smokeWallTry > 0 && !_smokeWallConfirmed && !_smokeWallDone && tile == _smokeWallTile)
+            {
+                // 1-022, шаг 4: проба со свободным тайлом не удалась (занято существом и т. п.) — повтор на другом тайле.
+                _smokeWallRollbacks++;
+                _smokeWallNextUs = now + 700_000;
+                Debug.Log($"[edit] smoke (1-022): проба {_smokeWallTry} отклонена — повтор на другом тайле");
+            }
+
             if (_flashSprite == null)
             {
                 var tex = new Texture2D(1, 1) { filterMode = FilterMode.Point };
