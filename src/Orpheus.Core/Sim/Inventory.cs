@@ -229,6 +229,57 @@ namespace Orpheus.Core.Sim
         public static bool operator ==(Inventory a, Inventory b) => a.Equals(b);
         public static bool operator !=(Inventory a, Inventory b) => !a.Equals(b);
 
+        /// <summary>Размер payload сумки: выбранная ячейка 1 + ячейки 8 + счётчики 2 × 7 (1 + 8 + 14 = 23).</summary>
+        public const int PayloadBytes = 1 + Slots + 2 * (int)Material.Count;
+
+        /// <summary>
+        /// Записать payload (порядок слов, что у <see cref="AddTo"/>): выбранная ячейка, ячейки, счётчики u16 LE.
+        /// <paramref name="dest"/> меньше <see cref="PayloadBytes"/> — <see cref="ArgumentException"/>.
+        /// </summary>
+        public readonly void WritePayload(Span<byte> dest)
+        {
+            if (dest.Length < PayloadBytes)
+            {
+                throw new ArgumentException($"payload сумки — {PayloadBytes} байт, дали {dest.Length}.", nameof(dest));
+            }
+
+            dest[0] = Selected;
+            for (int i = 0; i < Slots; i++)
+            {
+                dest[1 + i] = SlotAt(i);
+            }
+
+            for (int m = 0; m < (int)Material.Count; m++)
+            {
+                int v = CountAt((Material)m);
+                dest[1 + Slots + 2 * m] = (byte)v;
+                dest[1 + Slots + 2 * m + 1] = (byte)(v >> 8);
+            }
+        }
+
+        /// <summary>Прочитать payload, записанный <see cref="WritePayload"/>; короткий — <see cref="ArgumentException"/>.</summary>
+        public static Inventory ReadPayload(ReadOnlySpan<byte> src)
+        {
+            if (src.Length < PayloadBytes)
+            {
+                throw new ArgumentException($"payload сумки — {PayloadBytes} байт, дали {src.Length}.", nameof(src));
+            }
+
+            var inv = new Inventory();
+            for (int i = 0; i < Slots; i++)
+            {
+                inv.SetSlotAt(i, src[1 + i]);
+            }
+
+            for (int m = 0; m < (int)Material.Count; m++)
+            {
+                inv.Add((Material)m, src[1 + Slots + 2 * m] | (src[1 + Slots + 2 * m + 1] << 8));
+            }
+
+            inv.Select(src[0]);
+            return inv;
+        }
+
         public override readonly string ToString()
         {
             byte held = Held;

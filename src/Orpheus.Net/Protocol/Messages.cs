@@ -94,6 +94,11 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: сущность возродилась у центра возрождения со полным здоровьем (всем).</summary>
         Respawn = 25,
+
+        // 1-002, сумка (docs/06 0), канал 2. Протокол 13.
+
+        /// <summary>Сервер → клиент, канал 2: сумка персонажа — владельцу при входе и когда содержимое изменилось (1-002).</summary>
+        Inventory = 26,
     }
 
     /// <summary>
@@ -856,6 +861,74 @@ namespace Orpheus.Net.Protocol
         public override string ToString() => $"возрождение #{Victim}";
     }
 
+    /// <summary>
+    /// «Сумка» (1-002, тип 26; docs/06 0): сумка персонажа — сервер шлёт <b>владельцу</b> при входе
+    /// и когда содержимое изменилось (канал 2, надёжный). Предмет в руках для чужих сущностей —
+    /// 8 бит в снимке (<see cref="SnapshotEntity.HeldItem"/>), целиком сумка чужому игроку не нужна.
+    /// Поля: тип 1 + сущность u32 + версия u16 + payload (выбранная 1 + ячейки 8 + счётчики u16 × 7).
+    /// </summary>
+    public struct InventoryMessage
+    {
+        /// <summary>Тип 1 + сущность 4 + версия 2 + payload 23.</summary>
+        public const int Bytes = 1 + 4 + 2 + Inventory.PayloadBytes;
+
+        public int EntityId;
+
+        /// <summary>Версия сумки на сервере — растёт при каждой отправке этому игроку (порядок хранит канал 2).</summary>
+        public ushort Version;
+
+        public Inventory Bag;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Inventory);
+            w.WriteUInt32((uint)EntityId);
+            w.WriteUInt16(Version);
+            w.WriteByte(Bag.Selected);
+            for (int i = 0; i < Inventory.Slots; i++)
+            {
+                w.WriteByte(Bag.SlotAt(i));
+            }
+
+            for (int m = 0; m < (int)Material.Count; m++)
+            {
+                w.WriteUInt16((ushort)Bag.CountAt((Material)m));
+            }
+
+            return w.BytesWritten;
+        }
+
+        public static InventoryMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Inventory);
+            var m = new InventoryMessage { EntityId = (int)r.ReadUInt32(), Version = r.ReadUInt16() };
+            byte selected = r.ReadByte();
+            if (selected >= Inventory.Slots)
+            {
+                throw new ProtocolException($"Сумка: выбранная ячейка {selected} >= {Inventory.Slots}.");
+            }
+
+            var bag = new Inventory();
+            for (int i = 0; i < Inventory.Slots; i++)
+            {
+                bag.SetSlotAt(i, r.ReadByte());
+            }
+
+            for (int mt = 0; mt < (int)Material.Count; mt++)
+            {
+                bag.Add((Material)mt, r.ReadUInt16());
+            }
+
+            bag.Select(selected);
+            r.ExpectEnd();
+            m.Bag = bag;
+            return m;
+        }
+
+        public override string ToString() => $"сумка #{EntityId} в{Version} {Bag}";
+    }
+
     /// <summary>Общее для кодека: тип сообщения.</summary>
     public static class Codec
     {
@@ -878,11 +951,11 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
-        /// 22…23 (пауза, 0-036) и 24…25 (смерть/возрождение, 1-001; последний — Respawn); 15 не занят.
+        /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001) и 26 (сумка, 1-002; последний — Inventory); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.Respawn);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.Inventory);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)
