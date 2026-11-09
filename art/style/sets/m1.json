@@ -1,0 +1,144 @@
+{
+  "set": "m1",
+  "about": "Большая пачка 2D вехи 1 (решение Автора 09.11: генерим пачку 2D на одной сети, потом пачка 3D). Список = карточка 1-024 шаг 1 + 1-020 (палитра: стены/забор/дверь/факел/полы/иконки) + 1-023 (оружие отдельными спрайтами, лучник) + 1-017 (куст, гранит, медная жила, смола). Стиль один — Б (шаблон STYLE.md, тот же, что в a002). Модель на Маке — Z-Image base, сеть во время пачки не менять. Запуск вечером: python tools/mac_art.py queue art/style/sets/m1.json; сбор: python tools/mac_art.py collect; обработка tools/art_process.py (cover >= 0,10). Персонажи — нейтральная поза, ОРУЧИЕ ПОДПИСАНО на бедре/за спиной, руки свободны: оружие в анимации (1-023) — отдельный спрайт. Направления: вбок/вниз/вверх, зеркало делает код.",
+  "count": 2,
+  "style": "default",
+  "common": {
+    "camera_object": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame",
+    "camera_floor": "a full-frame painting of open ground seen from straight above, like looking down at your feet, the ground continues past all four edges of the picture and is cut off by the frame, the whole picture is covered with ground, no edges of the ground visible, no rim, no border, no frame, no outline around the image, no background color, no empty margin, no horizon, no perspective, no sky, no single object in focus, uniform even density everywhere, soft light from the upper left, no text, no letters, no watermark"
+  },
+  "variants": [
+    {
+      "key": "b_inkcel",
+      "title": "Б — контур и плоский цвет",
+      "note": "тёмный цветной контур, плоские заливки, две ступени светотени",
+      "prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish"
+    }
+  ],
+  "subjects": [
+    {
+      "key": "bandit_sword_side", "title": "Разбойник-мечник, вбок", "kind": "object", "seed": 2001,
+      "prompt": "a hostile bandit swordsman, lean athletic man with a short dark beard, standing in a neutral relaxed pose facing to the right in side view seen from above, empty hands with arms slightly away from the body, a bronze short sword sheathed at his hip, a tattered dark red tunic with a bronze belt, leather bracers, bronze greaves, a small dark shoulder cloak, sandals, the whole body from head to feet fully visible, feet near the bottom of the frame"
+    },
+    {
+      "key": "bandit_sword_down", "title": "Разбойник-мечник, вниз (на зрителя)", "kind": "object", "seed": 2002,
+      "prompt": "the same bandit swordsman, tattered dark red tunic, bronze belt and greaves, small dark cloak, standing in a neutral relaxed pose facing straight toward the viewer, front view seen from above, empty hands with arms slightly away from the body, a bronze short sword sheathed at his hip, sandals, the whole body from head to feet fully visible, feet near the bottom of the frame"
+    },
+    {
+      "key": "bandit_sword_up", "title": "Разбойник-мечник, вверх (спиной)", "kind": "object", "seed": 2003,
+      "prompt": "the same bandit swordsman, tattered dark red tunic, bronze belt, small dark cloak over the shoulders, bronze short sword sheathed at his hip, standing in a neutral relaxed pose facing away from the viewer, back view seen from above, the whole body from head to feet fully visible, feet near the bottom of the frame"
+    },
+    {
+      "key": "bandit_archer_side", "title": "Разбойник-лучник, вбок", "kind": "object", "seed": 2004,
+      "prompt": "a hostile bandit archer, lean young man, standing in a neutral relaxed pose facing to the right in side view seen from above, empty hands with arms slightly away from the body, a leather quiver with arrows slung across his back, a short bow slung over his shoulder, a tattered dark blue-grey tunic with a leather belt and a small hood, bracers on one forearm, sandals, the whole body from head to feet fully visible, feet near the bottom of the frame"
+    },
+    {
+      "key": "bandit_archer_down", "title": "Разбойник-лучник, вниз (на зрителя)", "kind": "object", "seed": 2005,
+      "prompt": "the same bandit archer, tattered dark blue-grey tunic with a small hood, quiver with arrows slung across his back, short bow slung over his shoulder, standing in a neutral relaxed pose facing straight toward the viewer, front view seen from above, empty hands with arms slightly away from the body, sandals, the whole body from head to feet fully visible, feet near the bottom of the frame"
+    },
+    {
+      "key": "bandit_archer_up", "title": "Разбойник-лучник, вверх (спиной)", "kind": "object", "seed": 2006,
+      "prompt": "the same bandit archer, tattered dark blue-grey tunic with a small hood, a leather quiver with arrows clearly visible on his back, short bow slung across his back, standing in a neutral relaxed pose facing away from the viewer, back view seen from above, the whole body from head to feet fully visible, feet near the bottom of the frame"
+    },
+    {
+      "key": "sword_wood", "title": "Деревянный меч", "kind": "object", "seed": 2007,
+      "prompt": "a single game weapon item, a short wooden sword carved from one oak plank, a plain straight tapering blade, a leather-wrapped grip and a simple wooden guard, no hand and no fingers, the item lying flat and centered, shown from a high three-quarter angle, large clear readable silhouette"
+    },
+    {
+      "key": "sword_bronze", "title": "Короткий бронзовый меч", "kind": "object", "seed": 2008,
+      "prompt": "a single game weapon item, a short bronze sword of an ancient Greek bandit, a leaf-shaped bronze blade with a central ridge, a dark leather grip and a small bronze pommel, no hand and no fingers, the item lying flat and centered, shown from a high three-quarter angle, large clear readable silhouette"
+    },
+    {
+      "key": "bow_simple", "title": "Простой лук", "kind": "object", "seed": 2009,
+      "prompt": "a single game weapon item, a simple short self bow of polished yew wood with a shallow curve, a dark waxed string, a leather grip wrapping in the middle, no hand and no fingers, the bow centered and shown at a high three-quarter angle, large clear readable silhouette"
+    },
+    {
+      "key": "arrow", "title": "Стрела", "kind": "object", "seed": 2010,
+      "prompt": "a single game item, one arrow with a slender straight wooden shaft, small dark flint head, two pale feather fletchings at the back, the arrow lying horizontally and centered, shown from straight above, large clear readable silhouette"
+    },
+    {
+      "key": "pickaxe_stone", "title": "Каменная кирка", "kind": "object", "seed": 2011,
+      "prompt": "a single game tool item, a primitive stone pickaxe, a straight wooden handle with a lashed grey stone head that has two pointed prongs, leather lashings visible, no hand and no fingers, the item lying flat and centered, shown from a high three-quarter angle, large clear readable silhouette"
+    },
+    {
+      "key": "axe_stone", "title": "Каменный топор", "kind": "object", "seed": 2012,
+      "prompt": "a single game tool item, a primitive stone axe, a curved wooden handle with a lashed chipped stone axe head, leather lashings visible, no hand and no fingers, the item lying flat and centered, shown from a high three-quarter angle, large clear readable silhouette"
+    },
+    {
+      "key": "hammer", "title": "Молот", "kind": "object", "seed": 2013,
+      "prompt": "a single game tool item, a building hammer with a heavy rectangular bronze head and a stout wooden handle, simple and sturdy, no hand and no fingers, the item lying flat and centered, shown from a high three-quarter angle, large clear readable silhouette"
+    },
+    {
+      "key": "floor_wood", "title": "Пол деревянный", "kind": "floor", "seed": 2014,
+      "prompt": "an ancient Greek plank floor seen from straight above: rows of warm honey-brown wooden planks running in one direction, visible wood grain, dark thin seams between planks, a few dark wooden pegs, gentle wear scratches and a little dust, uniform density and even lighting across the whole picture"
+    },
+    {
+      "key": "floor_stone", "title": "Пол каменный", "kind": "floor", "seed": 2015,
+      "prompt": "a flagstone floor seen from straight above: large pale warm-grey limestone slabs laid in a regular grid, thin dark seams between slabs, chipped corners, a little dust and grit in the seams, uniform density and even lighting across the whole picture"
+    },
+    {
+      "key": "wall_wood", "title": "Стена деревянная", "kind": "object", "seed": 2016,
+      "prompt": "a single straight section of a wooden defensive wall: thick vertical warm-brown timber planks set in a sturdy wooden frame with a horizontal beam along the top, the top edge of the wall visible as a thin cap strip of end grain, straight clean ends on both sides, the whole wall segment standing tall and centered"
+    },
+    {
+      "key": "wall_stone", "title": "Стена каменная", "kind": "object", "seed": 2017,
+      "prompt": "a single straight section of a stone defensive wall: courses of chunky pale warm-grey limestone blocks with dark mortar seams, chipped edges, the top edge of the wall visible as a thin cap strip of stone end faces, straight clean ends on both sides, the whole wall segment standing tall and centered"
+    },
+    {
+      "key": "fence", "title": "Забор", "kind": "object", "seed": 2018,
+      "prompt": "a single straight section of a wooden fence: sturdy vertical warm-brown wooden posts sharpened at the top, two horizontal wooden rails lashed to them, standing on open ground, seen from a high three-quarter angle, the whole fence segment centered"
+    },
+    {
+      "key": "door_closed", "title": "Дверь закрыта", "kind": "object", "seed": 2019,
+      "prompt": "a sturdy wooden gate door, closed, made of vertical warm-brown planks with a diagonal cross brace and dark iron hinges, set in a simple timber frame, seen from a high three-quarter angle, centered"
+    },
+    {
+      "key": "door_open", "title": "Дверь открыта", "kind": "object", "seed": 2020,
+      "prompt": "the same sturdy wooden gate door with a diagonal cross brace and dark iron hinges, swung fully open toward the viewer, seen from a high three-quarter angle, centered"
+    },
+    {
+      "key": "torch", "title": "Факел", "kind": "object", "seed": 2021,
+      "prompt": "a lit wall torch in a forged iron bracket, a burning pitch rope head with a bright warm flame and a soft golden glow, smoke wisp above, the whole torch centered, seen from a high three-quarter angle"
+    },
+    {
+      "key": "rubble", "title": "Обломки", "kind": "object", "seed": 2022,
+      "prompt": "a low pile of rubble, the remains of a destroyed wall: shattered pale limestone blocks, cracked splintered timber planks, stone chips and dust, a collapsed heap wider than tall, centered"
+    },
+    {
+      "key": "bush", "title": "Куст (волокно)", "kind": "object", "seed": 2023,
+      "prompt": "a dense round Mediterranean shrub with small grey-green leaves and tiny white berries, a wild flax-like bush gathered for plant fibre, low and wide, long straight fibre stems visible among the leaves, seen from a high three-quarter angle, the whole bush in frame"
+    },
+    {
+      "key": "granite", "title": "Гранит (жила камня)", "kind": "object", "seed": 2024,
+      "prompt": "a granite outcrop as a mining resource node: a chunky angular rock mass of grey-pink granite with flat broken faces, sharp edges, thin cracks and speckled grain, a few dry grass tufts at its base, seen from a high three-quarter angle, the whole outcrop in frame"
+    },
+    {
+      "key": "copper_vein", "title": "Жила меди", "kind": "object", "seed": 2025,
+      "prompt": "a copper ore vein as a mining resource node: a chunk of grey-brown rock crossed by a wide band of shiny reddish-orange native copper, glinting metal streaks and small nuggets in the stone, fresh chipped facets, seen from a high three-quarter angle, the whole rock in frame"
+    },
+    {
+      "key": "pine_resin", "title": "Сосна со смолой", "kind": "object", "seed": 2026,
+      "prompt": "a tall dark green pine tree with reddish scaly bark, glossy amber resin droplets oozing on its trunk, a small clay pot collecting resin tied at its base, seen from a high three-quarter angle, the whole tree from roots to crown in frame"
+    },
+    {
+      "key": "icon_wood", "title": "Иконка: древесина", "kind": "object", "seed": 2027,
+      "prompt": "a clean game inventory resource icon: a small neat stack of three warm honey-brown wooden planks with clean cut edges and visible grain, centered, compact, large clear readable silhouette"
+    },
+    {
+      "key": "icon_stone", "title": "Иконка: камень", "kind": "object", "seed": 2028,
+      "prompt": "a clean game inventory resource icon: a chunk of pale warm-grey limestone with one fresh chipped bright facet, centered, compact, large clear readable silhouette"
+    },
+    {
+      "key": "icon_resin", "title": "Иконка: смола", "kind": "object", "seed": 2029,
+      "prompt": "a clean game inventory resource icon: a glossy translucent amber lump of pine resin with a highlight, a short dark green pine needle beside it, centered, compact, large clear readable silhouette"
+    },
+    {
+      "key": "icon_fiber", "title": "Иконка: волокно", "kind": "object", "seed": 2030,
+      "prompt": "a clean game inventory resource icon: a tied bundle of dry pale straw-colored plant fibre strands with a small dark cord around the middle, centered, compact, large clear readable silhouette"
+    },
+    {
+      "key": "icon_copper", "title": "Иконка: медная руда", "kind": "object", "seed": 2031,
+      "prompt": "a clean game inventory resource icon: a small pile of shiny reddish-orange native copper nuggets and one rock chunk with a copper streak, centered, compact, large clear readable silhouette"
+    }
+  ]
+}
