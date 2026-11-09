@@ -11,7 +11,8 @@ namespace Orpheus.Net.Session
     /// Правки тайлов от клиентов (docs/07, 3.7; 0-028): запросы «копать: начало / конец» и «поставить линию» по каналу 2,
     /// проверки сервера вехи 0, прогресс копания по кадрам ввода, ответ «принято» / «отказ: причина» каждому запросу.
     /// <list type="bullet">
-    /// <item><b>Копать.</b> Начало — проверка «что копать» (время по <see cref="DigTimes"/>, 0 — «нельзя») и досягаемости
+    /// <item><b>Копать.</b> Начало — предмет в руках: кирка (1-002, без неё запрос молча игнорируется), затем проверка
+    /// «что копать» (время по <see cref="DigTimes"/>, 0 — «нельзя») и досягаемости
     /// «персонаж + инструмент» (<see cref="EditRules.CheckDig"/>); прогресс копится по кадрам ввода, шагнутым сервером, с зажатым
     /// <see cref="InputButtons.Dig"/> (время сервера, а не клиента). Докопали (<see cref="DigTimes.FramesOf"/> объекта, взятого в
     /// начале) — ещё раз досягаемость из позиции перед тактом и «тайл тот же, что в начале»
@@ -106,6 +107,16 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            byte held = _sim.Entities[slot].Inv.Held;
+
+            // Копать умеет только кирка (1-002, `06` 2.3): клиент без кирки запроса не шлёт, а чужой — сервер
+            // молча игнорирует: правки нет и отказа нет («основное действие» у меча — удар, не копание).
+            // DigStop проходит всегда — он и без кирки снимает ждущее начало.
+            if (m.Op == TileOp.DigStart && !Items.IsDiggingTool(held))
+            {
+                return;
+            }
+
             // Копание — с кадра запроса (AdvanceEdits): кадры раньше него докапывают прежнее. Ждёт один запрос; новый вытесняет
             // ждущий: вытесненное начало — «прервано», не начавшись.
             if (s.HasPending && s.PendingOp == TileOp.DigStart)
@@ -120,7 +131,7 @@ namespace Orpheus.Net.Session
             s.PendingFrame = m.Frame;
             if (!p.HasApplied || (int)(m.Frame - (p.LastApplied + 1)) <= 0)
             {
-                ApplyPendingDig(p, s, pos); // кадр запроса уже наступил — сразу
+                ApplyPendingDig(p, s, pos, held); // кадр запроса уже наступил — сразу
             }
         }
 
@@ -144,7 +155,7 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>Ждущий запрос копания вступает: конец — «прервано»; начало — прежнему «прервано», проверка, старт.</summary>
-        private void ApplyPendingDig(Player p, EditState s, WorldPos pos)
+        private void ApplyPendingDig(Player p, EditState s, WorldPos pos, byte held)
         {
             s.HasPending = false;
             if (s.PendingOp == TileOp.DigStop)
@@ -164,7 +175,7 @@ namespace Orpheus.Net.Session
                 s.Digging = false;
             }
 
-            EditReply check = EditRules.CheckDig(_sim.World, pos, s.PendingTile, DigTimes);
+            EditReply check = EditRules.CheckDig(_sim.World, pos, s.PendingTile, DigTimes, held);
             if (check != EditReply.Accepted)
             {
                 Reply(p, s.PendingRequest, check, check, 0);
@@ -240,8 +251,8 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
-        /// План такта (из <see cref="PlanFrames"/>): прогресс копания по кадрам такта с зажатым копанием; докопали — проверки и
-        /// правка в такт.
+        /// План такта (из <see cref="PlanFrames"/>): прогресс копания по кадрам такта с зажатым копанием, пока в руках кирка
+        /// (1-002: на мече прогресс стоит); докопали — проверки и правка в такт.
         /// </summary>
         private void AdvanceEdits(Player p, int slot, int frames)
         {
@@ -252,25 +263,27 @@ namespace Orpheus.Net.Session
             }
 
             WorldPos pos = _sim.Entities[slot].Mover.Position;
+            byte held = _sim.Entities[slot].Inv.Held; // предмет в руках такта — им и копаем
+            bool canDig = Items.IsDiggingTool(held);
             for (int i = 0; i < frames; i++)
             {
                 if (s.HasPending && (int)(_frameNum[i] - s.PendingFrame) >= 0)
                 {
-                    ApplyPendingDig(p, s, pos);
+                    ApplyPendingDig(p, s, pos, held);
                 }
 
-                if (s.Digging && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= s.DigFrames)
+                if (canDig && s.Digging && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= s.DigFrames)
                 {
-                    CompleteDig(p, s, pos);
+                    CompleteDig(p, s, pos, held);
                 }
             }
         }
 
-        /// <summary>Докопали (по кадрам сервера): досягаемость, «тайл тот же», правка в такт; отказ — ответ сразу.</summary>
-        private void CompleteDig(Player p, EditState s, WorldPos pos)
+        /// <summary>Докопали (по кадрам сервера): досягаемость предметом в руках, «тайл тот же», правка в такт; отказ — ответ сразу.</summary>
+        private void CompleteDig(Player p, EditState s, WorldPos pos, byte held)
         {
             s.Digging = false;
-            EditReply check = EditRules.CheckDig(_sim.World, pos, s.DigTile, DigTimes);
+            EditReply check = EditRules.CheckDig(_sim.World, pos, s.DigTile, DigTimes, held);
             if (check == EditReply.Accepted && _sim.World.GetObject(s.DigTile) != s.DigObj)
             {
                 check = EditReply.Empty; // тайл не тот, что в начале копания (3.7)

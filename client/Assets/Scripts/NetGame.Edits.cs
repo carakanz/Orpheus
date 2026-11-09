@@ -29,6 +29,14 @@ namespace Orpheus.Client
         }
 
         readonly List<Flash> _flashes = new List<Flash>();
+
+        // Зеркало своей сумки (1-002): сервер выдаёт новичку стартовый набор, содержимое ячеек — статические данные,
+        // а выбранная ячейка известна клиенту из его же кадров (LocalPrediction.SelectedSlot). Этап 4 (InventoryMessage)
+        // наполнит зеркало серверной сумкой и будет править им по снимкам/сообщениям.
+        readonly Inventory _bag = Inventory.StartingKit();
+
+        /// <summary>Предмет в руках: ячейка последнего отправленного кадра, содержимое — из зеркала сумки (1-002).</summary>
+        byte HeldItem => _bag.SlotAt(_pred?.SelectedSlot ?? _bag.Selected);
         Sprite? _flashSprite;
         string _lastRefusal = string.Empty;
         long _lastRefusalUntilUs;
@@ -70,12 +78,16 @@ namespace Orpheus.Client
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
-            if (!c.Digging && EditRules.IsDiggable(_world!.GetObject(tile), c.DigTimes) && EditRules.InDigReach(_map, _localPos, tile))
+            // Копает только кирка (1-002, `06` 2.3): в руках меч — ЛКМ не начинает копание и запрос не уходит
+            // (у сервера тот же отказ молча). Досягаемость — «персонаж + предмет в руках».
+            byte held = HeldItem;
+            if (!c.Digging && Items.IsDiggingTool(held) &&
+                EditRules.IsDiggable(_world!.GetObject(tile), c.DigTimes) && EditRules.InDigReach(_map, _localPos, tile, held))
             {
                 c.StartDig(tile);
             }
 
-            return InputButtons.Dig;
+            return c.Digging ? InputButtons.Dig : (ushort)0;
         }
 
         /// <summary>
