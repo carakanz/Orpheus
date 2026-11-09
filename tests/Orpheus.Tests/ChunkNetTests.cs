@@ -652,14 +652,14 @@ namespace Orpheus.Tests
             byte[] gPauseReq = Golden("16 01", b => new PauseRequestMessage { Paused = true }.Write(b)); // 0-036, протокол 10
             var pauseState = new PauseStateMessage { Paused = true, ServerTick = 0x01020304, ByEntity = 7, ByName = "Эвр" };
             byte[] gPauseState = Golden("17 01 04 03 02 01 07 00 00 00 06 d0 ad d0 b2 d1 80", b => pauseState.Write(b));
-            byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f 46 06 a0 37 0b 00 00 00 00 fa 00 fa 80 01 00 34 01 00 00 08 b8 ff 01 00 08 18 00", b => // бой в своём состоянии и сущностях (1-001, протокол 11) + предмет в руках (1-002, протокол 13)
+            byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f 46 06 80 ac 37 0b 00 00 00 00 fa 00 fa 80 01 00 34 01 00 00 08 b8 ff 01 00 08 18 00", b => // бой в своём состоянии и сущностях (1-001, протокол 11) + предмет в руках (1-002, протокол 13) + выносливость (1-003, протокол 14)
             {
                 var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, ClockEpoch = 0xA5, Count = 2, Self = new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7), new Dodge { Elapsed = 0xA3, DashLeft = 15, Cooldown = 17, Direction = 6 }) { LeadMargin = -3, DelayFrames = 19 } };
                 snap.Entities[0] = new SnapshotEntity { Id = 5, Kind = 0, Position = SnapshotLayout.Quantize(new WorldPos(1000, 2000)), Direction = 3 };
                 snap.Entities[1] = new SnapshotEntity { Id = 77, Kind = 2, Position = SnapshotLayout.Quantize(new WorldPos(262_000, 5)), Direction = 8, HeldItem = 3 };
                 return snap.Write(b, layout);
             });
-            byte[] gDelta = Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 42 00 00 00 00 00 08 02 00 96 3e 40 1f b8 82 31 00 00 80 00 f4 81 00 40 c8 03", b => // бой: свои биты + доля здоровья новой сущности (1-001) + предмет в руках (1-002)
+            byte[] gDelta = Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 42 00 00 00 00 00 00 08 02 00 96 3e 40 1f b8 82 31 00 00 80 00 f4 81 00 40 c8 03", b => // бой: свои биты + доля здоровья новой сущности (1-001) + предмет в руках (1-002) + выносливость (1-003)
             {
                 var w = new SnapshotDeltaWriter(b, layout, 52, 104, 10);
                 w.SetClockEpoch(0xA5);
@@ -674,6 +674,7 @@ namespace Orpheus.Tests
             Assert.Equal(new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7), new Dodge { Elapsed = 0xA3, DashLeft = 15, Cooldown = 17, Direction = 6 }), rSnap.Self);
             Assert.Equal(-3, rSnap.Self.LeadMargin);
             Assert.Equal(19, rSnap.Self.DelayFrames);
+            Assert.Equal(100, rSnap.Self.Stamina); // 1-003: выносливость из золотых байт
             Assert.Equal(2, rSnap.Count);
             Assert.Equal(0, rSnap.Entities[0].HeldItem); // 1-002: пустые руки (ячейка 0)
             Assert.Equal(3, rSnap.Entities[1].HeldItem); // 1-002: предмет в руках из золотых байт

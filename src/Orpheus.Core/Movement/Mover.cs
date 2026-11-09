@@ -15,8 +15,8 @@ namespace Orpheus.Core.Movement
     /// дробные 0,2 unit накапливаются целым числом на сущности, float-накопления нет.
     /// Сдвиг позиции — только <see cref="Torus.Offset"/> (docs/07, 3.2).
     /// </para>
-    /// Структура: 2 × int32 (позиция) + 2 × int32 (остаток) + int32 (скорость) + уворот 4 байта (<see cref="Dodge"/>, 0-029),
-    /// памяти в такте не выделяет.
+    /// Структура: 2 × int32 (позиция) + 2 × int32 (остаток) + int32 (скорость) + уворот 4 байта (<see cref="Dodge"/>, 0-029)
+    /// + выносливость 4 байта (<see cref="Stamina"/>, 1-003), памяти в такте не выделяет.
     /// </summary>
     public struct Mover
     {
@@ -35,6 +35,16 @@ namespace Orpheus.Core.Movement
 
         /// <summary>Уворот (`02` 2.2; 0-029): рывок, неуязвимость, откат — шагается только покадрово.</summary>
         public Dodge Dodge;
+
+        /// <summary>Выносливость (`02` 2.3; 1-003): запас 100, уворот −25, реген 20/с через 0,5 с — тот же кадр, что уворот.</summary>
+        public Stamina Stamina;
+
+        /// <summary>
+        /// Рывок начат этим кадром (1-003, шаг 3): кадр, в котором нажатие уворота началось рывком.
+        /// Хук отмен для 1-004 (замах/отход) и 1-006 (натяжение): те карточки по этому флагу в своём кадре
+        /// гасят замах/стрелу. Гасится в начале следующего кадра (<see cref="StepFrame(in MapShape, Input8, bool, TileSolid)"/>).
+        /// </summary>
+        public bool DashStarted;
 
         /// <summary>
         /// Отбрасывание (`02` 6.5; 1-001): как рывок, но задаётся сервером (состояние mover'а, не ввод) —
@@ -71,6 +81,8 @@ namespace Orpheus.Core.Movement
             Carry = default;
             UnitsPerTickX10 = unitsPerTickX10;
             Dodge = default;
+            Stamina = Stamina.Full();
+            DashStarted = false;
             KnockLeft = 0;
             KnockSpeedX10 = 0;
             KnockDir = 0;
@@ -133,8 +145,10 @@ namespace Orpheus.Core.Movement
         public WorldPos StepFrame(in MapShape map, Input8 input, TileSolid solid) => StepFrame(map, input, false, solid);
 
         /// <summary>
-        /// Кадр ввода 60 Гц с уворотом (`02` 2.2, 2.4; 0-029). Нажатие (<paramref name="dodgePressed"/>) при готовом увороте
-        /// (<see cref="Dodge.Ready"/>) и направлении ввода начинает рывок в этом же кадре. В рывке персонаж идёт
+        /// Кадр ввода 60 Гц с уворотом (`02` 2.2, 2.4; 0-029) и выносливостью (2.3; 1-003). Нажатие (<paramref name="dodgePressed"/>) при готовом увороте
+        /// (<see cref="Dodge.Ready"/>) и направлении ввода начинает рывок в этом же кадре — если выносливости ≥ 25
+        /// (трата в кадре начала); если &lt; 25 — рывка нет, на кадр ставится <see cref="Stamina.Clicked"/> («щёлк»).
+        /// В рывке персонаж идёт
         /// <see cref="Movement.Dodge.SpeedX10"/> за кадр в направлении рывка, ввод не действует; рывок кончается через
         /// <see cref="Movement.Dodge.DashFrames"/> кадров или в кадре, где упёрся в стену по всем осям направления; с конца —
         /// откат. Без рывка — шаг бега (<see cref="StepFrame(in MapShape, Input8, TileSolid)"/>), откат убывает.
@@ -142,6 +156,11 @@ namespace Orpheus.Core.Movement
         /// </summary>
         public WorldPos StepFrame(in MapShape map, Input8 input, bool dodgePressed, TileSolid solid)
         {
+            // Выносливость шагает до всех веток: и в беге, и в рывке, и в отбрасывании (2.2: реген прерывается
+            // рывком, но не отбрасыванием; трата — только в ветке начала рывка ниже).
+            Stamina.Tick(Dodge.Dashing);
+            DashStarted = false;
+
             if (KnockLeft != 0)
             {
                 // Отбрасывание (1-001, `02` 6.5): рывок задаёт сервер — ввод не действует («цель не действует»,
@@ -168,9 +187,18 @@ namespace Orpheus.Core.Movement
 
             if (dodgePressed && input.IsMoving && Dodge.Ready)
             {
-                Dodge.DashLeft = Movement.Dodge.DashFrames;
-                Dodge.Elapsed = 0;
-                Dodge.Direction = (byte)(input.DirectionIndex + 1);
+                if (Stamina.CanDodge)
+                {
+                    Stamina.Spend();
+                    Dodge.DashLeft = Movement.Dodge.DashFrames;
+                    Dodge.Elapsed = 0;
+                    Dodge.Direction = (byte)(input.DirectionIndex + 1);
+                    DashStarted = true;
+                }
+                else
+                {
+                    Stamina.Clicked = true; // «щёлк» (2.3): выносливости < 25, рывка нет
+                }
             }
 
             if (Dodge.Elapsed < Movement.Dodge.ElapsedCap && Dodge.Direction != 0)

@@ -142,6 +142,9 @@ namespace Orpheus.Net.Session
         /// <summary>Масса из снимка (1-001): по ней скорость отбрасывания.</summary>
         public int Mass => _mass;
 
+        /// <summary>Выносливость (1-003): запас предсказания, правится снимком при сверке; для HUD и полоски (1-019).</summary>
+        public byte Stamina => _mover.Stamina.Value;
+
         /// <summary>
         /// Ячейка быстрой панели в последнем отправленном кадре (1-002) — «предмет в руках» для картинки и HUD:
         /// сервер применяет её в том же кадре, что и предсказание, поэтому клиент не ждёт снимка.
@@ -355,6 +358,7 @@ namespace Orpheus.Net.Session
             _mover.KnockLeft = server.KnockLeft;
             _mover.KnockSpeedX10 = server.KnockLeft == 0 ? 0 : Mover.KnockSpeedFor(_mass);
             _mover.KnockDir = server.KnockLeft == 0 ? (byte)0 : server.KnockDir;
+            _mover.Stamina.Value = server.Stamina; // 1-003: запас — с сервера (страховка), таймеры регена — локальные предсказанию
             _before = _mover;
             _beforeFrame = ackFrame;
             _beforePre = !_hasHistory || (int)(ackFrame - _firstFrame) < 0;

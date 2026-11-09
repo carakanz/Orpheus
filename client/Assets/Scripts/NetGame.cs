@@ -803,7 +803,7 @@ namespace Orpheus.Client
 
             string combat = pr == null ? string.Empty
                 : pr.Dead ? $"  погиб — возрождение через {Math.Max(0f, (Simulation.RespawnDelayTicks * 1_000_000L - (now - _deathAtUs)) / 1_000_000f):0.#} с"
-                : $"  здоровье {pr.Health}/100  смертей {c.DeathsSeen}";
+                : $"  здоровье {pr.Health}/100  выносливость {pr.Stamina}/100  смертей {c.DeathsSeen}"; // полоска стамины — 1-019
             // Значок «высокая задержка» (docs/07 2.7; 0-033): D_p > 150 мс — пока строкой в HUD, картинка — потом.
             _g.DebugText.text = (c.HighLatency ? $"[высокая задержка: показ −{c.DelayFrames * 1000 / 60} мс]  " : "") +
                 $"в игре  сервер {_host}:{_port}  seed 0x{c.Accept.WorldSeed:X}  {_map.Width}×{_map.Height}  " +

@@ -1058,6 +1058,7 @@ namespace Orpheus.Net.Session
                 Mass = (byte)Math.Max(1, Math.Min(4, (int)entities[selfSlot].Mass)),
                 KnockLeft = (byte)Math.Min(255, (int)me.KnockLeft),
                 KnockDir = (byte)Math.Min(255, (int)me.KnockDir),
+                Stamina = me.Stamina.Value, // 1-003: выносливость — клиент берёт целиком, как уворот
             };
             int curCount = BuildView(pl, entities, selfSlot, _cur);
             SentRing ring = pl.Ring ??= new SentRing();

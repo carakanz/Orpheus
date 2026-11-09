@@ -76,11 +76,18 @@ namespace Orpheus.Net.Protocol
         /// <summary>Направление отбрасывания 0…7 (код <see cref="Input8.DirectionIndex"/>; активно только при <see cref="KnockLeft"/> &gt; 0).</summary>
         public byte KnockDir;
 
-        /// <summary>Бит на поля боя.</summary>
-        public const int HealthBits = 8, MassBits = 2, KnockLeftBits = 4, KnockDirBits = 3;
+        /// <summary>
+        /// Выносливость своего персонажа 0…100 (1-003, `02` 2.3). Клиент при правке берёт её целиком, как уворот:
+        /// сервер и предсказание считают стамину одним кодом, правка — страховка. Таймеры регена (пауза, аккумулятор)
+        /// предсказания — локальные, в снимке только запас.
+        /// </summary>
+        public byte Stamina;
 
-        /// <summary>Бит боя всего: 17.</summary>
-        public const int CombatBits = HealthBits + MassBits + KnockLeftBits + KnockDirBits;
+        /// <summary>Бит на поля боя (со StaminaBits — 1-003).</summary>
+        public const int HealthBits = 8, MassBits = 2, KnockLeftBits = 4, KnockDirBits = 3, StaminaBits = 8;
+
+        /// <summary>Бит боя всего: 25 (17 + стамина 8, протокол 14).</summary>
+        public const int CombatBits = HealthBits + MassBits + KnockLeftBits + KnockDirBits + StaminaBits;
 
         /// <summary>
         /// Отчёт сервера получателю (0-033, `07` 2.7): «запас прихода кадров» — 1-й процентиль за 2 с при его нынешнем
@@ -113,6 +120,7 @@ namespace Orpheus.Net.Protocol
             Mass = 1;
             KnockLeft = 0;
             KnockDir = 0;
+            Stamina = 100; // 1-003: выносливость полна — сервер заполняет настоящим значением
             LeadMargin = 0;
             DelayFrames = 0;
         }
@@ -122,10 +130,10 @@ namespace Orpheus.Net.Protocol
             a.Elapsed == b.Elapsed && a.DashLeft == b.DashLeft && a.Cooldown == b.Cooldown && a.Direction == b.Direction;
 
         public bool Equals(SelfState o) => Present == o.Present && Position == o.Position && Carry == o.Carry && SameDodge(Dodge, o.Dodge) &&
-            Health == o.Health && Mass == o.Mass && KnockLeft == o.KnockLeft && KnockDir == o.KnockDir;
+            Health == o.Health && Mass == o.Mass && KnockLeft == o.KnockLeft && KnockDir == o.KnockDir && Stamina == o.Stamina;
         public override bool Equals(object? obj) => obj is SelfState o && Equals(o);
-        public override int GetHashCode() => Present ? Position.X ^ (Position.Y << 7) ^ (Carry.X << 3) ^ Carry.Y ^ (Dodge.Elapsed << 11) ^ (Health << 17) ^ (KnockLeft << 21) : 0;
-        public override string ToString() => Present ? $"своё {Position} c{Carry} {Dodge} hp{Health} m{Mass} knock{KnockLeft}:{KnockDir}" : "своё —";
+        public override int GetHashCode() => Present ? Position.X ^ (Position.Y << 7) ^ (Carry.X << 3) ^ Carry.Y ^ (Dodge.Elapsed << 11) ^ (Health << 17) ^ (KnockLeft << 21) ^ (Stamina << 25) : 0;
+        public override string ToString() => Present ? $"своё {Position} c{Carry} {Dodge} hp{Health} m{Mass} knock{KnockLeft}:{KnockDir} st{Stamina}" : "своё —";
 
         internal void Write(ref BitWriter w, in SnapshotLayout layout)
         {
@@ -143,6 +151,7 @@ namespace Orpheus.Net.Protocol
             w.WriteBits((uint)Math.Max(1, Math.Min(4, (int)s.Mass)) - 1, MassBits);
             w.WriteBits(s.KnockLeft, KnockLeftBits);
             w.WriteBits((uint)(s.KnockLeft == 0 ? 0 : Math.Min(8, (int)s.KnockDir) - 1), KnockDirBits);
+            w.WriteBits(s.Stamina, StaminaBits);
             w.WriteBits((uint)(Math.Max(-MarginBias, Math.Min(MarginBias - 1, (int)LeadMargin)) + MarginBias), MarginBits);
             w.WriteBits(Math.Min(DelayFrames, (byte)ThreatTiming.MaxDelayFrames), DelayBits);
         }
@@ -165,6 +174,7 @@ namespace Orpheus.Net.Protocol
             byte mass = (byte)(r.ReadBits(MassBits) + 1);
             byte knockLeft = (byte)r.ReadBits(KnockLeftBits);
             byte knockDir = (byte)r.ReadBits(KnockDirBits);
+            byte stamina = (byte)r.ReadBits(StaminaBits);
             sbyte margin = (sbyte)((int)r.ReadBits(MarginBits) - MarginBias);
             byte delay = (byte)r.ReadBits(DelayBits);
             if (delay > ThreatTiming.MaxDelayFrames)
@@ -193,11 +203,12 @@ namespace Orpheus.Net.Protocol
                 Mass = mass,
                 KnockLeft = knockLeft,
                 KnockDir = (byte)(knockLeft == 0 ? 0 : knockDir + 1),
+                Stamina = stamina,
             };
             if (!present)
             {
                 if (x != 0 || y != 0 || cx != 0 || cy != 0 || !SameDodge(dodge, default) ||
-                    health != 0 || knockLeft != 0 || knockDir != 0)
+                    health != 0 || knockLeft != 0 || knockDir != 0 || stamina != 0)
                 {
                     throw new ProtocolException("Снимок: своего состояния нет, а поля не пустые.");
                 }
@@ -213,6 +224,7 @@ namespace Orpheus.Net.Protocol
                 Mass = mass,
                 KnockLeft = knockLeft,
                 KnockDir = (byte)(knockLeft == 0 ? 0 : knockDir + 1),
+                Stamina = stamina,
             };
             return s;
         }
@@ -268,7 +280,8 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>
         /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5
-        /// + уворот 21 (0-029, протокол 6) + бой 17 (1-001, протокол 11). 1024² — 85 бит (≈ 11 байт), 4096² — 89 бит.
+        /// + уворот 21 (0-029, протокол 6) + бой 25 (1-001 — 17, протокол 11; 1-003 — стамина 8, протокол 14).
+        /// 1024² — 93 бит (≈ 12 байт), 4096² — 97 бит.
         /// Есть в каждом снимке и каждой дельте.
         /// </summary>
         public int SelfBits => 1 + SelfBitsX + SelfBitsY + 2 * CarryBits + SelfState.DodgeBits + SelfState.CombatBits + SelfState.ReportBits;

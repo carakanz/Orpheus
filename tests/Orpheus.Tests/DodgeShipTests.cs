@@ -27,8 +27,12 @@ namespace Orpheus.Tests
         private const int U = Torus.SubTilesPerTile;
         private const long TickUs = 1_000_000 / 30;
 
-        /// <summary>Период замахов манекена: 1,5 с — рывок, откат и путь домой укладываются.</summary>
-        public const int SwingPeriodFrames = 90;
+        /// <summary>
+        /// Период замахов манекена: 2 с — рывок, откат и путь домой укладываются. 1-003: с выносливостью период
+        /// не короче 115 кадров, иначе уворот (−25) не успевает восстановиться (+20/с) и бот на 17-м увороте упирается
+        /// в «щёлк»: при 120 худшая дистанция между нажатиями (окно ±11) даёт реген 26 ≥ 25 — все 100 уворотов стойкие.
+        /// </summary>
+        public const int SwingPeriodFrames = 120;
 
         private readonly ITestOutputHelper _out;
 
@@ -158,6 +162,27 @@ namespace Orpheus.Tests
             Assert.Equal(1, pred.Resynced);
             Assert.False(pred.Dodge.Dashing);
             Assert.Equal(at, pred.Position);
+        }
+
+        /// <summary>
+        /// Правка берёт выносливость сервера (протокол 14, 1-003): клиент потратил уворот (75), а сервер считает 40 —
+        /// после правки предсказание берёт запас с сервера;-local таймеры регена при этом не сбрасываются в ноль.
+        /// </summary>
+        [Fact]
+        public void D07_S2_6_Reconcile_TakesServerStamina()
+        {
+            MapShape map = MapShape.World(1024);
+            WorldModel world = FlatWorldGenerator.Instance.Generate(map, 42);
+            var simulation = new Simulation(world, maxEntities: 2);
+            WorldPos at = ServerRun.SpawnPoint(map, 0);
+            var pred = new LocalPrediction(map, simulation.Solid, at);
+            pred.Reconcile(100, new SelfState(at, default), 0); // начало: сервер на кадре 100, выносливость полна
+            Assert.Equal(100, pred.Stamina);
+            pred.Sent(101, new InputFrame(Core.Movement.Input8.North, InputButtons.Dodge));
+            Assert.Equal(75, pred.Stamina); // предсказание тратит 25 само, в кадре начала рывка
+            pred.Reconcile(101, new SelfState(at, default) { Stamina = 40 }, 1000); // сервер: выносливость 40
+            Assert.Equal(1, pred.Resynced);
+            Assert.Equal(40, pred.Stamina);
         }
 
         /// <summary>
