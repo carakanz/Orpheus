@@ -337,12 +337,12 @@ namespace Orpheus.Tests
             Assert.False(full.Add(default));
         }
 
-        /// <summary>Кнопка уворота — бит кнопок: кадр в журнале — те же 3 байта, по сети — те же 6.</summary>
+        /// <summary>Кнопка уворота — бит кнопок: кадр в журнале — те же 6 байт, по сети — те же 7 (формат 1-002).</summary>
         [Fact]
         public void D02_S2_2_DodgeButton_FrameFormatUnchanged()
         {
-            Assert.Equal(3, InputFrame.WireBytes);
-            Assert.Equal(6, Orpheus.Net.Protocol.WireFrame.Bytes);
+            Assert.Equal(6, InputFrame.WireBytes);
+            Assert.Equal(7, Orpheus.Net.Protocol.WireFrame.Bytes);
             var f = new InputFrame(Input8.North, InputButtons.Dodge);
             Span<byte> b = stackalloc byte[InputFrame.WireBytes];
             f.Write(b);
@@ -351,6 +351,14 @@ namespace Orpheus.Tests
             Assert.Equal(f, back);
             Assert.True(Orpheus.Net.Protocol.WireFrame.From(f).ToInputFrame().DodgePressed);
             Assert.False(new InputFrame(Input8.North).DodgePressed);
+
+            // 1-002: прицел (шаг 1/65 536 круга) и ячейка едут кадром без потери, клетка вне 0…7 — отказ.
+            var g = new InputFrame(Input8.North, 0, 1, 3);
+            var w = Orpheus.Net.Protocol.WireFrame.From(g);
+            Assert.Equal((ushort)1, w.Aim);
+            Assert.Equal(3, w.Slot);
+            Assert.Equal(g, w.ToInputFrame());
+            Assert.Throws<Orpheus.Net.Protocol.ProtocolException>(() => new Orpheus.Net.Protocol.WireFrame { Slot = 8 }.ToInputFrame());
         }
     }
 }

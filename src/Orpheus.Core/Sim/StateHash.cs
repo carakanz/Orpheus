@@ -167,6 +167,8 @@ namespace Orpheus.Core.Sim
             h.Add(e.AttackFacingRaw);
             h.Add(e.Input.DirectionCode);
             h.Add(e.Input.Buttons);
+            h.Add(e.Input.Angle16);
+            h.Add(e.Input.Slot);
             return h.Value;
         }
 

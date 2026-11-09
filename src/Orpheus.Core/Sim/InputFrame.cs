@@ -4,18 +4,20 @@ using Orpheus.Core.Movement;
 namespace Orpheus.Core.Sim
 {
     /// <summary>
-    /// Кадр ввода сущности на такт (docs/07, 4.2 и 11.5): направление из 8 (или стойка) + кнопки.
+    /// Кадр ввода сущности на такт (docs/07, 4.2 и 11.5): направление из 8 (или стойка) + кнопки +
+    /// угол прицела + ячейка быстрой панели (1-002).
     /// Это всё, что пишется в журнал ввода: по журналу и зерну такт повторяется побитово.
     /// <para>
-    /// В журнале — 3 байта: направление (0 — стойка, 1…8 — <see cref="Input8.DirectionIndex"/> + 1)
-    /// и кнопки (u16, младший байт первым). Значение битов кнопок задают боевые и строительные задачи
-    /// (`02`, `05`) — <see cref="InputButtons"/>; уворот (бит 0, 0-029) ядро такта применяет в покадровом шаге
-    /// (<see cref="Mover.Dodge"/>), остальные пока только переносит и хэширует.
+    /// В журнале — 6 байт (формат 2): направление (0 — стойка, 1…8 — <see cref="Input8.DirectionIndex"/> + 1),
+    /// кнопки (u16, младший байт первым), угол прицела (u16, 65 536 шагов на круг) и ячейка (0…<see cref="MaxSlots"/>−1).
+    /// Формат 1 (3 байта: направление + кнопки) читается — угол и ячейка по умолчанию.
+    /// Значение битов кнопок задают боевые и строительные задачи (`02`, `05`) — <see cref="InputButtons"/>;
+    /// уворот (бит 0, 0-029) ядро такта применяет в покадровом шаге (<see cref="Mover.Dodge"/>), остальные пока только переносит и хэширует.
     /// </para>
     /// </summary>
     /// <summary>
     /// Биты кнопок кадра ввода (<see cref="InputFrame.Buttons"/>). Формат кадра от них не меняется: кнопки — u16 и в журнале
-    /// (3 байта), и в сети (<c>WireFrame</c>, 6 байт).
+    /// (6 байт), и в сети (<c>WireFrame</c>, 7 байт).
     /// </summary>
     public static class InputButtons
     {
@@ -37,8 +39,14 @@ namespace Orpheus.Core.Sim
 
     public readonly struct InputFrame : IEquatable<InputFrame>
     {
-        /// <summary>Байт кадра в журнале: направление 1 + кнопки 2.</summary>
-        public const int WireBytes = 3;
+        /// <summary>Байт кадра в журнале (формат 2): направление 1 + кнопки 2 + угол 2 + ячейка 1.</summary>
+        public const int WireBytes = 6;
+
+        /// <summary>Байт кадра в журнале формата 1: направление 1 + кнопки 2.</summary>
+        public const int LegacyWireBytes = 3;
+
+        /// <summary>Ячеек быстрой панели (1-002): 0…7.</summary>
+        public const byte MaxSlots = 8;
 
         /// <summary>Наибольший код направления: 8 (северо-восток).</summary>
         public const byte MaxDirectionCode = Input8.Count;
@@ -52,10 +60,18 @@ namespace Orpheus.Core.Sim
         /// <summary>Кнопки — битовая маска.</summary>
         public readonly ushort Buttons;
 
-        public InputFrame(Input8 direction, ushort buttons = 0)
+        /// <summary>Угол прицела, u16 (65 536 шагов на круг, 0,0055°); у врагов и ботов — по умолчанию 0 (1-002).</summary>
+        public readonly ushort Angle16;
+
+        /// <summary>Ячейка быстрой панели 0…<see cref="MaxSlots"/>−1 — предмет в руках (1-002).</summary>
+        public readonly byte Slot;
+
+        public InputFrame(Input8 direction, ushort buttons = 0, ushort angle16 = 0, byte slot = 0)
         {
             Direction = direction;
             Buttons = buttons;
+            Angle16 = angle16;
+            Slot = slot;
         }
 
         /// <summary>В этом кадре нажат уворот (<see cref="InputButtons.Dodge"/>).</summary>
@@ -64,34 +80,70 @@ namespace Orpheus.Core.Sim
         /// <summary>Код направления: 0 — стойка, 1…8 — номер направления + 1.</summary>
         public byte DirectionCode => Direction.IsMoving ? (byte)(Direction.DirectionIndex + 1) : (byte)0;
 
-        /// <summary>Кадр по коду направления и кнопкам; код вне 0…8 — исключение (журнал испорчен).</summary>
-        public static InputFrame FromCode(byte directionCode, ushort buttons)
+        /// <summary>
+        /// Кадр по коду направления, кнопкам, углу и ячейке; код направления вне 0…8 или ячейка вне 0…7 — исключение
+        /// (журнал испорчен / кадр по сети от чужого клиента).
+        /// </summary>
+        public static InputFrame FromCode(byte directionCode, ushort buttons, ushort angle16 = 0, byte slot = 0)
         {
             if (directionCode > MaxDirectionCode)
             {
                 throw new ArgumentOutOfRangeException(nameof(directionCode), directionCode, "Код направления — 0…8.");
             }
 
-            return new InputFrame(directionCode == 0 ? Input8.None : Input8.FromIndex(directionCode - 1), buttons);
+            if (slot >= MaxSlots)
+            {
+                throw new ArgumentOutOfRangeException(nameof(slot), slot, "Ячейка быстрой панели — 0…7.");
+            }
+
+            return new InputFrame(directionCode == 0 ? Input8.None : Input8.FromIndex(directionCode - 1), buttons, angle16, slot);
         }
 
-        /// <summary>Записать кадр (3 байта).</summary>
+        /// <summary>Записать кадр (6 байт): направление, кнопки (u16), угол (u16), ячейка — младший байт первым.</summary>
         public void Write(Span<byte> dest)
         {
             dest[0] = DirectionCode;
             dest[1] = (byte)Buttons;
             dest[2] = (byte)(Buttons >> 8);
+            dest[3] = (byte)Angle16;
+            dest[4] = (byte)(Angle16 >> 8);
+            dest[5] = Slot;
         }
 
-        /// <summary>Прочитать кадр (3 байта).</summary>
+        /// <summary>Прочитать кадр (6 байт, формат 2).</summary>
         public static InputFrame Read(ReadOnlySpan<byte> src) =>
+            FromCode(src[0], (ushort)(src[1] | (src[2] << 8)), (ushort)(src[3] | (src[4] << 8)), src[5]);
+
+        /// <summary>Прочитать кадр формата 1 (3 байта: направление + кнопки); угол и ячейка — по умолчанию.</summary>
+        public static InputFrame ReadV1(ReadOnlySpan<byte> src) =>
             FromCode(src[0], (ushort)(src[1] | (src[2] << 8)));
 
-        public bool Equals(InputFrame other) => Direction == other.Direction && Buttons == other.Buttons;
+        public bool Equals(InputFrame other) =>
+            Direction == other.Direction && Buttons == other.Buttons && Angle16 == other.Angle16 && Slot == other.Slot;
         public override bool Equals(object? obj) => obj is InputFrame other && Equals(other);
-        public override int GetHashCode() => unchecked((DirectionCode * 73856093) ^ (Buttons * 19349663));
+        public override int GetHashCode() =>
+            unchecked((DirectionCode * 73856093) ^ (Buttons * 19349663) ^ (Angle16 * 83492791) ^ (Slot * 455016879));
         public static bool operator ==(InputFrame a, InputFrame b) => a.Equals(b);
         public static bool operator !=(InputFrame a, InputFrame b) => !a.Equals(b);
-        public override string ToString() => Buttons == 0 ? $"in({DirectionCode})" : $"in({DirectionCode}, 0x{Buttons:X4})";
+        public override string ToString()
+        {
+            string s = $"in({DirectionCode}";
+            if (Buttons != 0)
+            {
+                s += $", 0x{Buttons:X4}";
+            }
+
+            if (Angle16 != 0)
+            {
+                s += $", aim {Angle16}";
+            }
+
+            if (Slot != 0)
+            {
+                s += $", slot {Slot}";
+            }
+
+            return s + ")";
+        }
     }
 }

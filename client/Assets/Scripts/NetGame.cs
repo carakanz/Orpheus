@@ -501,7 +501,7 @@ namespace Orpheus.Client
 
                 if (buttons != 0)
                 {
-                    frame = new InputFrame(frame.Direction, (ushort)(frame.Buttons | buttons));
+                    frame = new InputFrame(frame.Direction, (ushort)(frame.Buttons | buttons), frame.Angle16, frame.Slot);
                 }
 
                 c.SendFrame(frame);

@@ -581,14 +581,14 @@ namespace Orpheus.Tests
             var input = new InputMessage
             {
                 FirstFrame = 0xFFFF_FFF0,
-                Frame0 = new WireFrame { Direction = 1, Power = 255, Aim = 0x1234, Buttons = 0x8001 },
-                Frame1 = new WireFrame { Direction = 0, Power = 0, Aim = 65535, Buttons = 0 },
-                Frame2 = new WireFrame { Direction = 8, Power = 17, Aim = 1, Buttons = 0xFFFF },
-                Frame3 = new WireFrame { Direction = 5, Power = 200, Aim = 40000, Buttons = 0x0102 },
+                Frame0 = new WireFrame { Direction = 1, Power = 255, Slot = 3, Aim = 0x1234, Buttons = 0x8001 },
+                Frame1 = new WireFrame { Direction = 0, Power = 0, Slot = 0, Aim = 65535, Buttons = 0 },
+                Frame2 = new WireFrame { Direction = 8, Power = 17, Slot = 7, Aim = 1, Buttons = 0xFFFF },
+                Frame3 = new WireFrame { Direction = 5, Power = 200, Slot = 2, Aim = 40000, Buttons = 0x0102 },
                 PictureTime = 77, LastSnapshot = 0x7FFF_FFFF, Lead = 24,
             };
-            byte[] gInput = Golden("04 f0 ff ff ff 01 ff 34 12 01 80 00 00 ff ff 00 00 08 11 01 00 ff ff 05 c8 40 9c 02 01 4d 00 00 00 ff ff ff 7f 18",
-                b => input.Write(b));
+            byte[] gInput = Golden("04 f0 ff ff ff 01 ff 03 34 12 01 80 00 00 00 ff ff 00 00 08 11 07 01 00 ff ff 05 c8 02 40 9c 02 01 4d 00 00 00 ff ff ff 7f 18",
+                b => input.Write(b)); // кадр 7 байт: направление, сила, ячейка, прицел, кнопки (1-002, протокол 12)
             byte[] gClock = Golden("06 04 03 02 01", b => new ClockMessage { ServerTick = 0x01020304 }.Write(b));
             byte[] gPing = Golden("0b 04 03 02 01", b => new PingMessage { ClientUs = 0x01020304 }.Write(b));
             var pong = new PongMessage { ClientUs = 0x01020304, ServerTick = 0x0A0B0C0D };

@@ -2059,7 +2059,8 @@ namespace Orpheus.Net.Session
             }
 
             // 2.7 «Опоздавший кадр»: все кадры пакета уже шагнуты сервером сам — не выбрасывается, его направление действует
-            // с первого ещё не шагнутого кадра (нажатия уже «липкие» — выше).
+            // с первого ещё не шагнутого кадра (нажатия уже «липкие» — выше). Ячейка и прицел — состояние, а не нажатие:
+            // берём из кадра (1-002).
             if ((int)(m.LastFrame - p.NextFrame) < 0)
             {
                 int i = (int)(p.NextFrame % FrameRing);
@@ -2067,7 +2068,8 @@ namespace Orpheus.Net.Session
                 {
                     p.RingFrame[i] = p.NextFrame;
                     p.RingValid[i] = true;
-                    p.RingInput[i] = new InputFrame(m.Frame3.ToInputFrame().Direction);
+                    InputFrame late = m.Frame3.ToInputFrame();
+                    p.RingInput[i] = new InputFrame(late.Direction, 0, late.Angle16, late.Slot);
                 }
             }
 

@@ -377,12 +377,13 @@ namespace Orpheus.Net.Protocol
     }
 
     /// <summary>
-    /// Кадр ввода по сети (docs/07, 2.10): направление и сила движения (2 байта), угол прицела (2 байта),
-    /// кнопки (2 байта). Тайл под курсором при молоте — потом (задача строительства).
+    /// Кадр ввода по сети (docs/07, 2.10): направление и сила движения (2 байта), ячейка быстрой панели (1 байт, 1-002),
+    /// угол прицела (2 байта), кнопки (2 байта). Ровно <see cref="Bytes"/> = 7 байт.
+    /// Тайл под курсором при молоте — потом (задача строительства).
     /// </summary>
     public struct WireFrame : IEquatable<WireFrame>
     {
-        public const int Bytes = 6;
+        public const int Bytes = 7;
 
         /// <summary>Сила движения «полностью».</summary>
         public const byte FullPower = 255;
@@ -393,21 +394,28 @@ namespace Orpheus.Net.Protocol
         /// <summary>Сила движения 0…255 (стик); клавиши — 255. Пока не влияет на скорость.</summary>
         public byte Power;
 
+        /// <summary>Ячейка быстрой панели 0…<see cref="InputFrame.MaxSlots"/>−1 — предмет в руках (1-002).</summary>
+        public byte Slot;
+
         /// <summary>Угол прицела, u16 (65 536 шагов на круг, 0,0055°).</summary>
         public ushort Aim;
 
         /// <summary>Кнопки — битовая маска.</summary>
         public ushort Buttons;
 
-        public static WireFrame From(InputFrame f, ushort aim = 0) => new WireFrame
+        public static WireFrame From(InputFrame f) => new WireFrame
         {
             Direction = f.DirectionCode,
             Power = f.Direction.IsMoving ? FullPower : (byte)0,
-            Aim = aim,
+            Slot = f.Slot,
+            Aim = f.Angle16,
             Buttons = f.Buttons,
         };
 
-        /// <summary>Кадр такта: направление и кнопки (код направления вне 0…8 — <see cref="ProtocolException"/>).</summary>
+        /// <summary>
+        /// Кадр такта: направление, кнопки, угол и ячейка (код направления вне 0…8 или ячейка вне 0…7 —
+        /// <see cref="ProtocolException"/>).
+        /// </summary>
         public InputFrame ToInputFrame()
         {
             if (Direction > InputFrame.MaxDirectionCode)
@@ -415,13 +423,19 @@ namespace Orpheus.Net.Protocol
                 throw new ProtocolException($"Кадр ввода: код направления {Direction}.");
             }
 
-            return InputFrame.FromCode(Direction, Buttons);
+            if (Slot >= InputFrame.MaxSlots)
+            {
+                throw new ProtocolException($"Кадр ввода: ячейка {Slot}.");
+            }
+
+            return InputFrame.FromCode(Direction, Buttons, Aim, Slot);
         }
 
         public void Write(ref BitWriter w)
         {
             w.WriteByte(Direction);
             w.WriteByte(Power);
+            w.WriteByte(Slot);
             w.WriteUInt16(Aim);
             w.WriteUInt16(Buttons);
         }
@@ -430,27 +444,28 @@ namespace Orpheus.Net.Protocol
         {
             Direction = r.ReadByte(),
             Power = r.ReadByte(),
+            Slot = r.ReadByte(),
             Aim = r.ReadUInt16(),
             Buttons = r.ReadUInt16(),
         };
 
-        public bool Equals(WireFrame o) => Direction == o.Direction && Power == o.Power && Aim == o.Aim && Buttons == o.Buttons;
+        public bool Equals(WireFrame o) => Direction == o.Direction && Power == o.Power && Slot == o.Slot && Aim == o.Aim && Buttons == o.Buttons;
         public override bool Equals(object? obj) => obj is WireFrame o && Equals(o);
-        public override int GetHashCode() => (Direction << 24) ^ (Power << 16) ^ (Aim << 8) ^ Buttons;
-        public override string ToString() => $"frame(dir {Direction}, power {Power}, aim {Aim}, 0x{Buttons:X4})";
+        public override int GetHashCode() => (Direction << 24) ^ (Power << 16) ^ (Slot << 11) ^ (Aim << 8) ^ Buttons;
+        public override string ToString() => $"frame(dir {Direction}, power {Power}, slot {Slot}, aim {Aim}, 0x{Buttons:X4})";
     }
 
     /// <summary>
     /// Пакет ввода, 60 Гц, канал 0 (docs/07, 2.10): номер первого кадра, 4 кадра — три прошлых и текущий
     /// (потеря пакета не теряет нажатие), время картинки, номер последнего полученного снимка, опережение L.
-    /// Ровно <see cref="Bytes"/> = 38 байт.
+    /// Ровно <see cref="Bytes"/> = 42 байта (кадр — 7, 1-002).
     /// </summary>
     public struct InputMessage
     {
         /// <summary>Кадров в пакете.</summary>
         public const int FrameCount = 4;
 
-        /// <summary>Тип 1 + первый кадр 4 + 4 × 6 + время картинки 4 + последний снимок 4 + опережение 1 = 38.</summary>
+        /// <summary>Тип 1 + первый кадр 4 + 4 × 7 + время картинки 4 + последний снимок 4 + опережение 1 = 42.</summary>
         public const int Bytes = 1 + 4 + FrameCount * WireFrame.Bytes + 4 + 4 + 1;
 
         /// <summary>Номер самого старого кадра в пакете; текущий — <c>FirstFrame + 3</c>.</summary>
