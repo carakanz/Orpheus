@@ -66,7 +66,7 @@ namespace Orpheus.Tests
             ServerResult rec = Run("--world", world, "--create", "--seed", "42", "--size", "1024", "--sim",
                 "--bots", "8:wander", "--ticks", "54000", "--hash", "--record", journal);
             Assert.Equal(0, rec.ExitCode);
-            // Мир — генератора сборки (StubGenerator 0-007): луга, скалы, деревья; боты упираются в них.
+            // Мир — генератора сборки (v1 с 1-017): луга, лес, горы, пещеры с объектами; боты упираются в них.
             WorldModel created = WorldSnapshot.LoadBase(File.ReadAllBytes(Path.Combine(world, ServerRun.BaseFileName)));
             Assert.Equal(WorldGenModule.GeneratorVersion, created.GeneratorVersion);
             Assert.True(WorldGenModule.GeneratorVersion >= 1);

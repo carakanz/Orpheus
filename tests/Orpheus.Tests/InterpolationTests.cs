@@ -615,7 +615,7 @@ namespace Orpheus.Tests
                 stop.Cancel();
                 Assert.Equal(0, (await server).ExitCode);
 
-                ulong generated = StateHash.Generation(new StubGenerator().Generate(MapShape.World(1024), accept.WorldSeed));
+                ulong generated = StateHash.Generation(WorldGenModule.Current.Generate(MapShape.World(1024), accept.WorldSeed)); // генератор сервера по умолчанию (v1)
                 _out.WriteLine($"вход: 0x{accept.GenerationHash:X16}, генерация клиента 0x{generated:X16}, мир сервера с правкой 0x{loadedHash:X16}");
                 Assert.NotEqual(generated, Volatile.Read(ref loadedHash)); // правка загрузилась — тест о чём-то
                 Assert.Equal(generated, accept.GenerationHash);

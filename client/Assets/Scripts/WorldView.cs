@@ -98,6 +98,10 @@ namespace Orpheus.Client
             {
                 case ObjectId.Tree: return _tree;
                 case ObjectId.Rock: return _rock;
+                // Объекты генератора v1 (1-017) до своих спрайтов (1-024): невидимая преграда хуже похожей.
+                case ObjectId.Bush: return _tree;
+                case ObjectId.Granite: return _rock;
+                case ObjectId.Ore: return _rock;
                 default: return null;
             }
         }

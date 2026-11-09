@@ -200,7 +200,7 @@ namespace Orpheus.Tests
             Assert.Equal(Biome.Forest, map.Biome[2 * 225]);
             Assert.Equal(Biome.Forest, map.Biome[1]);
             _out.WriteLine($"равные ключи: хэш {map.HashHex()}");
-            Assert.Equal("eb0405de31dc59dd197408da92284352e2238e20f312060bbbe2e9d8fb8a6c52", map.HashHex());
+            Assert.Equal("1594a78983be27debd3cdf9c6db7c7a42532bb6d9fb3b17cea6e69fc8d6f0e82", map.HashHex());
         }
 
         [Fact]

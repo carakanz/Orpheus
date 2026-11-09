@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Orpheus.WorldGen
 {
@@ -24,7 +25,7 @@ namespace Orpheus.WorldGen
         /// <summary>Этап 3 по таблице набора карты: пишет <see cref="MacroMap.Biome"/>. Таблицы нет (полный набор) — ничего не делает.</summary>
         public static void Run(MacroMap map, FieldData fields)
         {
-            BiomeRow[]? table = BiomeTables.For(map.Set);
+            IReadOnlyList<BiomeRow>? table = BiomeTables.For(map.Set);
             if (table != null)
             {
                 Run(map, fields, table);
@@ -32,15 +33,16 @@ namespace Orpheus.WorldGen
         }
 
         /// <summary>Этап 3 по заданной таблице. Ячейки, которые не забрала ни одна строка, остаются <see cref="MacroMap.BiomeNone"/>.</summary>
-        public static void Run(MacroMap map, FieldData fields, BiomeRow[] table)
+        public static void Run(MacroMap map, FieldData fields, IReadOnlyList<BiomeRow> table)
         {
             int n = map.Size * map.Size;
             byte[] biome = map.Biome;
             biome.AsSpan().Fill(MacroMap.BiomeNone);
             bool[]? upperQuarter = null;
             var keys = new long[n];
-            foreach (BiomeRow row in table)
+            for (int r = 0; r < table.Count; r++)
             {
+                BiomeRow row = table[r];
                 bool[]? allowed = null;
                 if (row.Source == BiomeSource.UpperQuarterH)
                 {

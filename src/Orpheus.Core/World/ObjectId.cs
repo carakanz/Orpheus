@@ -89,11 +89,17 @@ namespace Orpheus.Core.World
         /// <summary>Природные объекты (копаются, `01`, 5).</summary>
         public const ushort Tree = 20;
         public const ushort Rock = 21;
+
+        /// <summary>Залежь меди (`01` 5: кирка 1, руда 2–3); другие залежи — своими id потом.</summary>
         public const ushort Ore = 22;
         public const ushort Stump = 23;
 
+        /// <summary>Объекты генератора v1 (1-017; `01` 3, 5): куст (топор 1 или руки), гранит (кирка 2, класс «скала»).</summary>
+        public const ushort Bush = 24;
+        public const ushort Granite = 25;
+
         /// <summary>Наибольший описанный id.</summary>
-        public const ushort MaxKnownId = 23;
+        public const ushort MaxKnownId = 25;
 
         /// <summary>Размер таблицы свойств по сырому значению якоря: 0…0xFFF (id + поворот).</summary>
         public const int TableSize = 0x1000;
@@ -151,6 +157,8 @@ namespace Orpheus.Core.World
             Set(Rock, Properties.Solid | Properties.Natural);
             Set(Ore, Properties.Solid | Properties.Natural);
             Set(Stump, Properties.Solid | Properties.Natural);
+            Set(Bush, Properties.Solid | Properties.Natural);
+            Set(Granite, Properties.Solid | Properties.Natural);
 
             return table;
 

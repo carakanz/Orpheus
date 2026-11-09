@@ -35,13 +35,6 @@ namespace Orpheus.Server
         /// <inheritdoc cref="ServerHost.SeamLaneAfter"/>
         public const int SeamLaneAfter = ServerHost.SeamLaneAfter;
 
-        /// <inheritdoc cref="ServerHost.Generator"/>
-        public static IWorldGenerator Generator
-        {
-            get => ServerHost.Generator;
-            set => ServerHost.Generator = value;
-        }
-
         public static ServerResult Run(ServerOptions o, TextWriter? console, CancellationToken stop = default)
         {
             string? logsDir = o.LogsDir ?? (o.WorldDir != null ? Path.Combine(o.WorldDir, "logs") : null);

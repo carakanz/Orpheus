@@ -33,18 +33,25 @@ namespace Orpheus.Tests
 
         /// <summary>CI: 100 скал, связь без задержки.</summary>
         [Fact]
-        public void D08_0_7_DigLine_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0);
+        public void D08_0_7_DigLine_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Stub);
+
+        /// <summary>
+        /// 1-017: тот же бот в мире генератора v1 (по умолчанию сервера, <c>--gen v1</c>). Скал в полосе реже, на пути — деревья,
+        /// кусты, гранит и залежи (они дольше), поэтому лимит тактов — вдвое больше.
+        /// </summary>
+        [Fact]
+        public void D17_DigLine_GenV1_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Current, slack: 2);
 
         /// <summary>Ночной прогон: 1000 скал, у копающего RTT 100 мс (имитатор связи).</summary>
         [Fact]
         [Trait("Category", "Big")]
-        public void D08_0_7_DigLine_Big_1000Rocks_Rtt100_ObserverBytesEqual_RestartLosesNothing() => Run(1000, rttMs: 100);
+        public void D08_0_7_DigLine_Big_1000Rocks_Rtt100_ObserverBytesEqual_RestartLosesNothing() => Run(1000, rttMs: 100, WorldGenModule.Stub);
 
-        private void Run(int target, int rttMs)
+        private void Run(int target, int rttMs, IWorldGenerator generator, int slack = 1)
         {
             var wall = Stopwatch.StartNew();
             MapShape shape = MapShape.World(1024);
-            WorldModel world = WorldGenModule.Current.Generate(shape, 1);
+            WorldModel world = generator.Generate(shape, 1);
             (int half, int y0, int rocks) = PickBand(world, target);
             _out.WriteLine($"полоса: x ∈ [−{half}, {half}] у шва, строки {y0}…{y0 + 127}, скал в полосе {rocks}");
             Assert.True(rocks >= target * 5 / 4, $"скал в лучшей полосе {rocks} < {target * 5 / 4}");
@@ -105,7 +112,7 @@ namespace Orpheus.Tests
 
             rig.Run(10);
             long startTicks = rig.Ticks;
-            int limitTicks = target * 60 + 3000;
+            int limitTicks = (target * 60 + 3000) * slack;
             while (!bot.Done && rig.Ticks - startTicks < limitTicks)
             {
                 rig.Run(30);
