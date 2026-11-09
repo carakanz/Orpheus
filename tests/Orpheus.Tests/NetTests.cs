@@ -202,7 +202,7 @@ namespace Orpheus.Tests
             Assert.Equal(a, Encode(b => back.Write(b, layout)));
 
             // Своё состояние (0-019): 1024² — 47 бит, 4096² — 51; остаток скорости вне −9…9 — испорченный снимок.
-            Assert.Equal(size == 1024 ? 80 : 84, layout.SelfBits); // + уворот 21 бит (0-029, протокол 6), + отчёт запас 7 и D_p 5 (0-033, протокол 7)
+            Assert.Equal(size == 1024 ? 97 : 101, layout.SelfBits); // + уворот 21 бит (0-029, протокол 6), + отчёт запас 7 и D_p 5 (0-033, протокол 7), + бой 8+2+4+3 (1-001, протокол 11)
             snap.Self = new SelfState(new WorldPos(5, 5), new Int2(12, 0));
             byte[] bad = Encode(b => snap.Write(b, layout));
             Assert.Throws<ProtocolException>(() => back.Read(bad, layout));
@@ -249,8 +249,9 @@ namespace Orpheus.Tests
             WorldPos p3 = RandomPos();
             var added = new[]
             {
-                new SnapshotEntity { Id = 70_000, Kind = 2, Position = RandomPos(), Direction = 4 },
-                new SnapshotEntity { Id = 7, Kind = 1, Position = RandomPos(), Direction = 0 },
+                // 1-001: новые сущности в дельте несут долю здоровья — писатель по умолчанию пишет цель (100 %).
+                new SnapshotEntity { Id = 70_000, Kind = 2, Position = RandomPos(), Direction = 4, HealthPct = 100 },
+                new SnapshotEntity { Id = 7, Kind = 1, Position = RandomPos(), Direction = 0, HealthPct = 100 },
             };
 
             var buf = new byte[NetSettings.MaxUnreliablePayload];

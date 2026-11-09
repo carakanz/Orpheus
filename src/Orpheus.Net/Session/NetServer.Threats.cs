@@ -32,6 +32,9 @@ namespace Orpheus.Net.Session
         private MeleeDummy _dummy;
         private bool _hasDummy;
 
+        /// <summary>Тип урона ближнего удара манекена — рубящий (`02` 6.9: 1), поле <c>MeleeResultMessage.Damage</c> и события такта.</summary>
+        public const byte DamageTypeMelee = 1;
+
         /// <summary>
         /// Время сервера в кадрах ввода 60 Гц во время <see cref="Poll"/>: (такт + 1) × 2 — первый кадр такта, который
         /// шагается после него. Та же нумерация, что у кадров ввода клиента: «сейчас» клиента — такт заголовка снимка,
@@ -196,6 +199,24 @@ namespace Orpheus.Net.Session
         private void Decide(Player p, in Threat t, in Mover state, bool byLastKnown, int missing)
         {
             bool hit = MeleeHit.Lands(_sim.Shape, t, state);
+            int damage = 0;
+            if (hit)
+            {
+                // 1-001: «попал» = удар решён сервером (конвейер 0-029/0-033 не перестроен): здоровье по
+                // формуле 6.1, отбрасывание от центра сектора, прерывание и смерть — в Simulation.ApplyStrike.
+                // Неуязвимость (уворота здесь уже нет — её снял MeleeHit; послераневая 0,4 с и труп) — урон 0.
+                int raw = AttackRawOf(t.AttackerId);
+                damage = _sim.ApplyStrike(p.EntityId, t.AttackerId, raw, t.Sector.Origin, knockback: true, DamageTypeMelee);
+                if (damage > 0)
+                {
+                    int target = _sim.SlotOf(p.EntityId);
+                    if (target >= 0 && !_sim.Entities[target].Alive)
+                    {
+                        BroadcastDeath(p.EntityId, t.AttackerId, damage, DamageTypeMelee); // событие такта уже разослано
+                    }
+                }
+            }
+
             int waited = Math.Max(0, unchecked((int)(ServerFrame - ResolveFrame(p, t)))); // «сейчас» сервера в плане такта — ServerFrame
             p.ResolvedStart = t.StartFrame;
             p.HasResolved = true;
@@ -221,10 +242,27 @@ namespace Orpheus.Net.Session
                 WaitedFrames = (byte)Math.Min(waited, 255),
                 MissingFrames = (byte)Math.Min(missing, 255),
                 DecidedAtFrame = ServerFrame,
+                Damage = (byte)Math.Min(255, damage),
             };
             int len = msg.Write(_buf);
             _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             MeleeResolved?.Invoke(p.EntityId, msg);
+        }
+
+        /// <summary>Сырой урон атакующего (1-001): у сущности в симуляции — её <c>AttackRaw</c>; манекен вне
+        /// симуляции (нет такой сущности) — урон «Ближнего» (<see cref="Simulation.StrikeRawMelee"/>).</summary>
+        private int AttackRawOf(int attackerId)
+        {
+            var ents = _sim.Entities;
+            for (int i = 0; i < ents.Length; i++)
+            {
+                if (ents[i].Id == attackerId)
+                {
+                    return ents[i].AttackRaw;
+                }
+            }
+
+            return Simulation.StrikeRawMelee;
         }
 
         /// <summary>После такта: «замах начат» каждому в игре по каждой угрозе, чей замах ещё идёт (повтор — от потерь).</summary>

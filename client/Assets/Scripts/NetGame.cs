@@ -107,6 +107,8 @@ namespace Orpheus.Client
         long _hudSnaps;
         long _hudTimeUs;
         int _hudFrame;
+        long _deathAtUs;   // 1-001: миг, когда здоровье своего стало 0 — отсчёт возрождения
+        bool _wasDead;
         bool _quitPending;
         string _status = "Подключение…";
 
@@ -727,13 +729,29 @@ namespace Orpheus.Client
             _hudTimeUs = now;
             TileCoord t = Torus.TileOf(_map, _localPos);
             int rtt = _link!.RoundTripMs(c.ServerPeer);
+            // 1-001: здоровье своего (со снимка, через предсказание) и гибель — обратный отсчёт возрождения (5 с).
+            LocalPrediction? pr = _pred;
+            if (pr != null)
+            {
+                if (pr.Dead && !_wasDead)
+                {
+                    _deathAtUs = now;
+                }
+
+                _wasDead = pr.Dead;
+            }
+
+            string combat = pr == null ? string.Empty
+                : pr.Dead ? $"  погиб — возрождение через {Math.Max(0f, (Simulation.RespawnDelayTicks * 1_000_000L - (now - _deathAtUs)) / 1_000_000f):0.#} с"
+                : $"  здоровье {pr.Health}/100  смертей {c.DeathsSeen}";
             // Значок «высокая задержка» (docs/07 2.7; 0-033): D_p > 150 мс — пока строкой в HUD, картинка — потом.
             _g.DebugText.text = (c.HighLatency ? $"[высокая задержка: показ −{c.DelayFrames * 1000 / 60} мс]  " : "") +
                 $"в игре  сервер {_host}:{_port}  seed 0x{c.Accept.WorldSeed:X}  {_map.Width}×{_map.Height}  " +
                 $"такт {c.ServerTick}  tile {t.X},{t.Y}  сущ {Math.Min(_seen.Count + 1, 99)}  окно {_view!.Count}/{ChunkWindow.MaxChunks}  " +
                 $"снимки {snapsPerSec:0.0}/с  дельт {c.DeltasApplied} (не склеено {c.DeltasUnmerged})  " +
                 $"rtt {(rtt >= 0 ? rtt + " мс" : "—")}  L {c.LeadFrames} D {c.DelayFrames} запас {c.LeadMargin}  ввод {c.InputsSent}  " +
-                $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} расх {_pred?.MaxDevUnits ?? 0}u" +
+                $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} нокбэков {_pred?.KnockAdopted ?? 0} расх {_pred?.MaxDevUnits ?? 0}u" +
+                combat +
                 $"  показ −{(_remote?.BufferUs ?? 0) / 1000} мс (стоит {_remote?.HoldFrames ?? 0})  якорь {_origin?.Anchor.X},{_origin?.Anchor.Y}" +
                 $"{(_pred != null && _pred.Overflows > 0 ? $" (задержка > {LocalPrediction.BufferSize / 60} с: {_pred.Overflows})" : "")}  " +
                 $"zoom x{_g.Zoom:0.00}  {fps:0} fps{EditHud(now)}";

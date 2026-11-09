@@ -251,6 +251,18 @@ namespace Orpheus.Net.Session
         /// <summary>«Удар решён» по своему персонажу (0-029).</summary>
         public Action<MeleeResultMessage>? MeleeResolved { get; set; }
 
+        /// <summary>Смерть сущности (1-001): жертва, убийца, урон добившего удара. Каждое сообщение, повторов нет (канал 2).</summary>
+        public Action<DeathMessage>? DeathSeen { get; set; }
+
+        /// <summary>Возрождение сущности у центра возрождения (1-001).</summary>
+        public Action<RespawnMessage>? RespawnSeen { get; set; }
+
+        /// <summary>Сообщений «смерть» принято (1-001).</summary>
+        public long DeathsSeen { get; private set; }
+
+        /// <summary>Сообщений «возрождение» принято (1-001).</summary>
+        public long RespawnsSeen { get; private set; }
+
         /// <summary>Сообщений «замах начат» принято (с повторами).</summary>
         public long SwingMessages { get; private set; }
 
@@ -474,6 +486,14 @@ namespace Orpheus.Net.Session
                     case MessageType.MeleeResult when State == NetClientState.InGame:
                         MeleeResults++;
                         MeleeResolved?.Invoke(MeleeResultMessage.Read(data));
+                        break;
+                    case MessageType.Death when State == NetClientState.InGame:
+                        DeathsSeen++;
+                        DeathSeen?.Invoke(DeathMessage.Read(data)); // 1-001
+                        break;
+                    case MessageType.Respawn when State == NetClientState.InGame:
+                        RespawnsSeen++;
+                        RespawnSeen?.Invoke(RespawnMessage.Read(data)); // 1-001
                         break;
                     case MessageType.TileReply when State == NetClientState.InGame:
                         OnTileReply(TileReplyMessage.Read(data)); // 0-028

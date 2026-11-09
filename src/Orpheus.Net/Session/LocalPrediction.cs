@@ -69,6 +69,9 @@ namespace Orpheus.Net.Session
         private bool _synced;
         private bool _await;     // после перенумерации: ack прежних номеров не сравнивать (0-025)
         private uint _awaitFrom; // первый кадр новых номеров
+        private byte _health = 100; // 1-001: здоровье последнего снимка (0 — труп)
+        private byte _mass = 1;     // 1-001: масса снимка — по ней скорость отбрасывания
+        private bool _dead;         // 1-001: труп — сервер не шагнёт ввод, предсказание стоит
 
         /// <summary>Порог приёмки 2.13 п. 1: 0,5 тайла = 128 unit.</summary>
         public const int HalfTileUnits = 128;
@@ -132,6 +135,24 @@ namespace Orpheus.Net.Session
         /// <summary>Предсказанный уворот после последнего кадра (0-029).</summary>
         public Dodge Dodge => _mover.Dodge;
 
+        /// <summary>Здоровье последнего снимка (1-001): для полоски; 0 — труп.</summary>
+        public int Health => _health;
+
+        /// <summary>Масса из снимка (1-001): по ней скорость отбрасывания.</summary>
+        public int Mass => _mass;
+
+        /// <summary>Труп (1-001): здоровье 0 — предсказание стоит, сервер не шагнёт ввод.</summary>
+        public bool Dead => _dead;
+
+        /// <summary>Кадров отбрасывания осталось (1-001, снимок + переигровка).</summary>
+        public int KnockLeft => _mover.KnockLeft;
+
+        /// <summary>Направление отбрасывания 1…8, 0 — нет (1-001).</summary>
+        public int KnockDir => _mover.KnockDir;
+
+        /// <summary>Отбрасываний принята из снимка (1-001): сервер задал нокбэк, предсказать его клиент не мог — это не правка предсказания.</summary>
+        public long KnockAdopted { get; private set; }
+
         /// <summary>Предсказанный остаток скорости после последнего кадра.</summary>
         public Int2 Carry => _mover.Carry;
 
@@ -158,7 +179,11 @@ namespace Orpheus.Net.Session
                 _awaitFrom = frame - 3;
                 for (uint k = 3; k >= 1; k--)
                 {
-                    _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid); // копии — с кнопками, как шлёт клиент (0-029)
+                    if (!_dead)
+                    {
+                        _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid); // копии — с кнопками, как шлёт клиент (0-029)
+                    }
+
                     Push(frame - k, input);
                 }
             }
@@ -176,7 +201,11 @@ namespace Orpheus.Net.Session
                 _beforePre = false;
             }
 
-            _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid);
+            if (!_dead)
+            {
+                _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid); // 1-001: труп стоит — сервер не шагнёт ввод
+            }
+
             Push(frame, input);
         }
 
@@ -222,6 +251,11 @@ namespace Orpheus.Net.Session
             bool initial = !_synced;
             _synced = true;
 
+            // 1-001: здоровье и масса — авторитетно с сервера; труп — предсказание стоит (сервер не шагнёт ввод).
+            _health = server.Health;
+            _mass = (byte)Math.Max(1, Math.Min(4, (int)server.Mass));
+            _dead = server.Health == 0;
+
             // Что предсказано для ack: слот кольца; ack раньше истории — состояние до неё; старше кольца — нечего сравнить.
             bool overflow = false;
             Mover predicted = default;
@@ -259,15 +293,24 @@ namespace Orpheus.Net.Session
                     ComparedOverHalfTile++;
                 }
 
-                if (d2 <= MatchDist2 && predicted.Carry == server.Carry && SelfState.SameDodge(predicted.Dodge, server.Dodge))
+                if (d2 <= MatchDist2 && predicted.Carry == server.Carry && SelfState.SameDodge(predicted.Dodge, server.Dodge) &&
+                    predicted.KnockLeft == server.KnockLeft && predicted.KnockDir == server.KnockDir)
                 {
-                    return; // совпало (2.6 п. 3)
+                    return; // совпало (2.6 п. 3); нокбэк — тоже (1-001): шаги совпали с серверными
                 }
             }
+
+            // Отбрасывание задал сервер (предсказание его не имело — удар решает сервер): расхождение позиции
+            // «от нокбэка» — не ошибка предсказания, приём серверного состояния считаем отдельно (1-001).
+            bool knockDriven = !_dead && server.KnockLeft > 0 && (known ? predicted.KnockLeft == 0 : true);
 
             if (initial)
             {
                 Initial++;
+            }
+            else if (knockDriven)
+            {
+                KnockAdopted++;
             }
             else
             {
@@ -297,16 +340,24 @@ namespace Orpheus.Net.Session
 
             // Серверное состояние — уже после ack: переигровка только новее. Уворот — тоже серверный (0-029, протокол 6):
             // сервер мог шагнуть кадры сам (без нажатий) или перескочить их — тогда предсказанный рывок не тот.
+            // Отбрасывание — с сервера целиком (1-001): скорость по массе снимка, предсказание шагает его до «новее ack».
             _mover.Position = server.Position;
             _mover.Carry = server.Carry;
             _mover.Dodge = server.Dodge;
+            _mover.KnockLeft = server.KnockLeft;
+            _mover.KnockSpeedX10 = server.KnockLeft == 0 ? 0 : Mover.KnockSpeedFor(_mass);
+            _mover.KnockDir = server.KnockLeft == 0 ? (byte)0 : server.KnockDir;
             _before = _mover;
             _beforeFrame = ackFrame;
             _beforePre = !_hasHistory || (int)(ackFrame - _firstFrame) < 0;
             _head = _count = 0;
             for (int k = n - 1; k >= 0; k--)
             {
-                _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, _solid);
+                if (!_dead)
+                {
+                    _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, _solid);
+                }
+
                 Push(_replay[k].Frame, _replay[k].Input);
             }
 
