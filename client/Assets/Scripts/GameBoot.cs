@@ -85,6 +85,7 @@ namespace Orpheus.Client
         ScreenshotRun? _screenshot;
         Anim.ActorRig? _heroRig;        // K-001: ходьба и дыхание своего персонажа офлайн
         Anim.AnimShowcase? _showcase;   // K-001: показ анимации и замер (--anim-shots, --anim-bench)
+        TileBenchRun? _tileBench;       // 1-022: стенд «48 Tilemap» (--tile-bench): бег через шов + поток правок, замеры
         int _hudFrame;
 
         void Awake()
@@ -144,6 +145,11 @@ namespace Orpheus.Client
             {
                 _showcase = new Anim.AnimShowcase(this, Args.AnimShotsDir, Args.AnimBenchSeconds);
             }
+            else if (Args.TileBenchSeconds > 0)
+            {
+                _tileBench = new TileBenchRun(this);
+                Debug.Log($"[boot] стенд tile-bench: зум x{MinZoom:0.00}, бег через шов + правки, {Args.TileBenchSeconds} с (1-022)");
+            }
 
             _heroRig = new Anim.ActorRig(Character);
         }
@@ -156,6 +162,7 @@ namespace Orpheus.Client
             _dodge?.Dispose();
             _zoomOut?.Dispose();
             _smoke?.Dispose();
+            _tileBench?.Dispose();
             Net?.Shutdown();
         }
 
@@ -232,6 +239,7 @@ namespace Orpheus.Client
             }
 
             _smoke?.BeforeFrame();
+            _tileBench?.BeforeFrame();
 
             // 1. Кадр ввода.
             Player.Input = ScriptedInput ?? ToFrame(_move.ReadValue<Vector2>());
@@ -265,6 +273,7 @@ namespace Orpheus.Client
             _smoke?.AfterFrame();
             _screenshot?.AfterFrame();
             _showcase?.AfterFrame();
+            _tileBench?.AfterFrame();
         }
 
         /// <summary>Персонаж — в интерполированной позиции от якоря; камера — над ним.</summary>
