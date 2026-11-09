@@ -146,6 +146,7 @@ namespace Orpheus.Net.Session
             {
                 Mover m = sim.Entities[slot].Mover;
                 r.Mover = m;
+                r.Inv = sim.Entities[slot].Inv; // сумка остаётся за ключом (1-002)
                 sim.RemoveEntity(r.EntityId);
             }
 

@@ -72,6 +72,7 @@ namespace Orpheus.Net.Session
         private byte _health = 100; // 1-001: здоровье последнего снимка (0 — труп)
         private byte _mass = 1;     // 1-001: масса снимка — по ней скорость отбрасывания
         private bool _dead;         // 1-001: труп — сервер не шагнёт ввод, предсказание стоит
+        private byte _slot;         // 1-002: ячейка последнего отправленного кадра — предмет в руках у клиента
 
         /// <summary>Порог приёмки 2.13 п. 1: 0,5 тайла = 128 unit.</summary>
         public const int HalfTileUnits = 128;
@@ -141,6 +142,12 @@ namespace Orpheus.Net.Session
         /// <summary>Масса из снимка (1-001): по ней скорость отбрасывания.</summary>
         public int Mass => _mass;
 
+        /// <summary>
+        /// Ячейка быстрой панели в последнем отправленном кадре (1-002) — «предмет в руках» для картинки и HUD:
+        /// сервер применяет её в том же кадре, что и предсказание, поэтому клиент не ждёт снимка.
+        /// </summary>
+        public byte SelectedSlot => _slot;
+
         /// <summary>Труп (1-001): здоровье 0 — предсказание стоит, сервер не шагнёт ввод.</summary>
         public bool Dead => _dead;
 
@@ -165,6 +172,7 @@ namespace Orpheus.Net.Session
         /// </summary>
         public void Sent(uint frame, InputFrame input)
         {
+            _slot = input.Slot; // 1-002: ячейка едет кадром — клиент видит её в том же кадре, что и сервер
             if (_hasHistory && _count > 0 && frame != NewestFrame + 1)
             {
                 // Перенумерация (NetClient.SendFrame, 0-025): часы переставлены, номер — по оценке. Клиент шлёт три кадра

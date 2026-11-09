@@ -28,6 +28,9 @@ namespace Orpheus.Core.Sim
         /// <summary>Кадр ввода, по которому сущность шла в последнем такте (держится, пока не придёт новый).</summary>
         public InputFrame Input;
 
+        /// <summary>Сумка персонажа (1-002): панель, выбранная ячейка, материалы. У врагов — пустая.</summary>
+        public Inventory Inv;
+
         /// <summary>Здоровье сейчас (1-001, `02` 6.3). ≤ 0 — смерть; в вехе 1 не сохраняется (карточка, «Не трогать»).</summary>
         public short Health;
 

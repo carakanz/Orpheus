@@ -1835,11 +1835,13 @@ namespace Orpheus.Net.Session
 
             if (character >= 0)
             {
+                _sim.SetInventory(id, Characters[character].Inv); // сумка вернувшегося — записана при уходе (1-002)
                 Characters.SetInWorld(character, id, m.Name);
                 CharactersReturned++;
             }
             else
             {
+                _sim.SetInventory(id, Inventory.StartingKit()); // стартовый набор нового персонажа (06 0 + карточка 1-002)
                 Characters.AddInWorld(isHost, m.Name, id);
             }
 
