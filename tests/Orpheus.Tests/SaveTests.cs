@@ -515,14 +515,15 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Такт кадрами ввода с уворотом: сущность 0 жмёт один раз (в такте 0) — дальше её счётчик «с начала» доходит до 255;
-        /// остальные — раз в 25 тактов (50 кадров > рывок + откат 39) со сдвигом по номеру, направление крутится.
+        /// остальные — раз в 55 тактов (110 кадров > рывок + откат 39 и > восстановления 25 выносливости, 1-003) со
+        /// сдвигом по номеру, направление крутится.
         /// </summary>
         private static void StepDodging(Simulation sim, int t)
         {
             Span<InputFrame> frames = stackalloc InputFrame[2];
             for (int i = 0; i < sim.EntityCount; i++)
             {
-                bool press = i == 0 ? t == 0 : (t + 5 * i) % 25 == 0;
+                bool press = i == 0 ? t == 0 : t % 55 == (4 * i) % 55;
                 Input8 dir = Input8.FromIndex((t / 13 + i) % 8);
                 frames[0] = new InputFrame(dir, press ? InputButtons.Dodge : (ushort)0);
                 frames[1] = new InputFrame(dir);

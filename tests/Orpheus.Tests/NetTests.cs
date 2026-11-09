@@ -205,7 +205,7 @@ namespace Orpheus.Tests
             Assert.Equal(a, Encode(b => back.Write(b, layout)));
 
             // Своё состояние (0-019): 1024² — 47 бит, 4096² — 51; остаток скорости вне −9…9 — испорченный снимок.
-            Assert.Equal(size == 1024 ? 97 : 101, layout.SelfBits); // + уворот 21 бит (0-029, протокол 6), + отчёт запас 7 и D_p 5 (0-033, протокол 7), + бой 8+2+4+3 (1-001, протокол 11)
+            Assert.Equal(size == 1024 ? 105 : 109, layout.SelfBits); // + уворот 21 бит (0-029, протокол 6), + отчёт запас 7 и D_p 5 (0-033, протокол 7), + бой 8+2+4+3 (1-001, протокол 11), + выносливость 8 (1-003, протокол 14)
             snap.Self = new SelfState(new WorldPos(5, 5), new Int2(12, 0));
             byte[] bad = Encode(b => snap.Write(b, layout));
             Assert.Throws<ProtocolException>(() => back.Read(bad, layout));
