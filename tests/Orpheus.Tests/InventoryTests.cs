@@ -6,6 +6,7 @@ using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net;
+using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using Orpheus.Net.Transport;
 using Orpheus.WorldGen;
@@ -329,6 +330,113 @@ namespace Orpheus.Tests
             Assert.Equal(6, h.BagOf(c.EntityId).Selected);
             Assert.Equal(pred.SelectedSlot, h.BagOf(c.EntityId).Selected);
             Assert.True(pred.Reconciled > 0, "сверок не было — тест не про сеть");
+        }
+
+        // ---------- Сеть (этап 4): payload, сообщение, доставка, предмет в руках в снимке ----------
+
+        /// <summary>payload сумки (23 байта): запись → чтение даёт ту же сумку; короткий буфер — ArgumentException.</summary>
+        [Fact]
+        public void D06_Inventory_Payload_RoundTrip()
+        {
+            var inv = Inventory.StartingKit();
+            inv.Add(Material.Wood, 70_000);
+            inv.Add(Material.Torch, 3);
+            inv.Select(5);
+            Assert.Equal(23, Inventory.PayloadBytes);
+            var buf = new byte[Inventory.PayloadBytes];
+            inv.WritePayload(buf);
+            Assert.Equal(inv, Inventory.ReadPayload(buf));
+            Assert.Throws<ArgumentException>(() => inv.WritePayload(new byte[Inventory.PayloadBytes - 1]));
+            Assert.Throws<ArgumentException>(() => Inventory.ReadPayload(new byte[Inventory.PayloadBytes - 1]));
+        }
+
+        /// <summary>«Сумка» (тип 26, 30 байт): читается поле в поле; выбранная ячейка ≥ 8 — ProtocolException.</summary>
+        [Fact]
+        public void D06_Net_InventoryMessage_RoundTrip()
+        {
+            var inv = Inventory.StartingKit();
+            inv.Select(3);
+            var m = new InventoryMessage { EntityId = 77, Version = 9, Bag = inv };
+            Assert.Equal(30, InventoryMessage.Bytes);
+            var buf = new byte[InventoryMessage.Bytes];
+            Assert.Equal(InventoryMessage.Bytes, m.Write(buf));
+            InventoryMessage r = InventoryMessage.Read(buf);
+            Assert.Equal(77, r.EntityId);
+            Assert.Equal((ushort)9, r.Version);
+            Assert.Equal(inv, r.Bag);
+            buf[7] = 8; // выбранная за границей: тип 1 + сущность 4 + версия 2
+            Assert.Throws<ProtocolException>(() => InventoryMessage.Read(buf));
+        }
+
+        /// <summary>
+        /// Вошёл — сумка пришла (тип 26) стартовым набором; сумку на сервере поменяли — пришло ещё одно сообщение
+        /// со следующей версией; пустой такт — сумку не шлют.
+        /// </summary>
+        [Fact]
+        public void D06_Net_Bag_ComesOnJoin_OnUpdate_NotEveryTick()
+        {
+            using var h = new Harness();
+            NetClient a = h.Connect("Орфей");
+            var got = new List<InventoryMessage>();
+            a.InventorySeen = m => got.Add(m);
+            h.Run(2);
+            Assert.Single(got);
+            Assert.Equal(a.EntityId, got[0].EntityId);
+            Assert.Equal(Inventory.StartingKit(), got[0].Bag);
+            Assert.Equal(1, a.InventoriesSeen);
+
+            var mine = Inventory.StartingKit();
+            mine.Add(Material.Wood, 5);
+            Assert.True(h.Sim.SetInventory(a.EntityId, mine));
+            h.Run(1);
+            Assert.Equal(2, got.Count);
+            Assert.Equal(mine, got[1].Bag);
+            Assert.Equal((ushort)2, got[1].Version);
+            Assert.Equal(2, h.Server.InventoriesSent);
+
+            h.Run(5);
+            Assert.Equal(2, got.Count); // сумка не менялась — сообщений нет
+        }
+
+        /// <summary>
+        /// Предмет в руках едет снимком: свои руки и руки соседа видны клиенту; смена предмета у соседа приходит
+        /// дельтой (маска Held) — картинка в руках у всех.
+        /// </summary>
+        [Fact]
+        public void D06_Net_HeldItem_InSnapshot_DeltaOnSwitch()
+        {
+            using var h = new Harness();
+            NetClient a = h.Connect("Орфей");
+            NetClient b = h.Connect("Эвридика");
+            h.Run(2);
+            int selfHeld = -1, otherHeld = -1;
+            a.SnapshotApplied = s =>
+            {
+                for (int i = 0; i < s.Count; i++)
+                {
+                    if (s.Entities[i].Id == a.EntityId)
+                    {
+                        selfHeld = s.Entities[i].HeldItem;
+                    }
+
+                    if (s.Entities[i].Id == b.EntityId)
+                    {
+                        otherHeld = s.Entities[i].HeldItem;
+                    }
+                }
+            };
+
+            h.Run(2);
+            Assert.Equal(Items.StonePickaxe, selfHeld); // стартовый набор: в руках кирка
+            Assert.Equal(Items.StonePickaxe, otherHeld);
+
+            var sword = Inventory.StartingKit();
+            sword.SetSlotAt(0, Items.WoodenSword);
+            Assert.True(h.Sim.SetInventory(b.EntityId, sword));
+            h.Run(2);
+            Assert.Equal(Items.WoodenSword, otherHeld); // дельта с маской Held дошла
+            Assert.Equal(Items.StonePickaxe, selfHeld); // свои руки не изменились
+            Assert.True(h.Server.DeltasSent > 0, "смен не было — тест не про дельту");
         }
 
         // ---------- Стенд ----------

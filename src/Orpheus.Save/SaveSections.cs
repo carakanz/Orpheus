@@ -125,9 +125,9 @@ namespace Orpheus.Save
         }
 
         /// <summary>
-        /// Поля записи персонажа (формат 3, 0-035; docs/07 6.2 «Персонажи — мировая часть», 7.4 «Вернулся»): ключ
+        /// Поля записи персонажа (формат 3–4, 0-035, 1-002; docs/07 6.2 «Персонажи — мировая часть», 7.4 «Вернулся»): ключ
         /// (хозяин или имя), номер сущности, если персонаж в мире на такте сохранения (его движение — в разделе СУЩЕСТВА),
-        /// иначе — движение на миг ухода.
+        /// иначе — движение на миг ухода; сумка (формат 4).
         /// </summary>
         public static class CharacterField
         {
@@ -149,6 +149,10 @@ namespace Orpheus.Save
             public const int DodgeDashLeft = 10;
             public const int DodgeCooldown = 11;
             public const int DodgeDirection = 12;
+
+            /// <summary>Сумка, payload 23 байта (1-002, формат 4): выбранная ячейка, 8 ячеек, счётчики материалов.
+            /// Нет поля (формат 3) — стартовый набор.</summary>
+            public const int Inv = 13;
         }
 
         /// <summary>Схема записей раздела для <c>orpheus-save dump</c>: имена полей и вложенные схемы. null — схемы нет.</summary>
@@ -209,7 +213,8 @@ namespace Orpheus.Save
                 .Field(CharacterField.DodgeElapsed, "уворот: кадров с начала")
                 .Field(CharacterField.DodgeDashLeft, "уворот: рывка осталось")
                 .Field(CharacterField.DodgeCooldown, "уворот: отката осталось")
-                .Field(CharacterField.DodgeDirection, "уворот: направление"));
+                .Field(CharacterField.DodgeDirection, "уворот: направление")
+                .Field(CharacterField.Inv, "сумка"));
     }
 
     /// <summary>Имена полей записи и схемы вложенных записей (только для текстового вывода).</summary>

@@ -257,11 +257,17 @@ namespace Orpheus.Net.Session
         /// <summary>Возрождение сущности у центра возрождения (1-001).</summary>
         public Action<RespawnMessage>? RespawnSeen { get; set; }
 
+        /// <summary>Сумка своего персонажа (1-002): при входе и когда содержимое изменилось. Повторов нет (канал 2).</summary>
+        public Action<InventoryMessage>? InventorySeen { get; set; }
+
         /// <summary>Сообщений «смерть» принято (1-001).</summary>
         public long DeathsSeen { get; private set; }
 
         /// <summary>Сообщений «возрождение» принято (1-001).</summary>
         public long RespawnsSeen { get; private set; }
+
+        /// <summary>Сообщений «сумка» принято (1-002).</summary>
+        public long InventoriesSeen { get; private set; }
 
         /// <summary>Сообщений «замах начат» принято (с повторами).</summary>
         public long SwingMessages { get; private set; }
@@ -494,6 +500,10 @@ namespace Orpheus.Net.Session
                     case MessageType.Respawn when State == NetClientState.InGame:
                         RespawnsSeen++;
                         RespawnSeen?.Invoke(RespawnMessage.Read(data)); // 1-001
+                        break;
+                    case MessageType.Inventory when State == NetClientState.InGame:
+                        InventoriesSeen++;
+                        InventorySeen?.Invoke(InventoryMessage.Read(data)); // 1-002
                         break;
                     case MessageType.TileReply when State == NetClientState.InGame:
                         OnTileReply(TileReplyMessage.Read(data)); // 0-028

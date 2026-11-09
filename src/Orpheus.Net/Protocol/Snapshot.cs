@@ -632,6 +632,11 @@ namespace Orpheus.Net.Protocol
                         throw new ProtocolException($"Дельта: доля здоровья {e.HealthPct} % > 100.");
                     }
                 }
+
+                if ((f & DeltaFields.Held) != 0)
+                {
+                    e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
+                }
             }
 
             for (int i = 0; i < added; i++)
@@ -642,6 +647,7 @@ namespace Orpheus.Net.Protocol
                 e.Position = ReadPosition(ref r, layout);
                 e.Direction = (byte)r.ReadBits(SnapshotLayout.DirectionBits);
                 e.HealthPct = (byte)r.ReadBits(SnapshotLayout.HealthPctBits);
+                e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
                 if (e.HealthPct > 100)
                 {
                     throw new ProtocolException($"Дельта: доля здоровья {e.HealthPct} % > 100.");
@@ -718,6 +724,11 @@ namespace Orpheus.Net.Protocol
                     if ((UpdatedFields[k] & DeltaFields.Health) != 0)
                     {
                         e.HealthPct = Updated[k].HealthPct;
+                    }
+
+                    if ((UpdatedFields[k] & DeltaFields.Held) != 0)
+                    {
+                        e.HeldItem = Updated[k].HeldItem;
                     }
                 }
 
@@ -835,7 +846,7 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Изменившаяся сущность базы: номер, поля по маске; не влезла — false (ничего не записано).</summary>
-        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100)
+        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0)
         {
             Enter(1);
             if (fields == DeltaFields.None)
@@ -866,12 +877,17 @@ namespace Orpheus.Net.Protocol
                 _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
             }
 
+            if ((fields & DeltaFields.Held) != 0)
+            {
+                _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
+            }
+
             _updated++;
             return true;
         }
 
         /// <summary>Новая сущность — полной записью; не влезла — false.</summary>
-        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100)
+        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0)
         {
             Enter(2);
             if (_added == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
@@ -885,6 +901,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits((uint)(position.Y >> SnapshotLayout.QuantShift), _layout.BitsY);
             _w.WriteBits(direction, SnapshotLayout.DirectionBits);
             _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
+            _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
             _added++;
             return true;
         }

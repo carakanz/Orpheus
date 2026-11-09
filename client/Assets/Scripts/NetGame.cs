@@ -201,6 +201,7 @@ namespace Orpheus.Client
             _client = new NetClient(_link, _transport.ServerPeer, _args.Name, NetModule.Version);
             _client.HostToken = token; // до первого Poll: вход уходит, когда соединение установлено
             _client.SnapshotApplied = OnSnapshot;
+            _client.InventorySeen = OnInventory; // 1-002: зеркало своей сумки — серверная
         }
 
         /// <summary>Свой сервер (0-024): запуск закончился → соединение; не поднялся или вышел во время игры → текст в окне.</summary>

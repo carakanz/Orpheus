@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
+using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -30,10 +31,12 @@ namespace Orpheus.Client
 
         readonly List<Flash> _flashes = new List<Flash>();
 
-        // Зеркало своей сумки (1-002): сервер выдаёт новичку стартовый набор, содержимое ячеек — статические данные,
-        // а выбранная ячейка известна клиенту из его же кадров (LocalPrediction.SelectedSlot). Этап 4 (InventoryMessage)
-        // наполнит зеркало серверной сумкой и будет править им по снимкам/сообщениям.
-        readonly Inventory _bag = Inventory.StartingKit();
+        // Зеркало своей сумки (1-002): наполняется сервером — «сумка» (тип 26) приходит при входе и при каждом изменении
+        // (копание, подбор). Выбранная ячейка для руки берётся из своих кадров, пока подтверждение не пришло.
+        Inventory _bag = Inventory.StartingKit();
+
+        /// <summary>Сумка от сервера (этап 4): зеркало — серверная сумка целиком, включая выбранную ячейку.</summary>
+        void OnInventory(InventoryMessage m) => _bag = m.Bag;
 
         /// <summary>Предмет в руках: ячейка последнего отправленного кадра, содержимое — из зеркала сумки (1-002).</summary>
         byte HeldItem => _bag.SlotAt(_pred?.SelectedSlot ?? _bag.Selected);

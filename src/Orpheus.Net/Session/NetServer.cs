@@ -113,6 +113,14 @@ namespace Orpheus.Net.Session
             public HeldChunks? Held;
 
             /// <summary>
+            /// Сумка, отправленная игроку (1-002): после такта сверяется с сумкой сущности — изменилась → «сумка» (тип 26).
+            /// <see cref="HasSentInv"/> — слана хоть раз; <see cref="InvVersion"/> — версия в последнем сообщении.
+            /// </summary>
+            public Inventory SentInv;
+            public bool HasSentInv;
+            public ushort InvVersion;
+
+            /// <summary>
             /// Опережение L из последнего нового пакета ввода, кадров (0-033, 2.7) — подсказка только для отчёта о запасе (им клиент
             /// правит своё же L); D_p от него не зависит (з. 2 проверки 0-033).
             /// </summary>
@@ -481,6 +489,9 @@ namespace Orpheus.Net.Session
 
         /// <summary>Событий боя разослано (смерть/возрождение, 1-001; каждому в игре).</summary>
         public long CombatEventsSent { get; private set; }
+
+        /// <summary>Сообщений «сумка» отправлено (1-002; вход + каждое изменение).</summary>
+        public long InventoriesSent { get; private set; }
 
         /// <summary>Байт снимков отправлено (полных и дельт).</summary>
         public long SnapshotBytes { get; private set; }
@@ -1003,11 +1014,30 @@ namespace Orpheus.Net.Session
                 if (pl.State == PlayerState.InGame)
                 {
                     SendSnapshotTo(pl, entities, tick);
+                    int slot = _sim.SlotOf(pl.EntityId);
+                    if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))
+                    {
+                        SendInventoryTo(pl, entities[slot].Inv); // 1-002: сумка изменилась (копание, подбор, смена ячейки)
+                    }
                 }
             }
 
             SendSwings();
             _transport.Flush(); // снимки такта — сразу, а не по таймеру транспорта (0-015)
+        }
+
+        /// <summary>
+        /// «Сумка» игроку (1-002, тип 26, канал 2): сумка его сущности — при входе и при каждом изменении
+        /// (сверка в <see cref="SendSnapshots"/>). Версия растёт при каждой отправке; порядок хранит канал 2.
+        /// </summary>
+        private void SendInventoryTo(Player pl, in Inventory bag)
+        {
+            pl.InvVersion = unchecked((ushort)(pl.InvVersion + 1));
+            pl.SentInv = bag;
+            pl.HasSentInv = true;
+            int len = new InventoryMessage { EntityId = pl.EntityId, Version = pl.InvVersion, Bag = bag }.Write(_buf);
+            _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+            InventoriesSent++;
         }
 
         /// <summary>Снимок такта <paramref name="tick"/> одному игроку (дельта или полный); персонажа нет — false.</summary>
@@ -1145,6 +1175,11 @@ namespace Orpheus.Net.Session
                         f |= DeltaFields.Health; // 1-001
                     }
 
+                    if (_cur[ci].HeldItem != b.HeldItem)
+                    {
+                        f |= DeltaFields.Held; // 1-002
+                    }
+
                     if (f == DeltaFields.None)
                     {
                         continue;
@@ -1194,13 +1229,13 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < updatedN; i++)
             {
                 SnapshotEntity e = _cur[_updCur[i]];
-                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct);
+                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem);
             }
 
             for (int i = 0; i < addedN; i++)
             {
                 SnapshotEntity e = _cur[_addCur[i]];
-                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct);
+                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct, e.HeldItem);
             }
 
             int len = w.Finish();
@@ -1216,7 +1251,7 @@ namespace Orpheus.Net.Session
             w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < curCount; i++)
             {
-                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct))
+                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem))
                 {
                     break;
                 }
@@ -1338,6 +1373,7 @@ namespace Orpheus.Net.Session
             Position = SnapshotLayout.Quantize(e.Mover.Position),
             Direction = e.Input.DirectionCode,
             HealthPct = (byte)Math.Max(0, Math.Min(100, e.Health * 100 / Math.Max(1, (int)e.MaxHealth))), // 1-001: доля HP
+            HeldItem = e.Inv.Held, // 1-002: предмет в руках — картинка у всех
         };
 
         private static int IndexIn(SnapshotEntity[] ents, int count, int id)
@@ -1581,7 +1617,7 @@ namespace Orpheus.Net.Session
         }
 
         private static bool Add(ref SnapshotWriter w, in SimEntity e) =>
-            w.TryAdd(e.Id, e.Kind, e.Mover.Position, e.Input.DirectionCode);
+            w.TryAdd(e.Id, e.Kind, e.Mover.Position, e.Input.DirectionCode, 100, e.Inv.Held);
 
         // ---------- События транспорта ----------
 
@@ -1867,6 +1903,7 @@ namespace Orpheus.Net.Session
             _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             Log?.Invoke(NetLogLevel.Info, $"вход{(p.IsHost ? " хозяина" : "")}: «{m.Name}» → #{id} ({where}), соединение {p.Peer}");
             SendPauseTo(p); // 0-036: вошёл в паузу — сразу узнаёт, что пауза и кто поставил
+            SendInventoryTo(p, _sim.GetEntity(id).Inv); // 1-002: вошёл — сразу знает свою сумку
             if (p.IsHost)
             {
                 HostJoined?.Invoke();
