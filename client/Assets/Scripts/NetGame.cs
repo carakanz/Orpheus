@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Net.Sockets;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
+using Orpheus.Core.Trig;
 using Orpheus.Core.World;
 using Orpheus.Net;
 using Orpheus.Net.Hosting;
@@ -107,6 +108,8 @@ namespace Orpheus.Client
         long _hudSnaps;
         long _hudTimeUs;
         int _hudFrame;
+        int _slot;   // 1-002: ячейка быстрой панели (`02` 1.1): колесо мыши, клавиши 1–8; уезжает в кадрах ввода
+        ushort _aim; // 1-002: угол прицела от персонажа к курсору (Angle16), в каждом кадре ввода
         long _deathAtUs;   // 1-001: миг, когда здоровье своего стало 0 — отсчёт возрождения
         bool _wasDead;
         bool _quitPending;
@@ -476,6 +479,9 @@ namespace Orpheus.Client
             // переставляются, следующий кадр перенумеровывается (NetClient.SendFrame, LocalPrediction.Sent).
             int n = c.FramesDue(now);
             ushort editButtons = UpdateEdits(now); // 0-028: копание под курсором, стена по ПКМ
+            // 1-002: прицел и ячейка — в каждый кадр ввода (журнал 2.4); в net-smoke кадр скриптованный, без мыши.
+            ushort aim = _args.NetSmokeSeconds > 0 ? (ushort)0 : ComputeAim();
+            byte slot = _args.NetSmokeSeconds > 0 ? (byte)0 : (byte)_slot;
             if (_args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame())
             {
                 _dodgeWait = DodgeWaitFrames; // 0-034: нажатие ждёт направления до 0,1 с
@@ -484,7 +490,9 @@ namespace Orpheus.Client
 
             for (int k = 0; k < n; k++)
             {
-                InputFrame frame = _args.NetSmokeSeconds > 0 ? ScriptedSmokeFrame(now) : GameBoot.ToFrame(_g.Move.ReadValue<Vector2>());
+                InputFrame frame = _args.NetSmokeSeconds > 0 ?
+                    ScriptedSmokeFrame(now) :
+                    WithAimSlot(GameBoot.ToFrame(_g.Move.ReadValue<Vector2>()), aim, slot);
                 ushort buttons = editButtons;
                 if (_dodgeWait > 0)
                 {
@@ -509,6 +517,24 @@ namespace Orpheus.Client
                 _pred!.Sent(c.Frame, frame);
             }
         }
+
+        /// <summary>Прицел (1-002, `02` 1.1 «Прицел»): угол от своего персонажа к курсору мыши, Angle16 (целый, ядро).</summary>
+        ushort ComputeAim()
+        {
+            Mouse? mouse = Mouse.current;
+            if (mouse == null || _origin == null)
+            {
+                return 0;
+            }
+
+            Vector3 screen = mouse.position.ReadValue();
+            Vector3 w = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
+            WorldPos c = _origin.FromUnity(w);
+            return Angle16.Atan2(c.Y - _localPos.Y, c.X - _localPos.X).Raw;
+        }
+
+        /// <summary>Кадр движения + прицел и ячейка быстрой панели (1-002).</summary>
+        static InputFrame WithAimSlot(InputFrame f, ushort aim, byte slot) => new InputFrame(f.Direction, f.Buttons, aim, slot);
 
         /// <summary>
         /// Нажатие уворота ждёт направления движения столько кадров ввода (6 = 0,1 с): «Shift + стрелка» нажимают не строго
@@ -684,16 +710,31 @@ namespace Orpheus.Client
             return root;
         }
 
+        // 1-002: в сетевом режиме колесо мыши — ячейка быстрой панели (`02` 1.1), зум остаётся на геймпаде (плечи);
+        // клавиши 1–8 — прямой выбор ячейки.
         void UpdateZoom()
         {
             float scroll = _g.ZoomAxis.ReadValue<float>();
             if (scroll > 0.01f)
             {
-                _g.SetZoom(_g.Zoom * GameBoot.ZoomStep);
+                _slot = (_slot + 1) % InputFrame.MaxSlots;
             }
             else if (scroll < -0.01f)
             {
-                _g.SetZoom(_g.Zoom / GameBoot.ZoomStep);
+                _slot = (_slot + InputFrame.MaxSlots - 1) % InputFrame.MaxSlots;
+            }
+
+            Keyboard? kb = Keyboard.current;
+            if (kb != null)
+            {
+                for (int k = 0; k < InputFrame.MaxSlots; k++)
+                {
+                    if (DigitPressed(kb, k))
+                    {
+                        _slot = k;
+                        break;
+                    }
+                }
             }
 
             if (_g.ZoomIn.WasPressedThisFrame())
@@ -706,6 +747,19 @@ namespace Orpheus.Client
                 _g.SetZoom(_g.Zoom / GameBoot.ZoomStep);
             }
         }
+
+        /// <summary>Нажата ли клавиша 1…8 (ячейка 0…7) быстрой панели.</summary>
+        static bool DigitPressed(Keyboard kb, int slot) => slot switch
+        {
+            0 => kb.digit1Key.isPressed,
+            1 => kb.digit2Key.isPressed,
+            2 => kb.digit3Key.isPressed,
+            3 => kb.digit4Key.isPressed,
+            4 => kb.digit5Key.isPressed,
+            5 => kb.digit6Key.isPressed,
+            6 => kb.digit7Key.isPressed,
+            _ => kb.digit8Key.isPressed,
+        };
 
         // ---------- HUD, smoke, выход ----------
 
@@ -752,7 +806,7 @@ namespace Orpheus.Client
                 $"снимки {snapsPerSec:0.0}/с  дельт {c.DeltasApplied} (не склеено {c.DeltasUnmerged})  " +
                 $"rtt {(rtt >= 0 ? rtt + " мс" : "—")}  L {c.LeadFrames} D {c.DelayFrames} запас {c.LeadMargin}  ввод {c.InputsSent}  " +
                 $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} нокбэков {_pred?.KnockAdopted ?? 0} расх {_pred?.MaxDevUnits ?? 0}u" +
-                combat +
+                combat + BagHud() +
                 $"  показ −{(_remote?.BufferUs ?? 0) / 1000} мс (стоит {_remote?.HoldFrames ?? 0})  якорь {_origin?.Anchor.X},{_origin?.Anchor.Y}" +
                 $"{(_pred != null && _pred.Overflows > 0 ? $" (задержка > {LocalPrediction.BufferSize / 60} с: {_pred.Overflows})" : "")}  " +
                 $"zoom x{_g.Zoom:0.00}  {fps:0} fps{EditHud(now)}";

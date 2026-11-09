@@ -1,5 +1,6 @@
 #nullable enable
 using System.Collections.Generic;
+using System.Text;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
@@ -8,6 +9,7 @@ using Orpheus.Net.Session;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Debug = UnityEngine.Debug;
+using Material = Orpheus.Core.Sim.Material; // HUD сумки: Sim.Material, не UnityEngine.Material
 
 namespace Orpheus.Client
 {
@@ -40,6 +42,48 @@ namespace Orpheus.Client
 
         /// <summary>Предмет в руках: ячейка последнего отправленного кадра, содержимое — из зеркала сумки (1-002).</summary>
         byte HeldItem => _bag.SlotAt(_pred?.SelectedSlot ?? _bag.Selected);
+
+        /// <summary>Кусок HUD про сумку (1-002): что в руках и ненулевые материалы.</summary>
+        string BagHud()
+        {
+            var sb = new StringBuilder("  в руках: ");
+            sb.Append(ItemName(HeldItem));
+            sb.Append($" [{_slot + 1}/{InputFrame.MaxSlots}]");
+            for (int m = 0; m < (int)Material.Count; m++)
+            {
+                int n = _bag.CountAt((Material)m);
+                if (n > 0)
+                {
+                    sb.Append($"  {MaterialName(m)} {n}");
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        static string ItemName(byte id) => id switch
+        {
+            Items.None => "пусто",
+            Items.StonePickaxe => "кирка",
+            Items.StoneAxe => "топор",
+            Items.Hammer => "молот",
+            Items.WoodenSword => "меч",
+            Items.SimpleBow => "лук",
+            Items.Torch => "факел",
+            _ => $"№{id}",
+        };
+
+        static string MaterialName(int m) => m switch
+        {
+            (int)Material.Wood => "древесина",
+            (int)Material.Stone => "камень",
+            (int)Material.Resin => "смола",
+            (int)Material.Fiber => "волокно",
+            (int)Material.Copper => "медь",
+            (int)Material.Arrows => "стрелы",
+            _ => "факелы",
+        };
+
         Sprite? _flashSprite;
         string _lastRefusal = string.Empty;
         long _lastRefusalUntilUs;
