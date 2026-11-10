@@ -257,6 +257,22 @@ namespace Orpheus.Server
                     bots = SpawnBots(sim, o, spawnCenter);
                 }
 
+                if (o.DebugEnemies > 0)
+                {
+                    // Разбойники (1-007, --debug-enemies): кольцо 10–20 тайлов от точки появления — угол по номеру,
+                    // радиус ходит 10…20. Мозг включён сразу: бегут к ближайшему персонажу, бьют (для host-smoke в Unity).
+                    WorldPos center = EditRules.CenterOf(spawnCenter);
+                    for (int i = 0; i < o.DebugEnemies; i++)
+                    {
+                        int raw = (int)((uint)i * 4096u / (uint)o.DebugEnemies); // равные углы по кругу
+                        int radius = (10 + (i * 7) % 11) * Torus.SubTilesPerTile; // 10…20 тайлов
+                        var at = new WorldPos(center.X + Angle16.FromRaw(raw).CosBy(radius), center.Y + Angle16.FromRaw(raw).SinBy(radius));
+                        sim.AddMeleeRogue(at);
+                    }
+
+                    log.Info(sim.Tick, "world", "отладка: разбойники у точки появления", ("enemies", o.DebugEnemies));
+                }
+
                 using InputJournalWriter? record = o.RecordPath != null
                     ? new InputJournalWriter(Need(services.CreateWrite, "--record")(o.RecordPath), JournalHeader.Of(sim))
                     : null;

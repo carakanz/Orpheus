@@ -1,7 +1,9 @@
 using System;
 using Orpheus.Core.Combat;
+using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
+using Orpheus.Core.Trig;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Transport;
 
@@ -127,11 +129,7 @@ namespace Orpheus.Net.Session
             }
 
             int ti = 0;
-            while (ti < _threats.Count && !Concerns(p, _threats[ti]))
-            {
-                ti++;
-            }
-
+            SkipUnresolved(p, ref ti);
             if (ti == _threats.Count)
             {
                 return;
@@ -149,6 +147,7 @@ namespace Orpheus.Net.Session
                 {
                     Decide(p, _threats[ti], m, false, 0);
                     ti++;
+                    SkipUnresolved(p, ref ti); // 1-007: телеграфы врагов с ИИ решалка пропускает
                 }
             }
 
@@ -174,6 +173,7 @@ namespace Orpheus.Net.Session
 
                 Decide(p, t, known, true, missing);
                 ti++;
+                SkipUnresolved(p, ref ti); // 1-007: телеграфы врагов с ИИ решалка пропускает
             }
         }
 
@@ -197,9 +197,65 @@ namespace Orpheus.Net.Session
             return false;
         }
 
-        /// <summary>Угроза ещё не решена по игроку и начата после его входа.</summary>
-        private static bool Concerns(Player p, in Threat t) =>
-            unchecked((int)(t.StartFrame - p.ThreatsFrom)) >= 0 && (!p.HasResolved || unchecked((int)(t.StartFrame - p.ResolvedStart)) > 0);
+        /// <summary>
+        /// Замахи врагов с ИИ (карточка 1-007), после такта: удар решает сама симуляция (фаза «бой», `02` 6.1),
+        /// поэтому угроза врага — только телеграф клиенту: сектор из <c>AttackOrigin</c>/<c>AttackFacingRaw</c>
+        /// в очереди угроз и «замах начат» (<see cref="SendSwings"/>, повтор каждый такт замаха от потерь).
+        /// Признак «замах начался этим тактом»: <c>AttackWindup == WindupTicks</c> — фаза боя сбрасывает его со следующего такта.
+        /// Решалка 0-033 такие угрозы не трогает (<see cref="Concerns"/>): урона дважды не будет.
+        /// </summary>
+        private void StepEnemyThreats()
+        {
+            ReadOnlySpan<SimEntity> ents = _sim.Entities;
+            uint start = unchecked((uint)_sim.Tick * 2); // первый кадр такта, в котором замах начался
+            for (int i = 0; i < ents.Length; i++)
+            {
+                SimEntity e = ents[i];
+                if (e.Kind != SimEntity.KindEnemy || e.Brain.Archetype == EnemyArchetype.None ||
+                    e.AttackWindup != Simulation.WindupTicks)
+                {
+                    continue;
+                }
+
+                var sector = new MeleeSector(e.AttackOrigin, Angle16.FromRaw(e.AttackFacingRaw),
+                    EnemyMelee.ReachUnits, EnemyMelee.HalfArcSteps);
+                if (_threats.Add(new Threat(ThreatKind.Melee, e.Id, start, EnemyMelee.WindupFrames, sector)))
+                {
+                    SwingsStarted++;
+                }
+                else
+                {
+                    Log?.Invoke(NetLogLevel.Error, $"очередь угроз полна ({_threats.Capacity}): замах врага #{e.Id} потерян");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Угроза врага с ИИ (1-007): телеграф, удар решает симуляция. Атакующий — сущность с
+        /// <c>Brain.Archetype ≠ 0</c>; манекен (1-001) живёт вне симуляции, у него мозга нет — его решает сеть.
+        /// </summary>
+        private bool IsEnemyAiThreat(in Threat t)
+        {
+            int slot = _sim.SlotOf(t.AttackerId);
+            return slot >= 0 && _sim.Entities[slot].Brain.Archetype != EnemyArchetype.None;
+        }
+
+        /// <summary>
+        /// Угроза ещё не решена по игроку и начата после его входа; угрозы врагов с ИИ (1-007) решалку
+        /// не касаются — их удар уже решён симуляцией.
+        /// </summary>
+        private bool Concerns(Player p, in Threat t) =>
+            !IsEnemyAiThreat(t) && unchecked((int)(t.StartFrame - p.ThreatsFrom)) >= 0 &&
+            (!p.HasResolved || unchecked((int)(t.StartFrame - p.ResolvedStart)) > 0);
+
+        /// <summary>Пропустить угрозы, которые этот игрок не касаются (чужие до входа, телеграфы врагов с ИИ).</summary>
+        private void SkipUnresolved(Player p, ref int ti)
+        {
+            while (ti < _threats.Count && !Concerns(p, _threats[ti]))
+            {
+                ti++;
+            }
+        }
 
         private void Decide(Player p, in Threat t, in Mover state, bool byLastKnown, int missing)
         {

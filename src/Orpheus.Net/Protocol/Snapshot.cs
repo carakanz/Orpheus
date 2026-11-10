@@ -31,6 +31,13 @@ namespace Orpheus.Net.Protocol
         /// </summary>
         public byte Melee;
 
+        /// <summary>
+        /// ИИ врага (1-007): 5 бит (<see cref="SnapshotLayout.EnemyBits"/>) — архетип 2 бита (<c>Brain.Archetype</c>,
+        /// 0 — мозга нет) в старших, состояние 3 бита (<see cref="EnemyState"/>) в младших:
+        /// <c>archetype &lt;&lt; 3 | state</c>. Для отладочного отображения; 0 — «не враг с ИИ».
+        /// </summary>
+        public byte Enemy;
+
         public override string ToString() => $"#{Id} k{Kind} {Position} d{Direction} hp{HealthPct} h{HeldItem} m{Melee}";
     }
 
@@ -259,6 +266,18 @@ namespace Orpheus.Net.Protocol
         /// <summary>Бит на фазу удара сущности (1-004): фаза 2 + индекс серии 2 (0 — покой).</summary>
         public const int MeleeBits = 4;
 
+        /// <summary>
+        /// Бит на ИИ сущности (1-007): архетип 2 бита в старших (<see cref="EnemyArchetypeShift"/>),
+        /// состояние 3 бита в младших (0…<see cref="EnemyStateBits"/> — <c>EnemyState</c>).
+        /// </summary>
+        public const int EnemyBits = 5;
+        public const int EnemyStateBits = 3;
+        public const int EnemyArchetypeShift = 3;
+
+        /// <summary>Упаковка в 5 бит: архетип (2) в старших, состояние (3) в младших.</summary>
+        public static byte EncodeEnemy(byte archetype, int state) =>
+            (byte)(((archetype & 3) << EnemyArchetypeShift) | (state & ((1 << EnemyStateBits) - 1)));
+
         public readonly MapShape Shape;
         public readonly int BitsX;
         public readonly int BitsY;
@@ -285,7 +304,7 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Бит на сущность.</summary>
-        public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits + HealthPctBits + HeldBits + MeleeBits;
+        public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits + HealthPctBits + HeldBits + MeleeBits + EnemyBits;
 
         /// <summary>
         /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5
@@ -392,7 +411,7 @@ namespace Orpheus.Net.Protocol
             for (int i = 0; i < Count; i++)
             {
                 if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction,
-                             Entities[i].HealthPct, Entities[i].HeldItem, Entities[i].Melee))
+                             Entities[i].HealthPct, Entities[i].HeldItem, Entities[i].Melee, Entities[i].Enemy))
                 {
                     throw new ProtocolException($"Снимок: {Count} сущностей не влезли в {dest.Length} байт.");
                 }
@@ -424,9 +443,14 @@ namespace Orpheus.Net.Protocol
                 e.HealthPct = (byte)r.ReadBits(SnapshotLayout.HealthPctBits);
                 e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
                 e.Melee = (byte)r.ReadBits(SnapshotLayout.MeleeBits);
+                e.Enemy = (byte)r.ReadBits(SnapshotLayout.EnemyBits);
                 if (e.HealthPct > 100)
                 {
                     throw new ProtocolException($"Снимок: доля здоровья {e.HealthPct} % > 100.");
+                }
+                if ((e.Enemy & ((1 << SnapshotLayout.EnemyStateBits) - 1)) > (int)EnemyState.Lost)
+                {
+                    throw new ProtocolException($"Снимок: состояние ИИ {e.Enemy & 7} вне 0…{(int)EnemyState.Lost}.");
                 }
                 if (e.Direction > InputFrame.MaxDirectionCode || e.Position.X >= layout.Shape.WidthUnits || e.Position.Y >= layout.Shape.HeightUnits)
                 {
@@ -494,7 +518,7 @@ namespace Orpheus.Net.Protocol
         public int Count => _count;
 
         /// <summary>Добавить сущность; не влезает — false (ничего не записано).</summary>
-        public bool TryAdd(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0)
+        public bool TryAdd(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0)
         {
             if (_count == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
             {
@@ -509,6 +533,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
             _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
             _w.WriteBits(melee, SnapshotLayout.MeleeBits);
+            _w.WriteBits(enemy, SnapshotLayout.EnemyBits);
             _count++;
             return true;
         }
@@ -537,6 +562,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Фаза удара (1-004): Melee изменился — анимация замах/удар/отход у чужих.</summary>
         Melee = 16,
+
+        /// <summary>ИИ врага (1-007): Enemy изменился — состояние мозга (архетип + состояние, 5 бит).</summary>
+        Enemy = 32,
     }
 
     /// <summary>
@@ -564,8 +592,8 @@ namespace Orpheus.Net.Protocol
         /// <summary>Бит на номер сущности в базе.</summary>
         public const int IndexBits = 8;
 
-        /// <summary>Бит на маску полей (Position, Direction, Health, Held, Melee — 1-004).</summary>
-        public const int MaskBits = 5;
+        /// <summary>Бит на маску полей (Position, Direction, Health, Held, Melee — 1-004, Enemy — 1-007).</summary>
+        public const int MaskBits = 6;
 
         /// <summary>Наибольшее отставание базы (поле — u8).</summary>
         public const int MaxBaselineAge = 255;
@@ -603,7 +631,8 @@ namespace Orpheus.Net.Protocol
             ((fields & DeltaFields.Direction) != 0 ? SnapshotLayout.DirectionBits : 0) +
             ((fields & DeltaFields.Health) != 0 ? SnapshotLayout.HealthPctBits : 0) +
             ((fields & DeltaFields.Held) != 0 ? SnapshotLayout.HeldBits : 0) +
-            ((fields & DeltaFields.Melee) != 0 ? SnapshotLayout.MeleeBits : 0);
+            ((fields & DeltaFields.Melee) != 0 ? SnapshotLayout.MeleeBits : 0) +
+            ((fields & DeltaFields.Enemy) != 0 ? SnapshotLayout.EnemyBits : 0);
 
         /// <summary>Прочитать дельту в этот объект (номера базы проверяет <see cref="ApplyTo"/>).</summary>
         public void Read(ReadOnlySpan<byte> src, in SnapshotLayout layout)
@@ -670,6 +699,15 @@ namespace Orpheus.Net.Protocol
                 {
                     e.Melee = (byte)r.ReadBits(SnapshotLayout.MeleeBits);
                 }
+
+                if ((f & DeltaFields.Enemy) != 0)
+                {
+                    e.Enemy = (byte)r.ReadBits(SnapshotLayout.EnemyBits);
+                    if ((e.Enemy & ((1 << SnapshotLayout.EnemyStateBits) - 1)) > (int)EnemyState.Lost)
+                    {
+                        throw new ProtocolException($"Дельта: состояние ИИ {e.Enemy & 7} вне 0…{(int)EnemyState.Lost}.");
+                    }
+                }
             }
 
             for (int i = 0; i < added; i++)
@@ -682,6 +720,7 @@ namespace Orpheus.Net.Protocol
                 e.HealthPct = (byte)r.ReadBits(SnapshotLayout.HealthPctBits);
                 e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
                 e.Melee = (byte)r.ReadBits(SnapshotLayout.MeleeBits);
+                e.Enemy = (byte)r.ReadBits(SnapshotLayout.EnemyBits);
                 if (e.HealthPct > 100)
                 {
                     throw new ProtocolException($"Дельта: доля здоровья {e.HealthPct} % > 100.");
@@ -768,6 +807,11 @@ namespace Orpheus.Net.Protocol
                     if ((UpdatedFields[k] & DeltaFields.Melee) != 0)
                     {
                         e.Melee = Updated[k].Melee;
+                    }
+
+                    if ((UpdatedFields[k] & DeltaFields.Enemy) != 0)
+                    {
+                        e.Enemy = Updated[k].Enemy;
                     }
                 }
 
@@ -885,7 +929,7 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Изменившаяся сущность базы: номер, поля по маске; не влезла — false (ничего не записано).</summary>
-        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0)
+        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0)
         {
             Enter(1);
             if (fields == DeltaFields.None)
@@ -926,12 +970,17 @@ namespace Orpheus.Net.Protocol
                 _w.WriteBits(melee, SnapshotLayout.MeleeBits);
             }
 
+            if ((fields & DeltaFields.Enemy) != 0)
+            {
+                _w.WriteBits(enemy, SnapshotLayout.EnemyBits);
+            }
+
             _updated++;
             return true;
         }
 
         /// <summary>Новая сущность — полной записью; не влезла — false.</summary>
-        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0)
+        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0)
         {
             Enter(2);
             if (_added == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
@@ -947,6 +996,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits(healthPct, SnapshotLayout.HealthPctBits);
             _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
             _w.WriteBits(melee, SnapshotLayout.MeleeBits);
+            _w.WriteBits(enemy, SnapshotLayout.EnemyBits);
             _added++;
             return true;
         }

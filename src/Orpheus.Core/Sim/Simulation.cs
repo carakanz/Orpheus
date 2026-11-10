@@ -2,6 +2,7 @@ using System;
 using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
+using Orpheus.Core.Pathing;
 using Orpheus.Core.Trig;
 using Orpheus.Core.World;
 
@@ -30,9 +31,11 @@ namespace Orpheus.Core.Sim
     /// <list type="number">
     /// <item><b>Ввод</b>: кадры, пришедшие до такта (<see cref="SetInput"/>), становятся текущим вводом сущностей;
     /// сущность без нового кадра держит прежний.</item>
+    /// <item><b>ИИ врагов</b> (1-007): решения по номеру сущности — цель, состояние, направление (10 Гц:
+    /// каждый третий такт); путь — планировщик <see cref="PathScheduler"/> (2 поиска за такт, без часов — детерминизм).</item>
     /// <item><b>Движение</b>: сущности по номеру, каждая — <see cref="Mover.Step"/> по своему вводу
     /// (коллизия с тайлами мира, каким он был в начале такта); перешедшие границу чанка переносятся в сетке
-    /// <see cref="Grid"/> (docs/07, 4.4).</item>
+    /// <see cref="Grid"/> (docs/07, 4.4). После — <b>выталкивание</b> пар персонаж↔враг и враг↔враг (1-007, 8.5).</item>
     /// <item><b>Бой</b> (1-001, `02` 6, 8.3, 13.5): таймеры здоровья (неуязвимость, «в бою», регенерация),
     /// детерминированный цикл атаки врага (замах фиксирует сектор началом, удар — в конце замаха по позиции цели),
     /// смерть и возрождение у <see cref="Simulation.RespawnCenter"/>; трупы удалённых враг — в конце такта.</item>
@@ -85,6 +88,20 @@ namespace Orpheus.Core.Sim
         private int _eventCount;
         private bool _eventsOverflow;
 
+        // ---------- ИИ врагов (1-007) ----------
+        // Пути — планировщик Pathing (окно 48 × 48, очередь). Без часов: ровно maxPerTick поисков за такт —
+        // детерминизм (11.5), бюджет по тактам, не по времени. Владелец запроса — СЛОТ в _entities.
+        private readonly PathFinder _pathFinder = new PathFinder();
+        private readonly SimulationPathTerrain _pathTerrain;
+        private readonly PathBuffer[] _pathBuf;
+        private PathScheduler _paths;
+
+        /// <summary>Запросов в очереди планировщика (число преследующих одновременно; очередь полна — переспрос в следующий такт решений).</summary>
+        public const int PathQueueCapacity = 64;
+
+        /// <summary>Поисков A* за такт (2 × 7–30 мс укладывается в бюджет такта; при 40 врагах очередь — за 20 тактов).</summary>
+        public const int PathMaxPerTick = 2;
+
         /// <param name="world">Мир; такт меняет его только правками фазы 3.</param>
         /// <param name="maxEntities">Ёмкость списка сущностей.</param>
         /// <param name="maxEditsPerTick">Ёмкость очереди правок на такт; лишние запросы получают отказ.</param>
@@ -111,11 +128,15 @@ namespace Orpheus.Core.Sim
             _frames = new InputFrame[maxEntities * MaxFramesPerTick];
             _frameCount = new int[maxEntities];
             _grid = new EntityChunkGrid(maxEntities);
+            _pathTerrain = new SimulationPathTerrain(this);
+            _pathBuf = new PathBuffer[maxEntities];
             for (int i = 0; i < maxEntities; i++)
             {
                 _frameCount[i] = -1;
+                _pathBuf[i] = new PathBuffer();
             }
 
+            _paths = NewPathScheduler();
             _edits = new EditRequest[maxEditsPerTick];
             _editScratch = new EditRequest[maxEditsPerTick];
             _batchOf = new int[maxEditsPerTick];
@@ -282,6 +303,7 @@ namespace Orpheus.Core.Sim
             _hasPending[_entityCount] = false;
             _frameCount[_entityCount] = -1;
             _grid.Rebuild(_shape, Entities); // места после удалённой сдвинулись
+            ResetPathCaches(); // 1-007: слоты сдвинулись — владельцы запросов путей протухли
             return true;
         }
 
@@ -328,6 +350,7 @@ namespace Orpheus.Core.Sim
 
             _entityCount = entities.Length;
             _grid.Rebuild(_shape, Entities);
+            ResetPathCaches(); // 1-007: кэш путей — производный, в сейве его нет; после загрузки всё переспрашивается
             _nextId = Math.Max(nextId, maxId + 1);
             Tick = tick;
         }
@@ -336,40 +359,45 @@ namespace Orpheus.Core.Sim
         public int NextEntityId => _nextId;
 
         /// <summary>
-        /// Здоровье и боевые таймеры (1-001) в формат сохранений 0-037 не входят («Не трогать» карточки):
-        /// при загрузке сущность получает полные значения — вернувшийся персонаж входит с полным здоровьем
-        /// (решение Продюсера, `08` 3.1: сохранения персонажей сверх позиции и сумки отложены).
+        /// Здоровье и боевые таймеры едут в сейве с формата 6 (1-007). Форматы 1–5 их не пишут (0 при чтении) —
+        /// сущность получает дефолты спавна: вернувшийся персонаж входит с полным здоровьем («Не трогать» 0-037,
+        /// `08` 3.1). Признак старого формата — MaxHealth = 0: в формате 6 он всегда положителен.
         /// </summary>
         private static SimEntity RestoreDefaults(SimEntity e)
         {
             if (e.MaxHealth <= 0)
             {
                 e.MaxHealth = (short)(e.Kind == SimEntity.KindEnemy ? MaxHealthMeleeEnemy : MaxHealthCharacter);
-            }
-
-            if (e.Health <= 0)
-            {
                 e.Health = e.MaxHealth;
-            }
-
-            if (e.Mass == 0)
-            {
                 e.Mass = 1;
-            }
-
-            if (e.RegenTicks == 0)
-            {
                 e.RegenTicks = RegenDelayTicks;
-            }
-
-            if (e.AttackTarget == 0)
-            {
                 e.AttackTarget = -1;
+                e.AttackPeriod = -1;
             }
 
-            if (e.AttackPeriod == 0)
+            if (e.Brain.Archetype != EnemyArchetype.None)
             {
-                e.AttackPeriod = -1;
+                // ИИ (1-007): −1 в полях «нет цели» — строчка по умолчанию (format 5 без этих полей) это 0.
+                if (e.Brain.TargetId == 0)
+                {
+                    e.Brain.TargetId = EnemyBrain.NoTarget;
+                }
+
+                if (e.Brain.LastHitBy == 0)
+                {
+                    e.Brain.LastHitBy = EnemyBrain.NoTarget;
+                }
+
+                if (e.Brain.State == EnemyState.None)
+                {
+                    e.Brain.State = EnemyState.Idle;
+                }
+
+                if (e.Brain.HomeX == 0 && e.Brain.HomeY == 0)
+                {
+                    e.Brain.HomeX = e.Brain.GoalX;
+                    e.Brain.HomeY = e.Brain.GoalY;
+                }
             }
 
             return e;
@@ -585,7 +613,10 @@ namespace Orpheus.Core.Sim
                 }
             }
 
-            // 2. Движение — по номеру сущности: тактом по вводу или кадрами ввода (сетевой персонаж, 0-019).
+            // 2. ИИ врагов (1-007): решения — цель, состояние, направление; движение — фаза 3 по тем же правилам.
+            StepAI(tick);
+
+            // 3. Движение — по номеру сущности: тактом по вводу или кадрами ввода (сетевой персонаж, 0-019).
             for (int i = 0; i < _entityCount; i++)
             {
                 if (!_entities[i].Alive)
@@ -612,7 +643,11 @@ namespace Orpheus.Core.Sim
                 _frameCount[i] = -1;
             }
 
-            // 3. Бой (1-001): таймеры здоровья, атаки врагов, смерть и возрождение — после движения,
+            // 3.5. Выталкивание (1-007, 8.5 «толкаются»): персонаж↔враг и враг↔враг — расталкивание 2 тайла/с
+            // после движения, целочисленное и по порядку номеров — детерминизм (11.5).
+            StepSeparation();
+
+            // 4. Бой (1-001): таймеры здоровья, атаки врагов, смерть и возрождение — после движения,
             // сетка подхватывает teleport возрождения ниже.
             StepCombat(tick);
 
@@ -622,10 +657,13 @@ namespace Orpheus.Core.Sim
                 _grid.Update(i, Torus.ChunkOf(_shape, _entities[i].Mover.Position));
             }
 
-            // 4. Правки мира: одна пачка на чанк за такт.
+            // 5. Правки мира: одна пачка на чанк за такт.
             ApplyEditBatches(tick);
 
-            // 5. События: буфер такта закрыт; переполнение — ошибка ёмкости, а не тихая потеря.
+            // 5.5. Пути (1-007): поиски такта — после правок, по миру текущего такта; ровно PathMaxPerTick — детерминизм.
+            _paths.RunTick(tick);
+
+            // 6. События: буфер такта закрыт; переполнение — ошибка ёмкости, а не тихая потеря.
             if (_eventsOverflow)
             {
                 throw new InvalidOperationException($"Такт {tick}: событий больше {_events.Length}.");
@@ -633,7 +671,7 @@ namespace Orpheus.Core.Sim
 
             Tick = tick;
 
-            // 6. Трупы (8.3; 1-001): враг с истёкшим тайром трупа удаляется (RemoveEntity — сдвиг списка,
+            // 7. Трупы (8.3; 1-001): враг с истёкшим тайром трупа удаляется (RemoveEntity — сдвиг списка,
             // Rebuild сетки; в конце такта — «вне такта»). Порядок: от хвоста (по убыванию номера) — сдвиги не мешают.
             for (int i = _entityCount - 1; i >= 0; i--)
             {
@@ -865,13 +903,19 @@ namespace Orpheus.Core.Sim
 
                 if (e.AttackWindup > 0)
                 {
+                    if (e.Brain.Archetype != EnemyArchetype.None && e.AttackPeriod > 0)
+                    {
+                        e.AttackPeriod--; // ИИ (1-007): период считается и в замахе — замах-замах ровно PeriodTicks
+                    }
+
                     e.AttackWindup--;
                     if (e.AttackWindup == 0)
                     {
                         var sector = new MeleeSector(e.AttackOrigin, Angle16.FromRaw(e.AttackFacingRaw),
                             EnemyMelee.ReachUnits, EnemyMelee.HalfArcSteps);
                         int slot = SlotOf(e.AttackTarget);
-                        if (slot >= 0 && _entities[slot].Alive &&
+                        // Удар решается по позиции цели в конце замаха (docs/07, 4.6); уворот спасает i-кадрами (0-029, 2.2).
+                        if (slot >= 0 && _entities[slot].Alive && !_entities[slot].Mover.Dodge.Invulnerable &&
                             sector.Overlaps(_shape, _entities[slot].Mover.Position, Collision.RadiusUnits))
                         {
                             ApplyStrike(_entities[slot].Id, e.Id, e.AttackRaw, e.Mover.Position, knockback: true);
@@ -889,6 +933,29 @@ namespace Orpheus.Core.Sim
                     e.AttackRecover--;
                 }
 
+                if (e.Brain.Archetype != EnemyArchetype.None)
+                {
+                    // Враг с ИИ (1-007): цикл удара ведёт мозг — в состоянии Attack замах каждые PeriodTicks (1,1 с)
+                    // от прошлого замаха; цель жива и в зоне — иначе цикл ждёт (мозг подведёт ближе).
+                    if (e.AttackPeriod > 0)
+                    {
+                        e.AttackPeriod--;
+                    }
+
+                    if (e.Brain.State == EnemyState.Attack && e.AttackPeriod == 0 && e.AttackRecover == 0)
+                    {
+                        int slot = SlotOf(e.Brain.TargetId);
+                        if (slot >= 0 && _entities[slot].Alive &&
+                            Torus.Dist2(_shape, e.Mover.Position, _entities[slot].Mover.Position) <= MeleeRogue.StrikeRange2)
+                        {
+                            BeginWindup(ref e, _entities[slot]);
+                            e.AttackPeriod = MeleeRogue.PeriodTicks;
+                        }
+                    }
+
+                    continue;
+                }
+
                 if (e.AttackPeriod > 0 && e.AttackRecover == 0)
                 {
                     int target = NearestCharacterSlot(e.Mover.Position, EnemyMelee.ReachUnits + Collision.RadiusUnits);
@@ -898,6 +965,486 @@ namespace Orpheus.Core.Sim
                     }
                 }
             }
+        }
+
+        // ---------- ИИ врагов (1-007: docs/02 8.1, 8.3–8.5, 9.3) ----------
+
+        /// <summary>Скорость бродяги 1,5 тайла/с = 154 (X10) — «бродит, не спешит» (8.1).</summary>
+        public const int RogueWanderSpeedX10 = 154;
+
+        /// <summary>Скорость «домой» (Lost) 3 тайла/с = 307 (X10) — быстрее бродяги, медленнее преследования (8.3).</summary>
+        public const int RogueHomeSpeedX10 = 307;
+
+        /// <summary>Тактов на решение ИИ: 3 (10 Гц при 30 Гц такта, 9.3); фаза — по номеру сущности, чтобы не в один такт.</summary>
+        public const int AiDecisionTicks = 3;
+
+        /// <summary>
+        /// Добавить «Ближнего» с мозгом (разбойник, архетип <see cref="EnemyArchetype.Melee"/>, карточка 1-007):
+        /// дом — точка появления, старт в Idle; числа — <see cref="MeleeRogue"/>. Номер — следующий. Возвращает номер.
+        /// </summary>
+        public int AddMeleeRogue(WorldPos position)
+        {
+            int id = AddEnemy(position);
+            int slot = SlotOf(id);
+            ref SimEntity e = ref _entities[slot];
+            e.MaxHealth = MeleeRogue.MaxHealth;
+            e.Health = MeleeRogue.MaxHealth;
+            e.AttackRaw = (byte)MeleeRogue.StrikeDamage;
+            e.AttackPeriod = MeleeRogue.PeriodTicks;
+            e.Mover.UnitsPerTickX10 = RogueWanderSpeedX10;
+            TileCoord home = Torus.TileOf(_shape, e.Mover.Position);
+            e.Brain = new EnemyBrain
+            {
+                Archetype = EnemyArchetype.Melee,
+                State = EnemyState.Idle,
+                TargetId = EnemyBrain.NoTarget,
+                HomeX = home.X,
+                HomeY = home.Y,
+                GoalX = home.X,
+                GoalY = home.Y,
+                LastHitBy = EnemyBrain.NoTarget,
+            };
+            return id;
+        }
+
+        /// <summary>
+        /// Фаза ИИ такта (после ввода, до движения): цели (зрение/агро), состояние, направление. Движение —
+        /// общая фаза по <see cref="SimEntity.Input"/> (враг идёт как персонаж по своему «вводу»).
+        /// Порядок — по номеру сущности; решения каждые <see cref="AiDecisionTicks"/> тактов с фазой по номеру (9.3).
+        /// </summary>
+        private void StepAI(long tick)
+        {
+            ulong seed = _world.Seed;
+            for (int i = 0; i < _entityCount; i++)
+            {
+                ref SimEntity e = ref _entities[i];
+                if (e.Kind != SimEntity.KindEnemy || e.Brain.Archetype == EnemyArchetype.None || !e.Alive)
+                {
+                    continue; // манекен (1-001) и заглушка (0-028) — Brain.Archetype = 0, стоят
+                }
+
+                ref EnemyBrain b = ref e.Brain;
+                b.StateTicks++;
+                UpdateTarget(ref e, tick);
+
+                int ts = b.TargetId >= 0 ? SlotOf(b.TargetId) : -1;
+                if (ts >= 0)
+                {
+                    ref SimEntity target = ref _entities[ts];
+                    long dist2 = Torus.Dist2(_shape, e.Mover.Position, target.Mover.Position);
+                    if (dist2 <= MeleeRogue.StrikeRange2)
+                    {
+                        // В зоне удара (8.1 «бьёт в упор»): стоит; замах ведёт фаза боя по состоянию Attack.
+                        e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
+                        if (b.State != EnemyState.Attack)
+                        {
+                            b.State = EnemyState.Attack;
+                            b.StateTicks = 0;
+                            b.PathStamp = 0;
+                        }
+
+                        e.Input = InputFrame.None;
+                        continue;
+                    }
+
+                    Chase(ref e, ref target, i, tick);
+                    continue;
+                }
+
+                // Цели нет: Idle/Wander у дома; после потери — Lost (домой), зрение переспрашивает целью выше (8.1, 8.3).
+                TileCoord home = new TileCoord(b.HomeX, b.HomeY);
+                if (b.State == EnemyState.Wander)
+                {
+                    e.Mover.UnitsPerTickX10 = RogueWanderSpeedX10;
+                    if (MoveToward(ref e, new TileCoord(b.GoalX, b.GoalY)))
+                    {
+                        b.State = EnemyState.Idle;
+                        b.StateTicks = 0;
+                    }
+
+                    continue;
+                }
+
+                if (b.State == EnemyState.Idle)
+                {
+                    e.Input = InputFrame.None;
+                    e.Mover.UnitsPerTickX10 = RogueWanderSpeedX10;
+                    long stateStart = tick - b.StateTicks;
+                    int span = MeleeRogue.IdleMinTicks + EnemyRng.NextInt(
+                        EnemyRng.Hash(e.Id, stateStart, seed),
+                        MeleeRogue.IdleMaxTicks - MeleeRogue.IdleMinTicks + 1);
+                    if (b.StateTicks < span)
+                    {
+                        continue;
+                    }
+
+                    // Новая точка бродяги (8.1: в 6 тайлах от дома) — шум от (номер, такт, зерно): детерминизм (11.5).
+                    ulong h = EnemyRng.Hash(e.Id, tick, seed);
+                    Input8 dir = Input8.FromIndex(EnemyRng.NextDir8(h));
+                    int dist = 1 + EnemyRng.NextInt(h >> 16, MeleeRogue.WanderRadiusTiles);
+                    TileCoord goal = Torus.Wrap(_shape, new TileCoord(home.X + dir.DX * dist, home.Y + dir.DY * dist));
+                    if (IsBlocked(_shape, goal))
+                    {
+                        goal = home; // в стенку не идём — пауза ещё раз
+                    }
+
+                    b.GoalX = goal.X;
+                    b.GoalY = goal.Y;
+                    b.State = EnemyState.Wander;
+                    b.StateTicks = 0;
+                    e.Mover.UnitsPerTickX10 = RogueWanderSpeedX10;
+                    continue;
+                }
+
+                // Lost: домой; дом рядом — Idle (8.3).
+                e.Mover.UnitsPerTickX10 = RogueHomeSpeedX10;
+                if (MoveToward(ref e, home))
+                {
+                    b.State = EnemyState.Idle;
+                    b.StateTicks = 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Цель такта (8.3 «Агро»): 1) урон ≥ 10 % максимума — обидчик (один раз на удар); 2) зрение 14 тайлов —
+        /// ближайший живой персонаж (при равенстве — меньший номер); 3) цель в 28 тайлах («чует») — держится,
+        /// вне 28 тайлов 150 тактов — теряется.
+        /// </summary>
+        private void UpdateTarget(ref SimEntity e, long tick)
+        {
+            ref EnemyBrain b = ref e.Brain;
+            WorldPos at = e.Mover.Position;
+
+            // Агро от урона: обидчик жив, в радиусе потери — цель; засчитывается один раз на удар.
+            if (b.LastHitBy >= 0 && b.LastHitTick != 0)
+            {
+                long by = b.LastHitTick;
+                b.LastHitTick = 0;
+                if (DamageMath.AtLeastPercent(b.LastHitAmount, e.MaxHealth, MeleeRogue.AggroPct))
+                {
+                    int s = SlotOf(b.LastHitBy);
+                    if (s >= 0 && _entities[s].Alive &&
+                        Torus.Dist2(_shape, at, _entities[s].Mover.Position) <= MeleeRogue.Lose2)
+                    {
+                        if (b.TargetId != b.LastHitBy)
+                        {
+                            b.TargetId = b.LastHitBy;
+                            b.PathStamp = 0; // цель сменилась — путь не годится (9.3)
+                        }
+
+                        b.LostTicks = 0;
+                        return;
+                    }
+                }
+            }
+
+            // Зрение (8.1 «замечает игрока в 12–16 тайлах»): 14 тайлов.
+            int slot = NearestCharacterWithin(at, MeleeRogue.Sight2);
+            if (slot >= 0)
+            {
+                b.LostTicks = 0;
+                if (b.TargetId != _entities[slot].Id)
+                {
+                    b.TargetId = _entities[slot].Id;
+                    b.PathStamp = 0;
+                }
+
+                return;
+            }
+
+            // Цель вне зрения: держится, пока в 28 тайлах (потеря — 150 тактов вне, 8.3).
+            if (b.TargetId >= 0)
+            {
+                int s = SlotOf(b.TargetId);
+                if (s < 0 || !_entities[s].Alive)
+                {
+                    b.TargetId = EnemyBrain.NoTarget;
+                    b.PathStamp = 0;
+                    b.State = b.State == EnemyState.Chase || b.State == EnemyState.Attack || b.State == EnemyState.Blocked
+                        ? EnemyState.Lost : b.State;
+                    return;
+                }
+
+                if (Torus.Dist2(_shape, at, _entities[s].Mover.Position) <= MeleeRogue.Lose2)
+                {
+                    b.LostTicks = 0;
+                    return;
+                }
+
+                b.LostTicks++;
+                if (b.LostTicks >= MeleeRogue.LoseTicks)
+                {
+                    b.TargetId = EnemyBrain.NoTarget;
+                    b.LostTicks = 0;
+                    b.PathStamp = 0;
+                    if (b.State == EnemyState.Chase || b.State == EnemyState.Attack || b.State == EnemyState.Blocked)
+                    {
+                        b.State = EnemyState.Lost;
+                        b.StateTicks = 0;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Преследование (1-007, 9.3): цель в зоне удара handled выше; тут — путь по плану A* (окно 48 × 48,
+        /// планировщик такта) или прямо к цели, пока путь в работе/не готов. Переспрос: цель ушла дальше тайла
+        /// или каждые 150 тактов. Нет пути (Enclosed) — Blocked: стоит, переспрашивает каждые 2 с (8.4).
+        /// </summary>
+        private void Chase(ref SimEntity e, ref SimEntity target, int slot, long tick)
+        {
+            ref EnemyBrain b = ref e.Brain;
+            e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
+
+            if (b.State == EnemyState.Blocked)
+            {
+                // Пути нет (8.4): стоит и ждёт правку мира; переспрос раз в BlockedRetryTicks.
+                e.Input = InputFrame.None;
+                if (b.StateTicks >= MeleeRogue.BlockedRetryTicks)
+                {
+                    b.State = EnemyState.Chase;
+                    b.StateTicks = 0;
+                    b.PathStamp = 0;
+                }
+
+                return;
+            }
+
+            if (b.State != EnemyState.Chase)
+            {
+                b.State = EnemyState.Chase;
+                b.StateTicks = 0;
+                b.PathStamp = 0;
+            }
+
+            TileCoord goal = Torus.Wrap(_shape, Torus.TileOf(_shape, target.Mover.Position));
+            PathBuffer buf = _pathBuf[slot];
+
+            // Запрос в работе/не ставился (PathStamp = 0) — идём прямо к цели (на открытой земле путь и не нужен).
+            if (b.PathStamp == 0)
+            {
+                if ((tick + e.Id) % AiDecisionTicks == 0)
+                {
+                    TileCoord start = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
+                    if (_paths.Enqueue(slot, start, goal, PathMode.Walker, tick))
+                    {
+                        b.PathStamp = (int)tick;
+                        b.PathPos = 0;
+                        b.GoalX = goal.X;
+                        b.GoalY = goal.Y;
+                    }
+                }
+
+                MoveToward(ref e, goal);
+                return;
+            }
+
+            // Запрос в очереди (путь ещё не готов): тоже идём прямо.
+            if (buf.RequestedTick != b.PathStamp)
+            {
+                MoveToward(ref e, goal);
+                return;
+            }
+
+            // Цель ушла дальше тайла от запрошенной, или путь старый (150 тактов) — новый запрос (9.3).
+            bool stale = b.StateTicks % MeleeRogue.RepathTicks == 0 ||
+                Torus.Dist2(_shape, EditRules.CenterOf(goal), EditRules.CenterOf(new TileCoord(b.GoalX, b.GoalY))) >
+                    (long)MeleeRogue.RepathGoalDelta * MeleeRogue.RepathGoalDelta;
+            if (stale)
+            {
+                if ((tick + e.Id) % AiDecisionTicks == 0)
+                {
+                    TileCoord start = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
+                    if (_paths.Enqueue(slot, start, goal, PathMode.Walker, tick))
+                    {
+                        b.PathStamp = (int)tick;
+                        b.PathPos = 0;
+                        b.GoalX = goal.X;
+                        b.GoalY = goal.Y;
+                    }
+                }
+
+                MoveToward(ref e, goal);
+                return;
+            }
+
+            switch (buf.Status)
+            {
+                case PathStatus.Enclosed:
+                    // Пути нет вообще (8.4): Blocked — стоит, переспросит.
+                    b.State = EnemyState.Blocked;
+                    b.StateTicks = 0;
+                    b.PathStamp = 0;
+                    e.Input = InputFrame.None;
+                    return;
+
+                case PathStatus.None:
+                    MoveToward(ref e, goal); // буфер сброшен (RemoveEntity/Restore) — прямо, переспросит
+                    b.PathStamp = 0;
+                    return;
+
+                default:
+                    break; // Found / WindowEdge / Partial — идём по шагам
+            }
+
+            // Путь готов (Found — до цели; WindowEdge — до края окна; Partial — предельная длина): по шагам.
+            int steps = buf.Length;
+            while (b.PathPos < steps &&
+                Torus.Dist2(_shape, e.Mover.Position,
+                    EditRules.CenterOf(Torus.Wrap(_shape, buf.Steps[b.PathPos]))) <= MeleeRogue.NodePass2)
+            {
+                b.PathPos++;
+            }
+
+            if (b.PathPos < steps)
+            {
+                TileCoord node = Torus.Wrap(_shape, buf.Steps[b.PathPos]);
+                e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
+                Int2 d = Torus.Delta(_shape, e.Mover.Position, EditRules.CenterOf(node));
+                e.Input = new InputFrame(Input8.FromStick(d.X, d.Y));
+                return;
+            }
+
+            // Шаги кончились (дошли до края окна/предела/цели) — прямо к цели; переспрос по правилам выше.
+            MoveToward(ref e, goal);
+        }
+
+        /// <summary>Идти к центру тайла (ввод как у персонажа); пришли (ближе 3/4 тайла) — ввод пустой, true.</summary>
+        private bool MoveToward(ref SimEntity e, TileCoord tile)
+        {
+            Int2 d = Torus.Delta(_shape, e.Mover.Position, EditRules.CenterOf(Torus.Wrap(_shape, tile)));
+            if (d.LengthSquared <= MeleeRogue.NodePass2)
+            {
+                e.Input = InputFrame.None;
+                return true;
+            }
+
+            e.Input = new InputFrame(Input8.FromStick(d.X, d.Y));
+            return false;
+        }
+
+        /// <summary>Ближайший живой персонаж к <paramref name="from"/> в пределах √dist2Limit; при равенстве — меньший номер; нет — −1.</summary>
+        private int NearestCharacterWithin(WorldPos from, long dist2Limit)
+        {
+            int best = -1;
+            long bestD = long.MaxValue;
+            for (int i = 0; i < _entityCount; i++)
+            {
+                if (!_entities[i].IsCharacter || !_entities[i].Alive)
+                {
+                    continue;
+                }
+
+                long d2 = Torus.Dist2(_shape, from, _entities[i].Mover.Position);
+                if (d2 <= dist2Limit && d2 < bestD)
+                {
+                    bestD = d2;
+                    best = i;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>
+        /// Выталкивание (1-007, 8.5 «толкаются»): пары персонаж↔враг-с-мозгом и враг↔враг-с-мозгом, центры
+        /// ближе суммы радиусов (204) — разъезжаются по 2 тайла/с (68 единиц/такт на тело) вдоль оси.
+        /// Заглушки (0-028) и персонаж↔персонаж не трогает. Порядок по номерам, целочисленно — детерминизм (11.5).
+        /// </summary>
+        private void StepSeparation()
+        {
+            const int MinDist = 2 * Collision.RadiusUnits;
+            const int PushUnitsPerTick = 68; // 2 тайла/с = 2048 ед/с / 30 = 68,3 — берём 68
+            for (int i = 0; i < _entityCount; i++)
+            {
+                ref SimEntity a = ref _entities[i];
+                if (!a.Alive || a.Brain.Archetype == EnemyArchetype.None)
+                {
+                    continue; // инициатор — только враг с мозгом; персонаж↔персонаж (0.x — сквозные) не трогаем
+                }
+
+                for (int j = 0; j < _entityCount; j++)
+                {
+                    if (j == i)
+                    {
+                        continue;
+                    }
+
+                    ref SimEntity b = ref _entities[j];
+                    if (!b.Alive || (!b.IsCharacter && b.Brain.Archetype == EnemyArchetype.None))
+                    {
+                        continue;
+                    }
+
+                    Int2 d = Torus.Delta(_shape, a.Mover.Position, b.Mover.Position);
+                    long d2 = d.LengthSquared;
+                    if (d2 >= (long)MinDist * MinDist)
+                    {
+                        continue;
+                    }
+
+                    if (d2 == 0)
+                    {
+                        d = new Int2(MinDist - 1, 0); // позиции совпали — ось по X (детерминированно)
+                        d2 = (long)(MinDist - 1) * (MinDist - 1);
+                    }
+
+                    int dist = ISqrt(d2);
+                    int px = d.X * PushUnitsPerTick / dist;
+                    int py = d.Y * PushUnitsPerTick / dist;
+                    a.Mover.Position = Torus.Wrap(_shape, new WorldPos(a.Mover.Position.X - px, a.Mover.Position.Y - py));
+                    b.Mover.Position = Torus.Wrap(_shape, new WorldPos(b.Mover.Position.X + px, b.Mover.Position.Y + py));
+                }
+            }
+        }
+
+        /// <summary>Целочисленный √ (метод по разрядам; детерминирован, без float).</summary>
+        private static int ISqrt(long n)
+        {
+            long res = 0;
+            long bit = 1L << 62;
+            while (bit > n)
+            {
+                bit >>= 2;
+            }
+
+            while (bit != 0)
+            {
+                if (n >= res + bit)
+                {
+                    n -= res + bit;
+                    res = (res >> 1) + bit;
+                }
+                else
+                {
+                    res >>= 1;
+                }
+
+                bit >>= 2;
+            }
+
+            return (int)res;
+        }
+
+        /// <summary>Новый планировщик путей (очередь по слотам; без часов — поиск ровно PathMaxPerTick за такт).</summary>
+        private PathScheduler NewPathScheduler() =>
+            new PathScheduler(_pathFinder, _pathTerrain, _pathBuf, PathQueueCapacity, PathMaxPerTick);
+
+        /// <summary>
+        /// Сброс кэша путей (1-007): слоты сдвинулись (<see cref="RemoveEntity"/>) или состояние заменили
+        /// (<see cref="Restore"/>) — владельцы запросов протухли; буферы очищаются, пути переспрашиваются.
+        /// </summary>
+        private void ResetPathCaches()
+        {
+            for (int i = 0; i < _entities.Length; i++)
+            {
+                _pathBuf[i].Clear();
+                _entities[i].Brain.PathStamp = 0;
+                _entities[i].Brain.PathPos = 0;
+            }
+
+            _paths = NewPathScheduler();
         }
 
         /// <summary>
@@ -1090,6 +1637,15 @@ namespace Orpheus.Core.Sim
                     DamageMath.AtLeastPercent(damage, target.MaxHealth, InterruptPctCharacter))
                 {
                     target.Mover.Melee.Cancel();
+                }
+
+                // Агро (1-007, 8.3 «получил урон — сменяет цель»): мозг запоминает обидчика и урон;
+                // UpdateTarget засчитывает запись один раз (сбрасывает LastHitTick) на следующем решении ИИ.
+                if (target.Kind == SimEntity.KindEnemy && target.Brain.Archetype != EnemyArchetype.None)
+                {
+                    target.Brain.LastHitTick = Tick + 1;
+                    target.Brain.LastHitBy = attackerId;
+                    target.Brain.LastHitAmount = damage;
                 }
             }
 

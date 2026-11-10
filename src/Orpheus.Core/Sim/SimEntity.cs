@@ -85,6 +85,12 @@ namespace Orpheus.Core.Sim
         /// <summary>Сектор замаха: ось (сырое значение <c>Angle16.Raw</c>).</summary>
         public short AttackFacingRaw;
 
+        /// <summary>
+        /// Мозг ИИ врага (карточка 1-007): архетип, состояние, цель, агро, блуждание, кэш пути.
+        /// У персонажей и манекенов (1-001) — <see cref="EnemyBrain.Archetype"/> = 0, мозг выключен.
+        /// </summary>
+        public EnemyBrain Brain;
+
         /// <summary>Персонаж (есть регенерация, смерть и возрождение у точки старта).</summary>
         public readonly bool IsCharacter => Kind == KindCharacter;
 
