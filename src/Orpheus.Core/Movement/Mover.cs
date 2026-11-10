@@ -16,7 +16,8 @@ namespace Orpheus.Core.Movement
     /// Сдвиг позиции — только <see cref="Torus.Offset"/> (docs/07, 3.2).
     /// </para>
     /// Структура: 2 × int32 (позиция) + 2 × int32 (остаток) + int32 (скорость) + уворот 4 байта (<see cref="Dodge"/>, 0-029)
-    /// + выносливость 4 байта (<see cref="Stamina"/>, 1-003), памяти в такте не выделяет.
+    /// + выносливость 4 байта (<see cref="Stamina"/>, 1-003) + удар 14 байт (<see cref="MeleeAction"/>, 1-004),
+    /// памяти в такте не выделяет.
     /// </summary>
     public struct Mover
     {
@@ -40,9 +41,16 @@ namespace Orpheus.Core.Movement
         public Stamina Stamina;
 
         /// <summary>
+        /// Удар мечом (1-004, `02` 3.2): замах/удар/отход, серия, буфер нажатий, фиксированные ось и начало удара.
+        /// Шагается только покадрово; такт 30 Гц продолжает серию двумя кадрами (<see cref="Step(in MapShape, Input8, TileSolid)"/>).
+        /// </summary>
+        public MeleeAction Melee;
+
+        /// <summary>
         /// Рывок начат этим кадром (1-003, шаг 3): кадр, в котором нажатие уворота началось рывком.
-        /// Хук отмен для 1-004 (замах/отход) и 1-006 (натяжение): те карточки по этому флагу в своём кадре
-        /// гасят замах/стрелу. Гасится в начале следующего кадра (<see cref="StepFrame(in MapShape, Input8, bool, TileSolid)"/>).
+        /// Хук отмен для 1-004 (замах/отход — <see cref="MeleeAction.CancelByDash"/> реализован) и 1-006 (натяжение):
+        /// те карточки по этому флагу в своём кадре гасят замах/стрелу. Гасится в начале следующего кадра
+        /// (<see cref="StepFrame(in MapShape, Input8, bool, TileSolid)"/>).
         /// </summary>
         public bool DashStarted;
 
@@ -82,6 +90,7 @@ namespace Orpheus.Core.Movement
             UnitsPerTickX10 = unitsPerTickX10;
             Dodge = default;
             Stamina = Stamina.Full();
+            Melee = default;
             DashStarted = false;
             KnockLeft = 0;
             KnockSpeedX10 = 0;
@@ -133,6 +142,15 @@ namespace Orpheus.Core.Movement
                 return Position;
             }
 
+            if (Melee.Active)
+            {
+                // Удар игрока живёт в кадрах 60 Гц (1-004): сущность на вводе 30 Гц (бот, враг) продолжает
+                // серию двумя кадрами такта — тот же код фаз, что у сетевого персонажа.
+                StepFrame(map, input, false, solid);
+                StepFrame(map, input, false, solid);
+                return Position;
+            }
+
             Position = MovementTick.Tick(map, Position, Carry, input, UnitsPerTickX10, solid, out Carry);
             return Position;
         }
@@ -155,6 +173,17 @@ namespace Orpheus.Core.Movement
         /// Порядок фиксирован: начать → шагнуть → счётчики. Без выделений, только целые.
         /// </summary>
         public WorldPos StepFrame(in MapShape map, Input8 input, bool dodgePressed, TileSolid solid)
+            => StepFrame(map, input, dodgePressed, false, 0, solid);
+
+        /// <summary>
+        /// Кадр ввода 60 Гц с уворотом, выносливостью и ударом мечом (1-004, `02` 3.2). Кнопка удара
+        /// (<paramref name="attackPressed"/>, удержание — повтор) в покое начинает замах с осью
+        /// <paramref name="aimRaw"/> (прицел кадра); в замахе/ударе скорость бега 70 %; нажатие в последних
+        /// 12 кадрах отхода продолжает серию. Рывок отменяет удар (<see cref="MeleeAction.CancelByDash"/>),
+        /// нажатие удара в кадре рывка не действует. Начало фазы «удар» фиксирует позицию (<see cref="MeleeAction.OriginX"/>).
+        /// Порядок фиксирован: уворот → шаг движения (фаза удара влияет на скорость) → шаг фазы удара → счётчики.
+        /// </summary>
+        public WorldPos StepFrame(in MapShape map, Input8 input, bool dodgePressed, bool attackPressed, ushort aimRaw, TileSolid solid)
         {
             // Выносливость шагает до всех веток: и в беге, и в рывке, и в отбрасывании (2.2: реген прерывается
             // рывком, но не отбрасыванием; трата — только в ветке начала рывка ниже).
@@ -166,7 +195,9 @@ namespace Orpheus.Core.Movement
                 // Отбрасывание (1-001, `02` 6.5): рывок задаёт сервер — ввод не действует («цель не действует»,
                 // «ввод игрока копится»: после конца цель идёт по текущему вводу), уворот в это время недоступен
                 // (<see cref="Movement.Dodge.Ready"/> проверяется ниже с условием KnockLeft == 0). Шаг — как рывок;
-                // упёрся в стену — остановка без урона: рывок коротается (приёмка 6.10 п. 5).
+                // упёрся в стену — остановка без урона: рывок коротается (приёмка 6.10 п. 5). Фаза удара при
+                // отбрасывании идёт (таймер не замирает), движение — задаёт отбрасывание.
+                StepMelee(attackPressed, aimRaw);
                 Input8 kdir = KnockDirection;
                 int kwantX = (Carry.X + kdir.SpeedX10(KnockSpeedX10)) / MovementTick.SpeedScale;
                 int kwantY = (Carry.Y + kdir.SpeedY10(KnockSpeedX10)) / MovementTick.SpeedScale;
@@ -185,6 +216,7 @@ namespace Orpheus.Core.Movement
                 return Position;
             }
 
+            bool attack = attackPressed;
             if (dodgePressed && input.IsMoving && Dodge.Ready)
             {
                 if (Stamina.CanDodge)
@@ -194,6 +226,8 @@ namespace Orpheus.Core.Movement
                     Dodge.Elapsed = 0;
                     Dodge.Direction = (byte)(input.DirectionIndex + 1);
                     DashStarted = true;
+                    Melee.CancelByDash(); // «Отмена действий» (`02` 2.2, 2.7 п. 3): из замаха — удар пропал, из отхода — засчитан
+                    attack = false; // нажатие удара в кадре рывка не действует
                 }
                 else
                 {
@@ -213,7 +247,8 @@ namespace Orpheus.Core.Movement
                     Dodge.Cooldown--;
                 }
 
-                Position = MovementTick.Tick(map, Position, Carry, input, UnitsPerTickX10 / MovementTick.FramesPerTick, solid, out Carry);
+                Position = MovementTick.Tick(map, Position, Carry, input, FrameSpeedX10(), solid, out Carry);
+                StepMelee(attack, aimRaw);
                 return Position;
             }
 
@@ -238,7 +273,31 @@ namespace Orpheus.Core.Movement
                 Dodge.Cooldown = Movement.Dodge.CooldownFrames;
             }
 
+            StepMelee(attack, aimRaw);
             return Position;
+        }
+
+        /// <summary>
+        /// Шаг фазы удара в этом кадре; переход «замах → удар» фиксирует начало удара — позицию кадра
+        /// (сектор сервера и предсказания считают попадание по ней, ось — <see cref="MeleeAction.AimRaw"/>).
+        /// </summary>
+        private void StepMelee(bool attackPressed, ushort aimRaw)
+        {
+            byte before = Melee.Phase;
+            Melee.StepFrame(attackPressed, aimRaw);
+            if (Melee.Phase == MeleeAction.PhaseStrike && before == MeleeAction.PhaseWindup)
+            {
+                Melee.OriginX = Position.X;
+                Melee.OriginY = Position.Y;
+            }
+        }
+
+        /// <summary>Скорость кадрового бега в unit × 10: в замахе и ударе — 70 % (`02` 3.2), иначе обычная.</summary>
+        private readonly int FrameSpeedX10()
+        {
+            int v = UnitsPerTickX10 / MovementTick.FramesPerTick;
+            int sx10 = Melee.SpeedX10;
+            return sx10 == 1000 ? v : v * sx10 / 1000;
         }
 
         /// <summary>Один такт в пустом мире (тайлов нет): чистый пробег по тору.</summary>

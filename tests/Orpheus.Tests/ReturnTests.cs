@@ -313,12 +313,12 @@ namespace Orpheus.Tests
 
             byte[] bytes = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "мир", roster.Capture()), 9, 0);
             SaveFile f = SaveContainer.Read(bytes);
-            Assert.Equal(4u, f.Header.FormatVersion); // формат 4 (1-002): сумка в записи персонажа
+            Assert.Equal(5u, f.Header.FormatVersion); // формат 5 (1-004): удар мечом в записи персонажа
             Assert.True(f.HasSection(SaveSections.Characters));
 
             WorldModel world = WorldSnapshot.LoadBase(live.BaseBytes);
             LoadedWorldState state = WorldSave.Load(f, world, live.BaseSha);
-            Assert.Equal(4u, state.FormatVersion);
+            Assert.Equal(5u, state.FormatVersion);
             Assert.Equal(2, state.Characters.Length);
             Assert.Equal("живой", state.Characters[0].Name);
             Assert.Equal(inWorld, state.Characters[0].EntityId);
@@ -399,7 +399,7 @@ namespace Orpheus.Tests
             Assert.Equal(5, sim.EntityCount);
 
             byte[] v4 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), state.Name, roster.Capture()), 2, 0);
-            Assert.Equal(4u, SaveContainer.Read(v4).Header.FormatVersion); // нынешний формат (4 с 1-002)
+            Assert.Equal(5u, SaveContainer.Read(v4).Header.FormatVersion); // нынешний формат (5 с 1-004)
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, v4)).Total);
         }
 

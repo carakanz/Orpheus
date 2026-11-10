@@ -147,6 +147,15 @@ namespace Orpheus.Core.Sim
             h.Add(e.Mover.KnockLeft);
             h.Add(e.Mover.KnockSpeedX10);
             h.Add(e.Mover.KnockDir);
+            h.Add(e.Mover.Melee.Phase);
+            h.Add(e.Mover.Melee.FramesLeft);
+            h.Add(e.Mover.Melee.Index);
+            h.Add(e.Mover.Melee.Buffered ? 1 : 0);
+            h.Add(e.Mover.Melee.IdleFrames);
+            h.Add(e.Mover.Melee.Resolved ? 1 : 0);
+            h.Add(e.Mover.Melee.AimRaw);
+            h.Add(e.Mover.Melee.OriginX);
+            h.Add(e.Mover.Melee.OriginY);
             h.Add(e.Health);
             h.Add(e.MaxHealth);
             h.Add(e.Armor);

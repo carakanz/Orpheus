@@ -605,7 +605,8 @@ namespace Orpheus.Core.Sim
                     InputFrame f = _frames[i * MaxFramesPerTick + k];
                     _entities[i].Input = f;
                     ApplySlot(ref _entities[i], f.Slot); // ячейка меняется в том же кадре, что и предсказание клиента (1-002)
-                    _entities[i].Mover.StepFrame(_shape, f.Direction, f.DodgePressed, _solid); // с уворотом (0-029)
+                    bool swing = f.AttackPressed && Items.KindOf(_entities[i].Inv.Held) == Items.KindMelee; // удар — с ближним оружием в руках (1-004)
+                    _entities[i].Mover.StepFrame(_shape, f.Direction, f.DodgePressed, swing, f.Angle16, _solid); // с уворотом (0-029) и мечом (1-004)
                 }
 
                 _frameCount[i] = -1;
@@ -853,7 +854,8 @@ namespace Orpheus.Core.Sim
 
                 if (e.Kind != SimEntity.KindEnemy)
                 {
-                    continue; // персонаж сам не замахивается (атаки игрока — 1-003…1-006)
+                    ResolveMeleeStrike(ref e); // удар мечом игрока решается по текущим позициям в фазе «удар» (1-004)
+                    continue; // персонаж сам не замахивается на врагов кодом врага (атаки игрока — 1-004…1-006)
                 }
 
                 if (e.AttackImmune > 0)
@@ -896,6 +898,130 @@ namespace Orpheus.Core.Sim
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Удар мечом игрока (1-004, `02` 3.1–3.2): в фазе «удар» — сектор от начала удара
+        /// (<see cref="MeleeAction.OriginX"/>, фиксирован переходом «замах → удар»), ось — прицел
+        /// (<see cref="MeleeAction.AimRaw"/>), радиус <see cref="SwordStrike.ReachUnits"/>, дуга 120°.
+        /// Цель — ближайший живой враг, чей круг пересекает сектор и до которого линия удара чиста
+        /// (стена/скала/дерево/закрытая дверь — преграда, забор — нет, `02` 3.4); в PvE players не задевает.
+        /// Урон 10/10/13 по индексу серии, отбрасывание 1/1/2 тайла ÷ масса; удар решается один раз
+        /// (<see cref="MeleeAction.Resolved"/>); постройки урона не получают (цели — только существа).
+        /// </summary>
+        private void ResolveMeleeStrike(ref SimEntity e)
+        {
+            ref MeleeAction m = ref e.Mover.Melee;
+            if (m.Phase != MeleeAction.PhaseStrike || m.Resolved)
+            {
+                return;
+            }
+
+            m.Resolved = true;
+            WorldPos origin = new WorldPos(m.OriginX, m.OriginY);
+            var sector = new MeleeSector(origin, Angle16.FromRaw(m.AimRaw), SwordStrike.ReachUnits, SwordStrike.HalfArcSteps);
+            TileCoord own = Torus.TileOf(_shape, e.Mover.Position);
+
+            int target = -1;
+            long bestD = long.MaxValue;
+            for (int i = 0; i < _entityCount; i++)
+            {
+                ref SimEntity t = ref _entities[i];
+                if (t.Kind != SimEntity.KindEnemy || !t.Alive)
+                {
+                    continue; // PvE: меч бьёт врагов, игроков не задевает (`02` 3.4)
+                }
+
+                if (!sector.Overlaps(_shape, t.Mover.Position, Collision.RadiusUnits))
+                {
+                    continue;
+                }
+
+                Int2 d = Torus.Delta(_shape, origin, t.Mover.Position);
+                long dist = d.LengthSquared;
+                if (dist >= bestD)
+                {
+                    continue;
+                }
+
+                if (!StrikeLineClear(origin, t.Mover.Position, own))
+                {
+                    continue; // стена/забор-преграда между — удара нет (`02` 3.4)
+                }
+
+                bestD = dist;
+                target = i;
+            }
+
+            if (target < 0)
+            {
+                return;
+            }
+
+            int damage = ApplyStrike(_entities[target].Id, e.Id, SwordStrike.DamageFor(m.Index), origin, knockback: true);
+            if (damage > 0)
+            {
+                // Третий удар отбрасывает на 2 тайла (`02` 3.2): скорость ставит ApplyStrike (база ÷ масса), множитель удара — здесь.
+                ref Mover tm = ref _entities[target].Mover;
+                if (tm.KnockLeft != 0)
+                {
+                    tm.KnockSpeedX10 *= SwordStrike.KnockTilesFor(m.Index);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Линия удара чиста (`02` 3.1, 3.4): отрезок «начало удара — центр цели» с шагом
+        /// <see cref="StrikeLosStepUnits"/> unit не пересекает непроходимых тайлов (<see cref="IsBlocked"/>:
+        /// стена, скала, дерево, гранит, закрытая дверь/ворота); тайл атакующего пропускается,
+        /// забор проходим — линию не прерывает. Шов тора: разность — <see cref="Torus.Delta"/>.
+        /// </summary>
+        private bool StrikeLineClear(WorldPos from, WorldPos to, TileCoord own)
+        {
+            Int2 d = Torus.Delta(_shape, from, to);
+            int steps = (Math.Abs(d.X) + Math.Abs(d.Y) + StrikeLosStepUnits - 1) / StrikeLosStepUnits;
+            for (int i = 1; i < steps; i++)
+            {
+                WorldPos p = new WorldPos(
+                    from.X + (int)((long)d.X * i / steps),
+                    from.Y + (int)((long)d.Y * i / steps));
+                TileCoord tile = Torus.TileOf(_shape, p);
+                if (tile == own)
+                {
+                    continue;
+                }
+
+                if (StrikeTileBlocked(tile))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>Шаг выборки линии удара, unit (1/4 тайла): тайловую преграду не перепрыгнуть.</summary>
+        public const int StrikeLosStepUnits = 64;
+
+        /// <summary>
+        /// Тайл прерывает линию удара (`02` 3.4): как <see cref="IsBlocked"/> для ходьбы, но
+        /// деревянный забор — преграда для ходьбы, для удара нет (забор бьётся, приёмка 1-004).
+        /// </summary>
+        private bool StrikeTileBlocked(TileCoord tile)
+        {
+            if (IsBlocked(_shape, tile))
+            {
+                Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_shape, tile));
+                if (chunk != null &&
+                    ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(tile.X, tile.Y))) == ObjectId.WoodFence)
+                {
+                    return false; // забор — линия удара проходит (`02` 3.1:157)
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -959,7 +1085,12 @@ namespace Orpheus.Core.Sim
                     target.AttackTarget = -1;
                 }
 
-                // Персонажа прерывает удар ≥ 10 % его максимума (6.6) — хук: действия персонажа в такте появляются в 1-006.
+                // Персонажа прерывает удар ≥ 10 % его максимума (6.6, хук 1-004): замах меча гаснет, серия сбрасывается.
+                if (target.IsCharacter && target.Mover.Melee.Phase == MeleeAction.PhaseWindup &&
+                    DamageMath.AtLeastPercent(damage, target.MaxHealth, InterruptPctCharacter))
+                {
+                    target.Mover.Melee.Cancel();
+                }
             }
 
             AddEvent(new SimEvent(SimEventKind.Damage, Tick, default, -1, EditResult.Applied, 0,
