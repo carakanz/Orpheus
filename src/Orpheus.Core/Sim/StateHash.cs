@@ -178,6 +178,19 @@ namespace Orpheus.Core.Sim
             h.Add(e.Input.Buttons);
             h.Add(e.Input.Angle16);
             h.Add(e.Input.Slot);
+            h.Add(e.Brain.Archetype);
+            h.Add((int)e.Brain.State);
+            h.Add(e.Brain.TargetId);
+            h.Add(e.Brain.StateTicks);
+            h.Add(e.Brain.LostTicks);
+            h.Add(e.Brain.LastHitTick);
+            h.Add(e.Brain.LastHitBy);
+            h.Add(e.Brain.LastHitAmount);
+            h.Add(e.Brain.HomeX);
+            h.Add(e.Brain.HomeY);
+            h.Add(e.Brain.GoalX);
+            h.Add(e.Brain.GoalY);
+            // Кэш пути (PathStamp/PathPos) — производный от запросов, чья постановка видна в хэше; не хэшируется.
             e.Inv.AddTo(ref h); // сумка целиком (1-002): ячейка в руках, ячейки, счётчики
             return h.Value;
         }

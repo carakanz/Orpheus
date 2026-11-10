@@ -148,6 +148,117 @@ namespace Orpheus.Save
             /// сумку сущности — она идёт в сейв и обратно, иначе хэш загруженного мира не совпадает с хэшем при выходе.
             /// Нет поля (форматы 1–4) — пустая сумка.</summary>
             public const int Inv = 23;
+
+            /// <summary>ИИ врага (<c>Brain</c>, формат 6, 1-007): архетип (<c>EnemyArchetype</c>). Нет поля
+            /// (форматы 1–5) — 0, мозг выключен: враг из старого сейва стоит заглушкой.</summary>
+            public const int BrainArchetype = 24;
+
+            /// <summary>ИИ: состояние (<c>EnemyState</c>), 0…6.</summary>
+            public const int BrainState = 25;
+
+            /// <summary>ИИ: номер цели (−1 — нет) — подписано как int.</summary>
+            public const int BrainTargetId = 26;
+
+            /// <summary>ИИ: тактов в текущем состоянии.</summary>
+            public const int BrainStateTicks = 27;
+
+            /// <summary>ИИ: тактов вне радиуса потери цели.</summary>
+            public const int BrainLostTicks = 28;
+
+            /// <summary>ИИ: такт последнего удара (0 — не было).</summary>
+            public const int BrainLastHitTick = 29;
+
+            /// <summary>ИИ: кто ударил последним (−1 — не было).</summary>
+            public const int BrainLastHitBy = 30;
+
+            /// <summary>ИИ: урон последнего удара.</summary>
+            public const int BrainLastHitAmount = 31;
+
+            /// <summary>ИИ: точка появления, тайл X («дом» для Idle/Lost).</summary>
+            public const int BrainHomeX = 32;
+
+            /// <summary>ИИ: точка появления, тайл Y.</summary>
+            public const int BrainHomeY = 33;
+
+            /// <summary>ИИ: цель блуждания, тайл X.</summary>
+            public const int BrainGoalX = 34;
+
+            /// <summary>ИИ: цель блуждания, тайл Y. Кэш путей (<c>PathStamp</c>/<c>PathPos</c>) не пишется:
+            /// после загрузки пути переспрашиваются (<c>Simulation.Restore</c> → <c>ResetPathCaches</c>).</summary>
+            public const int BrainGoalY = 35;
+
+            // Бой (формат 6, 1-007): StateHash считает эти поля — они обязаны ездить в сейв и обратно, иначе
+            // хэш загруженного мира не совпадёт с хэшем при выходе (мир 1-007 дерётся: hp, замахы, регенерация).
+            // В форматах 1–5 полей нет — Simulation.Restore подставляет дефолты спавна (полное здоровье, масса 1).
+
+            /// <summary>Здоровье сейчас (<c>Health</c>), подписано.</summary>
+            public const int Health = 36;
+
+            /// <summary>Максимум здоровья (<c>MaxHealth</c>), подписано.</summary>
+            public const int MaxHealth = 37;
+
+            /// <summary>Броня (<c>Armor</c>, в вехе 0).</summary>
+            public const int Armor = 38;
+
+            /// <summary>Масса для отбрасывания (<c>Mass</c>, 6.5).</summary>
+            public const int Mass = 39;
+
+            /// <summary>Тактов неуязвимости осталось (<c>InvulnTicks</c>, 6.3).</summary>
+            public const int InvulnTicks = 40;
+
+            /// <summary>Тактов с последнего полученного урона (<c>RegenTicks</c>, 6.3).</summary>
+            public const int RegenTicks = 41;
+
+            /// <summary>Накопитель регенерации (<c>RegenCarryX100</c>), подписано.</summary>
+            public const int RegenCarryX100 = 42;
+
+            /// <summary>Тактов флага «в бою» осталось (<c>CombatTicks</c>, 6.3).</summary>
+            public const int CombatTicks = 43;
+
+            /// <summary>Тактов до возрождения / труп лежит (<c>DeadTicks</c>), 0 — жив.</summary>
+            public const int DeadTicks = 44;
+
+            /// <summary>Замах врага: тактов осталось (<c>AttackWindup</c>).</summary>
+            public const int AttackWindup = 45;
+
+            /// <summary>Замах врага: тактов отхода осталось (<c>AttackRecover</c>).</summary>
+            public const int AttackRecover = 46;
+
+            /// <summary>Замах врага: тактов иммунитета к прерыванию (<c>AttackImmune</c>, 6.6).</summary>
+            public const int AttackImmune = 47;
+
+            /// <summary>Замах врага: жертва замаха (<c>AttackTarget</c>), −1 — нет.</summary>
+            public const int AttackTarget = 48;
+
+            /// <summary>Сырой урон удара (<c>AttackRaw</c>).</summary>
+            public const int AttackRaw = 49;
+
+            /// <summary>Цикл замаха (<c>AttackPeriod</c>), −1 — сам не замахивается; подписано.</summary>
+            public const int AttackPeriod = 50;
+
+            /// <summary>Сектор замаха: центр, x в 1/256 тайла (<c>AttackOrigin.X</c>).</summary>
+            public const int AttackOriginX = 51;
+
+            /// <summary>Сектор замаха: центр, y в 1/256 тайла (<c>AttackOrigin.Y</c>).</summary>
+            public const int AttackOriginY = 52;
+
+            /// <summary>Сектор замаха: ось (<c>AttackFacingRaw</c>), подписано.</summary>
+            public const int AttackFacingRaw = 53;
+
+            /// <summary>Отбрасывание (<c>Mover.KnockLeft</c>, 6.5): тактов осталось.</summary>
+            public const int KnockLeft = 54;
+
+            /// <summary>Отбрасывание: скорость X10 (<c>Mover.KnockSpeedX10</c>), подписано.</summary>
+            public const int KnockSpeedX10 = 55;
+
+            /// <summary>Отбрасывание: направление, код 0…8 (<c>Mover.KnockDir</c>), 0 — нет.</summary>
+            public const int KnockDir = 56;
+
+            /// <summary>Угол прицела ввода (<c>Input.Angle16</c>, u16): прицел игрока доходит до загрузки.</summary>
+            public const int AimAngle16 = 57;
+
+            /// <summary>Ячейка быстрой панели ввода (<c>Input.Slot</c>, 0…7): предмет в руках доходит до загрузки.</summary>
+            public const int InputSlot = 58;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>

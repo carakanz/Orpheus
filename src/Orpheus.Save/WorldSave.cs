@@ -238,6 +238,46 @@ namespace Orpheus.Save
                 var bag = new byte[Inventory.PayloadBytes]; // сумка — всегда (1-004): StateHash её считает, round-trip обязан сходиться
                 x.Inv.WritePayload(bag);
                 e.WriteBytes(SaveSections.EntityField.Inv, bag);
+                // Бой (формат 6, 1-007): StateHash считает здоровье/замах/регенерацию/отбрасывание/прицел — пишем всегда.
+                e.WriteInt(SaveSections.EntityField.Health, x.Health);
+                e.WriteInt(SaveSections.EntityField.MaxHealth, x.MaxHealth);
+                e.WriteUInt(SaveSections.EntityField.Armor, x.Armor);
+                e.WriteUInt(SaveSections.EntityField.Mass, x.Mass);
+                e.WriteUInt(SaveSections.EntityField.InvulnTicks, (ulong)x.InvulnTicks);
+                e.WriteUInt(SaveSections.EntityField.RegenTicks, (ulong)x.RegenTicks);
+                e.WriteInt(SaveSections.EntityField.RegenCarryX100, x.RegenCarryX100);
+                e.WriteUInt(SaveSections.EntityField.CombatTicks, (ulong)x.CombatTicks);
+                e.WriteUInt(SaveSections.EntityField.DeadTicks, (ulong)x.DeadTicks);
+                e.WriteUInt(SaveSections.EntityField.AttackWindup, (ulong)x.AttackWindup);
+                e.WriteUInt(SaveSections.EntityField.AttackRecover, (ulong)x.AttackRecover);
+                e.WriteUInt(SaveSections.EntityField.AttackImmune, (ulong)x.AttackImmune);
+                e.WriteInt(SaveSections.EntityField.AttackTarget, x.AttackTarget);
+                e.WriteUInt(SaveSections.EntityField.AttackRaw, x.AttackRaw);
+                e.WriteInt(SaveSections.EntityField.AttackPeriod, x.AttackPeriod);
+                e.WriteInt(SaveSections.EntityField.AttackOriginX, x.AttackOrigin.X);
+                e.WriteInt(SaveSections.EntityField.AttackOriginY, x.AttackOrigin.Y);
+                e.WriteInt(SaveSections.EntityField.AttackFacingRaw, x.AttackFacingRaw);
+                e.WriteUInt(SaveSections.EntityField.KnockLeft, x.Mover.KnockLeft);
+                e.WriteInt(SaveSections.EntityField.KnockSpeedX10, x.Mover.KnockSpeedX10);
+                e.WriteUInt(SaveSections.EntityField.KnockDir, x.Mover.KnockDir);
+                e.WriteUInt(SaveSections.EntityField.AimAngle16, x.Input.Angle16);
+                e.WriteUInt(SaveSections.EntityField.InputSlot, x.Input.Slot);
+                if (x.Brain.Archetype != EnemyArchetype.None)
+                {
+                    // Мозг ИИ (1-007, формат 6) — только у врага с мозгом: у персонажа и манекена полей нет.
+                    e.WriteUInt(SaveSections.EntityField.BrainArchetype, x.Brain.Archetype);
+                    e.WriteUInt(SaveSections.EntityField.BrainState, (uint)(uint)x.Brain.State);
+                    e.WriteInt(SaveSections.EntityField.BrainTargetId, x.Brain.TargetId);
+                    e.WriteInt(SaveSections.EntityField.BrainStateTicks, x.Brain.StateTicks);
+                    e.WriteInt(SaveSections.EntityField.BrainLostTicks, x.Brain.LostTicks);
+                    e.WriteInt(SaveSections.EntityField.BrainLastHitTick, x.Brain.LastHitTick);
+                    e.WriteInt(SaveSections.EntityField.BrainLastHitBy, x.Brain.LastHitBy);
+                    e.WriteInt(SaveSections.EntityField.BrainLastHitAmount, x.Brain.LastHitAmount);
+                    e.WriteInt(SaveSections.EntityField.BrainHomeX, x.Brain.HomeX);
+                    e.WriteInt(SaveSections.EntityField.BrainHomeY, x.Brain.HomeY);
+                    e.WriteInt(SaveSections.EntityField.BrainGoalX, x.Brain.GoalX);
+                    e.WriteInt(SaveSections.EntityField.BrainGoalY, x.Brain.GoalY);
+                }
                 e.EndRecord(mark);
             }
 
@@ -692,6 +732,12 @@ namespace Orpheus.Save
             MeleeAction melee = default;
             Dodge dodge = default; // формат 1 полей уворота не пишет — уворот нулевой («ещё не было»)
             Inventory inv = default; // сумку в раздел сущностей пишет только формат 5 (1-004); в форматах 1–4 её нет
+            EnemyBrain brain = default; // мозг (формат 6, 1-007): в форматах 1–5 поля нет — Archetype 0, враг стоит
+            bool hasBrain = false;
+            // Бой (формат 6, 1-007): в форматах 1–5 полей нет — нули, Simulation.RestoreDefaults подставит дефолты спавна.
+            int health = 0, maxHealth = 0, armor = 0, mass = 0, invuln = 0, regen = 0, regenCarry = 0, combat = 0, dead = 0;
+            int windup = 0, recover = 0, immune = 0, atkTarget = 0, atkRaw = 0, period = 0, atkOriginX = 0, atkOriginY = 0, atkFacing = 0;
+            int knockLeft = 0, knockSpeed = 0, knockDir = 0, aimAngle = 0, inputSlot = 0;
             while (r.Next())
             {
                 switch (r.Field)
@@ -774,6 +820,112 @@ namespace Orpheus.Save
                         }
 
                         break;
+                    case SaveSections.EntityField.BrainArchetype:
+                        brain.Archetype = (byte)r.UIntAsInt(byte.MaxValue);
+                        hasBrain = true;
+                        break;
+                    case SaveSections.EntityField.BrainState:
+                        brain.State = (EnemyState)r.UIntAsInt((int)EnemyState.Lost);
+                        break;
+                    case SaveSections.EntityField.BrainTargetId:
+                        brain.TargetId = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainStateTicks:
+                        brain.StateTicks = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainLostTicks:
+                        brain.LostTicks = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainLastHitTick:
+                        brain.LastHitTick = r.Int();
+                        break;
+                    case SaveSections.EntityField.BrainLastHitBy:
+                        brain.LastHitBy = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainLastHitAmount:
+                        brain.LastHitAmount = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainHomeX:
+                        brain.HomeX = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainHomeY:
+                        brain.HomeY = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainGoalX:
+                        brain.GoalX = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainGoalY:
+                        brain.GoalY = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.Health:
+                        health = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.MaxHealth:
+                        maxHealth = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.Armor:
+                        armor = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.Mass:
+                        mass = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.InvulnTicks:
+                        invuln = r.UIntAsInt(int.MaxValue);
+                        break;
+                    case SaveSections.EntityField.RegenTicks:
+                        regen = r.UIntAsInt(int.MaxValue);
+                        break;
+                    case SaveSections.EntityField.RegenCarryX100:
+                        regenCarry = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.CombatTicks:
+                        combat = r.UIntAsInt(int.MaxValue);
+                        break;
+                    case SaveSections.EntityField.DeadTicks:
+                        dead = r.UIntAsInt(int.MaxValue);
+                        break;
+                    case SaveSections.EntityField.AttackWindup:
+                        windup = r.UIntAsInt(int.MaxValue);
+                        break;
+                    case SaveSections.EntityField.AttackRecover:
+                        recover = r.UIntAsInt(int.MaxValue);
+                        break;
+                    case SaveSections.EntityField.AttackImmune:
+                        immune = r.UIntAsInt(int.MaxValue);
+                        break;
+                    case SaveSections.EntityField.AttackTarget:
+                        atkTarget = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.AttackRaw:
+                        atkRaw = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.AttackPeriod:
+                        period = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.AttackOriginX:
+                        atkOriginX = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.AttackOriginY:
+                        atkOriginY = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.AttackFacingRaw:
+                        atkFacing = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.KnockLeft:
+                        knockLeft = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.KnockSpeedX10:
+                        knockSpeed = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.KnockDir:
+                        knockDir = r.UIntAsInt(InputFrame.MaxDirectionCode);
+                        break;
+                    case SaveSections.EntityField.AimAngle16:
+                        aimAngle = r.UIntAsInt(ushort.MaxValue);
+                        break;
+                    case SaveSections.EntityField.InputSlot:
+                        inputSlot = r.UIntAsInt(InputFrame.MaxSlots - 1);
+                        break;
                 }
             }
 
@@ -791,9 +943,35 @@ namespace Orpheus.Save
             {
                 Id = id,
                 Kind = (byte)kind,
-                Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge, Melee = melee },
-                Input = InputFrame.FromCode((byte)direction, (ushort)buttons),
+                Mover = new Mover(new WorldPos(x, y), speed)
+                {
+                    Carry = new Int2(carryX, carryY),
+                    Dodge = dodge,
+                    Melee = melee,
+                    KnockLeft = (byte)knockLeft,
+                    KnockSpeedX10 = knockSpeed,
+                    KnockDir = (byte)knockDir,
+                },
+                Input = InputFrame.FromCode((byte)direction, (ushort)buttons, (ushort)aimAngle, (byte)inputSlot),
                 Inv = inv,
+                Brain = hasBrain ? brain : default,
+                Health = (short)health,
+                MaxHealth = (short)maxHealth,
+                Armor = (byte)armor,
+                Mass = (byte)mass,
+                InvulnTicks = invuln,
+                RegenTicks = regen,
+                RegenCarryX100 = regenCarry,
+                CombatTicks = combat,
+                DeadTicks = dead,
+                AttackWindup = windup,
+                AttackRecover = recover,
+                AttackImmune = immune,
+                AttackTarget = atkTarget,
+                AttackRaw = (byte)atkRaw,
+                AttackPeriod = period,
+                AttackOrigin = new WorldPos(atkOriginX, atkOriginY),
+                AttackFacingRaw = (short)atkFacing,
             };
         }
     }

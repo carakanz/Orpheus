@@ -1027,6 +1027,7 @@ namespace Orpheus.Net.Session
                 }
             }
 
+            StepEnemyThreats(); // 1-007: замахи врагов с ИИ — телеграф (удар уже решён симуляцией)
             SendSwings();
             _transport.Flush(); // снимки такта — сразу, а не по таймеру транспорта (0-015)
         }
@@ -1191,6 +1192,11 @@ namespace Orpheus.Net.Session
                         f |= DeltaFields.Melee; // 1-004
                     }
 
+                    if (_cur[ci].Enemy != b.Enemy)
+                    {
+                        f |= DeltaFields.Enemy; // 1-007
+                    }
+
                     if (f == DeltaFields.None)
                     {
                         continue;
@@ -1240,13 +1246,13 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < updatedN; i++)
             {
                 SnapshotEntity e = _cur[_updCur[i]];
-                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee);
+                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy);
             }
 
             for (int i = 0; i < addedN; i++)
             {
                 SnapshotEntity e = _cur[_addCur[i]];
-                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct, e.HeldItem);
+                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy);
             }
 
             int len = w.Finish();
@@ -1262,7 +1268,7 @@ namespace Orpheus.Net.Session
             w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < curCount; i++)
             {
-                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem, _cur[i].Melee))
+                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem, _cur[i].Melee, _cur[i].Enemy))
                 {
                     break;
                 }
@@ -1386,6 +1392,7 @@ namespace Orpheus.Net.Session
             HealthPct = (byte)Math.Max(0, Math.Min(100, e.Health * 100 / Math.Max(1, (int)e.MaxHealth))), // 1-001: доля HP
             HeldItem = e.Inv.Held, // 1-002: предмет в руках — картинка у всех
             Melee = (byte)(e.Mover.Melee.Phase | (e.Mover.Melee.Index << 2)), // 1-004: фаза удара — анимация у чужих
+            Enemy = SnapshotLayout.EncodeEnemy(e.Brain.Archetype, e.Brain.SnapshotState), // 1-007: ИИ врага — архетип + состояние
         };
 
         private static int IndexIn(SnapshotEntity[] ents, int count, int id)

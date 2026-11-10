@@ -652,20 +652,20 @@ namespace Orpheus.Tests
             byte[] gPauseReq = Golden("16 01", b => new PauseRequestMessage { Paused = true }.Write(b)); // 0-036, протокол 10
             var pauseState = new PauseStateMessage { Paused = true, ServerTick = 0x01020304, ByEntity = 7, ByName = "Эвр" };
             byte[] gPauseState = Golden("17 01 04 03 02 01 07 00 00 00 06 d0 ad d0 b2 d1 80", b => pauseState.Write(b));
-            byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f 46 06 80 ac 37 0b 00 00 00 00 fa 00 fa 80 01 00 40 13 00 00 80 80 fb 1f 00 80 80 01 03", b => // бой в своём состоянии и сущностях (1-001, протокол 11) + предмет в руках (1-002, протокол 13) + выносливость (1-003, протокол 14) + фаза удара (1-004, протокол 15)
+            byte[] gSnap = Golden("05 9f 86 01 00 43 0d 03 00 02 a5 d1 07 80 3e e0 dc d1 8f 46 06 80 ac 37 0b 00 00 00 00 fa 00 fa 80 01 00 00 68 02 00 00 10 70 ff 03 00 10 30 60 0b", b => // бой в своём состоянии и сущностях (1-001, протокол 11) + предмет в руках (1-002, протокол 13) + выносливость (1-003, протокол 14) + фаза удара (1-004, протокол 15) + ИИ врага (1-007, протокол 16)
             {
                 var snap = new Snapshot { Tick = 99_999, AckFrame = 200_003, ClockEpoch = 0xA5, Count = 2, Self = new SelfState(new WorldPos(1000, 2000), new Int2(-9, 7), new Dodge { Elapsed = 0xA3, DashLeft = 15, Cooldown = 17, Direction = 6 }) { LeadMargin = -3, DelayFrames = 19 } };
                 snap.Entities[0] = new SnapshotEntity { Id = 5, Kind = 0, Position = SnapshotLayout.Quantize(new WorldPos(1000, 2000)), Direction = 3 };
-                snap.Entities[1] = new SnapshotEntity { Id = 77, Kind = 2, Position = SnapshotLayout.Quantize(new WorldPos(262_000, 5)), Direction = 8, HeldItem = 3, Melee = 6 }; // 1-004: фаза 2 (удар), индекс 1
+                snap.Entities[1] = new SnapshotEntity { Id = 77, Kind = 2, Position = SnapshotLayout.Quantize(new WorldPos(262_000, 5)), Direction = 8, HeldItem = 3, Melee = 6, Enemy = SnapshotLayout.EncodeEnemy(1, 3) }; // 1-004: фаза 2 (удар), индекс 1; 1-007: архетип 1 (Ближний), состояние 3 (погоня)
                 return snap.Write(b, layout);
             });
-            byte[] gDelta = Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 42 00 00 00 00 00 00 08 02 00 36 7d 80 3e 70 05 36 06 00 00 10 80 3e 10 00 08 79 40 00", b => // бой: свои биты + доля здоровья новой сущности (1-001) + предмет в руках (1-002) + выносливость (1-003) + фаза удара (1-004)
+            byte[] gDelta = Golden("07 34 00 00 00 68 00 00 00 2a 01 01 01 a5 00 00 00 00 00 42 00 00 00 00 00 00 08 02 00 76 fa 00 7d e0 0a 2c 8d 01 00 00 04 a0 0f 04 00 42 1e 10 06", b => // бой: свои биты + доля здоровья новой сущности (1-001) + предмет в руках (1-002) + выносливость (1-003) + фаза удара (1-004) + ИИ врага (1-007)
             {
                 var w = new SnapshotDeltaWriter(b, layout, 52, 104, 10);
                 w.SetClockEpoch(0xA5);
                 Assert.True(w.TryAddRemoved(1));
-                Assert.True(w.TryAddUpdated(0, DeltaFields.Position | DeltaFields.Direction | DeltaFields.Held | DeltaFields.Melee, new WorldPos(4000, 4000), 7, 100, 5, 6));
-                Assert.True(w.TryAddAdded(99, 1, new WorldPos(8000, 16), 2, 100, 3, 2));
+                Assert.True(w.TryAddUpdated(0, DeltaFields.Position | DeltaFields.Direction | DeltaFields.Held | DeltaFields.Melee | DeltaFields.Enemy, new WorldPos(4000, 4000), 7, 100, 5, 6, SnapshotLayout.EncodeEnemy(1, 1))); // 1-007: блуждание
+                Assert.True(w.TryAddAdded(99, 1, new WorldPos(8000, 16), 2, 100, 3, 2, SnapshotLayout.EncodeEnemy(1, 4))); // 1-007: замах
                 return w.Finish();
             });
             Assert.True(_golden.Count == 0, string.Join("\n", _golden));
@@ -679,6 +679,8 @@ namespace Orpheus.Tests
             Assert.Equal(0, rSnap.Entities[0].HeldItem); // 1-002: пустые руки (ячейка 0)
             Assert.Equal(3, rSnap.Entities[1].HeldItem); // 1-002: предмет в руках из золотых байт
             Assert.Equal(6, rSnap.Entities[1].Melee); // 1-004: фаза удара из золотых байт
+            Assert.Equal(0, rSnap.Entities[0].Enemy); // 1-007: персонаж — мозга нет
+            Assert.Equal(SnapshotLayout.EncodeEnemy(1, 3), rSnap.Entities[1].Enemy); // 1-007: архетип + состояние из золотых байт
             var rDelta = new SnapshotDeltaMessage(); // предмет в руках в дельте — из золотых байт (1-002)
             rDelta.Read(gDelta, layout);
             Assert.True((rDelta.UpdatedFields[0] & DeltaFields.Held) != 0);
@@ -687,6 +689,9 @@ namespace Orpheus.Tests
             Assert.True((rDelta.UpdatedFields[0] & DeltaFields.Melee) != 0); // 1-004: фаза удара в дельте
             Assert.Equal(6, rDelta.Updated[0].Melee);
             Assert.Equal(2, rDelta.Added[0].Melee);
+            Assert.True((rDelta.UpdatedFields[0] & DeltaFields.Enemy) != 0); // 1-007: ИИ в дельте
+            Assert.Equal(SnapshotLayout.EncodeEnemy(1, 1), rDelta.Updated[0].Enemy);
+            Assert.Equal(SnapshotLayout.EncodeEnemy(1, 4), rDelta.Added[0].Enemy);
             Assert.True(PauseRequestMessage.Read(gPauseReq).Paused);
             Assert.Equal(pauseState, PauseStateMessage.Read(gPauseState));
             Assert.Equal(string.Empty, PauseStateMessage.Read(Hex("17 00 00 00 00 00 00 00 00 00 00")).ByName); // снял сервер сам

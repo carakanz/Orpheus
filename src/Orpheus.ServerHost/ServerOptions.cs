@@ -53,6 +53,7 @@ namespace Orpheus.Server
             "              [--autosave <сек>] [--debug-save-crash <зерно>] [--debug-save-plan <миг>[:%]] [--debug-save-pad <КБ>]\n" +
             "              [--debug-save-request <тактов> (повод сохранить каждые N тактов — серии замен без сети)]\n" +
             "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]] [--dummy [--dummy-wait <кадры>]]\n" +
+            "              [--debug-enemies N (1-007: N разбойников у точки появления; не с --record/--replay)]\n" +
             "              [--metrics <сек> (метрики такта в лог, 0 — только итог; по умолчанию 10)] [--report <json>]";
 
         /// <summary>Окно метрик такта по умолчанию: 10 с (docs/07 11.6).</summary>
@@ -152,6 +153,13 @@ namespace Orpheus.Server
         /// удар по игрокам решается с ожиданием ввода (<see cref="DummyWaitFrames"/>).
         /// </summary>
         public bool Dummy { get; set; }
+
+        /// <summary>
+        /// <c>--debug-enemies N</c> (1-007): N разбойников («Ближний», <c>AddMeleeRogue</c>) в кольце 10–20 тайлов
+        /// от точки появления — для проверки ИИ вживую (host-smoke, Unity-клиент). Несовместим с
+        /// <c>--record</c>/<c>--replay</c>: журнал появления не различает сущностей (враги стали бы персонажами).
+        /// </summary>
+        public int DebugEnemies { get; set; }
 
         /// <summary>Ожидание ввода W для решения удара манекена, кадров (по умолчанию 6 = 100 мс; 0 — без ожидания).</summary>
         public int DummyWaitFrames { get; set; } = 6;
@@ -275,6 +283,14 @@ namespace Orpheus.Server
                         }
 
                         break;
+                    case "--debug-enemies":
+                        o.DebugEnemies = ParseInt(a, Value(args, ref i));
+                        if (o.DebugEnemies < 1 || o.DebugEnemies > 250)
+                        {
+                            throw new ArgumentException($"--debug-enemies: 1…250 врагов, а не {o.DebugEnemies}.");
+                        }
+
+                        break;
                     case "--max-players":
                         o.MaxPlayers = ParseInt(a, Value(args, ref i));
                         if (o.MaxPlayers <= 0 || o.MaxPlayers > 255)
@@ -393,6 +409,11 @@ namespace Orpheus.Server
             if (o.ReplayPath != null && !o.Sim)
             {
                 throw new ArgumentException("--replay — только в режиме симуляции (--sim).");
+            }
+
+            if (o.DebugEnemies > 0 && (o.RecordPath != null || o.ReplayPath != null))
+            {
+                throw new ArgumentException("--debug-enemies и --record/--replay вместе нельзя: журнал появления не различает сущностей, враги в повторе стали бы персонажами (1-007).");
             }
 
             if (o.Port.HasValue && (o.Sim || o.RecordPath != null || o.ReplayPath != null))
