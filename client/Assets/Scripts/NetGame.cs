@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net.Sockets;
 using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
 using Orpheus.Core.Trig;
 using Orpheus.Core.World;
@@ -478,10 +479,10 @@ namespace Orpheus.Client
             // в -batchmode Unity завышает время очень коротких кадров (net-smoke 0-019). После фриза сервера часы
             // переставляются, следующий кадр перенумеровывается (NetClient.SendFrame, LocalPrediction.Sent).
             int n = c.FramesDue(now);
-            ushort editButtons = UpdateEdits(now); // 0-028: копание под курсором, стена по ПКМ
+            ushort editButtons = UpdateEdits(now); // 0-028: копание под курсором, стена по ПКМ; 1-004: бит удара ЛКМ
             // 1-002: прицел и ячейка — в каждый кадр ввода (журнал 2.4); в net-smoke кадр скриптованный, без мыши.
             ushort aim = _args.NetSmokeSeconds > 0 ? (ushort)0 : ComputeAim();
-            byte slot = _args.NetSmokeSeconds > 0 ? (byte)0 : (byte)_slot;
+            byte slot = _args.NetSmokeSeconds > 0 ? SmokeMeleeSlot(now) : (byte)_slot;
             if (_args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame())
             {
                 _dodgeWait = DodgeWaitFrames; // 0-034: нажатие ждёт направления до 0,1 с
@@ -491,7 +492,7 @@ namespace Orpheus.Client
             for (int k = 0; k < n; k++)
             {
                 InputFrame frame = _args.NetSmokeSeconds > 0 ?
-                    ScriptedSmokeFrame(now) :
+                    WithAimSlot(ScriptedSmokeFrame(now), aim, slot) : // 1-004: в окне — ячейка меча, иначе кирка
                     WithAimSlot(GameBoot.ToFrame(_g.Move.ReadValue<Vector2>()), aim, slot);
                 ushort buttons = editButtons;
                 if (_dodgeWait > 0)
@@ -513,8 +514,24 @@ namespace Orpheus.Client
                     frame = new InputFrame(frame.Direction, (ushort)(frame.Buttons | buttons), frame.Angle16, frame.Slot);
                 }
 
+                // 1-004: удар предсказывается только с ближним оружием в руках — предмет берётся по ячейке этого
+                // кадра, как сервер в такте (ячейка и кнопки применяются в одном кадре, 1-002).
+                _pred!.HeldItem = HeldItemAt(frame.Slot);
+                if (frame.AttackPressed)
+                {
+                    AttacksSent++;
+                }
+
                 c.SendFrame(frame);
                 _pred!.Sent(c.Frame, frame);
+
+                // 1-004 (net-smoke): замахы предсказания — входы в фазу замаха (в серии фаза не бывает покоем).
+                byte phase = _pred.Melee.Phase;
+                if (phase == MeleeAction.PhaseWindup && _lastMeleePhase != MeleeAction.PhaseWindup)
+                {
+                    MeleeStrikes++;
+                }
+                _lastMeleePhase = phase;
             }
         }
 
@@ -557,6 +574,30 @@ namespace Orpheus.Client
         /// <inheritdoc cref="DodgePresses"/>
         public int DodgesSent { get; private set; }
 
+        // 1-004: net-smoke бежит на восток с зажатой ЛКМ — предсказание повторяет замедление 70 % и серию
+        // замахов; меч — ячейка 3 стартового набора (1-002). Окно кончается до среза проверки (net-smoke 6 с).
+        public const byte SmokeSwordSlot = 3;
+        const double SmokeMeleeStartSec = 4.5;
+        const double SmokeMeleeEndSec = 6.0;
+
+        /// <summary>Кадры с битом удара (HUD, net-smoke) и замахы предсказания (вход в фазу замаха).</summary>
+        public int AttacksSent { get; private set; }
+        public int MeleeStrikes { get; private set; }
+        byte _lastMeleePhase;
+
+        /// <summary>Меч в net-smoke жмётся при тех же чистых условиях, что уворот (без имитации сети, не у шва).</summary>
+        bool SmokeMelee => SmokeDodges;
+
+        /// <summary>Окно удержания ЛКМ: бит на каждом кадре 4,5–6,0 с («удержание = повтор», `02` 1.2).</summary>
+        bool ScriptedSmokeAttack(long now)
+        {
+            double t = (now - _inGameSinceUs) / 1_000_000.0;
+            return SmokeMelee && t > SmokeMeleeStartSec && t < SmokeMeleeEndSec;
+        }
+
+        /// <summary>Ячейка быстрой панели в скриптованном кадре: в окне удара — меч, иначе кирка ( ячейка 0).</summary>
+        byte SmokeMeleeSlot(long now) => ScriptedSmokeAttack(now) ? SmokeSwordSlot : (byte)0;
+
         /// <summary>
         /// Net-smoke без помех сети и шва (<see cref="SmokeDodges"/>): одно нажатие уворота на 1,5 с — в беге на восток (вместе с
         /// направлением). Сервер должен повторить рывок: иначе предсказание разойдётся на 3 тайла и smoke упадёт по правкам.
@@ -572,11 +613,14 @@ namespace Orpheus.Client
             return true;
         }
 
-        /// <summary>Скрипт net-smoke: стоять 0,5 с, 2 с на восток, 2 с на север, дальше стоять.</summary>
+        /// <summary>
+        /// Скрипт net-smoke: стоять 0,5 с, 2 с на восток, 2 с на север, 1,5 с на восток с зажатой ЛКМ (1-004: меч
+        /// в серии на бегу), дальше стоять.
+        /// </summary>
         InputFrame ScriptedSmokeFrame(long now)
         {
             double t = (now - _inGameSinceUs) / 1_000_000.0;
-            Vector2 v = t < 0.5 ? Vector2.zero : t < 2.5 ? Vector2.right : t < 4.5 ? Vector2.up : Vector2.zero;
+            Vector2 v = t < 0.5 ? Vector2.zero : t < 2.5 ? Vector2.right : t < 4.5 ? Vector2.up : t < SmokeMeleeEndSec ? Vector2.right : Vector2.zero;
             return GameBoot.ToFrame(v);
         }
 
@@ -804,6 +848,9 @@ namespace Orpheus.Client
             string combat = pr == null ? string.Empty
                 : pr.Dead ? $"  погиб — возрождение через {Math.Max(0f, (Simulation.RespawnDelayTicks * 1_000_000L - (now - _deathAtUs)) / 1_000_000f):0.#} с"
                 : $"  здоровье {pr.Health}/100  выносливость {pr.Stamina}/100  смертей {c.DeathsSeen}"; // полоска стамины — 1-019
+            // Меч (1-004): фаза предсказательного замаха (1 замах / 2 удар / 3 отход) и индекс удара в серии.
+            MeleeAction ma = _pred?.Melee ?? default;
+            string melee = ma.Active ? $"  удар {ma.Phase}/серия {ma.Index + 1}/3" : string.Empty;
             // Значок «высокая задержка» (docs/07 2.7; 0-033): D_p > 150 мс — пока строкой в HUD, картинка — потом.
             _g.DebugText.text = (c.HighLatency ? $"[высокая задержка: показ −{c.DelayFrames * 1000 / 60} мс]  " : "") +
                 $"в игре  сервер {_host}:{_port}  seed 0x{c.Accept.WorldSeed:X}  {_map.Width}×{_map.Height}  " +
@@ -811,7 +858,7 @@ namespace Orpheus.Client
                 $"снимки {snapsPerSec:0.0}/с  дельт {c.DeltasApplied} (не склеено {c.DeltasUnmerged})  " +
                 $"rtt {(rtt >= 0 ? rtt + " мс" : "—")}  L {c.LeadFrames} D {c.DelayFrames} запас {c.LeadMargin}  ввод {c.InputsSent}  " +
                 $"предсверок {_pred?.Reconciled ?? 0} правок {_pred?.Resynced ?? 0} нокбэков {_pred?.KnockAdopted ?? 0} расх {_pred?.MaxDevUnits ?? 0}u" +
-                combat + BagHud() +
+                combat + melee + BagHud() +
                 $"  показ −{(_remote?.BufferUs ?? 0) / 1000} мс (стоит {_remote?.HoldFrames ?? 0})  якорь {_origin?.Anchor.X},{_origin?.Anchor.Y}" +
                 $"{(_pred != null && _pred.Overflows > 0 ? $" (задержка > {LocalPrediction.BufferSize / 60} с: {_pred.Overflows})" : "")}  " +
                 $"zoom x{_g.Zoom:0.00}  {fps:0} fps{EditHud(now)}";
@@ -850,6 +897,17 @@ namespace Orpheus.Client
                 if (SmokeDodges && (DodgePresses != 1 || DodgesSent != 1))
                 {
                     Fail($"[smoke] FAILED: уворот — нажатий {DodgePresses}, кадров с битом {DodgesSent} (нужно 1 и 1)");
+                    return;
+                }
+
+                // Меч (1-004): удержание ЛКМ 1,5 с в беге — бит на каждом кадре, предсказание входит в замах серии.
+                // Окно (4,5–6,0 с) заканчивается ровно к срезу проверки (net-smoke 6 с): к первому кадру t ≥ 6,0
+                // все кадры окна отправлены. На прогонах короче 6 с (есть такие) окно не проверяется.
+                double meleeT = (now - _inGameSinceUs) / 1_000_000.0;
+                Debug.Log($"[smoke] меч: кадров с битом {AttacksSent}, замахов {MeleeStrikes} (t {meleeT:0.0} с)");
+                if (SmokeMelee && meleeT >= SmokeMeleeEndSec && (AttacksSent < 60 || MeleeStrikes < 2))
+                {
+                    Fail($"[smoke] FAILED: меч — кадров с битом {AttacksSent} (нужно ≥ 60), замахов {MeleeStrikes} (нужно ≥ 2)");
                     return;
                 }
 

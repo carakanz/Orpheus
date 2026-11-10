@@ -1018,6 +1018,11 @@ namespace Orpheus.Net.Session
                     if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))
                     {
                         SendInventoryTo(pl, entities[slot].Inv); // 1-002: сумка изменилась (копание, подбор, смена ячейки)
+                        int ci = Characters.FindEntity(pl.EntityId); // 1-004: запись реестра — за сущностью, сейв в мире берёт живую сумку
+                        if (ci >= 0)
+                        {
+                            Characters.SetInventory(ci, entities[slot].Inv);
+                        }
                     }
                 }
             }

@@ -401,6 +401,10 @@ namespace Orpheus.Tests
                     {
                         creatures.WriteUInt(er.Field, er.UInt());
                     }
+                    else if (er.Type == RecordType.Bytes)
+                    {
+                        creatures.WriteBytes(er.Field, er.Bytes()); // сумка сущности (формат 5, 1-004)
+                    }
                     else
                     {
                         creatures.WriteInt(er.Field, er.Int());
@@ -575,6 +579,10 @@ namespace Orpheus.Tests
                     if (er.Type == RecordType.UInt)
                     {
                         creatures.WriteUInt(er.Field, er.UInt());
+                    }
+                    else if (er.Type == RecordType.Bytes)
+                    {
+                        creatures.WriteBytes(er.Field, er.Bytes()); // сумка сущности (формат 5, 1-004)
                     }
                     else
                     {

@@ -299,6 +299,30 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// 1-004 (регрессия загрузки из сейва): запись реестра за персонажем в мире идёт за сумкой сущности —
+        /// <see cref="CharacterRoster.AddInWorld"/> сразу даёт стартовый набор, сверка в SendSnapshots — живую сумку.
+        /// Сейв в мире брал пустую запись: загрузка возвращала персонажу пустую сумку — без меча melee-гейт
+        /// предсказания закрыт (в smoke — 0 замахов).
+        /// </summary>
+        [Fact]
+        public void D06_Net_InWorld_RecordBagFollowsEntity()
+        {
+            using var h = new Harness();
+            NetClient a = h.Connect("Орфей");
+            h.Run(2);
+            int rec = h.Server.Characters.FindPlayer("Орфей");
+            Assert.True(rec >= 0);
+            Assert.Equal(Inventory.StartingKit(), h.Server.Characters[rec].Inv); // в мире — запись не пустая (1-004)
+
+            var mine = Inventory.StartingKit();
+            mine.Add(Material.Wood, 7);
+            Assert.True(h.Sim.SetInventory(a.EntityId, mine));
+            h.Run(2); // сверка снимков: запись — за сущностью, автосохранение в мире берёт живую сумку
+            Assert.Equal(mine, h.Server.Characters[rec].Inv);
+            Assert.Equal(Items.WoodenSword, h.Server.Characters[rec].Inv.SlotAt(3));
+        }
+
+        /// <summary>
         /// Ячейка едет кадром ввода: клиент видит её в кадре отправки (не ждёт снимка), сервер — в том же кадре;
         /// после того как все кадры дошли, сервер и предсказание называют одну ячейку (RTT 100, σ 20).
         /// </summary>

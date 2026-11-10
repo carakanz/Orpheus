@@ -143,6 +143,11 @@ namespace Orpheus.Save
 
             /// <summary>Удар: начало удара, y в 1/256 тайла.</summary>
             public const int MeleeOriginY = 22;
+
+            /// <summary>Сумка (<c>Inv</c>, формат 5, 1-004): payload <c>Inventory.PayloadBytes</c> байт. StateHash считает
+            /// сумку сущности — она идёт в сейв и обратно, иначе хэш загруженного мира не совпадает с хэшем при выходе.
+            /// Нет поля (форматы 1–4) — пустая сумка.</summary>
+            public const int Inv = 23;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>
@@ -261,7 +266,8 @@ namespace Orpheus.Save
                 .Field(EntityField.MeleeResolved, "удар решён")
                 .Field(EntityField.MeleeAimRaw, "удар: ось")
                 .Field(EntityField.MeleeOriginX, "удар: x начала")
-                .Field(EntityField.MeleeOriginY, "удар: y начала"));
+                .Field(EntityField.MeleeOriginY, "удар: y начала")
+                .Field(EntityField.Inv, "сумка"));
 
         private static readonly RecordSchema CharactersSchema = new RecordSchema()
             .Field(CharactersField.Character, "персонаж", new RecordSchema()

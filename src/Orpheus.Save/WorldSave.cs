@@ -208,7 +208,7 @@ namespace Orpheus.Save
                 c.EndRecord(mark);
             }
 
-            var e = new RecordWriter(d.Entities.Length * 48 + 16);
+            var e = new RecordWriter(d.Entities.Length * 80 + 16);
             for (int i = 0; i < d.Entities.Length; i++)
             {
                 SimEntity x = d.Entities[i];
@@ -235,6 +235,9 @@ namespace Orpheus.Save
                 e.WriteUInt(SaveSections.EntityField.MeleeAimRaw, x.Mover.Melee.AimRaw);
                 e.WriteInt(SaveSections.EntityField.MeleeOriginX, x.Mover.Melee.OriginX);
                 e.WriteInt(SaveSections.EntityField.MeleeOriginY, x.Mover.Melee.OriginY);
+                var bag = new byte[Inventory.PayloadBytes]; // сумка — всегда (1-004): StateHash её считает, round-trip обязан сходиться
+                x.Inv.WritePayload(bag);
+                e.WriteBytes(SaveSections.EntityField.Inv, bag);
                 e.EndRecord(mark);
             }
 
@@ -688,6 +691,7 @@ namespace Orpheus.Save
             int buttons = 0;
             MeleeAction melee = default;
             Dodge dodge = default; // формат 1 полей уворота не пишет — уворот нулевой («ещё не было»)
+            Inventory inv = default; // сумку в раздел сущностей пишет только формат 5 (1-004); в форматах 1–4 её нет
             while (r.Next())
             {
                 switch (r.Field)
@@ -758,6 +762,18 @@ namespace Orpheus.Save
                     case SaveSections.EntityField.MeleeOriginY:
                         melee.OriginY = r.IntAsInt();
                         break;
+                    case SaveSections.EntityField.Inv:
+                        {
+                            ReadOnlySpan<byte> bag = r.Bytes();
+                            if (bag.Length != Inventory.PayloadBytes)
+                            {
+                                throw new InvalidDataException($"Сущность #{id}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes}.");
+                            }
+
+                            inv = Inventory.ReadPayload(bag);
+                        }
+
+                        break;
                 }
             }
 
@@ -777,6 +793,7 @@ namespace Orpheus.Save
                 Kind = (byte)kind,
                 Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge, Melee = melee },
                 Input = InputFrame.FromCode((byte)direction, (ushort)buttons),
+                Inv = inv,
             };
         }
     }

@@ -306,6 +306,10 @@ namespace Orpheus.Tests
                 sim.RefillPools();
             }
 
+            var kit = Inventory.StartingKit();
+            kit.Add(Material.Wood, 7);
+            Assert.True(sim.SetInventory(inWorld, kit)); // сумка игрока в мире: StateHash её считает — сейв обязан вести её и по сущности (1-004: хэш загрузки = хэш выхода)
+
             Mover hostMover = sim.Entities[sim.SlotOf(hostId)].Mover;
             Assert.True(roster.Park(1, sim)); // хозяин вышел до сохранения
             Mover live1 = sim.Entities[sim.SlotOf(inWorld)].Mover;
@@ -340,6 +344,7 @@ namespace Orpheus.Tests
             Assert.Equal(0, restored.InWorld);
             Assert.Equal(live1.Position, restored[0].Mover.Position);
             Assert.Equal(live1.Carry, restored[0].Mover.Carry);
+            Assert.Equal(Items.WoodenSword, restored[0].Inv.SlotAt(3)); // сумка в мире — за сущностью, не пустая запись (1-004)
             Assert.Equal(0, restored.FindPlayer("ЖИВОЙ"));
             Assert.Equal(1, restored.FindHost());
         }
