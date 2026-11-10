@@ -137,11 +137,14 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            // Копия персонажа до кадров такта — шагается теми же кадрами, что шагнёт Simulation.Step.
+            // Копия персонажа до кадров такта — шагается теми же кадрами, что шагнёт Simulation.Step
+            // (с ударом: скорость 70 % в фазах мечу зависит от бита атаки и оружия в руках, 1-004).
             Mover m = _sim.Entities[slot].Mover;
+            bool swordHeld = Items.KindOf(_sim.Entities[slot].Inv.Held) == Items.KindMelee;
             for (int k = 0; k < n && ti < _threats.Count; k++)
             {
-                m.StepFrame(_sim.Shape, _frameBuf[k].Direction, _frameBuf[k].DodgePressed, _sim.Solid);
+                m.StepFrame(_sim.Shape, _frameBuf[k].Direction, _frameBuf[k].DodgePressed,
+                            _frameBuf[k].AttackPressed && swordHeld, _frameBuf[k].Angle16, _sim.Solid);
                 while (ti < _threats.Count && unchecked((int)(_frameNum[k] - ResolveFrame(p, _threats[ti]))) >= 0)
                 {
                     Decide(p, _threats[ti], m, false, 0);
@@ -157,14 +160,16 @@ namespace Orpheus.Net.Session
                 Mover known = _sim.Entities[slot].Mover;
                 for (int k = 0; k < n; k++)
                 {
-                    known.StepFrame(_sim.Shape, _frameBuf[k].Direction, _frameBuf[k].DodgePressed, _sim.Solid);
+                    known.StepFrame(_sim.Shape, _frameBuf[k].Direction, _frameBuf[k].DodgePressed,
+                                    _frameBuf[k].AttackPressed && swordHeld, _frameBuf[k].Angle16, _sim.Solid);
                 }
 
                 int missing = p.HasApplied ? unchecked((int)(ResolveFrame(p, t) - p.LastApplied)) : 0;
                 missing = Math.Max(0, Math.Min(missing, ThreatQueue.LifetimeFrames));
                 for (int k = 0; k < missing; k++)
                 {
-                    known.StepFrame(_sim.Shape, p.Stopped ? Input8.None : p.LastInput.Direction, false, _sim.Solid);
+                    // «Нет ввода»: последнее направление, кнопки отпущены (2.7) — удара в этих кадрах нет.
+                    known.StepFrame(_sim.Shape, p.Stopped ? Input8.None : p.LastInput.Direction, false, false, 0, _sim.Solid);
                 }
 
                 Decide(p, t, known, true, missing);
