@@ -136,6 +136,9 @@ namespace Orpheus.Net.Session
         /// <summary>Предсказанный уворот после последнего кадра (0-029).</summary>
         public Dodge Dodge => _mover.Dodge;
 
+        /// <summary>Предсказанная фаза удара после последнего кадра (1-004): для анимации своего персонажа.</summary>
+        public MeleeAction Melee => _mover.Melee;
+
         /// <summary>Здоровье последнего снимка (1-001): для полоски; 0 — труп.</summary>
         public int Health => _health;
 
@@ -150,6 +153,17 @@ namespace Orpheus.Net.Session
         /// сервер применяет её в том же кадре, что и предсказание, поэтому клиент не ждёт снимка.
         /// </summary>
         public byte SelectedSlot => _slot;
+
+        /// <summary>
+        /// Предмет в руках клиента (id <see cref="Items"/>, 1-004): с ним кадр предсказывает удар — сервер начинает
+        /// замах только с ближним оружием в руках (гейт в такте), и предсказание повторяет тот же гейт.
+        /// Клиент ставит по своей сумке (она приходит при входе и изменении — тип 26).
+        /// </summary>
+        public byte HeldItem { get; set; }
+
+        /// <summary>Бит удара кадра для шага предсказания: нажат и в руках ближнее оружие (гейт как в такте сервера).</summary>
+        private bool AttackOf(in InputFrame f) =>
+            f.AttackPressed && Items.KindOf(HeldItem) == Items.KindMelee;
 
         /// <summary>Труп (1-001): здоровье 0 — предсказание стоит, сервер не шагнёт ввод.</summary>
         public bool Dead => _dead;
@@ -192,7 +206,7 @@ namespace Orpheus.Net.Session
                 {
                     if (!_dead)
                     {
-                        _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid); // копии — с кнопками, как шлёт клиент (0-029)
+                        _mover.StepFrame(_map, input.Direction, input.DodgePressed, AttackOf(input), input.Angle16, _solid); // копии — с кнопками, как шлёт клиент (0-029, 1-004)
                     }
 
                     Push(frame - k, input);
@@ -214,7 +228,7 @@ namespace Orpheus.Net.Session
 
             if (!_dead)
             {
-                _mover.StepFrame(_map, input.Direction, input.DodgePressed, _solid); // 1-001: труп стоит — сервер не шагнёт ввод
+                _mover.StepFrame(_map, input.Direction, input.DodgePressed, AttackOf(input), input.Angle16, _solid); // 1-001: труп стоит — сервер не шагнёт ввод; 1-004: удар — с melee-гейтом, как в такте
             }
 
             Push(frame, input);
@@ -367,7 +381,7 @@ namespace Orpheus.Net.Session
             {
                 if (!_dead)
                 {
-                    _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, _solid);
+                    _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, AttackOf(_replay[k].Input), _replay[k].Input.Angle16, _solid);
                 }
 
                 Push(_replay[k].Frame, _replay[k].Input);

@@ -208,7 +208,7 @@ namespace Orpheus.Save
                 c.EndRecord(mark);
             }
 
-            var e = new RecordWriter(d.Entities.Length * 48 + 16);
+            var e = new RecordWriter(d.Entities.Length * 80 + 16);
             for (int i = 0; i < d.Entities.Length; i++)
             {
                 SimEntity x = d.Entities[i];
@@ -226,6 +226,18 @@ namespace Orpheus.Save
                 e.WriteUInt(SaveSections.EntityField.DodgeDashLeft, x.Mover.Dodge.DashLeft);
                 e.WriteUInt(SaveSections.EntityField.DodgeCooldown, x.Mover.Dodge.Cooldown);
                 e.WriteUInt(SaveSections.EntityField.DodgeDirection, x.Mover.Dodge.Direction);
+                e.WriteUInt(SaveSections.EntityField.MeleePhase, x.Mover.Melee.Phase);
+                e.WriteUInt(SaveSections.EntityField.MeleeFramesLeft, x.Mover.Melee.FramesLeft);
+                e.WriteUInt(SaveSections.EntityField.MeleeIndex, x.Mover.Melee.Index);
+                e.WriteUInt(SaveSections.EntityField.MeleeBuffered, x.Mover.Melee.Buffered ? 1u : 0u);
+                e.WriteUInt(SaveSections.EntityField.MeleeIdleFrames, x.Mover.Melee.IdleFrames);
+                e.WriteUInt(SaveSections.EntityField.MeleeResolved, x.Mover.Melee.Resolved ? 1u : 0u);
+                e.WriteUInt(SaveSections.EntityField.MeleeAimRaw, x.Mover.Melee.AimRaw);
+                e.WriteInt(SaveSections.EntityField.MeleeOriginX, x.Mover.Melee.OriginX);
+                e.WriteInt(SaveSections.EntityField.MeleeOriginY, x.Mover.Melee.OriginY);
+                var bag = new byte[Inventory.PayloadBytes]; // сумка — всегда (1-004): StateHash её считает, round-trip обязан сходиться
+                x.Inv.WritePayload(bag);
+                e.WriteBytes(SaveSections.EntityField.Inv, bag);
                 e.EndRecord(mark);
             }
 
@@ -254,6 +266,15 @@ namespace Orpheus.Save
                     ch.WriteUInt(SaveSections.CharacterField.DodgeDashLeft, x.Mover.Dodge.DashLeft);
                     ch.WriteUInt(SaveSections.CharacterField.DodgeCooldown, x.Mover.Dodge.Cooldown);
                     ch.WriteUInt(SaveSections.CharacterField.DodgeDirection, x.Mover.Dodge.Direction);
+                    ch.WriteUInt(SaveSections.CharacterField.MeleePhase, x.Mover.Melee.Phase);
+                    ch.WriteUInt(SaveSections.CharacterField.MeleeFramesLeft, x.Mover.Melee.FramesLeft);
+                    ch.WriteUInt(SaveSections.CharacterField.MeleeIndex, x.Mover.Melee.Index);
+                    ch.WriteUInt(SaveSections.CharacterField.MeleeBuffered, x.Mover.Melee.Buffered ? 1u : 0u);
+                    ch.WriteUInt(SaveSections.CharacterField.MeleeIdleFrames, x.Mover.Melee.IdleFrames);
+                    ch.WriteUInt(SaveSections.CharacterField.MeleeResolved, x.Mover.Melee.Resolved ? 1u : 0u);
+                    ch.WriteUInt(SaveSections.CharacterField.MeleeAimRaw, x.Mover.Melee.AimRaw);
+                    ch.WriteInt(SaveSections.CharacterField.MeleeOriginX, x.Mover.Melee.OriginX);
+                    ch.WriteInt(SaveSections.CharacterField.MeleeOriginY, x.Mover.Melee.OriginY);
                 }
 
                 ch.EndRecord(mark);
@@ -523,6 +544,7 @@ namespace Orpheus.Save
             int carryY = 0;
             int speed = MovementTick.BaseSpeedX10;
             Dodge dodge = default;
+            MeleeAction melee = default;
             while (r.Next())
             {
                 switch (r.Field)
@@ -575,6 +597,33 @@ namespace Orpheus.Save
                     case SaveSections.CharacterField.DodgeDirection:
                         dodge.Direction = (byte)r.UIntAsInt(InputFrame.MaxDirectionCode);
                         break;
+                    case SaveSections.CharacterField.MeleePhase:
+                        melee.Phase = (byte)r.UIntAsInt(MeleeAction.PhaseRecover);
+                        break;
+                    case SaveSections.CharacterField.MeleeFramesLeft:
+                        melee.FramesLeft = (byte)r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.CharacterField.MeleeIndex:
+                        melee.Index = (byte)r.UIntAsInt(MeleeAction.SeriesSize - 1);
+                        break;
+                    case SaveSections.CharacterField.MeleeBuffered:
+                        melee.Buffered = r.UIntAsInt(1) != 0;
+                        break;
+                    case SaveSections.CharacterField.MeleeIdleFrames:
+                        melee.IdleFrames = (byte)r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.CharacterField.MeleeResolved:
+                        melee.Resolved = r.UIntAsInt(1) != 0;
+                        break;
+                    case SaveSections.CharacterField.MeleeAimRaw:
+                        melee.AimRaw = (ushort)r.UIntAsInt(ushort.MaxValue);
+                        break;
+                    case SaveSections.CharacterField.MeleeOriginX:
+                        melee.OriginX = r.IntAsInt();
+                        break;
+                    case SaveSections.CharacterField.MeleeOriginY:
+                        melee.OriginY = r.IntAsInt();
+                        break;
                 }
             }
 
@@ -589,7 +638,7 @@ namespace Orpheus.Save
                 throw new InvalidDataException($"Персонаж «{c.Name}»: позиция ({x}, {y}) вне карты {shape}.");
             }
 
-            c.Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge };
+            c.Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge, Melee = melee };
             return c;
         }
 
@@ -640,7 +689,9 @@ namespace Orpheus.Save
             int speed = MovementTick.BaseSpeedX10;
             int direction = 0;
             int buttons = 0;
+            MeleeAction melee = default;
             Dodge dodge = default; // формат 1 полей уворота не пишет — уворот нулевой («ещё не было»)
+            Inventory inv = default; // сумку в раздел сущностей пишет только формат 5 (1-004); в форматах 1–4 её нет
             while (r.Next())
             {
                 switch (r.Field)
@@ -684,6 +735,45 @@ namespace Orpheus.Save
                     case SaveSections.EntityField.DodgeDirection:
                         dodge.Direction = (byte)r.UIntAsInt(InputFrame.MaxDirectionCode);
                         break;
+                    case SaveSections.EntityField.MeleePhase:
+                        melee.Phase = (byte)r.UIntAsInt(MeleeAction.PhaseRecover);
+                        break;
+                    case SaveSections.EntityField.MeleeFramesLeft:
+                        melee.FramesLeft = (byte)r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.MeleeIndex:
+                        melee.Index = (byte)r.UIntAsInt(MeleeAction.SeriesSize - 1);
+                        break;
+                    case SaveSections.EntityField.MeleeBuffered:
+                        melee.Buffered = r.UIntAsInt(1) != 0;
+                        break;
+                    case SaveSections.EntityField.MeleeIdleFrames:
+                        melee.IdleFrames = (byte)r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.MeleeResolved:
+                        melee.Resolved = r.UIntAsInt(1) != 0;
+                        break;
+                    case SaveSections.EntityField.MeleeAimRaw:
+                        melee.AimRaw = (ushort)r.UIntAsInt(ushort.MaxValue);
+                        break;
+                    case SaveSections.EntityField.MeleeOriginX:
+                        melee.OriginX = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.MeleeOriginY:
+                        melee.OriginY = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.Inv:
+                        {
+                            ReadOnlySpan<byte> bag = r.Bytes();
+                            if (bag.Length != Inventory.PayloadBytes)
+                            {
+                                throw new InvalidDataException($"Сущность #{id}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes}.");
+                            }
+
+                            inv = Inventory.ReadPayload(bag);
+                        }
+
+                        break;
                 }
             }
 
@@ -701,8 +791,9 @@ namespace Orpheus.Save
             {
                 Id = id,
                 Kind = (byte)kind,
-                Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge },
+                Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge, Melee = melee },
                 Input = InputFrame.FromCode((byte)direction, (ushort)buttons),
+                Inv = inv,
             };
         }
     }

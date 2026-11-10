@@ -116,6 +116,38 @@ namespace Orpheus.Save
 
             /// <summary>Уворот: направление рывка, код 0…8 (0 — уворота не было).</summary>
             public const int DodgeDirection = 13;
+
+            /// <summary>Удар мечом (<c>Mover.Melee</c>, формат 5, 1-004): фаза 0…3. Нет поля (форматы 1–4) — 0, покой.</summary>
+            public const int MeleePhase = 14;
+
+            /// <summary>Удар: кадров до конца фазы, 0…31.</summary>
+            public const int MeleeFramesLeft = 15;
+
+            /// <summary>Удар: индекс в серии, 0…2.</summary>
+            public const int MeleeIndex = 16;
+
+            /// <summary>Удар: нажатие в буфере (0/1).</summary>
+            public const int MeleeBuffered = 17;
+
+            /// <summary>Удар: кадров покоя с конца отхода, 0…48+.</summary>
+            public const int MeleeIdleFrames = 18;
+
+            /// <summary>Удар решён (урон нанесён), 0/1.</summary>
+            public const int MeleeResolved = 19;
+
+            /// <summary>Удар: ось, шаги угла u16 (прицел начала замаха).</summary>
+            public const int MeleeAimRaw = 20;
+
+            /// <summary>Удар: начало удара, x в 1/256 тайла.</summary>
+            public const int MeleeOriginX = 21;
+
+            /// <summary>Удар: начало удара, y в 1/256 тайла.</summary>
+            public const int MeleeOriginY = 22;
+
+            /// <summary>Сумка (<c>Inv</c>, формат 5, 1-004): payload <c>Inventory.PayloadBytes</c> байт. StateHash считает
+            /// сумку сущности — она идёт в сейв и обратно, иначе хэш загруженного мира не совпадает с хэшем при выходе.
+            /// Нет поля (форматы 1–4) — пустая сумка.</summary>
+            public const int Inv = 23;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>
@@ -125,9 +157,9 @@ namespace Orpheus.Save
         }
 
         /// <summary>
-        /// Поля записи персонажа (формат 3–4, 0-035, 1-002; docs/07 6.2 «Персонажи — мировая часть», 7.4 «Вернулся»): ключ
+        /// Поля записи персонажа (формат 3–5, 0-035, 1-002, 1-004; docs/07 6.2 «Персонажи — мировая часть», 7.4 «Вернулся»): ключ
         /// (хозяин или имя), номер сущности, если персонаж в мире на такте сохранения (его движение — в разделе СУЩЕСТВА),
-        /// иначе — движение на миг ухода; сумка (формат 4).
+        /// иначе — движение на миг ухода; сумка (формат 4); удар мечом (формат 5).
         /// </summary>
         public static class CharacterField
         {
@@ -153,6 +185,33 @@ namespace Orpheus.Save
             /// <summary>Сумка, payload 23 байта (1-002, формат 4): выбранная ячейка, 8 ячеек, счётчики материалов.
             /// Нет поля (формат 3) — стартовый набор.</summary>
             public const int Inv = 13;
+
+            /// <summary>Удар мечом (<c>Mover.Melee</c>, формат 5, 1-004): фаза 0…3. Нет поля — 0, покой.</summary>
+            public const int MeleePhase = 14;
+
+            /// <summary>Удар: кадров до конца фазы.</summary>
+            public const int MeleeFramesLeft = 15;
+
+            /// <summary>Удар: индекс в серии, 0…2.</summary>
+            public const int MeleeIndex = 16;
+
+            /// <summary>Удар: нажатие в буфере (0/1).</summary>
+            public const int MeleeBuffered = 17;
+
+            /// <summary>Удар: кадров покоя с конца отхода.</summary>
+            public const int MeleeIdleFrames = 18;
+
+            /// <summary>Удар решён (урон нанесён), 0/1.</summary>
+            public const int MeleeResolved = 19;
+
+            /// <summary>Удар: ось, шаги угла u16.</summary>
+            public const int MeleeAimRaw = 20;
+
+            /// <summary>Удар: начало удара, x в 1/256 тайла.</summary>
+            public const int MeleeOriginX = 21;
+
+            /// <summary>Удар: начало удара, y в 1/256 тайла.</summary>
+            public const int MeleeOriginY = 22;
         }
 
         /// <summary>Схема записей раздела для <c>orpheus-save dump</c>: имена полей и вложенные схемы. null — схемы нет.</summary>
@@ -198,7 +257,17 @@ namespace Orpheus.Save
                 .Field(EntityField.DodgeElapsed, "уворот: кадров с начала")
                 .Field(EntityField.DodgeDashLeft, "уворот: рывка осталось")
                 .Field(EntityField.DodgeCooldown, "уворот: отката осталось")
-                .Field(EntityField.DodgeDirection, "уворот: направление"));
+                .Field(EntityField.DodgeDirection, "уворот: направление")
+                .Field(EntityField.MeleePhase, "удар: фаза")
+                .Field(EntityField.MeleeFramesLeft, "удар: кадров до конца фазы")
+                .Field(EntityField.MeleeIndex, "удар: индекс в серии")
+                .Field(EntityField.MeleeBuffered, "удар: нажатие в буфере")
+                .Field(EntityField.MeleeIdleFrames, "удар: кадров покоя")
+                .Field(EntityField.MeleeResolved, "удар решён")
+                .Field(EntityField.MeleeAimRaw, "удар: ось")
+                .Field(EntityField.MeleeOriginX, "удар: x начала")
+                .Field(EntityField.MeleeOriginY, "удар: y начала")
+                .Field(EntityField.Inv, "сумка"));
 
         private static readonly RecordSchema CharactersSchema = new RecordSchema()
             .Field(CharactersField.Character, "персонаж", new RecordSchema()
@@ -214,7 +283,16 @@ namespace Orpheus.Save
                 .Field(CharacterField.DodgeDashLeft, "уворот: рывка осталось")
                 .Field(CharacterField.DodgeCooldown, "уворот: отката осталось")
                 .Field(CharacterField.DodgeDirection, "уворот: направление")
-                .Field(CharacterField.Inv, "сумка"));
+                .Field(CharacterField.Inv, "сумка")
+                .Field(CharacterField.MeleePhase, "удар: фаза")
+                .Field(CharacterField.MeleeFramesLeft, "удар: кадров до конца фазы")
+                .Field(CharacterField.MeleeIndex, "удар: индекс в серии")
+                .Field(CharacterField.MeleeBuffered, "удар: нажатие в буфере")
+                .Field(CharacterField.MeleeIdleFrames, "удар: кадров покоя")
+                .Field(CharacterField.MeleeResolved, "удар решён")
+                .Field(CharacterField.MeleeAimRaw, "удар: ось")
+                .Field(CharacterField.MeleeOriginX, "удар: x начала")
+                .Field(CharacterField.MeleeOriginY, "удар: y начала"));
     }
 
     /// <summary>Имена полей записи и схемы вложенных записей (только для текстового вывода).</summary>

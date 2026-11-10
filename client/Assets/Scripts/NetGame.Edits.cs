@@ -43,6 +43,12 @@ namespace Orpheus.Client
         /// <summary>Предмет в руках: ячейка последнего отправленного кадра, содержимое — из зеркала сумки (1-002).</summary>
         byte HeldItem => _bag.SlotAt(_pred?.SelectedSlot ?? _bag.Selected);
 
+        /// <summary>
+        /// Предмет в руках в кадре с этой ячейкой: сервер применяет ячейку в том же кадре, что кнопки (1-002),
+        /// и с ней же решает удар (melee-гейт такта, 1-004) — предсказание берёт предмет по ячейке кадра.
+        /// </summary>
+        byte HeldItemAt(byte slot) => _bag.SlotAt(slot);
+
         /// <summary>Кусок HUD про сумку (1-002): что в руках и ненулевые материалы.</summary>
         string BagHud()
         {
@@ -112,7 +118,8 @@ namespace Orpheus.Client
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeEdit(now, c);
-                return c.Digging ? InputButtons.Dig : (ushort)0;
+                // 1-004: в net-smoke удар — скриптом (окно удержания ЛКМ в беге), бит как на настоящей мыши.
+                return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | (ScriptedSmokeAttack(now) ? InputButtons.Attack : (ushort)0));
             }
 
             Mouse? mouse = Mouse.current;
@@ -129,22 +136,25 @@ namespace Orpheus.Client
                 c.Place(tile, tile, ObjectId.StoneWall, _localPos);
             }
 
+            byte held = HeldItem;
+            // 1-004 (`02` 1.2 «удержание ЛКМ — повтор»): с ближним оружием в руках ЛКМ — удар,
+            // бит стоит на всех кадрах удержания (ядро берёт нажатие битом кадра).
+            ushort attack = Items.KindOf(held) == Items.KindMelee && mouse.leftButton.isPressed ? InputButtons.Attack : (ushort)0;
             if (!mouse.leftButton.isPressed)
             {
                 c.StopDig(); // отпустил до конца — «копать: конец»; докопанное своим счётом ждёт ответа
-                return c.Digging ? InputButtons.Dig : (ushort)0;
+                return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
             }
 
             // Копает только кирка (1-002, `06` 2.3): в руках меч — ЛКМ не начинает копание и запрос не уходит
             // (у сервера тот же отказ молча). Досягаемость — «персонаж + предмет в руках».
-            byte held = HeldItem;
             if (!c.Digging && Items.IsDiggingTool(held) &&
                 EditRules.IsDiggable(_world!.GetObject(tile), c.DigTimes) && EditRules.InDigReach(_map, _localPos, tile, held))
             {
                 c.StartDig(tile);
             }
 
-            return c.Digging ? InputButtons.Dig : (ushort)0;
+            return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
         }
 
         /// <summary>

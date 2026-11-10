@@ -33,8 +33,18 @@ namespace Orpheus.Core.Sim
         /// </summary>
         public const ushort Dig = 1 << 1;
 
+        /// <summary>
+        /// Основное действие — удар мечом (`02` 3.2, 1.2; 1-004): бит — нажатие/удержание в этом кадре (клиент ставит
+        /// его на всех кадрах удержания ЛКМ — «удержание = повтор»). В покое начинает замах (ось — прицел кадра),
+        /// в последних 12 кадрах отхода — продолжение серии; без ближнего оружия в руках бит не действует (гейт в такте).
+        /// </summary>
+        public const ushort Attack = 1 << 2;
+
         /// <summary>В кадре зажато копание.</summary>
         public static bool DigHeld(InputFrame f) => (f.Buttons & Dig) != 0;
+
+        /// <summary>В кадре нажата/зажата кнопка удара.</summary>
+        public static bool AttackHeld(InputFrame f) => (f.Buttons & Attack) != 0;
     }
 
     public readonly struct InputFrame : IEquatable<InputFrame>
@@ -76,6 +86,9 @@ namespace Orpheus.Core.Sim
 
         /// <summary>В этом кадре нажат уворот (<see cref="InputButtons.Dodge"/>).</summary>
         public bool DodgePressed => (Buttons & InputButtons.Dodge) != 0;
+
+        /// <summary>В этом кадре нажата/зажата кнопка удара (<see cref="InputButtons.Attack"/>; 1-004).</summary>
+        public bool AttackPressed => (Buttons & InputButtons.Attack) != 0;
 
         /// <summary>Код направления: 0 — стойка, 1…8 — номер направления + 1.</summary>
         public byte DirectionCode => Direction.IsMoving ? (byte)(Direction.DirectionIndex + 1) : (byte)0;

@@ -69,6 +69,9 @@ namespace Orpheus.Net.Session
                 if (roster._list[i].EntityId > 0)
                 {
                     roster.Park(i, sim);
+                    // 1-004: сумка — из записи сохранения (в разделе «сущности» её нет; Park заносит сумку сущности,
+                    // а та при восстановлении пустая — вернувшийся персонаж лишался меча).
+                    roster.SetInventory(i, saved[i].Inv);
                 }
             }
 
@@ -120,7 +123,8 @@ namespace Orpheus.Net.Session
         /// <summary>Новый персонаж в мире (первый вход). Возвращает его номер в списке.</summary>
         public int AddInWorld(bool isHost, string name, int entityId)
         {
-            _list.Add(new CharacterRecord { IsHost = isHost, Name = name ?? string.Empty, EntityId = entityId });
+            // сумка — та же, что у сущности при первом входе (1-004: запись свежа на автосохранении в мире, загрузка даёт меч, не пустоту)
+            _list.Add(new CharacterRecord { IsHost = isHost, Name = name ?? string.Empty, EntityId = entityId, Inv = Inventory.StartingKit() });
             return _list.Count - 1;
         }
 
@@ -153,6 +157,15 @@ namespace Orpheus.Net.Session
             r.EntityId = 0;
             _list[index] = r;
             return had;
+        }
+
+        /// <summary>Сумка персонажа № <paramref name="index"/> в мире — запись идёт за сущностью, автосохранение в мире
+        /// берёт живую сумку, загрузка возвращает её же (1-004; пустая запись лишала персонажа меча после загрузки).</summary>
+        public void SetInventory(int index, in Inventory inv)
+        {
+            CharacterRecord r = _list[index];
+            r.Inv = inv;
+            _list[index] = r;
         }
 
         /// <summary>

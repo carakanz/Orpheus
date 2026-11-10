@@ -1018,6 +1018,11 @@ namespace Orpheus.Net.Session
                     if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))
                     {
                         SendInventoryTo(pl, entities[slot].Inv); // 1-002: сумка изменилась (копание, подбор, смена ячейки)
+                        int ci = Characters.FindEntity(pl.EntityId); // 1-004: запись реестра — за сущностью, сейв в мире берёт живую сумку
+                        if (ci >= 0)
+                        {
+                            Characters.SetInventory(ci, entities[slot].Inv);
+                        }
                     }
                 }
             }
@@ -1181,6 +1186,11 @@ namespace Orpheus.Net.Session
                         f |= DeltaFields.Held; // 1-002
                     }
 
+                    if (_cur[ci].Melee != b.Melee)
+                    {
+                        f |= DeltaFields.Melee; // 1-004
+                    }
+
                     if (f == DeltaFields.None)
                     {
                         continue;
@@ -1230,7 +1240,7 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < updatedN; i++)
             {
                 SnapshotEntity e = _cur[_updCur[i]];
-                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem);
+                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee);
             }
 
             for (int i = 0; i < addedN; i++)
@@ -1252,7 +1262,7 @@ namespace Orpheus.Net.Session
             w.SetClockEpoch(ClockEpoch);
             for (int i = 0; i < curCount; i++)
             {
-                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem))
+                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem, _cur[i].Melee))
                 {
                     break;
                 }
@@ -1375,6 +1385,7 @@ namespace Orpheus.Net.Session
             Direction = e.Input.DirectionCode,
             HealthPct = (byte)Math.Max(0, Math.Min(100, e.Health * 100 / Math.Max(1, (int)e.MaxHealth))), // 1-001: доля HP
             HeldItem = e.Inv.Held, // 1-002: предмет в руках — картинка у всех
+            Melee = (byte)(e.Mover.Melee.Phase | (e.Mover.Melee.Index << 2)), // 1-004: фаза удара — анимация у чужих
         };
 
         private static int IndexIn(SnapshotEntity[] ents, int count, int id)
@@ -1618,7 +1629,8 @@ namespace Orpheus.Net.Session
         }
 
         private static bool Add(ref SnapshotWriter w, in SimEntity e) =>
-            w.TryAdd(e.Id, e.Kind, e.Mover.Position, e.Input.DirectionCode, 100, e.Inv.Held);
+            w.TryAdd(e.Id, e.Kind, e.Mover.Position, e.Input.DirectionCode, 100, e.Inv.Held,
+                     (byte)(e.Mover.Melee.Phase | (e.Mover.Melee.Index << 2)));
 
         // ---------- События транспорта ----------
 
