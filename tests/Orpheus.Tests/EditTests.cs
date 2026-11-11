@@ -74,7 +74,7 @@ namespace Orpheus.Tests
             var times = new DigTimes();
             Assert.Equal(EditReply.Accepted, EditRules.CheckDig(w, c, new TileCoord(1, 0), times));
             Assert.Equal(EditReply.Empty, EditRules.CheckDig(w, c, new TileCoord(0, 1), times));
-            Assert.Equal(EditReply.NotAllowed, EditRules.CheckDig(w, TileCenter(3, 1), new TileCoord(3, 0), times)); // постройку не копают (снос — потом)
+            Assert.Equal(EditReply.Accepted, EditRules.CheckDig(w, TileCenter(3, 1), new TileCoord(3, 0), times)); // постройку копают киркой (1-010, `05` 1.3; снос молотом — 1-011)
             times.SetModifier(ObjectId.Rock, 0);
             Assert.Equal(EditReply.NotAllowed, EditRules.CheckDig(w, c, new TileCoord(1, 0), times)); // время 0 — неразрушима
             Assert.Equal(EditReply.DigFirst, EditRules.CheckPlaceTile(w, c, new TileCoord(1, 0), ObjectId.StoneWall));
@@ -236,7 +236,7 @@ namespace Orpheus.Tests
             Assert.Equal(294, EditRules.DigReachUnitsFor(Items.StonePickaxe)); // 102 + 192 — прежнее число
             Assert.Equal(358, EditRules.DigReachUnitsFor(Items.WoodenSword));  // 102 + 256
             Assert.Equal(102, EditRules.DigReachUnitsFor(Items.SimpleBow));    // длины нет — только тело
-            Assert.Equal(102, EditRules.DigReachUnitsFor(Items.None));
+            Assert.Equal(294, EditRules.DigReachUnitsFor(Items.None));         // руки копают соседний тайл (1-010)
 
             // Тайл по диагонали от центра тайла (181 unit) — киркой да, луком (102) нет.
             var diag = new TileCoord(1, 1);
@@ -258,11 +258,11 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// В руках меч — копание не начинается (1-002, `02` 1.1 «Основное действие»): запрос клиента сервер
-        /// молча игнорирует — правки нет и отказа нет (у меча своё действие — 1-004).
+        /// В руках меч — копание не начинается: запрос клиента сервер отвергает «нужен инструмент»
+        /// (1-010, `01` 5, `02` 1.1: у меча своё действие — удар), правки нет, строка доходит до игрока.
         /// </summary>
         [Fact]
-        public void D07_S3_7_Dig_SwordInHands_NoEditNoRefusal()
+        public void D07_S3_7_Dig_SwordInHands_RefusalToolRequired()
         {
             WorldModel world = Flat();
             var rock = new TileCoord(301, 200);
@@ -280,8 +280,11 @@ namespace Orpheus.Tests
             rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 3);
             rig.Run(30);
             Assert.True(rig.Server.EditRequests > 0, "запрос не дошёл до сервера");
-            Assert.Empty(replies); // отказа нет
+            Assert.Single(replies); // «нужен инструмент» — отказ доходит до игрока (1-010)
+            Assert.Equal(EditReply.ToolRequired, replies[0].Reply);
+            Assert.Equal("нужна кирка", EditRules.Describe(replies[0].Reply, ObjectId.Rock, rig.Server.DigTimes));
             Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock)); // и правки нет
+            Assert.False(c.Digging); // копания на скопированном отказе нет
         }
 
         /// <summary>
@@ -323,9 +326,258 @@ namespace Orpheus.Tests
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
         }
 
+        private static readonly InputFrame DigAxe = new InputFrame(Input8.None, InputButtons.Dig, 0, 1); // ячейка 1 — каменный топор
+        private static readonly InputFrame DigHands = new InputFrame(Input8.None, InputButtons.Dig, 0, 6); // ячейка 6 — пусто, руки
+
+        /// <summary>
+        /// Кадров по ярусам (1-010, `06` 2.4): ×1, ×2, ×4, дальше потолок; округление к ближайшему (0-034);
+        /// инструмент и ярус в таблице: granite — с медной кирки; постройки — кирка/молот.
+        /// </summary>
+        [Fact]
+        public void D01_S5_DigTimes_TiersAndTools_Table()
+        {
+            var t = new DigTimes();
+            Assert.Equal(15, t.FramesFor(ObjectId.Rock, ToolKind.Pick, 1));
+            Assert.Equal(8, t.FramesFor(ObjectId.Rock, ToolKind.Pick, 2));   // 7,5 → к ближайшему
+            Assert.Equal(4, t.FramesFor(ObjectId.Rock, ToolKind.Pick, 3));   // 3,75 → 4
+            Assert.Equal(4, t.FramesFor(ObjectId.Rock, ToolKind.Pick, 9));   // потолок — ×4
+            Assert.Equal(DigTimes.NeedTier, t.FramesFor(ObjectId.Granite, ToolKind.Pick, 1)); // медная кирка (ярус 2)
+            Assert.Equal(23, t.FramesFor(ObjectId.Granite, ToolKind.Pick, 2));                // свой ярус — ×1: 15 × 1,5 = 22,5 → 23
+            Assert.Equal(11, t.FramesFor(ObjectId.Granite, ToolKind.Pick, 3));                // 22,5 ÷ 2 = 11,25 → 11
+            Assert.Equal(6, t.FramesFor(ObjectId.Granite, ToolKind.Pick, 4));                 // ÷ 4 (потолок): 5,625 → 6
+            Assert.Equal(DigTimes.NeedTool, t.FramesFor(ObjectId.Tree, ToolKind.Pick, 1));    // нужен топор
+            Assert.Equal(18, t.FramesFor(ObjectId.Tree, ToolKind.Axe, 1));
+            Assert.Equal(15, t.FramesFor(ObjectId.Bush, ToolKind.Hands, 0));                     // руками — если разрешено
+            Assert.Equal(120, t.FramesFor(ObjectId.StoneWall, ToolKind.Pick, 1));             // постройка (1-010, `05` 1.3)
+            Assert.Equal(30, t.FramesFor(ObjectId.StoneWall, ToolKind.Hammer, 1));               // снос молотом (1-011)
+            Assert.Equal(DigTimes.NeedTool, t.FramesFor(ObjectId.Rock, ToolKind.Axe, 1));
+        }
+
+        /// <summary>
+        /// Добыча детерминирована по тайлу (1-010): один тайл — одно число на любом клиенте; диапазоны таблицы
+        /// «что даёт» (`01` 5): скала/гранит 1–2 камня, залежь 2–3 меди, дерево 3 древесины, постройки не дают.
+        /// </summary>
+        [Fact]
+        public void D06_S2_4_DigLoot_Deterministic_Ranges()
+        {
+            for (int x = 0; x < 40; x++)
+            {
+                for (int y = 0; y < 40; y++)
+                {
+                    int a = DigLoot.DropFor(ObjectId.Rock, x, y, 7, out Material ma);
+                    int b = DigLoot.DropFor(ObjectId.Rock, x, y, 11, out Material mb); // стабильно при своём зерне
+                    Assert.InRange(a, 1, 2);
+                    Assert.InRange(b, 1, 2);
+                    Assert.Equal(Material.Stone, ma);
+                    Assert.Equal(3, DigLoot.DropFor(ObjectId.Tree, x, y, 7, out Material mw));
+                    Assert.Equal(Material.Wood, mw);
+                    Assert.InRange(DigLoot.DropFor(ObjectId.Ore, x, y, 7, out Material mo), 2, 3);
+                    Assert.Equal(Material.Copper, mo);
+                    Assert.Equal(0, DigLoot.DropFor(ObjectId.StoneWall, x, y, 7, out _)); // постройки — возврат материала за 1-011
+                }
+            }
+
+            int n1 = DigLoot.DropFor(ObjectId.Granite, 301, 200, 42, out _);
+            int n2 = DigLoot.DropFor(ObjectId.Granite, 301, 200, 42, out _);
+            Assert.Equal(n1, n2); // бросок по (x, y, id, зерно) — один и тот же везде
+        }
+
+        /// <summary>
+        /// Дерево топором (1-010): 18 кадров, добыча 3 древесины; клиент предсказывает сумку на своём завершении
+        /// до подтверждения сервера, сервер подтверждает сумкой (тип 26); мир сходится.
+        /// </summary>
+        [Fact]
+        public void D01_S5_Dig_AxeOnTree_LootPredictedThenConfirmed()
+        {
+            WorldModel world = Flat();
+            var tree = new TileCoord(301, 200);
+            world.SetBaseTile(tree, FloorId.Grass, ObjectId.Tree);
+            using var rig = new EditRig(world, _ => TileCenter(300, 200));
+            var link = new NetSimSettings { DelayMs = 50, Seed = 5 }; // RTT 100 мс — ответ сервера позже предсказания
+            NetClient c = rig.Join(link);
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(5);
+
+            rig.InputOf = _ => DigAxe; // кадр с ячейкой топора доходит раньше запроса — сервер валидирует DigStart топором
+            rig.Run(2);
+            c.StartDig(tree);
+            for (int t = 0; t < 24 && c.Inv.CountAt(Material.Wood) == 0; t++)
+            {
+                rig.Run(1);
+            }
+
+            Assert.Equal(3, c.Inv.CountAt(Material.Wood)); // предсказание: детерминированный бросок посчитан на своём завершении
+            Assert.Empty(replies); // ответ сервера ещё не вернулся (RTT 100 мс) — предсказание опережает подтверждение
+            rig.Run(15); // подтверждение пришло
+            Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(tree));
+            Assert.Equal(3, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood)); // сервер выдал добычу в сумку
+            Assert.Equal(3, c.Inv.CountAt(Material.Wood)); // сумка сервера (тип 26) совпала с предсказанием — без откатов
+        }
+
+        /// <summary>
+        /// Ярус (1-010, `06` 2.4): гранит каменной киркой — «нужна кирка: медная» строкой, тайл цел; медной киркой —
+        /// копается (11 кадров), добыча 1–2 камня, детерминированный бросок на клиенте и сервере совпадает.
+        /// </summary>
+        [Fact]
+        public void D01_S5_Dig_Granite_StonePickRefusedByTier_ThenCopperDigs()
+        {
+            WorldModel world = Flat();
+            var granite = new TileCoord(301, 200);
+            world.SetBaseTile(granite, FloorId.Stone, ObjectId.Granite);
+            using var rig = new EditRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(5);
+
+            c.StartDig(granite);
+            rig.InputOf = _ => DigHold; // кирка яруса 1
+            rig.Run(30);
+            Assert.Equal(EditReply.TierRequired, Assert.Single(replies).Reply);
+            Assert.Equal("нужна кирка: медная", EditRules.Describe(EditReply.TierRequired, ObjectId.Granite, rig.Server.DigTimes));
+            Assert.Equal(ObjectId.Granite, rig.Sim.World.GetObject(granite)); // отказ — правки нет
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone));
+
+            var inv = rig.Sim.GetEntity(c.EntityId).Inv;
+            inv.SetSlotAt(0, Items.CopperPickaxe); // медная кирка в ячейку 0 (ярус 2)
+            Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
+            rig.Run(6); // сумка дошла (тип 26)
+            Assert.Equal(Items.CopperPickaxe, c.Inv.SlotAt(0));
+
+            replies.Clear();
+            Assert.Equal(23, rig.Server.DigTimes.FramesFor(ObjectId.Granite, ToolKind.Pick, Items.TierCopper)); // свой ярус — ×1
+            c.StartDig(granite);
+            rig.Run(25);
+            Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(granite));
+            int expected = DigLoot.DropFor(ObjectId.Granite, granite.X, granite.Y, world.Seed, out Material m);
+            Assert.Equal(Material.Stone, m);
+            Assert.InRange(expected, 1, 2);
+            Assert.Equal(expected, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone));
+            Assert.Equal(expected, c.Inv.CountAt(Material.Stone)); // предсказание = сервер
+        }
+
+        /// <summary>
+        /// Кирка на дереве — «нужен топор» (1-010): отказ строкой доходит до игрока, дерево цел, добычи нет.
+        /// </summary>
+        [Fact]
+        public void D01_S5_Dig_PickaxeOnTree_RefusalAxeString_NoEditNoLoot()
+        {
+            WorldModel world = Flat();
+            var tree = new TileCoord(301, 200);
+            world.SetBaseTile(tree, FloorId.Grass, ObjectId.Tree);
+            using var rig = new EditRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(5);
+
+            c.StartDig(tree);
+            rig.InputOf = _ => DigHold; // кирка
+            rig.Run(30);
+            Assert.Equal(EditReply.ToolRequired, Assert.Single(replies).Reply);
+            Assert.Equal("нужен топор", EditRules.Describe(EditReply.ToolRequired, ObjectId.Tree, rig.Server.DigTimes));
+            Assert.Equal(ObjectId.Tree, rig.Sim.World.GetObject(tree));
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood));
+            Assert.Equal(0, c.Inv.CountAt(Material.Wood));
+            Assert.False(c.Digging);
+        }
+
+        /// <summary>
+        /// Двое копают одно дерево (1-010): правку принимает один — добыча ровно ему; второму «занято»,
+        /// сумка = сервер (предсказание добычи на завершении у проигравшего не оставляем — он не докапывал).
+        /// </summary>
+        [Fact]
+        public void D01_S5_Dig_TwoDiggers_SameTree_LootExactlyOne()
+        {
+            WorldModel world = Flat();
+            var tree = new TileCoord(301, 200);
+            world.SetBaseTile(tree, FloorId.Grass, ObjectId.Tree);
+            using var rig = new EditRig(world, n => TileCenter(300 + 2 * n, 200));
+            NetClient a = rig.Join();
+            NetClient b = rig.Join();
+            var ra = new List<TileReplyMessage>();
+            var rb = new List<TileReplyMessage>();
+            a.EditReplied = ra.Add;
+            b.EditReplied = rb.Add;
+            rig.Run(8);
+
+            rig.InputOf = _ => DigAxe; // кадры с топором идут с старта — сервер валидирует DigStart топором
+            rig.Run(2);
+            a.StartDig(tree);
+            b.StartDig(tree);
+            rig.Run(45);
+            Assert.Equal(EditReply.Accepted, Assert.Single(ra).Reply);
+            Assert.Equal(EditReply.Busy, Assert.Single(rb).Reply); // занял A
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(tree));
+            Assert.Equal(3, rig.Sim.GetEntity(a.EntityId).Inv.CountAt(Material.Wood)); // добыча — копавшему
+            Assert.Equal(0, rig.Sim.GetEntity(b.EntityId).Inv.CountAt(Material.Wood)); // второму — ничего
+            Assert.Equal(3, a.Inv.CountAt(Material.Wood));
+            Assert.Equal(0, b.Inv.CountAt(Material.Wood));
+        }
+
+        /// <summary>
+        /// Снос постройки киркой (1-010, `05` 1.3): стена 120 кадров — снимается; материала обратно не возвращается
+        /// (возврат по доле прочности — за 1-011, в backlog).
+        /// </summary>
+        [Fact]
+        public void D01_S5_Dig_StoneWall_Pickaxe120Frames_NoRefund()
+        {
+            WorldModel world = Flat();
+            using var rig = new EditRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(5);
+
+            var wall = new TileCoord(301, 200);
+            c.Place(wall, wall, ObjectId.StoneWall, rig.Sim.GetEntity(c.EntityId).Mover.Position);
+            rig.Run(5);
+            Assert.Equal(ObjectId.StoneWall, rig.Sim.World.GetObject(wall));
+
+            int frames = rig.Server.DigTimes.FramesFor(ObjectId.StoneWall, ToolKind.Pick, Items.TierStone);
+            Assert.Equal(120, frames);
+            replies.Clear();
+            c.StartDig(wall);
+            rig.InputOf = _ => DigHold; // кирка
+            rig.Run(135);
+            Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(wall));
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone)); // возврата нет (1-011)
+            Assert.False(rig.Sim.World.TryGetBuild(wall, out _));
+        }
+
+        /// <summary>
+        /// Руками, если разрешено (1-010): куст копается пустой ячейкой (руки) — 15 кадров, добыча 1 волокно.
+        /// </summary>
+        [Fact]
+        public void D01_S5_Dig_HandsOnBush_Accepted_Fiber()
+        {
+            WorldModel world = Flat();
+            var bush = new TileCoord(301, 200);
+            world.SetBaseTile(bush, FloorId.Grass, ObjectId.Bush);
+            using var rig = new EditRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(5);
+
+            rig.InputOf = _ => DigHands; // ячейка 6 пуста — руки; кадры идут с старта
+            rig.Run(2);
+            c.StartDig(bush);
+            rig.Run(30);
+            Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(bush));
+            Assert.Equal(1, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Fiber));
+            Assert.Equal(1, c.Inv.CountAt(Material.Fiber));
+        }
+
         /// <summary>
         /// Время копания «база × модификатор» (слово Автора 08.11, 0-034): таблица по умолчанию — скала 15 кадров (0,25 с), дерево
-        /// 18, залежь 30, пень 9, постройки 0; округление к ближайшему, не меньше кадра; база 0 или модификатор 0 — неразрушим.
+        /// 18, залежь 30, пень 9, постройки 120 (кирка ×8 = 2 с, снос — 1-010); округление к ближайшему, не меньше кадра;
+        /// база 0 или модификатор 0 — неразрушим.
         /// </summary>
         [Fact]
         public void D05_S1_3_DigTimes_BaseTimesModifier_ZeroIndestructible()
@@ -336,9 +588,9 @@ namespace Orpheus.Tests
             Assert.Equal(18, t.FramesOf(ObjectId.Tree));
             Assert.Equal(30, t.FramesOf(ObjectId.Ore));
             Assert.Equal(9, t.FramesOf(ObjectId.Stump));
-            Assert.Equal(0, t.FramesOf(ObjectId.StoneWall));
+            Assert.Equal(120, t.FramesOf(ObjectId.StoneWall)); // постройка копается киркой (1-010, `05` 1.3)
             Assert.Equal(0, t.FramesOf(ObjectId.Empty));
-            Assert.Equal(0, t.FramesOf(ObjectId.MakePart(1, 0)));
+            Assert.Equal(0, t.FramesOf(ObjectId.MakePart(1, 0))); // часть многотайловой — за строителем (1-011)
             Assert.True(EditRules.IsDiggable(ObjectId.Stump, t));
 
             t.BaseFrames = 30; // база правится — все времена за ней
@@ -744,7 +996,7 @@ namespace Orpheus.Tests
             byte[] badMask = (byte[])pb.Clone();
             badMask[5] = 0; badMask[8] = 0; // «принято» без маски
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badMask));
-            Assert.Equal(16, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007)
+            Assert.Equal(17, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010)
         }
 
         // ---------- Стенд ----------

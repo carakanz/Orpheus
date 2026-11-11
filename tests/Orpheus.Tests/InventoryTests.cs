@@ -72,7 +72,8 @@ namespace Orpheus.Tests
             Assert.Equal(Reach.PickaxeUnits, Items.LengthUnits(Items.Hammer));
             Assert.Equal(Reach.SwordUnits, Items.LengthUnits(Items.WoodenSword));
             Assert.Equal(0, Items.LengthUnits(Items.SimpleBow));
-            Assert.Equal(0, Items.LengthUnits(Items.None));
+            Assert.Equal(Reach.HandsUnits, Items.LengthUnits(Items.None)); // руки копают разрешённое таблицей (1-010)
+            Assert.Equal(Reach.PickaxeUnits, Items.LengthUnits(Items.CopperPickaxe)); // медная — как каменная (1-010)
             Assert.Equal(Reach.DigUnits, Reach.Of(Items.LengthUnits(Items.StonePickaxe)));
             Assert.Equal(294, Reach.DigUnits);
             Assert.Equal(Reach.SwordStrikeUnits, Reach.Of(Items.LengthUnits(Items.WoodenSword)));

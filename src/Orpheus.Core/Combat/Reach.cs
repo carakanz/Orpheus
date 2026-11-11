@@ -20,6 +20,9 @@ namespace Orpheus.Core.Combat
         /// <summary>Длина «руки/кирка»: 0,75 т = 192 unit.</summary>
         public const int PickaxeUnits = 192;
 
+        /// <summary>Длина рук для копания (1-010): досягаемость как у кирки — соседний тайл; число — под калибровку карточки.</summary>
+        public const int HandsUnits = 192;
+
         /// <summary>Длина «меч»: 1,0 т = 256 unit.</summary>
         public const int SwordUnits = 256;
 

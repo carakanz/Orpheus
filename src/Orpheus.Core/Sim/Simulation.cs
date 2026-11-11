@@ -80,6 +80,7 @@ namespace Orpheus.Core.Sim
         private readonly TileEdit[] _batch = new TileEdit[TilePatch.MaxEdits];
         private readonly int[] _batchOf;          // место правки очереди в пачке чанка; −1 — отказ до пачки (0-028)
         private readonly EditResult[] _preResult; // исход отказа до пачки: существо, враг, лишняя сверх тайлов
+        private readonly ushort[] _preObj;        // что стояло на тайле до пачки (добыча копания — 1-010)
         private readonly EditResult[] _results = new EditResult[TilePatch.MaxEdits];
         private int _editCount;
 
@@ -141,6 +142,7 @@ namespace Orpheus.Core.Sim
             _editScratch = new EditRequest[maxEditsPerTick];
             _batchOf = new int[maxEditsPerTick];
             _preResult = new EditResult[maxEditsPerTick];
+            _preObj = new ushort[maxEditsPerTick];
 
             // Точка возрождения по умолчанию — центр карты (SpawnCenter ботов, ServerHost.DefaultSpawnCenter).
             _respawnCenter = new WorldPos(
@@ -705,8 +707,10 @@ namespace Orpheus.Core.Sim
                 // Больше правок на чанк, чем тайлов: хвост — «занято» без вызова мира
                 // (на тайл в пачке проходит только одна правка, 3.7).
                 int take = 0;
+                Chunk? chunkData = _world.FindChunk(chunk); // что стояло на тайле ДО пачки — для добычи (1-010)
                 for (int i = start; i < end; i++)
                 {
+                    _preObj[i] = chunkData?.GetObject(_edits[i].Edit.Index) ?? 0;
                     EditResult pre = _edits[i].CheckCreatures ? CheckCreatures(chunk, _edits[i].Edit) : EditResult.Applied;
                     if (pre == EditResult.Applied && take < _batch.Length)
                     {
@@ -727,6 +731,13 @@ namespace Orpheus.Core.Sim
                     EditResult result = _batchOf[i] >= 0 ? _results[_batchOf[i]] : _preResult[i];
                     AddEvent(new SimEvent(SimEventKind.TileEdit, tick, chunk, _edits[i].Edit.Index, result, revision,
                         _edits[i].Requester, _edits[i].Tag));
+
+                    // Добыча (1-010): правка «снять природный объект» применена — материал в сумку просящего в том же такте.
+                    // Двое копающих один тайл: вторая правка — Busy, добыча ровно одному. Снос постройки — возврат строителя (1-011).
+                    if (result == EditResult.Applied && _edits[i].Requester > 0 && _edits[i].Edit.Obj == ObjectId.Empty)
+                    {
+                        GiveDigLoot(chunk, _edits[i].Edit.Index, _preObj[i], _edits[i].Requester);
+                    }
                 }
 
                 if (revision != before)
@@ -771,6 +782,29 @@ namespace Orpheus.Core.Sim
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Добыча снятого природного объекта (1-010, <c>01</c> 5): число — детерминированный бросок по зерну, тайлу и id
+        /// (<see cref="DigLoot.DropFor"/>) — сервер и клиент (предсказание) считают одно и то же; материал — в сумку
+        /// <paramref name="requester"/>. Постройка (не природный) — ничего: возврат по доле прочности за строителем (1-011).
+        /// <paramref name="old"/> — что стояло на тайле ДО пачки (<see cref="_preObj"/>): после <c>ApplyEdits</c> тайл уже пуст.
+        /// </summary>
+        private void GiveDigLoot(ChunkCoord chunk, ushort index, ushort old, int requester)
+        {
+            int slot = SlotOf(requester);
+            if (slot < 0 || !ObjectId.IsNatural(old))
+            {
+                return;
+            }
+
+            int x = (chunk.X << Torus.ChunkBits) + (index & (Torus.ChunkSize - 1));
+            int y = (chunk.Y << Torus.ChunkBits) + (index >> Torus.ChunkBits);
+            int n = DigLoot.DropFor(old, x, y, _world.Seed, out Material material);
+            if (n > 0)
+            {
+                _entities[slot].Inv.Add(material, n);
+            }
         }
 
         // ---------- Бой (1-001: `02` 6.1–6.6, 8.1–8.3, 13.5) ----------

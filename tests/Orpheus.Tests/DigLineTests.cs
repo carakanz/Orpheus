@@ -42,10 +42,13 @@ namespace Orpheus.Tests
         [Fact]
         public void D17_DigLine_GenV1_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Current, slack: 2);
 
-        /// <summary>Ночной прогон: 1000 скал, у копающего RTT 100 мс (имитатор связи).</summary>
+        /// <summary>
+        /// Ночной прогон: 1000 скал, у копающего RTT 100 мс (имитатор связи). Лимит тактов — вдвое: с 1-010 копание идёт
+        /// временем (скала — 8 кадров киркой), а на полном прогоне Big-тесты делят ядра и эффективная задержка растёт.
+        /// </summary>
         [Fact]
         [Trait("Category", "Big")]
-        public void D08_0_7_DigLine_Big_1000Rocks_Rtt100_ObserverBytesEqual_RestartLosesNothing() => Run(1000, rttMs: 100, WorldGenModule.Stub);
+        public void D08_0_7_DigLine_Big_1000Rocks_Rtt100_ObserverBytesEqual_RestartLosesNothing() => Run(1000, rttMs: 100, WorldGenModule.Stub, slack: 2);
 
         private void Run(int target, int rttMs, IWorldGenerator generator, int slack = 1)
         {
@@ -123,6 +126,13 @@ namespace Orpheus.Tests
             _out.WriteLine($"снято скал {bot.RocksDug} из {target}, прочего {bot.OtherDug}, отказов {bot.Refused} ({bot.RefusalsText}), строк {bot.Rows}, " +
                            $"тактов {digTicks} ({digTicks / 30.0:0.0} с игры)");
             Assert.True(bot.Done, $"бот снял {bot.RocksDug} из {target} за {digTicks} тактов");
+
+            // Приёмка 1-010: в сумке копающего — сумма детерминированных бросков добычи по всем снятым «каменным» тайлам; откатов нет.
+            int stoneWanted = bot.StoneTiles.Sum(e => DigLoot.DropFor(e.Raw, e.Tile.X, e.Tile.Y, world.Seed, out _));
+            Assert.True(stoneWanted >= bot.RocksDug, $"броски {stoneWanted} < снятых скал {bot.RocksDug} (скала даёт 1…2)");
+            Assert.Equal(stoneWanted, digger.Inv.CountAt(Material.Stone)); // своя сумка (предсказание + тип 26)
+            Assert.Equal(stoneWanted, rig.Sim.GetEntity(digger.EntityId).Inv.CountAt(Material.Stone)); // сумка сервера
+            Assert.Equal(0, digger.World!.PredictionsRolledBack); // предсказания добычи не откатывались
 
             // У наблюдателя — все снятые скалы, чанки = сервер побайтно.
             int seen = bot.RockTiles.Count(t => observer.World!.World.FindChunk(Torus.ChunkOf(shape, t)) != null &&
