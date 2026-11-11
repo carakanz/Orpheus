@@ -577,6 +577,10 @@ namespace Orpheus.Client
         // 1-004: net-smoke бежит на восток с зажатой ЛКМ — предсказание повторяет замедление 70 % и серию
         // замахов; меч — ячейка 3 стартового набора (1-002). Окно кончается до среза проверки (net-smoke 6 с).
         public const byte SmokeSwordSlot = 3;
+
+        // 1-011: сервер пропускает правки строительства только с молотом в руках (ячейка 2 стартового набора) —
+        // на время пробы 1-022 скриптованный кадр несёт ячейку молота, после подтверждения возвращается кирка.
+        public const byte SmokeHammerSlot = 2;
         const double SmokeMeleeStartSec = 4.5;
         const double SmokeMeleeEndSec = 6.0;
 
@@ -595,8 +599,10 @@ namespace Orpheus.Client
             return SmokeMelee && t > SmokeMeleeStartSec && t < SmokeMeleeEndSec;
         }
 
-        /// <summary>Ячейка быстрой панели в скриптованном кадре: в окне удара — меч, иначе кирка ( ячейка 0).</summary>
-        byte SmokeMeleeSlot(long now) => ScriptedSmokeAttack(now) ? SmokeSwordSlot : (byte)0;
+        /// <summary>Ячейка быстрой панели в скриптованном кадре: в окне удара — меч, на время пробы правки
+        /// (1-011/1-022, до подтверждения сервером) — молот, иначе кирка (ячейка 0).</summary>
+        byte SmokeMeleeSlot(long now) => ScriptedSmokeAttack(now) ? SmokeSwordSlot
+            : _smokeWallTry > 0 && !_smokeWallDone ? SmokeHammerSlot : (byte)0;
 
         /// <summary>
         /// Net-smoke без помех сети и шва (<see cref="SmokeDodges"/>): одно нажатие уворота на 1,5 с — в беге на восток (вместе с
@@ -973,8 +979,9 @@ namespace Orpheus.Client
                     Fail($"[smoke] FAILED: тайлы — расхождений {tileErrors}, образцов {samples} (нужно ≥ {needSamples}), чанков {cw.ChunkCount}");
                     return;
                 }
-                // 1-022, шаг 4: правка в сети — стена на свободный тайл: предсказание видно в Tilemap в тот же кадр,
-                // сервер ответил «принято», тайл в чанке — стена. Путь отката (стена на свой тайл) проверяется строкой «[edit] откат».
+                // 1-022, шаг 4: правка в сети — ковёр (бесплатная постройка 1-011) на свободный тайл с молотом в руках:
+                // предсказание видно в Tilemap в тот же кадр, сервер ответил «принято», тайл в чанке — ковёр.
+                // Путь отката (ковёр на свой тайл) проверяется строкой «[edit] откат»; отказы с ресурсами — в EditTests.
                 string wallLine = $"правка (1-022): проб {_smokeWallTry}, Tilemap в тот же кадр {_smokeWallFrameOk}, " +
                                   $"принято сервером {(_smokeWallConfirmed ? "да" : "нет")}, откатов по пробе {_smokeWallRollbacks}, " +
                                   $"всего откатов {Rollbacks}";

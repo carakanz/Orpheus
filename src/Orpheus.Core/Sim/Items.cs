@@ -92,10 +92,11 @@ namespace Orpheus.Core.Sim
             _ => ToolNone,
         };
 
-        /// <summary>Ярус инструмента; остального — <see cref="TierNone"/>.</summary>
+        /// <summary>Ярус инструмента; остального — <see cref="TierNone"/>. Молот — каменный ярус (1-011: строки
+        /// построек в <see cref="World.DigTimes"/> требуют ярус 1).</summary>
         public static byte TierOf(byte id) => id switch
         {
-            StonePickaxe or StoneAxe => TierStone,
+            StonePickaxe or StoneAxe or Hammer => TierStone,
             CopperPickaxe => TierCopper,
             _ => TierNone,
         };

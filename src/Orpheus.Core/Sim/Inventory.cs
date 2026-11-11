@@ -177,6 +177,37 @@ namespace Orpheus.Core.Sim
             return true;
         }
 
+        /// <summary>
+        /// Списать два материала целиком или никак (1-011, <c>05</c> 1.3: стоимость факела — 1 древесина + 1 смола,
+        /// списание атомарно по обоим ресурсам): не хватает любого — false, ничего не списано.
+        /// </summary>
+        public bool Spend(Material m1, int n1, Material m2, int n2)
+        {
+            if (n2 <= 0)
+            {
+                return Spend(m1, n1);
+            }
+
+            if (n1 <= 0)
+            {
+                return Spend(m2, n2);
+            }
+
+            if (m1 == m2)
+            {
+                return Spend(m1, n1 + n2);
+            }
+
+            if (CountAt(m1) < n1 || CountAt(m2) < n2)
+            {
+                return false;
+            }
+
+            Spend(m1, n1);
+            Spend(m2, n2);
+            return true;
+        }
+
         private void SetCount(Material m, int v)
         {
             var u = (ushort)v;
