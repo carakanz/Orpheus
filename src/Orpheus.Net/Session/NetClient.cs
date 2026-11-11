@@ -157,6 +157,15 @@ namespace Orpheus.Net.Session
         /// <summary>Своя сущность; не в игре — 0.</summary>
         public int EntityId => Accept.EntityId;
 
+        /// <summary>
+        /// Своя сумка по последнему сообщению сервера (тип 26, 1-002) — для предмета в руках и предсказания добычи (1-010).
+        /// Локальные предсказания (<see cref="DigLoot"/>) меняют её до подтверждения; новая сводка сервера замещает целиком.
+        /// </summary>
+        public Inventory Inv { get; internal set; }
+
+        /// <summary>Версия сумки в последней сводке сервера (0 — сводки не было).</summary>
+        public ushort InvVersion { get; internal set; }
+
         /// <summary>Форма карты из входа.</summary>
         public MapShape Shape => _layout.Shape;
 
@@ -503,7 +512,14 @@ namespace Orpheus.Net.Session
                         break;
                     case MessageType.Inventory when State == NetClientState.InGame:
                         InventoriesSeen++;
-                        InventorySeen?.Invoke(InventoryMessage.Read(data)); // 1-002
+                        {
+                            var inv = InventoryMessage.Read(data); // 1-002: сумка своя (сервер шлёт только владельцу)
+                            Inv = inv.Bag;
+                            InvVersion = inv.Version;
+                            _lastSlot = inv.Bag.Selected; // сводка сервера авторитетна и для предмета в руках (1-010)
+                            InventorySeen?.Invoke(inv);
+                        }
+
                         break;
                     case MessageType.TileReply when State == NetClientState.InGame:
                         OnTileReply(TileReplyMessage.Read(data)); // 0-028
@@ -539,6 +555,8 @@ namespace Orpheus.Net.Session
         private void OnAccept(in LoginAcceptMessage m)
         {
             Accept = m;
+            Inv = default; // своя сумка придёт сообщением сразу за входом (1-002)
+            InvVersion = 0;
             _layout = new SnapshotLayout(new MapShape(m.MapWidth, m.MapHeight, m.Wraps));
             ServerTick = m.ServerTick;
 

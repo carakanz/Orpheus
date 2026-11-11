@@ -11,10 +11,12 @@ namespace Orpheus.Net.Session
     /// Правки тайлов со стороны клиента (docs/07, 3.7; 0-028) — без Unity: этим же пользуются боты и тесты.
     /// <list type="bullet">
     /// <item><see cref="StartDig"/> — «копать: начало»; прогресс копится по своим кадрам ввода с зажатым
-    /// <see cref="InputButtons.Dig"/> (<see cref="SendFrame"/>) — тем же счётом, что у сервера; докопали — предсказание
-    /// «объект снят» (<see cref="ClientWorld.Predict"/>). <see cref="StopDig"/> до конца — «копать: конец».</item>
+    /// <see cref="InputButtons.Dig"/> (<see cref="SendFrame"/>) — тем же счётом, что у сервера, инструментом в руках
+    /// (<see cref="Items.DigToolOf"/>, 1-010); докопали — предсказание «объект снят» (<see cref="ClientWorld.Predict"/>)
+    /// и добычи в сумку (<see cref="DigLoot"/> по зерну, тайлу и объекту). <see cref="StopDig"/> до конца — «копать: конец».</item>
     /// <item><see cref="Place"/> — линия до 32 тайлов: тайлы, свободные по своему миру, предсказываются сразу.</item>
-    /// <item>Ответ сервера — <see cref="ClientWorld.Resolve"/>: принятые остаются, остальные откатываются с вспышкой.</item>
+    /// <item>Ответ сервера — <see cref="ClientWorld.Resolve"/>: принятые остаются, остальные откатываются с вспышкой;
+    /// отказ на скопированное копание откатывает и предсказанную добычу (1-010), подтверждение — сумка сервера (тип 26).</item>
     /// </list>
     /// </summary>
     public sealed partial class NetClient
@@ -25,6 +27,11 @@ namespace Orpheus.Net.Session
         private ushort _digRequest;
         private TileCoord _digTile;
         private ushort _digObj;
+        private byte _lastSlot; // ячейка быстрой панели последнего отправленного кадра (предмет в руках для предсказания)
+        private ushort _lootRequest; // запрос предсказанной добычи (0 — нет)
+        private Material _lootMaterial;
+        private int _lootCount;
+        private ushort _lootInvVersion; // версия сумки в момент предсказания: новая сводка сервера отменяет откат
         private readonly TileCoord[] _line = new TileCoord[EditRules.MaxLineTiles];
 
         /// <summary>Каждый ответ сервера на правку (после <see cref="ClientWorld.Resolve"/>).</summary>
@@ -51,18 +58,25 @@ namespace Orpheus.Net.Session
         /// <summary>Кадров копания насчитано своим вводом (0…<see cref="DigFrames"/>).</summary>
         public int DigProgress { get; private set; }
 
-        /// <summary>Кадров нужно на текущее копание: время объекта по <see cref="DigTimes"/>, взятое в начале (0 — неразрушим).</summary>
+        /// <summary>
+        /// Кадров нужно на текущее копание: время объекта по <see cref="DigTimes"/> инструментом в руках, взятое на своём
+        /// кадре (0 — этим предметом не копается / неразрушим; 1-010).
+        /// </summary>
         public int DigFrames { get; private set; }
 
         /// <summary>
-        /// Таблица времени копания «база × модификатор» (0-034) — должна совпадать с таблицей сервера
+        /// Таблица времени копания «база × модификатор × ярус» (0-034, 1-010) — должна совпадать с таблицей сервера
         /// (<see cref="NetServer.DigTimes"/>); по умолчанию такая же.
         /// </summary>
         public DigTimes DigTimes { get; } = new DigTimes();
 
+        /// <summary>Предмет в руках по своему счёту: сумка сервера (тип 26) и ячейка последнего кадра (1-010).</summary>
+        public byte HeldItem => Inv.SlotAt(_lastSlot);
+
         /// <summary>
         /// «Копать: начало» (канал 2): тайл <paramref name="tile"/>. Прежнее недокопанное копание сервер прервёт сам. Не в игре — 0.
-        /// Дальше кадры ввода с <see cref="InputButtons.Dig"/> копят прогресс.
+        /// Дальше кадры ввода с <see cref="InputButtons.Dig"/> копят прогресс. Запрос уходит и с неподходящим предметом —
+        /// отказ сервера («нужен топор», «нужна кирка: медная») показывается строкой (1-010).
         /// </summary>
         public ushort StartDig(TileCoord tile)
         {
@@ -78,7 +92,7 @@ namespace Orpheus.Net.Session
             _digRequest = id;
             _digTile = t;
             _digObj = World.World.GetObject(t);
-            DigFrames = DigTimes.FramesOf(_digObj);
+            DigFrames = NeededFrames();
             DigProgress = 0;
             SendRequest(new TileRequestMessage { RequestId = id, Op = TileOp.DigStart, Frame = _input.LastFrame + 1, From = t, To = t });
             return id;
@@ -153,17 +167,19 @@ namespace Orpheus.Net.Session
             EditRequestsSent++;
         }
 
-        /// <summary>Кадр ввода ушёл (<see cref="SendFrame"/>): зажатое копание копит прогресс; докопали — предсказание.</summary>
+        /// <summary>Кадр ввода ушёл (<see cref="SendFrame"/>): зажатое копание копит прогресс; докопали — предсказание мира и добычи.</summary>
         private void OnFrameSent(InputFrame frame)
         {
+            _lastSlot = frame.Slot;
             if (!_digActive || _digPredicted || !InputButtons.DigHeld(frame) || World == null)
             {
                 return;
             }
 
-            if (DigFrames == 0)
+            DigFrames = NeededFrames(); // предмет в руках мог смениться кадром: не им — прогресс стоит (как у сервера, 1-010)
+            if (DigFrames <= 0)
             {
-                return; // неразрушим (или тайл пуст) — копить нечего, ответ сервера придёт «нельзя» / «пусто»
+                return; // неразрушим, тайл пуст или не тем инструментом — ответ сервера придёт «нельзя» / «пусто» / «нужен …»
             }
 
             if (++DigProgress < DigFrames)
@@ -178,6 +194,20 @@ namespace Orpheus.Net.Session
             }
 
             World.Predict(_digRequest, 0, _digTile, new TileEdit(0, World.World.GetFloor(_digTile), ObjectId.Empty));
+
+            // Предсказание добычи (1-010): тот же детерминированный бросок, что у сервера (зерно, тайл, объект);
+            // подтвердит сервер — сумка сервера (тип 26) это же число; откажет — откат по ответу.
+            int n = DigLoot.DropFor(_digObj, _digTile.X, _digTile.Y, Accept.WorldSeed, out Material material);
+            if (n > 0)
+            {
+                var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
+                inv.Add(material, n);
+                Inv = inv;
+                _lootRequest = _digRequest;
+                _lootMaterial = material;
+                _lootCount = n;
+                _lootInvVersion = InvVersion;
+            }
         }
 
         private void OnTileReply(in TileReplyMessage m)
@@ -188,8 +218,25 @@ namespace Orpheus.Net.Session
                 _digActive = false; // отказ до конца копания или ответ на докопанное — копание кончилось
             }
 
+            if (_lootRequest == m.RequestId)
+            {
+                _lootRequest = 0;
+                if (m.Reply != EditReply.Accepted && InvVersion == _lootInvVersion)
+                {
+                    // Отказ (тайл увёл другой копающий, «пусто»): снятое предсказание обратно; сумка сервера
+                    // с тех пор не приходила (иначе в ней уже правда).
+                    var inv = Inv;
+                    inv.Spend(_lootMaterial, _lootCount);
+                    Inv = inv;
+                }
+            }
+
             World?.Resolve(m.RequestId, m.Mask, m.Reply == EditReply.Accepted ? m.FirstRefusal : m.Reply);
             EditReplied?.Invoke(m);
         }
+
+        /// <summary>Кадров нужно на текущий объект предметом в руках (1-010); ≤ 0 — этим предметом не копается.</summary>
+        private int NeededFrames() =>
+            DigTimes.FramesFor(_digObj, Items.DigToolOf(HeldItem), Items.TierOf(HeldItem));
     }
 }

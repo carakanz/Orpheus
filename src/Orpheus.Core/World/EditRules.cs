@@ -49,6 +49,12 @@ namespace Orpheus.Core.World
         /// запрос (допущение 0-028).
         /// </summary>
         NotAllowed = 10,
+
+        /// <summary>«нужен инструмент» (1-010, `01` 5, `05` 1.3): копают не тем инструментом — «нужен топор», «нужна кирка». Строка — <see cref="Describe(EditReply, ushort, DigTimes)"/>.</summary>
+        ToolRequired = 11,
+
+        /// <summary>«нужен ярус выше» (1-010, `01` 5: «нужна кирка: медная»): инструмент тот, ярус ниже твёрдости породы.</summary>
+        TierRequired = 12,
     }
 
     /// <summary>
@@ -91,9 +97,37 @@ namespace Orpheus.Core.World
                 case EditReply.NeedPlatform: return "нужен настил";
                 case EditReply.QueueFull: return "очередь полна";
                 case EditReply.Interrupted: return "прервано";
+                case EditReply.ToolRequired: return "нужен инструмент";
+                case EditReply.TierRequired: return "нужен ярус инструмента";
                 default: return "нельзя";
             }
         }
+
+        /// <summary>
+        /// Строка отказа с объектом и таблицей (1-010, <c>05</c> 1.3, <c>01</c> 5): «нужен топор» / «нужна кирка»
+        /// (<see cref="EditReply.ToolRequired"/>), «нужна кирка: медная» (<see cref="EditReply.TierRequired"/>);
+        /// прочие — <see cref="Describe(EditReply)"/>.
+        /// </summary>
+        public static string Describe(EditReply reply, ushort obj, DigTimes times)
+        {
+            if (reply == EditReply.ToolRequired)
+            {
+                var tool = times.ToolKindFor(obj);
+                return NeedWord(tool) + DigTimes.ToolName(tool);
+            }
+
+            if (reply == EditReply.TierRequired)
+            {
+                var tool = times.ToolKindFor(obj);
+                byte tier = times.RequiredTierOf(ObjectId.IdOf(obj), tool);
+                return NeedWord(tool) + DigTimes.TierName(tool, tier);
+            }
+
+            return Describe(reply);
+        }
+
+        /// <summary>«нужна » — женский род («кирка»), «нужен » — прочее (<c>05</c> 1.3).</summary>
+        private static string NeedWord(ToolKind tool) => tool == ToolKind.Pick ? "нужна " : "нужен ";
 
         /// <summary>Исход правки в такте → ответ клиенту.</summary>
         public static EditReply FromResult(EditResult result)
@@ -188,8 +222,10 @@ namespace Orpheus.Core.World
             CheckDig(world, center, tile, times, Sim.Items.StonePickaxe);
 
         /// <summary>
-        /// То же, что <see cref="CheckDig(WorldModel, WorldPos, TileCoord, DigTimes)"/>, с предметом в руках
-        /// (1-002): досягаемость «персонаж + этот предмет» (<see cref="DigReachUnitsFor"/>).
+        /// Проверка копания по тайлу мира (без сущностей): что копать и чем (время и инструмент/ярус по <paramref name="times"/>
+        /// для предмета <paramref name="itemId"/>), досягаемость «персонаж + предмет». Принято — <see cref="EditReply.Accepted"/>;
+        /// «нужен инструмент» / «нужен ярус выше» — <see cref="EditReply.ToolRequired"/> / <see cref="EditReply.TierRequired"/> (1-010).
+        /// Постройки копаться дают (снос киркой/молотом, `05` 1.3) — removal многотайловых записей за строителем (1-011).
         /// </summary>
         public static EditReply CheckDig(WorldModel world, WorldPos center, TileCoord tile, DigTimes times, byte itemId)
         {
@@ -204,7 +240,20 @@ namespace Orpheus.Core.World
                 return EditReply.Empty;
             }
 
-            return IsDiggable(obj, times) ? EditReply.Accepted : EditReply.NotAllowed;
+            if (ObjectId.IsPart(obj) || (ObjectId.IsMultiTileAnchor(obj) && !ObjectId.IsNatural(obj)))
+            {
+                return EditReply.NotAllowed; // часть объекта и многотайловая постройка — за строителем (1-011)
+            }
+
+            int frames = times.FramesFor(obj, Sim.Items.DigToolOf(itemId), Sim.Items.TierOf(itemId));
+            if (frames > 0)
+            {
+                return EditReply.Accepted;
+            }
+
+            return frames == DigTimes.NeedTool ? EditReply.ToolRequired
+                : frames == DigTimes.NeedTier ? EditReply.TierRequired
+                : EditReply.NotAllowed;
         }
 
         /// <summary>

@@ -109,13 +109,8 @@ namespace Orpheus.Net.Session
 
             byte held = _sim.Entities[slot].Inv.Held;
 
-            // Копать умеет только кирка (1-002, `06` 2.3): клиент без кирки запроса не шлёт, а чужой — сервер
-            // молча игнорирует: правки нет и отказа нет («основное действие» у меча — удар, не копание).
-            // DigStop проходит всегда — он и без кирки снимает ждущее начало.
-            if (m.Op == TileOp.DigStart && !Items.IsDiggingTool(held))
-            {
-                return;
-            }
+            // Копание запрашивается с любым предметом в руках (1-010): «нужен топор», «нужна кирка: медная» — ответ CheckDig
+            // строкой, а не молчание (карточка: отказ показывается строкой сервера). DigStop проходит всегда.
 
             // Копание — с кадра запроса (AdvanceEdits): кадры раньше него докапывают прежнее. Ждёт один запрос; новый вытесняет
             // ждущий: вытесненное начало — «прервано», не начавшись.
@@ -186,7 +181,7 @@ namespace Orpheus.Net.Session
             s.DigRequest = s.PendingRequest;
             s.DigTile = s.PendingTile;
             s.DigObj = _sim.World.GetObject(s.PendingTile);
-            s.DigFrames = DigTimes.FramesOf(s.DigObj);
+            s.DigFrames = DigTimes.FramesFor(s.DigObj, Items.DigToolOf(held), Items.TierOf(held));
             s.DigProgress = 0;
         }
 
@@ -263,8 +258,9 @@ namespace Orpheus.Net.Session
             }
 
             WorldPos pos = _sim.Entities[slot].Mover.Position;
-            byte held = _sim.Entities[slot].Inv.Held; // предмет в руках такта — им и копаем
-            bool canDig = Items.IsDiggingTool(held);
+            byte held = _sim.Entities[slot].Inv.Held; // предмет в руках такта — им и копаем (1-010)
+            int digFrames = s.Digging ? DigTimes.FramesFor(s.DigObj, Items.DigToolOf(held), Items.TierOf(held)) : 0;
+            // Сменил предмет в руках — время считается заново им; не тем инструментом (≤ 0) — прогресс стоит.
             for (int i = 0; i < frames; i++)
             {
                 if (s.HasPending && (int)(_frameNum[i] - s.PendingFrame) >= 0)
@@ -272,7 +268,7 @@ namespace Orpheus.Net.Session
                     ApplyPendingDig(p, s, pos, held);
                 }
 
-                if (canDig && s.Digging && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= s.DigFrames)
+                if (s.Digging && digFrames > 0 && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= digFrames)
                 {
                     CompleteDig(p, s, pos, held);
                 }

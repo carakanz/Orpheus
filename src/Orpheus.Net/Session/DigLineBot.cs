@@ -39,6 +39,7 @@ namespace Orpheus.Net.Session
         private bool _shifting;
         private bool _entered;
         private int _frame;
+        private byte _slot; // ячейка быстрой панели текущего копания (топор для дерева, кирка для скалы — 1-010)
         private WorldPos _lastPos;
         private int _stillFrames;
 
@@ -64,8 +65,8 @@ namespace Orpheus.Net.Session
         /// <summary>Отказов на копание (любая причина).</summary>
         public int Refused { get; private set; }
 
-        /// <summary>Отказов по причине (индекс — <see cref="EditReply"/>).</summary>
-        public int[] RefusedBy { get; } = new int[(int)EditReply.NotAllowed + 1];
+        /// <summary>Отказов по причине (индекс — <see cref="EditReply"/>, включая «нужен инструмент/ярус» — 1-010).</summary>
+        public int[] RefusedBy { get; } = new int[(int)EditReply.TierRequired + 1];
 
         /// <summary>Отказы строкой: «далеко 3, прервано 1».</summary>
         public string RefusalsText => string.Join(", ", Enumerable.Range(0, RefusedBy.Length).Where(i => RefusedBy[i] > 0)
@@ -77,10 +78,14 @@ namespace Orpheus.Net.Session
         /// <summary>Тайлы снятых скал в полосе — для сверки у наблюдателя и после перезапуска.</summary>
         public List<TileCoord> RockTiles { get; } = new List<TileCoord>();
 
+        /// <summary>Все снятые тайлы, чья добыча — камень (скалы в полосе, скалы вне полосы, гранит): сверка сумки (1-010).</summary>
+        public List<(TileCoord Tile, ushort Raw)> StoneTiles { get; } = new List<(TileCoord, ushort)>();
+
         /// <summary>Сняли <see cref="Target"/> скал.</summary>
         public bool Done => RocksDug >= Target;
 
         private readonly Dictionary<ushort, TileCoord> _digTile = new Dictionary<ushort, TileCoord>();
+        private readonly Dictionary<ushort, ushort> _digRaw = new Dictionary<ushort, ushort>(); // запрос → объект (для «каменной» свёрки сумки)
 
         /// <summary>Ответ сервера (подключить к <see cref="NetClient.EditReplied"/>).</summary>
         public void OnReply(TileReplyMessage m)
@@ -91,8 +96,10 @@ namespace Orpheus.Net.Session
             }
 
             TileCoord t = _digTile[m.RequestId];
+            ushort raw = _digRaw[m.RequestId];
             _digs.Remove(m.RequestId);
             _digTile.Remove(m.RequestId);
+            _digRaw.Remove(m.RequestId);
             if (m.Reply != EditReply.Accepted)
             {
                 Refused++;
@@ -103,6 +110,11 @@ namespace Orpheus.Net.Session
                 }
 
                 return;
+            }
+
+            if (DigLoot.TryGetDrop(ObjectId.IdOf(raw), out Material mat, out _, out _) && mat == Material.Stone)
+            {
+                StoneTiles.Add((t, raw)); // скала в полосе, вне полосы или гранит — в сумку идёт камень
             }
 
             if (rock)
@@ -128,7 +140,7 @@ namespace Orpheus.Net.Session
 
             if (client.Digging)
             {
-                return new InputFrame(Input8.None, InputButtons.Dig);
+                return new InputFrame(Input8.None, InputButtons.Dig, 0, _slot);
             }
 
             TileCoord me = Torus.TileOf(_shape, pos);
@@ -170,7 +182,7 @@ namespace Orpheus.Net.Session
             if (TryDig(client, world, pos, me, inBand))
             {
                 _stillFrames = 0;
-                return new InputFrame(Input8.None, InputButtons.Dig);
+                return new InputFrame(Input8.None, InputButtons.Dig, 0, _slot);
             }
 
             Input8 move = _shifting
@@ -258,7 +270,14 @@ namespace Orpheus.Net.Session
 
         private bool Dig(NetClient client, ClientWorld world, WorldPos pos, TileCoord t, ushort obj, bool inBand)
         {
-            if (!EditRules.IsDiggable(obj, client.DigTimes) || world.IsPredicted(t) || !InReach(pos, t))
+            if (world.IsPredicted(t) || !InReach(pos, t))
+            {
+                return false;
+            }
+
+            // Ячейка инструмента под объект (1-010): дерево — топор, скала — кирка; нет в сумке — не копаем (не «нужен топор» ловить).
+            byte slot = ToolSlotFor(client, obj);
+            if (slot == NoTool)
             {
                 return false;
             }
@@ -274,9 +293,27 @@ namespace Orpheus.Net.Session
                 return false;
             }
 
+            _slot = slot;
             _digs[id] = inBand && ObjectId.IdOf(obj) == ObjectId.Rock;
             _digTile[id] = t;
+            _digRaw[id] = obj;
             return true;
+        }
+
+        private const byte NoTool = byte.MaxValue;
+
+        /// <summary>Ячейка сумки с инструментом, который копаёт объект (время &gt; 0 по таблице клиента); нет — <see cref="NoTool"/> (1-010).</summary>
+        private static byte ToolSlotFor(NetClient client, ushort obj)
+        {
+            for (byte s = 0; s < Inventory.Slots; s++)
+            {
+                if (client.DigTimes.FramesFor(obj, Items.DigToolOf(client.Inv.SlotAt(s)), Items.TierOf(client.Inv.SlotAt(s))) > 0)
+                {
+                    return s;
+                }
+            }
+
+            return NoTool;
         }
     }
 }
