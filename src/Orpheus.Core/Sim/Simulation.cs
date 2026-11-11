@@ -79,10 +79,19 @@ namespace Orpheus.Core.Sim
         private readonly EditRequest[] _editScratch;
         private readonly TileEdit[] _batch = new TileEdit[TilePatch.MaxEdits];
         private readonly int[] _batchOf;          // место правки очереди в пачке чанка; −1 — отказ до пачки (0-028)
-        private readonly EditResult[] _preResult; // исход отказа до пачки: существо, враг, лишняя сверх тайлов
+        private readonly EditResult[] _preResult; // исход отказа до пачки: существо, враг, лишняя сверх тайлов, нет ресурсов (1-011)
         private readonly ushort[] _preObj;        // что стояло на тайле до пачки (добыча копания — 1-010)
+        private readonly byte[] _preFloor;        // пол тайла до пачки (ключ возврата пола — 1-011)
+        private readonly BuildRecord[] _preBuild; // запись постройки до тайла (плюс _preHasBuild — 1-011)
+        private readonly bool[] _preHasBuild;
+        private readonly byte[] _costPaid;        // 1 — стоимость постановки списана (1-011): отказ после пачки — вернуть
         private readonly EditResult[] _results = new EditResult[TilePatch.MaxEdits];
         private int _editCount;
+
+        // Истечения (1-011): обломки (10 с) и флаг «урон последние 10 с» — снимаются правкой своего тайла
+        // в начале такта через очередь (ревизия чанка за такт растёт ровно на 1 — патч-цепочка клиента).
+        private readonly ExpireEntry[] _expire;
+        private int _expireCount;
 
         private readonly int _buildMapReserve;
         private readonly SimEvent[] _events;
@@ -143,6 +152,11 @@ namespace Orpheus.Core.Sim
             _batchOf = new int[maxEditsPerTick];
             _preResult = new EditResult[maxEditsPerTick];
             _preObj = new ushort[maxEditsPerTick];
+            _preFloor = new byte[maxEditsPerTick];
+            _preBuild = new BuildRecord[maxEditsPerTick];
+            _preHasBuild = new bool[maxEditsPerTick];
+            _costPaid = new byte[maxEditsPerTick];
+            _expire = new ExpireEntry[maxEditsPerTick]; // истечений за игру больше, чем правок за такт, не бывает (1-011)
 
             // Точка возрождения по умолчанию — центр карты (SpawnCenter ботов, ServerHost.DefaultSpawnCenter).
             _respawnCenter = new WorldPos(
@@ -604,6 +618,9 @@ namespace Orpheus.Core.Sim
             _eventCount = 0;
             _eventsOverflow = false;
 
+            // 0. Истечения (1-011): обломки (10 с) и флаг «урон последние 10 с» — правки в очередь этого же такта.
+            StepExpiry(tick);
+
             // 1. Ввод.
             for (int i = 0; i < _entityCount; i++)
             {
@@ -692,6 +709,14 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
+            // Pre-pass по порядку прихода (до сортировки по чанкам, 1-011): состояние тайла до пачки, списание
+            // стоимости постановки (сумка: атомарно на тайл; не хватает — «нет ресурсов», правка в пачку не идёт),
+            // снос постройки, получавшей урон последние 10 с, — правка подменяется обломочной (`05` 1.3).
+            for (int i = 0; i < n; i++)
+            {
+                PreEdit(tick, i);
+            }
+
             SortByChunkThenArrival(n);
             int start = 0;
             while (start < n)
@@ -707,11 +732,11 @@ namespace Orpheus.Core.Sim
                 // Больше правок на чанк, чем тайлов: хвост — «занято» без вызова мира
                 // (на тайл в пачке проходит только одна правка, 3.7).
                 int take = 0;
-                Chunk? chunkData = _world.FindChunk(chunk); // что стояло на тайле ДО пачки — для добычи (1-010)
                 for (int i = start; i < end; i++)
                 {
-                    _preObj[i] = chunkData?.GetObject(_edits[i].Edit.Index) ?? 0;
-                    EditResult pre = _edits[i].CheckCreatures ? CheckCreatures(chunk, _edits[i].Edit) : EditResult.Applied;
+                    EditResult pre = _preResult[i] != EditResult.Applied
+                        ? _preResult[i]
+                        : _edits[i].CheckCreatures ? CheckCreatures(chunk, _edits[i].Edit) : EditResult.Applied;
                     if (pre == EditResult.Applied && take < _batch.Length)
                     {
                         _batchOf[i] = take;
@@ -732,11 +757,31 @@ namespace Orpheus.Core.Sim
                     AddEvent(new SimEvent(SimEventKind.TileEdit, tick, chunk, _edits[i].Edit.Index, result, revision,
                         _edits[i].Requester, _edits[i].Tag));
 
-                    // Добыча (1-010): правка «снять природный объект» применена — материал в сумку просящего в том же такте.
-                    // Двое копающих один тайл: вторая правка — Busy, добыча ровно одному. Снос постройки — возврат строителя (1-011).
-                    if (result == EditResult.Applied && _edits[i].Requester > 0 && _edits[i].Edit.Obj == ObjectId.Empty)
+                    int req = _edits[i].Requester;
+                    if (req <= 0)
                     {
-                        GiveDigLoot(chunk, _edits[i].Edit.Index, _preObj[i], _edits[i].Requester);
+                        continue;
+                    }
+
+                    // Возврат оплаченного (1-011): «занято существом»/«враг»/«занято» после пачки — сумка целая
+                    // (`05` 1.4: «его ресурсы не списаны»).
+                    if (_costPaid[i] != 0 && result != EditResult.Applied)
+                    {
+                        RefundCost(_edits[i].Edit, req);
+                    }
+
+                    // Добыча (1-010): правка «снять природный объект» применена — материал в сумку просящего в том же такте.
+                    // Двое копающих один тайл: вторая правка — Busy, добыча ровно одному.
+                    if (result == EditResult.Applied && _edits[i].Edit.Obj == ObjectId.Empty)
+                    {
+                        GiveDigLoot(chunk, _edits[i].Edit.Index, _preObj[i], req);
+
+                        // Снос постройки (1-011, `05` 1.3): 100 % рецепта; повреждённой — ⌊кол × прочность ÷ максимум⌋;
+                        // обломки ранней расчистки молотом — ничего.
+                        if (_preHasBuild[i] && !_preBuild[i].IsDebris)
+                        {
+                            GiveBuildRefund(req, _preObj[i], _preFloor[i], _preBuild[i]);
+                        }
                     }
                 }
 
@@ -752,14 +797,245 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
+        /// Pre-pass одной правки (1-011): снимает состояние тайла до пачки (<see cref="_preObj"/> и компанию),
+        /// списывает стоимость постановки (<see cref="EditResult.NoResources"/> — в пачку не идёт) и подменяет
+        /// снос «получавшей урон последние 10 с» постройки на обломочную правку (<c>05</c> 1.3).
+        /// </summary>
+        private void PreEdit(long tick, int i)
+        {
+            ref EditRequest e = ref _edits[i];
+            Chunk? chunkData = _world.FindChunk(e.Chunk);
+            ushort index = e.Edit.Index;
+            _preObj[i] = chunkData?.GetObject(index) ?? 0;
+            _preFloor[i] = chunkData?.GetFloor(index) ?? 0;
+            _preHasBuild[i] = chunkData is not null && chunkData.TryGetBuild(index, out _preBuild[i]);
+            _preResult[i] = EditResult.Applied;
+            _costPaid[i] = 0;
+
+            if (e.Requester <= 0)
+            {
+                return; // правки сервера (урон, истечения) — без стоимости и возврата
+            }
+
+            // Снос постройки, получавшей урон последние 10 с → обломки на 10 с: правка подменяется здесь,
+            // второй ApplyEdits в такт невозможен (ревизия +2 сломала бы патч-цепочку клиента).
+            if (_preHasBuild[i] && _preBuild[i].IsDamagedRecent && e.Edit.Obj == ObjectId.Empty)
+            {
+                BuildRecord rec = _preBuild[i];
+                var debris = new BuildRecord(rec.Owner, 0, (byte)BuildFlags.Debris, rec.NaturalFloor, (ushort)(tick + BuildDefs.DebrisTicks));
+                e = new EditRequest(e.Chunk, e.Arrival, new TileEdit(index, _preFloor[i], ObjectId.Empty, debris),
+                    e.Requester, e.Tag, e.CheckCreatures);
+                _preHasBuild[i] = false; // снос в обломки — без возврата (`05` 1.3); запись «получав урон» больше не считается сносимой
+                AddExpire(tick + BuildDefs.DebrisTicks, e.Chunk, index, debris: true);
+                return;
+            }
+
+            if (!CostOf(e.Edit, out BuildDef def))
+            {
+                return; // снос, копание, природный пол — стоимость не списывается
+            }
+
+            int slot = SlotOf(e.Requester);
+            if (slot < 0 || !_entities[slot].Inv.Spend(def.Material1, def.Count1, def.Material2, def.Count2))
+            {
+                _preResult[i] = EditResult.NoResources; // «нет ресурсов» (`05` 1.4): линия продолжается следующими тайлами
+                return;
+            }
+
+            _costPaid[i] = 1;
+        }
+
+        /// <summary>
+        /// Стоимость правки-постановки (1-011): ключ — id объекта; для пола — id <b>построенного</b> пола в слое пола
+        /// (природные полы 1…7 с id построек не путаются: снос и копание стоимость не списывают).
+        /// </summary>
+        private static bool CostOf(in TileEdit edit, out BuildDef def)
+        {
+            if (edit.Obj != ObjectId.Empty)
+            {
+                return BuildDefs.TryGet(edit.Obj, out def);
+            }
+
+            def = default;
+            return FloorId.IsBuilt(edit.Floor) && BuildDefs.TryGet(edit.Floor, out def);
+        }
+
+        /// <summary>Вернуть стоимость постановки при отказе после списания (1-011, `05` 1.4).</summary>
+        private void RefundCost(in TileEdit edit, int requester)
+        {
+            int slot = SlotOf(requester);
+            if (slot < 0 || !CostOf(edit, out BuildDef def))
+            {
+                return;
+            }
+
+            ref Inventory inv = ref _entities[slot].Inv; // SimEntity — структура: правим сумку в массиве, не копию
+            inv.Add(def.Material1, def.Count1);
+            if (def.Count2 > 0)
+            {
+                inv.Add(def.Material2, def.Count2);
+            }
+        }
+
+        /// <summary>
+        /// Возврат при сносе (1-011, `05` 1.3): неповреждённой постройки — рецепт целиком, повреждённой — по каждому
+        /// материалу ⌊количество × прочность ÷ максимум⌋; сносителю. Не влезло в сумку — пропадает (россыпь — веха 2).
+        /// </summary>
+        private void GiveBuildRefund(int requester, ushort preObj, byte preFloor, in BuildRecord rec)
+        {
+            int slot = SlotOf(requester);
+            ushort key = preObj != ObjectId.Empty ? preObj : preFloor; // постройка — id объекта; снос пола — id построенного пола
+            if (slot < 0 || (preObj == ObjectId.Empty && !FloorId.IsBuilt(preFloor)) || !BuildDefs.TryGet(key, out BuildDef def))
+            {
+                return;
+            }
+
+            ref Inventory inv = ref _entities[slot].Inv; // сумка в массиве сущностей, не копия (SimEntity — структура)
+            int k1 = BuildDefs.RefundOf(def.Count1, rec.Integrity, def.MaxIntegrity);
+            if (k1 > 0)
+            {
+                inv.Add(def.Material1, k1);
+            }
+
+            if (def.Count2 > 0)
+            {
+                int k2 = BuildDefs.RefundOf(def.Count2, rec.Integrity, def.MaxIntegrity);
+                if (k2 > 0)
+                {
+                    inv.Add(def.Material2, k2);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Урон постройки (1-011, <c>05</c> 1.3 — осадные враги, взрывы; оружие игроков — нет): прочность −<paramref name="raw"/>;
+        /// флаг «урон последние 10 с» на 10 с; 0 прочности → обломки на 10 с без дропа. Полы «не бьют» (<c>05</c> 1.3).
+        /// Правка — через очередь такта (одна пачка на чанк, 3.7). Применится в ближайшем такте — true.
+        /// </summary>
+        public bool DamageBuilding(TileCoord tile, int raw)
+        {
+            TileCoord t = Torus.Wrap(_shape, tile);
+            ChunkCoord chunk = Torus.ChunkOf(_shape, t);
+            Chunk? chunkData = _world.FindChunk(chunk);
+            ushort index = (ushort)Chunk.IndexOf(t.X, t.Y);
+            if (raw <= 0 || chunkData is null || !chunkData.TryGetBuild(index, out BuildRecord rec) || rec.IsDebris)
+            {
+                return false;
+            }
+
+            ushort obj = _world.GetObject(t);
+            if (obj == ObjectId.Empty)
+            {
+                return false; // построенный пол не бьют (`05` 1.3)
+            }
+
+            int left = rec.Integrity - raw;
+            if (left <= 0)
+            {
+                var debris = new BuildRecord(rec.Owner, 0, (byte)BuildFlags.Debris, rec.NaturalFloor, (ushort)(Tick + BuildDefs.DebrisTicks));
+                if (!Enqueue(t, rec.NaturalFloor, ObjectId.Empty, true, debris, 0, 0, false))
+                {
+                    return false;
+                }
+
+                AddExpire(Tick + BuildDefs.DebrisTicks, chunk, index, debris: true);
+                return true;
+            }
+
+            BuildRecord damaged = rec.WithIntegrity((ushort)left).WithFlags(BuildFlags.DamagedRecent);
+            if (!Enqueue(t, _world.GetFloor(t), obj, true, damaged, 0, 0, false))
+            {
+                return false;
+            }
+
+            AddExpire(Tick + BuildDefs.DamageFlagTicks, chunk, index, debris: false);
+            return true;
+        }
+
+        // ---------- Истечения обломков и флага урона (1-011) ----------
+
+        private struct ExpireEntry
+        {
+            public long EndTick;
+            public ChunkCoord Chunk;
+            public ushort Index;
+
+            /// <summary>Снимаем обломки (иначе — флаг «урон последние 10 с»).</summary>
+            public bool Debris;
+        }
+
+        private void AddExpire(long endTick, ChunkCoord chunk, ushort index, bool debris)
+        {
+            if (_expireCount == _expire.Length)
+            {
+                // Переполнение (патология): снимаем запись, которой истечь раньше всех, — её эффект слабее всего
+                // (флаг урона переживёт 10 с; обломки без записи останутся навсегда — их бережём).
+                int oldest = 0;
+                for (int i = 1; i < _expire.Length; i++)
+                {
+                    if (_expire[i].EndTick < _expire[oldest].EndTick && !_expire[i].Debris)
+                    {
+                        oldest = i;
+                    }
+                }
+
+                if (_expire[oldest].Debris)
+                {
+                    return;
+                }
+
+                _expire[oldest] = _expire[--_expireCount];
+            }
+
+            _expire[_expireCount++] = new ExpireEntry { EndTick = endTick, Chunk = chunk, Index = index, Debris = debris };
+        }
+
+        /// <summary>Истечения такта (1-011): правки снятия — в очередь этого же такта; очередь полна — проба в следующем.</summary>
+        private void StepExpiry(long tick)
+        {
+            for (int i = 0; i < _expireCount; i++)
+            {
+                ExpireEntry e = _expire[i];
+                if (e.EndTick > tick)
+                {
+                    continue;
+                }
+
+                TileCoord tile = TileOf(e.Chunk, e.Index);
+                Chunk? chunkData = _world.FindChunk(e.Chunk);
+                bool applied = true;
+                if (chunkData is not null && chunkData.TryGetBuild(e.Index, out BuildRecord rec))
+                {
+                    if (e.Debris && rec.IsDebris)
+                    {
+                        // Обломки кончились: тайл остаётся как есть (пол природный), запись снимается правкой без записи.
+                        applied = RequestEdit(tile, _world.GetFloor(tile), ObjectId.Empty);
+                    }
+                    else if (!e.Debris && rec.IsDamagedRecent)
+                    {
+                        applied = RequestEdit(tile, _world.GetFloor(tile), _world.GetObject(tile), rec.WithoutFlags(BuildFlags.DamagedRecent));
+                    }
+                }
+
+                if (applied)
+                {
+                    _expire[i--] = _expire[--_expireCount]; // снято; хвост на место
+                }
+            }
+        }
+
+        /// <summary>Тайл по чанку и индексу тайла в чанке.</summary>
+        private static TileCoord TileOf(ChunkCoord chunk, ushort index) => new TileCoord(
+            (chunk.X << Torus.ChunkBits) + (index & (Torus.ChunkSize - 1)),
+            (chunk.Y << Torus.ChunkBits) + (index >> Torus.ChunkBits));
+
+        /// <summary>
         /// Существа у тайла правки (`05` 1.3; 0-028): непроходимое на тайл, который задевает сущность, — «занято существом»;
         /// непроходимое или ловушка ближе 2 тайлов к врагу — «враг ближе 2 тайлов». Сущностей ≤ ёмкости — перебор всех.
         /// </summary>
         private EditResult CheckCreatures(ChunkCoord chunk, in TileEdit edit)
         {
-            var tile = new TileCoord(
-                (chunk.X << Torus.ChunkBits) + (edit.Index & (Torus.ChunkSize - 1)),
-                (chunk.Y << Torus.ChunkBits) + (edit.Index >> Torus.ChunkBits));
+            TileCoord tile = TileOf(chunk, edit.Index);
             bool blocks = EditRules.BlocksCreature(edit.Obj);
             EditResult result = EditResult.Applied;
             for (int i = 0; i < _entityCount; i++)

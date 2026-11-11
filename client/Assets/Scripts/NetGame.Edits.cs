@@ -146,10 +146,9 @@ namespace Orpheus.Client
                 return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
             }
 
-            // Копает только кирка (1-002, `06` 2.3): в руках меч — ЛКМ не начинает копание и запрос не уходит
-            // (у сервера тот же отказ молча). Досягаемость — «персонаж + предмет в руках».
-            if (!c.Digging && Items.IsDiggingTool(held) &&
-                EditRules.IsDiggable(_world!.GetObject(tile), c.DigTimes) && EditRules.InDigReach(_map, _localPos, tile, held))
+            // 1-011: «что копать и чем» решает ядро — CheckDig (кирка/топор/молот, ярус, ямы, построенные полы и
+            // обломки молотом). Не подходит — ЛКМ не начинает копание и запрос не уходит (у сервера тот же отказ молча).
+            if (!c.Digging && EditRules.CheckDig(_world!, _localPos, tile, c.DigTimes, held) == EditReply.Accepted)
             {
                 c.StartDig(tile);
             }
@@ -158,10 +157,12 @@ namespace Orpheus.Client
         }
 
         /// <summary>
-        /// Net-smoke: через 0,3 с — стена на свой тайл. Сервер отказывает «занято существом» (`05` 1.3), клиент откатывает
-        /// призрак со вспышкой — путь отката проверяется в настоящей сборке (строка «[edit] откат» в логе).
-        /// Через 1,0 с — стена на свободный тайл (1-022, шаг 4): предсказание видно в Tilemap в тот же кадр, ответ сервера
-        /// «принято» подтверждает правку; отказ — повтор на другом тайле, до 3 проб.
+        /// Net-smoke: через 0,3 с — ковёр на свой тайл. Тайл занят существом (`05` 1.3), клиент предсказывает призрак,
+        /// сервер отказывает — клиент откатывает со вспышкой; путь отката проверяется строкой «[edit] откат» в логе.
+        /// Через 1,0 с — ковёр на свободный тайл (1-022, шаг 4): бесплатный (нет записи в <see cref="BuildDefs"/>),
+        /// поэтому сумка стартового набора не нужна; молот в кадр ввода ставит <see cref="SmokeMeleeSlot"/>.
+        /// Предсказание видно в Tilemap в тот же кадр, ответ сервера «принято» подтверждает правку;
+        /// отказ — повтор на другом тайле, до 3 проб.
         /// </summary>
         void SmokeEdit(long now, NetClient c)
         {
@@ -170,8 +171,8 @@ namespace Orpheus.Client
             {
                 _smokeEditDone = true;
                 TileCoord own = Torus.TileOf(_map, _localPos);
-                ushort id = c.Place(own, own, ObjectId.StoneWall, _localPos);
-                Debug.Log($"[edit] smoke: стена на свой тайл {own.X},{own.Y}, запрос {id}");
+                ushort id = c.Place(own, own, ObjectId.Carpet, _localPos);
+                Debug.Log($"[edit] smoke: ковёр на свой тайл {own.X},{own.Y}, запрос {id}");
             }
 
             if (!_smokeWallDone && _smokeWallTry < 3 && sinceUs >= 1_000_000 && now >= _smokeWallNextUs)
@@ -184,18 +185,18 @@ namespace Orpheus.Client
             {
                 _smokeWallConfirmed = true;
                 _smokeWallDone = true;
-                bool inChunk = SmokeWallInChunk();
+                bool inChunk = SmokeCarpetInChunk();
                 Debug.Log($"[edit] smoke (1-022): правка принята сервером (проба {_smokeWallTry}), тайл {_smokeWallTile.X},{_smokeWallTile.Y} " +
-                          $"в чанке = стена: {(inChunk ? "да" : "НЕТ")}");
+                          $"в чанке = ковёр: {(inChunk ? "да" : "НЕТ")}");
                 if (!inChunk)
                 {
-                    Debug.LogError($"[edit] FAIL net-smoke (1-022): после «принято» тайл {_smokeWallTile.X},{_smokeWallTile.Y} в чанке не стена");
+                    Debug.LogError($"[edit] FAIL net-smoke (1-022): после «принято» тайл {_smokeWallTile.X},{_smokeWallTile.Y} в чанке не ковёр");
                 }
             }
         }
 
         /// <summary>
-        /// 1-022, шаг 4: стена на свободный тайл. Предсказание ложится в чанк и в Tilemap синхронно
+        /// 1-022, шаг 4: ковёр на свободный тайл. Предсказание ложится в чанк и в Tilemap синхронно
         /// (<c>ClientWorld.Predict → ChunkChanged → WorldView.ShowChunk</c>) — клетку Tilemap читаем сразу после вызова.
         /// </summary>
         void PlaceSmokeWall(NetClient c, long now)
@@ -210,9 +211,9 @@ namespace Orpheus.Client
 
             _smokeWallTile = t;
             _smokeWallConfirmed0 = c.World!.PredictionsConfirmed;
-            ushort id = c.Place(t, t, ObjectId.StoneWall, _localPos);
-            bool visible = TilemapShowsWall(t);
-            Debug.Log($"[edit] smoke (1-022): стена на свободный тайл {t.X},{t.Y}, запрос {id}, проба {_smokeWallTry}, " +
+            ushort id = c.Place(t, t, ObjectId.Carpet, _localPos);
+            bool visible = TilemapShowsCarpet(t);
+            Debug.Log($"[edit] smoke (1-022): ковёр на свободный тайл {t.X},{t.Y}, запрос {id}, проба {_smokeWallTry}, " +
                       $"Tilemap в тот же кадр: {(visible ? "да" : "НЕТ")}");
             if (visible)
             {
@@ -294,7 +295,7 @@ namespace Orpheus.Client
         }
 
         /// <summary>Клетка Tilemap под тайлом — та же стена, что положило предсказание (чтение в том же кадре).</summary>
-        bool TilemapShowsWall(TileCoord t)
+        bool TilemapShowsCarpet(TileCoord t)
         {
             ChunkCoord c = Torus.ChunkOf(_map, t);
             if (_view == null || !_view.TryGetNode(c, out WorldView.ChunkNode node))
@@ -303,15 +304,15 @@ namespace Orpheus.Client
             }
 
             return node.Objects.GetTile(WorldView.CellOf(t.X & (Torus.ChunkSize - 1), t.Y & (Torus.ChunkSize - 1)))
-                == _view.ObjectTile(ObjectId.StoneWall);
+                == _view.ObjectTile(ObjectId.Carpet);
         }
 
-        /// <summary>Тайл в чанке ядра клиента — стена (проверка после ответа «принято»).</summary>
-        bool SmokeWallInChunk()
+        /// <summary>Тайл в чанке ядра клиента — ковёр (проверка после ответа «принято»).</summary>
+        bool SmokeCarpetInChunk()
         {
             Chunk? chunk = _world!.FindChunk(Torus.ChunkOf(_map, _smokeWallTile));
             return chunk != null &&
-                   ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(_smokeWallTile.X, _smokeWallTile.Y))) == ObjectId.StoneWall;
+                   ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(_smokeWallTile.X, _smokeWallTile.Y))) == ObjectId.Carpet;
         }
 
         void OnRolledBack(TileCoord tile, EditReply reason)

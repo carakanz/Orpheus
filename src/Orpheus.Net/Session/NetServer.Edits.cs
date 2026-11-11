@@ -101,13 +101,12 @@ namespace Orpheus.Net.Session
             }
 
             WorldPos pos = _sim.Entities[slot].Mover.Position;
+            byte held = _sim.Entities[slot].Inv.Held; // предмет в руках такта запроса (1-011: молот обязателен и для постановки)
             if (m.Op == TileOp.Place)
             {
-                OnPlace(p, s, pos, m);
+                OnPlace(p, s, pos, m, held);
                 return;
             }
-
-            byte held = _sim.Entities[slot].Inv.Held;
 
             // Копание запрашивается с любым предметом в руках (1-010): «нужен топор», «нужна кирка: медная» — ответ CheckDig
             // строкой, а не молчание (карточка: отказ показывается строкой сервера). DigStop проходит всегда.
@@ -180,17 +179,40 @@ namespace Orpheus.Net.Session
             s.Digging = true;
             s.DigRequest = s.PendingRequest;
             s.DigTile = s.PendingTile;
-            s.DigObj = _sim.World.GetObject(s.PendingTile);
+            s.DigObj = DigKeyOf(s.PendingTile); // объект тайла; пол/обломки — id пола (молот, 1-011)
             s.DigFrames = DigTimes.FramesFor(s.DigObj, Items.DigToolOf(held), Items.TierOf(held));
             s.DigProgress = 0;
         }
 
-        private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m)
+        /// <summary>
+        /// Ключ времени копания тайла (1-011): объект; постройку-пол (слой объекта пуст) и обломки — id построенного пола
+        /// (на обломках — <see cref="FloorId.WoodFloor"/>, строка молота та же).
+        /// </summary>
+        private ushort DigKeyOf(TileCoord tile)
+        {
+            ushort obj = _sim.World.GetObject(tile);
+            if (obj != ObjectId.Empty)
+            {
+                return obj;
+            }
+
+            byte floor = _sim.World.GetFloor(tile);
+            return FloorId.IsBuilt(floor) ? floor : FloorId.WoodFloor;
+        }
+
+        private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m, byte held)
         {
             int n = EditRules.Line(_sim.Shape, m.From, m.To, _line);
             if (n < 0 || !EditRules.IsPlaceable(m.Obj))
             {
                 Reply(p, m.RequestId, EditReply.NotAllowed, EditReply.NotAllowed, 0);
+                return;
+            }
+
+            // Молот в руках обязателен и для постановки (1-011, `05` 1.3 — «нужен молот» строка отказа).
+            if (Items.DigToolOf(held) != ToolKind.Hammer)
+            {
+                Reply(p, m.RequestId, EditReply.ToolRequired, EditReply.ToolRequired, 0);
                 return;
             }
 
@@ -213,8 +235,13 @@ namespace Orpheus.Net.Session
 
                 int tag = (m.RequestId << TagLineBits) | i;
                 byte floor = _sim.World.GetFloor(t);
+                bool floorKey = EditRules.IsFloorKey(m.Obj); // запрос «поставить пол»: слой пола := m.Obj, объект пустой
+                BuildRecord rec = new BuildRecord((ushort)p.EntityId,
+                    BuildDefs.TryGet(m.Obj, out BuildDef def) ? def.MaxIntegrity : BuildRecord.MaxIntegrity,
+                    0, floor, 0);
                 if (check == EditReply.Accepted &&
-                    !_sim.RequestPlayerEdit(t, floor, m.Obj, true, BuildRecord.OfPlayer((ushort)p.EntityId, floor), p.EntityId, tag))
+                    !_sim.RequestPlayerEdit(t, floorKey ? (byte)m.Obj : floor, floorKey ? ObjectId.Empty : m.Obj,
+                        true, rec, p.EntityId, tag))
                 {
                     check = EditReply.QueueFull; // очередь такта полна
                 }
@@ -280,13 +307,18 @@ namespace Orpheus.Net.Session
         {
             s.Digging = false;
             EditReply check = EditRules.CheckDig(_sim.World, pos, s.DigTile, DigTimes, held);
-            if (check == EditReply.Accepted && _sim.World.GetObject(s.DigTile) != s.DigObj)
+            byte floor = _sim.World.GetFloor(s.DigTile);
+            if (check == EditReply.Accepted && DigKeyOf(s.DigTile) != s.DigObj)
             {
                 check = EditReply.Empty; // тайл не тот, что в начале копания (3.7)
             }
 
+            // Снос построенного пола (1-011, `05` 1.3): слой пола возвращается природному из записи.
+            byte newFloor = FloorId.IsBuilt(floor) && _sim.World.TryGetBuild(s.DigTile, out BuildRecord rec)
+                ? rec.NaturalFloor
+                : floor;
             if (check == EditReply.Accepted &&
-                !_sim.RequestPlayerEdit(s.DigTile, _sim.World.GetFloor(s.DigTile), ObjectId.Empty, false, default, p.EntityId, TagDig | (s.DigRequest << TagLineBits)))
+                !_sim.RequestPlayerEdit(s.DigTile, newFloor, ObjectId.Empty, false, default, p.EntityId, TagDig | (s.DigRequest << TagLineBits)))
             {
                 check = EditReply.QueueFull;
             }

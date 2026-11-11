@@ -55,6 +55,12 @@ namespace Orpheus.Core.World
 
         /// <summary>«нужен ярус выше» (1-010, `01` 5: «нужна кирка: медная»): инструмент тот, ярус ниже твёрдости породы.</summary>
         TierRequired = 12,
+
+        /// <summary>«обломки: N с» (1-011, `05` 1.3): на тайле обломки сноса/разрушения — строить нельзя, пока длятся.</summary>
+        Debris = 13,
+
+        /// <summary>«нет ресурсов» (1-011, `05` 1.4 «Ресурсы кончились посреди линии»): стоимость тайла не списалась.</summary>
+        NoResources = 14,
     }
 
     /// <summary>
@@ -99,6 +105,8 @@ namespace Orpheus.Core.World
                 case EditReply.Interrupted: return "прервано";
                 case EditReply.ToolRequired: return "нужен инструмент";
                 case EditReply.TierRequired: return "нужен ярус инструмента";
+                case EditReply.Debris: return "обломки";
+                case EditReply.NoResources: return "нет ресурсов";
                 default: return "нельзя";
             }
         }
@@ -138,6 +146,7 @@ namespace Orpheus.Core.World
                 case EditResult.Busy: return EditReply.Busy;
                 case EditResult.Occupied: return EditReply.Occupied;
                 case EditResult.EnemyNear: return EditReply.EnemyNear;
+                case EditResult.NoResources: return EditReply.NoResources;
                 default: return EditReply.NotAllowed;
             }
         }
@@ -181,14 +190,20 @@ namespace Orpheus.Core.World
             obj != ObjectId.Empty && ObjectId.IsNatural(obj) && !ObjectId.IsPart(obj) && !ObjectId.IsMultiTileAnchor(obj);
 
         /// <summary>
-        /// Объект ставится в вехе 0 (без ресурсов и палитры — допущение 0-028): одиночные постройки — стены, забор, факел,
-        /// ковёр, шипы. Двери, многотайловые, природные — нет.
+        /// Объект ставится (1-011, палитра данными <see cref="BuildDefs"/>): одиночные постройки — стены, забор, факел,
+        /// ковёр, шипы, дверь 1 × 1 — и построенные полы (ключи <see cref="FloorId.WoodFloor"/>…<see cref="FloorId.Platform"/>:
+        /// тайл пола несёт пол, объект на тайле остаётся пустым). Многотайловые (ворота, верстак, кровать) и природные — нет.
         /// </summary>
         public static bool IsPlaceable(ushort obj)
         {
             if (ObjectId.RotationOf(obj) != 0)
             {
                 return false;
+            }
+
+            if (IsFloorKey(obj))
+            {
+                return true;
             }
 
             switch (obj)
@@ -199,11 +214,16 @@ namespace Orpheus.Core.World
                 case ObjectId.Torch:
                 case ObjectId.Carpet:
                 case ObjectId.Spikes:
+                case ObjectId.Door:
                     return true;
                 default:
                     return false;
             }
         }
+
+        /// <summary>Ключ — построенный пол (1-011): запрос «поставить пол» несёт id пола в <c>Obj</c>, слой объекта не трогает.</summary>
+        public static bool IsFloorKey(ushort key) =>
+            BuildDefs.TryGet(key, out BuildDef def) && def.IsFloor;
 
         /// <summary>Непроходимый объект или ловушка: их не ставят на существо и ближе 2 тайлов к врагу (`05` 1.3).</summary>
         public static bool NeedsClearance(ushort obj) => !ObjectId.IsPassable(obj) || ObjectId.IdOf(obj) == ObjectId.Spikes;
@@ -234,10 +254,29 @@ namespace Orpheus.Core.World
                 return EditReply.OutOfReach;
             }
 
-            ushort obj = world.GetObject(Torus.Wrap(world.Shape, tile));
+            TileCoord t = Torus.Wrap(world.Shape, tile);
+            ushort obj = world.GetObject(t);
             if (obj == ObjectId.Empty)
             {
-                return EditReply.Empty;
+                // 1-011: построенный пол и обломки копаются молотом (`05` 1.3, 0,5 с): пол — возвращается природный,
+                // обломки — ранняя расчистка, без добычи.
+                byte floor = world.GetFloor(t);
+                bool builtFloor = FloorId.IsBuilt(floor);
+                bool debris = world.TryGetBuild(t, out BuildRecord rec) && rec.IsDebris;
+                if (!builtFloor && !debris)
+                {
+                    return EditReply.Empty;
+                }
+
+                if (Sim.Items.DigToolOf(itemId) != ToolKind.Hammer)
+                {
+                    return EditReply.ToolRequired; // «нужен молот»: кирка и топор полу и обломкам не указ
+                }
+
+                int fr = times.FramesFor(builtFloor ? floor : FloorId.WoodFloor, ToolKind.Hammer, Sim.Items.TierOf(itemId));
+                return fr > 0 ? EditReply.Accepted
+                    : fr == DigTimes.NeedTier ? EditReply.TierRequired
+                    : EditReply.NotAllowed;
             }
 
             if (ObjectId.IsPart(obj) || (ObjectId.IsMultiTileAnchor(obj) && !ObjectId.IsNatural(obj)))
@@ -258,7 +297,9 @@ namespace Orpheus.Core.World
 
         /// <summary>
         /// Проверка постановки одного тайла по миру (без сущностей — их проверяет такт, <c>Simulation</c>): радиус, тайл
-        /// свободен, пол не жидкость.
+        /// свободен, пол. Запрос пола (<see cref="IsFloorKey"/>): деревянный/каменный — только на сушу (жидкость — «нужен
+        /// настил»), настил — только над жидкостью; обломки — отказ 13, готовый пол под полом — «занято». На готовом
+        /// полу постройка стоит (стена на деревянном полу — можно).
         /// </summary>
         public static EditReply CheckPlaceTile(WorldModel world, WorldPos center, TileCoord tile, ushort obj)
         {
@@ -279,7 +320,29 @@ namespace Orpheus.Core.World
                 return ObjectId.IsNatural(here) ? EditReply.DigFirst : EditReply.Busy;
             }
 
+            bool debris = world.TryGetBuild(t, out BuildRecord rec) && rec.IsDebris;
+            if (debris)
+            {
+                return EditReply.Debris; // обломки: строить нельзя, пока длятся (`05` 1.3)
+            }
+
             byte floor = world.GetFloor(t);
+            if (IsFloorKey(obj))
+            {
+                if (world.TryGetBuild(t, out _))
+                {
+                    return EditReply.Busy; // под полом уже готовый построенный пол (запись без обломков)
+                }
+
+                bool liquid = floor == FloorId.Water || floor == FloorId.Lava;
+                if (obj == FloorId.Platform)
+                {
+                    return liquid ? EditReply.Accepted : EditReply.NotAllowed; // настил — только над жидкостью (`05` 1.3)
+                }
+
+                return liquid ? EditReply.NeedPlatform : FloorId.IsSolid(floor) ? EditReply.Accepted : EditReply.NotAllowed;
+            }
+
             if (floor == FloorId.Water || floor == FloorId.Lava)
             {
                 return EditReply.NeedPlatform;

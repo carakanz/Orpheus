@@ -55,7 +55,7 @@ namespace Orpheus.Tests
             Assert.Equal(Items.ToolNone, Items.ToolKindOf(Items.Hammer));
             Assert.Equal(Items.TierStone, Items.TierOf(Items.StonePickaxe));
             Assert.Equal(Items.TierStone, Items.TierOf(Items.StoneAxe));
-            Assert.Equal(Items.TierNone, Items.TierOf(Items.Hammer));
+            Assert.Equal(Items.TierStone, Items.TierOf(Items.Hammer)); // молот — каменный ярус (1-011: строки построек требуют ярус 1)
 
             // Копать — только киркой; рубить — топором (`06` 2.3: руками не умеют ни того, ни другого).
             Assert.True(Items.IsDiggingTool(Items.StonePickaxe));

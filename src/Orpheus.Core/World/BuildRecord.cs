@@ -64,6 +64,24 @@ namespace Orpheus.Core.World
         public readonly bool IsDoorOpen =>
             (Flags & (byte)(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen)) != 0;
 
+        /// <summary>Тайл — обломки (`05`, 1.3): флаг ставит снос/разрушение, снимает истечение <see cref="DebrisEndTick"/>.</summary>
+        public readonly bool IsDebris => (Flags & (byte)BuildFlags.Debris) != 0;
+
+        /// <summary>Постройка получала урон последние 10 с (снос таких оставляет обломки, `05`, 1.3).</summary>
+        public readonly bool IsDamagedRecent => (Flags & (byte)BuildFlags.DamagedRecent) != 0;
+
+        /// <summary>Копия записи с добавленными битами (свои сохраняются).</summary>
+        public readonly BuildRecord WithFlags(BuildFlags add) =>
+            new BuildRecord(Owner, Integrity, (byte)(Flags | (byte)add), NaturalFloor, DebrisEndTick);
+
+        /// <summary>Копия записи со снятыми битами (истечение «урона последние 10 с», 1-011).</summary>
+        public readonly BuildRecord WithoutFlags(BuildFlags remove) =>
+            new BuildRecord(Owner, Integrity, (byte)(Flags & ~(byte)remove), NaturalFloor, DebrisEndTick);
+
+        /// <summary>Копия записи с новой прочностью (флаги и поля сохраняются).</summary>
+        public readonly BuildRecord WithIntegrity(ushort integrity) =>
+            new BuildRecord(Owner, integrity, Flags, NaturalFloor, DebrisEndTick);
+
         // ---------- Байты (младший байт первым) ----------
 
         /// <summary>Записать 8 байт в <paramref name="dest"/>.</summary>
@@ -136,5 +154,11 @@ namespace Orpheus.Core.World
 
         /// <summary>Сундук общий: руда обоих лежит в одном месте (`05`, 1.3).</summary>
         ChestShared = 4,
+
+        /// <summary>Тайл — обломки сноса/разрушения (`05`, 1.3): проходим, строить нельзя до <see cref="BuildRecord.DebrisEndTick"/>.</summary>
+        Debris = 8,
+
+        /// <summary>Постройка получала урон последние 10 с: снос такого тайла оставляет обломки (`05`, 1.3; снимается по истечении).</summary>
+        DamagedRecent = 16,
     }
 }

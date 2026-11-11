@@ -104,6 +104,8 @@ namespace Orpheus.Client
                 case ObjectId.Ore: return _rock;
                 // Стена игрока (0-028, правки): камня-спрайта нет (1-024) — рисуем камнем пола, стена видна (1-022, шаг 4).
                 case ObjectId.StoneWall: return _stone;
+                // Ковёр (1-011, бесплатная постройка): своего спрайта нет (1-024) — рисуем лугом, проба 1-022 видит клетку.
+                case ObjectId.Carpet: return _meadow;
                 default: return null;
             }
         }
