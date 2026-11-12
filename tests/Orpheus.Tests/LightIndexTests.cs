@@ -14,6 +14,13 @@ namespace Orpheus.Tests
     /// </summary>
     public class LightIndexTests
     {
+        private readonly Xunit.Abstractions.ITestOutputHelper _out;
+
+        public LightIndexTests(Xunit.Abstractions.ITestOutputHelper output)
+        {
+            _out = output;
+        }
+
         private static WorldModel Flat(ulong seed) => FlatWorldGenerator.Instance.Generate(MapShape.World(1024), seed);
 
         private static void PutTile(WorldModel w, int x, int y, ushort obj) =>
@@ -161,12 +168,16 @@ namespace Orpheus.Tests
             long before = w.Lights.GridRebuilds;
             Span<ChunkCoord> window = stackalloc ChunkCoord[Torus.MaxNeighborChunks(1, 1)];
             int n = Torus.NeighborChunks(w.Shape, new ChunkCoord(3, 3), 1, 1, window);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             for (int i = 0; i < n; i++)
             {
                 TileCoord corner = Torus.CornerOf(window[i]);
                 w.Lights.SourceLightX1024(new TileCoord(corner.X, corner.Y));
             }
 
+            sw.Stop();
+            long rebuilt = w.Lights.GridRebuilds - before;
+            _out.WriteLine($"правка одного тайла: пересчёт {rebuilt} чанков за {sw.Elapsed.TotalMilliseconds:F3} мс (окно {n} запросов)");
             Assert.True(w.Lights.GridRebuilds - before <= 9, $"пересчёт {w.Lights.GridRebuilds - before} чанков после одной правки");
             Assert.True(w.Lights.GridRebuilds > warmed);
 
