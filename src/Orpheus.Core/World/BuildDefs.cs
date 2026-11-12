@@ -50,8 +50,8 @@ namespace Orpheus.Core.World
     /// </summary>
     public static class BuildDefs
     {
-        /// <summary>Наибольший ключ таблицы (id построек ≤ 10, полы — до <see cref="FloorId.MaxKnown"/>).</summary>
-        public const int MaxKey = FloorId.MaxKnown;
+        /// <summary>Наибольший ключ таблицы (id построек ≤ <see cref="ObjectId.MaxKnownId"/> (костёр 26, 1-014), полы — до <see cref="FloorId.MaxKnown"/>).</summary>
+        public const int MaxKey = ObjectId.MaxKnownId > FloorId.MaxKnown ? ObjectId.MaxKnownId : FloorId.MaxKnown;
 
         private static readonly BuildDef[] Table = new BuildDef[MaxKey + 1];
 
@@ -63,6 +63,9 @@ namespace Orpheus.Core.World
             Table[ObjectId.StoneWall] = new BuildDef(Material.Stone, 2, Material.Stone, 0, 300, false);
             Table[ObjectId.WoodFence] = new BuildDef(Material.Wood, 1, Material.Wood, 0, 45, false);
             Table[ObjectId.Door] = new BuildDef(Material.Wood, 6, Material.Wood, 0, 90, false);
+
+            // Костёр (`05` 101, `06` 339: 8 камня + 4 древесины, прочность 60; свет 4 / 8 — `01` 6, 1-014).
+            Table[ObjectId.Campfire] = new BuildDef(Material.Stone, 8, Material.Wood, 4, 60, false);
 
             // Полы: «не бьют» — прочность полная, снос возвращает рецепт целиком; над глубиной настил 2 — за генератором (`01` 5, `[док]`).
             Table[FloorId.WoodFloor] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);

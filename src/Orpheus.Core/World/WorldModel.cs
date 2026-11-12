@@ -77,6 +77,15 @@ namespace Orpheus.Core.World
         public Chunk? FindChunk(ChunkCoord coord) =>
             _chunks.TryGetValue(CheckedWrap(coord), out Chunk? chunk) ? chunk : null;
 
+        // Свет-сетка источников (1-014): ленивая — правки мира сама не трогает, сетка сама сверяет ревизии чанков.
+        private LightIndex? _lights;
+
+        /// <summary>
+        /// Свет-сетка источников (1-014, <c>01</c> 6): «построенный свет» для правил появления (1-009)
+        /// и L для рендера (1-021). Появляется при первом запросе, живёт вместе с миром.
+        /// </summary>
+        public LightIndex Lights => _lights ??= new LightIndex(this);
+
         /// <summary>
         /// Убрать чанк (клиент: чанк вышел из окна 8 × 6, docs/07 3.5; 0-026). Тайлы убранного чанка — пустые, как у
         /// несозданного. false — чанка не было.

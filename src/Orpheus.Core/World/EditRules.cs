@@ -215,6 +215,7 @@ namespace Orpheus.Core.World
                 case ObjectId.Carpet:
                 case ObjectId.Spikes:
                 case ObjectId.Door:
+                case ObjectId.Campfire:
                     return true;
                 default:
                     return false;
