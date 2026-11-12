@@ -106,6 +106,12 @@ namespace Orpheus.Bots
         public string? DigLine { get; set; }
         public int RocksDug { get; set; }
 
+        /// <summary>Сценарий <c>build_room</c> (1-026, приёмка `08` 3.1 1.5): итог строкой; иначе null.</summary>
+        public string? BuildRoom { get; set; }
+
+        /// <summary>Сценарий <c>night_camp</c> (1-026, приёмка `08` 3.1 1.6): итог строкой; иначе null.</summary>
+        public string? NightCamp { get; set; }
+
         /// <summary><c>run_seam</c> (0-027): круги; не бегун — null.</summary>
         public List<RunSeamLap>? Laps { get; set; }
 
@@ -459,6 +465,23 @@ namespace Orpheus.Bots
                                  $"предсказаний {bots[i].Client.World?.Predicted ?? 0}, откатов {bots[i].Client.World?.PredictionsRolledBack ?? 0}";
                 }
 
+                BuildRoomBot? build = bots[i].Builder;
+                if (build != null)
+                {
+                    st.BuildRoom = $"этап {build.Stage}, добыча {build.GatherTicks} тиков (камня {build.StoneAtGatherEnd}, древесины {build.WoodAtGatherEnd}, скал {build.RocksDug}, деревьев {build.TreesChopped}), " +
+                                   $"полов {build.FloorsPlaced}/9, стен {build.WallsPlaced}/15, дверь {(build.DoorPlaced ? "поставлена" : "не поставлена")}, закрыта {(build.DoorClosed ? "да" : "нет")}, " +
+                                   $"стройка {build.BuildTicks} тиков, урон за дверью {build.DamageThroughDoor} кадров, смертей {build.Deaths}, рассвет {(build.DawnReached ? "дождались" : "нет")}" +
+                                   $"{(build.FailReason != null ? $", отказ: {build.FailReason}" : "")}";
+                }
+
+                NightCampBot? camp = bots[i].Camp;
+                if (camp != null)
+                {
+                    st.NightCamp = camp.Alive
+                        ? $"стоит {camp.Ticks / (double)Simulation.TickRate:0.#} с, ударов {camp.HitsTaken}, жив"
+                        : $"погиб через {camp.TicksToDeath / (double)Simulation.TickRate:0.#} с, ударов {camp.HitsTaken}, убийца #{camp.KillerId}, тип урона {camp.KillerDamageType}";
+                }
+
                 RunSeamBot? runner = bots[i].Runner;
                 if (runner != null || o.Script == RunSeamBot.Name)
                 {
@@ -549,6 +572,16 @@ namespace Orpheus.Bots
                 if (report.Bots[i].DigLine != null)
                 {
                     console?.WriteLine($"  dig_line, бот {i}: {report.Bots[i].DigLine}");
+                }
+
+                if (report.Bots[i].BuildRoom != null)
+                {
+                    console?.WriteLine($"  build_room, бот {i}: {report.Bots[i].BuildRoom}");
+                }
+
+                if (report.Bots[i].NightCamp != null)
+                {
+                    console?.WriteLine($"  night_camp, бот {i}: {report.Bots[i].NightCamp}");
                 }
             }
 
