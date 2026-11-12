@@ -98,8 +98,11 @@ namespace Orpheus.Core.World
         public const ushort Bush = 24;
         public const ushort Granite = 25;
 
+        /// <summary>Костёр (`05` 101: 1 × 1, прочность 60; свет 4 / 8 — `01` 6; еда — `06` 10). Проходим (1-014).</summary>
+        public const ushort Campfire = 26;
+
         /// <summary>Наибольший описанный id.</summary>
-        public const ushort MaxKnownId = 25;
+        public const ushort MaxKnownId = 26;
 
         /// <summary>Размер таблицы свойств по сырому значению якоря: 0…0xFFF (id + поворот).</summary>
         public const int TableSize = 0x1000;
@@ -138,6 +141,7 @@ namespace Orpheus.Core.World
             Set(Torch, Properties.Passable);
             Set(Carpet, Properties.Passable);
             Set(Spikes, Properties.Passable);
+            Set(Campfire, Properties.Passable);
 
             Set(WoodWall, Properties.Solid);
             Set(StoneWall, Properties.Solid);

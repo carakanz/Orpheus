@@ -285,6 +285,15 @@ namespace Orpheus.Server
                     log.Info(sim.Tick, "world", "отладка: дверь у точки появления", ("tile", $"{doorTile.X},{doorTile.Y}"));
                 }
 
+                if (o.DebugDayScale != Simulation.DayScaleDefault || o.DebugTimeSeconds != 0)
+                {
+                    // Часы мира (1-014): ускорение и старт в середине суток — для проверки фаз в host-smoke.
+                    sim.DayScale = o.DebugDayScale;
+                    sim.SetWorldTime(o.DebugTimeSeconds * DayClock.TicksPerSecond);
+                    log.Info(sim.Tick, "world", "отладка: часы мира",
+                        ("day_scale", o.DebugDayScale), ("time_s", o.DebugTimeSeconds));
+                }
+
                 using InputJournalWriter? record = o.RecordPath != null
                     ? new InputJournalWriter(Need(services.CreateWrite, "--record")(o.RecordPath), JournalHeader.Of(sim))
                     : null;

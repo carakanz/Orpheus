@@ -18,7 +18,8 @@ namespace Orpheus.Save
     {
         internal WorldSaveData(
             string name, ulong seed, MapShape shape, int generatorVersion, byte[] baseSha256, long tick, int nextEntityId,
-            ChunkCoord[] coords, uint[] revisions, byte[]?[] compressed, byte[]?[] raw, SimEntity[] entities, CharacterRecord[] characters)
+            ChunkCoord[] coords, uint[] revisions, byte[]?[] compressed, byte[]?[] raw, SimEntity[] entities, CharacterRecord[] characters,
+            int worldTime)
         {
             Characters = characters;
             Name = name;
@@ -33,6 +34,7 @@ namespace Orpheus.Save
             Compressed = compressed;
             RawBlobs = raw;
             Entities = entities;
+            WorldTime = worldTime;
         }
 
         public string Name { get; }
@@ -43,6 +45,9 @@ namespace Orpheus.Save
 
         /// <summary>Такт, на границе которого снято состояние.</summary>
         public long Tick { get; }
+
+        /// <summary>Время мира в тактах суток, [0; 36 000) (1-014); у сохранений до 1-014 — 0.</summary>
+        public int WorldTime { get; }
 
         public int NextEntityId { get; }
 
@@ -63,7 +68,7 @@ namespace Orpheus.Save
     /// <summary>Загруженное из сохранения состояние такта (мир уже положен в <see cref="WorldModel"/>).</summary>
     public sealed class LoadedWorldState
     {
-        internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks, CharacterRecord[] characters, uint format)
+        internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks, CharacterRecord[] characters, uint format, int worldTime)
         {
             Characters = characters;
             FormatVersion = format;
@@ -73,6 +78,7 @@ namespace Orpheus.Save
             NextEntityId = nextEntityId;
             Entities = entities;
             ChunkCount = chunks;
+            WorldTime = worldTime;
         }
 
         /// <summary>Номер сохранения.</summary>
@@ -99,7 +105,10 @@ namespace Orpheus.Save
         /// <summary>Версия формата прочитанного файла.</summary>
         public uint FormatVersion { get; }
 
-        /// <summary>Положить сущности и такт в пустую симуляцию этого мира.</summary>
+        /// <summary>Время мира в тактах суток, [0; 36 000) (1-014); у файлов до 1-014 поля нет — 0.</summary>
+        public int WorldTime { get; }
+
+        /// <summary>Положить сущности, такт и время мира в пустую симуляцию этого мира.</summary>
         public void RestoreInto(Simulation sim)
         {
             if (sim == null)
@@ -107,7 +116,7 @@ namespace Orpheus.Save
                 throw new ArgumentNullException(nameof(sim));
             }
 
-            sim.Restore(Tick, Entities, NextEntityId);
+            sim.Restore(Tick, Entities, NextEntityId, WorldTime);
         }
     }
 
@@ -162,7 +171,8 @@ namespace Orpheus.Save
             return new WorldSaveData(
                 name ?? string.Empty, world.Seed, world.Shape, world.GeneratorVersion, (byte[])baseSha256.Clone(),
                 sim.Tick, sim.NextEntityId, coords, revisions, compressed, raw, sim.Entities.ToArray(),
-                characters != null ? (CharacterRecord[])characters.Clone() : Array.Empty<CharacterRecord>());
+                characters != null ? (CharacterRecord[])characters.Clone() : Array.Empty<CharacterRecord>(),
+                sim.WorldTime);
         }
 
         /// <summary>
@@ -191,6 +201,12 @@ namespace Orpheus.Save
             if (replaces != 0)
             {
                 w.WriteUInt(SaveSections.WorldField.Replaces, replaces);
+            }
+
+            if (d.WorldTime != 0)
+            {
+                // 1-014: nonzero — пишем; t = 0 (полный день) — файл байт в байт как до 1-014.
+                w.WriteUInt(SaveSections.WorldField.WorldTime, (ulong)d.WorldTime);
             }
 
             byte[] worldSection = w.ToArray();
@@ -409,6 +425,7 @@ namespace Orpheus.Save
             int generatorVersion = 0;
             byte[] sha = Array.Empty<byte>();
             int nextId = 1;
+            int worldTime = 0;
             var r = new RecordReader(file.Section(SaveSections.World));
             while (r.Next())
             {
@@ -438,6 +455,13 @@ namespace Orpheus.Save
                     case SaveSections.WorldField.NextEntityId:
                         nextId = r.UIntAsInt();
                         break;
+                    case SaveSections.WorldField.WorldTime:
+                    {
+                        // 1-014: такты суток; вне диапазона — грузим как 0 (часы перезапускаются с полного дня).
+                        ulong wt = r.UInt();
+                        worldTime = wt < 36_000 ? (int)wt : 0;
+                        break;
+                    }
                 }
             }
 
@@ -577,7 +601,8 @@ namespace Orpheus.Save
             }
 
             return new LoadedWorldState(
-                file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count, characters.ToArray(), file.Header.FormatVersion);
+                file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count, characters.ToArray(),
+                file.Header.FormatVersion, worldTime);
         }
 
         private static CharacterRecord ReadCharacter(RecordReader r, MapShape shape, int index)

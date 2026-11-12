@@ -65,6 +65,12 @@ namespace Orpheus.Save
             /// автосохранения (<see cref="WorldFolder.Recover"/>).
             /// </summary>
             public const int Replaces = 9;
+
+            /// <summary>
+            /// Время мира в тактах суток, [0; 36 000) (1-014, <c>01</c> 6); нет поля — 0 (рассвет позади, полный день).
+            /// Пишется только ненулевое — файлы с t = 0 байт в байт как до 1-014.
+            /// </summary>
+            public const int WorldTime = 10;
         }
 
         /// <summary>Раздел ЧАНКИ: повторяющееся поле <see cref="Chunk"/> — вложенная запись чанка.</summary>
@@ -355,7 +361,8 @@ namespace Orpheus.Save
             .Field(WorldField.GeneratorVersion, "версия генератора")
             .Field(WorldField.BaseSha256, "SHA-256 снимка генерации")
             .Field(WorldField.NextEntityId, "следующий номер сущности")
-            .Field(WorldField.Replaces, "заменяет поколение");
+            .Field(WorldField.Replaces, "заменяет поколение")
+            .Field(WorldField.WorldTime, "время мира, тактов суток");
 
         private static readonly RecordSchema ChunksSchema = new RecordSchema()
             .Field(ChunksField.Chunk, "чанк", new RecordSchema()

@@ -227,6 +227,27 @@ namespace Orpheus.Core.Sim
         /// <summary>Сколько тактов прошло; следующий <see cref="Step"/> выполнит такт <c>Tick + 1</c>.</summary>
         public long Tick { get; private set; }
 
+        /// <summary>
+        /// Время мира в тактах суток, [0; <see cref="DayClock.TicksPerDay"/>) (1-014, <c>01</c> 6).
+        /// Двигается каждым <see cref="Step"/> на <see cref="DayScale"/>; в паузе <see cref="Step"/> не вызывается — часы стоят (0-036).
+        /// </summary>
+        public int WorldTime { get; private set; }
+
+        /// <summary>Дефолт <see cref="DayScale"/>: 1 такт часов за такт симуляции.</summary>
+        public const int DayScaleDefault = 1;
+
+        /// <summary>
+        /// Сколько тактов часы идут за такт симуляции (отладка времени суток — <c>--debug-day-scale</c>; ≥ 1).
+        /// На детерминизм не влияет: сервер задаст одинаково на всех узлах.
+        /// </summary>
+        public int DayScale { get; set; } = DayScaleDefault;
+
+        /// <summary>Положить время мира (старт по <c>--debug-time</c>; значение нормализуется в сутки). Только до первого такта — вместе с загрузкой.</summary>
+        public void SetWorldTime(int ticks)
+        {
+            WorldTime = DayClock.Wrap(ticks);
+        }
+
         /// <summary>Число сущностей.</summary>
         public int EntityCount => _entityCount;
 
@@ -371,6 +392,15 @@ namespace Orpheus.Core.Sim
         /// </summary>
         public void Restore(long tick, ReadOnlySpan<SimEntity> entities, int nextId)
         {
+            Restore(tick, entities, nextId, 0);
+        }
+
+        /// <summary>
+        /// Загрузка с временем мира (1-014): то же + <see cref="WorldTime"/> (формат 6, поле МИР 10;
+        /// у сохранений до 1-014 — 0).
+        /// </summary>
+        public void Restore(long tick, ReadOnlySpan<SimEntity> entities, int nextId, int worldTime)
+        {
             if (Tick != 0 || _entityCount != 0 || _editCount != 0)
             {
                 throw new InvalidOperationException("Загрузка — только в пустую симуляцию до первого такта.");
@@ -409,6 +439,7 @@ namespace Orpheus.Core.Sim
             ResetPathCaches(); // 1-007: кэш путей — производный, в сейве его нет; после загрузки всё переспрашивается
             _nextId = Math.Max(nextId, maxId + 1);
             Tick = tick;
+            SetWorldTime(worldTime);
         }
 
         /// <summary>Следующий номер сущности (пишется в сохранение: номера не переиспользуются).</summary>
@@ -771,6 +802,10 @@ namespace Orpheus.Core.Sim
             }
 
             Tick = tick;
+
+            // 6.5. Часы мира (1-014, 01 6): такт суток — каждый такт, целыми шагами (детерминизм 11.5).
+            // Пауза (0-036) — Step не вызывается, часы стоят сами.
+            WorldTime = (WorldTime + DayScale) % DayClock.TicksPerDay;
 
             // 7. Трупы (8.3; 1-001): враг с истёкшим тайром трупа удаляется (RemoveEntity — сдвиг списка,
             // Rebuild сетки; в конце такта — «вне такта»). Порядок: от хвоста (по убыванию номера) — сдвиги не мешают.

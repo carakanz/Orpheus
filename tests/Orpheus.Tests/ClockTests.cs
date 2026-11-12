@@ -653,6 +653,60 @@ namespace Orpheus.Tests
 
             Assert.True(r.ClockResets <= 1, $"{r.ClockResets}");
         }
+
+        /// <summary>
+        /// Время мира по сети (1-014, приёмка <c>01</c> 6 «Сеть» п. 5): четыре клиента на ровной связи RTT 100 мс за
+        /// 10 модельных минут — расхождение часов мира каждого с часами сервера ≤ 0,5 с (15 тактов); рывков нет, часы не стоят.
+        /// Скачок сервера на +3 с (фриз с догоном тактов) — один рывок к серверному времени и расхождение снова в норме.
+        /// </summary>
+        [Fact]
+        public void D08_S6_Net_WorldTime_FourClients_Rtt100_WithinHalfSecond()
+        {
+            static int Diff(int a, int b)
+            {
+                int d = Math.Abs(a - b) % DayClock.TicksPerDay;
+                return Math.Min(d, DayClock.TicksPerDay - d);
+            }
+
+            using var rig = new Rig(4, NetSimSettings.FromRtt(100, 0, 0, 11));
+            rig.Script = (_, _) => East;
+            int[] worst = new int[4], snaps = new int[4];
+            rig.OnSnapshot = (i, _) =>
+            {
+                if (rig.Now < 2_000_000)
+                {
+                    return; // первая секунда — установка owd по первому пингу
+                }
+
+                snaps[i]++;
+                worst[i] = Math.Max(worst[i], Diff(rig.Clients[i].C.WorldTimeClock.TicksAt(rig.Now), rig.Sim.WorldTime));
+            };
+
+            rig.RunUntil(602_000_000); // 10 модельных минут (приёмка 5 — «за 10 мин»)
+            for (int i = 0; i < 4; i++)
+            {
+                _out.WriteLine($"клиент {i}: снимков {snaps[i]}, наибольшее расхождение {worst[i]} тактов, рывков {rig.Clients[i].C.WorldTimeClock.Jumps}, " +
+                               $"ход {rig.Clients[i].C.WorldTimeClock.RatePpm}, образец {rig.Clients[i].C.WorldTimeClock.ErrorTicksX256}/256");
+                Assert.True(snaps[i] > 300, $"{snaps[i]}");
+                Assert.True(worst[i] <= 15, $"клиент {i}: {worst[i]} тактов > 15 (0,5 с)");
+                Assert.Equal(0, rig.Clients[i].C.WorldTimeClock.Jumps);
+            }
+
+            // Сервер прошёл 90 тактов разом (+3 с) — расхождение больше 2 с: рывок, и часы снова в норме.
+            for (int k = 0; k < 90; k++)
+            {
+                rig.Sim.Step();
+            }
+
+            rig.RunUntil(604_000_000);
+            for (int i = 0; i < 4; i++)
+            {
+                NetClient c = rig.Clients[i].C;
+                _out.WriteLine($"после скачка +3 с: клиент {i} расхождение {Diff(c.WorldTimeClock.TicksAt(rig.Now), rig.Sim.WorldTime)}, рывков {c.WorldTimeClock.Jumps}");
+                Assert.Equal(1, c.WorldTimeClock.Jumps);
+                Assert.True(Diff(c.WorldTimeClock.TicksAt(rig.Now), rig.Sim.WorldTime) <= 15);
+            }
+        }
     }
 
     /// <summary>Отдельная коллекция без параллели: UDP-прогон 60 с под чужой нагрузкой (другие Big UDP-тесты) краснеет не по своей вине.</summary>

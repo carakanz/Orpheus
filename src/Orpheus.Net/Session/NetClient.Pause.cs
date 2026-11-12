@@ -85,6 +85,7 @@ namespace Orpheus.Net.Session
                     _pausedAtUs = _nowUs;
                     Pauses++;
                     _clock.Hold(_nowUs);
+                    _world.Hold(_nowUs); // часы мира стоят вместе с тактом сервера (1-014)
                     PauseChanged?.Invoke(true);
                 }
 
@@ -112,6 +113,7 @@ namespace Orpheus.Net.Session
         private void Resume()
         {
             long d = _clock.Release(_nowUs);
+            _world.Release(_nowUs); // мир в паузе не шагал — часы мира идут с того же места (1-014)
             long stood = Math.Max(d, _nowUs - _pausedAtUs);
             PausedTotalUs += stood;
             _paused = false;

@@ -169,6 +169,15 @@ namespace Orpheus.Server
         /// </summary>
         public bool DebugDoor { get; set; }
 
+        /// <summary>
+        /// <c>--debug-day-scale N</c> (1-014): часы мира идут в N раз быстрее (1 — обычно; 30 → сутки за 40 с) —
+        /// проверка фаз суток вживую. Целое: детерминизм не зависит от стены часов (11.5).
+        /// </summary>
+        public int DebugDayScale { get; set; } = 1;
+
+        /// <summary><c>--debug-time S</c> (1-014): старт мира на S-й секунде суток (0…1199; 0 — полный день).</summary>
+        public int DebugTimeSeconds { get; set; }
+
         /// <summary>Ожидание ввода W для решения удара манекена, кадров (по умолчанию 6 = 100 мс; 0 — без ожидания).</summary>
         public int DummyWaitFrames { get; set; } = 6;
 
@@ -293,6 +302,22 @@ namespace Orpheus.Server
                         break;
                     case "--debug-door":
                         o.DebugDoor = true;
+                        break;
+                    case "--debug-day-scale":
+                        o.DebugDayScale = ParseInt(a, Value(args, ref i));
+                        if (o.DebugDayScale < 1 || o.DebugDayScale > 3600)
+                        {
+                            throw new ArgumentException($"--debug-day-scale: 1…3600, а не {o.DebugDayScale}.");
+                        }
+
+                        break;
+                    case "--debug-time":
+                        o.DebugTimeSeconds = ParseInt(a, Value(args, ref i));
+                        if (o.DebugTimeSeconds < 0 || o.DebugTimeSeconds >= 1200)
+                        {
+                            throw new ArgumentException($"--debug-time: 0…1199 с суток, а не {o.DebugTimeSeconds}.");
+                        }
+
                         break;
                     case "--debug-enemies":
                         o.DebugEnemies = ParseInt(a, Value(args, ref i));
