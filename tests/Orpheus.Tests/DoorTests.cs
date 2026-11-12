@@ -198,6 +198,21 @@ namespace Orpheus.Tests
             Assert.False(IsOpen(sim2, 110, 100), "враг открыл дверь");
         }
 
+        /// <summary>Открытая дверь не закрывается, пока игрок стоит в соседнем тайле (закрываться — «упираться в нос»).</summary>
+        [Fact]
+        public void D12_Stays_Open_While_Player_Neighbor()
+        {
+            var sim = new Simulation(Flat());
+            PlaceDoor(sim, 110, 100, open: true);
+            int me = sim.AddEntity(TileCenter(109, 100)); // соседний тайл, не проём; стоит (ввода нет)
+            for (int t = 0; t < 3 * Simulation.DoorAutoCloseTicks; t++)
+            {
+                sim.Step();
+            }
+
+            Assert.True(IsOpen(sim, 110, 100), "закрылась при игроке в соседнем тайле");
+        }
+
         /// <summary>Индекс дверей: регистрация при постановке, снос снимает (лениво), новая Simulation строит индекс из мира.</summary>
         [Fact]
         public void D12_Door_Index_Registers_Removes_Reindexes()

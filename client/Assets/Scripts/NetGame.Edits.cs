@@ -202,16 +202,18 @@ namespace Orpheus.Client
         bool _smokeDoorPassed;
 
         /// <summary>
-        /// Net-smoke каждый кадр (1-012): дверь — 4 тайла к востоку от фактического появления (сервер ставит её
-        /// <c>--debug-door</c> закрытой). Скриптовый бег на восток: автооткрытие шагом → проход → автозакрытие
-        /// через 30 тактов. Фиксируем все три события; проверка — в <c>NetSmokeCheck</c>.
+        /// Net-smoke каждый кадр (1-012): дверь — тайл (cx − 3, cy − 1), 4 тайла к востоку от появления № 0
+        /// (сервер ставит её <c>--debug-door</c> закрытой; центр карты — та же середина, что у сервера).
+        /// Скриптовый бег на восток: автооткрытие шагом → проход → автозакрытие через 30 тактов.
+        /// Фиксируем все три события; проверка — в <c>NetSmokeCheck</c>.
         /// </summary>
         void SmokeDoorFrame(WorldPos confirmed)
         {
             if (!_smokeDoorFound)
             {
-                TileCoord spawn = Torus.TileOf(_map, confirmed);
-                _smokeDoorTile = Torus.Wrap(_map, new TileCoord(spawn.X + 4, spawn.Y));
+                // Формула сервера: появление № 0 — (cx − 7, cy − 1), дверь — (cx − 3, cy − 1). Подтверждённая
+                // позиция не годится: первый снимок может прийти, когда бег уже начался.
+                _smokeDoorTile = Torus.Wrap(_map, new TileCoord(_map.Width / 2 - 3, _map.Height / 2 - 1));
                 _smokeDoorFound = true;
                 Debug.Log($"[door] smoke: ожидаю дверь на {_smokeDoorTile.X},{_smokeDoorTile.Y} (4 тайла к востоку от появления)");
             }
