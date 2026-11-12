@@ -34,7 +34,8 @@ namespace Orpheus.Core.World
         /// <summary>Природный пол биома, который был под построенным (`05`, 1.3: снять — вернуть природный).</summary>
         public readonly byte NaturalFloor;
 
-        /// <summary>Такт (mod 65 536), до которого тайл — обломки (10 с после сноса, `05`, 1.3).</summary>
+        /// <summary>Такт (mod 65 536), до которого тайл — обломки (10 с после сноса, `05`, 1.3). Для двери —
+        /// такт (mod 65 536) автозакрытия (1-012, 0 = таймер не заведён); обломки и дверь на тайле не сосуществуют.</summary>
         public readonly ushort DebrisEndTick;
 
         public BuildRecord(ushort owner, ushort integrity, byte flags, byte naturalFloor, ushort debrisEndTick)
@@ -81,6 +82,10 @@ namespace Orpheus.Core.World
         /// <summary>Копия записи с новой прочностью (флаги и поля сохраняются).</summary>
         public readonly BuildRecord WithIntegrity(ushort integrity) =>
             new BuildRecord(Owner, integrity, Flags, NaturalFloor, DebrisEndTick);
+
+        /// <summary>Копия записи с новым тактом истечения (обломки; для двери — дедлайн автозакрытия, 1-012).</summary>
+        public readonly BuildRecord WithDebrisEndTick(ushort endTick) =>
+            new BuildRecord(Owner, Integrity, Flags, NaturalFloor, endTick);
 
         // ---------- Байты (младший байт первым) ----------
 

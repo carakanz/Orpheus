@@ -40,6 +40,12 @@ namespace Orpheus.Core.Sim
         /// </summary>
         public const ushort Attack = 1 << 2;
 
+        /// <summary>
+        /// Закрыть ближайшую дверь (1-012, `02` 2.2): бит — <b>нажатие в этом кадре</b>, как уворот: клиент ставит его
+        /// в одном кадре на нажатие F, удержание не повторяет. Такт срабатывает на передний фронт (защёлка в <c>Simulation</c>).
+        /// </summary>
+        public const ushort CloseDoor = 1 << 3;
+
         /// <summary>В кадре зажато копание.</summary>
         public static bool DigHeld(InputFrame f) => (f.Buttons & Dig) != 0;
 
