@@ -69,6 +69,12 @@ namespace Orpheus.Client
         /// <summary>net-smoke требует перехода шва своим персонажем и чужими (0-017).</summary>
         public bool NetSmokeSeam;
 
+        /// <summary>
+        /// net-smoke проходит дверь (1-012): сервер получает <c>--debug-door</c> (закрытая дверь в 4 тайлах
+        /// к востоку от появления); прогон бежит на восток — автооткрытие шагом, проход, автозакрытие через 30 тактов.
+        /// </summary>
+        public bool NetSmokeDoor;
+
         public bool Hud;
 
         /// <summary>Одиночная / хост: сервер дочерним процессом (0-024); null — офлайн или <see cref="Connect"/>.</summary>
@@ -207,6 +213,10 @@ namespace Orpheus.Client
                         break;
                     case "--net-smoke-seam":
                         a.NetSmokeSeam = true;
+                        break;
+                    case "--smoke-door":
+                        a.NetSmokeDoor = true;
+                        a.ServerArgs.Add("--debug-door"); // дверь ставит сервер у точки появления (1-012)
                         break;
                     case "--hud":
                         a.Hud = true;

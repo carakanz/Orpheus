@@ -15,6 +15,10 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Поставить: линия от тайла до тайла, до 32 тайлов (`05` 1.5), объект.</summary>
         Place = 3,
+
+        /// <summary>Закрыть дверь (1-012, F): тайл двери в From (To не используется) — сервер проверит радиус,
+        /// замок и проём, смена состояния — record-only правка. Ответ — общий («принято»/причина).</summary>
+        CloseDoor = 4,
     }
 
     /// <summary>
@@ -66,7 +70,7 @@ namespace Orpheus.Net.Protocol
             m.To = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.Obj = r.ReadUInt16();
             r.ExpectEnd();
-            if (op < (byte)TileOp.DigStart || op > (byte)TileOp.Place)
+            if (op < (byte)TileOp.DigStart || op > (byte)TileOp.CloseDoor)
             {
                 throw new ProtocolException($"Запрос правки: операция {op}.");
             }

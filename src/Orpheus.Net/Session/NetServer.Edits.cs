@@ -108,6 +108,12 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            if (m.Op == TileOp.CloseDoor)
+            {
+                OnCloseDoor(p, m);
+                return;
+            }
+
             // Копание запрашивается с любым предметом в руках (1-010): «нужен топор», «нужна кирка: медная» — ответ CheckDig
             // строкой, а не молчание (карточка: отказ показывается строкой сервера). DigStop проходит всегда.
 
@@ -270,6 +276,23 @@ namespace Orpheus.Net.Session
             s.PendingMask[k] = 0;
             s.PendingFirst[k] = first;
             s.PendingLeft[k] = queued;
+        }
+
+        /// <summary>
+        /// F (1-012, протокол 19): закрыть дверь на <c>m.From</c>. Радиус (chebyshev ≤ 1, тайл под нажавшим —
+        /// отказ), замок и выталкивание врага — на стороне <see cref="Simulation.RequestCloseDoor"/>; ответ —
+        /// общий: «принято» (маска — бит 0, один тайл), отказ — «нельзя» (клиент откатывает предсказание).
+        /// </summary>
+        private void OnCloseDoor(Player p, in TileRequestMessage m)
+        {
+            if (_sim.RequestCloseDoor(p.EntityId, m.From, m.RequestId))
+            {
+                Reply(p, m.RequestId, EditReply.Accepted, EditReply.Accepted, 1);
+            }
+            else
+            {
+                Reply(p, m.RequestId, EditReply.NotAllowed, EditReply.NotAllowed, 0);
+            }
         }
 
         /// <summary>

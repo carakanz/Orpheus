@@ -711,6 +711,11 @@ namespace Orpheus.Client
             // Окно задаёт сервер по своей позиции персонажа (0-026): дыры — от подтверждённой позиции последнего снимка,
             // а не от предсказания, которое впереди на RTT (у новой границы чанк ещё в пути — это не дыра).
             WorldPos confirmed = _client!.HasSnapshot && _client.Latest.Self.Present ? _client.Latest.Self.Position : me;
+            if (_args.NetSmokeDoor && _client.HasSnapshot)
+            {
+                SmokeDoorFrame(confirmed); // 1-012: автооткрытие шагом, проход, автозакрытие двери
+            }
+
             // Дыры считаем с первого снимка: до него чанков от сервера нет — пустое окно на входе (connect) не дыра.
             if (_client.HasSnapshot)
             {
@@ -990,6 +995,19 @@ namespace Orpheus.Client
                 {
                     Fail($"[smoke] FAILED: {wallLine} (нужно: принято да, Tilemap в тот же кадр ≥ 1)");
                     return;
+                }
+
+                // 1-012: проход через дверь (--smoke-door): автооткрытие шагом, проход на восток, автозакрытие через 30 тактов.
+                if (_args.NetSmokeDoor)
+                {
+                    string doorLine = $"дверь (1-012): тайл {_smokeDoorTile.X},{_smokeDoorTile.Y}, открыта {(_smokeDoorOpenSeen ? "да" : "нет")}, " +
+                                      $"пройден {(_smokeDoorPassed ? "да" : "нет")}, закрылась {(_smokeDoorClosedSeen ? "да" : "нет")}";
+                    Debug.Log("[smoke] " + doorLine);
+                    if (!_smokeDoorOpenSeen || !_smokeDoorPassed || !_smokeDoorClosedSeen)
+                    {
+                        Fail($"[smoke] FAILED: {doorLine} (нужно: открыта, пройден, закрылась — да)");
+                        return;
+                    }
                 }
 
                 Debug.Log($"[smoke] input: кадров ввода {_client.InputsSent} за {(now - _inGameSinceUs) / 1e6:0.00} с " +
