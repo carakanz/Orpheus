@@ -277,6 +277,11 @@ namespace Orpheus.Save
                     e.WriteInt(SaveSections.EntityField.BrainHomeY, x.Brain.HomeY);
                     e.WriteInt(SaveSections.EntityField.BrainGoalX, x.Brain.GoalX);
                     e.WriteInt(SaveSections.EntityField.BrainGoalY, x.Brain.GoalY);
+
+                    // «Упёрся» (1-013 9.3): в StateHash — едут в сейв; у старых сохранений дефолт 0 (игнор не активен).
+                    e.WriteInt(SaveSections.EntityField.BrainBlockedSince, x.Brain.BlockedSince);
+                    e.WriteInt(SaveSections.EntityField.BrainIgnoreTargetId, x.Brain.IgnoreTargetId);
+                    e.WriteInt(SaveSections.EntityField.BrainIgnoreUntil, x.Brain.IgnoreUntil);
                 }
                 e.EndRecord(mark);
             }
@@ -856,6 +861,15 @@ namespace Orpheus.Save
                         break;
                     case SaveSections.EntityField.BrainGoalY:
                         brain.GoalY = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainBlockedSince:
+                        brain.BlockedSince = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainIgnoreTargetId:
+                        brain.IgnoreTargetId = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainIgnoreUntil:
+                        brain.IgnoreUntil = r.IntAsInt();
                         break;
                     case SaveSections.EntityField.Health:
                         health = r.IntAsInt();

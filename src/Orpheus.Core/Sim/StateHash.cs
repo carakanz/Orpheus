@@ -190,6 +190,9 @@ namespace Orpheus.Core.Sim
             h.Add(e.Brain.HomeY);
             h.Add(e.Brain.GoalX);
             h.Add(e.Brain.GoalY);
+            h.Add(e.Brain.BlockedSince);
+            h.Add(e.Brain.IgnoreTargetId);
+            h.Add(e.Brain.IgnoreUntil);
             // Кэш пути (PathStamp/PathPos) — производный от запросов, чья постановка видна в хэше; не хэшируется.
             e.Inv.AddTo(ref h); // сумка целиком (1-002): ячейка в руках, ячейки, счётчики
             return h.Value;

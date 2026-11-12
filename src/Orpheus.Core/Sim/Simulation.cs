@@ -130,6 +130,19 @@ namespace Orpheus.Core.Sim
         private readonly PathBuffer[] _pathBuf;
         private PathScheduler _paths;
 
+        /// <summary>Счётчик правок мира (растёт на каждой пачке, изменившей чанк): «изменился тайл» —
+        /// враги пересчитывают путь сразу (1-013, 9.3); кэш Enclosed живёт до следующей ревизии (з.2).</summary>
+        private long _editRev;
+
+        /// <summary>Ревизия правок мира (для тестов и кэшей пути).</summary>
+        public long EditRevision => _editRev;
+
+        /// <summary>Поисков пути выполнено всего (счётчик PathFinder; для тестов бюджета и кэша кармана, 1-013).</summary>
+        public long PathSearches => _pathFinder.Searches;
+
+        /// <summary>Поисков завершено в последний такт планировщика (предел — PathMaxPerTick; 1-013 з.1).</summary>
+        public int PathLastTickCompleted => _paths.LastTickCompleted;
+
         /// <summary>Запросов в очереди планировщика (число преследующих одновременно; очередь полна — переспрос в следующий такт решений).</summary>
         public const int PathQueueCapacity = 64;
 
@@ -863,6 +876,7 @@ namespace Orpheus.Core.Sim
 
                 if (revision != before)
                 {
+                    _editRev++;
                     AddEvent(new SimEvent(SimEventKind.ChunkRevised, tick, chunk, -1, EditResult.Applied, revision));
                 }
 
@@ -1764,7 +1778,11 @@ namespace Orpheus.Core.Sim
                     {
                         int slot = SlotOf(e.Brain.TargetId);
                         if (slot >= 0 && _entities[slot].Alive &&
-                            Torus.Dist2(_shape, e.Mover.Position, _entities[slot].Mover.Position) <= MeleeRogue.StrikeRange2)
+                            Torus.Dist2(_shape, e.Mover.Position, _entities[slot].Mover.Position) <= MeleeRogue.StrikeRange2 &&
+                            // Линия удара (1-013, 9.3): стена/скала/дерево/закрытая дверь между врагом и целью —
+                            // не бьёт; забор прозрачен (бьёт через забор).
+                            StrikeLineClear(e.Mover.Position, _entities[slot].Mover.Position,
+                                Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position))))
                         {
                             BeginWindup(ref e, _entities[slot]);
                             e.AttackPeriod = MeleeRogue.PeriodTicks;
@@ -1777,7 +1795,8 @@ namespace Orpheus.Core.Sim
                 if (e.AttackPeriod > 0 && e.AttackRecover == 0)
                 {
                     int target = NearestCharacterSlot(e.Mover.Position, EnemyMelee.ReachUnits + Collision.RadiusUnits);
-                    if (target >= 0)
+                    if (target >= 0 && StrikeLineClear(e.Mover.Position, _entities[target].Mover.Position,
+                        Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position))))
                     {
                         BeginWindup(ref e, _entities[target]);
                     }
@@ -1821,6 +1840,7 @@ namespace Orpheus.Core.Sim
                 GoalX = home.X,
                 GoalY = home.Y,
                 LastHitBy = EnemyBrain.NoTarget,
+                IgnoreTargetId = EnemyBrain.NoTarget,
             };
             return id;
         }
@@ -1859,6 +1879,7 @@ namespace Orpheus.Core.Sim
                             b.State = EnemyState.Attack;
                             b.StateTicks = 0;
                             b.PathStamp = 0;
+                            b.BlockedSince = 0; // дошёл — эпизод «упёрся» закрыт (1-013)
                         }
 
                         e.Input = InputFrame.None;
@@ -1945,10 +1966,21 @@ namespace Orpheus.Core.Sim
                     if (s >= 0 && _entities[s].Alive &&
                         Torus.Dist2(_shape, at, _entities[s].Mover.Position) <= MeleeRogue.Lose2)
                     {
+                        if (b.IgnoreTargetId == b.LastHitBy && b.IgnoreUntil != 0)
+                        {
+                            // Удар по «упёршемуся» (1-013, 9.3): агро сильнее игнора — игнор снимается.
+                            b.IgnoreTargetId = EnemyBrain.NoTarget;
+                            b.IgnoreUntil = 0;
+                        }
+
                         if (b.TargetId != b.LastHitBy)
                         {
                             b.TargetId = b.LastHitBy;
                             b.PathStamp = 0; // цель сменилась — путь не годится (9.3)
+                            b.BlockedSince = 0; // новый эпизод: «упёрся» не переносится (1-013)
+                            b.ProgressTick = (int)tick;
+                            b.ProgressX = at.X;
+                            b.ProgressY = at.Y;
                         }
 
                         b.LostTicks = 0;
@@ -1957,8 +1989,16 @@ namespace Orpheus.Core.Sim
                 }
             }
 
-            // Зрение (8.1 «замечает игрока в 12–16 тайлах»): 14 тайлов.
-            int slot = NearestCharacterWithin(at, MeleeRogue.Sight2);
+            // Зрение (8.1 «замечает игрока в 12–16 тайлах»): 14 тайлов. Игнор цели после сдачи (1-013, 9.3) —
+            // цель не берётся, пока срок не истёк.
+            if (b.IgnoreUntil != 0 && tick >= b.IgnoreUntil)
+            {
+                b.IgnoreTargetId = EnemyBrain.NoTarget;
+                b.IgnoreUntil = 0;
+            }
+
+            int slot = NearestCharacterWithin(at, MeleeRogue.Sight2,
+                b.IgnoreUntil != 0 ? b.IgnoreTargetId : EnemyBrain.NoTarget);
             if (slot >= 0)
             {
                 b.LostTicks = 0;
@@ -1966,6 +2006,10 @@ namespace Orpheus.Core.Sim
                 {
                     b.TargetId = _entities[slot].Id;
                     b.PathStamp = 0;
+                    b.BlockedSince = 0;
+                    b.ProgressTick = (int)tick;
+                    b.ProgressX = at.X;
+                    b.ProgressY = at.Y;
                 }
 
                 return;
@@ -1979,6 +2023,7 @@ namespace Orpheus.Core.Sim
                 {
                     b.TargetId = EnemyBrain.NoTarget;
                     b.PathStamp = 0;
+                    b.BlockedSince = 0;
                     b.State = b.State == EnemyState.Chase || b.State == EnemyState.Attack || b.State == EnemyState.Blocked
                         ? EnemyState.Lost : b.State;
                     return;
@@ -2007,8 +2052,10 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Преследование (1-007, 9.3): цель в зоне удара handled выше; тут — путь по плану A* (окно 48 × 48,
-        /// планировщик такта) или прямо к цели, пока путь в работе/не готов. Переспрос: цель ушла дальше тайла
-        /// или каждые 150 тактов. Нет пути (Enclosed) — Blocked: стоит, переспрашивает каждые 2 с (8.4).
+        /// планировщик такта) или прямо к цели, пока путь в работе/не готов. Переспрос: цель ушла дальше тайла,
+        /// каждые 150 тактов или мир правили с запроса («изменился тайл» — сразу, 1-013). Нет пути (Enclosed) —
+        /// Blocked («упёрся», 9.3): стоит; пересчёт — при правке мира (кэш Enclosed до смены тайла, з.2);
+        /// 20 с — цель в игнор на 30 с, враг в Ожидание; дальше 60 тайлов от дома — то же + домой (з.3).
         /// </summary>
         private void Chase(ref SimEntity e, ref SimEntity target, int slot, long tick)
         {
@@ -2017,13 +2064,53 @@ namespace Orpheus.Core.Sim
 
             if (b.State == EnemyState.Blocked)
             {
-                // Пути нет (8.4): стоит и ждёт правку мира; переспрос раз в BlockedRetryTicks.
+                // «Упёрся» (1-013, 9.3): стоит у преграды; пересчёт — сразу при правке мира (ревизия сдвинулась);
+                // через 20 с цель уходит в игнор на 30 с, враг — в Ожидание (не застревает).
                 e.Input = InputFrame.None;
-                if (b.StateTicks >= MeleeRogue.BlockedRetryTicks)
+                long blockedFor = tick - b.BlockedSince;
+                if (b.BlockedSince != 0 && blockedFor >= MeleeRogue.BlockedGiveUpTicks)
                 {
+                    b.IgnoreTargetId = b.TargetId;
+                    b.IgnoreUntil = tick + MeleeRogue.IgnoreTargetTicks;
+                    b.TargetId = EnemyBrain.NoTarget;
+                    b.State = EnemyState.Idle;
+                    b.StateTicks = 0;
+                    b.PathStamp = 0;
+                    b.BlockedSince = 0;
+                    b.EnclosedRev = 0;
+                    return;
+                }
+
+                if (b.EnclosedRev != 0 && _editRev + 1 != b.EnclosedRev)
+                {
+                    // Тайл в окне поменялся (стена снесена, дверь открыта) — пересчёт сразу, без ожидания (9.3).
+                    TileCoord start = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
+                    TileCoord bt = Torus.Wrap(_shape, Torus.TileOf(_shape, target.Mover.Position));
+                    if (_paths.Enqueue(slot, start, bt, PathMode.Walker, tick))
+                    {
+                        b.PathStamp = (int)tick;
+                        b.PathPos = 0;
+                        b.PathRev = _editRev;
+                        b.EnclosedRev = 0;
+                        b.ProgressTick = (int)tick;
+                        b.ProgressX = e.Mover.Position.X;
+                        b.ProgressY = e.Mover.Position.Y;
+                        b.GoalX = bt.X;
+                        b.GoalY = bt.Y;
+                        b.State = EnemyState.Chase;
+                        b.StateTicks = 0;
+                    }
+                }
+                else if (b.EnclosedRev == 0 && blockedFor % MeleeRogue.BlockedRetryTicks == 0 &&
+                    (tick + e.Id) % AiDecisionTicks == 0)
+                {
+                    // Blocked без кэша (загрузка сейва): переспрос каждые 2 с, как в 8.4.
                     b.State = EnemyState.Chase;
                     b.StateTicks = 0;
                     b.PathStamp = 0;
+                    b.ProgressTick = (int)tick;
+                    b.ProgressX = e.Mover.Position.X;
+                    b.ProgressY = e.Mover.Position.Y;
                 }
 
                 return;
@@ -2034,10 +2121,51 @@ namespace Orpheus.Core.Sim
                 b.State = EnemyState.Chase;
                 b.StateTicks = 0;
                 b.PathStamp = 0;
+                b.ProgressTick = (int)tick;
+                b.ProgressX = e.Mover.Position.X;
+                b.ProgressY = e.Mover.Position.Y;
+            }
+            else if (Torus.Dist2(_shape, e.Mover.Position, new WorldPos(b.ProgressX, b.ProgressY)) >= MeleeRogue.ProgressMove2)
+            {
+                // Продвинулись — контрольная точка за текущей позицией, таймер «упёрся» сброшен.
+                b.ProgressTick = (int)tick;
+                b.ProgressX = e.Mover.Position.X;
+                b.ProgressY = e.Mover.Position.Y;
+            }
+            else if (b.ProgressTick != 0 && tick - b.ProgressTick >= MeleeRogue.StuckTicks)
+            {
+                // «Упёрся» без продвижения (1-013, 9.3): 2 с упираемся в преграду (путь Found идёт через
+                // стену под ногами) — Blocked; пересчёт при правке мира (кэш), сдача через 20 с.
+                b.State = EnemyState.Blocked;
+                b.StateTicks = 0;
+                b.PathStamp = 0;
+                b.EnclosedRev = _editRev + 1;
+                if (b.BlockedSince == 0)
+                {
+                    b.BlockedSince = tick;
+                }
+
+                e.Input = InputFrame.None;
+                return;
             }
 
             TileCoord goal = Torus.Wrap(_shape, Torus.TileOf(_shape, target.Mover.Position));
             PathBuffer buf = _pathBuf[slot];
+
+            // Не дальше 60 тайлов от точки появления (1-013 з.3, 0-028): увязся далеко — цель в игнор, домой (Lost).
+            if (Torus.Dist2(_shape, e.Mover.Position,
+                EditRules.CenterOf(Torus.Wrap(_shape, new TileCoord(b.HomeX, b.HomeY)))) > MeleeRogue.Leash2)
+            {
+                b.IgnoreTargetId = b.TargetId;
+                b.IgnoreUntil = tick + MeleeRogue.IgnoreTargetTicks;
+                b.TargetId = EnemyBrain.NoTarget;
+                b.State = EnemyState.Lost;
+                b.StateTicks = 0;
+                b.PathStamp = 0;
+                b.BlockedSince = 0;
+                b.EnclosedRev = 0;
+                return;
+            }
 
             // Запрос в работе/не ставился (PathStamp = 0) — идём прямо к цели (на открытой земле путь и не нужен).
             if (b.PathStamp == 0)
@@ -2049,6 +2177,7 @@ namespace Orpheus.Core.Sim
                     {
                         b.PathStamp = (int)tick;
                         b.PathPos = 0;
+                        b.PathRev = _editRev;
                         b.GoalX = goal.X;
                         b.GoalY = goal.Y;
                     }
@@ -2065,19 +2194,23 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
-            // Цель ушла дальше тайла от запрошенной, или путь старый (150 тактов) — новый запрос (9.3).
+            // Цель ушла дальше тайла от запрошенной, путь старый (150 тактов) или мир правили с запроса
+            // («изменился тайл» — 1-013, 9.3: пересчёт сразу) — новый запрос.
             bool stale = b.StateTicks % MeleeRogue.RepathTicks == 0 ||
                 Torus.Dist2(_shape, EditRules.CenterOf(goal), EditRules.CenterOf(new TileCoord(b.GoalX, b.GoalY))) >
                     (long)MeleeRogue.RepathGoalDelta * MeleeRogue.RepathGoalDelta;
-            if (stale)
+            bool revised = _editRev != b.PathRev;
+            if (stale || revised)
             {
-                if ((tick + e.Id) % AiDecisionTicks == 0)
+                if (revised || (tick + e.Id) % AiDecisionTicks == 0)
                 {
                     TileCoord start = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
                     if (_paths.Enqueue(slot, start, goal, PathMode.Walker, tick))
                     {
                         b.PathStamp = (int)tick;
                         b.PathPos = 0;
+                        b.PathRev = _editRev;
+                        b.EnclosedRev = 0;
                         b.GoalX = goal.X;
                         b.GoalY = goal.Y;
                     }
@@ -2090,10 +2223,17 @@ namespace Orpheus.Core.Sim
             switch (buf.Status)
             {
                 case PathStatus.Enclosed:
-                    // Пути нет вообще (8.4): Blocked — стоит, переспросит.
+                    // Пути нет вообще (8.4, 1-013): Blocked — стоит у стены; пересчёт — только при правке мира;
+                    // 20 с — сдаётся (игнор цели 30 с). Кэш «Enclosed до смены тайла» (з.2): переспрос не дороже 1 A*.
                     b.State = EnemyState.Blocked;
                     b.StateTicks = 0;
                     b.PathStamp = 0;
+                    b.EnclosedRev = _editRev + 1;
+                    if (b.BlockedSince == 0)
+                    {
+                        b.BlockedSince = tick;
+                    }
+
                     e.Input = InputFrame.None;
                     return;
 
@@ -2103,6 +2243,7 @@ namespace Orpheus.Core.Sim
                     return;
 
                 default:
+                    b.BlockedSince = 0; // путь есть — «упёрся» не копится (1-013)
                     break; // Found / WindowEdge / Partial — идём по шагам
             }
 
@@ -2142,14 +2283,15 @@ namespace Orpheus.Core.Sim
             return false;
         }
 
-        /// <summary>Ближайший живой персонаж к <paramref name="from"/> в пределах √dist2Limit; при равенстве — меньший номер; нет — −1.</summary>
-        private int NearestCharacterWithin(WorldPos from, long dist2Limit)
+        /// <summary>Ближайший живой персонаж к <paramref name="from"/> в пределах √dist2Limit; при равенстве — меньший номер; нет — −1.
+        /// <paramref name="ignoreId"/> (1-013, 9.3 «игнор 30 с») — цель, пропущенная при выборе.</summary>
+        private int NearestCharacterWithin(WorldPos from, long dist2Limit, int ignoreId)
         {
             int best = -1;
             long bestD = long.MaxValue;
             for (int i = 0; i < _entityCount; i++)
             {
-                if (!_entities[i].IsCharacter || !_entities[i].Alive)
+                if (!_entities[i].IsCharacter || !_entities[i].Alive || _entities[i].Id == ignoreId)
                 {
                     continue;
                 }

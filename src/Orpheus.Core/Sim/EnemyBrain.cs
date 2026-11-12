@@ -95,6 +95,19 @@ namespace Orpheus.Core.Sim
         /// <summary>Цель блуждания (тайл Y).</summary>
         public int GoalY;
 
+        // ---- «Упёрся» (1-013, docs/02 9.3) ----
+
+        /// <summary>Такт входа в текущий эпизод «упёрся» (Blocked); 0 — не упёрся. Сбрасывается при сдачи (игнор),
+        /// смене цели и найденном пути; переживает переспросы 2 с (таймер 20 с копится).</summary>
+        public long BlockedSince;
+
+        /// <summary>Цель, игнорируемая после сдачи (упёрся 20 с). Действует, пока <c>IgnoreUntil != 0</c>
+        /// и <c>tick &lt; IgnoreUntil</c> (дефолт 0 safe: без игнора); −1 — явно «нет».</summary>
+        public int IgnoreTargetId;
+
+        /// <summary>Такт, до которого игнорируется <see cref="IgnoreTargetId"/> (30 с после сдачи); 0 — игнор не активен.</summary>
+        public long IgnoreUntil;
+
         // ---- Кэш пути (в хэш и сейв НЕ входит; после загрузки переспрашивается) ----
 
         /// <summary>Такт запроса пути; 0 — запроса нет. Буфер валиден при совпадении с PathBuffer.RequestedTick.</summary>
@@ -102,6 +115,25 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Индекс следующего шага в буфере пути.</summary>
         public int PathPos;
+
+        /// <summary>Ревизия мира (<see cref="Simulation.EditRevision"/>) на момент запроса пути: сдвинулась —
+        /// мир правили, «изменился тайл» → пересчёт сразу (1-013, 9.3).</summary>
+        public long PathRev;
+
+        /// <summary>Ревизия мира, на которой цель стала <c>Enclosed</c> (+1, 0 — кэша нет): до следующей правки
+        /// переспрос не ставится — «карман» стоит не дороже одного A* на врага (1-013 з.2 backlog).</summary>
+        public long EnclosedRev;
+
+        /// <summary>Контрольная точка продвижения в погоне (1-013, 9.3 «упёрся»): позиция и такт последнего
+        /// смещения ≥ 96 единиц. За 2 с без продвижения — Blocked (путь есть, но стена под ногами не пускает).
+        /// В хэш и сейв НЕ входит (дефолт 0 safe: первая точка сбрасывается сама).</summary>
+        public int ProgressX;
+
+        /// <summary>См. <see cref="ProgressX"/>: координата X контрольной точки.</summary>
+        public int ProgressY;
+
+        /// <summary>См. <see cref="ProgressX"/>: такт контрольной точки.</summary>
+        public int ProgressTick;
 
         /// <summary>Состояние для снимка клиенту (8.13): поле 3 бита.</summary>
         public int SnapshotState => (int)State & 7;
@@ -164,8 +196,16 @@ namespace Orpheus.Core.Sim
         /// <summary>Смещение цели дальше 1 тайла (1024 единицы) — путь переспрашивается сразу (9.3).</summary>
         public const int RepathGoalDelta = Torus.SubTilesPerTile;
 
-        /// <summary>Blocked (пути нет): переспрос каждые 120 тактов = 2 с (8.4 «раз в секунду переспрашивает»).</summary>
+        /// <summary>Blocked (пути нет): переспрос каждые 120 тактов = 2 с (8.4 «раз в секунду переспрашивает»).
+        /// 1-013: переспрос — только когда мир правили (ревизия сдвинулась); 2 с остались как ритм сдачи.</summary>
         public const int BlockedRetryTicks = 120;
+
+        /// <summary>«Упёрся» (1-013, 9.3): 20 с в Blocked (600 тактов) — цель игнорируется 30 с (900), враг
+        /// уходит в Ожидание/бродягу у стены.</summary>
+        public const int BlockedGiveUpTicks = 600;
+
+        /// <summary>Игнор цели после сдачи: 30 с = 900 тактов (9.3 «игнор 30 с», потом Ожидание).</summary>
+        public const int IgnoreTargetTicks = 900;
 
         /// <summary>Узел пути пройден: центр ближе 3/4 тайла (192) к центру шага — идём к следующему (9.3). Меньше
         /// зоны удара (512), иначе погоня «прибывает» к тайлу цели раньше, чем входит в удар, и замирает.</summary>
@@ -173,6 +213,14 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Выталкивание: скорость расталкивания 2 тайла/с = 205 (X10); после фазы движения (8.5 «толкаются»).</summary>
         public const int SeparationSpeedX10 = 205;
+
+        /// <summary>«Упёрся» без продвижения (1-013, 9.3): в погоне 2 с (60 тактов) смещаемся меньше
+        /// <see cref="ProgressMove2"/> — путь есть, но стена под ногами (стартовый тайл поиска проходим всегда)
+        /// не пускает: Blocked, та же схема, что и при Enclosed (кэш до смены тайла, сдача через 20 с).</summary>
+        public const int StuckTicks = 60;
+
+        /// <summary>Продвижение, обнуляющее таймер «упёрся»: смещение ≥ 48 единиц (~0,2 тайла) от контрольной точки.</summary>
+        public const long ProgressMove2 = 48L * 48L;
     }
 
     /// <summary>
