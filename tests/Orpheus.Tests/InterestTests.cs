@@ -516,9 +516,10 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Дельта больше 1200 байт: 240 сущностей вокруг игрока у шва бегут, каждая меняет позицию каждый такт.
-        /// В каждой дельте обновлены ближние: самая дальняя свежая (позиция = позиции на сервере в такт снимка) не дальше
-        /// самой ближней устаревшей.
+        /// Дельта больше 1200 байт: 240 сущностей бегут кольцом радиусом 22 тайла вокруг игрока у шва
+        /// (половина дуги — за швом), каждая меняет позицию каждый такт. Граница обрезки попадает в плотную
+        /// толпу, где северники и южники меняются местами каждый такт. В каждой дельте обновлены ближние:
+        /// самая дальняя свежая (позиция = позиции на сервере в такт снимка) не дальше самой ближней устаревшей.
         /// </summary>
         [Fact]
         public void D07_S4_4_Truncation_Delta_NearestUpdatedFirst()
@@ -530,8 +531,10 @@ namespace Orpheus.Tests
             {
                 for (int i = 0; i < 240; i++)
                 {
-                    int x = i % 2 == 0 ? 1022 - 60 + i / 2 % 40 : 4 + i / 2 % 40; // половина за швом
-                    all.Add(sim.AddEntity(Center(new TileCoord(x, 280 + i / 80 * 15 + i % 7))));
+                    double a = Math.PI * 2 * i / 240;
+                    int x = Wrap(observer.X / U + (int)Math.Round(22 * Math.Cos(a)));
+                    int y = Wrap(observer.Y / U + (int)Math.Round(22 * Math.Sin(a)));
+                    all.Add(sim.AddEntity(Center(new TileCoord(x, y))));
                 }
             });
             rig.Server.KeyframePeriod = 100000;
@@ -700,6 +703,9 @@ namespace Orpheus.Tests
         // ---------- Помощники ----------
 
         private static WorldPos Center(TileCoord t) => new WorldPos(t.X * U + U / 2, t.Y * U + U / 2);
+
+        /// <summary>Номер тайла по модулю карты 1024 (кольцо вокруг наблюдателя у шва залезает за край).</summary>
+        private static int Wrap(int tile) => ((tile % 1024) + 1024) % 1024;
 
         private static long SumDeltas(Rig rig)
         {

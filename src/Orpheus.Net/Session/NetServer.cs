@@ -535,6 +535,12 @@ namespace Orpheus.Net.Session
         /// <summary>Эпоха часов: +1 при каждой рассылке «часы» (<see cref="BroadcastClock"/>), в заголовке каждого снимка.</summary>
         public byte ClockEpoch { get; private set; }
 
+        /// <summary>
+        /// Время мира в заголовке каждого снимка (<c>01</c> 6 «Сеть»; 1-014): такт суток из <see cref="Simulation.WorldTime"/>.
+        /// Частота снимков (&gt; 5 Гц) чаще требования «раз в 5 с» — отдельного сообщения о времени нет, 2 байта в заголовке.
+        /// </summary>
+        public ushort WorldTimeTicks => (ushort)_sim.WorldTime;
+
         /// <summary>Сколько раз ввод игрока подменён пустым: нового кадра нет <see cref="InputStaleTicks"/> тактов.</summary>
         public long InputStops { get; private set; }
 
@@ -1238,6 +1244,7 @@ namespace Orpheus.Net.Session
 
             var w = new SnapshotDeltaWriter(_buf, _layout, tick, pl.LastApplied, pl.LastSnapshotAck, _self);
             w.SetClockEpoch(ClockEpoch);
+            w.SetWorldTime(WorldTimeTicks);
             for (int i = 0; i < removedN; i++)
             {
                 w.TryAddRemoved(_removedIdx[i]);
@@ -1266,6 +1273,7 @@ namespace Orpheus.Net.Session
         {
             var w = new SnapshotWriter(_buf, _layout, tick, pl.LastApplied, _self);
             w.SetClockEpoch(ClockEpoch);
+            w.SetWorldTime(WorldTimeTicks);
             for (int i = 0; i < curCount; i++)
             {
                 if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem, _cur[i].Melee, _cur[i].Enemy))

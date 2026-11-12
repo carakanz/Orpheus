@@ -171,7 +171,7 @@ namespace Orpheus.Tests
             var rng = new DetRandom(7);
             var snap = new Snapshot
             {
-                Tick = 99_999, AckFrame = 200_003, Count = 40,
+                Tick = 99_999, AckFrame = 200_003, Count = 40, WorldTime = 35_999, // время мира — последний такт суток (1-014)
                 Self = new SelfState(new WorldPos(size * U - 1, rng.NextInt(size * U)), new Int2(-9, 7),
                     new Dodge { Elapsed = 255, DashLeft = 15, Cooldown = 24, Direction = 8 }), // без кванта (0-019); уворот — пределы полей (0-029)
             };
@@ -192,6 +192,7 @@ namespace Orpheus.Tests
             back.Read(a, layout);
             Assert.Equal(snap.Tick, back.Tick);
             Assert.Equal(snap.AckFrame, back.AckFrame);
+            Assert.Equal(snap.WorldTime, back.WorldTime); // 1-014: время мира в заголовке — туда и обратно
             Assert.Equal(snap.Count, back.Count);
             Assert.Equal(snap.Self, back.Self);
             for (int i = 0; i < snap.Count; i++)
@@ -228,6 +229,48 @@ namespace Orpheus.Tests
             snap.Self = new SelfState { DelayFrames = 31 };
             back.Read(Encode(b => snap.Write(b, layout)), layout);
             Assert.Equal(30, back.Self.DelayFrames); // запись — не больше 30 (4.6: учитывается ≤ 500 мс)
+        }
+
+        /// <summary>
+        /// Время мира в заголовке (1-014, <c>01</c> 6 «Сеть»): u16 — такт суток, 36 000 и больше — испорченный пакет
+        /// (свои часы клиент от такого не переставляет).
+        /// </summary>
+        [Fact]
+        public void D01_Net_Codec_Snapshot_WorldTime_OutsideDay_Rejected()
+        {
+            var layout = new SnapshotLayout(MapShape.World(1024));
+            var snap = new Snapshot { Tick = 7, AckFrame = 9, Count = 1, WorldTime = 35_999 };
+            snap.Entities[0] = new SnapshotEntity { Id = 1, Kind = 0, Position = default, Direction = 0 };
+            byte[] a = Encode(b => snap.Write(b, layout));
+            Assert.Equal((byte)(35_999 & 0xFF), a[Snapshot.WorldTimeOffset]); // младший байт первым
+            Assert.Equal((byte)(35_999 >> 8), a[Snapshot.WorldTimeOffset + 1]);
+            var back = new Snapshot();
+            back.Read(a, layout);
+            Assert.Equal((ushort)35_999, back.WorldTime);
+            a[Snapshot.WorldTimeOffset] = 0xA0; // 36 000 = 0x8CA0 — вне суток
+            a[Snapshot.WorldTimeOffset + 1] = 0x8C;
+            Assert.Throws<ProtocolException>(() => back.Read(a, layout));
+            a[Snapshot.WorldTimeOffset] = 0xFF; // 65 535
+            a[Snapshot.WorldTimeOffset + 1] = 0xFF;
+            Assert.Throws<ProtocolException>(() => back.Read(a, layout));
+        }
+
+        /// <summary>Дельта снимка: то же время мира в своём заголовке (часы мира клиента не ждут полного кадра).</summary>
+        [Fact]
+        public void D01_Net_Codec_SnapshotDelta_WorldTime_OutsideDay_Rejected()
+        {
+            var layout = new SnapshotLayout(MapShape.World(1024));
+            var buf = new byte[NetSettings.MaxUnreliablePayload];
+            var w = new SnapshotDeltaWriter(buf, layout, 52, 104, 10);
+            w.SetWorldTime(12_345);
+            Assert.True(w.TryAddRemoved(1));
+            int len = w.Finish();
+            var d = new SnapshotDeltaMessage();
+            d.Read(new ReadOnlySpan<byte>(buf, 0, len), layout);
+            Assert.Equal((ushort)12_345, d.WorldTime);
+            buf[SnapshotDeltaMessage.WorldTimeOffset] = 0xA0; // 36 000 — вне суток
+            buf[SnapshotDeltaMessage.WorldTimeOffset + 1] = 0x8C;
+            Assert.Throws<ProtocolException>(() => d.Read(new ReadOnlySpan<byte>(buf, 0, len), layout));
         }
 
         // ---------- Дельта снимка: кодек (карточка 0-014, docs/07 4.3) ----------

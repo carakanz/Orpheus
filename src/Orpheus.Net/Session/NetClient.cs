@@ -54,6 +54,7 @@ namespace Orpheus.Net.Session
         private bool _hasSnapshot;
         private InputMessage _input;
         private readonly ClientClock _clock = new ClientClock();
+        private readonly WorldClock _world = new WorldClock();
         private long _nowUs;
         private long _lastPingUs;
         private byte _epoch;
@@ -191,6 +192,12 @@ namespace Orpheus.Net.Session
 
         /// <summary>Часы клиента: оценка кадра сервера (2.4; 0-025).</summary>
         public ClientClock Clock => _clock;
+
+        /// <summary>
+        /// Часы мира (<c>01</c> 6 «Сеть»; 1-014): оценка времени мира по заголовкам снимков; рывок при расхождении
+        /// больше 2 с. Их читает рендер (1-021): фон суток и свет.
+        /// </summary>
+        public WorldClock WorldTimeClock => _world;
 
         /// <summary>Перенумераций кадров ввода к оценке часов (перестановка часов больше 100 мс).</summary>
         public long FrameRenumbers { get; private set; }
@@ -659,6 +666,7 @@ namespace Orpheus.Net.Session
             _scratch.Self = _delta.Self;
             _scratch.IsDelta = true;
             _scratch.ClockEpoch = _delta.ClockEpoch;
+            _scratch.WorldTime = _delta.WorldTime;
             DeltasApplied++;
             CommitSnapshot();
         }
@@ -754,6 +762,9 @@ namespace Orpheus.Net.Session
 
             _epoch = _latest.ClockEpoch;
             _epochKnown = true;
+
+            // Часы мира (1-014, `01` 6 «Сеть»): заголовок снимка — образец; расхождение больше 2 с — рывок.
+            _world.OnSample(_latest.WorldTime, _clock.OwdUs, _nowUs);
             SnapshotApplied?.Invoke(_latest);
         }
     }

@@ -340,13 +340,13 @@ namespace Orpheus.Net.Protocol
     /// <summary>
     /// Полный снимок (docs/07, 4.3; дельты — <see cref="SnapshotDeltaMessage"/>, 0-014): такт сервера, последний применённый кадр ввода
     /// этого клиента, сущности рядом. Своя сущность — первой. Объект переиспользуется: чтение не выделяет память.
-    /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, число сущностей u8; своё состояние
-    /// (<see cref="SelfState"/>, <see cref="SnapshotLayout.SelfBits"/>); затем сущности по битам (<see cref="SnapshotLayout"/>).</para>
+    /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, число сущностей u8, эпоха часов u8, время мира u16 (1-014);
+    /// своё состояние (<see cref="SelfState"/>, <see cref="SnapshotLayout.SelfBits"/>); затем сущности по битам (<see cref="SnapshotLayout"/>).</para>
     /// </summary>
     public sealed class Snapshot
     {
-        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + число 1 + эпоха часов 1 (0-025).</summary>
-        public const int HeaderBytes = 11;
+        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + число 1 + эпоха часов 1 + время мира u16 (1-014).</summary>
+        public const int HeaderBytes = 13;
 
         /// <summary>Наибольшее число сущностей в снимке (поле — u8).</summary>
         public const int MaxEntities = 255;
@@ -355,6 +355,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Смещение байта эпохи часов.</summary>
         public const int EpochOffset = 10;
+
+        /// <summary>Смещение времени мира (u16, такт суток 0…35 999; <c>01</c> 6 «Сеть», 1-014).</summary>
+        public const int WorldTimeOffset = 11;
 
         public uint Tick;
         public uint AckFrame;
@@ -366,6 +369,12 @@ namespace Orpheus.Net.Protocol
         /// даже если сообщение «часы» по каналу 2 ещё в пути.
         /// </summary>
         public byte ClockEpoch;
+
+        /// <summary>
+        /// Время мира сервера в такте <see cref="Tick"/> — такт суток [0; <see cref="Core.World.DayClock.TicksPerDay"/>)
+        /// (<c>01</c> 6 «Сеть»; 1-014). Клиент интерполирует его своими часами; расхождение больше 2 с — рывок.
+        /// </summary>
+        public ushort WorldTime;
 
         /// <summary>Подтверждённое состояние своего персонажа после кадра <see cref="AckFrame"/> (0-019).</summary>
         public SelfState Self;
@@ -400,6 +409,7 @@ namespace Orpheus.Net.Protocol
             into.Self = Self;
             into.IsDelta = IsDelta;
             into.ClockEpoch = ClockEpoch;
+            into.WorldTime = WorldTime;
             Array.Copy(Entities, into.Entities, Count);
         }
 
@@ -408,6 +418,7 @@ namespace Orpheus.Net.Protocol
         {
             var w = new SnapshotWriter(dest, layout, Tick, AckFrame, Self, dest.Length);
             w.SetClockEpoch(ClockEpoch);
+            w.SetWorldTime(WorldTime);
             for (int i = 0; i < Count; i++)
             {
                 if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction,
@@ -428,6 +439,7 @@ namespace Orpheus.Net.Protocol
             uint ack = r.ReadUInt32();
             int count = r.ReadByte();
             byte epoch = r.ReadByte();
+            ushort world = r.ReadUInt16(); // время мира (1-014, `01` 6 «Сеть»)
             SelfState self = SelfState.Read(ref r, layout);
             for (int i = 0; i < count; i++)
             {
@@ -459,12 +471,18 @@ namespace Orpheus.Net.Protocol
             }
 
             r.ExpectEnd();
+            if (world >= Core.World.DayClock.TicksPerDay)
+            {
+                throw new ProtocolException($"Снимок: время мира {world} вне суток 0…{Core.World.DayClock.TicksPerDay - 1}.");
+            }
+
             Tick = tick;
             AckFrame = ack;
             Count = count;
             Self = self;
             IsDelta = false;
             ClockEpoch = epoch;
+            WorldTime = world;
         }
 
         /// <summary>Такт из заголовка, не читая всего снимка (для отбрасывания старых); годится и для дельты (0-014).</summary>
@@ -508,11 +526,19 @@ namespace Orpheus.Net.Protocol
             _w.WriteUInt32(ackFrame);
             _w.WriteByte(0); // число сущностей — в Finish
             _w.WriteByte(0); // эпоха часов — SetClockEpoch (0-025)
+            _w.WriteUInt16(0); // время мира — SetWorldTime (1-014)
             self.Write(ref _w, layout);
         }
 
         /// <summary>«Часы после фриза» в заголовке (2.4; 0-025): эпоха часов сервера — растёт при каждой рассылке «часы: кадр N».</summary>
         public void SetClockEpoch(byte epoch) => _dest[Snapshot.EpochOffset] = epoch;
+
+        /// <summary>Время мира в заголовке (<c>01</c> 6 «Сеть»; 1-014): такт суток сервера, 0…35 999 (u16, младший байт первым).</summary>
+        public void SetWorldTime(ushort ticks)
+        {
+            _dest[Snapshot.WorldTimeOffset] = (byte)ticks;
+            _dest[Snapshot.WorldTimeOffset + 1] = (byte)(ticks >> 8);
+        }
 
         /// <summary>Сущностей записано.</summary>
         public int Count => _count;
@@ -574,20 +600,27 @@ namespace Orpheus.Net.Protocol
     /// новая — полной записью, как в полном снимке. Порядок сущностей после склейки задаёт <see cref="ApplyTo"/> —
     /// одна функция у сервера (кольцо «что клиент имеет») и у клиента, поэтому номера совпадают.
     /// <para>Схема: тип 1 байт, такт u32, подтверждённый кадр u32, отставание базы u8 (такт − такт базы, 1…255),
-    /// исчезнувших u8, изменившихся u8, новых u8; своё состояние (<see cref="SelfState"/>, 0-019); затем исчезнувшие (номер 8 бит), изменившиеся (номер 8 бит,
+    /// исчезнувших u8, изменившихся u8, новых u8, эпоха часов u8, время мира u16 (1-014); своё состояние (<see cref="SelfState"/>, 0-019);
+    /// затем исчезнувшие (номер 8 бит), изменившиеся (номер 8 бит,
     /// маска 2 бита, позиция <see cref="SnapshotLayout"/> если есть в маске, направление 4 бита если есть),
     /// новые (запись полного снимка).</para>
     /// </summary>
     public sealed class SnapshotDeltaMessage
     {
-        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + отставание базы 1 + три числа по 1 + эпоха часов 1 (0-025).</summary>
-        public const int HeaderBytes = 14;
+        /// <summary>Заголовок: тип 1 + такт 4 + кадр 4 + отставание базы 1 + три числа по 1 + эпоха часов 1 + время мира u16 (1-014).</summary>
+        public const int HeaderBytes = 16;
 
         /// <summary>Смещение байта эпохи часов (2.4 «часы после фриза» в заголовке снимка).</summary>
         public const int EpochOffset = 13;
 
+        /// <summary>Смещение времени мира (u16, такт суток 0…35 999; <c>01</c> 6 «Сеть», 1-014).</summary>
+        public const int WorldTimeOffset = 14;
+
         /// <summary>Эпоха часов сервера (см. <see cref="Snapshot.ClockEpoch"/>).</summary>
         public byte ClockEpoch;
+
+        /// <summary>Время мира сервера (см. <see cref="Snapshot.WorldTime"/>, 1-014): дельта даёт его в каждом снимке, поэтому часы мира клиента не ждут полного кадра.</summary>
+        public ushort WorldTime;
 
         /// <summary>Бит на номер сущности в базе.</summary>
         public const int IndexBits = 8;
@@ -645,6 +678,12 @@ namespace Orpheus.Net.Protocol
             int updated = r.ReadByte();
             int added = r.ReadByte();
             ClockEpoch = r.ReadByte();
+            WorldTime = r.ReadUInt16(); // время мира (1-014, `01` 6 «Сеть»)
+            if (WorldTime >= Core.World.DayClock.TicksPerDay)
+            {
+                throw new ProtocolException($"Дельта: время мира {WorldTime} вне суток 0…{Core.World.DayClock.TicksPerDay - 1}.");
+            }
+
             if (age == 0)
             {
                 throw new ProtocolException("Дельта: отставание базы 0.");
@@ -899,11 +938,19 @@ namespace Orpheus.Net.Protocol
             _w.WriteByte(0);
             _w.WriteByte(0);
             _w.WriteByte(0); // эпоха часов — SetClockEpoch (0-025)
+            _w.WriteUInt16(0); // время мира — SetWorldTime (1-014)
             self.Write(ref _w, layout);
         }
 
         /// <summary>«Часы после фриза» в заголовке (2.4; 0-025): эпоха часов сервера — растёт при каждой рассылке «часы: кадр N».</summary>
         public void SetClockEpoch(byte epoch) => _dest[SnapshotDeltaMessage.EpochOffset] = epoch;
+
+        /// <summary>Время мира в заголовке (<c>01</c> 6 «Сеть»; 1-014): такт суток сервера, 0…35 999 (u16, младший байт первым).</summary>
+        public void SetWorldTime(ushort ticks)
+        {
+            _dest[SnapshotDeltaMessage.WorldTimeOffset] = (byte)ticks;
+            _dest[SnapshotDeltaMessage.WorldTimeOffset + 1] = (byte)(ticks >> 8);
+        }
 
         /// <summary>Записано: исчезнувших, изменившихся, новых.</summary>
         public int Removed => _removed;
