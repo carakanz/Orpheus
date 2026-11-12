@@ -72,7 +72,7 @@ namespace Orpheus.Core.Sim
     /// <summary>
     /// Хэш состояния симуляции — канонический вид по docs/07, 11.5:
     /// <list type="number">
-    /// <item>заголовок: номер такта, зерно, форма карты, версия генератора;</item>
+    /// <item>заголовок: номер такта, время мира (1-014), зерно, форма карты, версия генератора;</item>
     /// <item>сущности по номеру со всеми полями (<see cref="Entity"/>): номер, вид, позиция, остаток скорости,
     /// скорость, текущий кадр ввода;</item>
     /// <item>тайлы изменённых после генерации чанков по порядку (Y, X): координата, ревизия, плотные слои
@@ -97,11 +97,17 @@ namespace Orpheus.Core.Sim
                 throw new ArgumentNullException(nameof(sim));
             }
 
-            return Compute(sim.World, sim.Tick, sim.Entities);
+            return Compute(sim.World, sim.Tick, sim.WorldTime, sim.Entities);
         }
 
-        /// <summary>Хэш канонического вида из частей: мир, номер такта, сущности по номеру (для тестов полноты и инструментов).</summary>
+        /// <summary>Хэш канонического вида из частей: мир, номер такта, сущности по номеру (для тестов полноты и инструментов). Время мира — 0.</summary>
         public static StateHashResult Compute(WorldModel world, long tick, ReadOnlySpan<SimEntity> entities)
+        {
+            return Compute(world, tick, 0, entities);
+        }
+
+        /// <summary>Хэш канонического вида: мир, такт, время мира (1-014: часы входят в состояние), сущности.</summary>
+        public static StateHashResult Compute(WorldModel world, long tick, int worldTime, ReadOnlySpan<SimEntity> entities)
         {
             if (world == null)
             {
@@ -113,6 +119,7 @@ namespace Orpheus.Core.Sim
             // Зерно хэшера постоянное: каждое поле заголовка входит в хэш ровно своей строкой.
             var h = new Hasher64(0);
             h.Add(tick);
+            h.Add(worldTime);
             h.Add(world.Seed);
             h.Add(world.Shape.Width);
             h.Add(world.Shape.Height);
