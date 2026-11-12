@@ -259,6 +259,17 @@ namespace Orpheus.Save
 
             /// <summary>Ячейка быстрой панели ввода (<c>Input.Slot</c>, 0…7): предмет в руках доходит до загрузки.</summary>
             public const int InputSlot = 58;
+
+            // «Упёрся» (формат 6, 1-013 9.3): поля в StateHash — ездят в сейв; в форматах до 6 нет — дефолты 0/−1.
+
+            /// <summary>ИИ: такт входа в эпизод «упёрся» (<c>Brain.BlockedSince</c>), 0 — не упёрся.</summary>
+            public const int BrainBlockedSince = 59;
+
+            /// <summary>ИИ: цель в игноре после сдачи (<c>Brain.IgnoreTargetId</c>), −1 — нет.</summary>
+            public const int BrainIgnoreTargetId = 60;
+
+            /// <summary>ИИ: такт конца игнора цели (<c>Brain.IgnoreUntil</c>), 0 — игнор не активен.</summary>
+            public const int BrainIgnoreUntil = 61;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>
