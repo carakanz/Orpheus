@@ -55,6 +55,7 @@ namespace Orpheus.Server
             "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]] [--dummy [--dummy-wait <кадры>]]\n" +
             "              [--debug-enemies N (1-007: N разбойников у точки появления; не с --record/--replay)]\n" +
             "              [--debug-door (1-012: закрытая дверь в 4 т к востоку от появления — проход net-smoke)]\n" +
+            "              [--no-spawn (1-009: выключить спавнер и исчезновение — сценарные прогоны ботов: run_seam, часы)]\n" +
             "              [--metrics <сек> (метрики такта в лог, 0 — только итог; по умолчанию 10)] [--report <json>]";
 
         /// <summary>Окно метрик такта по умолчанию: 10 с (docs/07 11.6).</summary>
@@ -148,6 +149,13 @@ namespace Orpheus.Server
         /// Только мир в памяти (<c>--create</c> без <c>--world</c>): расчищенный мир не сохраняется.
         /// </summary>
         public bool DebugRunLanes { get; set; }
+
+        /// <summary>
+        /// <c>--no-spawn</c> (1-009, 8.5/8.8): выключить спавнер и исчезновение (<see cref="Orpheus.Core.Sim.Simulation.SpawnEnabled"/>).
+        /// Для сценарных прогонов (run_seam 0-027, часы 0-025): спавненые враги в 36–46 т от ботов сбивают полосы бега
+        /// и сверки предсказания — правила спавна меряют SpawnTests, эти тесты меряют сеть и движение.
+        /// </summary>
+        public bool NoSpawn { get; set; }
 
         /// <summary>
         /// Ключ отладки шипа 0-029: манекен в 1 т к востоку от первой точки появления бьёт ближним на запад раз в 1,5 с,
@@ -288,6 +296,9 @@ namespace Orpheus.Server
                         break;
                     case "--debug-run-lanes":
                         o.DebugRunLanes = true;
+                        break;
+                    case "--no-spawn":
+                        o.NoSpawn = true;
                         break;
                     case "--dummy":
                         o.Dummy = true;

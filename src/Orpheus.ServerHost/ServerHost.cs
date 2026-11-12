@@ -220,6 +220,9 @@ namespace Orpheus.Server
                 int players = network ? o.MaxPlayers : 0;
                 int loadedEntities = opened.Loaded?.Entities.Length ?? 0;
                 var sim = new Simulation(world, maxEntities: Math.Max(64, Math.Max(CountBots(o), loadedEntities) + players + 1));
+                sim.SpawnEnabled = !o.NoSpawn; // спавнер и исчезновение (1-009, 8.5/8.8) — правило сервера; клиент и
+                // предсказание не спавнят: появления/исчезновения приходят обычными add/remove сущностями.
+                // --no-spawn — сценарные прогоны (run_seam, часы): спавненые враги сбивают полосы и сверки предсказания.
                 if (opened.Loaded != null)
                 {
                     opened.Loaded.RestoreInto(sim);

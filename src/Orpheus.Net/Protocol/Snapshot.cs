@@ -460,9 +460,9 @@ namespace Orpheus.Net.Protocol
                 {
                     throw new ProtocolException($"Снимок: доля здоровья {e.HealthPct} % > 100.");
                 }
-                if ((e.Enemy & ((1 << SnapshotLayout.EnemyStateBits) - 1)) > (int)EnemyState.Lost)
+                if ((e.Enemy & ((1 << SnapshotLayout.EnemyStateBits) - 1)) > (int)EnemyState.Interest)
                 {
-                    throw new ProtocolException($"Снимок: состояние ИИ {e.Enemy & 7} вне 0…{(int)EnemyState.Lost}.");
+                    throw new ProtocolException($"Снимок: состояние ИИ {e.Enemy & 7} вне 0…{(int)EnemyState.Interest}.");
                 }
                 if (e.Direction > InputFrame.MaxDirectionCode || e.Position.X >= layout.Shape.WidthUnits || e.Position.Y >= layout.Shape.HeightUnits)
                 {
@@ -742,9 +742,9 @@ namespace Orpheus.Net.Protocol
                 if ((f & DeltaFields.Enemy) != 0)
                 {
                     e.Enemy = (byte)r.ReadBits(SnapshotLayout.EnemyBits);
-                    if ((e.Enemy & ((1 << SnapshotLayout.EnemyStateBits) - 1)) > (int)EnemyState.Lost)
+                    if ((e.Enemy & ((1 << SnapshotLayout.EnemyStateBits) - 1)) > (int)EnemyState.Interest)
                     {
-                        throw new ProtocolException($"Дельта: состояние ИИ {e.Enemy & 7} вне 0…{(int)EnemyState.Lost}.");
+                        throw new ProtocolException($"Дельта: состояние ИИ {e.Enemy & 7} вне 0…{(int)EnemyState.Interest}.");
                     }
                 }
             }

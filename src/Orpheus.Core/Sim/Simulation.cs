@@ -52,7 +52,7 @@ namespace Orpheus.Core.Sim
     /// выделенных массивах; ёмкости задаются в конструкторе, переполнение — отказ, а не рост.
     /// </para>
     /// </summary>
-    public sealed class Simulation
+    public sealed partial class Simulation
     {
         /// <summary>Тактов в секунду (docs/07, 2.4).</summary>
         public const int TickRate = 30;
@@ -816,6 +816,10 @@ namespace Orpheus.Core.Sim
                     RemoveEntity(_entities[i].Id);
                 }
             }
+
+            // 8. Спавнер и исчезновение (1-009, 8.5/8.8): после трупов, «вне такта» — добавления и удаления
+            // сущностей (сдвиг списка) не искажают фазы. Только сервер: SpawnEnabled (клиент — снимки).
+            StepSpawnAndDespawn(tick);
         }
 
         private void ApplyEditBatches(long tick)
@@ -1785,7 +1789,8 @@ namespace Orpheus.Core.Sim
                         if (slot >= 0 && _entities[slot].Alive && !_entities[slot].Mover.Dodge.Invulnerable &&
                             sector.Overlaps(_shape, _entities[slot].Mover.Position, Collision.RadiusUnits))
                         {
-                            ApplyStrike(_entities[slot].Id, e.Id, e.AttackRaw, e.Mover.Position, knockback: true);
+                            // Урон ночного врага ×1,25 (8.6, 1-009): 10 → 13; днём ровно ×1.
+                            ApplyStrike(_entities[slot].Id, e.Id, ScaledByNight(e.AttackRaw, NightMultX1024), e.Mover.Position, knockback: true);
                         }
 
                         e.AttackRecover = RecoverTicks;
@@ -1854,14 +1859,15 @@ namespace Orpheus.Core.Sim
         /// Добавить «Ближнего» с мозгом (разбойник, архетип <see cref="EnemyArchetype.Melee"/>, карточка 1-007):
         /// дом — точка появления, старт в Idle; числа — <see cref="MeleeRogue"/>. Номер — следующий. Возвращает номер.
         /// </summary>
-        public int AddMeleeRogue(WorldPos position)
+        public int AddMeleeRogue(WorldPos position, int healthMultX1024 = 1024)
         {
             int id = AddEnemy(position);
             int slot = SlotOf(id);
             ref SimEntity e = ref _entities[slot];
-            e.MaxHealth = MeleeRogue.MaxHealth;
-            e.Health = MeleeRogue.MaxHealth;
-            e.AttackRaw = (byte)MeleeRogue.StrikeDamage;
+            short hp = (short)ScaledByNight(MeleeRogue.MaxHealth, healthMultX1024); // ночь ×1,25 → 44 (8.6, 1-009)
+            e.MaxHealth = hp;
+            e.Health = hp;
+            e.AttackRaw = (byte)MeleeRogue.StrikeDamage; // удар ночью масштабируется в ApplyStrike (8.6)
             e.AttackPeriod = MeleeRogue.PeriodTicks;
             e.Mover.UnitsPerTickX10 = RogueWanderSpeedX10;
             TileCoord home = Torus.TileOf(_shape, e.Mover.Position);
@@ -1876,6 +1882,7 @@ namespace Orpheus.Core.Sim
                 GoalY = home.Y,
                 LastHitBy = EnemyBrain.NoTarget,
                 IgnoreTargetId = EnemyBrain.NoTarget,
+                CauseId = EnemyBrain.NoTarget,
             };
             return id;
         }
@@ -1922,6 +1929,26 @@ namespace Orpheus.Core.Sim
                     }
 
                     Chase(ref e, ref target, i, tick);
+                    continue;
+                }
+
+                // «Интерес» (1-009, 8.5): появился из спавнера — 20 с идёт шагом в сторону игрока-причины
+                // (знает направление, не позицию: прямо, без пути; скорость как «домой»). Игрок в зрении —
+                // цель берёт UpdateTarget выше, дальше Преследование штатно. Истёк/игрок потерян — Ожидание.
+                if (b.State == EnemyState.Interest)
+                {
+                    e.Mover.UnitsPerTickX10 = RogueHomeSpeedX10;
+                    int cs = SlotOf(b.CauseId);
+                    if (b.InterestUntil == 0 || tick >= b.InterestUntil || cs < 0 || !_entities[cs].Alive)
+                    {
+                        b.State = EnemyState.Idle;
+                        b.StateTicks = 0;
+                        b.CauseId = EnemyBrain.NoTarget;
+                        b.InterestUntil = 0;
+                        continue;
+                    }
+
+                    MoveToward(ref e, Torus.TileOf(_shape, _entities[cs].Mover.Position)); // прямо, без A*
                     continue;
                 }
 
@@ -2024,15 +2051,15 @@ namespace Orpheus.Core.Sim
                 }
             }
 
-            // Зрение (8.1 «замечает игрока в 12–16 тайлах»): 14 тайлов. Игнор цели после сдачи (1-013, 9.3) —
-            // цель не берётся, пока срок не истёк.
+            // Зрение (8.1 «замечает игрока в 12–16 тайлах»): 14 тайлов; ночью ×1,5 → 21 (8.6, 1-009).
+            // Игнор цели после сдачи (1-013, 9.3) — цель не берётся, пока срок не истёк.
             if (b.IgnoreUntil != 0 && tick >= b.IgnoreUntil)
             {
                 b.IgnoreTargetId = EnemyBrain.NoTarget;
                 b.IgnoreUntil = 0;
             }
 
-            int slot = NearestCharacterWithin(at, MeleeRogue.Sight2,
+            int slot = NearestCharacterWithin(at, ScaledSight2(MeleeRogue.Sight2, NightSightMultX1024),
                 b.IgnoreUntil != 0 ? b.IgnoreTargetId : EnemyBrain.NoTarget);
             if (slot >= 0)
             {

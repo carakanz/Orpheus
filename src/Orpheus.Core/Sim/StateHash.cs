@@ -200,6 +200,10 @@ namespace Orpheus.Core.Sim
             h.Add(e.Brain.BlockedSince);
             h.Add(e.Brain.IgnoreTargetId);
             h.Add(e.Brain.IgnoreUntil);
+            // Спавнер (формат 6, 1-009): причина появления, срок «Интереса», серия «дальше 80 т».
+            h.Add(e.Brain.CauseId);
+            h.Add(e.Brain.InterestUntil);
+            h.Add(e.Brain.FarSince);
             // Кэш пути (PathStamp/PathPos) — производный от запросов, чья постановка видна в хэше; не хэшируется.
             e.Inv.AddTo(ref h); // сумка целиком (1-002): ячейка в руках, ячейки, счётчики
             return h.Value;

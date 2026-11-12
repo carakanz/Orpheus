@@ -155,6 +155,8 @@ namespace Orpheus.Tests
         {
             ServerOptions o = ServerOptions.Parse(new[] { "--create", "--seed", "1", "--debug-run-lanes" });
             Assert.True(o.DebugRunLanes);
+            Assert.False(o.NoSpawn);
+            Assert.True(ServerOptions.Parse(new[] { "--create", "--no-spawn" }).NoSpawn);
             Assert.Throws<ArgumentException>(() => ServerOptions.Parse(new[] { "--world", "w", "--create", "--debug-run-lanes" }));
             Assert.Throws<ArgumentException>(() => ServerOptions.Parse(new[] { "--create", "--debug-run-lanes", "--spawn-seam" }));
             Assert.Throws<ArgumentException>(() => SimBot.Create(RunSeamBot.Name, 1, 0, 1));
@@ -387,7 +389,7 @@ namespace Orpheus.Tests
         private async Task RunUdp(string laps, int runnerSeconds)
         {
             int port = FreeUdpPort();
-            ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", Seed.ToString(), "--size", "1024", "--port", port.ToString(), "--debug-run-lanes" });
+            ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", Seed.ToString(), "--size", "1024", "--port", port.ToString(), "--debug-run-lanes", "--no-spawn" });
             using var cpu = new CpuLoad();
             using var stopServer = new CancellationTokenSource();
             Task<ServerResult> server = Task.Run(() => ServerRun.Run(so, null, stopServer.Token));
