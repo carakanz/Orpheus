@@ -737,7 +737,7 @@ namespace Orpheus.Tests
         public async Task D07_S2_13_1_Udp_Big_TwoBots60s_Rtt100_Loss1_Freeze2s_NoDisconnects_Within05Tile()
         {
             int port = FreeUdpPort();
-            ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", "42", "--size", "1024", "--port", port.ToString(), "--debug-freeze", "900:2000" });
+            ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", "42", "--size", "1024", "--port", port.ToString(), "--debug-freeze", "900:2000", "--no-spawn" });
             using var stopServer = new CancellationTokenSource();
             Task<ServerResult> server = Task.Run(() => ServerRun.Run(so, null, stopServer.Token));
             BotOptions bo = BotOptions.Parse(new[]

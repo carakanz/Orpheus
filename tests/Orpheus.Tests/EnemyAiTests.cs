@@ -239,7 +239,7 @@ namespace Orpheus.Tests
             Steps(sim, 4);
             Assert.Equal(a, sim.GetEntity(rogue).Brain.TargetId); // при равенстве — меньший номер (8.3)
 
-            sim.ApplyStrike(rogue, b, 10); // 10 = 10 % от 100
+            sim.ApplyStrike(rogue, b, 10); // 10 ≥ 10 % от 35 (канон 8.2, 1-009)
             sim.Step();
             Assert.Equal(b, sim.GetEntity(rogue).Brain.TargetId);
 
@@ -247,7 +247,7 @@ namespace Orpheus.Tests
             sim.Step();
             Assert.Equal(a, sim.GetEntity(rogue).Brain.TargetId);
 
-            sim.ApplyStrike(rogue, b, 9); // 9 < 10 % — агро не переключает
+            sim.ApplyStrike(rogue, b, 3); // 3 < 10 % от 35 (3,5) — агро не переключает
             sim.Step();
             Assert.Equal(a, sim.GetEntity(rogue).Brain.TargetId);
         }

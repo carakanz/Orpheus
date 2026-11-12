@@ -276,6 +276,18 @@ namespace Orpheus.Save
 
             /// <summary>ИИ: такт конца игнора цели (<c>Brain.IgnoreUntil</c>), 0 — игнор не активен.</summary>
             public const int BrainIgnoreUntil = 61;
+
+            // Спавнер (формат 6, 1-009 8.5/8.8): поля в StateHash — ездят в сейв; дефолты 0 безопасны
+            // (CauseId читаем только в Interest при InterestUntil &gt; 0; FarSince 0 — серия не идёт).
+
+            /// <summary>Спавн: игрок-причина появления (<c>Brain.CauseId</c>), читаем в Interest; 0 — не из спавнера.</summary>
+            public const int BrainCauseId = 62;
+
+            /// <summary>Спавн: такт конца «Интереса» (<c>Brain.InterestUntil</c>), 0 — интерес не активен.</summary>
+            public const int BrainInterestUntil = 63;
+
+            /// <summary>Исчезновение: такт начала серии «дальше 80 т» (<c>Brain.FarSince</c>), 0 — не далёк.</summary>
+            public const int BrainFarSince = 64;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>

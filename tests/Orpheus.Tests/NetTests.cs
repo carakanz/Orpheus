@@ -2069,7 +2069,7 @@ namespace Orpheus.Tests
         private UdpRun RunUdp(int bots, double seconds, int rttMs, double lossPercent, Action<BotOptions> extra, bool probe = false)
         {
             int port = FreeUdpPort();
-            ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", "42", "--size", "1024", "--port", port.ToString() });
+            ServerOptions so = ServerOptions.Parse(new[] { "--create", "--seed", "42", "--size", "1024", "--port", port.ToString(), "--no-spawn" });
             var history = new ConcurrentDictionary<long, WorldPos>();
             long serverTick = 0;
             var run = new UdpRun { SentUs = new long[(int)(seconds * Simulation.TickRate) + 30 * 60] };

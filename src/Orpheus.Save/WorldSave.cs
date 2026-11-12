@@ -298,6 +298,11 @@ namespace Orpheus.Save
                     e.WriteInt(SaveSections.EntityField.BrainBlockedSince, x.Brain.BlockedSince);
                     e.WriteInt(SaveSections.EntityField.BrainIgnoreTargetId, x.Brain.IgnoreTargetId);
                     e.WriteInt(SaveSections.EntityField.BrainIgnoreUntil, x.Brain.IgnoreUntil);
+
+                    // Спавнер (1-009 8.5/8.8): причина появления, срок «Интереса», серия «дальше 80 т».
+                    e.WriteInt(SaveSections.EntityField.BrainCauseId, x.Brain.CauseId);
+                    e.WriteInt(SaveSections.EntityField.BrainInterestUntil, x.Brain.InterestUntil);
+                    e.WriteInt(SaveSections.EntityField.BrainFarSince, x.Brain.FarSince);
                 }
                 e.EndRecord(mark);
             }
@@ -855,7 +860,7 @@ namespace Orpheus.Save
                         hasBrain = true;
                         break;
                     case SaveSections.EntityField.BrainState:
-                        brain.State = (EnemyState)r.UIntAsInt((int)EnemyState.Lost);
+                        brain.State = (EnemyState)r.UIntAsInt((int)EnemyState.Interest); // 1-009: «Интерес» = 7 — верх границы
                         break;
                     case SaveSections.EntityField.BrainTargetId:
                         brain.TargetId = r.IntAsInt();
@@ -895,6 +900,15 @@ namespace Orpheus.Save
                         break;
                     case SaveSections.EntityField.BrainIgnoreUntil:
                         brain.IgnoreUntil = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainCauseId:
+                        brain.CauseId = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainInterestUntil:
+                        brain.InterestUntil = r.IntAsInt();
+                        break;
+                    case SaveSections.EntityField.BrainFarSince:
+                        brain.FarSince = r.IntAsInt();
                         break;
                     case SaveSections.EntityField.Health:
                         health = r.IntAsInt();
