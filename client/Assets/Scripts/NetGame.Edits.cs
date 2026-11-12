@@ -131,6 +131,14 @@ namespace Orpheus.Client
             Vector3 screen = mouse.position.ReadValue();
             Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
             TileCoord tile = Torus.TileOf(_map, _origin!.FromUnity(v));
+
+            // 1-012: F — закрыть ближайшую открытую дверь (передний фронт здесь, запрос TileOp.CloseDoor — протокол 19;
+            // радиус, проём и замок проверяет сервер, предсказание и откат — общие с правками).
+            if (Keyboard.current?.fKey.wasPressedThisFrame == true)
+            {
+                CloseNearestDoor(c);
+            }
+
             if (mouse.rightButton.wasPressedThisFrame)
             {
                 c.Place(tile, tile, ObjectId.StoneWall, _localPos);
@@ -154,6 +162,86 @@ namespace Orpheus.Client
             }
 
             return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
+        }
+
+        /// <summary>
+        /// F (1-012): закрыть ближайшую открытую дверь в радиусе 1 тайл от своего персонажа (порядок обхода
+        /// восток→юг→запад→север… — как порядок <c>NeighborDeltas</c> в ядре). Свой тайл — отказ: сервер
+        /// проверяет сам. Шлёт <see cref="NetClient.CloseDoor"/>: предсказание + запрос (протокол 19).
+        /// </summary>
+        void CloseNearestDoor(NetClient c)
+        {
+            WorldModel w = _world!;
+            TileCoord own = Torus.TileOf(_map, _localPos);
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0)
+                    {
+                        continue; // в проёме F — отказ
+                    }
+
+                    TileCoord t = Torus.Wrap(_map, new TileCoord(own.X + dx, own.Y + dy));
+                    if (w.GetObject(t) == ObjectId.Door && w.TryGetBuild(t, out BuildRecord rec) && rec.IsDoorOpen)
+                    {
+                        ushort id = c.CloseDoor(t);
+                        Debug.Log($"[door] F: закрываю дверь {t.X},{t.Y}, запрос {id}");
+                        return;
+                    }
+                }
+            }
+        }
+
+        // ---------- 1-012: host-smoke проход через дверь (--smoke-door → сервер --debug-door) ----------
+
+        TileCoord _smokeDoorTile;
+        bool _smokeDoorFound;
+        bool _smokeDoorOpenSeen;
+        bool _smokeDoorClosedSeen;
+        bool _smokeDoorPassed;
+
+        /// <summary>
+        /// Net-smoke каждый кадр (1-012): дверь — 4 тайла к востоку от фактического появления (сервер ставит её
+        /// <c>--debug-door</c> закрытой). Скриптовый бег на восток: автооткрытие шагом → проход → автозакрытие
+        /// через 30 тактов. Фиксируем все три события; проверка — в <c>NetSmokeCheck</c>.
+        /// </summary>
+        void SmokeDoorFrame(WorldPos confirmed)
+        {
+            if (!_smokeDoorFound)
+            {
+                TileCoord spawn = Torus.TileOf(_map, confirmed);
+                _smokeDoorTile = Torus.Wrap(_map, new TileCoord(spawn.X + 4, spawn.Y));
+                _smokeDoorFound = true;
+                Debug.Log($"[door] smoke: ожидаю дверь на {_smokeDoorTile.X},{_smokeDoorTile.Y} (4 тайла к востоку от появления)");
+            }
+
+            WorldModel w = _world!;
+            if (w.GetObject(_smokeDoorTile) != ObjectId.Door || !w.TryGetBuild(_smokeDoorTile, out BuildRecord rec))
+            {
+                return; // чанк с дверью ещё не пришёл
+            }
+
+            if (rec.IsDoorOpen)
+            {
+                if (!_smokeDoorOpenSeen)
+                {
+                    _smokeDoorOpenSeen = true;
+                    Debug.Log("[door] smoke: дверь открыта — автооткрытие шагом сработало");
+                }
+            }
+            else if (_smokeDoorOpenSeen && !_smokeDoorClosedSeen)
+            {
+                _smokeDoorClosedSeen = true;
+                Debug.Log("[door] smoke: дверь закрылась — автозакрытие через 30 тактов сработало");
+            }
+
+            TileCoord me = Torus.TileOf(_map, confirmed);
+            Int2 d = Torus.Delta(_map, _smokeDoorTile, me);
+            if (d.X >= 1 && d.Y == 0)
+            {
+                _smokeDoorPassed = true; // персонаж прошёл тайл двери на восток
+            }
         }
 
         /// <summary>

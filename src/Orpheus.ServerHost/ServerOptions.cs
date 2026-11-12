@@ -54,6 +54,7 @@ namespace Orpheus.Server
             "              [--debug-save-request <тактов> (повод сохранить каждые N тактов — серии замен без сети)]\n" +
             "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]] [--dummy [--dummy-wait <кадры>]]\n" +
             "              [--debug-enemies N (1-007: N разбойников у точки появления; не с --record/--replay)]\n" +
+            "              [--debug-door (1-012: закрытая дверь в 4 т к востоку от появления — проход net-smoke)]\n" +
             "              [--metrics <сек> (метрики такта в лог, 0 — только итог; по умолчанию 10)] [--report <json>]";
 
         /// <summary>Окно метрик такта по умолчанию: 10 с (docs/07 11.6).</summary>
@@ -160,6 +161,13 @@ namespace Orpheus.Server
         /// <c>--record</c>/<c>--replay</c>: журнал появления не различает сущностей (враги стали бы персонажами).
         /// </summary>
         public int DebugEnemies { get; set; }
+
+        /// <summary>
+        /// <c>--debug-door</c> (1-012): закрытая дверь в 4 тайлах к востоку от точки появления № 0 — скриптованный
+        /// прогон net-smoke бежит на восток и проходит её: автооткрытие шагом, проход, автозакрытие через 30 тактов.
+        /// Серверная правка (без запроса) — стоимость не списывается.
+        /// </summary>
+        public bool DebugDoor { get; set; }
 
         /// <summary>Ожидание ввода W для решения удара манекена, кадров (по умолчанию 6 = 100 мс; 0 — без ожидания).</summary>
         public int DummyWaitFrames { get; set; } = 6;
@@ -282,6 +290,9 @@ namespace Orpheus.Server
                             throw new ArgumentException($"--dummy-wait: {o.DummyWaitFrames} вне 0…30.");
                         }
 
+                        break;
+                    case "--debug-door":
+                        o.DebugDoor = true;
                         break;
                     case "--debug-enemies":
                         o.DebugEnemies = ParseInt(a, Value(args, ref i));

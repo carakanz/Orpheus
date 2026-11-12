@@ -273,6 +273,18 @@ namespace Orpheus.Server
                     log.Info(sim.Tick, "world", "отладка: разбойники у точки появления", ("enemies", o.DebugEnemies));
                 }
 
+                if (o.DebugDoor)
+                {
+                    // Дверь для host-smoke (1-012, --debug-door): закрытая в 4 тайлах к востоку от точки появления № 0
+                    // (тайл (cx − 7, cy − 1), см. SpawnPoint) — скриптовый бег на восток проходит её: автооткрытие
+                    // шагом, проход, автозакрытие через 30 тактов. Серверная правка — без стоимости.
+                    TileCoord doorTile = Torus.Wrap(world.Shape, new TileCoord(spawnCenter.X - 3, spawnCenter.Y - 1));
+                    byte doorFloor = world.GetFloor(doorTile); // пол стартовой зоны не перекрашиваем
+                    sim.RequestEdit(doorTile, doorFloor, ObjectId.Door,
+                        BuildRecord.OfPlayer(BuildRecord.WorldOwner, doorFloor));
+                    log.Info(sim.Tick, "world", "отладка: дверь у точки появления", ("tile", $"{doorTile.X},{doorTile.Y}"));
+                }
+
                 using InputJournalWriter? record = o.RecordPath != null
                     ? new InputJournalWriter(Need(services.CreateWrite, "--record")(o.RecordPath), JournalHeader.Of(sim))
                     : null;

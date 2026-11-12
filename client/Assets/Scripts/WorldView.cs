@@ -106,9 +106,14 @@ namespace Orpheus.Client
                 case ObjectId.StoneWall: return _stone;
                 // Ковёр (1-011, бесплатная постройка): своего спрайта нет (1-024) — рисуем лугом, проба 1-022 видит клетку.
                 case ObjectId.Carpet: return _meadow;
+                // Дверь (1-012): закрытая — камнем (видная преграда), открытая — светлее (лугом); свои спрайты — 1-024.
+                case ObjectId.Door: return _stone;
                 default: return null;
             }
         }
+
+        /// <summary>Тайл двери по состоянию (1-012): открытая — светлее (луг), закрытая — как <see cref="ObjectTile"/>.</summary>
+        public TileBase DoorTile(bool open) => open ? _meadow : _stone;
 
         /// <summary>Сдвинуть окно к персонажу: выбросить вышедшие чанки в пул, залить вошедшие, расставить узлы от якоря.</summary>
         public void UpdateWindow(WorldPos character)
@@ -270,7 +275,13 @@ namespace Orpheus.Client
                     byte floor = chunk == null ? FloorId.Grass : chunk.GetFloor(index);
                     ushort obj = chunk == null ? ObjectId.Empty : chunk.GetObject(index);
                     _floorBuf[row + lx] = FloorTile(floor);
-                    _objBuf[row + lx] = ObjectTile(obj);
+                    TileBase? tile = ObjectTile(obj);
+                    if (obj == ObjectId.Door && chunk != null && chunk.TryGetBuild(index, out BuildRecord rec))
+                    {
+                        tile = DoorTile(rec.IsDoorOpen); // 1-012: состояние двери видно (открытая светлее)
+                    }
+
+                    _objBuf[row + lx] = tile;
                 }
             }
 
