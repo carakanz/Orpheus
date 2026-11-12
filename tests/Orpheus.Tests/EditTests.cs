@@ -1035,8 +1035,12 @@ namespace Orpheus.Tests
             Assert.Equal("15 02 01 00 04 01 00 00 80", string.Join(" ", pb.Select(x => x.ToString("x2"))));
             Assert.Equal(0x80000001u, TileReplyMessage.Read(pb).Mask);
 
+            // Протокол 19 (1-012): операция 4 «закрыть дверь» проходит, 5 — испорченная.
+            byte[] closeDoor = (byte[])rb.Clone();
+            closeDoor[3] = (byte)TileOp.CloseDoor;
+            Assert.Equal(TileOp.CloseDoor, TileRequestMessage.Read(closeDoor, map).Op);
             byte[] badOp = (byte[])rb.Clone();
-            badOp[3] = 4;
+            badOp[3] = 5;
             Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(badOp, map));
             byte[] outside = (byte[])rb.Clone();
             outside[15] = 0x04; // y конца 1032
@@ -1054,7 +1058,7 @@ namespace Orpheus.Tests
             byte[] badReply = (byte[])eb.Clone();
             badReply[3] = 15;
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badReply));
-            Assert.Equal(18, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011)
+            Assert.Equal(19, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012)
         }
 
         // ---------- Строительство (1-011): палитра данными, полы, снос, обломки ----------
@@ -1346,6 +1350,63 @@ namespace Orpheus.Tests
             Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone));
             Assert.Equal(0, c.Inv.CountAt(Material.Stone));
             Assert.Equal(ObjectId.Empty, c.World!.World.GetObject(new TileCoord(300, 200))); // предсказание встало на границе сумки
+        }
+
+        /// <summary>
+        /// F по сети (1-012, протокол 19): «закрыть дверь» (TileOp 4). Дверь в радиусе 1 — предсказание сразу
+        /// (запись закрыта), ответ «принято» (маска 1), отката нет, сервер закрыл. Дверь за радиусом — «нельзя»,
+        /// предсказание откачено, мир клиента = копия сервера (дверь открыта).
+        /// </summary>
+        [Fact]
+        public void D12_S2_10_CloseDoor_Network_Predict_AcceptNear_RollbackFar()
+        {
+            WorldModel world = Flat();
+            var rig = new EditRig(world, _ => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.InputOf = null;
+            rig.Run(5);
+
+            var near = new TileCoord(301, 200);
+            var far = new TileCoord(310, 200);
+            foreach (var t in new[] { near, far })
+            {
+                Assert.True(rig.Sim.RequestEdit(t, FloorId.WoodFloor, ObjectId.Door,
+                    BuildRecord.OfPlayer(1, FloorId.WoodFloor).WithFlags(BuildFlags.DoorOpen)));
+            }
+
+            rig.Run(4); // правки доходят до клиента чанком
+            Assert.Equal(ObjectId.Door, c.World!.World.GetObject(near));
+            Assert.Equal(ObjectId.Door, c.World!.World.GetObject(far));
+
+            // Далеко (chebyshev 10 > 1): предсказание, ответ «нельзя», откат к копии сервера.
+            ushort farReq = c.CloseDoor(far);
+            Assert.NotEqual(0, farReq);
+            Assert.True(c.World!.IsPredicted(far));
+            Assert.True(c.World!.World.TryGetBuild(far, out BuildRecord pred));
+            Assert.False(pred.IsDoorOpen); // предсказание: закрыта
+            rig.Run(3);
+            TileReplyMessage farReply = Assert.Single(replies, r => r.RequestId == farReq);
+            Assert.Equal(EditReply.NotAllowed, farReply.Reply);
+            Assert.False(c.World!.IsPredicted(far));
+            Assert.True(c.World!.World.TryGetBuild(far, out BuildRecord rolled));
+            Assert.True(rolled.IsDoorOpen); // откат = копия сервера: дверь снова открыта
+
+            // Рядом (chebyshev 1): предсказание, «принято», закрытие подтверждено, отката нет.
+            replies.Clear();
+            ushort nearReq = c.CloseDoor(near);
+            Assert.NotEqual(0, nearReq);
+            Assert.True(c.World!.IsPredicted(near));
+            rig.Run(3);
+            TileReplyMessage nearReply = Assert.Single(replies, r => r.RequestId == nearReq);
+            Assert.Equal(EditReply.Accepted, nearReply.Reply);
+            Assert.Equal(1u, nearReply.Mask);
+            Assert.False(c.World!.IsPredicted(near)); // улажено пачкой/ответом
+            Assert.True(rig.Sim.World.TryGetBuild(near, out BuildRecord serverRec));
+            Assert.False(serverRec.IsDoorOpen); // сервер закрыл
+            Assert.True(c.World!.World.TryGetBuild(near, out BuildRecord clientRec));
+            Assert.False(clientRec.IsDoorOpen); // клиент подтверждён
         }
 
         // ---------- Стенд ----------

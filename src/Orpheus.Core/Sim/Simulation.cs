@@ -906,6 +906,13 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
+            // Смена состояния двери (1-012): запись на уже существующей двери (F-закрытие) — это не постановка,
+            // стоимость не списывается и не возвращается (постановка двери молотом идёт с пустого тайла).
+            if (e.Edit.Obj == ObjectId.Door && e.Edit.HasRecord && _preObj[i] == ObjectId.Door)
+            {
+                return;
+            }
+
             if (!CostOf(e.Edit, out BuildDef def))
             {
                 return; // снос, копание, природный пол — стоимость не списывается
@@ -1215,13 +1222,55 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
+        /// F по запросу сервера (1-012, протокол 19): закрыть дверь на <paramref name="tile"/>. Радиус —
+        /// chebyshev ≤ 1 от тайла нажавшего, тайл под нажавшим — отказ; замок и выталкивание врага — внутри
+        /// <see cref="BeginDoorClose"/>. Принято — true; исход доходит до запросчика событием такта
+        /// (<paramref name="requester"/> = <paramref name="entityId"/>, <paramref name="tag"/>).
+        /// </summary>
+        public bool RequestCloseDoor(int entityId, TileCoord tile, int tag)
+        {
+            int slot = SlotOf(entityId);
+            if (slot < 0 || !_entities[slot].Alive)
+            {
+                return false;
+            }
+
+            Int2 d = Torus.Delta(_shape, Torus.TileOf(_shape, _entities[slot].Mover.Position), tile);
+            int cheb = Math.Max(Math.Abs(d.X), Math.Abs(d.Y));
+            if (cheb == 0 || cheb > 1)
+            {
+                return false; // не в радиусе или тайл под нажавшим («в проёме F — отказ»)
+            }
+
+            int di = IndexOfDoor(tile);
+            return di >= 0 && BeginDoorClose(di, Tick, fromF: true, requester: entityId, tag: tag);
+        }
+
+        /// <summary>Индекс двери в списке (канонический порядок (Y, X)); нет — −1.</summary>
+        private int IndexOfDoor(TileCoord tile)
+        {
+            for (int i = 0; i < _doorCount; i++)
+            {
+                if (_doorX[i] == tile.X && _doorY[i] == tile.Y)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
         /// Закрытие двери (1-012): правка записи без битов открытости и без таймера в очередь такта.
         /// Персонаж на тайле — отказ; враг — выталкивание (E,S,W,N), цели нет — отказ (закрытие отложено,
         /// автозакрытия его догонят). <paramref name="fromF"/> — закрытие кнопкой F: замок
-        /// <see cref="DoorLockTicks"/> тактов (автооткрытие молчит); автозакрытие замок не ставит — замок
-        /// только рантайм-состояние, в сейве его нет, и на детерминизм загрузки он не влияет.
+        /// <param name="fromF">закрытие кнопкой F: замок <see cref="DoorLockTicks"/> тактов (автооткрытие молчит);
+        /// автозакрытие замок не ставит — замок только рантайм-состояние, в сейве его нет,
+        /// и на детерминизм загрузки он не влияет.</param>
+        /// <param name="requester">запросивший игрок (F по сети, 0-028) — для ответа событием такта; 0 — процесс мира.</param>
+        /// <param name="tag">метка запроса (номер запроса клиента) — в событие такта.</param>
         /// </summary>
-        private bool BeginDoorClose(int di, long tick, bool fromF)
+        private bool BeginDoorClose(int di, long tick, bool fromF, int requester = 0, int tag = 0)
         {
             if (fromF && tick < _doorLockUntil[di])
             {
@@ -1263,8 +1312,8 @@ namespace Orpheus.Core.Sim
                 _grid.Update(i, Torus.ChunkOf(_shape, _entities[i].Mover.Position));
             }
 
-            if (!RequestEdit(tile, chunk.GetFloor(index), ObjectId.Door,
-                    rec.WithoutFlags(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen).WithDebrisEndTick(0)))
+            if (!RequestPlayerEdit(tile, chunk.GetFloor(index), ObjectId.Door, true,
+                    rec.WithoutFlags(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen).WithDebrisEndTick(0), requester, tag))
             {
                 return false; // очередь правок полна — проба в следующем такте
             }
