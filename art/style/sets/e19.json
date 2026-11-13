@@ -1,0 +1,241 @@
+{
+ "set": "e19",
+ "about": "E1-9: набор заглушек этапа 1 в стиле Б. Заказ — tools/art_stage1.py (ComfyUI Мака напрямую, Z-Image base, 30 шагов, cfg 4), обработка — tools/art_stage1_build.py. Перечень цветов из стилевой части убран (STYLE.md, п. 11): цвета названы в описании предмета.",
+ "style": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, large graphic simplified shapes, very little small detail, bright saturated sunny Mediterranean colors, smooth vector-like finish",
+ "camera": {
+  "floor": "a full-frame flat texture of open ground seen from straight above, like looking down at your feet, the ground continues past all four edges of the picture and is cut off by the frame, the whole picture is covered with ground, no rim, no border, no frame, no background color, no empty margin, no horizon, no perspective, no objects, no shadows, uniform even density everywhere, flat even light, no text, no letters, no watermark",
+  "object": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, no cast shadow, isolated on a plain flat very light warm grey background, no ground, no grass, no scenery, no other objects, no text, no letters, no watermark, no border, no frame",
+  "cliff": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees like in a top-down survival crafting game, key light from the upper left, no characters, no trees, no text, no letters, no watermark, no border, no frame"
+ },
+ "negative": {
+  "floor": "frame, border, margin, grey background, vignette, glow, light spots, objects, trees, rocks casting shadows, perspective, horizon, sky, text, watermark, blurry, photo, 3d render",
+  "object": "cast shadow on the ground, ground, grass patch, soil patch, scenery, several objects, side view, text, watermark, frame, border, cropped, blurry, photo, 3d render",
+  "cliff": "characters, trees, buildings, sky, horizon, text, watermark, frame, border, blurry, photo, 3d render"
+ },
+ "subjects": [
+  {
+   "key": "ground_grass",
+   "kind": "floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1901,
+   "prompt": "a sunny Greek meadow ground texture: short lush leaf-green grass drawn as large simple flat tufts and broad soft patches of two close greens, only a few tiny yellow flowers, big simple shapes"
+  },
+  {
+   "key": "ground_drygrass",
+   "kind": "floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1902,
+   "prompt": "a dry summer grassland ground texture: sun-bleached straw-yellow and golden ochre dry grass drawn as large simple flat tufts and broad patches of two close warm yellows, a few olive-green blades, big simple shapes"
+  },
+  {
+   "key": "ground_dirt",
+   "kind": "floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1903,
+   "prompt": "a bare earth ground texture: warm terracotta-brown packed soil with broad flat patches of two close browns, a few thin cracks and a few small pebbles, big simple shapes"
+  },
+  {
+   "key": "ground_forest",
+   "kind": "floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1904,
+   "prompt": "a forest floor ground texture: dark olive-green moss and brown earth covered with large flat fallen leaves in rust, ochre and dark green, a few short twigs, big simple shapes"
+  },
+  {
+   "key": "ground_sand",
+   "kind": "floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1905,
+   "prompt": "a beach sand ground texture: pale golden-yellow sand with broad soft flat ripples of two close sandy tones, a few tiny shells and pebbles, big simple shapes"
+  },
+  {
+   "key": "ground_rocky",
+   "kind": "floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1906,
+   "prompt": "a rocky ground texture: flat cracked pale grey-beige limestone slabs of irregular shapes fitted together, dark cracks between them, a little ochre dust and a few small stones, big simple shapes"
+  },
+  {
+   "key": "water_deep",
+   "kind": "floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1911,
+   "prompt": "a deep sea water surface texture: dark teal blue-green water with a few large simple flat wave shapes in a slightly lighter teal and sparse thin pale wave lines, calm, big simple shapes"
+  },
+  {
+   "key": "water_shallow",
+   "kind": "floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1912,
+   "prompt": "a shallow clear sea water surface texture: light turquoise water with large simple flat lighter aqua patches and sparse thin white wave lines, sandy bottom faintly visible, calm, big simple shapes"
+  },
+  {
+   "key": "tree_olive_a",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1921,
+   "prompt": "an old olive tree, three-quarter view from above: a wide rounded crown of silvery sage-green foliage drawn as five or six large simple leaf clumps with dark green shadow side, a short thick twisted ochre-brown trunk visible below the crown, the whole tree from roots to crown in frame, the crown is twice as wide as it is tall, trunk base at the bottom center"
+  },
+  {
+   "key": "tree_olive_b",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1922,
+   "prompt": "a young olive tree, three-quarter view from above: an uneven lopsided crown of silvery sage-green foliage drawn as four large simple leaf clumps with dark green shadow side, a slim forked twisted ochre-brown trunk visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+  },
+  {
+   "key": "tree_pine_a",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1923,
+   "prompt": "an Italian stone pine tree, umbrella pine, three-quarter view from above: a broad flat umbrella-shaped crown of dark emerald-green needle clumps drawn as large simple rounded masses with lighter green tops, a tall straight reddish-brown trunk with a few bare branches visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+  },
+  {
+   "key": "tree_pine_b",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1924,
+   "prompt": "a leaning Italian stone pine tree, umbrella pine, three-quarter view from above: a wide flat lopsided umbrella crown of dark emerald-green needle clumps drawn as three large simple rounded masses with lighter green tops, a tall slightly curved reddish-brown trunk visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+  },
+  {
+   "key": "tree_oak_a",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1925,
+   "prompt": "a big oak tree, three-quarter view from above: a large dense round crown of rich leaf-green foliage drawn as six or seven large simple lobed leaf clumps with darker green shadow side and light yellow-green tops, a thick dark brown trunk visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+  },
+  {
+   "key": "tree_oak_b",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1926,
+   "prompt": "a sturdy oak tree, three-quarter view from above: a broad irregular crown of rich leaf-green foliage drawn as five large simple lobed leaf clumps with darker green shadow side and light yellow-green tops, a thick gnarled dark brown trunk with one big side branch visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+  },
+  {
+   "key": "tree_cypress_a",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1927,
+   "prompt": "a tall Mediterranean cypress tree, three-quarter view from above: a narrow tall pointed column of very dark blue-green foliage drawn as a few large simple vertical flame-like masses with a lighter green lit left side, a short brown trunk visible at the very bottom, the whole tree from base to tip in frame, trunk base at the bottom center"
+  },
+  {
+   "key": "tree_cypress_b",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1928,
+   "prompt": "a Mediterranean cypress tree, three-quarter view from above: a slim spindle-shaped pointed column of very dark blue-green foliage, slightly bulging in the middle, drawn as a few large simple vertical masses with a lighter green lit left side, a short brown trunk visible at the very bottom, the whole tree from base to tip in frame, trunk base at the bottom center"
+  },
+  {
+   "key": "tree_oak_autumn",
+   "kind": "object",
+   "w": 768,
+   "h": 1024,
+   "seed": 1929,
+   "prompt": "a big oak tree in autumn, three-quarter view from above: a large round crown of dry autumn foliage in rust-orange, golden ochre and warm red drawn as six large simple lobed leaf clumps with darker brown-red shadow side, a thick dark brown trunk visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+  },
+  {
+   "key": "bush_a",
+   "kind": "object",
+   "w": 768,
+   "h": 768,
+   "seed": 1931,
+   "prompt": "a single low round shrub, three-quarter view from above: a compact dome of leaf-green foliage drawn as four or five large simple leaf clumps with darker green shadow side, no trunk visible, no flowers"
+  },
+  {
+   "key": "bush_b",
+   "kind": "object",
+   "w": 768,
+   "h": 768,
+   "seed": 1932,
+   "prompt": "a single low wide myrtle shrub with berries, three-quarter view from above: an irregular low mound of dark green foliage drawn as three or four large simple leaf clumps with a few big red berries, no trunk visible"
+  },
+  {
+   "key": "boulder_a",
+   "kind": "object",
+   "w": 768,
+   "h": 768,
+   "seed": 1941,
+   "prompt": "a single limestone boulder, three-quarter view from above: a massive rounded block with three or four big flat facets, warm light beige-grey top faces, cooler blue-grey shadow side on the right, two cracks"
+  },
+  {
+   "key": "boulder_b",
+   "kind": "object",
+   "w": 768,
+   "h": 768,
+   "seed": 1942,
+   "prompt": "a single small round limestone rock with a smaller stone leaning against it, three-quarter view from above: simple chunky shapes with big flat facets, warm light beige-grey top faces, cooler blue-grey shadow side on the right"
+  },
+  {
+   "key": "boulder_c",
+   "kind": "object",
+   "w": 1024,
+   "h": 768,
+   "seed": 1943,
+   "prompt": "a single wide flat-topped limestone outcrop, three-quarter view from above: a long low massive rock twice as wide as tall with four or five big flat facets, warm light beige-grey top faces, cooler blue-grey shadow side on the right, a patch of green moss, two cracks"
+  },
+  {
+   "key": "ore_copper_a",
+   "kind": "object",
+   "w": 768,
+   "h": 768,
+   "seed": 1951,
+   "prompt": "a single copper ore deposit, three-quarter view from above: a chunky dark grey-brown rock with big flat facets, crossed by thick bright verdigris turquoise-green veins and rust-orange copper patches, a few shiny orange copper nuggets on top"
+  },
+  {
+   "key": "ore_copper_b",
+   "kind": "object",
+   "w": 768,
+   "h": 768,
+   "seed": 1952,
+   "prompt": "a single copper ore deposit, three-quarter view from above: a low wide cluster of three chunky dark grey-brown rocks with big flat facets, streaked with thick bright verdigris turquoise-green veins and rust-orange copper patches"
+  },
+  {
+   "key": "stump",
+   "kind": "object",
+   "w": 768,
+   "h": 768,
+   "seed": 1961,
+   "prompt": "a single tree stump, three-quarter view from above: a short wide cut trunk with a flat pale ochre top showing three big growth rings, dark brown bark sides, three short thick roots spreading at the base"
+  },
+  {
+   "key": "cliff_face",
+   "kind": "cliff",
+   "w": 1024,
+   "h": 576,
+   "seed": 1971,
+   "prompt": "a flat texture strip of a vertical rocky cliff face seen from the front: big blocky limestone slabs in warm ochre-beige with cooler grey-brown shadow sides and dark vertical cracks, the rock wall fills the whole picture and continues past the left and right edges, uniform even density, no ground, no sky"
+  },
+  {
+   "key": "cliff_scene",
+   "kind": "cliff",
+   "w": 1024,
+   "h": 768,
+   "seed": 1972,
+   "prompt": "a long straight rocky cliff wall running horizontally across the whole picture from the left edge to the right edge: the upper third of the picture is a flat pale beige stony plateau on top of the cliff, below it the vertical cliff face of big blocky ochre-beige limestone slabs with dark cracks, at the bottom a strip of flat green grass in the cliff's shadow; the cliff continues past the left and right edges"
+  },
+  {
+   "key": "cliff_corner",
+   "kind": "cliff",
+   "w": 1024,
+   "h": 1024,
+   "seed": 1973,
+   "prompt": "the outer corner of a raised rocky plateau: a flat pale beige stony plateau fills the upper left part of the picture, its edge turns a rounded corner, below the edge the vertical cliff face of big blocky ochre-beige limestone slabs with dark cracks drops down to flat green grass, the grass fills the right side and the bottom of the picture"
+  }
+ ]
+}

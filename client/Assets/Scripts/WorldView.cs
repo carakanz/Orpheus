@@ -13,8 +13,11 @@ namespace Orpheus.Client
     /// <list type="bullet">
     /// <item>Набор чанков — <see cref="ChunkWindow.Update"/> ядра: вход — блок 6 × 4 вокруг персонажа, выход — из блока 8 × 6
     /// (гистерезис), не больше 48 чанков.</item>
-    /// <item>На чанк — узел с двумя <see cref="Tilemap"/> под общим <see cref="Grid"/>: пол и объекты; заливка каждого —
+    /// <item>На чанк — узел: меш земли (<see cref="GroundMesh"/>, E1-4: земля и вода без клетки, с переходами) и два
+    /// <see cref="Tilemap"/> под общим <see cref="Grid"/> — построенные полы поверх земли и объекты; заливка каждого —
     /// один вызов <see cref="Tilemap.SetTilesBlock"/> на 32 × 32 клетки.</item>
+    /// <item>Правка тайла: меш земли чанка пересобирается, только если в чанке сменился пол (сверка с копией полов узла);
+    /// правка у края чанка (ближе <see cref="GroundMesh.Halo"/> тайлов) пересобирает и соседа — всё в том же вызове.</item>
     /// <item>Узлы вышедших чанков уходят в пул и переиспользуются для вошедших — новые <see cref="GameObject"/> создаются,
     /// только пока пул не набрал наибольшего окна.</item>
     /// <item>Место узла — <see cref="FloatingOrigin.ChunkToUnity"/>: Δ от якоря по тору, у шва — ближайшая копия.</item>
@@ -24,7 +27,8 @@ namespace Orpheus.Client
     {
         const int Size = Torus.ChunkSize;
 
-        /// <summary>Порядок сортировки: пол ниже, объекты — вместе с персонажем по оси Y.</summary>
+        /// <summary>Порядок сортировки: земля в самом низу, построенный пол над ней, объекты — вместе с персонажем по оси Y.</summary>
+        public const int GroundOrder = -10;
         public const int FloorOrder = 0;
         public const int ObjectOrder = 10;
 
@@ -34,6 +38,24 @@ namespace Orpheus.Client
             public GameObject Root = null!;
             public Tilemap Floor = null!;
             public Tilemap Objects = null!;
+
+            /// <summary>Меш земли чанка (E1-4).</summary>
+            public Mesh Ground = null!;
+
+            /// <summary>Полы чанка, по которым собран меш земли: что сейчас на экране.</summary>
+            public readonly byte[] Floors = new byte[Size * Size];
+
+            /// <summary>Копия полов действительна (узел не из пула).</summary>
+            public bool HasFloors;
+
+            /// <summary>В Tilemap пола есть плитки построенных полов.</summary>
+            public bool HasBuiltFloor;
+
+            /// <summary>Меш собран без какого-то соседнего чанка (сеть: ещё не пришёл) — пересобрать, когда появится.</summary>
+            public bool HaloIncomplete;
+
+            /// <summary>Меш ждёт пересборки в <see cref="PlaceNodes"/> этого кадра.</summary>
+            public bool GroundDirty;
         }
 
         readonly WorldModel _world;
@@ -41,6 +63,8 @@ namespace Orpheus.Client
         readonly FloatingOrigin _origin;
         readonly Transform _grid;
         readonly TileBase _meadow, _stone, _tree, _rock;
+        readonly GroundMesh _ground;
+        readonly Material? _groundMaterial;
         readonly TileBase?[] _floorBuf = new TileBase?[Size * Size];
         readonly TileBase?[] _objBuf = new TileBase?[Size * Size];
         static readonly BoundsInt Block = new BoundsInt(0, -Size, 0, Size, Size, 1);
@@ -64,6 +88,8 @@ namespace Orpheus.Client
             _stone = stone;
             _tree = tree;
             _rock = rock;
+            _ground = new GroundMesh(world);
+            _groundMaterial = GroundAtlas.Material;
         }
 
         /// <summary>Чанков в окне сейчас.</summary>
@@ -83,8 +109,18 @@ namespace Orpheus.Client
 
         public bool TryGetNode(ChunkCoord c, out ChunkNode node) => _nodes.TryGetValue(c, out node!);
 
-        /// <summary>Тайл пола по id ядра (неизвестный пол — луг: заглушек других полов пока нет).</summary>
-        public TileBase FloorTile(byte floor) => floor == FloorId.Stone ? _stone : _meadow;
+        /// <summary>Мешей земли собрано за всё время (вход чанка в окно и правки пола).</summary>
+        public int GroundBuilds => _ground.Builds;
+
+        /// <summary>
+        /// Плитка Tilemap пола по id ядра (E1-4): только построенные полы (<see cref="GroundKind.Built"/>) — каменной плитой
+        /// поверх земли; природные полы и воду рисует меш земли (<see cref="GroundTable"/>) — плитки нет.
+        /// </summary>
+        public TileBase? FloorTile(byte floor) => GroundTable.Of(floor).Kind == GroundKind.Built ? _stone : null;
+
+        /// <summary>Меш земли узла собран по этому полу тайла (lx, ly) — «правка видна в тот же кадр» для проверок.</summary>
+        public static bool GroundShows(ChunkNode node, int lx, int ly, byte floor) =>
+            node.HasFloors && !node.GroundDirty && node.Floors[Chunk.IndexOf(lx, ly)] == floor;
 
         /// <summary>Тайл объекта по сырому id ядра; пусто и неизвестное — null.</summary>
         public TileBase? ObjectTile(ushort obj)
@@ -127,8 +163,7 @@ namespace Orpheus.Client
                 ChunkCoord c = _removed[i];
                 ChunkNode node = _nodes[c];
                 _nodes.Remove(c);
-                node.Root.SetActive(false);
-                _pool.Push(node);
+                Release(node);
             }
 
             for (int i = 0; i < added; i++)
@@ -196,8 +231,7 @@ namespace Orpheus.Client
             }
 
             _nodes.Remove(c);
-            node.Root.SetActive(false);
-            _pool.Push(node);
+            Release(node);
             int n = 0;
             for (int i = 0; i < _count; i++)
             {
@@ -217,6 +251,10 @@ namespace Orpheus.Client
             {
                 ChunkNode node = _nodes[_current[i]];
                 node.Root.transform.localPosition = _origin.ChunkToUnity(node.Coord);
+                if (node.GroundDirty)
+                {
+                    BuildGround(node); // сосед пришёл позже (сеть): край чанка собирается заново с его тайлами
+                }
             }
         }
 
@@ -225,9 +263,7 @@ namespace Orpheus.Client
         {
             for (int i = 0; i < _count; i++)
             {
-                ChunkNode node = _nodes[_current[i]];
-                node.Root.SetActive(false);
-                _pool.Push(node);
+                Release(_nodes[_current[i]]);
             }
 
             _nodes.Clear();
@@ -247,10 +283,38 @@ namespace Orpheus.Client
                 Floor = AddTilemap(root.transform, "Floor", FloorOrder, TilemapRenderer.Mode.Chunk),
                 // Объекты сортируются по одному с персонажем по оси Y (перспектива с наклоном, 00 5.1).
                 Objects = AddTilemap(root.transform, "Objects", ObjectOrder, TilemapRenderer.Mode.Individual),
+                Ground = GroundMesh.Create(),
             };
+            var ground = new GameObject("Ground");
+            ground.transform.SetParent(root.transform, false);
+            ground.AddComponent<MeshFilter>().sharedMesh = node.Ground;
+            var mr = ground.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = _groundMaterial;
+            mr.enabled = _groundMaterial != null;
+            mr.sortingOrder = GroundOrder;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
             NodesCreated++;
             return node;
         }
+
+        void Release(ChunkNode node)
+        {
+            node.Root.SetActive(false);
+            node.HasFloors = false;
+            node.GroundDirty = false;
+            _pool.Push(node);
+        }
+
+        void BuildGround(ChunkNode node)
+        {
+            node.HaloIncomplete = !_ground.Build(node.Coord, node.Ground);
+            node.GroundDirty = false;
+        }
+
+        bool TryNeighbour(ChunkCoord c, int dx, int dy, out ChunkNode node) =>
+            _nodes.TryGetValue(Torus.Wrap(_map, new ChunkCoord(c.X + dx, c.Y + dy)), out node!);
 
         static Tilemap AddTilemap(Transform parent, string name, int order, TilemapRenderer.Mode mode)
         {
@@ -266,6 +330,10 @@ namespace Orpheus.Client
         void Fill(ChunkNode node, ChunkCoord c)
         {
             Chunk? chunk = _world.FindChunk(c);
+            bool fresh = !node.HasFloors; // узел из пула: копии полов нет, меш собирается целиком
+            bool built = false;
+            int minX = Size, minY = Size, maxX = -1, maxY = -1; // рамка тайлов, где сменился пол
+            byte[] shown = node.Floors;
             for (int ly = 0; ly < Size; ly++)
             {
                 int row = (Size - 1 - ly) * Size; // клетка (lx, −ly − 1) в блоке [−32, 0) по Y
@@ -274,7 +342,18 @@ namespace Orpheus.Client
                     int index = Chunk.IndexOf(lx, ly);
                     byte floor = chunk == null ? FloorId.Grass : chunk.GetFloor(index);
                     ushort obj = chunk == null ? ObjectId.Empty : chunk.GetObject(index);
-                    _floorBuf[row + lx] = FloorTile(floor);
+                    TileBase? floorTile = FloorTile(floor);
+                    built |= floorTile != null;
+                    _floorBuf[row + lx] = floorTile;
+                    if (shown[index] != floor)
+                    {
+                        shown[index] = floor;
+                        if (lx < minX) minX = lx;
+                        if (lx > maxX) maxX = lx;
+                        if (ly < minY) minY = ly;
+                        if (ly > maxY) maxY = ly;
+                    }
+
                     TileBase? tile = ObjectTile(obj);
                     if (obj == ObjectId.Door && chunk != null && chunk.TryGetBuild(index, out BuildRecord rec))
                     {
@@ -285,9 +364,53 @@ namespace Orpheus.Client
                 }
             }
 
-            node.Floor.SetTilesBlock(Block, _floorBuf!);
+            if (built || node.HasBuiltFloor)
+            {
+                node.Floor.SetTilesBlock(Block, _floorBuf!); // плитки построенных полов; чанк без них Tilemap не трогает
+                node.HasBuiltFloor = built;
+            }
+
             node.Objects.SetTilesBlock(Block, _objBuf!);
+            node.HasFloors = true;
             Fills++;
+
+            if (fresh)
+            {
+                BuildGround(node);
+                // Соседи, собранные без этого чанка, пересоберутся в PlaceNodes этого кадра.
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        if ((dx != 0 || dy != 0) && TryNeighbour(c, dx, dy, out ChunkNode near) && near.HaloIncomplete)
+                        {
+                            near.GroundDirty = true;
+                        }
+                    }
+                }
+
+                return;
+            }
+
+            if (maxX < 0)
+            {
+                return; // пол не менялся (правка объекта) — меш земли прежний
+            }
+
+            // Правка пола: свой меш и меши соседей, до края которых от правки меньше Halo тайлов, — сразу, в этом же кадре.
+            BuildGround(node);
+            int fromX = minX < GroundMesh.Halo ? -1 : 0, toX = maxX >= Size - GroundMesh.Halo ? 1 : 0;
+            int fromY = minY < GroundMesh.Halo ? -1 : 0, toY = maxY >= Size - GroundMesh.Halo ? 1 : 0;
+            for (int dy = fromY; dy <= toY; dy++)
+            {
+                for (int dx = fromX; dx <= toX; dx++)
+                {
+                    if ((dx != 0 || dy != 0) && TryNeighbour(c, dx, dy, out ChunkNode near))
+                    {
+                        BuildGround(near);
+                    }
+                }
+            }
         }
     }
 }

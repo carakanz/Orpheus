@@ -4,7 +4,9 @@
 Сами заглушки — не ошибка. Ошибка (выход 1) — нарушение правила пометки:
   - файл TEMP_* лежит не в папке _TEMP;
   - файла нет в art/manifest.csv или его статус не placeholder;
-  - на картинке нет пурпурного уголка #FF00FF 8 x 8 px (левый верхний угол);
+  - на картинке нет пурпурного уголка #FF00FF 8 x 8 px (левый верхний угол); исключение (E1-9) — бесшовные
+    текстуры земли и воды: уголок был бы виден решёткой на всём экране, поэтому у строки манифеста с пометкой
+    «без уголка» в notes уголок не требуется (остаются папка, имя и манифест);
   - в манифесте строка placeholder, а файла нет;
   - в манифесте строка final, а имя файла начинается с TEMP_ (или наоборот: placeholder без TEMP_).
 Без нарушений — выход 0.
@@ -28,6 +30,7 @@ PREFIX = "TEMP_"
 TEMP_FOLDER = "_TEMP"
 MARK_COLOR = (255, 0, 255, 255)
 MARK_SIZE = 8
+NO_MARK_NOTE = "без уголка"   # бесшовные текстуры земли и воды (E1-9)
 IMAGE_EXT = {".png", ".jpg", ".jpeg", ".tga", ".psd", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 
 
@@ -72,7 +75,8 @@ def main() -> int:
             problems.append(f"{path}: нет строки в {rel(MANIFEST)}")
         elif row["status"] != "placeholder":
             problems.append(f"{path}: в манифесте статус {row['status']!r}, ожидается 'placeholder'")
-        if p.suffix.lower() in IMAGE_EXT and not has_mark(p):
+        no_mark = row is not None and NO_MARK_NOTE in (row.get("notes") or "")
+        if p.suffix.lower() in IMAGE_EXT and not no_mark and not has_mark(p):
             problems.append(f"{path}: нет пурпурного уголка #FF00FF {MARK_SIZE}x{MARK_SIZE} px")
     print(f"Всего заглушек: {len(found)}")
 
@@ -95,7 +99,8 @@ def main() -> int:
         for msg in problems:
             print("  - " + msg)
         return 1
-    print("Нарушений нет: файлы совпадают с манифестом, у каждой картинки пурпурный уголок.")
+    print("Нарушений нет: файлы совпадают с манифестом, у каждой картинки пурпурный уголок "
+          "(кроме бесшовных текстур с пометкой «без уголка»).")
     return 0
 
 

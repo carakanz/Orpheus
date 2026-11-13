@@ -499,7 +499,7 @@ namespace Orpheus.Client
                         {
                             sawStoneFloor = true;
                         }
-                        if (f != view.FloorTile(floor) || o != view.ObjectTile(obj))
+                        if (f != view.FloorTile(floor) || o != view.ObjectTile(obj) || !WorldView.GroundShows(node, lx, ly, floor))
                         {
                             if (mismatches++ < 5)
                             {
