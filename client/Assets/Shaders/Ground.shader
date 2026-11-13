@@ -19,6 +19,7 @@ Shader "Orpheus/Ground"
         _WaterLayers ("Water layers", Float) = 2
         _Variation ("Tone variation", Range(0, 0.3)) = 0.06
         _Mix ("Anti-repeat mix", Range(0, 1)) = 1
+        _Warp ("Anti-repeat warp, tiles", Range(0, 2)) = 1.1
     }
 
     HLSLINCLUDE
@@ -39,6 +40,7 @@ Shader "Orpheus/Ground"
         float _WaterLayers;
         float _Variation;
         float _Mix;
+        float _Warp;
     CBUFFER_END
 
     struct Attributes
@@ -76,6 +78,8 @@ Shader "Orpheus/Ground"
             return SAMPLE_TEXTURE2D_ARRAY_GRAD(_Layers, sampler_Layers, uv, id, dx, dy).rgb;
         }
 
+        // Лёгкий изгиб картинки крупным шумом: ряды пятен перестают быть прямыми.
+        uv += (SAMPLE_TEXTURE2D_LOD(_Noise, sampler_Noise, wp / 32.0, 0).gb - 0.5) * (_Warp / _TexTiles);
         half3 a = SAMPLE_TEXTURE2D_ARRAY_GRAD(_Layers, sampler_Layers, uv, id, dx, dy).rgb;
         // Копия: вдвое крупнее (8 × 8 тайлов на картинку), зеркало по X и сдвиг — пятна того же наклона, но другого
         // размера и в других местах; области копии — крупные пятна шума с неровным краем.

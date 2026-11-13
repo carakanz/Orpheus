@@ -34,6 +34,27 @@ namespace Orpheus.Client
 
         static Material? Build()
         {
+            // Без видеокарты (-nographics: smoke сборки, tile-bench по CPU) массива текстур нет и рисовать некому:
+            // меши земли собираются как обычно (их сверяют проверки), материала нет.
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null || !SystemInfo.supports2DArrayTextures)
+            {
+                Debug.Log($"[ground] устройство {SystemInfo.graphicsDeviceType}: земля не рисуется (меши собираются)");
+                return null;
+            }
+
+            try
+            {
+                return BuildMaterial();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[ground] материал земли не собран: " + e);
+                return null;
+            }
+        }
+
+        static Material? BuildMaterial()
+        {
             GroundSet? set = Resources.Load<GroundSet>(GroundSet.ResourceName);
             if (set == null || set.Shader == null)
             {
