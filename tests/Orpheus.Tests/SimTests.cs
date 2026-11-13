@@ -545,7 +545,7 @@ namespace Orpheus.Tests
             sim.Step();
 
             Assert.True(sim.IsBlocked(map, new TileCoord(5, 5)));   // лава
-            Assert.False(sim.IsBlocked(map, new TileCoord(6, 5)));  // вода проходима
+            Assert.True(sim.IsBlocked(map, new TileCoord(6, 5)));   // вода непроходима (E1-2, план 1.2; раньше — вброд)
             Assert.False(sim.IsBlocked(map, new TileCoord(7, 5)));  // факел
             Assert.True(sim.IsBlocked(map, new TileCoord(8, 5)));   // закрытая дверь
             Assert.False(sim.IsBlocked(map, new TileCoord(9, 5)));  // открытая дверь
