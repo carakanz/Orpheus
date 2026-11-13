@@ -138,6 +138,11 @@ namespace Orpheus.Client
             GenerationMs = sw.Elapsed.TotalMilliseconds;
             Debug.Log($"[boot] мир {Args.Size}² зерно 0x{Args.Seed:X} генератор {Args.Gen} (v{World.GeneratorVersion}): {GenerationMs:0} мс");
 
+            if (Args.PaintDemo)
+            {
+                PaintDemo.Apply(World, Map); // E1-4: тестовый узор у старта — только для снимков
+            }
+
             // Правила проходимости — те же, что в такте сервера (Simulation.IsBlocked): пол и объекты, `05` 1.3.
             Rules = new Simulation(World, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
 
