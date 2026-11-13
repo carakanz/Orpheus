@@ -43,7 +43,7 @@ NetServer.Login.cs: CloseAll :15 · EntityOf :29 · TryGetLastFrame :40 · Credi
 ## NetClient* (парциальные)
 - Edits (.Edits.cs): Digging :68 · DigPredicted :71 · DigProgress :77 · StartDig :99 · StopDig :120 · Place :138 · CloseDoor :211 · NextRequest :236 · SendRequest :247 · OnFrameSent :256 · OnTileReply :337 · DigKeyOf :403 · NeededFrames :416
 - Pause (.Pause.cs): Paused :22 · PauseTick :25 · PausedBy :28 · RequestPause :52 · OnPauseState :64 · ResumeIfSnapshotNewer :104 · Resume :113
-- Предсказание: LocalPrediction.cs: ctor :89 · Sent :190 · Teleport :238 · Reconcile :255 · RenderDelta :407 · ErrorUnits :431 · счётчики :98-131
+- Предсказание: LocalPrediction.cs: ctor :89 · Sent :190 · Teleport :238 · Reconcile :255 (состояние для переигровки :366-386: с сервера — позиция, уворот, нокбэк; предсказанное для ack — удар, таймеры выносливости) · RenderDelta :416 · ErrorUnits :440 · счётчики :98-131
 - Часы: WorldClock.cs: класс :21 · EstimateX256 :67 · TicksAt :86 · PhaseAt :89 (это WorldTimeClock клиента). ClientClock.cs: класс :21 · Estimate :82 · Hold :97 · OwdUs :58 · Rate :64.
 
 ## Snapshot.cs - src/Orpheus.Net/Protocol (формат снимов)
