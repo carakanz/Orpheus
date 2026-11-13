@@ -272,48 +272,51 @@ def _wob(t: np.ndarray, seed: int, amp: float = 7.0) -> np.ndarray:
     return out * amp
 
 
+PAD = 64   # поле вокруг ячейки: кромка и тень считаются с продолжением к соседям, потом обрезаются
+
+
 def plateau_mask(name: str) -> np.ndarray:
-    yy, xx = np.mgrid[0:CELL, 0:CELL].astype(np.float32)
+    """Маска площадки на поле (CELL + 2·PAD)²: формулы кромок продолжаются за ячейку так же, как у соседа."""
+    n = CELL + 2 * PAD
+    yy, xx = np.mgrid[0:n, 0:n].astype(np.float32) - PAD
     s = yy < EDGE + _wob(xx, 11)              # площадка севернее южной кромки
-    n = yy >= EDGE + _wob(xx, 12)
-    w = xx >= EDGE + _wob(yy, 13)             # площадка восточнее западной кромки
-    e = xx < CELL - EDGE + _wob(yy, 14)
-    m = {"s": s, "n": n, "w": w, "e": e,
-         "outer_sw": s & w, "outer_se": s & e, "outer_nw": n & w, "outer_ne": n & e,
-         "inner_sw": s | w, "inner_se": s | e, "inner_nw": n | w, "inner_ne": n | e,
+    nn = yy >= EDGE + _wob(xx, 12)
+    w = xx >= EDGE + _wob(yy, 13, 3.0)        # площадка восточнее западной кромки
+    e = xx < CELL - EDGE + _wob(yy, 14, 3.0)
+    m = {"s": s, "n": nn, "w": w, "e": e,
+         "outer_sw": s & w, "outer_se": s & e, "outer_nw": nn & w, "outer_ne": nn & e,
+         "inner_sw": s | w, "inner_se": s | e, "inner_nw": nn | w, "inner_ne": nn | e,
          "end_w": s, "end_e": s}[name]
-    # скруглить углы: размытие и порог (края ячейки продолжаются повтором крайних строк)
-    pad = 48
-    big = np.pad(m.astype(np.float32), pad, mode="edge")
-    big = _blur(big, 14)
-    return big[pad:-pad, pad:-pad] > 0.5
+    # скруглить углы: размытие и порог
+    big = np.pad(m.astype(np.float32), 48, mode="edge")
+    return _blur(big, 14)[48:-48, 48:-48] > 0.5
 
 
 def make_cliff(name: str, top: Image.Image, face: Image.Image) -> Image.Image:
     P = plateau_mask(name)
-    topa = np.asarray(top.convert("RGB")).astype(np.float32)
-    facea = np.asarray(face.convert("RGB")).astype(np.float32)
-    xx = np.arange(CELL)
+    n = P.shape[0]
+    idx = (np.arange(n) - PAD) % CELL
+    topa = np.asarray(top.convert("RGB")).astype(np.float32)[idx][:, idx]
+    facea = np.asarray(face.convert("RGB")).astype(np.float32)[:, idx]
+    xx = np.arange(n) - PAD
     # высота стенки по столбцам: у торцов сходит на нет
-    hcol = np.full(CELL, FACE_H, np.float32)
+    hcol = np.full(n, FACE_H, np.float32)
     if name == "end_w":
         hcol = np.clip((xx - 24) / (CELL - 24), 0, 1) ** 0.8 * FACE_H
     if name == "end_e":
         hcol = np.clip((CELL - 24 - xx) / (CELL - 24), 0, 1) ** 0.8 * FACE_H
-    # расстояние вниз от южной кромки площадки: d[y, x] = сколько px выше лежит ближайший пиксель площадки
-    d = np.full((CELL, CELL), 9999, np.int32)
-    last = np.full(CELL, -9999, np.int32)
-    for y in range(CELL):
+    # расстояние вниз от южной кромки площадки: d[y, x] = на сколько px выше лежит ближайший пиксель площадки
+    d = np.full((n, n), 9999, np.int32)
+    last = np.full(n, -9999, np.int32)
+    for y in range(n):
         last = np.where(P[y], y, last)
         d[y] = y - last
     is_face = (~P) & (d >= 1) & (d <= hcol[None, :])
     body = P | is_face
-    out = np.zeros((CELL, CELL, 4), np.float32)
+    out = np.zeros((n, n, 4), np.float32)
     # тень: у подножия стенки и справа от восточной кромки (свет сверху слева)
-    sh = np.zeros((CELL, CELL), bool)
-    sh[:, :] = np.roll(body, (26, 22), axis=(0, 1))
-    sh[:26, :] = False      # перенос np.roll через край ячейки не нужен
-    sh[:, :22] = False
+    sh = np.zeros((n, n), bool)
+    sh[26:, 22:] = body[:-26, :-22]
     shadow = sh & ~body
     out[shadow] = (24, 10, 20, 255 * 0.34)
     # верх
@@ -322,22 +325,22 @@ def make_cliff(name: str, top: Image.Image, face: Image.Image) -> Image.Image:
     out[P, 3] = 255
     # лицо: строка полосы — по глубине (растянуто на высоту столбца), нижняя часть темнее (вторая ступень)
     ys, xs = np.nonzero(is_face)
-    v = np.clip((d[ys, xs] - 1) / np.maximum(hcol[xs], 1) * (FACE_H - 1), 0, FACE_H - 1).astype(np.int32)
-    col = facea[v, xs]
-    rel = (d[ys, xs] - 1) / np.maximum(hcol[xs], 1)
-    col = col * np.where(rel > 0.62, 0.78, 1.0)[:, None]
-    out[ys, xs, :3] = col
+    relv = (d[ys, xs] - 1) / np.maximum(hcol[xs], 1)
+    v = np.clip(relv * (FACE_H - 1), 0, FACE_H - 1).astype(np.int32)
+    out[ys, xs, :3] = facea[v, xs] * np.where(relv > 0.62, 0.78, 1.0)[:, None]
     out[ys, xs, 3] = 255
     # светлая кромка у южного края площадки и контур
-    lip = P & ~np.roll(P, -10, axis=0)
-    lip[-10:, :] = False
+    lip = P.copy()
+    lip[:-10] &= ~P[10:]
+    lip[-10:] = False
     out[lip, :3] = np.clip(out[lip, :3] * 1.12 + 14, 0, 255)
-    edge_p = P & ~ap.shrink(np.pad(P, 6, mode="edge"), 2)[6:-6, 6:-6]            # край площадки, 2 px внутрь
-    edge_b = body & ~ap.shrink(np.pad(body, 6, mode="edge"), 2)[6:-6, 6:-6]      # низ и бока стенки
-    brow = is_face & (d <= 3)                                                     # линия под кромкой
+    edge_p = P & ~ap.shrink(P, 2)             # край площадки, 2 px внутрь
+    edge_b = body & ~ap.shrink(body, 2)       # низ и бока стенки
+    brow = is_face & (d <= 3)                 # линия под кромкой
     line = edge_p | edge_b | brow
     out[line, :3] = OUTLINE
     out[line, 3] = 255
+    out = out[PAD:-PAD, PAD:-PAD]
     return Image.fromarray(np.clip(out + 0.5, 0, 255).astype(np.uint8), "RGBA")
 
 
