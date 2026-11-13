@@ -39,10 +39,22 @@ namespace Orpheus.Client
         public Camera Camera = null!;
         public Text? DebugText;
 
-        /// <summary>Эталон экрана: 40 × 22,5 тайла при зуме ×1,0 (docs/00, 5.1) — половина высоты 11,25.</summary>
-        public const float ReferenceHalfHeight = 11.25f;
-        public const float MinZoom = 0.6f;
-        public const float MaxZoom = 1.0f;
+        /// <summary>Обзор по умолчанию, тайлов по ширине на экране 16:9 (план, шаг 1.1): 64 × 36, на 1080p — 30 px на тайл.</summary>
+        public const float DefaultViewTiles = 64f;
+
+        /// <summary>Самый ближний обзор колесом: 40 × 22,5 тайла (прежний эталон docs/00, 5.1).</summary>
+        public const float NearViewTiles = 40f;
+
+        /// <summary>Самый дальний обзор колесом: 96 × 54 тайла. Окно чанков его покрывает: от персонажа до края блока входа
+        /// 6 × 4 чанка — не меньше 80 тайлов по X и 48 по Y (<c>ChunkWindow</c>), нужно 48 и 27 + сдвиг камеры 0,35.</summary>
+        public const float FarViewTiles = 96f;
+
+        /// <summary>Эталон экрана: 64 × 36 тайлов при зуме ×1,0 — половина высоты 18.</summary>
+        public const float ReferenceHalfHeight = DefaultViewTiles * 9f / 16f / 2f;
+
+        /// <summary>Зум — во сколько раз ближе эталона: ×0,667 (96 тайлов) … ×1,6 (40 тайлов).</summary>
+        public const float MinZoom = DefaultViewTiles / FarViewTiles;
+        public const float MaxZoom = DefaultViewTiles / NearViewTiles;
 
         /// <summary>Шаг зума на щелчок колеса.</summary>
         public const float ZoomStep = 1.1f;
@@ -111,17 +123,20 @@ namespace Orpheus.Client
                     return;
                 }
 
+                ShowDebugLabels(Args.Hud);
                 Net = new NetGame(this, Args);
                 Net.StartConnect();
                 return;
             }
 
+            ShowDebugLabels(Args.Hud);
             Map = MapShape.World(Args.Size);
             var sw = Stopwatch.StartNew();
-            World = new StubGenerator().Generate(Map, Args.Seed, out GenStats stats);
+            // Тот же генератор, что у сервера по умолчанию (план, шаг 0.5): снимок без сервера показывает тот же мир.
+            // Заглушка 0-007 — только явным ключом --gen stub (--smoke и --tile-bench сверяются с ней).
+            World = WorldGenModule.ForKey(Args.Gen).Generate(Map, Args.Seed);
             GenerationMs = sw.Elapsed.TotalMilliseconds;
-            Debug.Log($"[boot] мир {Args.Size}² зерно 0x{Args.Seed:X} генератор v{World.GeneratorVersion}: {GenerationMs:0} мс; " +
-                      $"деревьев {stats.Trees}, скал-объектов {stats.Rocks}");
+            Debug.Log($"[boot] мир {Args.Size}² зерно 0x{Args.Seed:X} генератор {Args.Gen} (v{World.GeneratorVersion}): {GenerationMs:0} мс");
 
             // Правила проходимости — те же, что в такте сервера (Simulation.IsBlocked): пол и объекты, `05` 1.3.
             Rules = new Simulation(World, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
@@ -148,7 +163,7 @@ namespace Orpheus.Client
             else if (Args.TileBenchSeconds > 0)
             {
                 _tileBench = new TileBenchRun(this);
-                Debug.Log($"[boot] стенд tile-bench: зум x{MinZoom:0.00}, бег через шов + правки, {Args.TileBenchSeconds} с (1-022)");
+                Debug.Log($"[boot] стенд tile-bench: зум x{MinZoom:0.00} ({FarViewTiles:0} тайлов), бег через шов + правки, {Args.TileBenchSeconds} с (1-022)");
             }
 
             _heroRig = new Anim.ActorRig(Character);
@@ -186,6 +201,41 @@ namespace Orpheus.Client
             Camera.orthographicSize = ReferenceHalfHeight / Zoom;
         }
 
+        /// <summary>Обзор в тайлах по ширине экрана 16:9: 40…96.</summary>
+        public void SetViewTiles(float tiles) => SetZoom(DefaultViewTiles / tiles);
+
+        /// <summary>Обзор сейчас, тайлов по ширине экрана 16:9.</summary>
+        public float ViewTiles => DefaultViewTiles / Zoom;
+
+        /// <summary>
+        /// Отладочные надписи (план, шаг 1.1): «Orpheus — TEMP ASSETS» и строка состояния — только с ключом <c>--hud</c>.
+        /// Пометка заглушек на самих картинках (пурпурный уголок) остаётся всегда.
+        /// </summary>
+        void ShowDebugLabels(bool on)
+        {
+            if (DebugText == null)
+            {
+                return;
+            }
+
+            Transform? temp = DebugText.transform.parent != null ? DebugText.transform.parent.Find("TempLabel") : null;
+            if (temp != null)
+            {
+                temp.gameObject.SetActive(on);
+            }
+
+            ShowDebugText(on);
+        }
+
+        /// <summary>Показать или скрыть строку состояния (сеть без <c>--hud</c>: видна только до входа в игру).</summary>
+        public void ShowDebugText(bool on)
+        {
+            if (DebugText != null && DebugText.enabled != on)
+            {
+                DebugText.enabled = on;
+            }
+        }
+
         void CreateInput()
         {
             // Схема клавиатура + геймпад (docs/07, 1.2: Input System). Переназначение клавиш — отдельная задача.
@@ -215,7 +265,7 @@ namespace Orpheus.Client
             _zoomIn.Enable();
             _zoomOut.Enable();
             _dodge.Enable();
-            SetZoom(MaxZoom);
+            SetZoom(1f); // обзор по умолчанию — 64 × 36 тайлов
         }
 
         /// <summary>Вектор ввода Unity (Y вверх) → направление ядра (Y вниз): ближайшее из 8 (docs/00, 5.1).</summary>
@@ -287,7 +337,7 @@ namespace Orpheus.Client
 
         void UpdateHud()
         {
-            if (DebugText == null || ++_hudFrame % 10 != 0)
+            if (DebugText == null || !Args.Hud || ++_hudFrame % 10 != 0)
             {
                 return;
             }
@@ -296,7 +346,7 @@ namespace Orpheus.Client
             ChunkCoord c = Torus.ChunkOf(Map, t);
             DebugText.text = $"seed 0x{Args.Seed:X}  {Map.Width}x{Map.Height}  tile {t.X},{t.Y}  chunk {c.X},{c.Y}  " +
                              $"window {View.Count}/{ChunkWindow.MaxChunks}  anchor {Origin.Anchor.X},{Origin.Anchor.Y}  " +
-                             $"zoom x{Zoom:0.00}  {1f / Mathf.Max(Time.unscaledDeltaTime, 1e-4f):0} fps";
+                             $"zoom x{Zoom:0.00} ({ViewTiles:0} т)  {1f / Mathf.Max(Time.unscaledDeltaTime, 1e-4f):0} fps";
         }
     }
 }

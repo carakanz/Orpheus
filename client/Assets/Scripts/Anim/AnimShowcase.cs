@@ -441,7 +441,7 @@ namespace Orpheus.Client.Anim
             _walker = null!;
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = -1;
-            _ortho = GameBoot.ReferenceHalfHeight; // зум ×1,0 — 40 × 22,5 т (`00` 5.1)
+            _ortho = GameBoot.ReferenceHalfHeight / GameBoot.MaxZoom; // ближний обзор — 40 × 22,5 т (`00` 5.1), в нём сняты кадры K-001
             _focus = _c;
             var rnd = new System.Random(1);
             for (int i = 0; i < heroes; i++)
