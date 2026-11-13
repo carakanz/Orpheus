@@ -1165,6 +1165,9 @@ namespace Orpheus.Core.Sim
         /// <summary>Число дверей в индексе (тесты: мир просканирован).</summary>
         public int DoorCount => _doorCount;
 
+        /// <summary>Замок двери (рантайм-состояние, 1-028): такт, до которого автооткрытие молчит (0 — нет замка).</summary>
+        public long DoorLockUntil(int index) => index >= 0 && index < _doorCount ? _doorLockUntil[index] : 0;
+
         /// <summary>Индекс дверей по миру: каждый чанк, его записи построек, объект «дверь» (конструктор).</summary>
         private void IndexDoors()
         {
@@ -1318,6 +1321,7 @@ namespace Orpheus.Core.Sim
         /// Персонаж на тайле — отказ; враг — выталкивание (E,S,W,N), цели нет — отказ (закрытие отложено,
         /// автозакрытия его догонят). <paramref name="fromF"/> — закрытие кнопкой F: замок
         /// <param name="fromF">закрытие кнопкой F: замок <see cref="DoorLockTicks"/> тактов (автооткрытие молчит);
+        /// F по закрытой двери — только продление замка, без правки (1-028), принимается и при активном замке;
         /// автозакрытие замок не ставит — замок только рантайм-состояние, в сейве его нет,
         /// и на детерминизм загрузки он не влияет.</param>
         /// <param name="requester">запросивший игрок (F по сети, 0-028) — для ответа событием такта; 0 — процесс мира.</param>
@@ -1325,11 +1329,6 @@ namespace Orpheus.Core.Sim
         /// </summary>
         private bool BeginDoorClose(int di, long tick, bool fromF, int requester = 0, int tag = 0)
         {
-            if (fromF && tick < _doorLockUntil[di])
-            {
-                return false;
-            }
-
             TileCoord tile = new TileCoord(_doorX[di], _doorY[di]);
             Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_shape, tile));
             int index = Chunk.IndexOf(tile.X, tile.Y);
@@ -1342,6 +1341,20 @@ namespace Orpheus.Core.Sim
             if (!chunk.TryGetBuild(index, out BuildRecord rec))
             {
                 rec = default;
+            }
+
+            if (fromF && !rec.IsDoorOpen)
+            {
+                // F по закрытой двери (1-028): только продление замка, без правки — замок держится
+                // всю ночь (клиент жмёт F каждый кадр), автооткрытие молчит, закрывать нечего.
+                // Ветка ДО проверки замка: F-спам при активном замке тоже принимается и продлевает.
+                _doorLockUntil[di] = tick + 1 + DoorLockTicks;
+                return true;
+            }
+
+            if (fromF && tick < _doorLockUntil[di])
+            {
+                return false;
             }
 
             for (int i = 0; i < _entityCount; i++)

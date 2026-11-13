@@ -231,5 +231,53 @@ namespace Orpheus.Tests
             var reloaded = new Simulation(world);
             Assert.Equal(1, reloaded.DoorCount);
         }
+
+        /// <summary>F по закрытой двери (1-028): после истечения замка F продлевает его — автооткрытие шагом
+        /// молчит всё время продления; прекращаем F — истёкший замок открывается шагом (вечной блокировки нет).</summary>
+        [Fact]
+        public void D12_F_On_Closed_Door_Extends_Lock()
+        {
+            var sim = new Simulation(Flat());
+            PlaceDoor(sim, 110, 100, open: true);
+            int me = sim.AddEntity(TileCenter(110, 101));
+            sim.Step();
+            sim.SetInput(me, new InputFrame(Input8.None, InputButtons.CloseDoor));
+            sim.Step();
+            sim.SetInput(me, InputFrame.None);
+            sim.Step();
+            Assert.False(IsOpen(sim, 110, 100), "F не закрыла");
+            Assert.Equal(sim.Tick + Simulation.DoorLockTicks, sim.DoorLockUntil(0));
+
+            // Замок первого F истекает; жмём F каждый кадр шагая к двери — продление, автооткрытие молчит.
+            for (int t = 0; t < Simulation.DoorLockTicks - 1; t++)
+            {
+                sim.Step();
+            }
+
+            sim.SetInput(me, new InputFrame(Input8.North, InputButtons.CloseDoor));
+            for (int t = 0; t < 20; t++)
+            {
+                sim.Step();
+                if (t == 1)
+                {
+                    // Каждый F-такт вне проёма — продление: замок = такт продления + 1 + DoorLockTicks
+                    // (после Step sim.Tick на один такт позже такта правки).
+                    Assert.Equal(sim.Tick + Simulation.DoorLockTicks, sim.DoorLockUntil(0));
+                }
+
+                sim.SetInput(me, new InputFrame(Input8.North, InputButtons.CloseDoor));
+            }
+
+            Assert.False(IsOpen(sim, 110, 100), "открылась в продлённом замке");
+
+            // F убрали — замок (последнее продление) истекает, шаг к двери открывает её.
+            sim.SetInput(me, new InputFrame(Input8.North));
+            for (int t = 0; t < Simulation.DoorLockTicks + 10; t++)
+            {
+                sim.Step();
+            }
+
+            Assert.True(IsOpen(sim, 110, 100), "не открылась шагом после истечения замка");
+        }
     }
 }
