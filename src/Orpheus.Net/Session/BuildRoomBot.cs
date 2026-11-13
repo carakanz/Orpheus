@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
+using Orpheus.Core.Trig;
 using Orpheus.Core.World;
 using Orpheus.Net.Protocol;
 
@@ -121,6 +123,12 @@ namespace Orpheus.Net.Session
         /// <summary>Диагностика попаданий за дверью: на каждое — такт, здоровье, состояние двери и сущности
         /// в радиусе 3 тайла (UDP Big 13.11: 6 кадров — ищем источник).</summary>
         public string DamageDetail { get; private set; } = "";
+
+        /// <summary>Кадров удара мечом, отданных ботом (самооборона в Close/Enter/WaitDawn, 13.11).</summary>
+        public int AttacksIssued { get; private set; }
+
+        /// <summary>Ячейка стартового деревянного меча (<see cref="Inventory.StartingKit"/> — 3).</summary>
+        public const int SwordSlot = 3;
 
         /// <summary>Смертей своё (пропажа <see cref="SnapshotSelf.Present"/>).</summary>
         public int Deaths { get; private set; }
@@ -262,7 +270,7 @@ namespace Orpheus.Net.Session
                 Phase.Door => Door(client, world, pos),
                 Phase.Enter => Enter(client, world, pos),
                 Phase.Close => Close(client, world, pos),
-                Phase.WaitDawn => WaitDawn(client, nowUs),
+                Phase.WaitDawn => WaitDawn(client, pos, nowUs),
                 _ => InputFrame.None,
             };
             return frame;
@@ -694,6 +702,13 @@ namespace Orpheus.Net.Session
 
             // Дверь ставится открытой (1-012); шаг на тайл двери её распахивает (автооткрытие шагом, `05` 2.1).
             // Идём в центр комнаты через проём, без копки: копать дверь — снести свою же дверь.
+            // Враг сел на хвост в проёме — бьём мечом, пока не убрался (иначе в комнате драка при закрытой двери).
+            InputFrame? hit = ThreatFrame(client, pos);
+            if (hit != null)
+            {
+                return hit.Value;
+            }
+
             Input8 dir = StepDir(pos, TileCenter(_center));
             return WalkFrames(pos, dir);
         }
@@ -725,16 +740,25 @@ namespace Orpheus.Net.Session
                 near = Torus.Wrap(_shape, new TileCoord(door.X + 1, door.Y + 1));
             }
 
+            client.CloseDoor(door); // каждый кадр: закрытие + замок; запрос не занимает руки (1-028)
+
+            // Враг в досягаемости удара (сел на проём, зашёл следом) — бьём мечом: удары за закрытой дверью
+            // при живой атаке outside ломают приёмку 1.5 («урон за дверью 0 кадров»).
+            InputFrame? hit = ThreatFrame(client, pos);
+            if (hit != null)
+            {
+                return hit.Value;
+            }
+
             if (Torus.TileOf(_shape, pos) != near)
             {
                 return DigOrWalk(client, world, pos, near);
             }
 
-            client.CloseDoor(door);
             return HammerFrame(client);
         }
 
-        private InputFrame WaitDawn(NetClient client, long nowUs)
+        private InputFrame WaitDawn(NetClient client, WorldPos pos, long nowUs)
         {
             WorldClock clock = client.WorldTimeClock;
             if (clock.Valid && clock.TicksAt(nowUs) >= DayClock.DawnStartTick)
@@ -748,7 +772,9 @@ namespace Orpheus.Net.Session
             // автооткрытие молчит, враг на тайл двери не встаёт и в хижину не входит (приёмка 1.5);
             // вставшего на тайл закрытие выталкивает (E,S,W,N).
             client.CloseDoor(DoorTile);
-            return InputFrame.None;
+
+            // Просочился в комнату до закрытия — самооборона мечом (UDP Big 13.11: 7 попаданий за ночь).
+            return ThreatFrame(client, pos) ?? InputFrame.None;
         }
 
         /// <summary>Расстояние Чебышёва тайлов по тору (максимум из осевых разностей).</summary>
@@ -758,9 +784,49 @@ namespace Orpheus.Net.Session
             return Math.Max(Math.Abs(d.X), Math.Abs(d.Y));
         }
 
-        /// <summary>Сущности снимка в радиусе 3 тайла от своей (для журнала попаданий, UDP Big 13.11).</summary>
-        private string NearbyText(NetClient client, WorldPos pos)
+        /// <summary>
+        /// Кадр удара мечом по ближайшему врагу в досягаемости удара (сектор <see cref="Reach.SwordStrikeUnits"/>
+        /// + тело цели): самооборона в Enter/Close/WaitDawn. Враги лезут в проём во время пина (дверь открыта),
+        /// и удары приземляются уже за закрытой дверью — приёмка 1.5 («урон за дверью 0») без боя недостижима;
+        /// меч — из стартового набора (<c>06</c> 0), правило ядра не меняется. F (запрос «закрыть дверь»)
+        /// идёт отдельным сообщением и руки не занимает (<see cref="Simulation.RequestCloseDoor" />) — замок
+        /// продлевается и с мечом в руках.
+        /// </summary>
+        private InputFrame? ThreatFrame(NetClient client, WorldPos pos)
         {
+            Snapshot snap = client.Latest;
+            const int reach = Reach.SwordStrikeUnits + Collision.RadiusUnits; // сектор + круг цели (`02` 3.2)
+            long bestD2 = long.MaxValue;
+            Int2 bestD = default;
+            for (int i = 0; i < snap.Count; i++)
+            {
+                SnapshotEntity e = snap.Entities[i];
+                if (e.Id == client.EntityId || e.Enemy >> SnapshotLayout.EnemyArchetypeShift == 0 || e.HealthPct == 0)
+                {
+                    continue; // не враг (архетип 0 — мозг выключен) или мёртв
+                }
+
+                Int2 d = Torus.Delta(_shape, pos, e.Position);
+                long d2 = (long)d.X * d.X + (long)d.Y * d.Y;
+                if (d2 <= (long)reach * reach && d2 < bestD2)
+                {
+                    bestD2 = d2;
+                    bestD = d;
+                }
+            }
+
+            if (bestD2 == long.MaxValue)
+            {
+                return null;
+            }
+
+            AttacksIssued++;
+            ushort aim = Angle16.FromDirection(bestD).Raw; // сектор 120° от прицела кадра (1-004)
+            return new InputFrame(Input8.None, InputButtons.Attack, aim, SwordSlot);
+        }
+
+        /// <summary>Сущности снимка в радиусе 3 тайла от своей (для журнала попаданий, UDP Big 13.11).</summary>
+        private string NearbyText(NetClient client, WorldPos pos)        {
             TileCoord me = Torus.TileOf(_shape, pos);
             Snapshot snap = client.Latest;
             var sb = new System.Text.StringBuilder("вокруг:");
