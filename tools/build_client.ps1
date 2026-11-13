@@ -9,7 +9,7 @@
      -batchmode -nographics -quit -executeMethod Orpheus.Editor.BuildScript.BuildWindows -logFile ...
   3. Кладёт сборку в build/client-win/Orpheus.exe (папка build/ — в .gitignore) и рядом — OrpheusServer.exe
      (dotnet publish src/Orpheus.Server, 0-024): одиночная игра и хост запускают его дочерним процессом (docs/07, 2.3).
-  4. С ключом -Smoke запускает собранный Orpheus.exe --smoke и проверяет код выхода.
+  4. С ключом -Smoke запускает собранный Orpheus.exe --smoke --gen stub и проверяет код выхода.
   6. С ключом -ThreadSmoke — «сервер в потоке» (0-031): Orpheus.exe --server-thread (ServerHost в потоке, локальная связь,
      PcStorage), новый мир на -ThreadSmokeSeconds, затем загрузка — хэш загруженного совпадает с сохранённым при выходе.
   5. С ключом -HostSmoke — net-smoke хоста: Orpheus.exe --host сам запускает сервер (новый мир в build/logs/host-smoke-world,
@@ -40,7 +40,8 @@ param(
     [switch] $NoBuild,
     # Сборка разработки (BuildOptions.Development).
     [switch] $Development,
-    [string] $UnityPath = $(if ($env:ORPHEUS_UNITY) { $env:ORPHEUS_UNITY } else { 'C:\Program Files\Unity\Hub\Editor\6000.6.7f1\Editor\Unity.exe' }),
+    # Unity: по умолчанию — версия проекта из client/ProjectSettings/ProjectVersion.txt в папке Unity Hub (план, шаг 0.5).
+    [string] $UnityPath = $(if ($env:ORPHEUS_UNITY) { $env:ORPHEUS_UNITY } else { '' }),
     [int] $TimeoutMinutes = 90
 )
 
@@ -60,7 +61,15 @@ $total = [Diagnostics.Stopwatch]::StartNew()
 function Say([string] $msg) { Write-Host ("[build_client {0,6:0.0}s] {1}" -f $total.Elapsed.TotalSeconds, $msg) }
 function Fail([string] $msg) { Write-Host "[build_client] ОШИБКА: $msg" -ForegroundColor Red; exit 1 }
 
-if (-not (Test-Path $UnityPath)) { Fail "нет Unity: $UnityPath (задай -UnityPath или ORPHEUS_UNITY)" }
+if (-not $UnityPath) {
+    $versionFile = Join-Path $Client 'ProjectSettings\ProjectVersion.txt'
+    if (-not (Test-Path $versionFile)) { Fail "нет $versionFile — не узнать версию Unity (задай -UnityPath или ORPHEUS_UNITY)" }
+    $m = Select-String -Path $versionFile -Pattern '^m_EditorVersion:\s*(\S+)' | Select-Object -First 1
+    if (-not $m) { Fail "в $versionFile нет строки m_EditorVersion (задай -UnityPath или ORPHEUS_UNITY)" }
+    $UnityPath = "C:\Program Files\Unity\Hub\Editor\$($m.Matches[0].Groups[1].Value)\Editor\Unity.exe"
+}
+if (-not (Test-Path $UnityPath)) { Fail "нет Unity: $UnityPath (версия проекта не установлена? задай -UnityPath или ORPHEUS_UNITY)" }
+Say "Unity: $UnityPath"
 New-Item -ItemType Directory -Force $LogDir | Out-Null
 
 # Не больше одного процесса Unity на проект: Unity держит client/Temp/UnityLockfile открытым.
@@ -163,9 +172,11 @@ if (-not (Test-Path $ServerExe)) { Fail "нет $ServerExe после publish" }
 
 # --- 3. Дымовая проверка --------------------------------------------------------------------
 if ($Smoke) {
-    Say 'smoke: Orpheus.exe -batchmode -nographics --smoke'
+    # --gen stub: проверки smoke (полоса через шов, образцы для check_smoke_tiles.py) сверяются с заглушкой 0-007;
+    # без ключа клиент офлайн строит мир генератором сервера (v1, шаг 0.5).
+    Say 'smoke: Orpheus.exe -batchmode -nographics --smoke --gen stub'
     if (Test-Path $SmokeLog) { Remove-Item -Force $SmokeLog }
-    $sp = Start-Process -FilePath $Exe -ArgumentList @('-batchmode', '-nographics', '--smoke', '-logFile', "`"$SmokeLog`"") -PassThru -NoNewWindow `
+    $sp = Start-Process -FilePath $Exe -ArgumentList @('-batchmode', '-nographics', '--smoke', '--gen', 'stub', '-logFile', "`"$SmokeLog`"") -PassThru -NoNewWindow `
         -RedirectStandardOutput (Join-Path $LogDir 'smoke.stdout.txt')
     $null = $sp.Handle
     if (-not $sp.WaitForExit(60 * 1000)) { try { $sp.Kill() } catch { }; Fail 'smoke: Orpheus.exe не вышел за 60 с' }

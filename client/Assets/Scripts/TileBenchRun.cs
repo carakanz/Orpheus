@@ -16,7 +16,7 @@ namespace Orpheus.Client
 {
     /// <summary>
     /// Стенд проверки 48 Tilemap (карточка 1-022, ключ <c>--tile-bench &lt;сек&gt;</c>; docs/07 1.7, docs/08 3.1 «Проверка 48 Tilemap»,
-    /// приёмка 1.11: зум ×0,6, бег через шов, поток правок — ≥ 60 fps по 1 % худших).
+    /// приёмка 1.11: самый дальний обзор (96 тайлов, E1-1), бег через шов, поток правок — ≥ 60 fps по 1 % худших).
     /// <list type="bullet">
     /// <item>Бег по кругу X+ → X- → Y+ → Y- (по 96 тайлов, шов на третьей части, как в <see cref="SmokeRun"/>) с коллизией по миру;
     /// кадр реальный (без <c>captureDeltaTime</c>): в окне — настоящие fps, в <c>-batchmode -nographics</c> — стоимость кадра на CPU.</item>
@@ -105,7 +105,7 @@ namespace Orpheus.Client
             Application.logMessageReceived += OnLog;
             Application.targetFrameRate = -1; // реальные кадры: в окне — fps, в -nographics — стоимость кадра на CPU
             QualitySettings.vSyncCount = 0;
-            _g.SetZoom(GameBoot.MinZoom); // приёмка 1.11: зум ×0,6 — 67 тайлов в ширину
+            _g.SetZoom(GameBoot.MinZoom); // приёмка 1.11: самый дальний обзор — 96 тайлов в ширину (E1-1; было 67)
             Debug.Log($"[tilebench] старт: Unity {Application.unityVersion}, backend {Backend()}, мир {_map.Width}², " +
                       $"зум x{GameBoot.MinZoom:0.00}, правок {EditsPerSecond}/с + пачка {BatchTiles} каждые {BatchEverySec:0.0} с, " +
                       $"прогрев {WarmupFrames} кадров, порог 16,67 мс/кадр (60 fps по 1 % худших)");

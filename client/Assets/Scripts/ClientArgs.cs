@@ -21,8 +21,13 @@ namespace Orpheus.Client
     /// <item><c>--net-smoke [сек]</c> — дымовая проверка сети: вход, играть сек секунд (по умолчанию 10), «[smoke] done», код 0/1.</item>
     /// <item><c>--net-smoke-seam</c> — net-smoke у шва (сервер с <c>--spawn-seam --bots 2:shuttle</c>): свой персонаж и чужие
     /// переходят шов x = 0, начало переезжает на шве (0-017).</item>
-    /// <item><c>--hud</c> — текст состояния в окне (в сетевом режиме включено всегда).</item>
-    /// <item><c>--screenshot &lt;путь&gt;</c> — кадр мира с персонажем в PNG и выход.</item>
+    /// <item><c>--hud</c> — отладочные надписи в окне: «Orpheus — TEMP ASSETS» и строка состояния (E1-1; без ключа в сети
+    /// видна только строка входа, пока игрок не в игре).</item>
+    /// <item><c>--screenshot &lt;путь&gt;</c> — кадр мира с персонажем в PNG и выход. Сцена кадра (стенд <c>tools/shots.ps1</c>, E1-1):
+    /// <c>--shot-tile X,Y</c> — тайл, куда ставится персонаж (офлайн; по умолчанию — старт), <c>--shot-width N</c> — обзор
+    /// в тайлах по ширине, 40…96 (по умолчанию 64).</item>
+    /// <item><c>--gen v1|stub</c> — генератор мира офлайна (E1-1): по умолчанию тот же, что у сервера (<c>v1</c>);
+    /// <c>stub</c> — заглушка 0-007 для <c>--smoke</c> и <c>--tile-bench</c> (их проверки сверяются с ней).</item>
     /// <item><c>--single</c> / <c>--host</c> — одиночная игра / хост (0-024, docs/07 2.3; меню — потом): игра запускает
     /// <c>OrpheusServer</c> дочерним процессом (<c>PcServerLauncher</c>) и входит хозяином через 127.0.0.1. Сервер уже
     /// работает с этим миром (игра упала, 7.6) — подключается к нему по <c>host.lock</c>.</item>
@@ -58,6 +63,17 @@ namespace Orpheus.Client
         public int Size = DefaultSize;
         public bool Smoke;
         public string? ScreenshotPath;
+
+        /// <summary>Сцена снимка (E1-1): тайл персонажа; нет ключа — старт.</summary>
+        public bool HasShotTile;
+        public int ShotTileX;
+        public int ShotTileY;
+
+        /// <summary>Сцена снимка (E1-1): обзор по ширине, тайлов; 0 — по умолчанию (64).</summary>
+        public int ShotWidth;
+
+        /// <summary>Ключ генератора офлайна (<c>WorldGenModule.ForKey</c>): «v1» (как у сервера) или «stub».</summary>
+        public string Gen = "v1";
 
         /// <summary>«хост:порт» сервера; null — офлайн-режим (локальный такт).</summary>
         public string? Connect;
@@ -107,7 +123,7 @@ namespace Orpheus.Client
         public int AnimBenchSeconds;
 
         /// <summary>
-        /// 1-022: <c>--tile-bench &lt;сек&gt;</c> — стенд «48 Tilemap»: бег через шов при зуме ×0,6 и поток правок
+        /// 1-022: <c>--tile-bench &lt;сек&gt;</c> — стенд «48 Tilemap»: бег через шов на самом дальнем обзоре (96 тайлов) и поток правок
         /// (20 тайлов/с + пачки 32 тайла), замеры fps и стоимости правок (шаг 1–2; приёмка 1.11).
         /// </summary>
         public int TileBenchSeconds;
@@ -137,7 +153,7 @@ namespace Orpheus.Client
         /// <summary>Текст подсказки для логов и подсказки при ошибке.</summary>
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
-            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь] " +
+            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
             "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек]";
 
@@ -309,6 +325,44 @@ namespace Orpheus.Client
                         else
                         {
                             a.ScreenshotPath = next;
+                        }
+
+                        break;
+                    case "--shot-tile":
+                        i++;
+                        string[] xy = (next ?? string.Empty).Split(',');
+                        if (xy.Length != 2
+                            || !int.TryParse(xy[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.ShotTileX)
+                            || !int.TryParse(xy[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.ShotTileY)
+                            || a.ShotTileX < 0 || a.ShotTileY < 0)
+                        {
+                            a.Error = $"--shot-tile: нужно X,Y (тайлы ≥ 0), дано '{next}'";
+                        }
+                        else
+                        {
+                            a.HasShotTile = true;
+                        }
+
+                        break;
+                    case "--shot-width":
+                        i++;
+                        if (!int.TryParse(next, NumberStyles.Integer, CultureInfo.InvariantCulture, out a.ShotWidth)
+                            || a.ShotWidth < 40 || a.ShotWidth > 96)
+                        {
+                            a.Error = $"--shot-width: нужно тайлов 40…96, дано '{next}'";
+                            a.ShotWidth = 0;
+                        }
+
+                        break;
+                    case "--gen":
+                        i++;
+                        if (next != "v1" && next != "stub")
+                        {
+                            a.Error = $"--gen: нужно v1 или stub, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.Gen = next!;
                         }
 
                         break;

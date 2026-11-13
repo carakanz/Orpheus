@@ -769,21 +769,24 @@ namespace Orpheus.Client
             return root;
         }
 
-        // 1-002: в сетевом режиме колесо мыши — ячейка быстрой панели (`02` 1.1), зум остаётся на геймпаде (плечи);
-        // клавиши 1–8 — прямой выбор ячейки.
+        // E1-1 (план, шаг 1.1): колесо мыши — обзор от 40 до 96 тайлов в ширину, как офлайн; на геймпаде — плечи.
+        // Ячейка быстрой панели (1-002, `02` 1.1): клавиши 1–8 или колесо с зажатым Alt — до окна панели (шаг 2.2).
         void UpdateZoom()
         {
             float scroll = _g.ZoomAxis.ReadValue<float>();
+            Keyboard? kb = Keyboard.current;
+            bool slotWheel = kb != null && (kb.leftAltKey.isPressed || kb.rightAltKey.isPressed);
             if (scroll > 0.01f)
             {
-                _slot = (_slot + 1) % InputFrame.MaxSlots;
+                if (slotWheel) _slot = (_slot + 1) % InputFrame.MaxSlots;
+                else _g.SetZoom(_g.Zoom * GameBoot.ZoomStep);
             }
             else if (scroll < -0.01f)
             {
-                _slot = (_slot + InputFrame.MaxSlots - 1) % InputFrame.MaxSlots;
+                if (slotWheel) _slot = (_slot + InputFrame.MaxSlots - 1) % InputFrame.MaxSlots;
+                else _g.SetZoom(_g.Zoom / GameBoot.ZoomStep);
             }
 
-            Keyboard? kb = Keyboard.current;
             if (kb != null)
             {
                 for (int k = 0; k < InputFrame.MaxSlots; k++)
@@ -832,6 +835,8 @@ namespace Orpheus.Client
 
             NetClient? c = _client;
             float fps = 1f / Mathf.Max(Time.unscaledDeltaTime, 1e-4f);
+            // E1-1: без --hud строка видна только до входа в игру (состояние связи и ошибки входа).
+            _g.ShowDebugText(_args.Hud || c == null || c.State != NetClientState.InGame);
             if (c == null || c.State != NetClientState.InGame)
             {
                 _g.DebugText.text = $"{_status}  ({_host}:{_port})  {fps:0} fps";
@@ -872,7 +877,7 @@ namespace Orpheus.Client
                 combat + melee + BagHud() +
                 $"  показ −{(_remote?.BufferUs ?? 0) / 1000} мс (стоит {_remote?.HoldFrames ?? 0})  якорь {_origin?.Anchor.X},{_origin?.Anchor.Y}" +
                 $"{(_pred != null && _pred.Overflows > 0 ? $" (задержка > {LocalPrediction.BufferSize / 60} с: {_pred.Overflows})" : "")}  " +
-                $"zoom x{_g.Zoom:0.00}  {fps:0} fps{EditHud(now)}";
+                $"zoom x{_g.Zoom:0.00} ({_g.ViewTiles:0} т)  {fps:0} fps{EditHud(now)}";
         }
 
         void NetSmokeCheck(long now, NetClientState state)

@@ -6,10 +6,11 @@ using UnityEngine;
 namespace Orpheus.Client
 {
     /// <summary>
-    /// Режим <c>--screenshot &lt;путь&gt;</c> (карточка 0-010, шаг 8; сеть — 0-012): в офлайне персонаж ставится
-    /// в 60 тайлах к востоку от центра (для зерна по умолчанию там в кадре и поле скал, и луга с деревьями),
-    /// в сети — создаётся после входа и снимает там, где поселил сервер; зум ×0,6 — самый широкий обзор (67 тайлов);
-    /// через полсекунды кадр уходит в PNG через <see cref="ScreenCapture"/>, игра выходит.
+    /// Режим <c>--screenshot &lt;путь&gt;</c> (карточка 0-010, шаг 8; сеть — 0-012; сцены стенда — E1-1): в офлайне персонаж
+    /// стоит на старте или на тайле <c>--shot-tile X,Y</c> (ближайший свободный), в сети — создаётся после входа и снимает
+    /// там, где поселил сервер; обзор — <c>--shot-width</c> тайлов по ширине (по умолчанию 64);
+    /// на 30-м кадре кадр уходит в PNG через <see cref="ScreenCapture"/>, игра выходит.
+    /// Офлайн время кадра фиксировано (1/60 с): повтор той же сцены даёт тот же кадр (стенд <c>tools/shots.ps1</c>).
     /// Нужен вывод на экран — запускать без <c>-batchmode -nographics</c>; окно открыто ~1 с.
     /// </summary>
     public sealed class ScreenshotRun
@@ -42,16 +43,23 @@ namespace Orpheus.Client
                 File.Delete(_path);
             }
 
-            _g.SetZoom(GameBoot.MinZoom);
+            ClientArgs a = g.Args;
+            _g.SetViewTiles(a.ShotWidth > 0 ? a.ShotWidth : GameBoot.DefaultViewTiles);
             if (netMode)
             {
-                Debug.Log($"[screenshot] сеть: снимок → {_path} (персонаж там, где поселил сервер)");
+                Debug.Log($"[screenshot] сеть: снимок → {_path} (персонаж там, где поселил сервер), обзор {_g.ViewTiles:0} тайлов");
                 return;
             }
 
-            int c = g.Map.Width / 2;
-            _g.Teleport(_g.TileCenter(FindFree(new TileCoord(c + 60, c))));
-            Debug.Log($"[screenshot] персонаж в {_g.Player.Position}, снимок → {_path}");
+            Time.captureDeltaTime = 1f / 60f; // кадры не зависят от скорости машины: повтор сцены — тот же PNG
+            if (a.HasShotTile)
+            {
+                TileCoord at = FindFree(Torus.Wrap(g.Map, new TileCoord(a.ShotTileX, a.ShotTileY)));
+                _g.Teleport(_g.TileCenter(at));
+            }
+
+            TileCoord t = Torus.TileOf(g.Map, _g.Player.Position);
+            Debug.Log($"[screenshot] персонаж на тайле {t.X},{t.Y}, обзор {_g.ViewTiles:0} тайлов, снимок → {_path}");
         }
 
         // Ближайший проходимый тайл по спирали квадратов.

@@ -24,7 +24,7 @@ $log = Join-Path $logDir "$tag.log"
 Remove-Item $log -ErrorAction SilentlyContinue
 
 $p = Start-Process -FilePath $exe -PassThru -NoNewWindow `
-    -ArgumentList @('-batchmode', '-nographics', '--tile-bench', "$Seconds",
+    -ArgumentList @('-batchmode', '-nographics', '--tile-bench', "$Seconds", '--gen', 'stub',
                    '--seed', '202609', '--size', '1024',
                    '-screen-width', '1920', '-screen-height', '1080', '-logFile', "`"$log`"")
 $null = $p.Handle
