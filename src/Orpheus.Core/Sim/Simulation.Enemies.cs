@@ -14,40 +14,6 @@ namespace Orpheus.Core.Sim
     /// </summary>
     public sealed partial class Simulation
     {
-        /// <summary>Идти к центру тайла (ввод как у персонажа); пришли (ближе 3/4 тайла) — ввод пустой, true.</summary>
-        private bool MoveToward(ref SimEntity e, TileCoord tile)
-        {
-            Int2 d = Torus.Delta(_shape, e.Mover.Position, EditRules.CenterOf(Torus.Wrap(_shape, tile)));
-            if (d.LengthSquared <= MeleeRogue.NodePass2)
-            {
-                e.Input = InputFrame.None;
-                return true;
-            }
-
-            e.Input = new InputFrame(Input8.FromStick(d.X, d.Y));
-            return false;
-        }
-
-        /// <summary>Новый планировщик путей (очередь по слотам; без часов — поиск ровно PathMaxPerTick за такт).</summary>
-        private PathScheduler NewPathScheduler() =>
-            new PathScheduler(_pathFinder, _pathTerrain, _pathBuf, PathQueueCapacity, PathMaxPerTick);
-
-        /// <summary>
-        /// Сброс кэша путей (1-007): слоты сдвинулись (<see cref="RemoveEntity"/>) или состояние заменили
-        /// (<see cref="Restore"/>) — владельцы запросов протухли; буферы очищаются, пути переспрашиваются.
-        /// </summary>
-        private void ResetPathCaches()
-        {
-            for (int i = 0; i < _entities.Length; i++)
-            {
-                _pathBuf[i].Clear();
-                _entities[i].Brain.PathStamp = 0;
-                _entities[i].Brain.PathPos = 0;
-            }
-
-            _paths = NewPathScheduler();
-        }
-
         /// <summary>
         /// Преследование (1-007, 9.3): цель в зоне удара handled выше; тут — путь по плану A* (окно 48 × 48,
         /// планировщик такта) или прямо к цели, пока путь в работе/не готов. Переспрос: цель ушла дальше тайла,

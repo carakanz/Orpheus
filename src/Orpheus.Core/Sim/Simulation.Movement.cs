@@ -94,5 +94,83 @@ namespace Orpheus.Core.Sim
             }
         }
 
+        /// <summary>Идти к центру тайла (ввод как у персонажа); пришли (ближе 3/4 тайла) — ввод пустой, true.</summary>
+        private bool MoveToward(ref SimEntity e, TileCoord tile)
+        {
+            Int2 d = Torus.Delta(_shape, e.Mover.Position, EditRules.CenterOf(Torus.Wrap(_shape, tile)));
+            if (d.LengthSquared <= MeleeRogue.NodePass2)
+            {
+                e.Input = InputFrame.None;
+                return true;
+            }
+
+            e.Input = new InputFrame(Input8.FromStick(d.X, d.Y));
+            return false;
+        }
+
+        /// <summary>Новый планировщик путей (очередь по слотам; без часов — поиск ровно PathMaxPerTick за такт).</summary>
+        private PathScheduler NewPathScheduler() =>
+            new PathScheduler(_pathFinder, _pathTerrain, _pathBuf, PathQueueCapacity, PathMaxPerTick);
+
+        /// <summary>
+        /// Сброс кэша путей (1-007): слоты сдвинулись (<see cref="RemoveEntity"/>) или состояние заменили
+        /// (<see cref="Restore"/>) — владельцы запросов протухли; буферы очищаются, пути переспрашиваются.
+        /// </summary>
+        private void ResetPathCaches()
+        {
+            for (int i = 0; i < _entities.Length; i++)
+            {
+                _pathBuf[i].Clear();
+                _entities[i].Brain.PathStamp = 0;
+                _entities[i].Brain.PathPos = 0;
+            }
+
+            _paths = NewPathScheduler();
+        }
+
+        // ---------- Проходимость ----------
+
+        /// <summary>
+        /// Тайл мешает ходить (docs/05, 1.3): пол непроходим (лава, неизвестный) или объект непроходим;
+        /// у «части» многотайлового объекта свойства — у якоря; дверь — по флагу записи постройки.
+        /// Несозданный чанк — пусто, проходим.
+        /// </summary>
+        public bool IsBlocked(MapShape map, TileCoord tile)
+        {
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
+            if (chunk == null)
+            {
+                return false;
+            }
+
+            int index = Chunk.IndexOf(tile.X, tile.Y);
+            if (!FloorId.IsPassable(chunk.GetFloor(index)))
+            {
+                return true;
+            }
+
+            ushort obj = chunk.GetObject(index);
+            if (obj == ObjectId.Empty)
+            {
+                return false;
+            }
+
+            BuildRecord record;
+            if (ObjectId.IsPart(obj))
+            {
+                TileCoord anchor = _world.AnchorOf(tile);
+                obj = _world.GetObject(anchor);
+                if (!_world.TryGetBuild(anchor, out record))
+                {
+                    record = default;
+                }
+            }
+            else if (!chunk.TryGetBuild(index, out record))
+            {
+                record = default;
+            }
+
+            return !ObjectId.IsPassable(obj, record.Flags);
+        }
     }
 }

@@ -1,22 +1,25 @@
 # Карта кода (обновлять при правке файла)
 Мега-файлы: метод:строка. Строки дрейфуют: сначала grep, здесь границы ±5.
 
-## Simulation*.cs - src/Orpheus.Core/Sim (P-002: partial по подсистемам, ядро + 8 файлов)
-Ядро Simulation.cs (757): поля/константы :64-156, ctor :343, Step :491 (полный такт), SetWorldTime :221, DayScale :218, RequestEdit :445/:449, RequestPlayerEdit :459, GetTileEdits :517, IsBlocked :232, структуры EntityInput :12 / EditRequest. Остальное — grep по имени метода.
-Simulation.Entities.cs: AddEntity :30 · AddEnemy :61 · AddEntityWithId :77 · RemoveEntity :115 · GetEntity :149 · Respawn :161 · SlotOf (grep)
-Simulation.Input.cs: SetInput :15 · SetInputAt :29 · SetFramesAt :57 · CopyPendingInputs :83
+## Simulation*.cs - src/Orpheus.Core/Sim (P-002: partial по подсистемам, ядро + 10 файлов; строки сверены 13.11)
+Ядро Simulation.cs (542): EntityInput :12, поля/константы :63-156, ctor :157, RefillPools :219, DayScale :243, SetWorldTime :246, Step :292 (полный такт, порядок фаз), ExpireEntry :431, константы подсистем :420-528, AddEvent :530.
+Simulation.Entities.cs: GetEntity :18 · SlotOf :30 · NearestCharacterWithin :58 · Respawn :81 · NearestCharacterSlot :95 · AddEntity :124/:138 · AddEnemy :153 · RemoveEntity :168 · AddEntityWithId :196
+Simulation.Input.cs: ApplySlot :18 · CopyPendingInputs :30 · DesiredDirection :45 · SetInput :58 · SetInputAt :71 · SetFramesAt :95
 Simulation.Inventory.cs: SetInventory :14
-Simulation.Edits.cs: CostOf :15 · RefundCost :58 · DamageBuilding :204 · AddExpire :262 · StepExpiry :281 · CheckCreatures :334 · GiveDigLoot :375 (ExpireEntry :248)
-Simulation.Doors.cs: DoorLockUntil :14 · IndexDoors :24 · AddDoor :42 · RemoveDoor :55 · CloseDoorNearest :70 · RequestCloseDoor :86 · BeginDoorClose :135 · BeginDoorOpen :157 · TouchDoorDeadline :185 · PushEnemyOffTile :202 · StepDoors :232
-Simulation.Combat.cs: StrikeLineClear :22 · StrikeTileBlocked :79 · ApplyStrike :113 · StartAttack :217 · EnableAttackCycle :246
-Simulation.Enemies.cs: AddMeleeRogue :15 · MoveToward :39 · StepAI :82 · UpdateTarget :279 · Chase :396
-Simulation.Movement.cs: ISqrt :14 · StepSeparation :27
+Simulation.Edits.cs: AddExpire :17 · StepExpiry :44 · GiveBuildRefund :81 · DamageBuilding :112 · CheckCreatures :156 · GiveDigLoot :189 · TileAndNeighborsFree :207 · TileOf :227 · RequestPlayerEdit :238 · Enqueue :244 · RequestEdit :271/:275 · CostOf :282 · RefundCost :294 · ApplyEditBatches :310 · PreEdit :418
+Simulation.EditQueue.cs: SortByChunkThenArrival :19 · Compare :59 · структура EditRequest :62
+Simulation.Doors.cs: BeginDoorOpen :18 · BeginDoorClose :43 · IndexOfDoor :109 · StepDoors :128 · PushEnemyOffTile :223 · TouchDoorDeadline :264 · AddDoor :283 · IndexDoors :322 · DoorLockUntil :345 · RequestCloseDoor :353 · CloseDoorNearest :376 · RemoveDoor :407
+Simulation.Combat.cs: StartAttack :21 · ApplyStrike :57 · BeginWindup :151 · EnableAttackCycle :163 · ResolveMeleeStrike :189 · StepCombat :255 · StrikeTileBlocked :389 · StrikeLineClear :412
+Simulation.Enemies.cs: Chase :24 · AddMeleeRogue :240 · StepAI :273 · UpdateTarget :393
+Simulation.Movement.cs: ISqrt :18 · StepSeparation :50 · MoveToward :98 · NewPathScheduler :112 · ResetPathCaches :119 · IsBlocked :138
+Simulation.Restore.cs: Restore :23/:32 · NextEntityId :~75 · RestoreDefaults :83
 
 ## Spawner.cs - partial Simulation (спавн)
 Волны, точки появления, очередь спавна: методы по grep (класс Simulation :34).
 
-## NetServer*.cs - src/Orpheus.Net/Session (P-002: partial по подсистемам, ядро + 5 файлов + Edits/Pause/Threats)
-Ядро NetServer.cs (801): поля/константы, ctor :388, Poll :709, метрики-свойства :429-624, WorldTimeTicks :507, ClockEpoch :501, OnConnected/OnDisconnected/OnReceive (ITransportHandler, grep). Остальное — grep по имени метода.
+## NetServer*.cs - src/Orpheus.Net/Session (P-002: partial по подсистемам, ядро + 6 файлов + Edits/Pause/Threats)
+Ядро NetServer.cs (530): поля/константы :45-140, ctor :142, метрики-свойства :~185-380, ClockEpoch :265, WorldTimeTicks :271, Poll :382, OnConnected :403 / OnDisconnected :411 / OnReceive :435 (ITransportHandler). Остальное — grep по имени метода.
+NetServer.Types.cs: PlayerState :18 · Player :24 · ViewState :166 · SentRing :195 · FrameWindow :238
 NetServer.Input.cs: PlanFrames :15 · TrimTo :145 · TakeSticky :169 · UpdateLeadStats :187 · Advance :201 · DropSilentConnections :211 · StopStaleInputs :234 · OnInput :343
 NetServer.Snapshots.cs: SendSnapshots :15 · SendInventoryTo :51 · SendSnapshotTo :62 · TryWriteDelta :148 · WriteFull :290 · BuildView :323 · Quantize :422 (IndexIn в ядре)
 NetServer.Chunks.cs: CopyHeldChunks :15 · SyncChunks :43 · SendChunk :68 · BroadcastPatches :90 · OnChunkRequest :233
