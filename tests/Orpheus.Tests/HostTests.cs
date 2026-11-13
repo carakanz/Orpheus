@@ -25,6 +25,7 @@ namespace Orpheus.Tests
     /// Сервер одиночной игры и хоста без процессов (карточка 0-024; docs/07 2.3, 2.13 п. 9, 7.6, 1.6): протокол хозяина,
     /// два слушающих транспорта под одним сервером, токен и вытеснение, ожидание хозяина, файл-замок, «Process только в ПК-слое».
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class HostTests
     {
         private const long TickMicros = 1_000_000 / Simulation.TickRate;

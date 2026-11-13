@@ -24,6 +24,7 @@ namespace Orpheus.Tests
     /// старые; вход нового персонажа тоже сохраняется. Запись «держится» хранилищем с задвижкой — долгая запись без
     /// гонки со временем.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class SaveEventTests
     {
         private const ulong Seed = 37;

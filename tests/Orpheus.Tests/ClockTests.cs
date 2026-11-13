@@ -709,15 +709,9 @@ namespace Orpheus.Tests
         }
     }
 
-    /// <summary>Отдельная коллекция без параллели: UDP-прогон 60 с под чужой нагрузкой (другие Big UDP-тесты) краснеет не по своей вине.</summary>
-    [CollectionDefinition(Name, DisableParallelization = true)]
-    public sealed class ClockUdpCollection
-    {
-        public const string Name = "ClockUdp";
-    }
-
-    /// <summary>Часы и заморозка по UDP (0-025): сервер в процессе теста, боты с предсказанием, `-All`.</summary>
-    [Collection(ClockUdpCollection.Name)]
+    /// <summary>Часы и заморозка по UDP (0-025): сервер в процессе теста, боты с предсказанием, `-All`.
+    /// С 13.11 (P-003) — в общей тяжёлой коллекции (бывшая ClockUdp влита в неё).</summary>
+    [Collection(HeavyCollection.Name)]
     public class ClockUdpTests
     {
         private readonly ITestOutputHelper _out;

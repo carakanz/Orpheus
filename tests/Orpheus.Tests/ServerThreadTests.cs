@@ -25,6 +25,7 @@ namespace Orpheus.Tests
     /// загрузка — только через <see cref="IPlatformStorage"/> (на ПК — <see cref="PcStorage"/>; консоль — хранилище платформы,
     /// здесь — в памяти). CI без Unity (приёмка 0.1); клиент Unity в потоке — smoke сборки (<c>build_client.ps1 -ThreadSmoke</c>).
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public sealed class ServerThreadTests : IDisposable
     {
         /// <summary>Ускорение часов теста: такт 16,7 мс вместо 33,3 — 300 тактов (10 с мира) за 5 с.</summary>

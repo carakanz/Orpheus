@@ -24,6 +24,7 @@ namespace Orpheus.Tests
     /// хозяин — по токену, остальные — по имени; уход и возвращение, вытеснение упавшей игры, перезапуск сервера между,
     /// «имя занято», занятое место, формат сохранения 3 и чтение настоящего файла формата 2.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class ReturnTests
     {
         private const long TickMicros = 1_000_000 / Simulation.TickRate;

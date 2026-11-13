@@ -14,6 +14,7 @@ namespace Orpheus.Tests
     /// Шип пути 0-023 (docs/02, 9.2; docs/07, 2.4): A* в окне 48 × 48 с заворотом по тору, предел 1500 узлов,
     /// «цель в замкнутой области», бюджет 40 поисков и 3 мс за такт. Бенч 1024² — <c>D02_S9_2_Big_*</c> (Category=Big).
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public sealed class PathTests
     {
         private readonly ITestOutputHelper _out;

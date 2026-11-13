@@ -29,6 +29,7 @@ namespace Orpheus.Tests
     /// бинд на все адреса вызывает окно брандмауэра Windows (ручная проверка Автора). Свои процессы снимаются в
     /// <c>finally</c> по номеру — только свои.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class HostProcessTests : IDisposable
     {
         private const string OpenAddress = "127.0.0.2";

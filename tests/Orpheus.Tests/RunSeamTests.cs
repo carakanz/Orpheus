@@ -24,6 +24,7 @@ namespace Orpheus.Tests
     /// координата после круга совпадает со стартом точно; наблюдатель у шва видит его без скачка — сдвиг показанной позиции
     /// за 1/30 с ≤ 6 т/с × 1/30 с × 1,1 = 0,22 тайла.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class RunSeamTests
     {
         private const int U = Torus.SubTilesPerTile;

@@ -15,6 +15,7 @@ namespace Orpheus.Tests
     /// Метрики такта сервера (0-030, docs/07 11.6): процентили по гистограмме, части такта, простои по часам, итог и отчёт
     /// <c>--report</c>. Без выделений в такте — <see cref="AllocationTests"/>.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public sealed class MetricsTests : IDisposable
     {
         private readonly ITestOutputHelper _out;

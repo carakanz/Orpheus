@@ -24,6 +24,7 @@ namespace Orpheus.Tests
     /// кодек записей, контейнер, туда-обратно с хэшем состояния, поколения и проверка <c>.tmp</c>, хвосты backlog
     /// [сохранения], <c>orpheus-save dump</c>, сервер. Приёмка 0.4 (убийство процесса) — <see cref="SaveKillTests"/>.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class SaveTests : IDisposable
     {
         private const ulong Seed = 0x0009;

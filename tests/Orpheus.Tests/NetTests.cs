@@ -28,6 +28,7 @@ namespace Orpheus.Tests
     /// Сеть (карточка 0-008; docs/07 2.10, 4.3, 11.3, 2.13 п. 1): кодек, бюджет снимка, имитатор связи,
     /// вход и снимки на связи в памяти и по UDP.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class NetTests
     {
         private const int U = Torus.SubTilesPerTile;

@@ -678,7 +678,7 @@ namespace Orpheus.Tests
     }
 
     /// <summary>Пауза по UDP (0-036): сервер в процессе теста (<c>ServerRun</c> → цикл <c>ServerHost</c> с паузой), боты с предсказанием.</summary>
-    [Collection(ClockUdpCollection.Name)]
+    [Collection(HeavyCollection.Name)]
     public class PauseUdpTests
     {
         private readonly ITestOutputHelper _out;
