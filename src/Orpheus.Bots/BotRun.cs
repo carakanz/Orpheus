@@ -471,7 +471,8 @@ namespace Orpheus.Bots
                     st.BuildRoom = $"этап {build.Stage}, добыча {build.GatherTicks} тиков (камня {build.StoneAtGatherEnd}, древесины {build.WoodAtGatherEnd}, скал {build.RocksDug}, деревьев {build.TreesChopped}), " +
                                    $"полов {build.FloorsPlaced}/9, стен {build.WallsPlaced}/15, дверь {(build.DoorPlaced ? "поставлена" : "не поставлена")}, закрыта {(build.DoorClosed ? "да" : "нет")}, " +
                                    $"стройка {build.BuildTicks} тиков, урон за дверью {build.DamageThroughDoor} кадров, смертей {build.Deaths}, рассвет {(build.DawnReached ? "дождались" : "нет")}" +
-                                   $"{(build.FailReason != null ? $", отказ: {build.FailReason}" : "")}";
+                                   $"{(build.FailReason != null ? $", отказ: {build.FailReason}" : "")}" +
+                                   $"{(build.DamageThroughDoor > 0 ? $"; попадания: {build.DamageDetail}" : "")}";
                 }
 
                 NightCampBot? camp = bots[i].Camp;

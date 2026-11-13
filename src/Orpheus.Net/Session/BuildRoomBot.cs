@@ -118,6 +118,10 @@ namespace Orpheus.Net.Session
         /// за закрытой дверью; удары, полученные снаружи до закрытия, — не «урон за дверью»).</summary>
         public int DamageThroughDoor { get; private set; }
 
+        /// <summary>Диагностика попаданий за дверью: на каждое — такт, здоровье, состояние двери и сущности
+        /// в радиусе 3 тайла (UDP Big 13.11: 6 кадров — ищем источник).</summary>
+        public string DamageDetail { get; private set; } = "";
+
         /// <summary>Смертей своё (пропажа <see cref="SnapshotSelf.Present"/>).</summary>
         public int Deaths { get; private set; }
 
@@ -230,6 +234,10 @@ namespace Orpheus.Net.Session
             if (Stage >= Phase.WaitDawn && DoorClosed && _prevHealth >= 0 && self.Health < _prevHealth)
             {
                 DamageThroughDoor++; // новое попадание за закрытой дверью — провал приёмки 1.5
+                if (DamageDetail.Length < 900)
+                {
+                    DamageDetail += $"[т{Ticks} hp{_prevHealth}->{self.Health} {(world.World.TryGetBuild(DoorTile, out BuildRecord drg) && drg.IsDoorOpen ? "дверьОткр" : "дверьЗакр")} {NearbyText(client, pos)}] ";
+                }
             }
             _prevHealth = self.Health;
 
@@ -748,6 +756,30 @@ namespace Orpheus.Net.Session
         {
             Int2 d = Torus.Delta(_shape, a, b);
             return Math.Max(Math.Abs(d.X), Math.Abs(d.Y));
+        }
+
+        /// <summary>Сущности снимка в радиусе 3 тайла от своей (для журнала попаданий, UDP Big 13.11).</summary>
+        private string NearbyText(NetClient client, WorldPos pos)
+        {
+            TileCoord me = Torus.TileOf(_shape, pos);
+            Snapshot snap = client.Latest;
+            var sb = new System.Text.StringBuilder("вокруг:");
+            for (int i = 0; i < snap.Count; i++)
+            {
+                SnapshotEntity e = snap.Entities[i];
+                if (e.Id == client.EntityId)
+                {
+                    continue;
+                }
+
+                int d = Cheb(Torus.TileOf(_shape, e.Position), me);
+                if (d <= 3)
+                {
+                    sb.Append($" #{e.Id} k{e.Kind} d{d} hp{e.HealthPct} e{e.Enemy} m{e.Melee}");
+                }
+            }
+
+            return sb.ToString();
         }
 
         // ------------------------------------------------------------------ ходьба и инструменты
