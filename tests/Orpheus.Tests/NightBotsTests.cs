@@ -30,6 +30,7 @@ namespace Orpheus.Tests
     /// (<c>02</c> 8.2), убийца — из «Смерти».
     /// </para>
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class NightBotsTests
     {
         private const int U = Torus.SubTilesPerTile;
