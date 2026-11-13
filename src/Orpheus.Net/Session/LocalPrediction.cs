@@ -372,7 +372,16 @@ namespace Orpheus.Net.Session
             _mover.KnockLeft = server.KnockLeft;
             _mover.KnockSpeedX10 = server.KnockLeft == 0 ? 0 : Mover.KnockSpeedFor(_mass);
             _mover.KnockDir = server.KnockLeft == 0 ? (byte)0 : server.KnockDir;
-            _mover.Stamina.Value = server.Stamina; // 1-003: запас — с сервера (страховка), таймеры регена — локальные предсказанию
+            if (known)
+            {
+                // P-004: фазы удара и таймеров выносливости в снимке нет — берём предсказанные для ack. Текущие уже
+                // прошли кадры новее ack: переигровка шагнула бы их второй раз, замах убежал бы вперёд сервера на длину
+                // переигровки, замедление 70 % встало бы не на те кадры — и каждая граница фазы давала бы новую правку.
+                _mover.Melee = predicted.Melee;
+                _mover.Stamina = predicted.Stamina;
+            }
+
+            _mover.Stamina.Value = server.Stamina; // 1-003: запас — с сервера (страховка), таймеры регена — предсказанные для ack
             _before = _mover;
             _beforeFrame = ackFrame;
             _beforePre = !_hasHistory || (int)(ackFrame - _firstFrame) < 0;
