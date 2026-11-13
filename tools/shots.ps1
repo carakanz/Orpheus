@@ -65,14 +65,13 @@ function Invoke-Shot($scene, [string] $png) {
     # Extra client keys of the scene, e.g. "args": ["--paint-demo"] (E1-4).
     if ($scene.args) { $a += @($scene.args | ForEach-Object { "$_" }) }
     $a += @('--shot-size', ("{0}x{1}" -f $width, $height), '-logFile', "`"$log`"")
-    $p = Start-Process -FilePath $Exe -ArgumentList $a -PassThru -WindowStyle Hidden
-    $null = $p.Handle
-    if (-not $p.WaitForExit($TimeoutSec * 1000)) {
-        try { $p.Kill() } catch { }
-        Fail "$($scene.name): the client did not exit in $TimeoutSec s, log: $log"
-    }
-    $p.WaitForExit()
-    if ($p.ExitCode -ne 0) { Fail "$($scene.name): exit code $($p.ExitCode), log: $log" }
+    # The client runs on a separate invisible desktop (tools\run_hidden.ps1): even with -batchmode the
+    # player creates a window, and on the user's desktop that window takes keyboard focus.
+    $hidden = Join-Path $PSScriptRoot 'run_hidden.ps1'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $hidden -Exe $Exe -Arguments ($a -join ' ') -TimeoutSec $TimeoutSec
+    $code = $LASTEXITCODE
+    if ($code -eq 258) { Fail "$($scene.name): the client did not exit in $TimeoutSec s, log: $log" }
+    if ($code -ne 0) { Fail "$($scene.name): exit code $code, log: $log" }
     if (-not (Test-Path $png) -or (Get-Item $png).Length -eq 0) { Fail "$($scene.name): no file $png, log: $log" }
 }
 
