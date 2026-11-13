@@ -72,6 +72,12 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 Бег: Run :183 · RunCore :200 · SaveAfterError :440 · SetUpHost :474 · Ready :540 · ReadyMetrics :528 · CloseWorld :553 · CreateNetServer :593 · Loop :628 · FinishMetrics :812 · Verify :820 · GeneratorFor :171
 Мир: OpenWorld :891 · LoadLatest :971 · SpawnPoint :1012/:1018 · DefaultSpawnCenter :1025 · SeamSpawnCenter :1033 · SpawnCenter :1063 · SpawnBots :1088 · CountBots :1105 · BotsText :1116
 
+## Боты - src/Orpheus.Net/Session (клиентские сценарии, 1-026)
+- NetBot.cs :28: маршрутизация сценариев по `--script` :122–157 (dodge/dig_line/build_room/night_camp), driving каждого кадра :201–217.
+- BuildRoomBot.cs :30 (build_room): Next :206 (главный цикл, этапы Phase), OnReply :143 (ответы постановки), Stage :84, метрики GatherTicks/BuildTicks/DamageThroughDoor :93–125; TryDigObstacle :369, CountFloors :494, CountWalls :603, PlaceArmed :847. Обходы пина (13.11): WarmupTicks 120, пин Close >45 т → диагональ, Enter >45 т + cheb 1 → F снаружи.
+- NightCampBot.cs :15 (night_camp): Next :57, TicksToDeath :29, KillerId :32.
+- DigLineBot.cs :23 (dig_line, образец), DodgeBot.cs :25 (dodge).
+
 ## Остальное в src/Orpheus.Core/Sim/ (по одной строке)
 - StateHash.cs: хэш состояния (контрольные суммы сверки реплеев).
 - Spawner.cs: partial Simulation: спавн, волны, точки появления.
