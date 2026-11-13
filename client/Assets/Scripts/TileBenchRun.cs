@@ -114,6 +114,36 @@ namespace Orpheus.Client
 
         public void Dispose() => Application.logMessageReceived -= OnLog;
 
+        // E1-4, --bench-render: кадр камеры в текстуру 1920 × 1080 и ожидание видеокарты (чтение пикселя) — время кадра
+        // включает отрисовку и без окна (-batchmode). Без ключа стенд меряет только CPU, как раньше.
+        RenderTexture? _benchRt;
+        Texture2D? _benchPixel;
+
+        void RenderFrame()
+        {
+            if (!_g.Args.BenchRender)
+            {
+                return;
+            }
+
+            if (_benchRt == null)
+            {
+                _benchRt = new RenderTexture(1920, 1080, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+                _benchPixel = new Texture2D(1, 1, TextureFormat.RGB24, false);
+                Debug.Log($"[tilebench] отрисовка: каждый кадр камера → текстура 1920x1080 + чтение пикселя, устройство {SystemInfo.graphicsDeviceType}");
+            }
+
+            Camera cam = _g.Camera;
+            RenderTexture? prevTarget = cam.targetTexture;
+            RenderTexture? prevActive = RenderTexture.active;
+            cam.targetTexture = _benchRt;
+            cam.Render();
+            RenderTexture.active = _benchRt;
+            _benchPixel!.ReadPixels(new Rect(960, 540, 1, 1), 0, 0);
+            cam.targetTexture = prevTarget;
+            RenderTexture.active = prevActive;
+        }
+
         static string Backend()
         {
 #if ENABLE_IL2CPP
@@ -334,6 +364,7 @@ namespace Orpheus.Client
                 return;
             }
 
+            RenderFrame();
             long ts = Stopwatch.GetTimestamp();
             if (_prevTs != 0)
             {
@@ -445,7 +476,8 @@ namespace Orpheus.Client
             if (_view.TryGetNode(c, out WorldView.ChunkNode node))
             {
                 Vector3Int cell = WorldView.CellOf(lx, ly);
-                if (node.Floor.GetTile(cell) != _view.FloorTile(floor) || node.Objects.GetTile(cell) != _view.ObjectTile(obj))
+                if (node.Floor.GetTile(cell) != _view.FloorTile(floor) || node.Objects.GetTile(cell) != _view.ObjectTile(obj)
+                    || !WorldView.GroundShows(node, lx, ly, floor))
                 {
                     _sameFrameBad++;
                     Fail($"правка {t} не видна в тот же кадр: тайл Tilemap ≠ ядро");
@@ -483,7 +515,7 @@ namespace Orpheus.Client
             var buf = new TileBase?[Torus.ChunkSize * Torus.ChunkSize];
             for (int i = 0; i < buf.Length; i++)
             {
-                buf[i] = _view.FloorTile(FloorId.Grass);
+                buf[i] = _view.FloorTile(FloorId.StoneFloor); // E1-4: плитки пола — только у построенных полов
             }
 
             _microBlockOps = 200;
@@ -500,10 +532,11 @@ namespace Orpheus.Client
             sw.Restart();
             for (int i = 0; i < _microTileOps; i++)
             {
-                node.Floor.SetTile(cell, i % 2 == 0 ? _view.FloorTile(FloorId.Stone) : _view.FloorTile(FloorId.Grass));
+                node.Floor.SetTile(cell, i % 2 == 0 ? _view.FloorTile(FloorId.StoneFloor) : null);
             }
 
             _microTileUs = sw.Elapsed.TotalMilliseconds * 1000.0 / _microTileOps;
+            node.HasBuiltFloor = true; // микрозамер писал в Tilemap пола мимо WorldView — заливка ниже обязана его очистить
             _view.ShowChunk(c); // узел под персонажем залит заново из ядра: микрозамер не оставляет следов в Tilemap
             Debug.Log($"[tilebench] микро: SetTilesBlock 32×32 — {_microBlockUs:0.0} мкс/вызов ({_microBlockOps} шт), " +
                       $"SetTile — {_microTileUs:0.00} мкс/вызов ({_microTileOps} шт, чередование)");
@@ -570,7 +603,7 @@ namespace Orpheus.Client
                       $"{paintsPerFrame * paintUs / 1000:0.000} мс/кадр при 60 fps ({paintsPerFrame * paintUs / 1000 / 16.67:0.0 % кадра}); " +
                       $"полная перелицовка окна ({_maxWindow} чанков) ≈ {_maxWindow * paintUs / 1000:0.00} мс");
             Debug.Log($"[tilebench] окно: ног пройдено {_legsDone}, макс {_maxWindow} чанков (предел {ChunkWindow.MaxChunks}), дыр {_holes}, " +
-                      $"узлов создано {_view.NodesCreated} (Tilemap-рендереров {2 * _view.NodesCreated}), " +
+                      $"узлов создано {_view.NodesCreated} (Tilemap-рендереров {2 * _view.NodesCreated}), мешей земли собрано {_view.GroundBuilds}, " +
                       $"видимых тайлов объектов (отрисовок Individual) ~{_visibleObjects}; GC {gcKbPerFrame:0.0} КБ/кадр; " +
                       $"тайлов сверено {_tilesChecked}, расхождений с ядром {_tileMismatches}");
 

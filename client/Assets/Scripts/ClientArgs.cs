@@ -133,6 +133,18 @@ namespace Orpheus.Client
         /// </summary>
         public int TileBenchSeconds;
 
+        /// <summary>
+        /// E1-4: вместе с <c>--tile-bench</c> — каждый кадр камера рисует в текстуру 1920 × 1080 и ждёт видеокарту
+        /// (чтение одного пикселя): время кадра включает отрисовку. Без окна: <c>-batchmode</c> без <c>-nographics</c>.
+        /// </summary>
+        public bool BenchRender;
+
+        /// <summary>
+        /// E1-4, только для снимков: офлайн после генерации область у старта перекрашивается в тестовый узор
+        /// (озеро с песчаным берегом, пятна всех видов земли, стык видов) — <see cref="PaintDemo"/>.
+        /// </summary>
+        public bool PaintDemo;
+
         /// <summary>Адрес «Открыть для друзей»; null — все адреса (игра).</summary>
         public string? OpenAddress;
 
@@ -160,7 +172,7 @@ namespace Orpheus.Client
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек]";
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo]";
 
         public static ClientArgs Parse(string[] args)
         {
@@ -375,6 +387,12 @@ namespace Orpheus.Client
                             a.ShotPixelsY = shotH;
                         }
 
+                        break;
+                    case "--paint-demo":
+                        a.PaintDemo = true;
+                        break;
+                    case "--bench-render":
+                        a.BenchRender = true;
                         break;
                     case "--gen":
                         i++;

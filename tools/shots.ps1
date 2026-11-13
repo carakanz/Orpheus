@@ -3,7 +3,7 @@
   Screenshot stand of Orpheus (plan step 0.3): one command - a set of PNG from fixed seeds and cameras.
 
 .DESCRIPTION
-  Reads scenes from tools/shots.json (name, seed, size, tile, width) and runs the built client
+  Reads scenes from tools/shots.json (name, seed, size, tile, width, args) and runs the built client
   (build/client-win/Orpheus.exe, tools/build_client.ps1) once per scene, offline, WITHOUT a window
   (the camera renders to a 1920x1080 texture; nothing takes the focus or shows up on a monitor):
     Orpheus.exe -batchmode --seed S --size N --screenshot <png> [--shot-tile X,Y] --shot-width W --shot-size 1920x1080
@@ -62,6 +62,8 @@ function Invoke-Shot($scene, [string] $png) {
     $a = @('-batchmode', '--seed', "$($scene.seed)", '--size', "$($scene.size)", '--screenshot', "`"$png`"")
     if ($scene.tile) { $a += @('--shot-tile', ("{0},{1}" -f [int]$scene.tile[0], [int]$scene.tile[1])) }
     if ($scene.width) { $a += @('--shot-width', "$([int]$scene.width)") }
+    # Extra client keys of the scene, e.g. "args": ["--paint-demo"] (E1-4).
+    if ($scene.args) { $a += @($scene.args | ForEach-Object { "$_" }) }
     $a += @('--shot-size', ("{0}x{1}" -f $width, $height), '-logFile', "`"$log`"")
     $p = Start-Process -FilePath $Exe -ArgumentList $a -PassThru -WindowStyle Hidden
     $null = $p.Handle

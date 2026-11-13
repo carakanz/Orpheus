@@ -1,5 +1,5 @@
 {
-  "comment": "Scenes of the screenshot stand (plan step 0.3): tools/shots.ps1 runs the built client once per scene. tile = [X, Y] in world tiles (omit or null = spawn point), width = view width in tiles (40..96). Time of day is not supported by the client yet (plan step 1.8).",
+  "comment": "Scenes of the screenshot stand (plan step 0.3): tools/shots.ps1 runs the built client once per scene. tile = [X, Y] in world tiles (omit or null = spawn point), width = view width in tiles (40..96). args = extra client keys (E1-4: --paint-demo repaints the floors near the spawn into a test pattern: a lake with a sand shore, patches of every ground kind, a junction of all kinds 70 tiles to the east). Time of day is not supported by the client yet (plan step 1.8).",
   "frame": { "width": 1920, "height": 1080 },
   "scenes": [
     { "name": "01_start_64",       "seed": "0xE50007", "size": 1024, "tile": null,       "width": 64 },
@@ -8,6 +8,11 @@
     { "name": "04_meadow_forest",  "seed": "0xE50007", "size": 1024, "tile": [512, 362], "width": 64 },
     { "name": "05_mountains",      "seed": "0xE50007", "size": 1024, "tile": [724, 512], "width": 64 },
     { "name": "06_deep_forest",    "seed": "0xE50007", "size": 1024, "tile": [520, 300], "width": 64 },
-    { "name": "07_forest_rocks_96", "seed": "0xE50007", "size": 1024, "tile": [724, 650], "width": 96 }
+    { "name": "07_forest_rocks_96", "seed": "0xE50007", "size": 1024, "tile": [724, 650], "width": 96 },
+    { "name": "08_demo_lake_64",     "seed": "0xE50007", "size": 1024, "tile": [504, 514], "width": 64, "args": ["--paint-demo"] },
+    { "name": "09_demo_lake_40",     "seed": "0xE50007", "size": 1024, "tile": [509, 512], "width": 40, "args": ["--paint-demo"] },
+    { "name": "10_demo_junction_40", "seed": "0xE50007", "size": 1024, "tile": [582, 517], "width": 40, "args": ["--paint-demo"] },
+    { "name": "11_demo_junction_64", "seed": "0xE50007", "size": 1024, "tile": [582, 517], "width": 64, "args": ["--paint-demo"] },
+    { "name": "12_demo_start_96",    "seed": "0xE50007", "size": 1024, "tile": null,       "width": 96, "args": ["--paint-demo"] }
   ]
 }
