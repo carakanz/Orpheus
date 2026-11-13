@@ -7,7 +7,7 @@
 Правила боя (`combat`), стройки (`building`), предметов (`items`) — они живут в своих частях `Simulation` и вызываются из `Step`. Ничего не знает о сети и Unity.
 
 ## Код
-`src/Orpheus.Core/Sim/Simulation.cs` (поля, `Step`), `Simulation.Entities.cs`, `.Input.cs`, `.Movement.cs` (после P-002); `src/Orpheus.Core/Movement/` (`Mover`, `Collision`, `Dodge`, `Stamina`), `Geometry/Torus.cs`.
+`src/Orpheus.Core/Sim/Simulation.cs` (поля, `Step`), `Simulation.Entities.cs`, `.Input.cs`, `.Movement.cs` (в т. ч. `IsBlocked`), `.Restore.cs`, `.EditQueue.cs` (после P-002); `src/Orpheus.Core/Movement/` (`Mover`, `Collision`, `Dodge`, `Stamina`), `Geometry/Torus.cs`.
 
 ## Правила, которые нельзя нарушить
 - Детерминизм: целые числа (1/256 тайла), свой генератор случайных чисел, никаких `float`, времени и словарей с неопределённым порядком. Тесты `StateHash` и «золотые» байты не правятся под код.
@@ -20,7 +20,7 @@
 
 ## Состояние (13.11)
 - Есть: всё перечисленное в «Отвечает за».
-- P-002 (разрезание на части) — в ветке `task/P-002`, не слито (шаг 0.1).
+- P-002 (разрезание на части) — в ветке `task/P-002`: `-All` 775/775, сверка строк чистая; ждёт проверки (П) и слияния (шаг 0.1). Ядро `Simulation.cs` — 542 строки (поля, конструктор, `Step`), остальные ≤ 500.
 
 ## Дальше
 Шаг 0.1. Затем — только то, что просят другие модули: вода и обрыв как непроходимые (1.2), предметы на земле как сущности (2.1), снаряды (3.2).

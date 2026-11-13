@@ -6,7 +6,7 @@
 
 | Тест | Класс | Случаи | Последнее | Примечание |
 | --- | --- | --- | --- | --- |
-| `D00_Net_Udp_BotsLogIn_Snapshots30Hz_VersionMismatchRejected` | NetTests | 4 | 13.11 (1-026) | боты не входят за 6 с под нагрузкой; >3-го случая → чинить в P-003 |
+| `D00_Net_Udp_BotsLogIn_Snapshots30Hz_VersionMismatchRejected` | NetTests | 5 | 13.11 (P-002, быстрый CI) | боты не входят за 6 с под нагрузкой; >3-го случая → чинить в P-003 |
 | `D07_S7_4_ServerRun_HostCrashed_ServerRestarted_HostAndFriendsSamePlace` | ReturnTests | 5 | 13.11 (1-026) | в журнале — `HostCrashed_SamePlace`; «уход игрока не сохранён» под нагрузкой |
 | `D00_Net_Udp_Big_TwoBots60s_Rtt100_Loss1_NoDisconnects` | NetTests | 3 | 13.11 (1-026) | UDP под нагрузкой; боты 0 с в игре |
 | `D08_S3_0_2_RunSeam_Udp_Big_Rtt100_Sigma10_Loss1_LapPerAxisExact_ObserverNoSeamJump` | RunSeamTests | 4 | 13.11 (1-026) | ~9 мин, UDP Big; в этот раз — NullReference (BotRun.WatchText :659) при пустом прогоне |
