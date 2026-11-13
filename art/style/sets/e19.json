@@ -8,7 +8,7 @@
   "cliff": "high overhead three-quarter view, top-down game camera tilted at about 45 degrees like in a top-down survival crafting game, key light from the upper left, no characters, no trees, no text, no letters, no watermark, no border, no frame"
  },
  "negative": {
-  "floor": "frame, border, margin, grey background, vignette, glow, light spots, objects, trees, rocks casting shadows, perspective, horizon, sky, text, watermark, blurry, photo, 3d render",
+  "floor": "frame, border, margin, grey background, vignette, glow, light spots, objects, trees, rocks casting shadows, perspective, horizon, sky, text, watermark, blurry, photo, 3d render, large patches, big blotches, big tufts, bold outlines, lily pads, flowers",
   "object": "cast shadow on the ground, ground, grass patch, soil patch, scenery, several objects, side view, text, watermark, frame, border, cropped, blurry, photo, 3d render",
   "cliff": "characters, trees, buildings, sky, horizon, text, watermark, frame, border, blurry, photo, 3d render"
  },
@@ -19,7 +19,8 @@
    "w": 1024,
    "h": 1024,
    "seed": 1901,
-   "prompt": "a sunny Greek meadow ground texture: short lush leaf-green grass drawn as large simple flat tufts and broad soft patches of two close greens, only a few tiny yellow flowers, big simple shapes"
+   "prompt": "a sunny Greek meadow ground texture: short lush leaf-green grass as an even fine pattern of small short grass strokes and tiny tufts in two close greens, the same fine pattern evenly everywhere, no large patches, no big blotches, no accents, nothing stands out",
+   "style": "floor"
   },
   {
    "key": "ground_drygrass",
@@ -27,7 +28,8 @@
    "w": 1024,
    "h": 1024,
    "seed": 1902,
-   "prompt": "a dry summer grassland ground texture: sun-bleached straw-yellow and golden ochre dry grass drawn as large simple flat tufts and broad patches of two close warm yellows, a few olive-green blades, big simple shapes"
+   "prompt": "a dry summer grassland ground texture: sun-bleached straw-yellow dry grass as an even fine pattern of small short grass strokes and tiny tufts in two close warm golden yellows, the same fine pattern evenly everywhere, no large patches, no big blotches, no accents, nothing stands out",
+   "style": "floor"
   },
   {
    "key": "ground_dirt",
@@ -35,7 +37,8 @@
    "w": 1024,
    "h": 1024,
    "seed": 1903,
-   "prompt": "a bare earth ground texture: warm terracotta-brown packed soil with broad flat patches of two close browns, a few thin cracks and a few small pebbles, big simple shapes"
+   "prompt": "a bare earth ground texture: warm terracotta-brown packed soil as an even fine pattern of small flat specks, tiny pebbles and short thin cracks in two close browns, the same fine pattern evenly everywhere, no large patches, no big blotches, no accents, nothing stands out",
+   "style": "floor"
   },
   {
    "key": "ground_forest",
@@ -43,7 +46,8 @@
    "w": 1024,
    "h": 1024,
    "seed": 1904,
-   "prompt": "a forest floor ground texture: dark olive-green moss and brown earth covered with large flat fallen leaves in rust, ochre and dark green, a few short twigs, big simple shapes"
+   "prompt": "a forest floor ground texture: dark olive-brown earth evenly covered with small fallen leaves in rust, ochre and dark green and short twigs, an even fine leaf litter pattern, the same fine pattern evenly everywhere, no large patches, no big blotches, no accents, nothing stands out",
+   "style": "floor"
   },
   {
    "key": "ground_sand",
@@ -51,7 +55,8 @@
    "w": 1024,
    "h": 1024,
    "seed": 1905,
-   "prompt": "a beach sand ground texture: pale golden-yellow sand with broad soft flat ripples of two close sandy tones, a few tiny shells and pebbles, big simple shapes"
+   "prompt": "a beach sand ground texture: pale golden-yellow sand as an even fine pattern of small soft ripples and tiny specks in two close sandy tones, the same fine pattern evenly everywhere, no large patches, no big blotches, no accents, nothing stands out",
+   "style": "floor"
   },
   {
    "key": "ground_rocky",
@@ -59,7 +64,8 @@
    "w": 1024,
    "h": 1024,
    "seed": 1906,
-   "prompt": "a rocky ground texture: flat cracked pale grey-beige limestone slabs of irregular shapes fitted together, dark cracks between them, a little ochre dust and a few small stones, big simple shapes"
+   "prompt": "a rocky ground texture: pale grey-beige limestone ground as an even pattern of small flat irregular stones fitted together with thin dark cracks and a little ochre dust, all stones about the same small size, the same fine pattern evenly everywhere, no large patches, no big blotches, no accents, nothing stands out",
+   "style": "floor"
   },
   {
    "key": "water_deep",
@@ -67,7 +73,8 @@
    "w": 1024,
    "h": 1024,
    "seed": 1911,
-   "prompt": "a deep sea water surface texture: dark teal blue-green water with a few large simple flat wave shapes in a slightly lighter teal and sparse thin pale wave lines, calm, big simple shapes"
+   "prompt": "a deep sea water surface texture: dark teal blue-green water as an even fine pattern of small simple flat wavelets in a slightly lighter teal and short thin pale wave lines, calm, the same fine pattern evenly everywhere, no large patches, no big blotches, no accents, nothing stands out",
+   "style": "floor"
   },
   {
    "key": "water_shallow",
@@ -75,7 +82,8 @@
    "w": 1024,
    "h": 1024,
    "seed": 1912,
-   "prompt": "a shallow clear sea water surface texture: light turquoise water with large simple flat lighter aqua patches and sparse thin white wave lines, sandy bottom faintly visible, calm, big simple shapes"
+   "prompt": "a shallow clear sea water surface texture: light turquoise water as an even fine pattern of small simple flat wavelets in lighter aqua and short thin white wave lines, calm, the same fine pattern evenly everywhere, no large patches, no big blotches, no accents, nothing stands out",
+   "style": "floor"
   },
   {
    "key": "tree_olive_a",
@@ -83,7 +91,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1921,
-   "prompt": "an old olive tree, three-quarter view from above: a wide rounded crown of silvery sage-green foliage drawn as five or six large simple leaf clumps with dark green shadow side, a short thick twisted ochre-brown trunk visible below the crown, the whole tree from roots to crown in frame, the crown is twice as wide as it is tall, trunk base at the bottom center"
+   "prompt": "an old olive tree, three-quarter view from above: a wide rounded crown built from seven or eight overlapping rounded clumps of silvery sage-green foliage, each clump with a light sunlit top and a darker shaded underside, a few simple leaf shapes along the clump edges, a short thick twisted ochre-brown trunk with a darker shadow side visible below the crown, the tree fills most of the picture, the whole tree from roots to crown in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "tree_olive_b",
@@ -91,7 +100,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1922,
-   "prompt": "a young olive tree, three-quarter view from above: an uneven lopsided crown of silvery sage-green foliage drawn as four large simple leaf clumps with dark green shadow side, a slim forked twisted ochre-brown trunk visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+   "prompt": "a young olive tree, three-quarter view from above: an uneven lopsided crown built from five overlapping rounded clumps of silvery sage-green foliage, each clump with a light sunlit top and a darker shaded underside, a few simple leaf shapes along the clump edges, a slim forked twisted ochre-brown trunk with a darker shadow side visible below the crown, the tree fills most of the picture, the whole tree from roots to crown in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "tree_pine_a",
@@ -99,7 +109,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1923,
-   "prompt": "an Italian stone pine tree, umbrella pine, three-quarter view from above: a broad flat umbrella-shaped crown of dark emerald-green needle clumps drawn as large simple rounded masses with lighter green tops, a tall straight reddish-brown trunk with a few bare branches visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+   "prompt": "an Italian stone pine, umbrella pine tree, three-quarter view from above: a broad flat umbrella-shaped crown built from six overlapping rounded puffy clumps of dark emerald-green needles, each clump with a light sunlit top and a darker shaded underside, a tall straight bare reddish-brown trunk with a darker shadow side below the crown, the crown is much wider than the trunk is tall, the tree fills most of the picture, the whole tree from roots to crown in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "tree_pine_b",
@@ -107,7 +118,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1924,
-   "prompt": "a leaning Italian stone pine tree, umbrella pine, three-quarter view from above: a wide flat lopsided umbrella crown of dark emerald-green needle clumps drawn as three large simple rounded masses with lighter green tops, a tall slightly curved reddish-brown trunk visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+   "prompt": "a leaning Italian stone pine, umbrella pine tree, three-quarter view from above: a wide flat lopsided umbrella crown built from four overlapping rounded puffy clumps of dark emerald-green needles, each clump with a light sunlit top and a darker shaded underside, a tall curved bare reddish-brown trunk with a darker shadow side below the crown, the tree fills most of the picture, the whole tree from roots to crown in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "tree_oak_a",
@@ -115,7 +127,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1925,
-   "prompt": "a big oak tree, three-quarter view from above: a large dense round crown of rich leaf-green foliage drawn as six or seven large simple lobed leaf clumps with darker green shadow side and light yellow-green tops, a thick dark brown trunk visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+   "prompt": "a big oak tree, three-quarter view from above: a large dense round crown built from eight or nine overlapping rounded lobed clumps of rich leaf-green foliage, each clump with a light yellow-green sunlit top and a dark green shaded underside, a thick dark brown trunk with a darker shadow side visible below the crown, the tree fills most of the picture, the whole tree from roots to crown in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "tree_oak_b",
@@ -123,7 +136,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1926,
-   "prompt": "a sturdy oak tree, three-quarter view from above: a broad irregular crown of rich leaf-green foliage drawn as five large simple lobed leaf clumps with darker green shadow side and light yellow-green tops, a thick gnarled dark brown trunk with one big side branch visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+   "prompt": "a sturdy oak tree, three-quarter view from above: a broad irregular crown built from six overlapping rounded lobed clumps of rich leaf-green foliage, each clump with a light yellow-green sunlit top and a dark green shaded underside, a thick gnarled dark brown trunk with one big side branch visible below the crown, the tree fills most of the picture, the whole tree from roots to crown in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "tree_cypress_a",
@@ -131,7 +145,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1927,
-   "prompt": "a tall Mediterranean cypress tree, three-quarter view from above: a narrow tall pointed column of very dark blue-green foliage drawn as a few large simple vertical flame-like masses with a lighter green lit left side, a short brown trunk visible at the very bottom, the whole tree from base to tip in frame, trunk base at the bottom center"
+   "prompt": "a tall Mediterranean cypress tree, three-quarter view from above: a narrow tall pointed column of very dark blue-green foliage built from overlapping upward-pointing flame-shaped clumps, each clump with a lighter green sunlit left side and a dark shaded right side, a short brown trunk visible at the very bottom, the tree is four times taller than wide, the whole tree from base to tip in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "tree_cypress_b",
@@ -139,7 +154,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1928,
-   "prompt": "a Mediterranean cypress tree, three-quarter view from above: a slim spindle-shaped pointed column of very dark blue-green foliage, slightly bulging in the middle, drawn as a few large simple vertical masses with a lighter green lit left side, a short brown trunk visible at the very bottom, the whole tree from base to tip in frame, trunk base at the bottom center"
+   "prompt": "a Mediterranean cypress tree, three-quarter view from above: a slim spindle-shaped pointed column of very dark blue-green foliage, bulging in the middle, built from overlapping upward-pointing flame-shaped clumps, each clump with a lighter green sunlit left side and a dark shaded right side, a short brown trunk visible at the very bottom, the tree is three times taller than wide, the whole tree from base to tip in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "tree_oak_autumn",
@@ -147,7 +163,8 @@
    "w": 768,
    "h": 1024,
    "seed": 1929,
-   "prompt": "a big oak tree in autumn, three-quarter view from above: a large round crown of dry autumn foliage in rust-orange, golden ochre and warm red drawn as six large simple lobed leaf clumps with darker brown-red shadow side, a thick dark brown trunk visible below the crown, the whole tree from roots to crown in frame, trunk base at the bottom center"
+   "prompt": "a big oak tree in autumn, three-quarter view from above: a large round crown built from seven overlapping rounded lobed clumps of dry autumn foliage in rust-orange and golden ochre, each clump with a light golden sunlit top and a dark red-brown shaded underside, a thick dark brown trunk with a darker shadow side visible below the crown, the tree fills most of the picture, the whole tree from roots to crown in frame, trunk base at the bottom center",
+   "style": "tree"
   },
   {
    "key": "bush_a",
@@ -155,7 +172,8 @@
    "w": 768,
    "h": 768,
    "seed": 1931,
-   "prompt": "a single low round shrub, three-quarter view from above: a compact dome of leaf-green foliage drawn as four or five large simple leaf clumps with darker green shadow side, no trunk visible, no flowers"
+   "prompt": "a single low round shrub, three-quarter view from above: a compact dome built from five overlapping rounded clumps of leaf-green foliage, each clump with a light sunlit top and a darker shaded underside, no trunk visible, no flowers, the shrub fills most of the picture",
+   "style": "tree"
   },
   {
    "key": "bush_b",
@@ -163,7 +181,8 @@
    "w": 768,
    "h": 768,
    "seed": 1932,
-   "prompt": "a single low wide myrtle shrub with berries, three-quarter view from above: an irregular low mound of dark green foliage drawn as three or four large simple leaf clumps with a few big red berries, no trunk visible"
+   "prompt": "a single low wide myrtle shrub with berries, three-quarter view from above: an irregular low mound built from four overlapping rounded clumps of dark green foliage, each clump with a light sunlit top and a darker shaded underside, a few big red berries, no trunk visible, the shrub fills most of the picture",
+   "style": "tree"
   },
   {
    "key": "boulder_a",
@@ -236,18 +255,10 @@
    "h": 1024,
    "seed": 1973,
    "prompt": "the outer corner of a raised rocky plateau: a flat pale beige stony plateau fills the upper left part of the picture, its edge turns a rounded corner, below the edge the vertical cliff face of big blocky ochre-beige limestone slabs with dark cracks drops down to flat green grass, the grass fills the right side and the bottom of the picture"
-  },
-  {
-   "key": "probe_olive_v2",
-   "kind": "object",
-   "style": "tree",
-   "w": 768,
-   "h": 1024,
-   "seed": 1921,
-   "prompt": "an old olive tree, three-quarter view from above: a wide rounded crown built from seven or eight overlapping rounded clumps of silvery sage-green foliage, each clump with a light sunlit top and a dark green shaded underside, a few simple leaf shapes along the clump edges, a short thick twisted ochre-brown trunk with a darker shadow side visible below the crown, the tree fills most of the picture, the whole tree from roots to crown in frame, trunk base at the bottom center"
   }
  ],
  "styles": {
-  "tree": "clean hand-drawn 2D game illustration, confident dark plum-brown outlines of even medium weight around every shape, flat color fills with clear two-step cel shading: a light sunlit tone and a darker shadow tone, plus one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated sunny Mediterranean colors, smooth vector-like finish"
+  "tree": "clean hand-drawn 2D game illustration, confident dark plum-brown outlines of even medium weight around every shape, flat color fills with clear two-step cel shading: a light sunlit tone and a darker shadow tone, plus one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated sunny Mediterranean colors, smooth vector-like finish",
+  "floor": "clean hand-drawn 2D game ground texture, flat color fills in two or three close tones, an even fine pattern of small simple flat marks with thin darker edges, no bold outlines, no large shapes, graphic and simplified, bright saturated sunny Mediterranean colors, smooth vector-like finish"
  }
 }
