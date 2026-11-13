@@ -448,8 +448,20 @@ namespace Orpheus.Client
                 a.Error = "--open-for-friends — только с --single или --host";
             }
 
+            // P-004: net-smoke меряет «правок 0 на чистом движении», а чистое — без чужого влияния (docs/07 2.6 п. 5).
+            // Спавнер (1-009) на такте 1 ставит разбойника в 36–46 т от бота, тот идёт навстречу скриптовому бегу и
+            // выталкивает персонажа (`02` 2.1, 68 unit за такт) — этого клиент предсказать не может. Свой сервер
+            // net-smoke поэтому без спавнера; касание врага проверяют тесты ядра (PredictionTests, «EnemyTouch»).
+            if (a.NetSmokeSeconds > 0 && a.Mode.HasValue && !a.ServerArgs.Contains(NoSpawnServerArg))
+            {
+                a.ServerArgs.Add(NoSpawnServerArg);
+            }
+
             return a;
         }
+
+        /// <summary>Ключ сервера «без спавнера и исчезновения» (1-009) — его получает свой сервер net-smoke (P-004).</summary>
+        public const string NoSpawnServerArg = "--no-spawn";
 
         /// <summary>«хост:порт» — порт 1…65535; хост — имя или адрес (IPv4).</summary>
         static bool TryParseEndpoint(string? s, out string? endpoint)

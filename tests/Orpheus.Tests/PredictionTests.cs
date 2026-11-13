@@ -98,6 +98,21 @@ namespace Orpheus.Tests
             /// <summary>Толчок сервера (чужое влияние, 2.6 п. 5): такт и смещение по X, unit.</summary>
             public (long Tick, int Dx)? Push { get; set; }
 
+            /// <summary>
+            /// Касание врага (P-004; `02` 2.1 «мягкое выталкивание 2 т/с», Simulation.StepSeparation): в тактах
+            /// [From; To) каждый Period-й такт сервер сдвигает персонажа на Dx unit — предсказать это клиент не может.
+            /// </summary>
+            public (long From, long To, int Period, int Dx)? Touch { get; set; }
+
+            /// <summary>Меч в руках (1-004): бит удара кадра начинает замах и у сервера, и у предсказания.</summary>
+            public bool Sword { get; set; }
+
+            /// <summary>Толчков касания сделано сервером.</summary>
+            public int Touches { get; private set; }
+
+            /// <summary>Наибольший сдвиг картинки (предсказание + гашение) между соседними кадрами Unity, unit.</summary>
+            public int MaxRenderStep { get; private set; }
+
             public WorldPos ServerPos => _server.Position;
 
             /// <summary>Картинка своего персонажа: (время, позиция + гашение) после каждой правки и в кадры после неё.</summary>
@@ -106,6 +121,9 @@ namespace Orpheus.Tests
             public void Run(long durationUs)
             {
                 uint frame = 1000;
+                Pred.HeldItem = Sword ? Items.WoodenSword : (byte)0;
+                bool hasRender = false;
+                WorldPos lastRender = default;
                 long nextUnity = 0;
                 long accum = 0;
                 long tick = 0;
@@ -139,6 +157,20 @@ namespace Orpheus.Tests
                         sent++;
                     }
 
+                    if (Pred.Synced)
+                    {
+                        Pred.RenderDelta(t, out WorldPos from, out float rdx, out float rdy);
+                        WorldPos render = Torus.Offset(_map, from, new Int2((int)rdx, (int)rdy));
+                        if (hasRender && Pred.Reconciled > 1)
+                        {
+                            Int2 step = Torus.Delta(_map, lastRender, render);
+                            MaxRenderStep = Math.Max(MaxRenderStep, Math.Max(Math.Abs(step.X), Math.Abs(step.Y)));
+                        }
+
+                        lastRender = render;
+                        hasRender = true;
+                    }
+
                     if (Push.HasValue && AfterPush.Count > 0 || Pred.ErrorDurationUs > 0)
                     {
                         AfterPush.Add((t, Pred.ErrorUnits(t)));
@@ -157,8 +189,14 @@ namespace Orpheus.Tests
                 while (_toServer.Count > 0 && _toServer.Peek().At <= t)
                 {
                     (uint f, InputFrame input, _) = _toServer.Dequeue();
-                    _server.StepFrame(_map, input.Direction, input.DodgePressed, _solid);
+                    _server.StepFrame(_map, input.Direction, input.DodgePressed, Sword && input.AttackPressed, input.Angle16, _solid);
                     _ack = f;
+                }
+
+                if (Touch.HasValue && tick >= Touch.Value.From && tick < Touch.Value.To && (tick - Touch.Value.From) % Touch.Value.Period == 0)
+                {
+                    _server.Position = Torus.Offset(_map, _server.Position, new Int2(Touch.Value.Dx, 0));
+                    Touches++;
                 }
 
                 if (Push.HasValue && Push.Value.Tick == tick)
@@ -312,6 +350,67 @@ namespace Orpheus.Tests
             _out.WriteLine($"толчок в рывке: правок {m.Pred.Resynced}, расх. {m.Pred.MaxDevUnits} u");
             Assert.Equal(1, m.Pred.Resynced);
             Assert.Equal(m.ServerPos, m.Pred.Position);
+        }
+
+        /// <summary>
+        /// Касание врага (P-004; 2.6 п. 5 «расходиться предсказание может только из-за чужого: толчок врага»):
+        /// сервер 2 с подряд каждый третий такт выталкивает бегущего на восток персонажа на 68 unit назад
+        /// (<c>Simulation.StepSeparation</c>: 2 т/с = 68 unit за такт). Правка — ровно одна на толчок и не больше
+        /// толчка; картинка не прыгает (гашение 0,1 с: шаг картинки за кадр меньше самого толчка); после касания
+        /// правок нет, предсказание сходится с сервером. Задержка 0 и 50±10 мс с пачками кадров.
+        /// </summary>
+        [Theory]
+        [InlineData(0, 0, false)]
+        [InlineData(50, 10, false)]
+        public void D07_S2_6_Model_EnemyTouch_CorrectionPerPush_Bounded_Smoothed(int oneWayMs, int jitterMs, bool hitches)
+        {
+            const int push = 68;
+            MapShape map = MapShape.World(1024);
+            var m = new Model(map, Collision.Empty, Center(300, 400), East, 21) { OneWayMs = oneWayMs, JitterMs = jitterMs, Hitches = hitches, Touch = (60, 120, 3, -push) };
+            m.Run(4_000_000);
+            LocalPrediction p = m.Pred;
+            long during = p.Resynced;
+            _out.WriteLine($"касание, задержка {oneWayMs}±{jitterMs}: толчков {m.Touches}, правок {p.Resynced}, расх. {p.MaxDevUnits} u, шаг картинки ≤ {m.MaxRenderStep} u");
+            Assert.Equal(20, m.Touches);
+            Assert.Equal(m.Touches, p.Resynced);                 // одна правка на толчок — и ни одной лишней
+            Assert.InRange(p.MaxDevUnits, push - 1, push + 1);   // правка ограничена одним толчком
+            Assert.True(m.MaxRenderStep < push * 3 / 4, $"картинка прыгнула на {m.MaxRenderStep} u за кадр (толчок {push} u): гашения нет");
+
+            var still = new Model(map, Collision.Empty, Center(300, 400), East, 21) { OneWayMs = oneWayMs, JitterMs = jitterMs, Hitches = hitches, Touch = (60, 120, 3, -push) };
+            still.Run(6_000_000); // ещё 2 с после касания: новых правок нет
+            Assert.Equal(during, still.Pred.Resynced);
+        }
+
+        /// <summary>
+        /// Касание врага посреди серии ударов мечом (P-004, сценарий host-smoke: бег на восток с зажатой ЛКМ,
+        /// разбойник выталкивает): в снимке своего состояния фазы удара нет, поэтому после правки кадры новее ack
+        /// переигрываются с фазой, предсказанной для ack. Если оставить текущую фазу (она уже прошла эти кадры),
+        /// замах предсказания убегает вперёд сервера на длину переигровки, замедление 70 % встаёт не на те кадры —
+        /// и каждая граница фазы даёт ещё правку без всякого толчка. Правок — ровно по числу толчков.
+        /// </summary>
+        [Theory]
+        [InlineData(0, 0, false)]
+        [InlineData(50, 10, true)]
+        [InlineData(100, 20, true)]
+        public void D07_S2_6_Model_EnemyTouchDuringSwordSeries_NoExtraCorrections(int oneWayMs, int jitterMs, bool hitches)
+        {
+            MapShape map = MapShape.World(1024);
+            var m = new Model(map, Collision.Empty, Center(300, 400), East, 23)
+            {
+                OneWayMs = oneWayMs, JitterMs = jitterMs, Hitches = hitches, Sword = true,
+                Buttons = _ => InputButtons.Attack, Touch = (60, 72, 3, -68),
+            };
+            m.Run(8_000_000); // 6 с серии после касания: ~9 ударов, 27 границ фаз
+            LocalPrediction p = m.Pred;
+            _out.WriteLine($"касание в серии меча, задержка {oneWayMs}±{jitterMs}: толчков {m.Touches}, правок {p.Resynced}, расх. {p.MaxDevUnits} u, фаза {p.Melee}");
+            Assert.Equal(4, m.Touches);
+            Assert.Equal(m.Touches, p.Resynced);
+            Assert.InRange(p.MaxDevUnits, 67, 69);
+
+            // Меч и правда замедлял: без него путь длиннее.
+            var plain = new Model(map, Collision.Empty, Center(300, 400), East, 23) { OneWayMs = oneWayMs, JitterMs = jitterMs, Hitches = hitches, Touch = (60, 72, 3, -68) };
+            plain.Run(8_000_000);
+            Assert.True(Torus.Delta(map, m.ServerPos, plain.ServerPos).X > 2 * U, "удары не замедляли бег");
         }
 
         /// <summary>
