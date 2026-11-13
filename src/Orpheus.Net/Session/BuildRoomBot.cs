@@ -50,6 +50,9 @@ namespace Orpheus.Net.Session
         /// В мире генератора v1 добыча на радиусе 32 т занимает 6–7 мин реального времени, ночь — 780-я секунда.</summary>
         public const int MaxTicks = 25_000;
 
+        /// <summary>Тактов ожидания клиентских чанков перед «нет целей добычи» (снапшоты 30 Гц, RTT).</summary>
+        public const int WarmupTicks = 120;
+
         /// <summary>Этапы: добыча → расчистка площадки → пол → стены → дверь → вход → закрытие → рассвет.</summary>
         public enum Phase
         {
@@ -70,6 +73,10 @@ namespace Orpheus.Net.Session
         private WorldPos _lastPos;
         private int _stuckFrames;
         private int _frame;
+        private int _prevHealth = -1; // здоровье прошлого кадра — детект нового попадания
+        private Phase _prevStage = Phase.Gather;
+        private int _closeOpenTicks; // Close: тактов дверь открыта (F отвергается — враг на тайле, выталкивание блокировано)
+        private int _enterStuckTicks; // Enter: тактов позиция не меняется (враг в проёме не пускает)
         private int _wallsFrom; // индекс следующей стены в обходе периметра
         private int _floorRow;  // индекс следующей ряда пола
 
@@ -107,7 +114,8 @@ namespace Orpheus.Net.Session
         /// <summary>Дверь закрыта (запись тайла без бита открытости) и бот внутри.</summary>
         public bool DoorClosed { get; private set; }
 
-        /// <summary>Кадров с закрытой дверью, в которых здоровье своё было &lt; 100 % (урон за закрытой дверью).</summary>
+        /// <summary>Кадров, в которых здоровье своё падало при закрытой двери и боте внутри (новые попадания
+        /// за закрытой дверью; удары, полученные снаружи до закрытия, — не «урон за дверью»).</summary>
         public int DamageThroughDoor { get; private set; }
 
         /// <summary>Смертей своё (пропажа <see cref="SnapshotSelf.Present"/>).</summary>
@@ -219,14 +227,22 @@ namespace Orpheus.Net.Session
                 return InputFrame.None; // возрождение — на стороне сервера (1-009)
             }
 
-            if (Stage >= Phase.WaitDawn && DoorClosed && self.Health < MaxHealth)
+            if (Stage >= Phase.WaitDawn && DoorClosed && _prevHealth >= 0 && self.Health < _prevHealth)
             {
-                DamageThroughDoor++; // урон за закрытой дверью — провал приёмки 1.5
+                DamageThroughDoor++; // новое попадание за закрытой дверью — провал приёмки 1.5
             }
+            _prevHealth = self.Health;
 
             if (client.Digging)
             {
                 return new InputFrame(Input8.None, InputButtons.Dig, 0, (byte)_digSlot);
+            }
+
+            if (Stage != _prevStage)
+            {
+                _prevStage = Stage;
+                _closeOpenTicks = 0;
+                _enterStuckTicks = 0;
             }
 
             InputFrame frame = Stage switch
@@ -262,6 +278,11 @@ namespace Orpheus.Net.Session
             TileCoord? target = FindGatherTarget(client, world, pos, stone < TargetStone, wood < TargetWood);
             if (target == null)
             {
+                if (Ticks < WarmupTicks)
+                {
+                    return InputFrame.None; // клиентские чанки ещё не доехали (снапшоты с 30 Гц) — ждём, не проваливаем сценарий
+                }
+
                 Stage = Phase.Fail;
                 FailReason = $"нет целей добычи радиуса {GatherRadius} камня {stone}, древесины {wood}";
                 return InputFrame.None;
@@ -646,6 +667,23 @@ namespace Orpheus.Net.Session
                 return InputFrame.None;
             }
 
+            // Враг на тайле проёма: ходьба упирается (выталкивание блокировано). F снаружи (chebyshev 1)
+            // закрывает дверь и выталкивает врага; замок истёк — автооткрытие открывает проём, входим
+            // (UDP Big, 1-026).
+            TileCoord door = DoorTile;
+            if (pos == _lastPos && world.World.TryGetBuild(door, out BuildRecord rec) && rec.IsDoorOpen)
+            {
+                if (++_enterStuckTicks > 45 && Cheb(me, door) == 1)
+                {
+                    client.CloseDoor(door);
+                    return HammerFrame(client);
+                }
+            }
+            else
+            {
+                _enterStuckTicks = 0;
+            }
+
             // Дверь ставится открытой (1-012); шаг на тайл двери её распахивает (автооткрытие шагом, `05` 2.1).
             // Идём в центр комнаты через проём, без копки: копать дверь — снести свою же дверь.
             Input8 dir = StepDir(pos, TileCenter(_center));
@@ -672,6 +710,13 @@ namespace Orpheus.Net.Session
 
             // F — радиус chebyshev ≤ 1 от двери, тайл под нажавшим — отказ: встаём на тайл комнаты у проёма.
             TileCoord near = Torus.Wrap(_shape, new TileCoord(door.X, door.Y + 1));
+            if (++_closeOpenTicks > 45)
+            {
+                // F отвергается: враг на тайле двери, выталкивание (E,S,W,N) блокировано тайлом под нами.
+                // Уход в угол по диагонали — тайл у двери освобождается, врага выталкивает (UDP Big, 1-026).
+                near = Torus.Wrap(_shape, new TileCoord(door.X + 1, door.Y + 1));
+            }
+
             if (Torus.TileOf(_shape, pos) != near)
             {
                 return DigOrWalk(client, world, pos, near);
@@ -688,8 +733,13 @@ namespace Orpheus.Net.Session
             {
                 DawnReached = true;
                 Stage = Phase.Done;
+                return InputFrame.None;
             }
 
+            // Ночь у закрытой двери: F каждый кадр. Замок F (30 тактов, 1-012) продлевается непрерывно —
+            // автооткрытие молчит, враг на тайл двери не встаёт и в хижину не входит (приёмка 1.5);
+            // вставшего на тайл закрытие выталкивает (E,S,W,N).
+            client.CloseDoor(DoorTile);
             return InputFrame.None;
         }
 
