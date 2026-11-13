@@ -34,6 +34,7 @@ namespace Orpheus.Tools.GenPreview
             int seedTo = 30;
             int pngCount = 0;
             bool dump = false;
+            string? mapSeeds = null;
             string outDir = Path.Combine(root, "build", "gen_preview", "world");
             string pngDir = Path.Combine(root, "work", "screens");
             for (int i = 0; i < args.Length; i++)
@@ -50,6 +51,7 @@ namespace Orpheus.Tools.GenPreview
                     case "--png": pngCount = int.Parse(args[++i]); break;
                     case "--png-dir": pngDir = args[++i]; break;
                     case "--dump": dump = true; break;
+                    case "--map": mapSeeds = args[++i]; break;
                     case "--out": outDir = args[++i]; break;
                     default:
                         Console.Error.WriteLine($"Неизвестный параметр {args[i]}. См. комментарий в tools/gen_preview/WorldPreview.cs.");
@@ -61,6 +63,11 @@ namespace Orpheus.Tools.GenPreview
             Directory.CreateDirectory(outDir);
             Directory.CreateDirectory(pngDir);
             var ci = CultureInfo.InvariantCulture;
+            if (mapSeeds != null)
+            {
+                return Maps(mapSeeds, size, pngDir);
+            }
+
             Console.WriteLine("seed,ms_macro,ms_tiles,ms_model,ms_total,meadow_pct,forest_pct,mount_pct,cave_pct,meadow_trees_k,forest_trees_k," +
                               "mount_rock_pct,cave_rock_pct,granite_of_rock_pct,copper600,copper_stamp,forest_stamp,reach_pct,joined,carved,macro_hash,gen_hash");
             var totals = new List<double>();
@@ -127,11 +134,75 @@ namespace Orpheus.Tools.GenPreview
 
         // ---------- Картинка ----------
 
+        /// <summary>
+        /// Карты 1 : 1 (пиксель = тайл) зёрен из списка (десятичные или 0x…): <c>E1-2_map_&lt;зерно&gt;.png</c> и строка чисел
+        /// приёмки E1-2 на зерно. Запуск: <c>-- --world --map 0xE50007,1,2 [--png-dir work/screens]</c>.
+        /// </summary>
+        private static int Maps(string seeds, int size, string pngDir)
+        {
+            var ci = CultureInfo.InvariantCulture;
+            Console.WriteLine("seed,ms,water_pct,sand_pct,cliff_pct,cliff_thin_pct,forest_trees_pct,meadow_trees_pct,meadow_dry_pct,mount_boulders_pct," +
+                              "cave_mass_pct,reach_pct,water_near,cliff_near,joined,carved,cliff_opened,ford_tiles,copper600");
+            if (seeds.Contains('-'))
+            {
+                // Диапазон «1-30»: только числа, без картинок.
+                string[] r = seeds.Split('-');
+                for (int k = int.Parse(r[0], ci); k <= int.Parse(r[1], ci); k++)
+                {
+                    var swk = Stopwatch.StartNew();
+                    TileWorld tk = GeneratorV1.BuildTiles(MapShape.World(size), (ulong)k);
+                    PrintStats(k.ToString(ci), swk.Elapsed.TotalMilliseconds, tk);
+                }
+
+                return 0;
+            }
+
+            foreach (string part in seeds.Split(','))
+            {
+                bool hex = part.StartsWith("0x", StringComparison.OrdinalIgnoreCase);
+                ulong seed = hex ? ulong.Parse(part.Substring(2), NumberStyles.HexNumber, ci) : ulong.Parse(part, ci);
+                var sw = Stopwatch.StartNew();
+                TileWorld t = GeneratorV1.BuildTiles(MapShape.World(size), seed);
+                double ms = sw.Elapsed.TotalMilliseconds;
+                PrintStats(hex ? part : seed.ToString(ci), ms, t);
+                int w = t.WorldSize;
+                var rgb = new byte[w * w * 3];
+                for (int i = 0; i < w * w; i++)
+                {
+                    byte[] c = Color(t.Floor[i], t.Objects[i], t.Biome[i]);
+                    rgb[i * 3] = c[0];
+                    rgb[(i * 3) + 1] = c[1];
+                    rgb[(i * 3) + 2] = c[2];
+                }
+
+                string name = hex ? part.Substring(2).ToUpperInvariant() : part;
+                string path = Path.Combine(pngDir, $"E1-2_map_{(hex ? "0x" : "")}{name}.png");
+                Program.WritePng(path, rgb, w, w);
+                Console.Error.WriteLine($"карта: {Path.GetFullPath(path)}");
+            }
+
+            return 0;
+        }
+
+        private static void PrintStats(string seed, double ms, TileWorld t)
+        {
+            var ci = CultureInfo.InvariantCulture;
+            TileWorldStats st = TileWorldStats.Of(t);
+            Console.WriteLine(string.Join(",", seed, ms.ToString("F0", ci),
+                st.WaterPercent.ToString("F2", ci), (100.0 * st.Sand / st.Tiles).ToString("F2", ci), st.CliffPercent.ToString("F2", ci),
+                st.CliffThinPercent.ToString("F1", ci), st.ForestTreePercent.ToString("F1", ci), st.MeadowTreePercent.ToString("F2", ci),
+                st.MeadowDryPercent.ToString("F1", ci), st.MountainBoulderPercent.ToString("F1", ci), st.CaveMassPercent.ToString("F1", ci),
+                (100 * st.Reach).ToString("F2", ci), st.WaterNearStart.ToString(ci), st.CliffNearStart.ToString(ci),
+                t.ComponentsJoined.ToString(ci), t.TilesCarved.ToString(ci), t.CliffCellsOpened.ToString(ci), t.FordTiles.ToString(ci),
+                HearthStage.CountCopper(t).ToString(ci)));
+        }
+
         private static byte[] Color(byte floor, ushort obj, byte biome)
         {
             switch (obj)
             {
-                case ObjectId.Tree: return biome == Biome.Forest ? new byte[] { 0x14, 0x3C, 0x16 } : new byte[] { 0x1E, 0x5A, 0x1C };
+                case ObjectId.Cliff: return new byte[] { 0x00, 0x00, 0x00 };
+                case ObjectId.Tree: return biome == Biome.Forest ? new byte[] { 0x12, 0x40, 0x18 } : new byte[] { 0x1E, 0x5A, 0x1C };
                 case ObjectId.Bush: return new byte[] { 0x8E, 0x3A, 0x6A };
                 case ObjectId.Rock: return new byte[] { 0x50, 0x4C, 0x48 };
                 case ObjectId.Granite: return new byte[] { 0x2A, 0x2A, 0x36 };
@@ -140,17 +211,16 @@ namespace Orpheus.Tools.GenPreview
                 default: return new byte[] { 0xFF, 0x00, 0xFF };
             }
 
-            if (floor == FloorId.ForestFloor)
+            switch (floor)
             {
-                return new byte[] { 0x4E, 0x7A, 0x38 };
+                case FloorId.Water: return new byte[] { 0x2A, 0x62, 0xB8 };
+                case FloorId.Sand: return new byte[] { 0xE2, 0xD0, 0x8C };
+                case FloorId.ForestFloor: return new byte[] { 0x4A, 0x74, 0x34 };
+                case FloorId.DryGrass: return new byte[] { 0xB4, 0xBC, 0x5C };
+                case FloorId.Dirt: return new byte[] { 0x96, 0x78, 0x50 };
+                case FloorId.Stone: return biome == Biome.Cave ? new byte[] { 0x78, 0x70, 0x84 } : new byte[] { 0x9C, 0x98, 0x90 };
+                default: return new byte[] { 0x8C, 0xC0, 0x5A };
             }
-
-            if (floor == FloorId.Stone)
-            {
-                return biome == Biome.Cave ? new byte[] { 0x78, 0x70, 0x84 } : new byte[] { 0x9C, 0x98, 0x90 };
-            }
-
-            return new byte[] { 0x8C, 0xC0, 0x5A };
         }
 
         private static void WriteImage(TileWorld t, string path)
@@ -177,7 +247,7 @@ namespace Orpheus.Tools.GenPreview
                         for (int dx = 0; dx < k; dx++)
                         {
                             int j = ((py * k) + dy) * w + (px * k) + dx;
-                            if (t.Objects[j] == ObjectId.Ore || (t.Objects[j] != ObjectId.Empty && t.Objects[pick] != ObjectId.Ore && t.Objects[pick] == ObjectId.Empty))
+                            if (t.Objects[j] == ObjectId.Cliff || t.Objects[j] == ObjectId.Ore || (t.Objects[j] != ObjectId.Empty && t.Objects[pick] != ObjectId.Ore && t.Objects[pick] == ObjectId.Empty))
                             {
                                 pick = j;
                             }
