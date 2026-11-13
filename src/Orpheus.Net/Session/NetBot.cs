@@ -21,6 +21,8 @@ namespace Orpheus.Net.Session
     /// <c>run_seam</c> (0-027): решение — каждый кадр ввода, по подтверждённой позиции снимка (<c>Self</c>) и признаку
     /// «все отправленные кадры с движением сервер шагнул» (AckFrame ≥ номера последнего такого кадра), — см.
     /// <see cref="RunSeamBot"/>. <c>seam_watch</c>: стоит, показывает чужих через <see cref="SeamWatch"/> и меряет скачок.
+    /// <c>build_room</c> (1-026): добывает и строит комнату 5 × 5 с дверью, переживает ночь (<see cref="BuildRoomBot"/>);
+    /// <c>night_camp</c> (1-026): стоит ночью в поле, считает смерть и убийцу (<see cref="NightCampBot"/>).
     /// </para>
     /// </summary>
     public sealed class NetBot
@@ -30,6 +32,8 @@ namespace Orpheus.Net.Session
         private SimBot? _bot;
         private DodgeBot? _dodge;
         private DigLineBot? _digLine;
+        private BuildRoomBot? _build;
+        private NightCampBot? _camp;
         private InputFrame _current;
         private LocalPrediction? _pred;
         private uint _reconciledTick;
@@ -84,6 +88,12 @@ namespace Orpheus.Net.Session
         /// <summary>Бот <c>dig_line</c> (0-028) — после входа; иначе null.</summary>
         public DigLineBot? DigLine => _digLine;
 
+        /// <summary>Бот <c>build_room</c> (1-026, приёмка `08` 3.1 1.5) — после входа; иначе null.</summary>
+        public BuildRoomBot? Builder => _build;
+
+        /// <summary>Бот <c>night_camp</c> (1-026, приёмка `08` 3.1 1.6) — после входа; иначе null.</summary>
+        public NightCampBot? Camp => _camp;
+
         /// <summary>Предсказание своего персонажа (после входа, если есть фабрика).</summary>
         public LocalPrediction? Prediction => _pred;
 
@@ -129,6 +139,24 @@ namespace Orpheus.Net.Session
                     var dig = new DigLineBot(Client.Shape);
                     _digLine = dig;
                     Client.EditReplied = dig.OnReply;
+                }
+            }
+            else if (_script == BuildRoomBot.Name)
+            {
+                if (_build == null)
+                {
+                    var build = new BuildRoomBot(Client.Shape, Client.Latest.Self.Position);
+                    _build = build;
+                    Client.EditReplied = build.OnReply;
+                }
+            }
+            else if (_script == NightCampBot.Name)
+            {
+                if (_camp == null)
+                {
+                    var camp = new NightCampBot();
+                    _camp = camp;
+                    Client.DeathSeen = m => camp.OnDeath(m); // жертва/убийца — из «Смерти» (тип 24, 1-001)
                 }
             }
             else if (_bot == null)
@@ -177,6 +205,16 @@ namespace Orpheus.Net.Session
                     WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
                         : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
                     _current = pos.HasValue ? _digLine.Next(Client, pos.Value) : InputFrame.None; // каждый кадр: кнопка копания — в кадрах
+                }
+                else if (_build != null)
+                {
+                    WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
+                        : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
+                    _current = pos.HasValue ? _build.Next(Client, pos.Value, nowMicros) : InputFrame.None; // каждый кадр: копание, постановка, ходьба
+                }
+                else if (_camp != null)
+                {
+                    _current = _camp.Next(Client); // стоит: ввод пустой, счётчик смерти идёт
                 }
                 else if (_bot is RunSeamBot run)
                 {
