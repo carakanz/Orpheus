@@ -1449,7 +1449,9 @@ namespace Orpheus.Tests
                 rig.Run(1);
             }
 
+            rig.Run(2);
             Assert.Equal(patchesBeforePlace, counter.PatchCount);
+            Assert.Equal(21, replies.Count(r => r.Reply == EditReply.Accepted)); // F-спам при активном замке — без отказов
             Assert.True(rig.Sim.World.TryGetBuild(near, out rec));
             Assert.False(rec.IsDoorOpen);
         }

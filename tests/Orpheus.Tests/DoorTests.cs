@@ -246,6 +246,7 @@ namespace Orpheus.Tests
             sim.SetInput(me, InputFrame.None);
             sim.Step();
             Assert.False(IsOpen(sim, 110, 100), "F не закрыла");
+            Assert.Equal(sim.Tick + Simulation.DoorLockTicks, sim.DoorLockUntil(0));
 
             // Замок первого F истекает; жмём F каждый кадр шагая к двери — продление, автооткрытие молчит.
             for (int t = 0; t < Simulation.DoorLockTicks - 1; t++)
@@ -257,6 +258,13 @@ namespace Orpheus.Tests
             for (int t = 0; t < 20; t++)
             {
                 sim.Step();
+                if (t == 1)
+                {
+                    // Каждый F-такт вне проёма — продление: замок = такт продления + 1 + DoorLockTicks
+                    // (после Step sim.Tick на один такт позже такта правки).
+                    Assert.Equal(sim.Tick + Simulation.DoorLockTicks, sim.DoorLockUntil(0));
+                }
+
                 sim.SetInput(me, new InputFrame(Input8.North, InputButtons.CloseDoor));
             }
 
