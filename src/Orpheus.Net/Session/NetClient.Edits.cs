@@ -204,9 +204,10 @@ namespace Orpheus.Net.Session
 
         /// <summary>
         /// F (1-012, протокол 19): закрыть дверь на тайле <paramref name="tile"/>. Предсказание — record-only
-        /// правка (биты открытости сняты, таймер обнулён); радиус, замок и проём проверяет сервер
+        /// правка (биты открытости сняты, таймер обнулён) только по открытой двери; по закрытой — запрос
+        /// уходит как есть: продление замка (1-028), предсказывать нечего. Радиус, замок и проём проверяет сервер
         /// (<see cref="Simulation.RequestCloseDoor"/>), отказ — откат по ответу (<see cref="ClientWorld.Resolve"/>).
-        /// Возвращает номер запроса; не в игре, тайл не дверь или уже закрыта — 0.
+        /// Возвращает номер запроса; не в игре или тайл не дверь — 0.
         /// </summary>
         public ushort CloseDoor(TileCoord tile)
         {
@@ -216,16 +217,19 @@ namespace Orpheus.Net.Session
             }
 
             TileCoord t = Torus.Wrap(World.Shape, tile);
-            if (World.World.GetObject(t) != ObjectId.Door || !World.World.TryGetBuild(t, out BuildRecord rec)
-                || (rec.Flags & (byte)BuildFlags.DoorOpen) == 0)
+            if (World.World.GetObject(t) != ObjectId.Door || !World.World.TryGetBuild(t, out BuildRecord rec))
             {
-                return 0; // не дверь или уже закрыта
+                return 0; // не дверь
             }
 
             ushort id = NextRequest();
-            var mine = new TileEdit(0, World.World.GetFloor(t), ObjectId.Door,
-                rec.WithoutFlags(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen).WithDebrisEndTick(0));
-            World.Predict(id, 0, t, mine);
+            if (rec.IsDoorOpen)
+            {
+                var mine = new TileEdit(0, World.World.GetFloor(t), ObjectId.Door,
+                    rec.WithoutFlags(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen).WithDebrisEndTick(0));
+                World.Predict(id, 0, t, mine);
+            }
+
             SendRequest(new TileRequestMessage
             {
                 RequestId = id, Op = TileOp.CloseDoor, Frame = _input.LastFrame + 1, From = t, To = t,

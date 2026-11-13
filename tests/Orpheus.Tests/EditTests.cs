@@ -1409,6 +1409,86 @@ namespace Orpheus.Tests
             Assert.False(clientRec.IsDoorOpen); // клиент подтверждён
         }
 
+        /// <summary>F по закрытой двери (1-028) по сети: клиент шлёт запрос (без предсказания — предсказывать
+        /// нечего), сервер принимает (замок), запись не тронута — дверь закрыта; F-спам не порождает рассылок
+        /// правок (продление замка — без правки).</summary>
+        [Fact]
+        public void D12_S2_11_CloseDoor_On_Closed_Sent_NoPrediction_Accepted()
+        {
+            WorldModel world = Flat();
+            var counter = new PatchCounter();
+            var rig = new EditRig(new Simulation(world), _ => TileCenter(300, 200), counter.Wrap);
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.InputOf = null;
+            rig.Run(5);
+
+            var near = new TileCoord(301, 200);
+            Assert.True(rig.Sim.RequestEdit(near, FloorId.WoodFloor, ObjectId.Door,
+                BuildRecord.OfPlayer(1, FloorId.WoodFloor))); // ставим закрытой
+            rig.Run(4);
+            Assert.True(c.World!.World.TryGetBuild(near, out BuildRecord closedRec));
+            Assert.False(closedRec.IsDoorOpen);
+
+            long patchesBeforePlace = counter.PatchCount; // 1 правка двери уже разослана
+            ushort req = c.CloseDoor(near);
+            Assert.NotEqual(0, req);                    // запрос уходит и по закрытой двери
+            Assert.False(c.World!.IsPredicted(near));   // предсказания нет
+            rig.Run(3);
+            TileReplyMessage reply = Assert.Single(replies, r => r.RequestId == req);
+            Assert.Equal(EditReply.Accepted, reply.Reply); // принято: продление замка, без правки
+            Assert.True(rig.Sim.World.TryGetBuild(near, out BuildRecord rec));
+            Assert.False(rec.IsDoorOpen);
+            Assert.Equal(patchesBeforePlace, counter.PatchCount); // продление не разослало правок
+
+            // F-спам по закрытой двери (бот держит замок): запросы принимаются, рассылок правок нет.
+            for (int i = 0; i < 20; i++)
+            {
+                Assert.NotEqual(0, c.CloseDoor(near));
+                rig.Run(1);
+            }
+
+            rig.Run(2);
+            Assert.Equal(patchesBeforePlace, counter.PatchCount);
+            Assert.Equal(21, replies.Count(r => r.Reply == EditReply.Accepted)); // F-спам при активном замке — без отказов
+            Assert.True(rig.Sim.World.TryGetBuild(near, out rec));
+            Assert.False(rec.IsDoorOpen);
+        }
+
+        // ---------- Счётчик рассылок правок ----------
+
+        /// <summary>Обёртка транспорта сервера: считает отправленные пачки правок (ChunkPatch).</summary>
+        private sealed class PatchCounter : ITransport
+        {
+            private ITransport _inner = null!;
+
+            public long PatchCount;
+
+            public ITransport Wrap(ITransport inner)
+            {
+                _inner = inner;
+                return this;
+            }
+
+            public void Poll(long nowMicros, ITransportHandler handler) => _inner.Poll(nowMicros, handler);
+
+            public void Send(int peer, NetChannel channel, ReadOnlySpan<byte> data)
+            {
+                if (data.Length > 0 && (MessageType)data[0] == MessageType.ChunkPatch)
+                {
+                    PatchCount++;
+                }
+
+                _inner.Send(peer, channel, data);
+            }
+
+            public void Flush() => _inner.Flush();
+            public void Disconnect(int peer, ReadOnlySpan<byte> payload) => _inner.Disconnect(peer, payload);
+            public int RoundTripMs(int peer) => _inner.RoundTripMs(peer);
+            public void Dispose() => _inner.Dispose();
+        }
+
         // ---------- Стенд ----------
 
         /// <summary>
