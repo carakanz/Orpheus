@@ -52,7 +52,8 @@ namespace Orpheus.Tests
         /// <summary>
         /// Одно зерно дважды — одинаковые хэши макрокарты (после этапа 7) и всех чанков (SHA-256 снимка генерации и
         /// <see cref="StateHash.Generation"/>); эталоны — одинаковые в Debug (CI) и Release (<c>dotnet test -c Release</c>).
-        /// Меняется результат — меняются эталоны и растёт <see cref="GeneratorV1.GeneratorVersion"/>.
+        /// Меняется результат — меняются эталоны и растёт <see cref="GeneratorV1.GeneratorVersion"/>. Эталоны снимка и генерации
+        /// обновлены в E1-2 (версия 5: вода, обрывы, лес куртинами); макрокарта не менялась — её эталон прежний.
         /// </summary>
         [Fact]
         public void D17_Gen_SameSeedTwice_SameHashes_Golden()
@@ -69,8 +70,8 @@ namespace Orpheus.Tests
             ulong gen = StateHash.Generation(loaded);
             _out.WriteLine($"зерно 1: макрокарта {a.Macro.Map.HashHex()}, снимок {Sha(baseA)}, генерация {gen:x16}");
             Assert.Equal("912d8e607f4a3b7c2f9b8400c288dd72c4fbc873c3ee61d9303122a0fcb3f202", a.Macro.Map.HashHex());
-            Assert.Equal("44b043a093e0bb9a9b3586c153c1bdd778ba9d346f4d8c7c19c965c909eaebae", Sha(baseA));
-            Assert.Equal(0xdfb545018fe15c73UL, gen);
+            Assert.Equal("32485b08eb835cf8cd50c0d347e601627bb823210f9f9066810e38ff1eb8ba01", Sha(baseA));
+            Assert.Equal(0xdf29806f3715daa3UL, gen);
 
             TileWorld other = GeneratorV1.BuildTiles(MapShape.World(W), 2);
             Assert.NotEqual(StateHash.Generation(GeneratorV1.ToModel(other)), gen);
@@ -151,9 +152,9 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// 30 зёрен 1024²: деревья на лугах 6–10 на 1000 тайлов (заглушка — ~56); залежей меди в 600 от Очага ≥ 8;
-        /// от Очага без копания достижимы ≥ 99 % проходимых тайлов лугов и леса; лес — ~120 на 1000; скальная масса гор ~45 %;
-        /// доли биомов тайлов — в 1 п. п. от макрокарты.
+        /// 30 зёрен 1024²: залежей меди в 600 от Очага ≥ 8; от Очага без копания достижимы ≥ 98 % проходимых тайлов лугов и
+        /// леса; доли биомов тайлов — в 1 п. п. от макрокарты. Плотности деревьев, валунов, воды и обрывов — с E1-2 в
+        /// <see cref="ReliefTests"/> (лес 35–55 % вместо 120 на 1000, скальной массы гор больше нет).
         /// </summary>
         [Fact]
         public void D17_Gen_30Seeds_TreesCopperConnectivity()
@@ -166,15 +167,11 @@ namespace Orpheus.Tests
                                $"гранит пещер {s.CaveGranite:F1} %; доли тайлов − макро ≤ {s.MaxShareDiff:F2} п. п.");
             }
 
-            Assert.All(all, s => Assert.InRange(s.MeadowTrees, 6.0, 10.0));
-            Assert.All(all, s => Assert.InRange(s.ForestTrees, 100.0, 140.0));
             Assert.All(all, s => Assert.True(s.Copper >= HearthStage.CopperNeeded, $"зерно {s.Seed}: меди {s.Copper}"));
-            Assert.All(all, s => Assert.True(s.Reach >= 0.99, $"зерно {s.Seed}: достижимо {100 * s.Reach:F3} %"));
 
-            // Норма карточки — 99 %, но её держит и мир без этапа 12 (отрезаны карманы в 1–10 тайлов между деревьями;
-            // мутация 3 М). Этап 12 присоединяет все такие компоненты — значит, ровно 100 %.
-            Assert.All(all, s => Assert.True(s.Reach == 1.0, $"зерно {s.Seed}: достижимо {100 * s.Reach:F4} % — этап 12 не всё присоединил"));
-            Assert.All(all, s => Assert.InRange(s.MountMass, 40.0, 46.0));
+            // E1-2: этап 12 намеренно не присоединяет острова в озёрах (к ним — настилом) и карманы в чаще меньше 16 тайлов,
+            // до которых рубить больше двух деревьев; раньше здесь было ровно 100 %.
+            Assert.All(all, s => Assert.True(s.Reach >= 0.98, $"зерно {s.Seed}: достижимо {100 * s.Reach:F3} %"));
             Assert.All(all, s => Assert.True(s.MaxShareDiff <= 1.0, $"зерно {s.Seed}: {s.MaxShareDiff:F2} п. п."));
         }
 
@@ -314,6 +311,7 @@ namespace Orpheus.Tests
             HearthStage.RunMacro(macro);
             TileStage.Run(t);
             Array.Fill(t.Objects, ObjectId.Empty);
+            Array.Fill(t.Floor, FloorId.Grass); // E1-2: сцена — чистый луг без озёр (острова этап 12 не присоединяет намеренно)
             int x0 = 100;
             int y0 = 100;
             int ore = -1;

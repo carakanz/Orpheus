@@ -87,6 +87,43 @@ namespace Orpheus.Tests
             }
         }
 
+        /// <summary>
+        /// E1-2: чанк с водой, сухой травой и обрывом доходит до клиента побайтно как у сервера — новые значения лежат в тех же
+        /// полях (байт пола, два байта объекта), версия протокола не менялась.
+        /// </summary>
+        [Fact]
+        public void E12_Chunk_WithWaterDryGrassCliff_SameAsServer()
+        {
+            WorldModel world = Flat();
+            for (int k = 0; k < 12; k++)
+            {
+                world.SetBaseTile(new TileCoord(304 + k, 204), FloorId.Water, ObjectId.Empty);
+                world.SetBaseTile(new TileCoord(304 + k, 206), FloorId.DryGrass, ObjectId.Empty);
+                world.SetBaseTile(new TileCoord(304 + k, 208), FloorId.DryGrass, ObjectId.Cliff);
+            }
+
+            using var rig = new ChunkRig(world, n => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            rig.Run(10);
+            Assert.Equal(NetClientState.InGame, c.State);
+            AssertSameAsServer(rig, c);
+            WorldModel seen = c.World!.World;
+            Assert.Equal(FloorId.Water, seen.GetFloor(new TileCoord(310, 204)));
+            Assert.Equal(FloorId.DryGrass, seen.GetFloor(new TileCoord(310, 206)));
+            Assert.Equal(ObjectId.Cliff, seen.GetObject(new TileCoord(310, 208)));
+
+            // Правка пачкой: обрыв и вода приходят и правкой.
+            rig.BeforeStep = () => rig.Sim.RequestEdit(new TileCoord(302, 202), FloorId.Water, ObjectId.Empty);
+            rig.Run(1);
+            rig.BeforeStep = () => rig.Sim.RequestEdit(new TileCoord(303, 202), FloorId.DryGrass, ObjectId.Cliff);
+            rig.Run(1);
+            rig.BeforeStep = null;
+            rig.Run(3);
+            AssertSameAsServer(rig, c);
+            Assert.Equal(FloorId.Water, seen.GetFloor(new TileCoord(302, 202)));
+            Assert.Equal(ObjectId.Cliff, seen.GetObject(new TileCoord(303, 202)));
+        }
+
         // ---------- 3.13 п. 7 ----------
 
         /// <summary>
