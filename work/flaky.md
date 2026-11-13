@@ -19,5 +19,5 @@
 | `D07_S6_4_Saver_LeaveDuringWrite_SavedRightAfter_Coalesced` | SaveEventTests | 1 | 11.11 | в журнале — `LeaveDuringWrite`; замер «записан ≤ 1 с» |
 | `D07_S11_6_Clock_FreezeIsStall_NotTickTime` | MetricsTests | 1 | 08.11 (передача) | в журнале — `FreezeIsStall`; время хрупко под нагрузкой |
 | `D07_S1_9_5_ServerThread_LoopbackClient_TickHolds_SaveLoadThroughStorage` | ServerThreadTests | 4 | 13.11 (E1-1) | таймаут треда под нагрузкой (875 тактов при 240–600); 3-й случай → чинить в P-003 |
-| `D08_3_1_BuildRoom_Udp_Rtt100_Night_Under_Walls` | NightBotsTests | 1 | 13.11 (1-026) | «Disconnected» на входе за 6 с под нагрузкой (~13 мин тест, зелёный поодиночке) |
+| `D08_3_1_BuildRoom_Udp_Rtt100_Night_Under_Walls` | NightBotsTests | 2 | 13.11 (1-026), 14.11 (P-003) | 1-й: «Disconnected» на входе за 6 с под нагрузкой; 2-й: «урон за дверью 4 кадров» — монстр бил сквозь закрытую дверь (дефект правила, не флейк — в backlog [бой]) |
 | `D07_S2_13_1_Udp_Big_TwoBots60s_Rtt100_Loss1_Freeze2s_NoDisconnects_Within05Tile` | ClockUdpTests | 1 | 13.11 (1-026) | ≤ 0,5 тайла — 99,882 % (порог 99,9) под нагрузкой |
