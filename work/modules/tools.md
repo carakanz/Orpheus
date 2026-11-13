@@ -7,21 +7,26 @@
 Обвязка не растёт сама по себе: новая возможность — только если её просит шаг плана.
 
 ## Код
-`tools/ci.ps1` (`-All -TimeLimitSec 0` — полный), `tools/build_client.ps1` (`-Backend Mono -Smoke -HostSmoke`), `tools/playable.ps1`, `tools/gen_preview`, `src/Orpheus.Bots`, `tests/Orpheus.Tests`, `work/flaky.md`.
+`tools/ci.ps1` (`-All -TimeLimitSec 0` — полный), `tools/build_client.ps1` (`-Backend Mono -Smoke -HostSmoke`), `tools/playable.ps1`, `tools/shots.ps1` + `shots.json` + `shots_sheet.py` (стенд снимков), `tools/gen_preview`, `src/Orpheus.Bots`, `tests/Orpheus.Tests`, `work/flaky.md`.
 
 ## Правила, которые нельзя нарушить
 - Вывод тестов и сборок — в `build/logs/`, в ответ — только хвост.
 - Unity — пакетный режим, один процесс на рабочую копию; Unity Hub и `Unity.Licensing.Client.exe` не убивать; код 198 = Hub не запущен.
 - Тест, упавший не из `work/flaky.md`, — это красный CI, а не «хрупкий».
 - Пороги проверок не ослаблять без записи в «Решения» карточки.
+- **Запуски игры не перехватывают фокус и не открываются на основном мониторе (слово Автора 13.11).** Снимки — только без окна: `Orpheus.exe -batchmode --screenshot …` (камера рисует в текстуру; `-nographics` нельзя), так их и запускает `tools\shots.ps1` (`Start-Process -WindowStyle Hidden`). Сборочные smoke-прогоны идут с `-batchmode -nographics`.
+- **Если запуск с окном неизбежен** (проверка руками, режимы без `-batchmode`) — всегда `-monitor 2` (неосновной монитор Автора, левый портретный 1440 × 2560), `-screen-fullscreen 0`, окно не шире 1400; в скриптах — параметр `-Monitor` со значением по умолчанию 2.
+- Скрипты `.ps1` без BOM — только ASCII (PowerShell 5.1 ломает UTF-8 без BOM).
 
 ## Как проверить
-`tools\ci.ps1` — зелёный за ≤ 5 мин.
+`tools\ci.ps1` — зелёный за ≤ 5 мин. `tools\shots.ps1 -Check` — все сцены сняты, повтор даёт те же файлы.
 
-## Состояние (13.11)
-- Есть: CI, сборка, боты (`fight`, `build_room`, `night_camp`), снимок одной сцены (`--screenshot`).
-- Нет: стенда снимков по списку сцен; `build_client.ps1` ищет Unity 6000.6.7f1 (стоит 6000.6.8f1 — нужен `-UnityPath`).
+## Состояние (13.11, после E1-1)
+- Есть: CI, сборка, боты (`fight`, `build_room`, `night_camp`).
+- Стенд снимков (0.3): `tools\shots.ps1` — 7 сцен зерна 0xE50007 (старт 64/96/40, опушка, горы, лес, лес и скалы на 96) за 22 с без окна, с `-Check` (каждая сцена дважды, сверка файлов) — 44 с; повтор побайтно тот же. Времени суток в сценах нет — клиент его не рисует (шаг 1.8).
+- `build_client.ps1` берёт версию Unity из `client/ProjectSettings/ProjectVersion.txt` (0.5); `-UnityPath` и `ORPHEUS_UNITY` остались. Smoke и tile-bench идут с `--gen stub`.
+- `-HostSmoke` красный на `main` и здесь той же ошибкой (P-004: «предсказание … правок 3»).
 - P-003 (хрупкие тесты) — в ветке `task/P-003`, не закончена.
 
 ## Дальше
-0.3 стенд снимков, 0.5 версия Unity из проекта, 0.4 хрупкие тесты.
+0.4 хрупкие тесты (в быстром CI под нагрузкой падают `D00_Net_Udp_BotsLogIn…` и `D07_S2_13_9_Launcher…`); сцены стенда дополнять с каждым шагом этапа 1 (вода, обрыв, ночь); поле «время суток» в `shots.json` — с шагом 1.8.

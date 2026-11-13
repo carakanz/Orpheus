@@ -25,7 +25,8 @@ namespace Orpheus.Client
     /// видна только строка входа, пока игрок не в игре).</item>
     /// <item><c>--screenshot &lt;путь&gt;</c> — кадр мира с персонажем в PNG и выход. Сцена кадра (стенд <c>tools/shots.ps1</c>, E1-1):
     /// <c>--shot-tile X,Y</c> — тайл, куда ставится персонаж (офлайн; по умолчанию — старт), <c>--shot-width N</c> — обзор
-    /// в тайлах по ширине, 40…96 (по умолчанию 64).</item>
+    /// в тайлах по ширине, 40…96 (по умолчанию 64), <c>--shot-size ШxВ</c> — размер кадра в пикселях (по умолчанию 1920x1080).
+    /// Кадр рисуется в текстуру, окно не нужно: запускать <c>Orpheus.exe -batchmode --screenshot …</c> (без <c>-nographics</c>).</item>
     /// <item><c>--gen v1|stub</c> — генератор мира офлайна (E1-1): по умолчанию тот же, что у сервера (<c>v1</c>);
     /// <c>stub</c> — заглушка 0-007 для <c>--smoke</c> и <c>--tile-bench</c> (их проверки сверяются с ней).</item>
     /// <item><c>--single</c> / <c>--host</c> — одиночная игра / хост (0-024, docs/07 2.3; меню — потом): игра запускает
@@ -71,6 +72,10 @@ namespace Orpheus.Client
 
         /// <summary>Сцена снимка (E1-1): обзор по ширине, тайлов; 0 — по умолчанию (64).</summary>
         public int ShotWidth;
+
+        /// <summary>Сцена снимка (E1-1): размер кадра в пикселях.</summary>
+        public int ShotPixelsX = 1920;
+        public int ShotPixelsY = 1080;
 
         /// <summary>Ключ генератора офлайна (<c>WorldGenModule.ForKey</c>): «v1» (как у сервера) или «stub».</summary>
         public string Gen = "v1";
@@ -153,7 +158,7 @@ namespace Orpheus.Client
         /// <summary>Текст подсказки для логов и подсказки при ошибке.</summary>
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
-            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96]] [--gen v1|stub] " +
+            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
             "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек]";
 
@@ -351,6 +356,23 @@ namespace Orpheus.Client
                         {
                             a.Error = $"--shot-width: нужно тайлов 40…96, дано '{next}'";
                             a.ShotWidth = 0;
+                        }
+
+                        break;
+                    case "--shot-size":
+                        i++;
+                        string[] wh = (next ?? string.Empty).ToLowerInvariant().Split('x');
+                        if (wh.Length != 2
+                            || !int.TryParse(wh[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int shotW)
+                            || !int.TryParse(wh[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int shotH)
+                            || shotW < 64 || shotW > 7680 || shotH < 64 || shotH > 4320)
+                        {
+                            a.Error = $"--shot-size: нужно ШxВ в пикселях (например 1920x1080), дано '{next}'";
+                        }
+                        else
+                        {
+                            a.ShotPixelsX = shotW;
+                            a.ShotPixelsY = shotH;
                         }
 
                         break;

@@ -9,9 +9,10 @@ namespace Orpheus.Client
     /// Режим <c>--screenshot &lt;путь&gt;</c> (карточка 0-010, шаг 8; сеть — 0-012; сцены стенда — E1-1): в офлайне персонаж
     /// стоит на старте или на тайле <c>--shot-tile X,Y</c> (ближайший свободный), в сети — создаётся после входа и снимает
     /// там, где поселил сервер; обзор — <c>--shot-width</c> тайлов по ширине (по умолчанию 64);
-    /// на 30-м кадре кадр уходит в PNG через <see cref="ScreenCapture"/>, игра выходит.
+    /// на 30-м кадре камера рисует в текстуру <c>--shot-size</c> (по умолчанию 1920 × 1080), та пишется в PNG, игра выходит.
     /// Офлайн время кадра фиксировано (1/60 с): повтор той же сцены даёт тот же кадр (стенд <c>tools/shots.ps1</c>).
-    /// Нужен вывод на экран — запускать без <c>-batchmode -nographics</c>; окно открыто ~1 с.
+    /// Окно не нужно (слово Автора 13.11: запуски не перехватывают фокус): <c>Orpheus.exe -batchmode --screenshot …</c>;
+    /// <c>-nographics</c> нельзя — нужно графическое устройство. Надписи экранного слоя (HUD) в кадр не попадают.
     /// </summary>
     public sealed class ScreenshotRun
     {
@@ -83,6 +84,34 @@ namespace Orpheus.Client
             return t;
         }
 
+        // Кадр камеры — в текстуру заданного размера и в PNG: без окна и без ScreenCapture (в -batchmode тот не работает).
+        void Capture()
+        {
+            int w = _g.Args.ShotPixelsX, h = _g.Args.ShotPixelsY;
+            Camera cam = _g.Camera;
+            var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            RenderTexture? prevTarget = cam.targetTexture;
+            RenderTexture? prevActive = RenderTexture.active;
+            try
+            {
+                cam.targetTexture = rt;
+                cam.Render();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+                tex.Apply();
+                File.WriteAllBytes(_path, tex.EncodeToPNG());
+                UnityEngine.Object.Destroy(tex);
+            }
+            finally
+            {
+                cam.targetTexture = prevTarget;
+                RenderTexture.active = prevActive;
+                rt.Release();
+                UnityEngine.Object.Destroy(rt);
+            }
+        }
+
         public void AfterFrame()
         {
             _frame++;
@@ -91,14 +120,14 @@ namespace Orpheus.Client
             {
                 // Сеть: кадр ждём входа — персонаж к этому моменту уже проходит скрипт движения (0,5 с стой + восток).
                 Debug.Log($"[screenshot] захват на кадре {_frame}, в игре {_g.Net?.InGameSeconds:0.0} с");
-                ScreenCapture.CaptureScreenshot(_path);
+                Capture();
                 _requested = true;
                 return;
             }
 
             if (_requested && File.Exists(_path) && new FileInfo(_path).Length > 0)
             {
-                Debug.Log($"[screenshot] сохранён {_path} ({Screen.width}x{Screen.height})");
+                Debug.Log($"[screenshot] сохранён {_path} ({_g.Args.ShotPixelsX}x{_g.Args.ShotPixelsY})");
                 Application.Quit(0);
                 _requested = false;
             }

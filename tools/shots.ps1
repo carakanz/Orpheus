@@ -4,8 +4,9 @@
 
 .DESCRIPTION
   Reads scenes from tools/shots.json (name, seed, size, tile, width) and runs the built client
-  (build/client-win/Orpheus.exe, tools/build_client.ps1) once per scene, offline, in a 1920x1080 window:
-    Orpheus.exe --seed S --size N --screenshot <png> [--shot-tile X,Y] --shot-width W
+  (build/client-win/Orpheus.exe, tools/build_client.ps1) once per scene, offline, WITHOUT a window
+  (the camera renders to a 1920x1080 texture; nothing takes the focus or shows up on a monitor):
+    Orpheus.exe -batchmode --seed S --size N --screenshot <png> [--shot-tile X,Y] --shot-width W --shot-size 1920x1080
   PNG go to build/shots/<yyyyMMdd-HHmm>/<name>.png, then a contact sheet sheet.png is glued
   (python + Pillow: tools/shots_sheet.py; without them - System.Drawing).
   The client fixes the frame time in this mode, so a rerun gives the same frames; -Check runs every scene
@@ -44,7 +45,7 @@ if (-not (Test-Path $Scenes)) { Fail "no scene list: $Scenes" }
 
 $cfg = Get-Content -Raw -Encoding UTF8 $Scenes | ConvertFrom-Json
 $width = 1920; $height = 1080
-if ($cfg.window) { $width = [int]$cfg.window.width; $height = [int]$cfg.window.height }
+if ($cfg.frame) { $width = [int]$cfg.frame.width; $height = [int]$cfg.frame.height }
 $list = @($cfg.scenes | Where-Object { $_.name -like $Only })
 if ($list.Count -eq 0) { Fail "no scenes match '$Only' in $Scenes" }
 
@@ -58,11 +59,11 @@ $total = [Diagnostics.Stopwatch]::StartNew()
 function Invoke-Shot($scene, [string] $png) {
     $log = Join-Path $logDir ($scene.name + '.log')
     if (Test-Path $png) { Remove-Item -Force $png }
-    $a = @('--seed', "$($scene.seed)", '--size', "$($scene.size)", '--screenshot', "`"$png`"")
+    $a = @('-batchmode', '--seed', "$($scene.seed)", '--size', "$($scene.size)", '--screenshot', "`"$png`"")
     if ($scene.tile) { $a += @('--shot-tile', ("{0},{1}" -f [int]$scene.tile[0], [int]$scene.tile[1])) }
     if ($scene.width) { $a += @('--shot-width', "$([int]$scene.width)") }
-    $a += @('-screen-width', "$width", '-screen-height', "$height", '-screen-fullscreen', '0', '-logFile', "`"$log`"")
-    $p = Start-Process -FilePath $Exe -ArgumentList $a -PassThru
+    $a += @('--shot-size', ("{0}x{1}" -f $width, $height), '-logFile', "`"$log`"")
+    $p = Start-Process -FilePath $Exe -ArgumentList $a -PassThru -WindowStyle Hidden
     $null = $p.Handle
     if (-not $p.WaitForExit($TimeoutSec * 1000)) {
         try { $p.Kill() } catch { }
