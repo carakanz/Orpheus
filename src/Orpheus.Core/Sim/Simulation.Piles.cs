@@ -20,8 +20,9 @@ namespace Orpheus.Core.Sim
         /// <summary>Радиус подбора: 1,5 тайла = 384 unit (<c>06</c> 5.3 «касание и притяжение с 1,5 тайла»).</summary>
         public const int PickupRadiusUnits = 384;
 
-        /// <summary>Задержка подбора добычи копания и возврата при сносе: 20 тактов (≈ 0,67 с) — добыча успевает «упасть» (допущение E2-1).</summary>
-        public const int LootPickupDelayTicks = 20;
+        /// <summary>Задержка подбора добычи копания и возврата при сносе: 10 тактов (≈ 0,33 с) — добыча успевает «упасть»,
+        /// а стоящий рядом не ждёт её заметно (допущение E2-1; 20 тактов вдвое замедляли добычу бота <c>dig_line</c>).</summary>
+        public const int LootPickupDelayTicks = 10;
 
         /// <summary>Задержка подбора выброшенного из сумки: 90 тактов (3 с) — успеть отойти (допущение E2-1).</summary>
         public const int DropPickupDelayTicks = 90;

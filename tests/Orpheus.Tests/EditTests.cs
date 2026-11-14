@@ -408,7 +408,7 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Дерево топором (1-010): 18 кадров, добыча 3 древесины. С E2-1 [док] добыча не падает в сумку и не
-        /// предсказывается: на тайле дерева появляется куча (клиент видит её сообщением 27), через 20 тактов
+        /// предсказывается: на тайле дерева появляется куча (клиент видит её сообщением 27), через 10 тактов
         /// стоящий рядом её подбирает — сумка сервера (тип 26) приносит древесину; мир сходится.
         /// </summary>
         [Fact]
@@ -485,7 +485,7 @@ namespace Orpheus.Tests
             rig.Run(25);
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(granite));
-            rig.Run(Simulation.LootPickupDelayTicks + 6); // E2-1: добыча упала кучей, через 20 тактов стоящий рядом её поднял
+            rig.Run(Simulation.LootPickupDelayTicks + 6); // E2-1: добыча упала кучей, через 10 тактов стоящий рядом её поднял
             int expected = DigLoot.DropFor(ObjectId.Granite, granite.X, granite.Y, world.Seed, out Material m);
             Assert.Equal(Material.Stone, m);
             Assert.InRange(expected, 1, 2);

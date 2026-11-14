@@ -8,7 +8,7 @@ using Orpheus.Net.Protocol;
 namespace Orpheus.Net.Session
 {
     /// <summary>
-    /// E2-1: бот подбирает добычу с земли. Добыча копания падает кучей на тайл объекта и первые 20 тактов не
+    /// E2-1: бот подбирает добычу с земли. Добыча копания падает кучей на тайл объекта и первые 10 тактов не
     /// подбирается, а подбор — только в 1,5 тайла: бот, который сразу идёт дальше, оставляет добычу лежать.
     /// Помощник выбирает ближайшую известную клиенту кучу (<see cref="NetClient.Piles"/>), под которую в сумке есть
     /// место, и ведёт к ней; вплотную — стоит и ждёт подбора. Кучу, до которой не дошёл за отведённые кадры
@@ -21,6 +21,24 @@ namespace Orpheus.Net.Session
 
         /// <summary>Ближе этого бот стоит и ждёт подбора, unit (0,75 тайла — внутри радиуса подбора 1,5).</summary>
         public const int StandUnits = 3 * Torus.SubTilesPerTile / 4;
+
+        /// <summary>
+        /// Ход по линии (бот <c>dig_line</c> не сходит со своей строки): куча годится, если лежит не дальше этого от линии,
+        /// unit (1,2 тайла: соседняя строка тайлов + разброс; с линии до неё — меньше радиуса подбора 1,5).
+        /// </summary>
+        public const int OffLineUnits = 307;
+
+        /// <summary>Ход по линии: вдоль линии бот подходит к куче на это расстояние и ждёт, unit (0,375 тайла).</summary>
+        public const int StandAlongUnits = 96;
+
+        /// <summary>Свободный ход: к куче идут напрямую.</summary>
+        public const int AxisFree = 0;
+
+        /// <summary>Ход только вдоль X: линия — горизонталь y = <c>line</c>.</summary>
+        public const int AxisX = 1;
+
+        /// <summary>Ход только вдоль Y: линия — вертикаль x = <c>line</c>.</summary>
+        public const int AxisY = 2;
 
         /// <summary>Кадров на одну кучу (идти и ждать); вышли — куча брошена.</summary>
         public const int ChaseFrames = 150;
@@ -44,8 +62,11 @@ namespace Orpheus.Net.Session
         /// <summary>
         /// Есть куча, за которой стоит идти: <paramref name="dir"/> — куда шагнуть (<see cref="Input8.None"/> — стоять и ждать).
         /// <paramref name="wants"/> — фильтр по предмету (null — любые). Нет кучи — false.
+        /// <paramref name="axis"/> — <see cref="AxisFree"/> или ход только вдоль линии (<see cref="AxisX"/> / <see cref="AxisY"/>,
+        /// <paramref name="line"/> — её координата, unit): кучи дальше <see cref="OffLineUnits"/> от линии не интересуют,
+        /// поперёк линии бот не шагает.
         /// </summary>
-        public bool TrySeek(NetClient client, WorldPos pos, Func<byte, bool>? wants, out Input8 dir)
+        public bool TrySeek(NetClient client, WorldPos pos, Func<byte, bool>? wants, out Input8 dir, int axis = AxisFree, int line = 0)
         {
             dir = Input8.None;
             IReadOnlyList<NetPile> piles = client.Piles;
@@ -59,6 +80,15 @@ namespace Orpheus.Net.Session
                 if (_abandoned.Contains(p.Id) || (wants != null && !wants(p.Item)) || client.Inv.RoomFor(p.Item) <= 0)
                 {
                     continue;
+                }
+
+                if (axis != AxisFree)
+                {
+                    int off = axis == AxisX ? Torus.DeltaY(_shape, line, p.Position.Y) : Torus.DeltaX(_shape, line, p.Position.X);
+                    if (Math.Abs(off) > OffLineUnits)
+                    {
+                        continue; // с линии не достать — не наша
+                    }
                 }
 
                 long d2 = Torus.Dist2(_shape, pos, p.Position);
@@ -95,10 +125,18 @@ namespace Orpheus.Net.Session
                 return false;
             }
 
-            if (bestD2 > (long)StandUnits * StandUnits)
+            int dx = Torus.DeltaX(_shape, pos.X, target.Position.X);
+            int dy = Torus.DeltaY(_shape, pos.Y, target.Position.Y);
+            if (axis == AxisX)
             {
-                int dx = Torus.DeltaX(_shape, pos.X, target.Position.X);
-                int dy = Torus.DeltaY(_shape, pos.Y, target.Position.Y);
+                dir = new Input8(Math.Abs(dx) > StandAlongUnits ? Math.Sign(dx) : 0, 0);
+            }
+            else if (axis == AxisY)
+            {
+                dir = new Input8(0, Math.Abs(dy) > StandAlongUnits ? Math.Sign(dy) : 0);
+            }
+            else if (bestD2 > (long)StandUnits * StandUnits)
+            {
                 int dead = Torus.SubTilesPerTile / 4;
                 dir = new Input8(Math.Abs(dx) > dead ? Math.Sign(dx) : 0, Math.Abs(dy) > dead ? Math.Sign(dy) : 0);
             }

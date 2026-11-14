@@ -89,6 +89,9 @@ namespace Orpheus.Net.Session
         public int PilesCollected => _piles.Collected;
 
         private readonly BotPiles _piles;
+
+        // Боту нужен камень (сверка сумки — по камню); за древесиной со срубленных помех он не возвращается.
+        private static readonly Func<byte, bool> IsStone = item => item == Items.Stone;
         private bool _settled;
 
         private readonly Dictionary<ushort, TileCoord> _digTile = new Dictionary<ushort, TileCoord>();
@@ -150,20 +153,6 @@ namespace Orpheus.Net.Session
                 return new InputFrame(Input8.None, InputButtons.Dig, 0, _slot);
             }
 
-            // E2-1: добыча падает на землю и первые 20 тактов не подбирается — подойти и дождаться, потом дальше по строке.
-            if (_piles.TrySeek(client, pos, null, out Input8 toPile))
-            {
-                _stillFrames = 0;
-                _lastPos = pos;
-                return new InputFrame(toPile);
-            }
-
-            if (RocksDug >= Target)
-            {
-                _settled = true; // скалы сняты, куч рядом нет — конец
-                return InputFrame.None;
-            }
-
             TileCoord me = Torus.TileOf(_shape, pos);
             if (_row == int.MinValue)
             {
@@ -200,10 +189,30 @@ namespace Orpheus.Net.Session
             }
 
             // Что копать: сначала помеха по ходу, потом скалы в досягаемости (в полосе).
-            if (TryDig(client, world, pos, me, inBand))
+            if (RocksDug < Target && TryDig(client, world, pos, me, inBand))
             {
                 _stillFrames = 0;
                 return new InputFrame(Input8.None, InputButtons.Dig, 0, _slot);
+            }
+
+            // E2-1: добыча падает на землю и первые такты не подбирается. Копать нечего (всё в досягаемости снято, помехи
+            // по ходу нет) — дойти вдоль своей линии до кучи и дождаться подбора, потом дальше: пока бот копает соседние
+            // скалы, кучи «дозревают», стоять приходится мало. Со строки бот не сходит (иначе копал бы скалы чужих строк): в строке — только вдоль X (кучи своей
+            // тройки строк лежат не дальше 1,2 тайла от линии), при смене строки — только вдоль Y.
+            bool seek = _shifting
+                ? _piles.TrySeek(client, pos, IsStone, out Input8 toPile, BotPiles.AxisY, pos.X)
+                : _piles.TrySeek(client, pos, IsStone, out toPile, BotPiles.AxisX, yc);
+            if (seek)
+            {
+                _stillFrames = 0;
+                _lastPos = pos;
+                return new InputFrame(toPile);
+            }
+
+            if (RocksDug >= Target)
+            {
+                _settled = true; // скалы сняты, куч у линии нет — конец
+                return InputFrame.None;
             }
 
             Input8 move = _shifting

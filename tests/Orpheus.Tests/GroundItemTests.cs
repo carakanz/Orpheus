@@ -317,7 +317,7 @@ namespace Orpheus.Tests
             Assert.InRange(d2, 1, (long)Simulation.PickupRadiusUnits * Simulation.PickupRadiusUnits); // подобрал на подходе, не вплотную
         }
 
-        /// <summary>Свежая добыча не подбирается сразу (задержка 20 тактов), даже если персонаж стоит рядом.</summary>
+        /// <summary>Свежая добыча не подбирается сразу (задержка 10 тактов), даже если персонаж стоит рядом.</summary>
         [Fact]
         public void E21_DigLoot_PickupDelay_ThenAuto()
         {
