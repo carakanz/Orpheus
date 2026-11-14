@@ -25,6 +25,14 @@ namespace Orpheus.Core.Sim
         /// <summary>Подбор с земли (E2-1): <see cref="SimEvent.Requester"/> — кто поднял, <see cref="SimEvent.Tag"/> — номер кучи,
         /// <see cref="SimEvent.Victim"/> — id предмета, <see cref="SimEvent.Damage"/> — сколько легло в сумку.</summary>
         PilePickup = 6,
+
+        /// <summary>Изготовлено (E2-3): <see cref="SimEvent.Requester"/> — кто, <see cref="SimEvent.Tag"/> — рецепт,
+        /// <see cref="SimEvent.Victim"/> — id предмета, <see cref="SimEvent.Damage"/> — сколько.</summary>
+        CraftDone = 7,
+
+        /// <summary>Заявка изготовления отклонена в такте (E2-3): <see cref="SimEvent.Requester"/> — кто,
+        /// <see cref="SimEvent.Tag"/> — причина (<see cref="CraftReply"/>), <see cref="SimEvent.Victim"/> — рецепт.</summary>
+        CraftRefused = 8,
     }
 
     /// <summary>
@@ -88,6 +96,8 @@ namespace Orpheus.Core.Sim
                 SimEventKind.Damage => $"такт {Tick}: урон #{Requester}→#{Victim} {Damage} (тип {DamageType})",
                 SimEventKind.Death => $"такт {Tick}: смерть #{Victim} (убийца #{Requester})",
                 SimEventKind.PilePickup => $"такт {Tick}: #{Requester} поднял {Damage} × предмет {Victim} (куча {Tag})",
+                SimEventKind.CraftDone => $"такт {Tick}: #{Requester} изготовил {Damage} × предмет {Victim} (рецепт {Tag})",
+                SimEventKind.CraftRefused => $"такт {Tick}: #{Requester} — отказ изготовления рецепта {Victim}: {(CraftReply)Tag}",
                 SimEventKind.Respawn => $"такт {Tick}: возрождение #{Victim}",
                 _ => $"такт {Tick}: {Chunk} рев. {Revision}",
             };

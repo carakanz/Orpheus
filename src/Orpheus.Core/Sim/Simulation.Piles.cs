@@ -136,6 +136,7 @@ namespace Orpheus.Core.Sim
             }
 
             _bagOpCount = 0;
+            StepCraft(tick); // E2-3: очереди изготовления — после заявок, до подбора
             if (_pileCount == 0)
             {
                 return;
@@ -229,6 +230,13 @@ namespace Orpheus.Core.Sim
 
                         break;
                     }
+
+                case BagOp.Craft:
+                    ApplyCraft(tick, slot, r.From, r.Count);
+                    break;
+                case BagOp.CraftCancel:
+                    ApplyCraftCancel(tick, slot, r.From);
+                    break;
             }
         }
 

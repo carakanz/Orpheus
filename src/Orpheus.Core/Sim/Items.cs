@@ -52,6 +52,27 @@ namespace Orpheus.Core.Sim
         /// <summary>Стрелы (боеприпас лука, стопка 999).</summary>
         public const byte Arrows = 13;
 
+        /// <summary>Медный слиток (E2-3; <c>06</c> 1.5: 2 медной руды → 1, верстак I).</summary>
+        public const byte CopperIngot = 14;
+
+        /// <summary>Верёвка (<c>06</c> 1.5: 3 волокна → 1, руками) — для луков.</summary>
+        public const byte Rope = 15;
+
+        /// <summary>Медный топор (ярус 2; <c>06</c> 2.3).</summary>
+        public const byte CopperAxe = 16;
+
+        /// <summary>Медный меч (I-2; <c>06</c> 4.3: урон 15 — параметры боя за модулем combat).</summary>
+        public const byte CopperSword = 17;
+
+        /// <summary>Медный лук (I-2; <c>06</c> 4.4).</summary>
+        public const byte CopperBow = 18;
+
+        /// <summary>Мясо (ресурс; дроп зверей — этап 3).</summary>
+        public const byte Meat = 19;
+
+        /// <summary>Жареное мясо (еда среза, <c>06</c> 6.3; стопка 30). Съесть — этап 3.</summary>
+        public const byte RoastMeat = 20;
+
         /// <summary>Размер таблицы (id 0…<see cref="Count"/>−1) — строк в <see cref="ItemTable"/>.</summary>
         public static int Count => ItemTable.Count;
 

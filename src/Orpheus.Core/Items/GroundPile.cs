@@ -42,5 +42,11 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Выбросить из ячейки на землю (количество; 0 — всю стопку).</summary>
         Drop = 3,
+
+        /// <summary>Изготовить рецепт (E2-3; только внутри ядра — <see cref="Simulation.RequestCraft"/>, по сети — своё сообщение).</summary>
+        Craft = 4,
+
+        /// <summary>Отменить позицию очереди изготовления (E2-3; <see cref="Simulation.RequestCraftCancel"/>).</summary>
+        CraftCancel = 5,
     }
 }

@@ -221,6 +221,7 @@ namespace Orpheus.Core.World
                 case ObjectId.Spikes:
                 case ObjectId.Door:
                 case ObjectId.Campfire:
+                case ObjectId.Workbench: // E2-3: верстак I, пока 1 × 1
                     return true;
                 default:
                     return false;

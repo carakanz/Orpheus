@@ -228,6 +228,11 @@ namespace Orpheus.Core.Sim
             h.Add(e.Brain.FarSince);
             // Кэш пути (PathStamp/PathPos) — производный от запросов, чья постановка видна в хэше; не хэшируется.
             e.Inv.AddTo(ref h); // сумка целиком (1-002, E2-1): ячейка в руках и все ячейки
+            if (!e.Craft.IsEmpty)
+            {
+                e.Craft.AddTo(ref h); // очередь изготовления (E2-3) — только непустая: хэши сценариев без крафта прежние
+            }
+
             return h.Value;
         }
 
