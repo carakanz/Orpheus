@@ -58,7 +58,7 @@ namespace Orpheus.Client
         readonly Item[] _items = new Item[Size];
         readonly List<Vector3> _pos = new List<Vector3>(Size * Size * 4);
         readonly List<Vector2> _uv = new List<Vector2>(Size * Size * 4);
-        readonly List<Vector2> _info = new List<Vector2>(Size * 4);
+        readonly List<Vector4> _info = new List<Vector4>(Size * 4);
         readonly List<Color32> _color = new List<Color32>(Size * Size * 4);
         readonly List<ushort> _index = new List<ushort>(Size * Size * 6);
 
@@ -171,6 +171,10 @@ namespace Orpheus.Client
             _index.Add((ushort)(v + 3));
         }
 
+        /// <summary>Ветер объекта для шейдера (E1-11): целая часть — фаза растения × 64 (по хэшу тайла), дробная — амплитуда.</summary>
+        public static float SwayOf(ObjectLook look, int tx, int ty) =>
+            look.Sway <= 0f ? 0f : Mathf.Floor(GroundAtlas.Hash(tx, ty, 149) * 63f) + Mathf.Min(look.Sway, 0.99f);
+
         /// <summary>Меш объектов строки ly; возвращает число объектов (0 — меш пуст).</summary>
         public int BuildRow(Chunk? chunk, ChunkCoord c, int ly, Mesh mesh)
         {
@@ -199,7 +203,13 @@ namespace Orpheus.Client
                 float x0 = it.X - e.PivotX * s, x1 = x0 + e.Width * s;
                 float y0 = it.Y - e.PivotY * s, y1 = y0 + e.Height * s;
                 Quad(new Vector3(x0, y0), new Vector3(x1, y0), new Vector3(x0, y1), new Vector3(x1, y1), e, it.Place.Flip, it.Look.Tint);
-                var info = new Vector2(it.Y, it.Look.Tall ? 1f : 0f);
+                // uv1: опора, «высокий», ветер (E1-11: амплитуда на тайл высоты + фаза растения — Shaders/OrphLife.hlsl).
+                var info = new Vector4(it.X, it.Y, it.Look.Tall ? 1f : 0f, SwayOf(it.Look, corner.X + it.Lx, corner.Y + ly));
+                while (_info.Count < _pos.Count - 4)
+                {
+                    _info.Add(Vector4.zero); // квадраты блоков до этого объекта
+                }
+
                 _info.Add(info);
                 _info.Add(info);
                 _info.Add(info);
@@ -220,7 +230,7 @@ namespace Orpheus.Client
 
             while (_info.Count < _pos.Count)
             {
-                _info.Add(Vector2.zero); // квадраты блоков: не высокие
+                _info.Add(Vector4.zero); // квадраты блоков: не высокие, не качаются
             }
 
             mesh.SetVertices(_pos);
@@ -488,6 +498,17 @@ namespace Orpheus.Client
                     Quad(new Vector3(it.X + x0 + h0 * sx, it.Y - h0 * sy), new Vector3(it.X + x1 + h0 * sx, it.Y - h0 * sy),
                         new Vector3(it.X + x0 + h1 * sx, it.Y - h1 * sy), new Vector3(it.X + x1 + h1 * sx, it.Y - h1 * sy),
                         e, it.Place.Flip, new Color32(0, 0, 0, 255));
+                    // E1-11: тень качается вместе с кроной — uv1: опора, высота точки над опорой, ветер.
+                    float sway = SwayOf(it.Look, Torus.CornerOf(c).X + it.Lx, Torus.CornerOf(c).Y + ly);
+                    while (_info.Count < _pos.Count - 4)
+                    {
+                        _info.Add(Vector4.zero); // тени блоков до этой
+                    }
+
+                    _info.Add(new Vector4(it.X, it.Y, h0, sway));
+                    _info.Add(new Vector4(it.X, it.Y, h0, sway));
+                    _info.Add(new Vector4(it.X, it.Y, h1, sway));
+                    _info.Add(new Vector4(it.X, it.Y, h1, sway));
                     shadows++;
                 }
             }
@@ -497,8 +518,14 @@ namespace Orpheus.Client
                 return 0;
             }
 
+            while (_info.Count < _pos.Count)
+            {
+                _info.Add(Vector4.zero);
+            }
+
             mesh.SetVertices(_pos);
             mesh.SetUVs(0, _uv);
+            mesh.SetUVs(1, _info);
             mesh.SetColors(_color);
             mesh.SetTriangles(_index, 0, calculateBounds: true);
             return shadows;

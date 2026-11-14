@@ -23,6 +23,8 @@ namespace Orpheus.Client.Anim
         bool _hasLast;
         Vector2 _vel;
         static int s_created;
+        readonly int _lifeId = ++s_lifeIds; // E1-11: номер существа для следа в траве и толчков деревьев
+        static int s_lifeIds;
 
         public readonly ProceduralAnimator Animator = new ProceduralAnimator();
 
@@ -93,6 +95,8 @@ namespace Orpheus.Client.Anim
             // E1-7: существо сортируется с объектами «с высотой» по нижней кромке (ноги — опора спрайта без сдвига позы).
             int order = WorldView.SortOrderAt(_root.position.y + _basePos.y);
             _sr.sortingOrder = order;
+            // E1-11: существо приминает траву под ногами и задевает деревья рядом (только вид).
+            LifeFx.Touch(_lifeId, new Vector2(_root.position.x, _root.position.y + _basePos.y));
             _sr.color = new Color(_baseColor.r * p.TintR, _baseColor.g * p.TintG, _baseColor.b * p.TintB, _baseColor.a * p.Alpha);
 
             for (int i = 0; i < _ghosts.Length; i++)

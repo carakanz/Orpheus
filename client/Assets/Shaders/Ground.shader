@@ -43,6 +43,11 @@ Shader "Orpheus/Ground"
         float _Warp;
     CBUFFER_END
 
+    // E1-11 (план 1.12): поправка цвета слоя из таблицы земли (GroundTable): rgb — множитель, a — насыщенность;
+    // _OrphLayerMix.x — сила крупных пятен оттенка по миру (луг не ровной заливкой). Задаёт GroundAtlas.
+    float4 _OrphLayerTint[16];
+    float4 _OrphLayerMix[16];
+
     struct Attributes
     {
         float3 positionOS : POSITION;
@@ -75,7 +80,12 @@ Shader "Orpheus/Ground"
         {
             float t = _Time.y;
             uv += float2(sin(t * 0.9 + wp.y * 1.7), cos(t * 0.7 + wp.x * 1.3)) * 0.018 + t * float2(0.012, 0.007);
-            return SAMPLE_TEXTURE2D_ARRAY_GRAD(_Layers, sampler_Layers, uv, id, dx, dy).rgb;
+            half3 water = SAMPLE_TEXTURE2D_ARRAY_GRAD(_Layers, sampler_Layers, uv, id, dx, dy).rgb;
+            // E1-11: блики — две сетки ряби идут навстречу; где гребни сходятся, вода светлее (полосы, не пятна).
+            float r1 = sin(wp.x * 2.3 + wp.y * 1.1 + t * 1.3 + low.r * 9.0);
+            float r2 = sin(wp.x * 1.2 - wp.y * 2.6 - t * 0.9 + low.g * 7.0);
+            half glint = smoothstep(0.72, 0.98, r1 * r2 * 0.5 + 0.5 * sin(wp.x * 0.7 + wp.y * 0.9 + t * 0.5));
+            return water + glint * half3(0.10, 0.12, 0.11);
         }
 
         // Лёгкий изгиб картинки крупным шумом: ряды пятен перестают быть прямыми.
@@ -87,7 +97,13 @@ Shader "Orpheus/Ground"
         half edge = SAMPLE_TEXTURE2D_LOD(_Noise, sampler_Noise, wp / 16.0, 0).r;
         half m = smoothstep(0.49, 0.51, low.g + (edge - 0.5) * 0.14) * _Mix;
         half3 col = lerp(a, b, m);
-        return col * (1.0 + (low.b - 0.5) * 2.0 * _Variation);
+        col *= (1.0 + (low.b - 0.5) * 2.0 * _Variation);
+        // Поправка слоя: насыщенность и множитель цвета; крупные пятна (16–32 тайла) — где суше и теплее, где сочнее и темнее.
+        float4 tint = _OrphLayerTint[(int)id];
+        col = lerp(dot(col, half3(0.30, 0.59, 0.11)).xxx, col, tint.a) * tint.rgb;
+        half patch = (SAMPLE_TEXTURE2D_LOD(_Noise, sampler_Noise, wp / 128.0 + float2(0.31, 0.77), 0).b - 0.5) * 2.0 * _OrphLayerMix[(int)id].x;
+        col *= patch > 0 ? lerp(half3(1, 1, 1), half3(1.10, 1.03, 0.84), patch) : lerp(half3(1, 1, 1), half3(0.86, 0.93, 0.92), -patch);
+        return col;
     }
 
     half4 Frag(Varyings i) : SV_Target

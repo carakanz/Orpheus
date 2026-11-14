@@ -1,6 +1,7 @@
 // Объекты «с высотой» (E1-7, план 1.7): деревья, кусты, валуны, руда, пни — квадраты из общего листа картинок,
-// меш на строку тайлов чанка (ObjectMesh). uv — место в листе, color — оттенок, uv1.x — высота опоры объекта в меше,
-// uv1.y — 1 у высокого объекта (дерево).
+// меш на строку тайлов чанка (ObjectMesh). uv — место в листе, color — оттенок, uv1.xy — опора объекта в меше,
+// uv1.z — 1 у высокого объекта (дерево), uv1.w — ветер: амплитуда на тайл высоты + фаза (OrphLife.hlsl; 0 — не качается).
+// E1-11: верх объекта смещается ветром и толчками (низ на месте) — в вершинном шейдере.
 // Свой персонаж за кроной: у высокого объекта, чья опора ниже ног персонажа (объект ближе к зрителю), точки в круге
 // _OrphHero.w вокруг персонажа становятся полупрозрачными — персонаж виден сквозь крону.
 Shader "Orpheus/Objects"
@@ -12,6 +13,7 @@ Shader "Orpheus/Objects"
 
     HLSLINCLUDE
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+    #include "Assets/Shaders/OrphLife.hlsl"
 
     TEXTURE2D(_MainTex);
     SAMPLER(sampler_MainTex);
@@ -29,7 +31,7 @@ Shader "Orpheus/Objects"
     {
         float3 positionOS : POSITION;
         float2 uv : TEXCOORD0;
-        float2 info : TEXCOORD1;
+        float4 info : TEXCOORD1;
         half4 color : COLOR;
     };
 
@@ -45,11 +47,14 @@ Shader "Orpheus/Objects"
     {
         Varyings o;
         float3 wp = TransformObjectToWorld(v.positionOS);
+        float2 base = TransformObjectToWorld(float3(v.info.xy, 0)).xy;
+        float sway, phase;
+        OrphUnpack(v.info.w, sway, phase);
+        wp.xy += OrphSway(base, v.positionOS.y - v.info.y, sway, phase);
         o.positionCS = TransformWorldToHClip(wp);
         o.uv = v.uv;
         o.color = v.color;
-        float baseY = TransformObjectToWorld(float3(0, v.info.x, 0)).y;
-        o.world = float3(wp.xy, (v.info.y > 0.5 && baseY < _OrphHero.z && _OrphHero.w > 0) ? 1 : 0);
+        o.world = float3(wp.xy, (v.info.z > 0.5 && base.y < _OrphHero.z && _OrphHero.w > 0) ? 1 : 0);
         return o;
     }
 

@@ -20,6 +20,9 @@ namespace Orpheus.Client
             public Rect Uv;
             public float Width, Height;   // тайлов
             public float PivotX, PivotY;  // опора от левого нижнего угла, тайлов
+
+            /// <summary>Средний цвет кроны (E1-11): цвет листьев, которые сыплются с дерева. Без видеокарты — зелёный по умолчанию.</summary>
+            public Color32 Leaf;
         }
 
         /// <summary>Имя пятна-тени под персонажами и врагами (рисуется кодом).</summary>
@@ -110,6 +113,7 @@ namespace Orpheus.Client
                     Height = s.rect.height / ppu,
                     PivotX = s.pivot.x / ppu,
                     PivotY = s.pivot.y / ppu,
+                    Leaf = new Color32(96, 150, 60, 255),
                 };
                 textures[i] = s.texture;
             }
@@ -125,6 +129,11 @@ namespace Orpheus.Client
                     ? $"[objects] устройство {SystemInfo.graphicsDeviceType}: объекты не рисуются (меши собираются), картинок {n}"
                     : "[objects] в наборе нет шейдера объектов или теней — объекты не рисуются");
                 return;
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                entries[i].Leaf = LeafColor(set.Sprites[i], entries[i].Leaf);
             }
 
             textures[n] = BuildBlob();
@@ -157,6 +166,41 @@ namespace Orpheus.Client
             ShadowMaterial.SetTexture("_MainTex", atlas);
             Debug.Log($"[objects] лист {atlas.width}x{atlas.height}, картинок {n} + пятно; шейдеры: {set.ObjectShader.name} " +
                       $"(поддержан: {set.ObjectShader.isSupported}), {set.ShadowShader.name} (поддержан: {set.ShadowShader.isSupported})");
+        }
+
+        // Цвет листвы картинки: среднее по непрозрачным и не тёмным (не контур, не ствол в тени) точкам верхних 60 %,
+        // взвешенное насыщенностью — зелень и осенняя рыжина весят больше серой коры.
+        static Color32 LeafColor(Sprite s, Color32 fallback)
+        {
+            Texture2D t = s.texture;
+            if (t == null || !t.isReadable)
+            {
+                return fallback;
+            }
+
+            Color32[] px = t.GetPixels32(0);
+            int w = t.width, h = t.height;
+            double r = 0, g = 0, b = 0, sum = 0;
+            for (int y = (int)(h * 0.4f); y < h; y += 2)
+            {
+                for (int x = 0; x < w; x += 2)
+                {
+                    Color32 c = px[y * w + x];
+                    int max = Mathf.Max(c.r, Mathf.Max(c.g, c.b)), min = Mathf.Min(c.r, Mathf.Min(c.g, c.b));
+                    if (c.a < 200 || max < 96 || (c.r > 200 && c.b > 200 && c.g < 80))
+                    {
+                        continue; // прозрачное, контур, пурпурный уголок заглушки
+                    }
+
+                    double k = 0.15 + (max - min) / 255.0;
+                    r += c.r * k;
+                    g += c.g * k;
+                    b += c.b * k;
+                    sum += k;
+                }
+            }
+
+            return sum < 1.0 ? fallback : new Color32((byte)(r / sum), (byte)(g / sum), (byte)(b / sum), 255);
         }
 
         static Texture2D BuildWhite()

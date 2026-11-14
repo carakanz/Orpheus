@@ -129,6 +129,19 @@ namespace Orpheus.Client
             mat.SetTexture("_Noise", BuildNoise());
             mat.SetFloat("_TexTiles", TilesPerTexture);
             mat.SetFloat("_WaterLayers", GroundTable.WaterLayers);
+            // E1-11: поправка цвета слоёв (таблица земли) — общие параметры шейдеров, по номеру слоя.
+            var tints = new Vector4[16];
+            var mixes = new Vector4[16];
+            for (int i = 0; i < tints.Length; i++)
+            {
+                bool has = i < layers.Length;
+                Color c = has ? layers[i].Tint : Color.white;
+                tints[i] = new Vector4(c.r, c.g, c.b, has ? layers[i].Saturation : 1f);
+                mixes[i] = new Vector4(has ? layers[i].Patches : 0f, 0f, 0f, 0f);
+            }
+
+            Shader.SetGlobalVectorArray("_OrphLayerTint", tints);
+            Shader.SetGlobalVectorArray("_OrphLayerMix", mixes);
             Debug.Log($"[ground] материал: шейдер {set.Shader.name} (поддержан: {set.Shader.isSupported}), слоёв {layers.Length} по {size}x{size}, без картинки {missing}");
             return mat;
         }

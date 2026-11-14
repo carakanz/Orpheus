@@ -77,6 +77,15 @@ namespace Orpheus.Client
         public int ShotPixelsX = 1920;
         public int ShotPixelsY = 1080;
 
+        /// <summary>
+        /// E1-11, лента кадров <c>--shot-walk НАПРАВЛЕНИЕ:КАДРОВ:ИНТЕРВАЛ[:РАЗБЕГ]</c> (вместе с <c>--screenshot</c>): персонаж
+        /// скриптом идёт в сторону (e, w, n, s, ne, nw, se, sw; stay — стоит), кадры каждые ИНТЕРВАЛ секунд после РАЗБЕГА
+        /// вырезаются вокруг персонажа (<c>--shot-crop ШxВ</c>) и склеиваются в одну картинку. 0 кадров — обычный снимок.
+        /// </summary>
+        public int WalkFrames;
+        public float WalkDirX, WalkDirY, WalkInterval = 0.15f, WalkLead;
+        public int CropX = 640, CropY = 400;
+
         /// <summary>Ключ генератора офлайна (<c>WorldGenModule.ForKey</c>): «v1» (как у сервера) или «stub».</summary>
         public string Gen = "v1";
 
@@ -182,6 +191,36 @@ namespace Orpheus.Client
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
             "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--day-tick 0…35999]";
+
+        static bool TryParseWalk(string? text, ClientArgs a)
+        {
+            string[] p = (text ?? string.Empty).ToLowerInvariant().Split(':');
+            if (p.Length < 3 || p.Length > 4)
+            {
+                return false;
+            }
+
+            switch (p[0])
+            {
+                case "e": a.WalkDirX = 1f; a.WalkDirY = 0f; break;
+                case "w": a.WalkDirX = -1f; a.WalkDirY = 0f; break;
+                case "n": a.WalkDirX = 0f; a.WalkDirY = 1f; break;
+                case "s": a.WalkDirX = 0f; a.WalkDirY = -1f; break;
+                case "ne": a.WalkDirX = 1f; a.WalkDirY = 1f; break;
+                case "nw": a.WalkDirX = -1f; a.WalkDirY = 1f; break;
+                case "se": a.WalkDirX = 1f; a.WalkDirY = -1f; break;
+                case "sw": a.WalkDirX = -1f; a.WalkDirY = -1f; break;
+                case "stay": a.WalkDirX = 0f; a.WalkDirY = 0f; break;
+                default: return false;
+            }
+
+            a.WalkLead = 0f;
+            return int.TryParse(p[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.WalkFrames)
+                && a.WalkFrames >= 1 && a.WalkFrames <= 16
+                && float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out a.WalkInterval)
+                && a.WalkInterval > 0f && a.WalkInterval <= 5f
+                && (p.Length < 4 || (float.TryParse(p[3], NumberStyles.Float, CultureInfo.InvariantCulture, out a.WalkLead) && a.WalkLead >= 0f && a.WalkLead <= 30f));
+        }
 
         public static ClientArgs Parse(string[] args)
         {
@@ -394,6 +433,29 @@ namespace Orpheus.Client
                         {
                             a.ShotPixelsX = shotW;
                             a.ShotPixelsY = shotH;
+                        }
+
+                        break;
+                    case "--shot-walk":
+                        i++;
+                        if (!TryParseWalk(next, a))
+                        {
+                            a.Error = $"--shot-walk: нужно НАПРАВЛЕНИЕ:КАДРОВ:ИНТЕРВАЛ[:РАЗБЕГ] (e|w|n|s|ne|nw|se|sw|stay : 1…16 : секунды), дано '{next}'";
+                            a.WalkFrames = 0;
+                        }
+
+                        break;
+                    case "--shot-crop":
+                        i++;
+                        string[] crop = (next ?? string.Empty).ToLowerInvariant().Split('x');
+                        if (crop.Length != 2
+                            || !int.TryParse(crop[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.CropX)
+                            || !int.TryParse(crop[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.CropY)
+                            || a.CropX < 64 || a.CropY < 64)
+                        {
+                            a.Error = $"--shot-crop: нужно ШxВ в пикселях кадра (например 640x400), дано '{next}'";
+                            a.CropX = 640;
+                            a.CropY = 400;
                         }
 
                         break;

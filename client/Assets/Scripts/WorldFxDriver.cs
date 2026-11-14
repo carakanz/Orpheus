@@ -9,6 +9,20 @@ namespace Orpheus.Client
     /// </summary>
     public sealed class WorldFxDriver : MonoBehaviour
     {
-        void LateUpdate() => WorldFx.LateFrame();
+        Camera? _camera;
+
+        void LateUpdate()
+        {
+            WorldFx.LateFrame();
+            if (_camera == null)
+            {
+                _camera = GetComponent<Camera>();
+            }
+
+            if (_camera != null)
+            {
+                LifeFx.LateFrame(_camera); // E1-11: ветер, толчки деревьев, след в траве, листья
+            }
+        }
     }
 }
