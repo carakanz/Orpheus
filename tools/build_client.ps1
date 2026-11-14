@@ -137,6 +137,16 @@ $unityArgs = @(
 )
 if ($Development) { $unityArgs += '-orpheusDevelopment' }
 Say "Unity: сборка $Backend → build/client-win (лог: build/logs/unity-build.log)"
+# Одна сборка Unity на всю машину: две одновременные (в разных рабочих копиях) 14.11 повесили компьютер.
+# Вторая сборка ждёт первую в очереди (до 30 мин), а не идёт параллельно.
+$unityMutex = New-Object System.Threading.Mutex($false, 'Global\OrpheusUnityBuild')
+$gotMutex = $false
+try { $gotMutex = $unityMutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $gotMutex = $true }
+if (-not $gotMutex) {
+    Say 'Unity: другая сборка уже идёт — жду очереди (до 30 мин)'
+    try { $gotMutex = $unityMutex.WaitOne(30 * 60 * 1000) } catch [System.Threading.AbandonedMutexException] { $gotMutex = $true }
+    if (-not $gotMutex) { Fail 'Unity: очередь сборки не освободилась за 30 мин' }
+}
 $unityTime = [Diagnostics.Stopwatch]::StartNew()
 $proc = Start-Process -FilePath $UnityPath -ArgumentList $unityArgs -PassThru -NoNewWindow
 $null = $proc.Handle  # без этого ExitCode после WaitForExit(таймаут) бывает пустым
@@ -146,6 +156,7 @@ if (-not $proc.WaitForExit($TimeoutMinutes * 60 * 1000)) {
 }
 $proc.WaitForExit()
 $code = $proc.ExitCode
+try { $unityMutex.ReleaseMutex() } catch { }
 $unityTime.Stop()
 Say ("Unity: код {0}, {1:0.0} с" -f $code, $unityTime.Elapsed.TotalSeconds)
 
