@@ -38,11 +38,12 @@ namespace Orpheus.Tests
         /// <summary>
         /// 1-017: тот же бот в мире генератора v1 (по умолчанию сервера, <c>--gen v1</c>). Скал в полосе реже, на пути — деревья,
         /// кусты, гранит и залежи (они дольше), поэтому лимит тактов — вдвое больше.
-        /// E1-2: зерно 7 — у шва есть полоса без воды и обрывов (бот их не копает и не обходит; у зерна 1 на шве озеро);
+        /// E1-2: у шва нужна полоса без воды и обрывов (бот их не копает и не обходит; у зерна 1 на шве озеро). E2-6 (мир v7):
+        /// зерно 7 → 9 — в полосе зерна 7 теперь ядро гранита, каменной киркой бот его не берёт и встаёт;
         /// <see cref="PickBand"/> такие полосы пропускает.
         /// </summary>
         [Fact]
-        public void D17_DigLine_GenV1_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Current, slack: 2, seed: 7);
+        public void D17_DigLine_GenV1_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Current, slack: 2, seed: 9);
 
         /// <summary>
         /// Ночной прогон: 1000 скал, у копающего RTT 100 мс (имитатор связи). Лимит тактов — вдвое: с 1-010 копание идёт
