@@ -46,6 +46,12 @@ namespace Orpheus.Net.Session
             public int DigProgress;
             public int DigFrames;
 
+            // Идущая починка (C-005, `05` 1.3: 0,5 с): запрос, тайл, кадров прошло.
+            public bool Repairing;
+            public ushort RepairRequest;
+            public TileCoord RepairTile;
+            public int RepairProgress;
+
             // Ждущий запрос копания (начало или конец) — действует с кадра PendingFrame (кадр запроса клиента).
             public bool HasPending;
             public TileOp PendingOp;
@@ -158,6 +164,8 @@ namespace Orpheus.Net.Session
                 Reply(p, s.DigRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
                 s.Digging = false;
             }
+
+            StopRepair(p, s); // C-005: идущая починка — тоже «прервано»
         }
 
         /// <summary>Ждущий запрос копания вступает: конец — «прервано»; начало — прежнему «прервано», проверка, старт.</summary>
@@ -327,6 +335,11 @@ namespace Orpheus.Net.Session
                 if (s.Digging && digFrames > 0 && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= digFrames)
                 {
                     CompleteDig(p, s, pos, held);
+                }
+
+                if (s.Repairing)
+                {
+                    AdvanceRepair(p, s, slot, pos, held); // C-005: починка 0,5 с (NetServer.Use.cs)
                 }
             }
         }

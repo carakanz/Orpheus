@@ -47,7 +47,7 @@ namespace Orpheus.Core.Sim
         {
             ref EditRequest e = ref _edits[i];
             BuildRecord rec = _preBuild[i];
-            if (!_preHasBuild[i] || _preObj[i] != e.Edit.Obj || rec.IsDebris || rec.IsDamagedRecent
+            if (!_preHasBuild[i] || _preObj[i] != e.Edit.Obj || rec.IsDebris || rec.IsRepairBlocked
                 || !BuildDefs.TryGet(_preObj[i], out BuildDef def) || rec.Integrity >= def.MaxIntegrity)
             {
                 _preResult[i] = EditResult.Busy;

@@ -29,37 +29,15 @@ namespace Orpheus.Net.Session
         public long RepairsRefused { get; private set; }
 
         /// <summary>
-        /// Починка (TileOp 5): молот в руках, проверка <see cref="EditRules.CheckRepair"/> (радиус, есть постройка, не цела,
-        /// не под ударом) и цена по сумке — отказ сразу с причиной; иначе правка в очередь такта, ответ — после такта
-        /// (общий путь линий постановки: одна «линия» из одного тайла).
+        /// Починка (TileOp 5; `05` 1.3 «одно применение, 0,5 с»): молот в руках, проверка <see cref="EditRules.CheckRepair"/>
+        /// (радиус, есть постройка, не цела, не под ударом последние 3 с) и цена по сумке — отказ сразу с причиной. Иначе
+        /// начинается починка (C-005): прогресс — по кадрам ввода, шагнутым сервером, <see cref="BuildDefs.RepairFrames"/>
+        /// (0,5 с), как у копания; прежняя идущая починка — «прервано». Готово — те же проверки ещё раз и правка в очередь
+        /// такта, ответ — после такта (общий путь линий постановки: одна «линия» из одного тайла).
         /// </summary>
         private void OnRepair(Player p, EditState s, WorldPos pos, in TileRequestMessage m, byte held)
         {
-            EditReply check = EditRules.CheckRepair(_sim.World, pos, m.From, out BuildDef def, out int c1, out int c2);
-            if (Items.DigToolOf(held) != ToolKind.Hammer)
-            {
-                check = EditReply.ToolRequired;
-            }
-            else if (Paused)
-            {
-                check = EditReply.Paused;
-            }
-            else if (s.PendingCount == MaxPendingPlaces)
-            {
-                check = EditReply.QueueFull;
-            }
-
-            int slot = _sim.SlotOf(p.EntityId);
-            if (check == EditReply.Accepted && !EditRules.RepairAffordable(def, c1, c2, _sim.Entities[slot].Inv))
-            {
-                check = EditReply.NoResources;
-            }
-
-            if (check == EditReply.Accepted && !_sim.RequestRepair(m.From, p.EntityId, m.RequestId << TagLineBits))
-            {
-                check = QueueRefusal(p.EntityId);
-            }
-
+            EditReply check = Paused ? EditReply.Paused : CheckRepairNow(p, s, pos, m.From, held);
             if (check != EditReply.Accepted)
             {
                 RepairsRefused++;
@@ -67,8 +45,79 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            StopRepair(p, s);
+            s.Repairing = true;
+            s.RepairRequest = m.RequestId;
+            s.RepairTile = m.From;
+            s.RepairProgress = 0;
+        }
+
+        /// <summary>Проверки починки с причиной: молот, <see cref="EditRules.CheckRepair"/>, место под ответ, цена по сумке.</summary>
+        private EditReply CheckRepairNow(Player p, EditState s, WorldPos pos, TileCoord tile, byte held)
+        {
+            EditReply check = EditRules.CheckRepair(_sim.World, pos, tile, out BuildDef def, out int c1, out int c2);
+            if (Items.DigToolOf(held) != ToolKind.Hammer)
+            {
+                return EditReply.ToolRequired;
+            }
+
+            if (check == EditReply.Accepted && s.PendingCount == MaxPendingPlaces)
+            {
+                return EditReply.QueueFull;
+            }
+
+            int slot = _sim.SlotOf(p.EntityId);
+            if (check == EditReply.Accepted && !EditRules.RepairAffordable(def, c1, c2, _sim.Entities[slot].Inv))
+            {
+                return EditReply.NoResources;
+            }
+
+            return check;
+        }
+
+        /// <summary>Идущая починка — «прервано» (новая починка, персонажа нет).</summary>
+        private void StopRepair(Player p, EditState s)
+        {
+            if (s.Repairing)
+            {
+                s.Repairing = false;
+                Reply(p, s.RepairRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
+            }
+        }
+
+        /// <summary>
+        /// Кадр идущей починки (C-005): умер, убрал молот из рук или отошёл из радиуса постановки — «прервано» (`05` 1.3: как
+        /// копание, прерывается уходом); прошло <see cref="BuildDefs.RepairFrames"/> кадров — проверки ещё раз и правка в такт.
+        /// </summary>
+        private void AdvanceRepair(Player p, EditState s, int slot, WorldPos pos, byte held)
+        {
+            if (!_sim.Entities[slot].Alive || Items.DigToolOf(held) != ToolKind.Hammer || !EditRules.InPlaceRadius(_sim.Shape, pos, s.RepairTile))
+            {
+                StopRepair(p, s);
+                return;
+            }
+
+            if (++s.RepairProgress < BuildDefs.RepairFrames)
+            {
+                return;
+            }
+
+            s.Repairing = false;
+            EditReply check = CheckRepairNow(p, s, pos, s.RepairTile, held);
+            if (check == EditReply.Accepted && !_sim.RequestRepair(s.RepairTile, p.EntityId, s.RepairRequest << TagLineBits))
+            {
+                check = QueueRefusal(p.EntityId);
+            }
+
+            if (check != EditReply.Accepted)
+            {
+                RepairsRefused++;
+                Reply(p, s.RepairRequest, check, check, 0);
+                return;
+            }
+
             int k = s.PendingCount++;
-            s.PendingId[k] = m.RequestId;
+            s.PendingId[k] = s.RepairRequest;
             s.PendingMask[k] = 0;
             s.PendingFirst[k] = EditReply.Accepted;
             s.PendingLeft[k] = 1;

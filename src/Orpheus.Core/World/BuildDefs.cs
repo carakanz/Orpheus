@@ -166,5 +166,14 @@ namespace Orpheus.Core.World
 
         /// <summary>Такт жизни флага «урон последние 10 с» (<see cref="BuildFlags.DamagedRecent"/>).</summary>
         public const int DamageFlagTicks = 300;
+
+        /// <summary>Такт жизни флага «урон последние 3 с — чинить нельзя» (<see cref="BuildFlags.RepairBlocked"/>, `05` 1.3, C-005).</summary>
+        public const int RepairBlockTicks = 90;
+
+        /// <summary>
+        /// Время починки — 0,5 с (`05` 1.3 «одно применение, 0,5 с», C-005): кадров ввода 60 Гц, как время копания
+        /// (<see cref="DigTimes"/>). Прогресс ведёт сервер; отошёл из радиуса, убрал молот, умер — «прервано».
+        /// </summary>
+        public const int RepairFrames = 30;
     }
 }
