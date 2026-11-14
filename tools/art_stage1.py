@@ -62,7 +62,8 @@ def load_set():
 
 
 def build_prompt(data, s):
-    return f"{data['style']}. {s['prompt']}. {data['camera'][s['kind']]}"
+    style = data["styles"][s["style"]] if s.get("style") else data["style"]   # свой стиль предмета — по имени
+    return f"{style}. {s['prompt']}. {data['camera'][s['kind']]}"
 
 
 def ledger_path(raw):
@@ -84,7 +85,7 @@ def queue_len():
     return len(q.get("queue_running") or []) + len(q.get("queue_pending") or [])
 
 
-def cmd_queue(keys, raw, force):
+def cmd_queue(keys, raw, force, front=False):
     data, subj = load_set()
     led = load_ledger(raw)
     for k in keys:
@@ -100,7 +101,10 @@ def cmd_queue(keys, raw, force):
         s = subj[k]
         prompt = build_prompt(data, s)
         g = graph(prompt, data["negative"][s["kind"]], s["w"], s["h"], s["seed"], f"orpheus/e19_{k}")
-        pid = call("/prompt", {"prompt": g, "client_id": str(uuid.uuid4())})["prompt_id"]
+        body = {"prompt": g, "client_id": str(uuid.uuid4())}
+        if front:   # проба промпта — в начало своей же очереди
+            body["front"] = True
+        pid = call("/prompt", body)["prompt_id"]
         led[k] = {"pid": pid, "status": "queued", "seed": s["seed"], "w": s["w"], "h": s["h"], "prompt": prompt,
                   "queued": time.strftime("%Y-%m-%d %H:%M:%S")}
         save_ledger(raw, led)
@@ -142,6 +146,7 @@ def main():
     ap.add_argument("keys", nargs="*")
     ap.add_argument("--raw", default=str(ROOT / "build" / "art_e19" / "raw"))
     ap.add_argument("--force", action="store_true", help="перезаказать, даже если картинка уже есть")
+    ap.add_argument("--front", action="store_true", help="в начало очереди (проба промпта)")
     a = ap.parse_args()
     raw = Path(a.raw)
     try:
@@ -150,7 +155,7 @@ def main():
             for k, s in subj.items():
                 print(f"{k:<22} {s['kind']:<7} {s['w']}x{s['h']} seed {s['seed']}")
         elif a.cmd == "queue":
-            cmd_queue(a.keys, raw, a.force)
+            cmd_queue(a.keys, raw, a.force, a.front)
         elif a.cmd == "collect":
             cmd_collect(raw)
         else:  # wait: ждать, пока всё поставленное не скачается (для фоновой команды)
