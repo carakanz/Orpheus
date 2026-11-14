@@ -50,6 +50,15 @@ FLOORS = {
     "water_shallow": ("TEMP_water_shallow.png", "вода, отмель", (72, 176, 180), (120, 210, 206)),
 }
 
+# во сколько раз укрупнить фактуру (середина сырой картинки без уменьшения)
+FLOOR_ZOOM = {"ground_rocky": 1.9, "ground_dirt": 1.5, "ground_sand": 1.5, "water_deep": 1.5, "water_shallow": 1.5}
+# приглушить контраст фактуры: (доля среднего цвета, яркость) — галька и отмель с Мака слишком пёстрые и яркие
+FLOOR_TONE = {"ground_rocky": (0.45, 1.0), "water_shallow": (0.35, 0.88), "ground_grass": (0.0, 0.94)}
+# вырезка полосы лица из сырой картинки cliff_face (1024 × 576): без неба сверху и блика
+FACE_CROP = (0, 180, 1024, 576)
+# сдвиг оттенка (градусы) и яркость: кипарис модель красит бирюзово-синим, нужен тёмно-зелёный
+HUE_FIX = {"tree_cypress_a": (-42, 0.82), "tree_cypress_b": (-42, 0.82)}
+
 # ключ → (имя файла, размер холста, подпись, вид запасной формы)
 OBJECTS = {
     "tree_olive_a": ("TEMP_tree_olive_a.png", (256, 384), "дерево «олива», вариант 1", "tree"),
@@ -146,8 +155,13 @@ def seamless(src: Image.Image, n: int = 512, band: int = 96, vertical: bool = Tr
     return Image.fromarray(np.clip(a + 0.5, 0, 255).astype(np.uint8))
 
 
-def make_floor(src: Image.Image, inset: float = 0.06, flatten: float = 0.8) -> Image.Image:
+def make_floor(src: Image.Image, inset: float = 0.06, flatten: float = 0.8, zoom: float = 1.0) -> Image.Image:
+    """zoom > 1 — взять середину картинки крупнее (у слишком мелкой фактуры: при 30 px на тайл она рябит)."""
     inner = ap.floor_interior(src, inset)
+    if zoom > 1:
+        side = round(inner.width / zoom)
+        o = (inner.width - side) // 2
+        inner = inner.crop((o, o, o + side, o + side))
     band = 96
     work = inner.resize((512 + band, 512 + band), Image.LANCZOS)
     if flatten:
@@ -259,6 +273,19 @@ def make_object(src: Image.Image, size: tuple[int, int], holes: bool) -> tuple[I
     W, H = size
     out = ap.fit_object(cut, size, base=H - 2, shadow=False, margin=3)
     return out, info
+
+
+def hue_fix(im: Image.Image, deg: float, gain: float) -> Image.Image:
+    """Сдвиг оттенка цветных пикселей (контур и ствол — тёмные и тёплые — не трогаются) и общая яркость листвы."""
+    a = im.getchannel("A")
+    hsv = np.asarray(im.convert("RGB").convert("HSV")).astype(np.float32)
+    h = hsv[..., 0] * 360 / 255
+    cool = (h > 110) & (h < 250) & (hsv[..., 1] > 50) & (hsv[..., 2] > 70)   # зелёно-синяя листва
+    hsv[..., 0] = np.where(cool, (h + deg) % 360, h) * 255 / 360
+    hsv[..., 2] = np.where(cool, hsv[..., 2] * gain, hsv[..., 2])
+    out = Image.fromarray(np.clip(hsv + 0.5, 0, 255).astype(np.uint8), "HSV").convert("RGB").convert("RGBA")
+    out.putalpha(a)
+    return out
 
 
 # ---------------------------------------------------------------- обрыв
@@ -442,7 +469,7 @@ def build_scene(made: dict[str, Image.Image], px: int = 30, tw: int = 64, th: in
         for c, name in enumerate(row):
             if name == "full":
                 box = ((gx + c * 4) * px, (gy + r * 4) * px, (gx + c * 4 + 4) * px, (gy + r * 4 + 4) * px)
-                scene.paste(small(made["cliff_top"], k).convert("RGB").crop((8, 8, cell, cell)), (box[0] + 8, box[1] + 8))
+                scene.paste(small(made["cliff_top"], k).convert("RGB"), box[:2])
             elif name:
                 put_cell(name, gx + c * 4, gy + r * 4)
     put_cell("end_w", 46, 12)
@@ -541,7 +568,12 @@ def main() -> int:
             scripted.add(key)
             how = "скрипт (tools/art_stage1_build.py), простые пятна"
         else:
-            im = make_floor(src)
+            im = make_floor(src, zoom=FLOOR_ZOOM.get(key, 1.0))
+            if key in FLOOR_TONE:
+                mix, gain = FLOOR_TONE[key]
+                a_ = np.asarray(im).astype(np.float32)
+                a_ = (a_ * (1 - mix) + a_.reshape(-1, 3).mean(axis=0) * mix) * gain
+                im = Image.fromarray(np.clip(a_ + 0.5, 0, 255).astype(np.uint8))
             how = f"стиль Б, Мак (Z-Image base), набор art/style/sets/e19.json, ключ {key}; шов — обработкой"
         im.save(TEMP_DIR / fname)
         made[key] = im
@@ -563,6 +595,9 @@ def main() -> int:
         else:
             im, info = make_object(src, size, holes=key.startswith("tree"))
             how = f"стиль Б, Мак (Z-Image base), набор art/style/sets/e19.json, ключ {key}"
+            if key in HUE_FIX:
+                im = hue_fix(im, *HUE_FIX[key])
+                how += "; оттенок листвы сдвинут обработкой к тёмно-зелёному"
             print(f"{fname}: фон {info['bg']}, дыр {info['holes']}, покрытие {info['cover']}")
         im = ap.mark(im)
         im.save(TEMP_DIR / fname)
@@ -572,7 +607,9 @@ def main() -> int:
 
     if not want or any(k.startswith("cliff") for k in want):
         top = made.get("ground_rocky") or Image.open(TEMP_DIR / FLOORS["ground_rocky"][0])
-        fsrc = source("cliff_face_strip")
+        fsrc = source("cliff_face")
+        if fsrc is not None:
+            fsrc = fsrc.convert("RGB").crop(FACE_CROP)
         face = make_face(fsrc, random.Random(1971))
         if fsrc is None:
             scripted.add("cliff_face")
