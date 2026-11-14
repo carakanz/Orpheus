@@ -127,7 +127,7 @@ namespace Orpheus.Net.Protocol
             byte first = r.ReadByte();
             m.Mask = r.ReadUInt32();
             r.ExpectEnd();
-            if (reply > (byte)EditReply.NoResources || first > (byte)EditReply.NoResources)
+            if (reply > (byte)EditReply.Dead || first > (byte)EditReply.Dead)
             {
                 throw new ProtocolException($"Ответ на правку: код {reply} / {first}.");
             }

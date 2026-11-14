@@ -21,6 +21,10 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Возрождение (1-001, 13.5): <see cref="SimEvent.Victim"/> возродился у точки старта с полным здоровьем.</summary>
         Respawn = 5,
+
+        /// <summary>Подбор с земли (E2-1): <see cref="SimEvent.Requester"/> — кто поднял, <see cref="SimEvent.Tag"/> — номер кучи,
+        /// <see cref="SimEvent.Victim"/> — id предмета, <see cref="SimEvent.Damage"/> — сколько легло в сумку.</summary>
+        PilePickup = 6,
     }
 
     /// <summary>
@@ -83,6 +87,7 @@ namespace Orpheus.Core.Sim
                 SimEventKind.TileEdit => $"такт {Tick}: правка {Chunk} #{TileIndex} — {Result}",
                 SimEventKind.Damage => $"такт {Tick}: урон #{Requester}→#{Victim} {Damage} (тип {DamageType})",
                 SimEventKind.Death => $"такт {Tick}: смерть #{Victim} (убийца #{Requester})",
+                SimEventKind.PilePickup => $"такт {Tick}: #{Requester} поднял {Damage} × предмет {Victim} (куча {Tag})",
                 SimEventKind.Respawn => $"такт {Tick}: возрождение #{Victim}",
                 _ => $"такт {Tick}: {Chunk} рев. {Revision}",
             };

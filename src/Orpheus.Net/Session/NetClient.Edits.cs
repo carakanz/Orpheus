@@ -28,10 +28,6 @@ namespace Orpheus.Net.Session
         private TileCoord _digTile;
         private ushort _digObj;
         private byte _lastSlot; // ячейка быстрой панели последнего отправленного кадра (предмет в руках для предсказания)
-        private ushort _lootRequest; // запрос предсказанной добычи (0 — нет)
-        private Material _lootMaterial;
-        private int _lootCount;
-        private ushort _lootInvVersion; // версия сумки в момент предсказания: новая сводка сервера отменяет откат
 
         // Траты и возвраты предсказаний (1-011): постановка — списание по бюджету линии; снос — возврат по рецепту.
         // Отказ сервера по тайлу (нет бита в маске) — снятое предсказание обратно, если сводка сумки с тех пор не приходила.
@@ -292,50 +288,8 @@ namespace Orpheus.Net.Session
 
             World.Predict(_digRequest, 0, _digTile, new TileEdit(0, newFloor, ObjectId.Empty));
 
-            // Предсказание возврата сноса (1-011, `05` 1.3): неповреждённой — рецепт целиком, повреждённой —
-            // ⌊кол × прочность ÷ максимум⌋ по каждому материалу; обломки ранней расчистки — ничего; снос с флагом
-            // «урон последние 10 с» — сервер подменит правку обломками, возврата нет.
-            if (hasRecord && !rec.IsDebris && !rec.IsDamagedRecent && BuildDefs.TryGet(_digObj, out BuildDef def))
-            {
-                int k1 = BuildDefs.RefundOf(def.Count1, rec.Integrity, def.MaxIntegrity);
-                int k2 = def.Count2 > 0 ? BuildDefs.RefundOf(def.Count2, rec.Integrity, def.MaxIntegrity) : 0;
-                var inv = Inv;
-                if (k1 > 0)
-                {
-                    inv.Add(def.Material1, k1);
-                }
-
-                if (k2 > 0)
-                {
-                    inv.Add(def.Material2, k2);
-                }
-
-                Inv = inv;
-                _spends.Add(new SpendEntry
-                {
-                    Request = _digRequest,
-                    Material1 = def.Material1,
-                    Material2 = def.Material2,
-                    Count1 = k1,
-                    Count2 = k2,
-                    WasSpend = false,
-                    InvVersion = InvVersion,
-                });
-            }
-
-            // Предсказание добычи (1-010): тот же детерминированный бросок, что у сервера (зерно, тайл, объект);
-            // подтвердит сервер — сумка сервера (тип 26) это же число; откажет — откат по ответу.
-            int n = DigLoot.DropFor(_digObj, _digTile.X, _digTile.Y, Accept.WorldSeed, out Material material);
-            if (n > 0)
-            {
-                var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
-                inv.Add(material, n);
-                Inv = inv;
-                _lootRequest = _digRequest;
-                _lootMaterial = material;
-                _lootCount = n;
-                _lootInvVersion = InvVersion;
-            }
+            // E2-1: возврат сноса и добыча копания падают кучами на землю (сервер пришлёт «кучи», тип 27) —
+            // сумка от них не меняется, предсказывать нечего. Подбор не предсказывается: ждём сумку сервера (тип 26).
         }
 
         private void OnTileReply(in TileReplyMessage m)
@@ -344,19 +298,6 @@ namespace Orpheus.Net.Session
             if (_digActive && m.RequestId == _digRequest)
             {
                 _digActive = false; // отказ до конца копания или ответ на докопанное — копание кончилось
-            }
-
-            if (_lootRequest == m.RequestId)
-            {
-                _lootRequest = 0;
-                if (m.Reply != EditReply.Accepted && InvVersion == _lootInvVersion)
-                {
-                    // Отказ (тайл увёл другой копающий, «пусто»): снятое предсказание обратно; сумка сервера
-                    // с тех пор не приходила (иначе в ней уже правда).
-                    var inv = Inv;
-                    inv.Spend(_lootMaterial, _lootCount);
-                    Inv = inv;
-                }
             }
 
             // Траты/возвраты предсказаний линии и сноса (1-011): тайл без бита в маске — предсказанное снимается;

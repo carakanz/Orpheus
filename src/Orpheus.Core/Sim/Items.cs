@@ -3,7 +3,7 @@ using Orpheus.Core.World;
 namespace Orpheus.Core.Sim
 {
     /// <summary>
-    /// Таблица предметов данными (1-002, <c>06</c> 0 и 2.3): id, вид, длина для досягаемости (<see cref="Combat.Reach"/>),
+    /// Имена id и видов предметов; сами свойства — строки <see cref="ItemTable"/> (E2-1). Раньше — таблица предметов данными (1-002, <c>06</c> 0 и 2.3): id, вид, длина для досягаемости (<see cref="Combat.Reach"/>),
     /// у инструмента — вид (кирка/топор/молот) и ярус (каменный = 1, медный = 2 — <c>06</c> 2.3).
     /// Параметры боя у оружия — ссылки, заполнят 1-004 и 1-006.
     /// Id — байт: в снимке «предмет в руках» едет одним байтом (протокол 12+), в сумке — в ячейке.
@@ -34,8 +34,26 @@ namespace Orpheus.Core.Sim
         /// <summary>Медная кирка (ярус 2): копать твёрдость 2 — гранит (<c>06</c> 2.3; 1-010).</summary>
         public const byte CopperPickaxe = 7;
 
-        /// <summary>Размер таблицы (id 0…<see cref="Count"/>−1).</summary>
-        public const int Count = 8;
+        /// <summary>Древесина (материал; до E2-1 — счётчик <see cref="Material.Wood"/>).</summary>
+        public const byte Wood = 8;
+
+        /// <summary>Камень (материал).</summary>
+        public const byte Stone = 9;
+
+        /// <summary>Смола (материал).</summary>
+        public const byte Resin = 10;
+
+        /// <summary>Волокно (материал).</summary>
+        public const byte Fiber = 11;
+
+        /// <summary>Медная руда (материал).</summary>
+        public const byte CopperOre = 12;
+
+        /// <summary>Стрелы (боеприпас лука, стопка 999).</summary>
+        public const byte Arrows = 13;
+
+        /// <summary>Размер таблицы (id 0…<see cref="Count"/>−1) — строк в <see cref="ItemTable"/>.</summary>
+        public static int Count => ItemTable.Count;
 
         /// <summary>Вид предмета.</summary>
         public const byte KindNone = 0;
@@ -74,47 +92,26 @@ namespace Orpheus.Core.Sim
         public const byte TierCopper = 2;
 
         /// <summary>Вид предмета; id вне таблицы — <see cref="KindNone"/>.</summary>
-        public static byte KindOf(byte id) => id switch
-        {
-            StonePickaxe or StoneAxe or CopperPickaxe => KindTool,
-            Hammer => KindHammer,
-            WoodenSword => KindMelee,
-            SimpleBow => KindRanged,
-            Torch => KindConsumable,
-            _ => KindNone,
-        };
+        public static byte KindOf(byte id) => ItemTable.Get(id).Kind;
 
         /// <summary>Вид инструмента (кирка/топор); остального — <see cref="ToolNone"/>.</summary>
-        public static byte ToolKindOf(byte id) => id switch
-        {
-            StonePickaxe or CopperPickaxe => ToolPick,
-            StoneAxe => ToolAxe,
-            _ => ToolNone,
-        };
+        public static byte ToolKindOf(byte id) => ItemTable.Get(id).Tool;
 
         /// <summary>Ярус инструмента; остального — <see cref="TierNone"/>. Молот — каменный ярус (1-011: строки
         /// построек в <see cref="World.DigTimes"/> требуют ярус 1).</summary>
-        public static byte TierOf(byte id) => id switch
-        {
-            StonePickaxe or StoneAxe or Hammer => TierStone,
-            CopperPickaxe => TierCopper,
-            _ => TierNone,
-        };
+        public static byte TierOf(byte id) => ItemTable.Get(id).Tier;
 
         /// <summary>
         /// Вид инструмента копания (<c>01</c> 5, 1-010): кирка — Pick, топор — Axe, молот — Hammer (снос построек, <c>05</c> 1.3);
         /// остального — <see cref="ToolKind.Hands"/> (руки).
         /// </summary>
-        public static ToolKind DigToolOf(byte id) => id switch
-        {
-            StonePickaxe or CopperPickaxe => ToolKind.Pick,
-            StoneAxe => ToolKind.Axe,
-            Hammer => ToolKind.Hammer,
-            _ => ToolKind.Hands,
-        };
+        public static ToolKind DigToolOf(byte id) => ItemTable.Get(id).DigTool;
 
-        /// <summary>Есть такой id в таблице.</summary>
-        public static bool Exists(byte id) => id < Count && KindOf(id) != KindNone;
+        /// <summary>Есть такой id в таблице (не «пусто»).</summary>
+        public static bool Exists(byte id) => ItemTable.Exists(id);
+
+        /// <summary>Размер стопки предмета в ячейке; нет такого — 0.</summary>
+        public static int MaxStackOf(byte id) => ItemTable.MaxStackOf(id);
 
         /// <summary>Копать умеет только кирка (1-002 шаг 4; <c>06</c> 2.3: руки копать не могут).</summary>
         public static bool IsDiggingTool(byte id) => ToolKindOf(id) == ToolPick;
@@ -124,16 +121,9 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Длина предмета для досягаемости «персонаж + предмет» (<see cref="Combat.Reach.Of"/>) в unit (1/256 т):
-        /// кирка 0,75 т = 192; топор и молот — как кирка (вопрос карточки 1-002, ответ Автора не пришёл);
-        /// медная кирка — как каменная (1-010); руки — <see cref="Combat.Reach.HandsUnits"/> (1-010);
-        /// меч 1,0 т = 256 (<c>02</c>); у лука и расходника своей длины пока нет (0).
+        /// кирка 0,75 т = 192; топор и молот — как кирка; руки — <see cref="Combat.Reach.HandsUnits"/> (1-010);
+        /// меч 1,0 т = 256 (<c>02</c>); у лука, материалов и расходников своей длины нет (0). Числа — в <see cref="ItemTable"/>.
         /// </summary>
-        public static int LengthUnits(byte id) => id switch
-        {
-            StonePickaxe or StoneAxe or Hammer or CopperPickaxe => Combat.Reach.PickaxeUnits,
-            WoodenSword => Combat.Reach.SwordUnits,
-            None => Combat.Reach.HandsUnits, // руки копают то, что разрешено таблицей (1-010)
-            _ => 0,
-        };
+        public static int LengthUnits(byte id) => id < ItemTable.Count ? ItemTable.Get(id).LengthUnits : 0;
     }
 }

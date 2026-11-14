@@ -154,6 +154,9 @@ namespace Orpheus.Client
         /// </summary>
         public bool PaintDemo;
 
+        /// <summary>E2-1, только для снимков без сервера: вокруг персонажа лежат кучи предметов всех значков (<see cref="PileView.AddDemo"/>).</summary>
+        public bool DemoPiles;
+
         /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
         public bool PaintForest;
 
@@ -190,7 +193,7 @@ namespace Orpheus.Client
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--day-tick 0…35999]";
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--day-tick 0…35999]";
 
         static bool TryParseWalk(string? text, ClientArgs a)
         {
@@ -461,6 +464,9 @@ namespace Orpheus.Client
                         break;
                     case "--paint-demo":
                         a.PaintDemo = true;
+                        break;
+                    case "--demo-piles":
+                        a.DemoPiles = true;
                         break;
                     case "--paint-forest":
                         a.PaintForest = true;

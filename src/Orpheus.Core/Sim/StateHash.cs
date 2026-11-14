@@ -97,7 +97,29 @@ namespace Orpheus.Core.Sim
                 throw new ArgumentNullException(nameof(sim));
             }
 
-            return Compute(sim.World, sim.Tick, sim.WorldTime, sim.Entities);
+            StateHashResult r = Compute(sim.World, sim.Tick, sim.WorldTime, sim.Entities);
+            if (sim.NextPileId == 1)
+            {
+                return r; // куч не было ни разу — хэш тот же, что до E2-1 (эталоны сценариев без добычи не меняются)
+            }
+
+            // Кучи на земле (E2-1) входят в состояние: счётчик номеров и каждая куча по порядку.
+            var h = new Hasher64(r.Total);
+            ReadOnlySpan<GroundPile> piles = sim.Piles;
+            h.Add(sim.NextPileId);
+            h.Add(piles.Length);
+            for (int i = 0; i < piles.Length; i++)
+            {
+                h.Add(piles[i].Id);
+                h.Add(piles[i].Item);
+                h.Add(piles[i].Count);
+                h.Add(piles[i].Position.X);
+                h.Add(piles[i].Position.Y);
+                h.Add(piles[i].ExpireTick);
+                h.Add(piles[i].PickupTick);
+            }
+
+            return new StateHashResult(r.Tick, h.Value, r.World);
         }
 
         /// <summary>Хэш канонического вида из частей: мир, номер такта, сущности по номеру (для тестов полноты и инструментов). Время мира — 0.</summary>
@@ -205,7 +227,7 @@ namespace Orpheus.Core.Sim
             h.Add(e.Brain.InterestUntil);
             h.Add(e.Brain.FarSince);
             // Кэш пути (PathStamp/PathPos) — производный от запросов, чья постановка видна в хэше; не хэшируется.
-            e.Inv.AddTo(ref h); // сумка целиком (1-002): ячейка в руках, ячейки, счётчики
+            e.Inv.AddTo(ref h); // сумка целиком (1-002, E2-1): ячейка в руках и все ячейки
             return h.Value;
         }
 

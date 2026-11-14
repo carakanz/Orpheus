@@ -25,7 +25,7 @@ namespace Orpheus.Editor
         const string ArtDir = "Assets/Art";
         const string SetPath = "Assets/Resources/" + ObjectSet.ResourceName + ".asset";
         const string ShaderDir = "Assets/Shaders/";
-        static readonly string[] Prefixes = { "tree_", "bush_", "boulder_", "ore_", "stump", "cliff_top", "cliff_face" };
+        static readonly string[] Prefixes = { "tree_", "bush_", "boulder_", "ore_", "stump", "cliff_top", "cliff_face", "item_" }; // item_ — значки предметов на земле (E2-1)
         static readonly string[] Shaders = { "Objects.shader", "Shadow.shader", "ShadowComposite.shader" };
 
         /// <summary>Перед сборкой набор собирается заново; без шейдеров сборка падает, а не выходит без леса и теней.</summary>

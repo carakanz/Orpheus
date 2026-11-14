@@ -497,6 +497,12 @@ namespace Orpheus.Net.Session
                     return;
                 }
 
+                if (type == MessageType.BagRequest && channel == NetChannel.Facts)
+                {
+                    OnBagRequest(p, BagRequestMessage.Read(data)); // E2-1
+                    return;
+                }
+
                 if (type == MessageType.PauseRequest && channel == NetChannel.Facts)
                 {
                     OnPauseRequest(p, PauseRequestMessage.Read(data)); // 0-036

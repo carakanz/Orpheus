@@ -45,3 +45,9 @@ client/Assets/Art/_TEMP/TEMP_cliff_inner_ne.png,placeholder,А,"обрыв: вн
 client/Assets/Art/_TEMP/TEMP_cliff_end_w.png,placeholder,А,"обрыв: торец: стенка сходит на нет к западу, 512x512 (4x4 тайла), земля прозрачная (E1-9); собран скриптом tools/art_stage1_build.py из TEMP_cliff_face и TEMP_ground_rocky; полоса лица — Мак (Z-Image base), вырезка и шов обработкой"
 client/Assets/Art/_TEMP/TEMP_cliff_end_e.png,placeholder,А,"обрыв: торец: стенка сходит на нет к востоку, 512x512 (4x4 тайла), земля прозрачная (E1-9); собран скриптом tools/art_stage1_build.py из TEMP_cliff_face и TEMP_ground_rocky; полоса лица — Мак (Z-Image base), вырезка и шов обработкой"
 client/Assets/Art/_TEMP/TEMP_cliff_top.png,placeholder,А,"обрыв: середина площадки 512x512 (4x4 тайла), та же текстура, что верх сегментов (E1-9); из TEMP_ground_rocky, чуть светлее"
+client/Assets/Art/_TEMP/TEMP_item_wood.png,placeholder,К,"значок предмета «древесина» на земле 64x64, контур и плоский цвет (E2-1); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_item_stone.png,placeholder,К,значок предмета «камень» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_copper_ore.png,placeholder,К,значок предмета «медная руда» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_fiber.png,placeholder,К,значок предмета «волокно» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_resin.png,placeholder,К,значок предмета «смола» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_generic.png,placeholder,К,значок «мешочек» для предметов без своего значка на земле 64x64 (E2-1); скрипт tools/make_item_icons.py

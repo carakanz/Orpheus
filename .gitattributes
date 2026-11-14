@@ -32,3 +32,4 @@
 *.exe       binary
 *.a         binary
 *.lib       binary
+*.base     binary

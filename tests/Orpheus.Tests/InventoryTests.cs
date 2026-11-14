@@ -130,10 +130,14 @@ namespace Orpheus.Tests
             Assert.Equal(0, inv.Add(Material.Wood, -3));
             Assert.Equal(7, inv.Add(Material.Stone, 7));
 
-            // Переполнение — насыщение, легло ровно столько, сколько влезло.
-            inv.Add(Material.Stone, Inventory.MaxCount - 7);
-            Assert.Equal(Inventory.MaxCount, inv.CountAt(Material.Stone));
+            // Переполнение (E2-1: сумка — ячейки): дерево занимает одну ячейку, камню остаётся 39 × 99;
+            // легло ровно столько, сколько влезло.
+            int full = (Inventory.Cells - 1) * ItemTable.StackMaterial;
+            Assert.Equal(full - 7, inv.Add(Material.Stone, 100_000));
+            Assert.Equal(full, inv.CountAt(Material.Stone));
             Assert.Equal(0, inv.Add(Material.Stone, 10));
+            Assert.True(inv.Spend(Material.Stone, 3 * ItemTable.StackMaterial)); // три ячейки под остальные материалы
+            full -= 3 * ItemTable.StackMaterial;
 
             // Списали нет за что — false, счётчик не тронут (рецепт 1-010 не «съедает» половину).
             Assert.False(inv.Spend(Material.Wood, 6));
@@ -151,7 +155,7 @@ namespace Orpheus.Tests
             Assert.Equal(4, inv.CountAt(Material.Copper));
             Assert.Equal(2, inv.CountAt(Material.Resin));
             Assert.Equal(1, inv.CountAt(Material.Arrows));
-            Assert.Equal(Inventory.MaxCount, inv.CountAt(Material.Stone));
+            Assert.Equal(full, inv.CountAt(Material.Stone));
         }
 
         // ---------- Ячейка едет кадром ввода ----------
@@ -250,7 +254,7 @@ namespace Orpheus.Tests
             Assert.NotEqual(h0, StateHash.Entity(f));
 
             Assert.Equal(h0, StateHash.Entity(sim.GetEntity(id))); // совпадение — тот же набор слов
-            Assert.Equal(16, Inventory.HashWords); // 1 выбранная + 8 ячеек + 7 счётчиков
+            Assert.Equal(41, Inventory.HashWords); // 1 выбранная + 40 ячеек (E2-1; было 16: 8 ячеек + 7 счётчиков)
         }
 
         // ---------- Сеть: выдача, сохранение за ключом, ячейка в том же кадре ----------
@@ -359,7 +363,7 @@ namespace Orpheus.Tests
 
         // ---------- Сеть (этап 4): payload, сообщение, доставка, предмет в руках в снимке ----------
 
-        /// <summary>payload сумки (23 байта): запись → чтение даёт ту же сумку; короткий буфер — ArgumentException.</summary>
+        /// <summary>payload сумки (121 байт с E2-1; до него 23): запись → чтение даёт ту же сумку; короткий буфер — ArgumentException.</summary>
         [Fact]
         public void D06_Inventory_Payload_RoundTrip()
         {
@@ -367,7 +371,7 @@ namespace Orpheus.Tests
             inv.Add(Material.Wood, 70_000);
             inv.Add(Material.Torch, 3);
             inv.Select(5);
-            Assert.Equal(23, Inventory.PayloadBytes);
+            Assert.Equal(121, Inventory.PayloadBytes);
             var buf = new byte[Inventory.PayloadBytes];
             inv.WritePayload(buf);
             Assert.Equal(inv, Inventory.ReadPayload(buf));
@@ -375,14 +379,14 @@ namespace Orpheus.Tests
             Assert.Throws<ArgumentException>(() => Inventory.ReadPayload(new byte[Inventory.PayloadBytes - 1]));
         }
 
-        /// <summary>«Сумка» (тип 26, 30 байт): читается поле в поле; выбранная ячейка ≥ 8 — ProtocolException.</summary>
+        /// <summary>«Сумка» (тип 26, 128 байт с E2-1; до него 30): читается поле в поле; выбранная ячейка ≥ 8 — ProtocolException.</summary>
         [Fact]
         public void D06_Net_InventoryMessage_RoundTrip()
         {
             var inv = Inventory.StartingKit();
             inv.Select(3);
             var m = new InventoryMessage { EntityId = 77, Version = 9, Bag = inv };
-            Assert.Equal(30, InventoryMessage.Bytes);
+            Assert.Equal(128, InventoryMessage.Bytes);
             var buf = new byte[InventoryMessage.Bytes];
             Assert.Equal(InventoryMessage.Bytes, m.Write(buf));
             InventoryMessage r = InventoryMessage.Read(buf);

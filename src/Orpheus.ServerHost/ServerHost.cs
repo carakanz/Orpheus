@@ -948,6 +948,11 @@ namespace Orpheus.Server
                     log.Info(opened.Loaded?.Tick ?? 0, "save", "мир загружен", ("path", folder.Dir), ("ms", watch.Elapsed.TotalMilliseconds),
                         ("number", opened.Loaded?.Number ?? 0), ("tick", opened.Loaded?.Tick ?? 0),
                         ("chunks", opened.Loaded?.ChunkCount ?? 0), ("entities", opened.Loaded?.Entities.Length ?? 0));
+                    foreach (string note in opened.Loaded?.Notes ?? Array.Empty<string>())
+                    {
+                        // E2-1: сумка-счётчики старого сохранения не влезла в ячейки — остаток лежит на земле, не потерян.
+                        log.Info(opened.Loaded!.Tick, "save", "старая сумка: остаток на земле", ("what", note));
+                    }
                 }
 
                 WorldModel world = opened.World;

@@ -85,6 +85,7 @@ namespace Orpheus.Client
         readonly Dictionary<int, GameObject> _ents = new Dictionary<int, GameObject>();
         readonly HashSet<int> _seen = new HashSet<int>();
         GameObject _entityRoot = null!;
+        PileView? _pileView; // E2-1: кучи на земле (сообщения 27 и 28)
         Sprite _heroSprite = null!;
 
         NetClient? _client;
@@ -146,6 +147,7 @@ namespace Orpheus.Client
 
             _heroSprite = _g.Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
             _entityRoot = new GameObject("Entities");
+            _pileView = new PileView(new GameObject("Piles").transform);
         }
 
         /// <summary>
@@ -207,6 +209,7 @@ namespace Orpheus.Client
             _client.HostToken = token; // до первого Poll: вход уходит, когда соединение установлено
             _client.SnapshotApplied = OnSnapshot;
             _client.InventorySeen = OnInventory; // 1-002: зеркало своей сумки — серверная
+            HookPiles(_client);
         }
 
         /// <summary>Свой сервер (0-024): запуск закончился → соединение; не поднялся или вышел во время игры → текст в окне.</summary>
@@ -403,6 +406,7 @@ namespace Orpheus.Client
             ClientWorld cw = _client!.World!;
             _world = cw.World;
             _localId = accept.EntityId;
+            _pileView?.Clear(); // E2-1: кучи нового входа сервер пришлёт заново
             WorldPos spawn = CenterOf(accept.MapWidth / 2, accept.MapHeight / 2);
             _origin = new FloatingOrigin(_map, Torus.ChunkOf(_map, spawn));
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
@@ -695,6 +699,7 @@ namespace Orpheus.Client
             }
 
             _anim?.Frame(now, _pred!);
+            _pileView?.Frame(_origin!, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeFrame(me, dx, dy);

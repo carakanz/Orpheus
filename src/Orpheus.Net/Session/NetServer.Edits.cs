@@ -249,7 +249,7 @@ namespace Orpheus.Net.Session
                     !_sim.RequestPlayerEdit(t, floorKey ? (byte)m.Obj : floor, floorKey ? ObjectId.Empty : m.Obj,
                         true, rec, p.EntityId, tag))
                 {
-                    check = EditReply.QueueFull; // очередь такта полна
+                    check = QueueRefusal(p.EntityId); // очередь такта полна или персонаж мёртв (C-004)
                 }
 
                 if (check != EditReply.Accepted)
@@ -343,7 +343,7 @@ namespace Orpheus.Net.Session
             if (check == EditReply.Accepted &&
                 !_sim.RequestPlayerEdit(s.DigTile, newFloor, ObjectId.Empty, false, default, p.EntityId, TagDig | (s.DigRequest << TagLineBits)))
             {
-                check = EditReply.QueueFull;
+                check = QueueRefusal(p.EntityId);
             }
 
             if (check != EditReply.Accepted)
