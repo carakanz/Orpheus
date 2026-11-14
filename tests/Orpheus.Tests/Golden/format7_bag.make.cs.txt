@@ -1,0 +1,67 @@
+using System;
+using System.IO;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
+using Orpheus.Save;
+using Orpheus.Server;
+using Orpheus.WorldGen;
+using Xunit;
+
+namespace Orpheus.Tests
+{
+    /// <summary>Разовый генератор файла формата 7 для теста E2-3 (запускается на коде main 2979414 — до E2-3).</summary>
+    public class MakeV7
+    {
+        [Fact]
+        public void Make_Format7_Bag_File()
+        {
+            WorldModel world = WorldGenModule.Stub.Generate(MapShape.World(256), 5);
+            byte[] baseBytes = WorldSnapshot.WriteBase(world);
+            var sim = new Simulation(world);
+            WorldPos pa = ServerRun.SpawnPoint(world.Shape, 0);
+            int a = sim.AddEntity(pa);
+            int b = sim.AddEntity(ServerRun.SpawnPoint(world.Shape, 1));
+
+            var bag = Inventory.StartingKit();
+            bag.Add(Items.Wood, 150);
+            bag.Add(Items.Stone, 40);
+            bag.Add(Items.Resin, 12);
+            bag.Add(Items.Fiber, 5);
+            bag.Add(Items.CopperOre, 17);
+            bag.Select(1);
+            sim.SetInventory(a, bag);
+
+            var bag1 = Inventory.StartingKit();
+            bag1.Add(Items.Wood, 33);
+            bag1.SetCell(7, Items.CopperPickaxe, 1);
+            sim.SetInventory(b, bag1);
+
+            // Куча далеко от персонажей (не подберётся) и без задержки.
+            sim.AddPile(Items.CopperOre, 9, new WorldPos(pa.X + 40 * 256, pa.Y + 40 * 256));
+            for (int i = 0; i < 30; i++)
+            {
+                sim.Step();
+            }
+
+            var bag2 = new Inventory();
+            bag2.SetSlotAt(0, Items.Hammer);
+            bag2.Add(Items.Stone, 250);
+            bag2.Add(Items.Arrows, 1200);
+            bag2.Select(0);
+            var chars = new[]
+            {
+                new CharacterRecord { IsHost = true, Name = "Орфей", EntityId = a, Inv = bag },
+                new CharacterRecord { Name = "Эвридика", EntityId = 0, Inv = bag2, Mover = new Mover(ServerRun.SpawnPoint(world.Shape, 3)) },
+            };
+
+            byte[] save = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат7", chars), 4, 0);
+            Assert.Equal(7u, SaveContainer.Read(save).Header.FormatVersion);
+            string dir = Environment.GetEnvironmentVariable("V7_OUT")!;
+            File.WriteAllBytes(Path.Combine(dir, "format7_bag.save"), save);
+            File.WriteAllBytes(Path.Combine(dir, "format7_bag.base"), baseBytes);
+            File.WriteAllText(Path.Combine(dir, "format7_bag.hash.txt"), StateHash.Compute(sim).Total.ToString("x16"));
+        }
+    }
+}

@@ -80,6 +80,7 @@ namespace Orpheus.Net.Session
         /// <summary>Сущность игрока уходит из мира (вне такта): движение — за его персонажем (0-035), сущность — из такта.</summary>
         private void LeaveWorld(int entityId)
         {
+            _sim.RefundCraftQueue(entityId); // E2-3: очередь изготовления с игроком не уходит — ингредиенты в сумку, не влезшее — кучей
             int character = Characters.FindEntity(entityId);
             if (character >= 0)
             {

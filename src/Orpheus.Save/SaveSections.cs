@@ -294,6 +294,10 @@ namespace Orpheus.Save
 
             /// <summary>Исчезновение: такт начала серии «дальше 80 т» (<c>Brain.FarSince</c>), 0 — не далёк.</summary>
             public const int BrainFarSince = 64;
+
+            /// <summary>Очередь изготовления (<c>Craft</c>, формат 8, E2-3): payload <c>CraftQueue.PayloadBytes</c> байт; пишется,
+            /// только если очередь не пуста. Нет поля (форматы 1–7 и пустая очередь) — очередь пустая.</summary>
+            public const int Craft = 65;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>
@@ -430,7 +434,8 @@ namespace Orpheus.Save
                 .Field(EntityField.MeleeAimRaw, "удар: ось")
                 .Field(EntityField.MeleeOriginX, "удар: x начала")
                 .Field(EntityField.MeleeOriginY, "удар: y начала")
-                .Field(EntityField.Inv, "сумка"))
+                .Field(EntityField.Inv, "сумка")
+                .Field(EntityField.Craft, "очередь изготовления"))
             .Field(CreaturesField.Pile, "куча на земле", new RecordSchema()
                 .Field(PileField.Id, "номер")
                 .Field(PileField.Item, "предмет")

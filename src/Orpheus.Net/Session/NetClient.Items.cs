@@ -51,6 +51,99 @@ namespace Orpheus.Net.Session
             return true;
         }
 
+        // ---------- Крафт (E2-3) ----------
+
+        /// <summary>Очередь изготовления своего персонажа, как её прислал сервер (тип 32); пустая — ничего не делается.</summary>
+        public CraftQueue Craft { get; private set; }
+
+        /// <summary>Первая позиция очереди делается (станок рядом); false — стоит. Верно на такт <see cref="CraftTick"/>.</summary>
+        public bool CraftRunning { get; private set; }
+
+        /// <summary>Такт сервера последнего сообщения «очередь изготовления».</summary>
+        public uint CraftTick { get; private set; }
+
+        /// <summary>Сообщений «очередь изготовления» (32) принято.</summary>
+        public long CraftStatesSeen { get; private set; }
+
+        /// <summary>Ответов на заявки изготовления (31) принято; из них отказов — <see cref="CraftRefusalsSeen"/>.</summary>
+        public long CraftRepliesSeen { get; private set; }
+        public long CraftRefusalsSeen { get; private set; }
+
+        /// <summary>Последний ответ на заявку изготовления.</summary>
+        public CraftReplyMessage LastCraftReply { get; private set; }
+
+        /// <summary>Пришёл ответ на заявку изготовления (принято или отказ с причиной).</summary>
+        public Action<CraftReplyMessage>? CraftReplied { get; set; }
+
+        /// <summary>Очередь изготовления изменилась (после записи в <see cref="Craft"/>).</summary>
+        public Action<CraftStateMessage>? CraftChanged { get; set; }
+
+        /// <summary>
+        /// Прогресс текущего изготовления на такт <paramref name="serverTick"/> (0…время рецепта): значение сервера плюс
+        /// такты, прошедшие с <see cref="CraftTick"/>, пока «идёт». Для полоски в окне крафта.
+        /// </summary>
+        public int CraftProgressAt(uint serverTick)
+        {
+            if (Craft.IsEmpty)
+            {
+                return 0;
+            }
+
+            int ticks = RecipeTable.Get(Craft.RecipeAt(0)).Ticks;
+            int passed = CraftRunning ? (int)Math.Max(0, (long)serverTick - CraftTick) : 0;
+            return Math.Min(ticks, Craft.Progress + passed);
+        }
+
+        /// <summary>Заявка серверу: изготовить рецепт <paramref name="recipe"/> × <paramref name="count"/>. Не предсказывается.</summary>
+        public bool RequestCraft(int recipe, int count = 1)
+        {
+            if (State != NetClientState.InGame || !RecipeTable.Exists(recipe) || count <= 0)
+            {
+                return false;
+            }
+
+            return SendCraftRequest(CraftOp.Make, (byte)recipe, (ushort)Math.Min(count, ushort.MaxValue));
+        }
+
+        /// <summary>Заявка серверу: отменить позицию очереди изготовления (ингредиенты вернутся в сумку).</summary>
+        public bool RequestCraftCancel(int index)
+        {
+            if (State != NetClientState.InGame || (uint)index >= CraftQueue.MaxEntries)
+            {
+                return false;
+            }
+
+            return SendCraftRequest(CraftOp.Cancel, (byte)index, 0);
+        }
+
+        private bool SendCraftRequest(CraftOp op, byte arg, ushort count)
+        {
+            int len = new CraftRequestMessage { Op = op, Arg = arg, Count = count }.Write(_buf);
+            _transport.Send(_serverPeer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+            return true;
+        }
+
+        private void OnCraftReply(in CraftReplyMessage m)
+        {
+            CraftRepliesSeen++;
+            if (m.Reply != CraftReply.Accepted)
+            {
+                CraftRefusalsSeen++;
+            }
+
+            LastCraftReply = m;
+            CraftReplied?.Invoke(m);
+        }
+
+        private void OnCraftState(in CraftStateMessage m)
+        {
+            CraftStatesSeen++;
+            Craft = m.Queue;
+            CraftRunning = m.Running;
+            CraftTick = m.Tick;
+            CraftChanged?.Invoke(m);
+        }
+
         private void OnPiles(ReadOnlySpan<byte> data)
         {
             int n = PilesMessage.Read(data, _pileScratch);

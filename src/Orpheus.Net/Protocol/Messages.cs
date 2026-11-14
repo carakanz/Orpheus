@@ -110,6 +110,17 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Клиент → сервер, канал 2: заявка на операцию с ячейками сумки — переместить, разделить, выбросить (E2-1).</summary>
         BagRequest = 29,
+
+        // E2-3, крафт (docs/06 3.5), канал 2. Протокол 22.
+
+        /// <summary>Клиент → сервер, канал 2: заявка изготовления — «рецепт × N» или отмена позиции очереди (E2-3).</summary>
+        CraftRequest = 30,
+
+        /// <summary>Сервер → клиент, канал 2: ответ на заявку изготовления — принято или причина отказа (E2-3).</summary>
+        CraftReply = 31,
+
+        /// <summary>Сервер → клиент, канал 2: очередь изготовления персонажа — владельцу, когда изменилась (E2-3).</summary>
+        CraftState = 32,
     }
 
     /// <summary>
@@ -1136,11 +1147,11 @@ namespace Orpheus.Net.Protocol
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
         /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001), 26 (сумка, 1-002) и 27…29 (кучи и заявка на сумку, E2-1;
-        /// последний — BagRequest); 15 не занят.
+        /// затем 30…32 — крафт, E2-3; последний — CraftState); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.BagRequest);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.CraftState);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)

@@ -503,6 +503,12 @@ namespace Orpheus.Net.Session
                     return;
                 }
 
+                if (type == MessageType.CraftRequest && channel == NetChannel.Facts)
+                {
+                    OnCraftRequest(p, CraftRequestMessage.Read(data)); // E2-3
+                    return;
+                }
+
                 if (type == MessageType.PauseRequest && channel == NetChannel.Facts)
                 {
                     OnPauseRequest(p, PauseRequestMessage.Read(data)); // 0-036
