@@ -473,6 +473,107 @@ namespace Orpheus.Tests
             Assert.Equal(12, Total(rig.Sim, Items.CopperIngot));
         }
 
+        /// <summary>Ядро без сети: персонаж в (300, 200) со стартовым набором, сундук на тайле, в сундуке 20 меди (ячейка 0).</summary>
+        private static (Simulation Sim, int Id) ChestCore(TileCoord chest)
+        {
+            var sim = new Simulation(World(), maxEntities: 8);
+            int id = sim.AddEntity(Spot);
+            Assert.True(sim.SetInventory(id, Kit()));
+            Assert.True(sim.RequestEdit(chest, FloorId.Grass, ObjectId.Chest));
+            for (int i = 0; i < Simulation.InvulnRespawnTicks + 2; i++)
+            {
+                sim.Step(); // и неуязвимость появления прошла — убить можно
+            }
+
+            Assert.Equal(ObjectId.Chest, Obj(sim, chest));
+            var content = new Inventory();
+            content.SetCell(0, Items.CopperIngot, 20);
+            Assert.True(sim.SetChest(chest, content));
+            return (sim, id);
+        }
+
+        /// <summary>
+        /// C-005 (замечание 1 проверки E2-5): расстояние до сундука проверяет такт ядра, а не только сервер. Заявка
+        /// <see cref="Simulation.RequestChestOp"/> к сундуку в 4 тайлах в очередь встаёт (проверка — в такте), но такт её не
+        /// исполняет: ни сундук, ни сумка не меняются; та же заявка к сундуку в 3 тайлах — исполняется.
+        /// </summary>
+        [Fact]
+        public void C005_Chest_Core_FarRequester_RefusedInTick()
+        {
+            foreach ((int dx, int dy, bool reach) in new[] { (4, 0, false), (0, -4, false), (4, 4, false), (3, 0, true), (-3, 3, true) })
+            {
+                var t = new TileCoord(300 + dx, 200 + dy);
+                (Simulation sim, int id) = ChestCore(t);
+                Assert.Equal(reach, EditRules.InUseRadius(sim.Shape, sim.GetEntity(id).Mover.Position, t));
+                Inventory bag = sim.GetEntity(id).Inv;
+                Assert.True(sim.TryGetChest(t, out Inventory chest));
+                int to = BagHand.FitTarget(bag, Items.CopperIngot, 0, Inventory.Cells);
+
+                // Взять из сундука (ячейка 40 → свободная ячейка сумки) и положить в сундук (факелы, ячейка 5 → 40 + 7).
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Move, Simulation.ChestCellBase + 0, to, 0));
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Move, 5, Simulation.ChestCellBase + 7, 0));
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Drop, Simulation.ChestCellBase + 0, 0, 0));
+                sim.Step();
+
+                Assert.True(sim.TryGetChest(t, out Inventory after));
+                if (reach)
+                {
+                    Assert.Equal(20, sim.GetEntity(id).Inv.Count(Items.CopperIngot));
+                    Assert.Equal(3, after.Count(Items.Torch));
+                    Assert.Equal(0, after.Count(Items.CopperIngot));
+                }
+                else
+                {
+                    Assert.Equal(chest, after);
+                    Assert.Equal(bag, sim.GetEntity(id).Inv);
+                    Assert.Equal(0, sim.Piles.Length);
+                }
+            }
+        }
+
+        /// <summary>
+        /// C-005 (замечание 1 проверки E2-5): заявитель жив при заявке, убит до такта — такт ядра заявку к сундуку не
+        /// исполняет (в обход сервера: <see cref="Simulation.RequestChestOp"/> напрямую). Сундук в 2 тайлах — по расстоянию
+        /// заявка прошла бы (контроль — тот же сценарий без смерти).
+        /// </summary>
+        [Fact]
+        public void C005_Chest_Core_DeadRequester_RefusedInTick()
+        {
+            foreach (bool kill in new[] { true, false })
+            {
+                var t = new TileCoord(302, 200);
+                (Simulation sim, int id) = ChestCore(t);
+                Assert.True(sim.TryGetChest(t, out Inventory chest));
+                Inventory bag = sim.GetEntity(id).Inv;
+                int to = BagHand.FitTarget(bag, Items.CopperIngot, 0, Inventory.Cells);
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Move, Simulation.ChestCellBase + 0, to, 0));
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Move, 5, Simulation.ChestCellBase + 7, 0));
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Split, 3, Simulation.ChestCellBase + 9, 1)); // меч из сумки в сундук
+                if (kill)
+                {
+                    sim.ApplyStrike(id, -1, 1000, sim.GetEntity(id).Mover.Position, knockback: false);
+                    Assert.False(sim.GetEntity(id).Alive);
+                    Assert.False(sim.RequestChestOp(id, t, BagOp.Move, Simulation.ChestCellBase + 0, to, 0)); // мёртвый — отказ сразу
+                }
+
+                sim.Step();
+                Assert.True(sim.TryGetChest(t, out Inventory after));
+                if (kill)
+                {
+                    Assert.Equal(chest, after);
+                    Assert.Equal(bag, sim.GetEntity(id).Inv);
+                    Assert.Equal(0, sim.Piles.Length);
+                }
+                else
+                {
+                    Assert.Equal(0, after.Count(Items.CopperIngot));
+                    Assert.Equal(3, after.Count(Items.Torch));
+                    Assert.Equal(1, after.Count(Items.WoodenSword));
+                    Assert.Equal(20, sim.GetEntity(id).Inv.Count(Items.CopperIngot));
+                }
+            }
+        }
+
         // ---------- Кровать ----------
 
         /// <summary>
