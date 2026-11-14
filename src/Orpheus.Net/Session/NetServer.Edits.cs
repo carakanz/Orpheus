@@ -114,6 +114,12 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            if (m.Op == TileOp.Repair)
+            {
+                OnRepair(p, s, pos, m, held); // E2-5: починка (NetServer.Use.cs)
+                return;
+            }
+
             // Копание запрашивается с любым предметом в руках (1-010): «нужен топор», «нужна кирка: медная» — ответ CheckDig
             // строкой, а не молчание (карточка: отказ показывается строкой сервера). DigStop проходит всегда.
 

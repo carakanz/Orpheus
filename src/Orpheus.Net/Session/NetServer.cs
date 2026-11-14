@@ -499,7 +499,22 @@ namespace Orpheus.Net.Session
 
                 if (type == MessageType.BagRequest && channel == NetChannel.Facts)
                 {
-                    OnBagRequest(p, BagRequestMessage.Read(data)); // E2-1
+                    BagRequestMessage bag = BagRequestMessage.Read(data);
+                    if (bag.From >= Inventory.Cells || bag.To >= Inventory.Cells)
+                    {
+                        OnChestBagRequest(p, bag); // E2-5: ячейки открытого сундука
+                    }
+                    else
+                    {
+                        OnBagRequest(p, bag); // E2-1
+                    }
+
+                    return;
+                }
+
+                if (type == MessageType.UseRequest && channel == NetChannel.Facts)
+                {
+                    OnUseRequest(p, UseRequestMessage.Read(data, _sim.Shape)); // E2-5
                     return;
                 }
 

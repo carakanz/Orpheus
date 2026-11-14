@@ -238,7 +238,7 @@ namespace Orpheus.Core.Sim
                 EditRules.NeedsClearance(obj) && !(obj == ObjectId.Door && hasRecord));
         }
 
-        private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, bool checkCreatures)
+        private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, bool checkCreatures, bool repair = false)
         {
             if (_editCount == _edits.Length)
             {
@@ -256,7 +256,7 @@ namespace Orpheus.Core.Sim
                 Torus.ChunkOf(_shape, t),
                 _editCount,
                 hasRecord ? new TileEdit(index, floor, obj, record) : new TileEdit(index, floor, obj),
-                requester, tag, checkCreatures);
+                requester, tag, checkCreatures, repair);
             _editCount++;
             return true;
         }

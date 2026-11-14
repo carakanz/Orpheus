@@ -28,5 +28,11 @@ namespace Orpheus.Core.Sim
         /// <summary>Сумка (1-002): панель, выбранная ячейка, материалы. Значима и в мире, и вне его:
         /// вошёл — сумка сущности берётся отсюда, ушёл — она возвращается сюда (<see cref="CharacterRoster.Park"/>).</summary>
         public Inventory Inv;
+
+        /// <summary>Точка возрождения у кровати назначена (E2-5); тайл — <see cref="Bed"/>. Идёт за персонажем вне мира.</summary>
+        public bool HasBed;
+
+        /// <summary>Тайл кровати (значим при <see cref="HasBed"/>).</summary>
+        public Geometry.TileCoord Bed;
     }
 }

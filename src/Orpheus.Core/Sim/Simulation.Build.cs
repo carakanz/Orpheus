@@ -17,9 +17,10 @@ namespace Orpheus.Core.Sim
         // ---------- Починка (`05` 1.3) ----------
 
         /// <summary>
-        /// Заявка починки постройки на тайле (E2-5): правка «та же постройка с полной прочностью» в очередь такта.
-        /// Цена ⌈количество × недостающая доля⌉ списывается в такте (<see cref="PreRepair"/>); не хватило — «нет ресурсов»,
-        /// постройку били недавно — «занято». Мёртвый, нет постройки или очередь полна — false.
+        /// Заявка починки постройки на тайле (E2-5, `05` 1.3): правка «та же постройка с полной прочностью» в очередь такта
+        /// с пометкой «починка». Цена ⌈количество × недостающая доля⌉ списывается в такте (<see cref="PreRepair"/>); не
+        /// хватило — «нет ресурсов»; постройку били недавно, она уже цела или исчезла — «занято». Проверку с причиной до
+        /// заявки делает <see cref="EditRules.CheckRepair"/>. Мёртвый, нет постройки или очередь полна — false.
         /// </summary>
         public bool RequestRepair(TileCoord tile, int requester, int tag)
         {
@@ -32,26 +33,22 @@ namespace Orpheus.Core.Sim
                 return false;
             }
 
-            return Enqueue(t, _world.GetFloor(t), obj, true, rec.WithIntegrity(def.MaxIntegrity), requester, tag, false);
+            return Enqueue(t, _world.GetFloor(t), obj, true, rec.WithIntegrity(def.MaxIntegrity), requester, tag, false, repair: true);
         }
 
-        /// <summary>Правка № <paramref name="i"/> — починка: тот же объект, запись с прочностью выше прежней.</summary>
-        private bool IsRepairEdit(int i)
-        {
-            ref EditRequest e = ref _edits[i];
-            return e.Edit.HasRecord && e.Edit.Obj != ObjectId.Empty && e.Edit.Obj == _preObj[i] && _preHasBuild[i]
-                && e.Edit.Record.Integrity > _preBuild[i].Integrity;
-        }
+        /// <summary>Правка № <paramref name="i"/> — заявка починки (<see cref="RequestRepair"/>).</summary>
+        private bool IsRepairEdit(int i) => _edits[i].Repair;
 
         /// <summary>
-        /// Pre-pass починки: постройка не в обломках и не под ударом, цена списана из сумки — правка подменяется на
-        /// «запись тайла на этот такт с полной прочностью» (флаги двери и прочее — как есть сейчас).
+        /// Pre-pass починки: на тайле та же постройка, не в обломках, не под ударом и не целая; цена списана из сумки —
+        /// правка подменяется на «запись тайла на этот такт с полной прочностью» (флаги двери и прочее — как есть сейчас).
         /// </summary>
         private void PreRepair(int i)
         {
             ref EditRequest e = ref _edits[i];
             BuildRecord rec = _preBuild[i];
-            if (rec.IsDebris || rec.IsDamagedRecent || !BuildDefs.TryGet(_preObj[i], out BuildDef def))
+            if (!_preHasBuild[i] || _preObj[i] != e.Edit.Obj || rec.IsDebris || rec.IsDamagedRecent
+                || !BuildDefs.TryGet(_preObj[i], out BuildDef def) || rec.Integrity >= def.MaxIntegrity)
             {
                 _preResult[i] = EditResult.Busy;
                 return;
@@ -68,7 +65,7 @@ namespace Orpheus.Core.Sim
 
             _costPaid[i] = 2;
             e = new EditRequest(e.Chunk, e.Arrival, new TileEdit(e.Edit.Index, _preFloor[i], _preObj[i], rec.WithIntegrity(def.MaxIntegrity)),
-                e.Requester, e.Tag, false);
+                e.Requester, e.Tag, false, repair: true);
         }
 
         /// <summary>Починка оплачена, но правка не применилась — цена возвращается в сумку.</summary>

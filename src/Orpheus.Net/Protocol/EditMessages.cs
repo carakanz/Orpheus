@@ -19,6 +19,10 @@ namespace Orpheus.Net.Protocol
         /// <summary>Закрыть дверь (1-012, F): тайл двери в From (To не используется) — сервер проверит радиус,
         /// замок и проём, смена состояния — record-only правка. Ответ — общий («принято»/причина).</summary>
         CloseDoor = 4,
+
+        /// <summary>Починить постройку (E2-5, `05` 1.3, протокол 23): тайл в From — цена по недостающей доле прочности, молот в руках.
+        /// Ответ — общий («принято»/причина: цело, под ударом, нет ресурсов…), предсказания нет.</summary>
+        Repair = 5,
     }
 
     /// <summary>
@@ -70,7 +74,7 @@ namespace Orpheus.Net.Protocol
             m.To = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.Obj = r.ReadUInt16();
             r.ExpectEnd();
-            if (op < (byte)TileOp.DigStart || op > (byte)TileOp.CloseDoor)
+            if (op < (byte)TileOp.DigStart || op > (byte)TileOp.Repair)
             {
                 throw new ProtocolException($"Запрос правки: операция {op}.");
             }
@@ -127,7 +131,7 @@ namespace Orpheus.Net.Protocol
             byte first = r.ReadByte();
             m.Mask = r.ReadUInt32();
             r.ExpectEnd();
-            if (reply > (byte)EditReply.Dead || first > (byte)EditReply.Dead)
+            if (reply > (byte)EditRules.MaxReply || first > (byte)EditRules.MaxReply)
             {
                 throw new ProtocolException($"Ответ на правку: код {reply} / {first}.");
             }

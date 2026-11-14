@@ -112,6 +112,12 @@ namespace Orpheus.Net.Session
             public bool SentCraftRunning;
             public bool HasSentCraft;
 
+            /// <summary>Открытый игроком сундук (E2-5): тайл; отправленное содержимое (<see cref="ChestSent"/> — слано после открытия).</summary>
+            public bool ChestOpen;
+            public TileCoord ChestTile;
+            public Inventory SentChest;
+            public bool ChestSent;
+
             /// <summary>
             /// Опережение L из последнего нового пакета ввода, кадров (0-033, 2.7) — подсказка только для отчёта о запасе (им клиент
             /// правит своё же L); D_p от него не зависит (з. 2 проверки 0-033).
