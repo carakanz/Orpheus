@@ -95,6 +95,9 @@ namespace Orpheus.Client
             public Mesh Shadows = null!;
             public MeshRenderer ShadowRenderer = null!;
 
+            /// <summary>Пучки травы чанка (E1-11, план 1.12): полосы мешей над землёй.</summary>
+            public GrassLayer.Node Grass = null!;
+
             /// <summary>Высота узла, для которой строкам выставлен порядок отрисовки.</summary>
             public float OrderedY = float.NaN;
         }
@@ -106,6 +109,7 @@ namespace Orpheus.Client
         readonly TileBase _meadow, _stone, _tree, _rock;
         readonly GroundMesh _ground;
         readonly ObjectMesh _objects;
+        readonly GrassLayer _grass;
         readonly bool[] _rowDirty = new bool[Size];
         readonly Material? _groundMaterial;
         readonly TileBase?[] _floorBuf = new TileBase?[Size * Size];
@@ -133,6 +137,8 @@ namespace Orpheus.Client
             _rock = rock;
             _ground = new GroundMesh(world);
             _objects = new ObjectMesh(world);
+            _grass = new GrassLayer(world);
+            LifeFx.Bind(world, origin, this); // E1-11: ветер, толчки, след в траве — от этого мира и начала координат
             _groundMaterial = GroundAtlas.Material;
             ObjectAtlas.Ensure();
         }
@@ -390,6 +396,7 @@ namespace Orpheus.Client
             node.ShadowRenderer = shadows.AddComponent<MeshRenderer>();
             Plain(node.ShadowRenderer, ObjectAtlas.ShadowMaterial);
             node.ShadowRenderer.enabled = false;
+            node.Grass = _grass.CreateNode(root.transform);
             NodesCreated++;
             return node;
         }
@@ -533,6 +540,52 @@ namespace Orpheus.Client
             return false;
         }
 
+        /// <summary>
+        /// Пучки травы (E1-11) — до отрисовки кадра: полосы с правкой тайла собираются все (правка видна в тот же кадр),
+        /// полосы чанков, только что вошедших в окно (далеко за краем экрана), — не больше <paramref name="freshBudget"/>
+        /// за вызов: вход столбца чанков не даёт длинного кадра.
+        /// </summary>
+        public void FlushGrass(int freshBudget)
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                ChunkNode node = _nodes[_current[i]];
+                GrassLayer.Node g = node.Grass;
+                if (g.Dirty == 0 || (g.Fresh && freshBudget <= 0))
+                {
+                    continue;
+                }
+
+                Chunk? chunk = _world.FindChunk(node.Coord);
+                for (int b = 0; b < GrassLayer.Bands; b++)
+                {
+                    if ((g.Dirty & (1 << b)) == 0)
+                    {
+                        continue;
+                    }
+
+                    if (g.Fresh && freshBudget-- <= 0)
+                    {
+                        break;
+                    }
+
+                    int was = g.Counts[b];
+                    g.Counts[b] = _grass.Build(g, chunk, node.Coord, b);
+                    GrassTufts += g.Counts[b] - was;
+                    g.Dirty &= ~(1 << b);
+                }
+
+                if (g.Dirty == 0)
+                {
+                    g.Fresh = false;
+                }
+            }
+        }
+
+        /// <summary>Пучков травы в собранных полосах (замер) и полос собрано за всё время.</summary>
+        public int GrassTufts { get; private set; }
+        public int GrassBuilds => _grass.Builds;
+
         void Release(ChunkNode node)
         {
             node.Root.SetActive(false);
@@ -583,12 +636,27 @@ namespace Orpheus.Client
                     _floorBuf[row + lx] = floorTile;
                     if (objs[index] != obj)
                     {
+                        if (!fresh)
+                        {
+                            GrassLayer.MarkRow(node.Grass, ly); // под объектом травы нет; убрали объект — выросла
+                            if (obj == ObjectId.Empty)
+                            {
+                                TileCoord corner = Torus.CornerOf(c);
+                                LifeFx.TreeGone(corner.X + lx, corner.Y + ly, objs[index], shown[index]); // срубили — облачко листьев
+                            }
+                        }
+
                         objs[index] = obj;
                         _rowDirty[ly] = true;
                     }
 
                     if (shown[index] != floor)
                     {
+                        if (!fresh)
+                        {
+                            GrassLayer.MarkRow(node.Grass, ly);
+                        }
+
                         _rowDirty[ly] |= obj != ObjectId.Empty; // вид дерева зависит от земли под ним
                         shown[index] = floor;
                         if (lx < minX) minX = lx;
@@ -627,6 +695,7 @@ namespace Orpheus.Client
 
             if (fresh)
             {
+                GrassLayer.MarkFresh(node.Grass);
                 BuildGround(node);
                 // Соседи, собранные без этого чанка, пересоберутся в PlaceNodes этого кадра.
                 for (int dy = -1; dy <= 1; dy++)

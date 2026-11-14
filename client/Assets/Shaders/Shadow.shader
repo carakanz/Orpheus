@@ -2,6 +2,7 @@
 // персонажами. Рисуются отдельной камерой в текстуру теней (WorldFx); смешивание — «наибольшее из перекрытий»
 // (BlendOp Max), поэтому тени соседних деревьев не складываются в чёрное. На землю текстура ложится один раз —
 // Orpheus/ShadowComposite. Картинка берётся с размытого mip-уровня: край тени мягкий.
+// E1-11: тень качается вместе с кроной — uv1.xy — опора, uv1.z — высота точки над опорой, uv1.w — ветер (OrphLife.hlsl).
 Shader "Orpheus/Shadow"
 {
     Properties
@@ -12,6 +13,7 @@ Shader "Orpheus/Shadow"
 
     HLSLINCLUDE
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+    #include "Assets/Shaders/OrphLife.hlsl"
 
     TEXTURE2D(_MainTex);
     SAMPLER(sampler_MainTex);
@@ -25,6 +27,7 @@ Shader "Orpheus/Shadow"
     {
         float3 positionOS : POSITION;
         float2 uv : TEXCOORD0;
+        float4 info : TEXCOORD1;
         half4 color : COLOR;
     };
 
@@ -38,7 +41,11 @@ Shader "Orpheus/Shadow"
     Varyings Vert(Attributes v)
     {
         Varyings o;
-        o.positionCS = TransformObjectToHClip(v.positionOS);
+        float3 wp = TransformObjectToWorld(v.positionOS);
+        float sway, phase;
+        OrphUnpack(v.info.w, sway, phase);
+        wp.xy += OrphSway(TransformObjectToWorld(float3(v.info.xy, 0)).xy, v.info.z, sway, phase);
+        o.positionCS = TransformWorldToHClip(wp);
         o.uv = v.uv;
         o.strength = v.color.a;
         return o;

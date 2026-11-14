@@ -51,6 +51,15 @@ namespace Orpheus.Client
         public bool Tall;
 
         /// <summary>
+        /// Качается на ветру и вздрагивает от существ (E1-11): смещение верха, тайлов на тайл высоты картинки (&lt; 1);
+        /// 0 — стоит неподвижно (валун, пень, руда, постройка, обрыв).
+        /// </summary>
+        public float Sway;
+
+        /// <summary>Листьев с кроны при толчке существом (E1-11): от и до; удар и срубание — больше (<see cref="LifeFx"/>).</summary>
+        public int LeavesMin, LeavesMax;
+
+        /// <summary>
         /// Блок (обрыв, шаги 1.6, 1.6б): не картинка с опорой, а кусок скальной гряды на весь тайл — верхняя грань, поднятая на
         /// <see cref="Height"/>, лицо к зрителю (к югу) там, где южнее блока нет, наклонные бока, тёмный контур по свободным краям.
         /// Куски берутся из картинок <see cref="Top"/> и <see cref="Face"/> по координате тайла (картинка — несколько тайлов).
@@ -106,6 +115,7 @@ namespace Orpheus.Client
                 Id = ObjectId.Tree, Ground = GroundTable.Forest, Patch = 9f,
                 Variants = new[] { V("tree_oak_a", 3), V("tree_oak_b", 3), V("tree_oak_autumn", 0.5f), V("tree_pine_a", 3), V("tree_pine_b", 3) },
                 ScaleMin = 0.85f, ScaleMax = 1.15f, Jitter = 0.2f, Flip = true, Tall = true,
+                Sway = 0.028f, LeavesMin = 6, LeavesMax = 10,
             },
             // Луг и всё остальное: олива и кипарис, изредка осенний дуб.
             new ObjectLook
@@ -113,11 +123,13 @@ namespace Orpheus.Client
                 Id = ObjectId.Tree, Patch = 7f,
                 Variants = new[] { V("tree_olive_a", 3), V("tree_olive_b", 3), V("tree_oak_autumn", 0.4f), V("tree_cypress_a", 2), V("tree_cypress_b", 2) },
                 ScaleMin = 0.85f, ScaleMax = 1.15f, Jitter = 0.2f, Flip = true, Tall = true,
+                Sway = 0.028f, LeavesMin = 6, LeavesMax = 10,
             },
             new ObjectLook
             {
                 Id = ObjectId.Bush, Variants = new[] { V("bush_a"), V("bush_b") },
                 ScaleMin = 0.9f, ScaleMax = 1.25f, Jitter = 0.2f, Flip = true, Shadow = 0.7f,
+                Sway = 0.045f, LeavesMin = 2, LeavesMax = 4,
             },
             new ObjectLook
             {
@@ -353,7 +365,7 @@ namespace Orpheus.Client
         }
 
         // Плавный шум значений 0…1 на целой решётке.
-        static float Smooth(float x, float y, uint seed)
+        internal static float Smooth(float x, float y, uint seed)
         {
             int x0 = Mathf.FloorToInt(x), y0 = Mathf.FloorToInt(y);
             float fx = x - x0, fy = y - y0;

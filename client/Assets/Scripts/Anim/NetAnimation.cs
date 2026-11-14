@@ -149,6 +149,10 @@ namespace Orpheus.Client.Anim
             if (p.DigPokeNow)
             {
                 EmitDust(digAt, new Vector2(-s.DigDirX, -s.DigDirY), dust);
+                if (_client.Digging)
+                {
+                    LifeFx.HitTile(_client.DigTile, new Vector2(s.DigDirX, s.DigDirY)); // E1-11: удар по дереву — встряска и листья
+                }
             }
 
             // Сектор своего удара (02 3.1): заливка растёт с замахом, в миг удара — золотая вспышка, отход гаснет.
