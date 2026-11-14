@@ -101,6 +101,7 @@ namespace Orpheus.Client
         DayTintView? _dayTint;          // E1-8: тон суток (ночь, сумерки, рассвет; свет факела и костра)
         int _hudFrame;
         PileView? _piles;               // E2-1: кучи на земле без сервера (--demo-piles, сцена снимков)
+        UI.UiDemo? _uiDemo;             // E2-2: интерфейс без сервера (--ui-demo, сцены снимков)
 
         void Awake()
         {
@@ -186,6 +187,16 @@ namespace Orpheus.Client
                 // E2-1: кучи на земле для снимка без сервера (после телепорта снимка — вокруг точки сцены).
                 _piles = new PileView(new GameObject("Piles").transform);
                 _piles.AddDemo(Map, Player.Position, t => Rules.IsBlocked(Map, t));
+            }
+
+            if (Args.UiDemo != null)
+            {
+                if (Args.ScreenshotPath != null)
+                {
+                    UI.UiRoot.FixedFrame = new Vector2Int(Args.ShotPixelsX, Args.ShotPixelsY); // холст — сразу в размере снимка
+                }
+
+                _uiDemo = new UI.UiDemo(Camera, Args.UiDemo);
             }
         }
 
@@ -341,6 +352,7 @@ namespace Orpheus.Client
             _piles?.Frame(Origin, Time.deltaTime);
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
+            _uiDemo?.Frame();
             UpdateHud();
             _smoke?.AfterFrame();
             _screenshot?.AfterFrame();

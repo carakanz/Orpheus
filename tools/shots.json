@@ -44,6 +44,10 @@
     { "name": "E1-11_meadow_40",   "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo"] },
     { "name": "E1-11_meadow_96",   "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 96, "args": ["--paint-demo"] },
     { "name": "E2-1_piles_40",     "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--demo-piles"] },
-    { "name": "E2-1_piles_64",     "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--demo-piles"] }
+    { "name": "E2-1_piles_64",     "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--demo-piles"] },
+    { "name": "E2-2_bag",          "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "bag"] },
+    { "name": "E2-2_hotbar",       "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--demo-piles", "--ui-demo", "hotbar"] },
+    { "name": "E2-2_bag_720",      "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "bag"], "frame": { "width": 1280, "height": 720 } },
+    { "name": "E2-2_hotbar_night", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "time": "night", "args": ["--paint-demo", "--ui-demo", "hotbar"], "frame": { "width": 1280, "height": 720 } }
   ]
 }

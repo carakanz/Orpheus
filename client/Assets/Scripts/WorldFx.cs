@@ -177,6 +177,7 @@ namespace Orpheus.Client
             Sync(w / (float)h, h);
             LifeFx.BeforeManualRender(_main); // E1-11: правки травы этого кадра и параметры ветра
             DayTintView.Current?.Refresh(w / (float)h); // слой тона — под размер этого кадра
+            UI.UiRoot.Current?.Fit(w / (float)h, h);    // E2-2: интерфейс — под размер этого кадра (текст — под его пиксели)
             if (_shadowCam != null)
             {
                 _shadowCam.Render();

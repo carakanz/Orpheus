@@ -51,3 +51,11 @@ client/Assets/Art/_TEMP/TEMP_item_copper_ore.png,placeholder,К,значок п�
 client/Assets/Art/_TEMP/TEMP_item_fiber.png,placeholder,К,значок предмета «волокно» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_resin.png,placeholder,К,значок предмета «смола» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_generic.png,placeholder,К,значок «мешочек» для предметов без своего значка на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_stone_pickaxe.png,placeholder,К,"значок предмета «каменная кирка» 64x64, контур и плоский цвет (E2-2); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_item_stone_axe.png,placeholder,К,значок предмета «каменный топор» 64x64 (E2-2); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_hammer.png,placeholder,К,значок предмета «молот» 64x64 (E2-2); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_wooden_sword.png,placeholder,К,значок предмета «деревянный меч» 64x64 (E2-2); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_simple_bow.png,placeholder,К,значок предмета «простой лук» 64x64 (E2-2); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_torch.png,placeholder,К,значок предмета «факел» 64x64 (E2-2); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_copper_pickaxe.png,placeholder,К,значок предмета «медная кирка» 64x64 (E2-2); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_arrows.png,placeholder,К,значок предмета «стрелы» 64x64 (E2-2); скрипт tools/make_item_icons.py
