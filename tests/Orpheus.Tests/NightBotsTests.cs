@@ -349,13 +349,15 @@ namespace Orpheus.Tests
             Assert.Contains("смертей 0", line);
         }
 
-        /// <summary>Прогон вне метода-теста (xUnit1031: ожидание сервера — не в тесте; образец <c>NetTests.RunUdp</c>).</summary>
+        /// <summary>Прогон вне метода-теста (xUnit1031: ожидание сервера — не в тесте; образец <c>NetTests.RunUdp</c>).
+        /// E2-6: зерно мира 42 → 11 — у старта зерна 42 всего 11 валунов в радиусе добычи бота (до 22 камня при нужных 30),
+        /// у зерна 11 — 28 валунов и 54 дерева. Проверки те же.</summary>
         private static BotReport RunBuildRoomUdp()
         {
             int port = FreeUdpPort();
             ServerOptions so = ServerOptions.Parse(new[]
             {
-                "--create", "--seed", "42", "--size", "1024", "--port", port.ToString(),
+                "--create", "--seed", "11", "--size", "1024", "--port", port.ToString(),
                 "--debug-day-scale", "30",
             });
             using var stopServer = new CancellationTokenSource();
