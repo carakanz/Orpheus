@@ -191,6 +191,11 @@ namespace Orpheus.Client
 
             if (Args.UiDemo != null)
             {
+                if (Args.ScreenshotPath != null)
+                {
+                    UI.UiRoot.FixedFrame = new Vector2Int(Args.ShotPixelsX, Args.ShotPixelsY); // холст — сразу в размере снимка
+                }
+
                 _uiDemo = new UI.UiDemo(Camera, Args.UiDemo);
             }
         }

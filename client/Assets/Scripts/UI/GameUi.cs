@@ -20,7 +20,7 @@ namespace Orpheus.Client.UI
         public bool RightDown;
         public bool Shift;
 
-        /// <summary>Tab — открыть / закрыть сумку; Esc — закрыть.</summary>
+        /// <summary>Tab / I — открыть / закрыть сумку; Esc — закрыть.</summary>
         public bool Toggle;
         public bool Escape;
     }
@@ -190,7 +190,7 @@ namespace Orpheus.Client.UI
             if (kb != null)
             {
                 input.Shift = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
-                input.Toggle = kb.tabKey.wasPressedThisFrame;
+                input.Toggle = kb.tabKey.wasPressedThisFrame || kb.iKey.wasPressedThisFrame; // `02` 1.1: Tab, запасная — I
                 input.Escape = kb.escapeKey.wasPressedThisFrame;
             }
 

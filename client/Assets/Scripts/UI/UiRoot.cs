@@ -50,8 +50,18 @@ namespace Orpheus.Client.UI
         /// <summary>Размер холста в его единицах: (1080 × соотношение сторон, 1080).</summary>
         public Vector2 Size { get; private set; } = new Vector2(1920f, RefHeight);
 
-        /// <summary>Подогнать под окно игры (каждый кадр).</summary>
-        public void FitToScreen() => Fit(Screen.width / (float)Mathf.Max(1, Screen.height), Screen.height);
+        /// <summary>
+        /// Размер кадра вместо окна (режим снимка, <c>--screenshot</c>): снимок рисуется в текстуру своего размера, окно
+        /// стенда — другое; холст сразу живёт в размере снимка, чтобы места у курсора (подсказка, «рука») совпали с кадром.
+        /// </summary>
+        public static Vector2Int? FixedFrame { get; set; }
+
+        /// <summary>Подогнать под окно игры (каждый кадр); в режиме снимка — под кадр снимка.</summary>
+        public void FitToScreen()
+        {
+            int w = FixedFrame?.x ?? Screen.width, h = FixedFrame?.y ?? Screen.height;
+            Fit(w / (float)Mathf.Max(1, h), h);
+        }
 
         /// <summary>Подогнать холст под кадр: соотношение сторон и высота кадра в пикселях (окно или текстура снимка).</summary>
         public void Fit(float aspect, float pixelHeight)

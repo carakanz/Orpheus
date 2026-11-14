@@ -23,7 +23,7 @@ namespace Orpheus.Client.UI
             Rt = UiRoot.Node(parent, "Item", x, y, box, box);
             float pad = (box - UiStyle.IconSize) / 2f;
             _image = UiRoot.Picture(Rt, "Icon", pad, pad, UiStyle.IconSize, UiStyle.IconSize, null, sliced: false);
-            _count = UiRoot.Label(Rt, "Count", 0f, 2f, box - 5f, 24f, 20, TextAnchor.LowerRight, UiStyle.TextLight, outline: true, bold: true);
+            _count = UiRoot.Label(Rt, "Count", 0f, 4f, box - 6f, 24f, 20, TextAnchor.LowerRight, UiStyle.TextLight, outline: true, bold: true);
             Set(Items.None, 0);
         }
 
@@ -91,7 +91,7 @@ namespace Orpheus.Client.UI
                 _icons[i] = new UiItemIcon(Rt, at.x, at.y, UiStyle.CellSize);
                 if (keyLabels)
                 {
-                    UiRoot.Label(Rt, "Key", at.x + 7f, at.y + UiStyle.CellSize - 22f, 20f, 18f, 14, TextAnchor.UpperLeft, UiStyle.TextDark, bold: true)
+                    UiRoot.Label(Rt, "Key", at.x + UiStyle.CellSize - 28f, at.y + UiStyle.CellSize - 25f, 21f, 20f, 16, TextAnchor.UpperRight, UiStyle.TextDark, bold: true)
                         .text = (i + 1).ToString();
                 }
             }

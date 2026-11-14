@@ -11,9 +11,9 @@ namespace Orpheus.Client.UI
     public static class UiStrings
     {
         public const string BagTitle = "Сумка";
-        public const string BagHint = "ЛКМ — взять / положить    ПКМ — половина    Shift+ЛКМ — перекинуть    мимо окна — выбросить";
+        public const string BagHint = "ЛКМ — взять / положить      ПКМ — взять половину\nShift+ЛКМ — перекинуть      ЛКМ мимо окна — выбросить";
         public const string BagDead = "Вы погибли: сумка откроется для действий после возрождения";
-        public const string BagKeys = "Tab";
+        public const string BagKeys = "Tab / I";
 
         static readonly Dictionary<string, string> ItemNames = new Dictionary<string, string>
         {
