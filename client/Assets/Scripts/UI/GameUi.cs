@@ -185,7 +185,7 @@ namespace Orpheus.Client.UI
             const float hintW = 190f, hintH = 34f;
             _stationHint = new UiGroup(_root, "StationHint", new Vector2(0.5f, 0f), new Vector2(w / 2f - hintW, 16f + h + 8f), new Vector2(hintW, hintH));
             UiRoot.Picture(_stationHint.Rt, "Back", 0f, 0f, hintW, hintH, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
-            _stationHintText = UiRoot.Label(_stationHint.Rt, "Text", 0f, 0f, hintW, hintH, 20, TextAnchor.MiddleCenter, UiStyle.TextLight);
+            _stationHintText = UiRoot.Label(_stationHint.Rt, "Text", 0f, 0f, hintW, hintH, 20, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _stationHint.Visible = false;
 
             _bag = new BagWindow(_root);
@@ -694,7 +694,7 @@ namespace Orpheus.Client.UI
         }
 
         // Скрипт окна крафта (вкладка «Верстак» открывается сама — верстак рядом): слиток «всё» → стрелы × 2 → выбрана
-        // медная кирка (слитков не хватает); курсор — над второй позицией очереди.
+        // медная кирка (слитков не хватает); курсор — над первой строкой списка.
         void CraftScript(ref UiInput input)
         {
             int f = _frame;
@@ -723,8 +723,8 @@ namespace Orpheus.Client.UI
                 : f < 13 ? (CraftPart.Row, 2)     // стрелы
                 : f < 18 ? (CraftPart.Button, 0)  // «сделать 1» дважды
                 : f < 21 ? (CraftPart.Row, 4)     // медная кирка
-                : (CraftPart.Queue, 1);
-            input.Pointer = _ui.CraftPoint(at.Part, at.Index) + (f >= 21 ? new Vector2(10f, -8f) : Vector2.zero);
+                : (CraftPart.Row, 0);     // курсор над строкой, которую можно сделать
+            input.Pointer = _ui.CraftPoint(at.Part, at.Index) + (f >= 21 ? new Vector2(120f, -6f) : Vector2.zero);
             input.LeftDown = f == 5 || f == 8 || f == 11 || f == 14 || f == 16 || f == 19;
             input.LeftHeld = input.LeftDown;
         }

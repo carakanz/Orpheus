@@ -24,12 +24,19 @@ MonoBehaviour:
   - cliff_face
   - cliff_top
   - item_arrows
+  - item_copper_axe
+  - item_copper_bow
+  - item_copper_ingot
   - item_copper_ore
   - item_copper_pickaxe
+  - item_copper_sword
   - item_fiber
   - item_generic
   - item_hammer
+  - item_meat
   - item_resin
+  - item_roast_meat
+  - item_rope
   - item_simple_bow
   - item_stone
   - item_stone_axe
@@ -37,6 +44,9 @@ MonoBehaviour:
   - item_torch
   - item_wood
   - item_wooden_sword
+  - obj_campfire
+  - obj_torch
+  - obj_workbench
   - ore_copper_a
   - ore_copper_b
   - stump
@@ -58,12 +68,19 @@ MonoBehaviour:
   - {fileID: 21300000, guid: a05fa683b66cd30438a1e0f467512e18, type: 3}
   - {fileID: 21300000, guid: efac622f0f8e3e945bb837b4673c9ad3, type: 3}
   - {fileID: 21300000, guid: edf6731c48c6a904488a910940e2b681, type: 3}
+  - {fileID: 21300000, guid: d33cba6a169aa96479c8b7fb027a8216, type: 3}
+  - {fileID: 21300000, guid: 0964206fd6c119846a2d2be019c6a3c6, type: 3}
+  - {fileID: 21300000, guid: a6772d024e67f8d42b3d50aaa61d4e72, type: 3}
   - {fileID: 21300000, guid: 6310ad425eb12374b87ec1225b625f9b, type: 3}
   - {fileID: 21300000, guid: 1e97411ec36c03443bd332425d6c25c1, type: 3}
+  - {fileID: 21300000, guid: 2c89fb5b32c38384392f2145fb67ea61, type: 3}
   - {fileID: 21300000, guid: 021ba28da001a4649b5e8e5d248fc04a, type: 3}
   - {fileID: 21300000, guid: ff5157e185c338d47b46a87726a318f3, type: 3}
   - {fileID: 21300000, guid: f4d20fc6b2309654b955e488d6d0d8bb, type: 3}
+  - {fileID: 21300000, guid: fc53d400b592daf4dba554675b93cf72, type: 3}
   - {fileID: 21300000, guid: f312c1a6b4592b7469f3c38674a01ef3, type: 3}
+  - {fileID: 21300000, guid: 16ea921ef86240145adbd0f7be631da5, type: 3}
+  - {fileID: 21300000, guid: 499a8ac0ea0e2d141b2b954961584ac8, type: 3}
   - {fileID: 21300000, guid: d760e36f414e35d4daf1eb69f95a2d4a, type: 3}
   - {fileID: 21300000, guid: ebe46fb9676ea924cbf7d858b7ef51b2, type: 3}
   - {fileID: 21300000, guid: 7889123d40fe69043a9abb4e9e6cad42, type: 3}
@@ -71,6 +88,9 @@ MonoBehaviour:
   - {fileID: 21300000, guid: bea09a988e762ce4ea66b917fb4c32d9, type: 3}
   - {fileID: 21300000, guid: 51a4bd4cd4a99f04da00e90e70de105f, type: 3}
   - {fileID: 21300000, guid: d104885345ea64241a7a9db19babe60b, type: 3}
+  - {fileID: 21300000, guid: 120702e935b89cf479c444ba708a874b, type: 3}
+  - {fileID: 21300000, guid: 643809a303e0f7b46a8a0e3a10b17eef, type: 3}
+  - {fileID: 21300000, guid: f34fbc97ddf2bf6488efc5fd9b96e08e, type: 3}
   - {fileID: 21300000, guid: fb8d37141611ba9408368e286e66b726, type: 3}
   - {fileID: 21300000, guid: 681614429da6d5a4cb4732a5ba590ae0, type: 3}
   - {fileID: 21300000, guid: e64bcf538694f05418aab7e195b27470, type: 3}

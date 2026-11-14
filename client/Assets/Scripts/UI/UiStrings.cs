@@ -51,6 +51,9 @@ namespace Orpheus.Client.UI
         public const string CraftMake1 = "Сделать 1";
         public const string CraftMake5 = "Сделать 5";
         public const string CraftMakeAll = "Сделать всё";
+
+        /// <summary>Кнопка «всё», когда известно, на сколько хватает.</summary>
+        public static string CraftMakeAllOf(int n) => $"Все {n}";
         public const string CraftHint = "Enter — сделать 1    Shift+Enter — 5    Ctrl+Enter — всё    Del — отменить последнюю\nPgUp / PgDn — рецепт    Home / End — вкладка    C, Esc — закрыть";
 
         /// <summary>Вкладка окна крафта: название станка.</summary>

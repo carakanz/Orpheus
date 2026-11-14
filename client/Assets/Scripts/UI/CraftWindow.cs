@@ -43,8 +43,8 @@ namespace Orpheus.Client.UI
         public const float Width = 830f;
         const float HintHeight = 46f;
         const float QueueY = Pad + HintHeight + 10f;
-        const float QueueLabelY = QueueY + UiStyle.CellSize + 2f;
-        const float BodyY = QueueLabelY + 26f + 10f;
+        const float QueueLabelY = QueueY + UiStyle.CellSize + 9f;
+        const float BodyY = QueueLabelY + 26f + 8f;
         const int MaxRows = 8;
         const float RowHeight = 50f, RowGap = 4f;
         const float BodyHeight = MaxRows * (RowHeight + RowGap) - RowGap;
@@ -277,6 +277,7 @@ namespace Orpheus.Client.UI
                 row.Icon.Dim(!line.CanMake);
                 row.Name.text = UiStrings.ItemName(def.Result);
                 row.Name.color = line.CanMake ? UiStyle.TextDark : UiStyle.TextDim;
+                row.Note.color = line.CanMake ? UiStyle.TextDark : UiStyle.TextDim;
                 row.Note.text = noStation ? UiStrings.StationNeeded(def.Station) : def.ResultCount > 1 ? "× " + def.ResultCount : string.Empty;
             }
 
@@ -350,7 +351,7 @@ namespace Orpheus.Client.UI
             if (all != _shownAll)
             {
                 _shownAll = all;
-                _buttons[2].Label.text = all > 0 ? $"{UiStrings.CraftMakeAll} ({all})" : UiStrings.CraftMakeAll;
+                _buttons[2].Label.text = all > 0 ? UiStrings.CraftMakeAllOf(all) : UiStrings.CraftMakeAll;
             }
 
             for (int k = 0; k < _buttons.Length; k++)
