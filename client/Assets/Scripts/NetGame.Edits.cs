@@ -56,10 +56,22 @@ namespace Orpheus.Client
         /// </summary>
         void UiFrame()
         {
-            _ui ??= new UI.GameUi(_g.Camera, _client!);
+            NetClient c = _client!;
+            if (_ui == null)
+            {
+                _ui = new UI.GameUi(_g.Camera, c, c);
+                c.CraftReplied = _ui.CraftReplied; // E2-4: отказ сервера (сообщение 31) — строкой в окне крафта
+            }
+
             UI.UiInput input = _args.NetSmokeSeconds > 0 ? default : _ui.ReadInput();
             LocalPrediction? pr = _pred;
-            _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0, Orpheus.Core.Movement.Stamina.Max);
+            // E2-4: окно крафта показывает очередь сервера; прогресс первой позиции — по такту сервера, без предсказания.
+            var craft = new UI.UiCraftState
+            {
+                Queue = c.Craft, Running = c.CraftRunning, Progress = c.CraftProgressAt(c.ServerTick), World = _world, Position = _localPos,
+            };
+            _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0,
+                Orpheus.Core.Movement.Stamina.Max, craft);
             if (_ui.SlotClicked >= 0)
             {
                 _slot = _ui.SlotClicked;

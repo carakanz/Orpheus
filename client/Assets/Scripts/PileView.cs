@@ -185,8 +185,60 @@ namespace Orpheus.Client
             }
 
             Sprite? found = Find("item_" + ItemTable.Get(item).Key) ?? Find("item_generic") ?? Square();
+            found = found != null ? Unmarked(found) : null;
             _sprites[item] = found;
             return found;
+        }
+
+        /// <summary>
+        /// Значок без метки заглушки (E2-4): пурпурный уголок 8 × 8 px остаётся в файле PNG (правило заглушек), но в
+        /// ячейках интерфейса и у куч на земле не рисуется — берётся копия картинки с прозрачным левым верхним углом.
+        /// У готовой картинки (без уголка) и без видеокарты значок остаётся как есть.
+        /// </summary>
+        static Sprite Unmarked(Sprite s)
+        {
+            const int mark = 8;
+            try
+            {
+                Texture2D t = s.texture;
+                if (t == null || !t.isReadable || t.width < 2 * mark || t.height < 2 * mark
+                    || SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+                {
+                    return s;
+                }
+
+                Color32[] px = t.GetPixels32(0);
+                int w = t.width, h = t.height;
+                Color32 c = px[(h - 1) * w]; // левый верхний угол (строки текстуры идут снизу вверх)
+                if (!(c.a > 200 && c.r > 200 && c.b > 200 && c.g < 80))
+                {
+                    return s;
+                }
+
+                for (int y = h - mark; y < h; y++)
+                {
+                    for (int x = 0; x < mark; x++)
+                    {
+                        px[y * w + x] = new Color32(0, 0, 0, 0);
+                    }
+                }
+
+                var copy = new Texture2D(w, h, TextureFormat.RGBA32, false)
+                {
+                    name = t.name + " (без уголка)",
+                    filterMode = t.filterMode,
+                    wrapMode = TextureWrapMode.Clamp,
+                };
+                copy.SetPixels32(px);
+                copy.Apply(false, true);
+                return Sprite.Create(copy, new Rect(0, 0, w, h), new Vector2(s.pivot.x / s.rect.width, s.pivot.y / s.rect.height),
+                    s.pixelsPerUnit, 0, SpriteMeshType.FullRect);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[piles] значок без уголка не собран: " + e.Message);
+                return s;
+            }
         }
 
         static Sprite? Find(string name)

@@ -256,6 +256,9 @@ namespace Orpheus.Client
         }
 
         /// <summary>Поставить источник света (факел/костёр) на существующий пол (E1-8).</summary>
+        /// <summary>Поставить объект на тайл показа (E2-4: верстак для сцены окна крафта); пол остаётся.</summary>
+        public static void Put(WorldModel world, MapShape map, int x, int y, ushort obj) => Light(world, map, x, y, obj);
+
         static int Light(WorldModel world, MapShape map, int x, int y, ushort obj)
         {
             TileCoord t = Torus.Wrap(map, new TileCoord(x, y));

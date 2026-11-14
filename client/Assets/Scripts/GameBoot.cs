@@ -196,7 +196,18 @@ namespace Orpheus.Client
                     UI.UiRoot.FixedFrame = new Vector2Int(Args.ShotPixelsX, Args.ShotPixelsY); // холст — сразу в размере снимка
                 }
 
-                _uiDemo = new UI.UiDemo(Camera, Args.UiDemo);
+                if (UI.UiDemo.IsCraft(Args.UiDemo))
+                {
+                    // E2-4: окно крафта показывается у верстака — ставим его в двух тайлах восточнее персонажа, костёр — западнее.
+                    TileCoord at = Torus.TileOf(Map, Player.Position);
+                    PaintDemo.Put(World, Map, at.X + 2, at.Y, ObjectId.Workbench);
+                    PaintDemo.Put(World, Map, at.X - 6, at.Y + 1, ObjectId.Campfire);
+                    PaintDemo.Put(World, Map, at.X + 4, at.Y - 1, ObjectId.Torch);
+                    View.Clear();
+                    View.UpdateWindow(Player.Position);
+                }
+
+                _uiDemo = new UI.UiDemo(Camera, Args.UiDemo, World);
             }
         }
 
@@ -352,7 +363,7 @@ namespace Orpheus.Client
             _piles?.Frame(Origin, Time.deltaTime);
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
-            _uiDemo?.Frame();
+            _uiDemo?.Frame(Player.Position);
             UpdateHud();
             _smoke?.AfterFrame();
             _screenshot?.AfterFrame();

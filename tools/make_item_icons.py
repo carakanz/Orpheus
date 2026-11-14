@@ -1,4 +1,5 @@
-"""Временные значки предметов на земле (E2-1, шаг 2.1): 64 x 64, «тёмный контур, плоский цвет».
+"""Временные значки предметов (E2-1, E2-2, E2-4): 64 x 64, «тёмный контур, плоский цвет». С E2-4 — ещё и картинки
+станков и факела: TEMP_obj_workbench / campfire / torch, 128 x 160, вид сверху с наклоном, опора — низ по центру.
 
 Правило заглушек (CLAUDE.md): файл в client/Assets/Art/_TEMP/, имя TEMP_item_<ключ>.png, строка в
 art/manifest.csv со статусом placeholder, пурпурный уголок #FF00FF 8 x 8 px в левом верхнем углу.
@@ -24,8 +25,8 @@ OUT = (38, 28, 24, 255)    # тёмный контур
 W = 3 * S                  # толщина контура
 
 
-def canvas() -> tuple[Image.Image, ImageDraw.ImageDraw]:
-    img = Image.new("RGBA", (64 * S, 64 * S), (0, 0, 0, 0))
+def canvas(w: int = 64, h: int = 64) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    img = Image.new("RGBA", (w * S, h * S), (0, 0, 0, 0))
     return img, ImageDraw.Draw(img)
 
 
@@ -122,12 +123,20 @@ def copper_pickaxe() -> Image.Image:
     return pickaxe(COPPER, COPPER_L)
 
 
-def stone_axe() -> Image.Image:
+def axe(head, light) -> Image.Image:
     img, d = canvas()
     stick(d, 18, 56, 40, 12)
-    poly(d, p(34, 10, 50, 8, 58, 20, 54, 34, 42, 36, 36, 26), ROCK)  # лезвие
-    d.line(p(50, 12, 55, 21, 52, 31), fill=ROCK_L, width=2 * S)
+    poly(d, p(34, 10, 50, 8, 58, 20, 54, 34, 42, 36, 36, 26), head)  # лезвие
+    d.line(p(50, 12, 55, 21, 52, 31), fill=light, width=2 * S)
     return img
+
+
+def stone_axe() -> Image.Image:
+    return axe(ROCK, ROCK_L)
+
+
+def copper_axe() -> Image.Image:
+    return axe(COPPER, COPPER_L)
 
 
 def hammer() -> Image.Image:
@@ -138,23 +147,80 @@ def hammer() -> Image.Image:
     return img
 
 
-def wooden_sword() -> Image.Image:
+def sword(blade, light) -> Image.Image:
     img, d = canvas()
-    poly(d, p(52, 8, 56, 12, 28, 42, 22, 36), WOOD_L)  # клинок
-    d.line(p(50, 12, 28, 36), fill=(226, 190, 136, 255), width=2 * S)
+    poly(d, p(52, 8, 56, 12, 28, 42, 22, 36), blade)  # клинок
+    d.line(p(50, 12, 28, 36), fill=light, width=2 * S)
     stick(d, 16, 34, 30, 48, fill=(110, 72, 44, 255), w=4)  # гарда
     stick(d, 20, 44, 10, 54, fill=WOOD, w=4)  # рукоять
     return img
 
 
-def simple_bow() -> Image.Image:
+def wooden_sword() -> Image.Image:
+    return sword(WOOD_L, (226, 190, 136, 255))
+
+
+def copper_sword() -> Image.Image:
+    return sword(COPPER, COPPER_L)
+
+
+def bow(limb, tips=None) -> Image.Image:
     img, d = canvas()
     d.line(p(46, 8, 46, 56), fill=OUT, width=2 * S)  # тетива
     d.arc([6 * S, 8 * S, 58 * S, 56 * S], 90, 270, fill=OUT, width=9 * S)
-    d.arc([8 * S, 10 * S, 56 * S, 54 * S], 92, 268, fill=WOOD, width=5 * S)
+    d.arc([8 * S, 10 * S, 56 * S, 54 * S], 92, 268, fill=limb, width=5 * S)
     d.line(p(32, 9, 46, 9), fill=OUT, width=4 * S)
     d.line(p(32, 55, 46, 55), fill=OUT, width=4 * S)
+    if tips is not None:  # медные накладки на плечах и рукояти
+        for (a0, a1) in ((100, 128), (166, 194), (232, 260)):
+            d.arc([8 * S, 10 * S, 56 * S, 54 * S], a0, a1, fill=tips, width=5 * S)
     return img
+
+
+def simple_bow() -> Image.Image:
+    return bow(WOOD)
+
+
+def copper_bow() -> Image.Image:
+    return bow(WOOD, COPPER)
+
+
+def copper_ingot() -> Image.Image:
+    img, d = canvas()
+    poly(d, p(6, 44, 58, 44, 58, 52, 6, 52), (160, 86, 44, 255))      # бок слитка
+    poly(d, p(6, 44, 16, 26, 48, 26, 58, 44), COPPER)                 # скос к зрителю
+    poly(d, p(16, 26, 22, 16, 42, 16, 48, 26), COPPER_L)              # верхняя грань
+    d.line(p(18, 33, 46, 33), fill=COPPER_L, width=2 * S)
+    return img
+
+
+def rope() -> Image.Image:
+    img, d = canvas()
+    tan, tan_l = (196, 160, 96, 255), (232, 204, 146, 255)
+    stick(d, 44, 42, 56, 56, fill=tan, w=4)                           # свободный конец
+    ell(d, (8, 10, 52, 54), tan)                                      # моток
+    d.ellipse([21 * S, 23 * S, 39 * S, 41 * S], fill=(0, 0, 0, 0), outline=OUT, width=W)
+    for (x0, y0, x1, y1) in ((11, 26, 21, 30), (18, 15, 25, 24), (33, 11, 34, 23), (45, 19, 38, 27), (51, 34, 39, 34), (40, 49, 35, 40), (23, 50, 26, 40), (10, 39, 21, 35)):
+        d.line(p(x0, y0, x1, y1), fill=OUT, width=2 * S)              # витки
+    d.arc([13 * S, 15 * S, 47 * S, 49 * S], 200, 250, fill=tan_l, width=2 * S)
+    return img
+
+
+def meat(flesh, fat, bone=(240, 230, 204, 255)) -> Image.Image:
+    img, d = canvas()
+    stick(d, 40, 40, 51, 51, fill=bone, w=4)                          # кость
+    ell(d, (45, 45, 58, 58), bone)
+    poly(d, p(10, 30, 16, 16, 32, 10, 46, 18, 50, 34, 42, 48, 24, 52, 12, 44), flesh)  # кусок
+    poly(d, p(20, 28, 26, 20, 36, 20, 40, 30, 34, 40, 24, 40), fat)
+    return img
+
+
+def raw_meat() -> Image.Image:
+    return meat((204, 72, 70, 255), (238, 150, 140, 255))
+
+
+def roast_meat() -> Image.Image:
+    return meat((150, 84, 44, 255), (206, 140, 76, 255))
 
 
 def torch() -> Image.Image:
@@ -190,6 +256,67 @@ ICONS = {
     "torch": (torch, "значок предмета «факел» 64x64 (E2-2); скрипт tools/make_item_icons.py"),
     "copper_pickaxe": (copper_pickaxe, "значок предмета «медная кирка» 64x64 (E2-2); скрипт tools/make_item_icons.py"),
     "arrows": (arrows, "значок предмета «стрелы» 64x64 (E2-2); скрипт tools/make_item_icons.py"),
+    "copper_ingot": (copper_ingot, "значок предмета «медный слиток» 64x64 (E2-4); скрипт tools/make_item_icons.py"),
+    "rope": (rope, "значок предмета «верёвка» 64x64 (E2-4); скрипт tools/make_item_icons.py"),
+    "copper_axe": (copper_axe, "значок предмета «медный топор» 64x64 (E2-4); скрипт tools/make_item_icons.py"),
+    "copper_sword": (copper_sword, "значок предмета «медный меч» 64x64 (E2-4); скрипт tools/make_item_icons.py"),
+    "copper_bow": (copper_bow, "значок предмета «медный лук» 64x64 (E2-4); скрипт tools/make_item_icons.py"),
+    "meat": (raw_meat, "значок предмета «мясо» 64x64 (E2-4); скрипт tools/make_item_icons.py"),
+    "roast_meat": (roast_meat, "значок предмета «жареное мясо» 64x64 (E2-4); скрипт tools/make_item_icons.py"),
+}
+
+
+# ---------- объекты мира (E2-4): вид сверху с наклоном, 128 px на тайл, опора — низ по центру ----------
+
+OBJ_W, OBJ_H = 128, 160
+FIRE, FIRE_L = (236, 120, 40, 255), (252, 214, 96, 255)
+
+
+def workbench() -> Image.Image:
+    img, d = canvas(OBJ_W, OBJ_H)
+    plank, plank_l, side = (176, 124, 72, 255), (206, 158, 100, 255), (132, 88, 52, 255)
+    for x in (16, 100):                                              # ножки
+        d.rectangle([x * S, 112 * S, (x + 12) * S, 154 * S], fill=(110, 72, 44, 255), outline=OUT, width=W)
+    poly(d, p(8, 92, 120, 92, 120, 120, 8, 120), side)               # царга к зрителю
+    d.line(p(8, 106, 120, 106), fill=OUT, width=2 * S)
+    poly(d, p(18, 40, 110, 40, 122, 92, 6, 92), plank)               # столешница (дальний край уже)
+    for x0, x1 in ((40, 34), (64, 64), (88, 94)):                    # швы досок
+        d.line(p(x0, 42, x1, 90), fill=side, width=2 * S)
+    d.line(p(22, 46, 106, 46), fill=plank_l, width=2 * S)
+    stick(d, 30, 80, 56, 58, fill=WOOD, w=4)                         # на столе: молот и медная заготовка
+    poly(d, p(50, 50, 62, 46, 68, 60, 56, 66), ROCK)
+    poly(d, p(78, 62, 104, 58, 108, 72, 82, 78), COPPER)
+    d.line(p(82, 64, 102, 61), fill=COPPER_L, width=2 * S)
+    d.rectangle([84 * S, 26 * S, 100 * S, 44 * S], fill=(120, 116, 118, 255), outline=OUT, width=W)  # упор на дальнем краю
+    return img
+
+
+def campfire() -> Image.Image:
+    img, d = canvas(OBJ_W, OBJ_H)
+    ell(d, (14, 96, 114, 152), (70, 58, 52, 255))                    # кострище — зола
+    for (x, y, r) in ((34, 104, 10), (64, 98, 10), (94, 104, 10), (22, 122, 12), (106, 122, 12), (38, 140, 12), (90, 140, 12), (64, 146, 13)):
+        ell(d, (x - r, y - r * 0.8, x + r, y + r * 0.8), ROCK if (x + y) % 3 else ROCK_L)   # камни кольцом
+    stick(d, 34, 132, 92, 108, fill=WOOD, w=8)                       # поленья крест-накрест
+    stick(d, 36, 108, 94, 132, fill=(124, 82, 48, 255), w=8)
+    poly(d, p(64, 22, 84, 62, 92, 92, 80, 118, 64, 124, 48, 118, 36, 92, 44, 62), FIRE)     # пламя
+    poly(d, p(64, 56, 76, 84, 74, 104, 64, 112, 54, 104, 52, 84), FIRE_L)
+    return img
+
+
+def torch_obj() -> Image.Image:
+    img, d = canvas(OBJ_W, OBJ_H)
+    ell(d, (46, 138, 82, 156), (96, 84, 70, 255))                    # холмик у основания
+    stick(d, 64, 146, 64, 72, w=8)                                   # древко
+    d.rectangle([55 * S, 60 * S, 73 * S, 80 * S], fill=(110, 72, 44, 255), outline=OUT, width=W)   # обмотка
+    poly(d, p(64, 12, 86, 44, 82, 62, 64, 70, 46, 62, 42, 44), FIRE)
+    poly(d, p(64, 32, 75, 50, 64, 62, 53, 50), FIRE_L)
+    return img
+
+
+OBJECTS = {
+    "workbench": (workbench, "объект «верстак» 128x160, вид сверху с наклоном, опора — низ по центру (E2-4); скрипт tools/make_item_icons.py"),
+    "campfire": (campfire, "объект «костёр» 128x160, опора — низ по центру (E2-4); скрипт tools/make_item_icons.py"),
+    "torch": (torch_obj, "объект «факел на земле» 128x160, опора — низ по центру (E2-4); скрипт tools/make_item_icons.py"),
 }
 
 
@@ -202,6 +329,14 @@ def main() -> None:
         img = draw().resize((64, 64), Image.LANCZOS)
         ImageDraw.Draw(img).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))  # пурпурный уголок заглушки
         rel = f"client/Assets/Art/_TEMP/TEMP_item_{key}.png"
+        img.save(ROOT / rel, optimize=False)
+        if rel not in known:
+            rows.append([rel, "placeholder", "К", notes])
+        print(rel)
+    for key, (draw, notes) in OBJECTS.items():
+        img = draw().resize((OBJ_W, OBJ_H), Image.LANCZOS)
+        ImageDraw.Draw(img).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))  # пурпурный уголок заглушки
+        rel = f"client/Assets/Art/_TEMP/TEMP_obj_{key}.png"
         img.save(ROOT / rel, optimize=False)
         if rel not in known:
             rows.append([rel, "placeholder", "К", notes])

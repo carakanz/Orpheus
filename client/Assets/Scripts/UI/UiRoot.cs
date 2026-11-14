@@ -128,7 +128,7 @@ namespace Orpheus.Client.UI
         {
             var t = Node(parent, name, x, y, w, h).gameObject.AddComponent<Text>();
             t.font = UiStyle.Font;
-            t.fontSize = size;
+            t.fontSize = Mathf.Max(size, UiStyle.MinFont); // E2-4: мельче 12 px на 720p не пишем
             t.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
             t.alignment = align;
             t.color = color;
@@ -155,8 +155,22 @@ namespace Orpheus.Client.UI
     {
         public readonly RectTransform Rt;
         readonly Vector2 _anchor;
-        readonly Vector2 _offset;
+        Vector2 _offset;
         readonly Vector2 _size;
+
+        /// <summary>Сдвиг левого нижнего угла от точки привязки (E2-4: окна встают рядом, когда открыты оба).</summary>
+        public Vector2 Offset
+        {
+            get => _offset;
+            set
+            {
+                if (_offset != value)
+                {
+                    _offset = value;
+                    Rt.anchoredPosition = value;
+                }
+            }
+        }
 
         public UiGroup(UiRoot root, string name, Vector2 anchor, Vector2 offset, Vector2 size)
         {

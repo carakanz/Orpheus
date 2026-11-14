@@ -18,14 +18,26 @@ namespace Orpheus.Client.UI
         int _shown = -1;
 
         /// <summary>Значок в квадрате <paramref name="box"/> × <paramref name="box"/> (ячейка): картинка по центру.</summary>
-        public UiItemIcon(Transform parent, float x, float y, float box)
+        public UiItemIcon(Transform parent, float x, float y, float box, float icon = UiStyle.IconSize)
         {
             Rt = UiRoot.Node(parent, "Item", x, y, box, box);
-            float pad = (box - UiStyle.IconSize) / 2f;
-            _image = UiRoot.Picture(Rt, "Icon", pad, pad, UiStyle.IconSize, UiStyle.IconSize, null, sliced: false);
+            float pad = (box - icon) / 2f;
+            _image = UiRoot.Picture(Rt, "Icon", pad, pad, icon, icon, null, sliced: false);
             _count = UiRoot.Label(Rt, "Count", 0f, 4f, box - 6f, 24f, 20, TextAnchor.LowerRight, UiStyle.TextLight, outline: true, bold: true);
             Set(Items.None, 0);
         }
+
+        /// <summary>Приглушить значок (рецепт, который сейчас сделать нельзя).</summary>
+        public void Dim(bool dim)
+        {
+            if (dim != _dim)
+            {
+                _dim = dim;
+                _image.color = dim ? new Color(1f, 1f, 1f, 0.4f) : Color.white;
+            }
+        }
+
+        bool _dim;
 
         /// <summary>Показать предмет и количество; нет предмета или 0 штук — пусто.</summary>
         public void Set(byte item, int count)
@@ -178,6 +190,71 @@ namespace Orpheus.Client.UI
                 UiStyle.TextDark, bold: true);
             Title.text = title;
             Visible = false;
+        }
+    }
+
+    /// <summary>
+    /// Кнопка или строка списка (E2-4): рамка с подписью внутри родителя; состояние — обычная, под курсором, выбрана,
+    /// выключена (приглушена). Попадание считает владелец по <see cref="Contains"/> (точка в координатах родителя).
+    /// </summary>
+    public sealed class UiButton
+    {
+        public readonly RectTransform Rt;
+        public readonly Text Label;
+        readonly Image _back;
+        readonly Sprite _plain, _hover, _selected, _off;
+        readonly float _w, _h;
+        int _state = -1;
+
+        public UiButton(Transform parent, float x, float y, float w, float h, string text, int size = 20, TextAnchor align = TextAnchor.MiddleCenter,
+            float textPad = 0f)
+        {
+            _w = w;
+            _h = h;
+            Rt = UiRoot.Node(parent, "Button", x, y, w, h);
+            _plain = UiStyle.Frame(UiStyle.Cell, UiStyle.Ink);
+            _hover = UiStyle.Frame(UiStyle.CellHover, UiStyle.Ink);
+            _selected = UiStyle.Frame(UiStyle.CellHover, UiStyle.Ochre, thick: 4f);
+            _off = UiStyle.Frame(UiStyle.CellOff, UiStyle.InkSoft);
+            _back = UiRoot.Picture(Rt, "Back", 0f, 0f, w, h, _plain);
+            Label = UiRoot.Label(Rt, "Text", textPad, 0f, w - 2f * textPad, h, size, align, UiStyle.TextDark, bold: true);
+            Label.text = text;
+            Set(false, false, true);
+        }
+
+        public Vector2 Center => Rt.anchoredPosition + new Vector2(_w / 2f, _h / 2f);
+
+        public bool Visible
+        {
+            get => Rt.gameObject.activeSelf;
+            set
+            {
+                if (Rt.gameObject.activeSelf != value)
+                {
+                    Rt.gameObject.SetActive(value);
+                }
+            }
+        }
+
+        /// <summary>Точка (в координатах родителя) внутри видимой кнопки.</summary>
+        public bool Contains(Vector2 parentPoint)
+        {
+            Vector2 p = parentPoint - Rt.anchoredPosition;
+            return Visible && p.x >= 0f && p.y >= 0f && p.x < _w && p.y < _h;
+        }
+
+        /// <summary>Вид: под курсором, выбрана, включена (выключенная — приглушена, подсветки нет).</summary>
+        public void Set(bool hover, bool selected, bool enabled)
+        {
+            int state = !enabled ? (selected ? 4 : 3) : selected ? 2 : hover ? 1 : 0;
+            if (state == _state)
+            {
+                return;
+            }
+
+            _state = state;
+            _back.sprite = state == 3 ? _off : state == 2 || state == 4 ? _selected : state == 1 ? _hover : _plain;
+            Label.color = enabled ? UiStyle.TextDark : UiStyle.TextDim;
         }
     }
 
