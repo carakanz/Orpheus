@@ -86,6 +86,7 @@ namespace Orpheus.Client
         readonly HashSet<int> _seen = new HashSet<int>();
         GameObject _entityRoot = null!;
         PileView? _pileView; // E2-1: кучи на земле (сообщения 27 и 28)
+        UI.GameUi? _ui;      // E2-2: быстрая панель, окно сумки, полосы
         Sprite _heroSprite = null!;
 
         NetClient? _client;
@@ -360,6 +361,7 @@ namespace Orpheus.Client
 
             if (_view != null && state == NetClientState.InGame && !_fatal)
             {
+                UiFrame(); // E2-2: до чтения мыши миром — интерфейс забирает щелчки по себе
                 SendInput(now);
                 Render(now);
                 if (_screenshot == null && _args.ScreenshotPath != null)

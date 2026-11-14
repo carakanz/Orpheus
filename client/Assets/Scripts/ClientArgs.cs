@@ -157,6 +157,9 @@ namespace Orpheus.Client
         /// <summary>E2-1, только для снимков без сервера: вокруг персонажа лежат кучи предметов всех значков (<see cref="PileView.AddDemo"/>).</summary>
         public bool DemoPiles;
 
+        /// <summary>E2-2, только для снимков без сервера: показ интерфейса — <c>bag</c> (окно сумки открыто, предмет «в руке») или <c>hotbar</c> (панель и подсказка).</summary>
+        public string? UiDemo;
+
         /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
         public bool PaintForest;
 
@@ -193,7 +196,7 @@ namespace Orpheus.Client
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--day-tick 0…35999]";
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar] [--day-tick 0…35999]";
 
         static bool TryParseWalk(string? text, ClientArgs a)
         {
@@ -467,6 +470,18 @@ namespace Orpheus.Client
                         break;
                     case "--demo-piles":
                         a.DemoPiles = true;
+                        break;
+                    case "--ui-demo":
+                        i++;
+                        if (next != "bag" && next != "hotbar")
+                        {
+                            a.Error = $"--ui-demo: нужно bag или hotbar, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.UiDemo = next;
+                        }
+
                         break;
                     case "--paint-forest":
                         a.PaintForest = true;

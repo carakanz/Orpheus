@@ -50,6 +50,23 @@ namespace Orpheus.Client
         byte HeldItemAt(byte slot) => _bag.SlotAt(slot);
 
         /// <summary>
+        /// Кадр интерфейса (E2-2): быстрая панель, окно сумки (Tab), полосы. Показывает сумку сервера и состояние
+        /// своего персонажа; заявки на сумку уходят через <see cref="BagHand"/> в <see cref="NetClient"/> (сообщение 29).
+        /// В net-smoke ввод интерфейсу не даётся (кадр скриптованный).
+        /// </summary>
+        void UiFrame()
+        {
+            _ui ??= new UI.GameUi(_g.Camera, _client!);
+            UI.UiInput input = _args.NetSmokeSeconds > 0 ? default : _ui.ReadInput();
+            LocalPrediction? pr = _pred;
+            _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0, Orpheus.Core.Movement.Stamina.Max);
+            if (_ui.SlotClicked >= 0)
+            {
+                _slot = _ui.SlotClicked;
+            }
+        }
+
+        /// <summary>
         /// Кучи на земле (E2-1): сервер шлёт «кучи» (27) и «кучи нет» (28) — рисует <see cref="PileView"/>. Подобранная
         /// куча «прыгает» к поднявшему: своему персонажу или чужой сущности, если она на экране.
         /// </summary>
@@ -192,6 +209,13 @@ namespace Orpheus.Client
             if (Keyboard.current?.fKey.wasPressedThisFrame == true)
             {
                 CloseNearestDoor(c);
+            }
+
+            if (_ui != null && _ui.PointerBlocked)
+            {
+                // E2-2: мышь занята интерфейсом (курсор над окном или панелью, предмет «в руке») — мир на неё не отвечает.
+                c.StopDig();
+                return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
             if (mouse.rightButton.wasPressedThisFrame)
