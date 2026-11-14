@@ -113,3 +113,6 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - IPlatformStorage.cs: интерфейс платформенного хранилища (пути, потоки).
 - HostLockFile.cs: лок-файл хоста (чтобы два сервера не писали в один мир).
 - Crc32.cs: CRC32 для целостности контейнера.
+
+## Генератор - src/Orpheus.WorldGen
+- DepositStage.cs (E2-6): Run :~120 (сетка ячеек 32, выбор вида) · Place :~205 (тайлы пятна) · DepositStats.Of / MaskOf (числа приёмки). Штамп меди — HearthStage.StampCopper.
