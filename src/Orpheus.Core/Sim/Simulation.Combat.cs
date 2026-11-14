@@ -407,7 +407,9 @@ namespace Orpheus.Core.Sim
         /// Линия удара чиста (`02` 3.1, 3.4): отрезок «начало удара — центр цели» с шагом
         /// <see cref="StrikeLosStepUnits"/> unit не пересекает непроходимых тайлов (<see cref="IsBlocked"/>:
         /// стена, скала, дерево, гранит, закрытая дверь/ворота); тайл атакующего пропускается,
-        /// забор проходим — линию не прерывает. Шов тора: разность — <see cref="Torus.Delta"/>.
+        /// только если сам проходим (открытая дверь, забор), — стоит врагу на ЗАКРЫТУЮ дверь (закрылась
+        /// под ним, C-001), она перекрывает линию: цель за дверью не под ударом; забор проходим —
+        /// линию не прерывает. Шов тора: разность — <see cref="Torus.Delta"/>.
         /// </summary>
         private bool StrikeLineClear(WorldPos from, WorldPos to, TileCoord own)
         {
@@ -419,7 +421,7 @@ namespace Orpheus.Core.Sim
                     from.X + (int)((long)d.X * i / steps),
                     from.Y + (int)((long)d.Y * i / steps));
                 TileCoord tile = Torus.TileOf(_shape, p);
-                if (tile == own)
+                if (tile == own && !StrikeTileBlocked(own))
                 {
                     continue;
                 }
