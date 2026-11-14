@@ -55,7 +55,9 @@ Shader "Orpheus/DayTint"
         half2 g = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv).rg;
         half k = lerp(g.r, 1.0, _Day);
         half3 tone = _Sky.rgb * k;
-        half lit = saturate(g.g * 1.15);
+        // E1-11: огонь мерцает — круг света костра и факела слегка дышит (две несоизмеримые частоты).
+        half flick = 1.0 + 0.05 * sin(_Time.y * 9.0) + 0.035 * sin(_Time.y * 14.7 + 1.3);
+        half lit = saturate(g.g * 1.15 * flick);
         lit = lit * lit * (3.0 - 2.0 * lit);
         return half4(lerp(tone, max(tone, _Fire.rgb), lit), 1);
     }

@@ -55,9 +55,9 @@ namespace Orpheus.Client
 
         public static readonly TuftRule[] Rules =
         {
-            new TuftRule { Ground = GroundTable.Grass, Min = 2, Max = 4, Clump = 0.9f, Shape = 0, Shapes = 4, SizeMin = 0.3f, SizeMax = 0.62f, Tint = new Color32(128, 176, 66, 255) },
-            new TuftRule { Ground = GroundTable.DryGrass, Min = 1, Max = 2, Chance = 0.7f, Clump = 0.5f, Shape = 0, Shapes = 4, SizeMin = 0.25f, SizeMax = 0.5f, Tint = new Color32(204, 172, 78, 255) },
-            new TuftRule { Ground = GroundTable.Forest, Min = 1, Max = 1, Chance = 0.22f, Shape = ShapeFern, SizeMin = 0.4f, SizeMax = 0.62f, Tint = new Color32(96, 126, 56, 255) },
+            new TuftRule { Ground = GroundTable.Grass, Min = 2, Max = 4, Clump = 0.9f, Shape = 0, Shapes = 4, SizeMin = 0.3f, SizeMax = 0.62f, Tint = new Color32(158, 204, 82, 255) },
+            new TuftRule { Ground = GroundTable.DryGrass, Min = 1, Max = 2, Chance = 0.7f, Clump = 0.5f, Shape = 0, Shapes = 4, SizeMin = 0.25f, SizeMax = 0.5f, Tint = new Color32(228, 198, 98, 255) },
+            new TuftRule { Ground = GroundTable.Forest, Min = 1, Max = 1, Chance = 0.22f, Shape = ShapeFern, SizeMin = 0.4f, SizeMax = 0.62f, Tint = new Color32(112, 152, 66, 255) },
         };
 
         /// <summary>Камыш у воды: на суше, соседней с водой (по 4 сторонам).</summary>
@@ -362,7 +362,7 @@ namespace Orpheus.Client
         }
 
         // Светлый тон, тень и контур: картинка почти белая — цвет даёт вершина (контур остаётся тёмным).
-        static readonly Color Light = new Color(1f, 1f, 1f), Dark = new Color(0.70f, 0.78f, 0.66f), Line = new Color(0.17f, 0.16f, 0.15f);
+        static readonly Color Light = new Color(1f, 1f, 1f), Dark = new Color(0.60f, 0.73f, 0.52f), Line = new Color(0.17f, 0.16f, 0.15f);
 
         /// <summary>
         /// Лист 8 форм по 64 × 64: травинки — изогнутые клинья от общей опоры (низ по центру клетки), светлая и теневая
@@ -420,7 +420,7 @@ namespace Orpheus.Client
             }
 
             // Лист (частица): овал с контуром, светлая и теневая половины.
-            Dot(px, w, ShapeLeaf, 32f, 32f, 18f, 27f, Color.white);
+            Dot(px, w, ShapeLeaf, 32f, 32f, 17f, 26f, Color.white, 4f);
 
             var tex = new Texture2D(w, Cell, TextureFormat.RGBA32, mipChain: true)
             {
@@ -450,7 +450,7 @@ namespace Orpheus.Client
         static void Blade(Color[] px, int texW, int cell, float x0, float y0, float x1, float y1, float bend, float width)
         {
             const int segs = 8;
-            const float outline = 1.5f * K;
+            const float outline = 1.9f * K;
             x0 *= K; y0 *= K; x1 *= K; y1 *= K; bend *= K; width *= K;
             var pts = new Vector2[segs + 1];
             Vector2 a = new Vector2(x0, y0), b = new Vector2(x1, y1);
@@ -512,9 +512,9 @@ namespace Orpheus.Client
         }
 
         // Овал (початок камыша, колосок, лист): контур и заливка в два тона.
-        static void Dot(Color[] px, int texW, int cell, float cx, float cy, float rx, float ry, Color tone)
+        static void Dot(Color[] px, int texW, int cell, float cx, float cy, float rx, float ry, Color tone, float line = 1.5f)
         {
-            const float outline = 1.5f * K;
+            float outline = line * K;
             cx *= K; cy *= K; rx *= K; ry *= K;
             for (int y = 1; y < Cell - 1; y++)
             {

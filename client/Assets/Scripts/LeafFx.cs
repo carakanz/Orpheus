@@ -60,6 +60,10 @@ namespace Orpheus.Client
         {
             _count = 0;
             _rng = 0x9E3779B9u;
+            for (int i = 0; i < 8; i++)
+            {
+                Next(); // первые числа генератора после зерна похожи — пропускаем
+            }
             if (_renderer != null)
             {
                 _renderer.enabled = false;

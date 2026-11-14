@@ -141,7 +141,7 @@ namespace Orpheus.Client
                 bool has = i < layers.Length;
                 Color c = has ? layers[i].Tint : Color.white;
                 tints[i] = new Vector4(c.r, c.g, c.b, has ? layers[i].Saturation : 1f);
-                mixes[i] = new Vector4(has ? layers[i].Patches : 0f, has ? layers[i].Contrast : 1f, 0f, 0f);
+                mixes[i] = new Vector4(has ? layers[i].Patches : 0f, has ? layers[i].Contrast : 1f, i == GroundTable.Grass || i == GroundTable.DryGrass ? 1f : 0f, 0f);
             }
 
             Shader.SetGlobalVectorArray("_OrphLayerTint", tints);

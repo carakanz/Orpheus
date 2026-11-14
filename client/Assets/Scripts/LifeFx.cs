@@ -90,6 +90,7 @@ namespace Orpheus.Client
         static float _trailDecay;
         static float _trailLiveUntil;
         static bool _trailDirty;
+        static int _trailUploadSkip;
 
         /// <summary>Время ветра, с.</summary>
         public static float Time => _time;
@@ -422,7 +423,7 @@ namespace Orpheus.Client
 
             _trailDecay += dt * 255f / TrailRecover;
             int step = (int)_trailDecay;
-            if (step > 0)
+            if (step >= 6) // ~35 раз в секунду: шаг затухания 2 % — глазу не виден, а текстура заливается реже
             {
                 _trailDecay -= step;
                 byte[] t = _trail;
@@ -448,8 +449,9 @@ namespace Orpheus.Client
                 _trailDirty = true;
             }
 
-            if (_trailDirty && _trailTex != null)
+            if (_trailDirty && _trailTex != null && (step >= 6 || _trailUploadSkip++ >= 1))
             {
+                _trailUploadSkip = 0;
                 _trailTex.LoadRawTextureData(_trail);
                 _trailTex.Apply(false, false);
                 _trailDirty = false;
@@ -535,6 +537,8 @@ namespace Orpheus.Client
             Vector2 dir = WindDir(_time);
             Shader.SetGlobalVector(WindId, new Vector4(dir.x, dir.y, WindStrength(_time), _time));
             Shader.SetGlobalVector(OriginId, new Vector4(_offset.x, _offset.y, 0f, 0f));
+            // Активные толчки — в начало массива: шейдер обходит только их (обычно 0–3).
+            int active = 0;
             for (int i = 0; i < MaxPushes; i++)
             {
                 ref Push p = ref _pushes[i];
@@ -544,15 +548,24 @@ namespace Orpheus.Client
                     p.Strength = 0f;
                 }
 
-                _pushData[i] = p.Strength > 0f ? new Vector4(p.Base.x - _offset.x, p.Base.y - _offset.y, age, p.Strength) : Vector4.zero;
-                _pushDirData[i] = new Vector4(p.Dir.x, p.Dir.y, 0f, 0f);
+                if (p.Strength > 0f)
+                {
+                    _pushData[active] = new Vector4(p.Base.x - _offset.x, p.Base.y - _offset.y, age, p.Strength);
+                    _pushDirData[active] = new Vector4(p.Dir.x, p.Dir.y, 0f, 0f);
+                    active++;
+                }
+            }
+
+            for (int i = active; i < MaxPushes; i++)
+            {
+                _pushData[i] = Vector4.zero;
             }
 
             Shader.SetGlobalVectorArray(PushId, _pushData);
             Shader.SetGlobalVectorArray(PushDirId, _pushDirData);
-            // Дальний обзор (шире 72 тайлов): часть пучков плавно скрывается — до 45 % на обзоре 96 (мелкие, сливаются в рябь).
-            float hide = Mathf.Clamp01((viewTiles - 72f) / 24f) * 0.45f;
-            Shader.SetGlobalVector(GrassId, new Vector4(hide, 0f, 0f, 0f));
+            // Дальний обзор (шире 64 тайлов): часть пучков плавно скрывается — до 65 % на обзоре 96 (мелкие, сливаются в рябь).
+            float hide = Mathf.Clamp01((viewTiles - 64f) / 32f) * 0.65f;
+            Shader.SetGlobalVector(GrassId, new Vector4(hide, active, 0f, 0f));
         }
     }
 }

@@ -49,6 +49,10 @@ Shader "Orpheus/Ground"
     float4 _OrphLayerTint[16];
     float4 _OrphLayerMix[16];
     float4 _OrphLayerMean[16];
+    // След в траве (LifeFx): b — насколько примята трава в точке мира; на слоях с пучками (_OrphLayerMix.z) земля под
+    // следом чуть темнее — дорожка за бегущим читается и там, где пучков мало.
+    TEXTURE2D(_OrphTrail);
+    SAMPLER(sampler_OrphTrail);
 
     struct Attributes
     {
@@ -87,7 +91,7 @@ Shader "Orpheus/Ground"
             float r1 = sin(wp.x * 2.3 + wp.y * 1.1 + t * 1.3 + low.r * 9.0);
             float r2 = sin(wp.x * 1.2 - wp.y * 2.6 - t * 0.9 + low.g * 7.0);
             half glint = smoothstep(0.72, 0.98, r1 * r2 * 0.5 + 0.5 * sin(wp.x * 0.7 + wp.y * 0.9 + t * 0.5));
-            return water + glint * half3(0.10, 0.12, 0.11);
+            return water + glint * half3(0.06, 0.075, 0.07);
         }
 
         // Лёгкий изгиб картинки крупным шумом: ряды пятен перестают быть прямыми.
@@ -105,6 +109,8 @@ Shader "Orpheus/Ground"
         col = lerp(_OrphLayerMean[(int)id].rgb, col, _OrphLayerMix[(int)id].y);
         col = lerp(dot(col, half3(0.30, 0.59, 0.11)).xxx, col, tint.a) * tint.rgb;
         half patch = (SAMPLE_TEXTURE2D_LOD(_Noise, sampler_Noise, wp / 128.0 + float2(0.31, 0.77), 0).b - 0.5) * 2.0 * _OrphLayerMix[(int)id].x;
+        half pressed = SAMPLE_TEXTURE2D_LOD(_OrphTrail, sampler_OrphTrail, float2(wp.x, -wp.y) / 128.0, 0).b;
+        col *= 1.0 - 0.13 * smoothstep(0.0, 0.7, pressed) * _OrphLayerMix[(int)id].z;
         col *= patch > 0 ? lerp(half3(1, 1, 1), half3(1.10, 1.03, 0.84), patch) : lerp(half3(1, 1, 1), half3(0.86, 0.93, 0.92), -patch);
         return col;
     }
