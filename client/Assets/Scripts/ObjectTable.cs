@@ -146,9 +146,9 @@ namespace Orpheus.Client
             new ObjectLook
             {
                 Id = ObjectId.Cliff, Block = true, Top = "cliff_top", Face = "cliff_face", Height = 1.7f, Shadow = 1f,
-                Tint = new Color32(150, 142, 140, 255), TopCells = 2,
-                FaceTint = new Color32(178, 150, 132, 255), SideLit = new Color32(205, 180, 160, 255), SideDark = new Color32(112, 98, 100, 255),
-                Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.3f, DecoEdge = 0.55f, DecoFoot = 0.35f,
+                Tint = new Color32(122, 128, 146, 255), TopCells = 2,
+                FaceTint = new Color32(128, 126, 186, 255), SideLit = new Color32(156, 154, 204, 255), SideDark = new Color32(88, 90, 138, 255),
+                Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.45f, DecoEdge = 0.7f, DecoFoot = 0.35f,
                 DecoTint = new Color32(214, 204, 200, 255), RubbleTint = new Color32(196, 188, 186, 255),
             },
             // Костёр и факел: своих картинок в наборе нет (заказать на Мак) — пень, окрашенный огнём; круг света — DayTintView (E1-8).

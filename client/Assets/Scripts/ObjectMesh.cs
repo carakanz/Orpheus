@@ -318,8 +318,8 @@ namespace Orpheus.Client
             }
 
             // Выпуклые углы: срез.
-            if (!n && !w) q.Tnw += new Vector2(0.16f, -0.3f);
-            if (!n && !e) q.Tne += new Vector2(-0.16f, -0.3f);
+            if (!n && !w) q.Tnw += new Vector2(0.12f, -0.22f);
+            if (!n && !e) q.Tne += new Vector2(-0.12f, -0.22f);
             if (!s && !w) { q.Tsw.x += 0.14f; q.Gsw.x += 0.22f; }
             if (!s && !e) { q.Tse.x -= 0.14f; q.Gse.x -= 0.22f; }
             return q;
