@@ -1251,7 +1251,7 @@ namespace Orpheus.Tests
             Assert.Equal(2, replies.Count);
             Assert.Equal(RecipeTable.CopperIngot, c.Craft.RecipeAt(0));
             CraftQueue seen = c.Craft;
-            var desk = new CraftDesk(new StaleRequests(c, seen)); // окно, не успевшее получить новую очередь
+            var desk = new CraftDesk(c); // окно держит очередь seen и не успело получить новую
             rig.Run(2 * T); // слитки готовы, в позиции 0 на сервере — меч
             Assert.True(desk.Cancel(seen, 0));
             rig.Run(4);
@@ -1261,23 +1261,6 @@ namespace Orpheus.Tests
             Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Wood)); // древесина на меч не вернулась
             Assert.Equal(2, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.CopperIngot));
             Assert.Equal(0, c.BadMessages);
-        }
-
-        // Заявки «как из окна с устаревшей очередью»: отмена уходит с рецептом, который окно видело в позиции.
-        private sealed class StaleRequests : ICraftRequests
-        {
-            private readonly NetClient _client;
-            private readonly CraftQueue _seen;
-
-            public StaleRequests(NetClient client, CraftQueue seen)
-            {
-                _client = client;
-                _seen = seen;
-            }
-
-            public bool RequestCraft(int recipe, int count = 1) => _client.RequestCraft(recipe, count);
-
-            public bool RequestCraftCancel(int index) => _client.RequestCraftCancel(index, _seen.RecipeAt(index));
         }
     }
 }

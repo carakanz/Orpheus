@@ -15,7 +15,18 @@ namespace Orpheus.Net.Session
         bool RequestCraftCancel(int index);
     }
 
-    public sealed partial class NetClient : ICraftRequests
+    /// <summary>
+    /// Отмена со сверкой (E2-3, проверка П п. 4): в заявке едет рецепт, который окно видело в позиции; очередь на сервере
+    /// сдвинулась, пока заявка шла, — отказ «нет позиции», соседняя не отменяется. <see cref="CraftDesk.Cancel"/> зовёт его,
+    /// если получатель заявок его умеет; иначе — <see cref="ICraftRequests.RequestCraftCancel(int)"/>.
+    /// </summary>
+    public interface ICraftCancelChecked
+    {
+        /// <summary>Отменить позицию <paramref name="index"/>, в которой заявитель видел рецепт <paramref name="recipe"/>.</summary>
+        bool RequestCraftCancel(int index, int recipe);
+    }
+
+    public sealed partial class NetClient : ICraftRequests, ICraftCancelChecked
     {
     }
 
@@ -114,10 +125,21 @@ namespace Orpheus.Net.Session
             return true;
         }
 
-        /// <summary>Отмена позиции очереди.</summary>
+        /// <summary>
+        /// Отмена позиции очереди. <paramref name="queue"/> — очередь, которую видит окно: её рецепт в позиции едет в заявке
+        /// для сверки (<see cref="ICraftCancelChecked"/>), чтобы при сдвинувшейся очереди не отменилась соседняя.
+        /// </summary>
         public bool Cancel(in CraftQueue queue, int index)
         {
-            if ((uint)index >= (uint)queue.Count || !_requests.RequestCraftCancel(index))
+            if ((uint)index >= (uint)queue.Count)
+            {
+                return false;
+            }
+
+            bool sent = _requests is ICraftCancelChecked checkedCancel
+                ? checkedCancel.RequestCraftCancel(index, queue.RecipeAt(index))
+                : _requests.RequestCraftCancel(index);
+            if (!sent)
             {
                 return false;
             }
