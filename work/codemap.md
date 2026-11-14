@@ -2,7 +2,7 @@
 Мега-файлы: метод:строка. Строки дрейфуют: сначала grep, здесь границы ±5.
 
 ## Simulation*.cs - src/Orpheus.Core/Sim (P-002: partial по подсистемам, ядро + 10 файлов; строки сверены 13.11)
-Ядро Simulation.cs (542): EntityInput :12, поля/константы :63-156, ctor :157, RefillPools :219, DayScale :243, SetWorldTime :246, Step :292 (полный такт, порядок фаз), ExpireEntry :431, константы подсистем :420-528, AddEvent :530.
+Ядро Simulation.cs (538): EntityInput :12, поля/константы :63-156, ctor :157, RefillPools :219, DayScale :243, SetWorldTime :246, Step :292 (полный такт, порядок фаз), ExpireEntry :431, константы подсистем :420-528, AddEvent :530.
 Simulation.Entities.cs: GetEntity :18 · SlotOf :30 · NearestCharacterWithin :58 · Respawn :81 · NearestCharacterSlot :95 · AddEntity :124/:138 · AddEnemy :153 · RemoveEntity :168 · AddEntityWithId :196
 Simulation.Input.cs: ApplySlot :18 · CopyPendingInputs :30 · DesiredDirection :45 · SetInput :58 · SetInputAt :71 · SetFramesAt :95
 Simulation.Inventory.cs: SetInventory :14

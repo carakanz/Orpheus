@@ -23,6 +23,12 @@ MonoBehaviour:
   - bush_b
   - cliff_face
   - cliff_top
+  - item_copper_ore
+  - item_fiber
+  - item_generic
+  - item_resin
+  - item_stone
+  - item_wood
   - ore_copper_a
   - ore_copper_b
   - stump
@@ -43,6 +49,12 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 61448e6c5fd0bc84c9e73a3e43610cf6, type: 3}
   - {fileID: 21300000, guid: a05fa683b66cd30438a1e0f467512e18, type: 3}
   - {fileID: 21300000, guid: efac622f0f8e3e945bb837b4673c9ad3, type: 3}
+  - {fileID: 21300000, guid: 6310ad425eb12374b87ec1225b625f9b, type: 3}
+  - {fileID: 21300000, guid: 021ba28da001a4649b5e8e5d248fc04a, type: 3}
+  - {fileID: 21300000, guid: ff5157e185c338d47b46a87726a318f3, type: 3}
+  - {fileID: 21300000, guid: f312c1a6b4592b7469f3c38674a01ef3, type: 3}
+  - {fileID: 21300000, guid: ebe46fb9676ea924cbf7d858b7ef51b2, type: 3}
+  - {fileID: 21300000, guid: 51a4bd4cd4a99f04da00e90e70de105f, type: 3}
   - {fileID: 21300000, guid: fb8d37141611ba9408368e286e66b726, type: 3}
   - {fileID: 21300000, guid: 681614429da6d5a4cb4732a5ba590ae0, type: 3}
   - {fileID: 21300000, guid: e64bcf538694f05418aab7e195b27470, type: 3}

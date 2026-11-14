@@ -22,6 +22,9 @@ namespace Orpheus.Client
 
         /// <summary>Размах покачивания, тайлов, и его частота, рад/с.</summary>
         public const float BobTiles = 0.045f;
+
+        /// <summary>Во сколько раз значок крупнее картинки (64 px = полтайла): 1,6 → 0,8 тайла — читается на обзоре 64.</summary>
+        public const float IconScale = 1.6f;
         public const float BobSpeed = 3.2f;
 
         sealed class Pile
@@ -70,7 +73,7 @@ namespace Orpheus.Client
             }
 
             p.Position = position;
-            float s = count >= 20 ? 1.25f : count >= 5 ? 1.1f : 1f; // большая куча чуть крупнее
+            float s = IconScale * (count >= 20 ? 1.25f : count >= 5 ? 1.1f : 1f); // большая куча чуть крупнее
             p.Icon.localScale = new Vector3(s, s, 1f);
         }
 
@@ -122,7 +125,7 @@ namespace Orpheus.Client
                 Vector3 at = origin.ToUnity(p.Position);
                 p.Root.transform.position = at;
                 float bob = Mathf.Sin(_time * BobSpeed + p.Phase) * BobTiles;
-                p.Icon.localPosition = new Vector3(0f, -0.12f + BobTiles + bob, 0f);
+                p.Icon.localPosition = new Vector3(0f, -0.2f + BobTiles + bob, 0f);
                 p.Renderer.sortingOrder = WorldView.SortOrderAt(at.y - 0.12f);
             }
 
@@ -142,7 +145,7 @@ namespace Orpheus.Client
                 Vector3 at = Vector3.Lerp(p.FlyFrom, to, k * k);
                 at.y += Mathf.Sin(k * Mathf.PI) * 0.35f; // дуга прыжка
                 p.Root.transform.position = at;
-                float s = 1f - 0.6f * k;
+                float s = IconScale * (1f - 0.6f * k);
                 p.Icon.localScale = new Vector3(s, s, 1f);
                 p.Renderer.sortingOrder = WorldView.SortOrderAt(at.y - 0.12f) + 1;
             }
@@ -157,7 +160,7 @@ namespace Orpheus.Client
             var shadowAnchor = new GameObject("ShadowAnchor");
             shadowAnchor.transform.SetParent(root.transform, false);
             shadowAnchor.transform.localPosition = new Vector3(-0.1f, WorldFx.FootOffset - 0.1f, 0f);
-            WorldFx.AddActorShadow(shadowAnchor.transform, 0.5f);
+            WorldFx.AddActorShadow(shadowAnchor.transform, 0.75f);
 
             var icon = new GameObject("Icon");
             icon.transform.SetParent(root.transform, false);
