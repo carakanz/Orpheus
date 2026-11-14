@@ -207,7 +207,20 @@ namespace Orpheus.Client
                     View.UpdateWindow(Player.Position);
                 }
 
+                if (UI.UiDemo.IsBuild(Args.UiDemo))
+                {
+                    // E2-5: сцены режима стройки, сундука и дома — постройки вокруг персонажа (PaintDemo.House).
+                    TileCoord at = Torus.TileOf(Map, Player.Position);
+                    PaintDemo.House(World, Map, at.X, at.Y, Args.UiDemo!);
+                    View.Clear();
+                    View.UpdateWindow(Player.Position);
+                }
+
                 _uiDemo = new UI.UiDemo(Camera, Args.UiDemo, World);
+                if (UI.UiDemo.IsBuild(Args.UiDemo))
+                {
+                    _uiDemo.BindWorld(Origin, transform);
+                }
             }
         }
 

@@ -23,6 +23,9 @@ MonoBehaviour:
   - bush_b
   - cliff_face
   - cliff_top
+  - floor_platform
+  - floor_stone
+  - floor_wood
   - item_arrows
   - item_copper_axe
   - item_copper_bow
@@ -44,8 +47,15 @@ MonoBehaviour:
   - item_torch
   - item_wood
   - item_wooden_sword
+  - obj_bed
   - obj_campfire
+  - obj_chest
+  - obj_door
+  - obj_door_open
+  - obj_fence
   - obj_torch
+  - obj_wall_stone
+  - obj_wall_wood
   - obj_workbench
   - ore_copper_a
   - ore_copper_b
@@ -67,6 +77,9 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 61448e6c5fd0bc84c9e73a3e43610cf6, type: 3}
   - {fileID: 21300000, guid: a05fa683b66cd30438a1e0f467512e18, type: 3}
   - {fileID: 21300000, guid: efac622f0f8e3e945bb837b4673c9ad3, type: 3}
+  - {fileID: 21300000, guid: 6fbd6130171a5ae47b57e5b96af2c548, type: 3}
+  - {fileID: 21300000, guid: b22fbd35538443848ade21f6773c0afa, type: 3}
+  - {fileID: 21300000, guid: 22ca4016b26dd554aafb319133fd654e, type: 3}
   - {fileID: 21300000, guid: edf6731c48c6a904488a910940e2b681, type: 3}
   - {fileID: 21300000, guid: d33cba6a169aa96479c8b7fb027a8216, type: 3}
   - {fileID: 21300000, guid: 0964206fd6c119846a2d2be019c6a3c6, type: 3}
@@ -88,8 +101,15 @@ MonoBehaviour:
   - {fileID: 21300000, guid: bea09a988e762ce4ea66b917fb4c32d9, type: 3}
   - {fileID: 21300000, guid: 51a4bd4cd4a99f04da00e90e70de105f, type: 3}
   - {fileID: 21300000, guid: d104885345ea64241a7a9db19babe60b, type: 3}
+  - {fileID: 21300000, guid: 753450af1a943984493f9d7cccd13f16, type: 3}
   - {fileID: 21300000, guid: 120702e935b89cf479c444ba708a874b, type: 3}
+  - {fileID: 21300000, guid: 8d5434c1e9803e0479d6186c3959940f, type: 3}
+  - {fileID: 21300000, guid: 49ea577c6c311684dbbb66aeeaae6bda, type: 3}
+  - {fileID: 21300000, guid: 1c7331141474b6b4aaf9cb20bbe6589f, type: 3}
+  - {fileID: 21300000, guid: 182588f5e102f004aa0f26a86287a537, type: 3}
   - {fileID: 21300000, guid: 643809a303e0f7b46a8a0e3a10b17eef, type: 3}
+  - {fileID: 21300000, guid: 2d69b836dc5df4c4ebefc1986705eca3, type: 3}
+  - {fileID: 21300000, guid: 3693fc7d7860f694eafb32cd99a4fd15, type: 3}
   - {fileID: 21300000, guid: f34fbc97ddf2bf6488efc5fd9b96e08e, type: 3}
   - {fileID: 21300000, guid: fb8d37141611ba9408368e286e66b726, type: 3}
   - {fileID: 21300000, guid: 681614429da6d5a4cb4732a5ba590ae0, type: 3}

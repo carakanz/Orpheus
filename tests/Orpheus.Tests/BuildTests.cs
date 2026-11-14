@@ -431,6 +431,48 @@ namespace Orpheus.Tests
             Assert.Contains(rig.Sim.Piles.ToArray(), p => p.Item == Items.Arrows && p.ExpireTick == Simulation.PileNeverExpires); // россыпь сундука не исчезает
         }
 
+        /// <summary>
+        /// Сундук принадлежит миру: игрок с открытым сундуком умер — сундук закрыт, содержимое на месте; ушёл из мира —
+        /// содержимое на месте, второй игрок открывает и видит то же; масса сохраняется.
+        /// </summary>
+        [Fact]
+        public void E25_Chest_OwnerDiesOrLeaves_ContentStays()
+        {
+            using var rig = new EditTests.EditRig(World(), i => Center(300 + i, 200));
+            NetClient a = Start(rig, Kit((Items.Wood, 30)));
+            NetClient b = rig.Join();
+            rig.Run(10);
+            var t = new TileCoord(302, 201);
+            Assert.True(Build(rig, a, new BuildHand(a), ObjectId.Chest, t).Ok);
+            var content = new Inventory();
+            content.SetCell(4, Items.CopperIngot, 12);
+            Assert.True(rig.Sim.SetChest(t, content));
+            Assert.True(a.RequestUse(t));
+            rig.Run(3);
+            Assert.True(a.ChestOpen);
+
+            rig.Run(Simulation.InvulnRespawnTicks + 2);
+            rig.Sim.ApplyStrike(a.EntityId, -1, 1000, rig.Sim.GetEntity(a.EntityId).Mover.Position, knockback: false);
+            rig.Run(3);
+            Assert.False(a.ChestOpen); // мёртвому сервер закрыл
+            long refused = rig.Server.BagRequestsRefused;
+            Assert.True(a.RequestBagMove(BagHand.ChestBase + 4, 20));
+            rig.Run(3);
+            Assert.Equal(refused + 1, rig.Server.BagRequestsRefused);
+            Assert.True(rig.Sim.TryGetChest(t, out Inventory after));
+            Assert.Equal(content, after);
+
+            a.Disconnect();
+            rig.Clients.Remove(a);
+            rig.Run(5);
+            a.Transport.Dispose();
+            Assert.True(b.RequestUse(t));
+            rig.Run(3);
+            Assert.True(b.ChestOpen);
+            Assert.Equal(12, b.Chest.Count(Items.CopperIngot));
+            Assert.Equal(12, Total(rig.Sim, Items.CopperIngot));
+        }
+
         // ---------- Кровать ----------
 
         /// <summary>

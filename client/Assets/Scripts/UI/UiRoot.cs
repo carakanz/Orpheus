@@ -94,6 +94,13 @@ namespace Orpheus.Client.UI
             Canvas.ForceUpdateCanvases();
         }
 
+        /// <summary>Точка мира Unity → координаты холста (через видовую область камеры; стенд снимков, E2-5).</summary>
+        public Vector2 FromWorld(Vector3 world)
+        {
+            Vector3 v = _camera.WorldToViewportPoint(world);
+            return new Vector2(v.x * Size.x, v.y * Size.y);
+        }
+
         /// <summary>Точка окна (пиксели, начало слева внизу) → координаты холста.</summary>
         public Vector2 FromScreen(Vector2 screen) =>
             new Vector2(screen.x / Mathf.Max(1, Screen.width) * Size.x, screen.y / Mathf.Max(1, Screen.height) * Size.y);

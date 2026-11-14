@@ -123,5 +123,57 @@ namespace Orpheus.Client.UI
 
         /// <summary>Подсказка ячейки: название и количество в стопке.</summary>
         public static string ItemTip(byte item, int count) => count > 1 ? $"{ItemName(item)} × {count}" : ItemName(item);
+
+        // ---------- режим стройки, сундук, F (E2-5) ----------
+
+        static readonly Dictionary<ushort, string> BuildNames = new Dictionary<ushort, string>
+        {
+            [Orpheus.Core.World.BuildDefs.WoodFloorKey] = "Пол деревянный",
+            [Orpheus.Core.World.BuildDefs.StoneFloorKey] = "Пол каменный",
+            [Orpheus.Core.World.BuildDefs.PlatformKey] = "Настил",
+            [Orpheus.Core.World.ObjectId.WoodWall] = "Стена деревянная",
+            [Orpheus.Core.World.ObjectId.StoneWall] = "Стена каменная",
+            [Orpheus.Core.World.ObjectId.WoodFence] = "Забор",
+            [Orpheus.Core.World.ObjectId.Door] = "Дверь",
+            [Orpheus.Core.World.ObjectId.Torch] = "Факел",
+            [Orpheus.Core.World.ObjectId.Campfire] = "Костёр",
+            [Orpheus.Core.World.ObjectId.Workbench] = "Верстак",
+            [Orpheus.Core.World.ObjectId.Chest] = "Сундук",
+            [Orpheus.Core.World.ObjectId.Bed] = "Кровать",
+        };
+
+        /// <summary>Название постройки по ключу (лента, призрак).</summary>
+        public static string BuildName(ushort key) => BuildNames.TryGetValue(key, out string? n) ? n : key.ToString();
+
+        public const string BuildKeys = "Q / E — выбор      ЛКМ — поставить, починить      ПКМ — снести";
+        public const string BuildDead = "Вы погибли: строить — после возрождения";
+
+        /// <summary>Строка у курсора: «Сундук — нельзя: занято» / «Починить: 1 камень».</summary>
+        public static string GhostNote(bool repair, bool ok, string reason, ushort key, string cost) =>
+            repair ? (ok ? $"Починить: {cost}" : $"Починить нельзя: {reason}")
+            : ok ? $"{BuildName(key)}: {cost}" : $"{BuildName(key)} — нельзя: {reason}";
+
+        /// <summary>Прочность постройки под курсором.</summary>
+        public static string Integrity(int cur, int max) => $"Прочность {cur} / {max}";
+
+        public const string ChestTitle = "Сундук";
+        public const string ChestHint = "ЛКМ — взять / положить      ПКМ — половину\nShift+ЛКМ — в сумку / в сундук";
+        public const string ChestKeys = "F, Esc";
+
+        /// <summary>Подсказка над панелью: что сделает F.</summary>
+        public static string UseHint(Orpheus.Net.Session.UseKind kind) => kind switch
+        {
+            Orpheus.Net.Session.UseKind.Door => "F — закрыть дверь",
+            Orpheus.Net.Session.UseKind.Workbench => "F — верстак",
+            Orpheus.Net.Session.UseKind.Campfire => "F — костёр",
+            Orpheus.Net.Session.UseKind.Chest => "F — сундук",
+            Orpheus.Net.Session.UseKind.Bed => "F — кровать",
+            _ => string.Empty,
+        };
+
+        public const string BedSet = "Кровать: здесь вы возродитесь";
+
+        /// <summary>Отказ сервера на действие с объектом.</summary>
+        public static string UseRefusal(string reason) => $"Нельзя: {reason}";
     }
 }

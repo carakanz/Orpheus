@@ -59,8 +59,22 @@ namespace Orpheus.Client
             NetClient c = _client!;
             if (_ui == null)
             {
-                _ui = new UI.GameUi(_g.Camera, c, c);
+                _ui = new UI.GameUi(_g.Camera, c, c, c);
                 c.CraftReplied = _ui.CraftReplied; // E2-4: отказ сервера (сообщение 31) — строкой в окне крафта
+                UI.GameUi ui = _ui;
+                c.UseReplied = m =>
+                {
+                    // E2-5: ответ на F — отказ строкой над панелью; кровать — «здесь вы возродитесь».
+                    if (m.Reply != EditReply.Accepted)
+                    {
+                        ui.Notify(UI.UiStrings.UseRefusal(EditRules.Describe(m.Reply)));
+                    }
+                    else if (ObjectUse.KindOf(m.Obj) == UseKind.Bed)
+                    {
+                        ui.Notify(UI.UiStrings.BedSet);
+                    }
+                };
+                _ghost = new BuildGhost(_entityRoot.transform);
             }
 
             UI.UiInput input = _args.NetSmokeSeconds > 0 ? default : _ui.ReadInput();
@@ -70,12 +84,122 @@ namespace Orpheus.Client
             {
                 Queue = c.Craft, Running = c.CraftRunning, Progress = c.CraftProgressAt(c.ServerTick), World = _world, Position = _localPos,
             };
+            _craftState = craft;
+            UI.UiBuildState build = _args.NetSmokeSeconds > 0 ? default : BuildState(c, pr);
             _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0,
-                Orpheus.Core.Movement.Stamina.Max, craft);
+                Orpheus.Core.Movement.Stamina.Max, craft, build);
             if (_ui.SlotClicked >= 0)
             {
                 _slot = _ui.SlotClicked;
             }
+
+            if (_ui.ChestCloseRequested)
+            {
+                c.RequestCloseChest(); // E2-5: окно сундука закрыли (Esc, Tab)
+            }
+
+            // E2-5: призрак и сетка — пока молот в руках и мышь не над интерфейсом.
+            if (build.Hammer && build.HasGhost && !_ui.PointerBlocked && _cursorTile.HasValue)
+            {
+                _ghost!.Show(_origin!, _map, _localPos, 0, true, _cursorTile.Value, build.Check);
+            }
+            else
+            {
+                _ghost?.Hide();
+            }
+        }
+
+        BuildGhost? _ghost;
+        UI.UiCraftState _craftState;
+        TileCoord? _cursorTile;
+        TileCoord? _buildLast;
+
+        /// <summary>Тайл под курсором мыши (нет мыши или мира — null).</summary>
+        TileCoord? CursorTile()
+        {
+            Mouse? mouse = Mouse.current;
+            if (mouse == null || _origin == null)
+            {
+                return null;
+            }
+
+            Vector3 screen = mouse.position.ReadValue();
+            Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
+            return Torus.TileOf(_map, _origin.FromUnity(v));
+        }
+
+        /// <summary>
+        /// Состояние режима стройки, сундука и F за кадр (E2-5): проверка тайла под курсором — <see cref="BuildHand.Check"/>
+        /// (функции ядра, как у сервера) по своему миру, месту, сумке клиента (с предсказанными тратами) и предмету в руках.
+        /// </summary>
+        UI.UiBuildState BuildState(NetClient c, LocalPrediction? pr)
+        {
+            var s = new UI.UiBuildState { ChestOpen = c.ChestOpen, Chest = c.Chest };
+            _cursorTile = CursorTile();
+            if (_world == null || _ui == null)
+            {
+                return s;
+            }
+
+            s.Use = ObjectUse.Find(_world, _localPos, _cursorTile, out _, out UseKind kind) ? kind : UseKind.None;
+            byte held = HeldItem;
+            if (!BuildHand.IsHammer(held) || !_cursorTile.HasValue)
+            {
+                return s;
+            }
+
+            TileCoord t = _cursorTile.Value;
+            s.Hammer = true;
+            s.HasGhost = true;
+            s.Check = BuildHand.Check(_world, _localPos, c.Inv, held, !(pr?.Dead ?? false), t, _ui.Build.Key);
+            ushort obj = _world.GetObject(t);
+            if (obj != ObjectId.Empty && _world.TryGetBuild(t, out BuildRecord rec) && !rec.IsDebris && BuildDefs.TryGet(obj, out BuildDef def))
+            {
+                s.HasIntegrity = true;
+                s.Integrity = rec.Integrity;
+                s.MaxIntegrity = def.MaxIntegrity;
+            }
+
+            return s;
+        }
+
+        /// <summary>
+        /// F (E2-5, общее правило — <see cref="ObjectUse.Find"/>): объект под курсором или ближайший с действием. Дверь —
+        /// закрыть (1-012), верстак и костёр — окно крафта на их вкладке, сундук — открыть, кровать — точка возрождения;
+        /// открытый сундук — закрыть. Ничего рядом — прежнее правило двери (ближайшая открытая в 1 тайле).
+        /// </summary>
+        void UseObject(NetClient c)
+        {
+            if (_ui != null && _ui.ChestShown)
+            {
+                c.RequestCloseChest();
+                return;
+            }
+
+            if (_world == null || !ObjectUse.Find(_world, _localPos, CursorTile(), out TileCoord t, out UseKind kind))
+            {
+                CloseNearestDoor(c);
+                return;
+            }
+
+            switch (kind)
+            {
+                case UseKind.Door:
+                    c.CloseDoor(t);
+                    break;
+                case UseKind.Workbench:
+                    _ui?.OpenCraft(CraftStation.Workbench, _craftState);
+                    break;
+                case UseKind.Campfire:
+                    _ui?.OpenCraft(CraftStation.Campfire, _craftState);
+                    break;
+                case UseKind.Chest:
+                case UseKind.Bed:
+                    c.RequestUse(t);
+                    break;
+            }
+
+            Debug.Log($"[use] F: {kind} на {t.X},{t.Y}");
         }
 
         /// <summary>
@@ -220,7 +344,7 @@ namespace Orpheus.Client
             // радиус, проём и замок проверяет сервер, предсказание и откат — общие с правками).
             if (Keyboard.current?.fKey.wasPressedThisFrame == true)
             {
-                CloseNearestDoor(c);
+                UseObject(c); // E2-5: общее правило F (дверь, станки, сундук, кровать)
             }
 
             if (_ui != null && _ui.PointerBlocked)
@@ -230,12 +354,12 @@ namespace Orpheus.Client
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
-            if (mouse.rightButton.wasPressedThisFrame)
+            byte held = HeldItem;
+            if (BuildHand.IsHammer(held) && _ui != null && _world != null)
             {
-                c.Place(tile, tile, ObjectId.StoneWall, _localPos);
+                return HammerEdits(c, mouse, tile, held, now);
             }
 
-            byte held = HeldItem;
             // 1-004 (`02` 1.2 «удержание ЛКМ — повтор»): с ближним оружием в руках ЛКМ — удар,
             // бит стоит на всех кадрах удержания (ядро берёт нажатие битом кадра).
             ushort attack = Items.KindOf(held) == Items.KindMelee && mouse.leftButton.isPressed ? InputButtons.Attack : (ushort)0;
@@ -253,6 +377,45 @@ namespace Orpheus.Client
             }
 
             return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
+        }
+
+        /// <summary>
+        /// Молот в руках (E2-5, `05` 1.3): ЛКМ — поставить выбранную постройку или починить повреждённую (<see cref="BuildHand.Click"/>;
+        /// зажатая ЛКМ ставит подряд на каждом новом тайле под курсором), ПКМ — снести: копание молотом (досягаемость копания),
+        /// возврат материалов кучей. Нельзя — причина строкой HUD (у курсора её пишет интерфейс).
+        /// </summary>
+        ushort HammerEdits(NetClient c, Mouse mouse, TileCoord tile, byte held, long now)
+        {
+            bool alive = !(_pred?.Dead ?? false);
+            if (mouse.leftButton.wasPressedThisFrame || (mouse.leftButton.isPressed && _buildLast != tile))
+            {
+                BuildCheck chk = _ui!.Build.Click(_world!, _localPos, c.Inv, held, alive, tile);
+                _buildLast = tile;
+                if (!chk.Ok && mouse.leftButton.wasPressedThisFrame)
+                {
+                    _lastRefusal = chk.Reason;
+                    _lastRefusalUntilUs = now + FlashUs;
+                }
+            }
+
+            if (!mouse.leftButton.isPressed)
+            {
+                _buildLast = null;
+            }
+
+            if (mouse.rightButton.isPressed)
+            {
+                if (!c.Digging && EditRules.CheckDig(_world!, _localPos, tile, c.DigTimes, held) == EditReply.Accepted)
+                {
+                    c.StartDig(tile);
+                }
+            }
+            else
+            {
+                c.StopDig();
+            }
+
+            return c.Digging ? InputButtons.Dig : (ushort)0;
         }
 
         /// <summary>

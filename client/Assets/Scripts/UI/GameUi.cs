@@ -37,6 +37,9 @@ namespace Orpheus.Client.UI
         public bool Make;
         public bool Ctrl;
         public bool CancelLast;
+
+        /// <summary>Q / E — листать ленту построек (E2-5): −1 / +1.</summary>
+        public int BuildStep;
     }
 
     /// <summary>
@@ -131,7 +134,7 @@ namespace Orpheus.Client.UI
     /// заявки через <see cref="BagHand"/> и <see cref="CraftDesk"/> (те же классы, что у тестов и ботов). Ввод — одним
     /// местом, <see cref="Frame"/>; попадание курсора считается по прямоугольникам холста (без EventSystem).
     /// </summary>
-    public sealed class GameUi
+    public sealed partial class GameUi
     {
         readonly UiRoot _root;
         readonly UiGroup _bar;
@@ -163,7 +166,7 @@ namespace Orpheus.Client.UI
         /// <summary>Сколько секунд видна строка отказа сервера.</summary>
         public const float MessageSeconds = 2.5f;
 
-        public GameUi(Camera camera, IBagRequests requests, ICraftRequests craft)
+        public GameUi(Camera camera, IBagRequests requests, ICraftRequests craft, IBuildRequests build)
         {
             _root = new UiRoot(camera);
             _hand = new BagHand(requests);
@@ -187,12 +190,16 @@ namespace Orpheus.Client.UI
             UiRoot.Picture(_stationHint.Rt, "Back", 0f, 0f, hintW, hintH, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
             _stationHintText = UiRoot.Label(_stationHint.Rt, "Text", 0f, 0f, hintW, hintH, 20, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _stationHint.Visible = false;
+            _hintLow = 16f + h + 8f;
 
             _bag = new BagWindow(_root);
             _craft = new CraftWindow(_root);
             _tip = new UiTooltip(_root);
+            CreateBuild(_root, build, 16f + h); // E2-5: лента построек, окно сундука, строка у курсора, сообщение
             _carry = new UiCarry(_root);
         }
+
+        readonly float _hintLow;
 
         /// <summary>Окно сумки открыто.</summary>
         public bool BagOpen => _bag.Visible;
@@ -268,6 +275,7 @@ namespace Orpheus.Client.UI
                 input.RowStep = (kb.pageDownKey.wasPressedThisFrame ? 1 : 0) - (kb.pageUpKey.wasPressedThisFrame ? 1 : 0);
                 input.Make = kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame;
                 input.CancelLast = kb.deleteKey.wasPressedThisFrame;
+                input.BuildStep = (kb.eKey.wasPressedThisFrame ? 1 : 0) - (kb.qKey.wasPressedThisFrame ? 1 : 0); // E2-5
             }
 
             return input;
@@ -294,10 +302,12 @@ namespace Orpheus.Client.UI
         /// крафта (очередь сервера, мир и место — для «станок рядом»). Звать до чтения мыши миром (<see cref="PointerBlocked"/>).
         /// </summary>
         public void Frame(in UiInput input, in Inventory bag, int selected, bool dead, int health, int maxHealth, int stamina, int maxStamina,
-            in UiCraftState craft)
+            in UiCraftState craft, in UiBuildState build = default)
         {
             _root.FitToScreen();
             _hand.Sync(bag, dead);
+            _hand.SyncChest(build.ChestOpen, build.Chest); // E2-5: ячейки 40…69 — открытый сундук
+            SyncChestWindow(build, craft);
             EscapeUsed = false;
             SlotClicked = -1;
             if (!input.LeftHeld)
@@ -307,14 +317,20 @@ namespace Orpheus.Client.UI
 
             if (input.Toggle)
             {
+                if (BagOpen)
+                {
+                    CloseChestByUser(); // сумку закрыли — сундук рядом с ней тоже
+                }
+
                 SetOpen(!BagOpen);
             }
             else if (input.Craft)
             {
                 SetCraftOpen(!CraftOpen, craft);
             }
-            else if (input.Escape && (BagOpen || CraftOpen))
+            else if (input.Escape && (BagOpen || CraftOpen || _chest.Visible))
             {
+                CloseChestByUser();
                 SetOpen(false);
                 SetCraftOpen(false, craft);
                 EscapeUsed = true;
@@ -339,6 +355,11 @@ namespace Orpheus.Client.UI
                 {
                     overUi = OverWindow = true;
                     cell = _bag.CellAt(_bag.Local(size, p));
+                }
+                else if (_chest.Visible && _chest.Contains(size, p))
+                {
+                    overUi = OverWindow = true;
+                    cell = _chest.CellAt(_chest.Local(size, p)); // E2-5: 40…69
                 }
                 else if (_craft.Contains(size, p))
                 {
@@ -420,6 +441,11 @@ namespace Orpheus.Client.UI
                 _bag.Show(bag, _hand, selected, cell, dead);
             }
 
+            if (_chest.Visible)
+            {
+                _chest.Show(_hand, cell);
+            }
+
             if (_message != null && Time.unscaledTime > _messageUntil)
             {
                 _message = null;
@@ -430,16 +456,22 @@ namespace Orpheus.Client.UI
                 _craft.Show(_lines, bag, craft.Queue, craft.Running, craft.Progress, dead, hit, _message);
             }
 
-            bool hint = !CraftOpen && _near != CraftStation.None;
+            // Подсказка над панелью: что сделает F (E2-5), иначе «C — верстак»; над лентой построек — выше неё.
+            string useHint = build.Use != UseKind.None && !_chest.Visible ? UiStrings.UseHint(build.Use) : string.Empty;
+            bool hint = !CraftOpen && !_chest.Visible && (useHint.Length > 0 || _near != CraftStation.None);
             _stationHint.Visible = hint;
-            if (hint && _near != _nearShown)
+            if (hint)
             {
+                _stationHintText.text = useHint.Length > 0 ? useHint : UiStrings.StationHint(_near);
                 _nearShown = _near;
-                _stationHintText.text = UiStrings.StationHint(_near);
+                Vector2 off = _stationHint.Offset;
+                _stationHint.Offset = new Vector2(off.x, _buildBar.Visible ? _hintLow + BuildBar.Height + 4f : _hintLow);
             }
 
-            byte under = cell >= 0 && !_hand.Holding ? bag.ItemAt(cell) : Items.None;
-            string? tip = under != Items.None ? UiStrings.ItemTip(under, bag.CountIn(cell)) : null;
+            ShowBuild(input, bag, dead, build, overUi, size);
+
+            byte under = cell >= 0 && !_hand.Holding ? _hand.ItemAt(cell) : Items.None;
+            string? tip = under != Items.None ? UiStrings.ItemTip(under, _hand.CountIn(cell)) : null;
             if (hit.Part == CraftPart.Queue && hit.Index < craft.Queue.Count)
             {
                 tip = UiStrings.QueueTip(craft.Queue.RecipeAt(hit.Index), craft.Queue.LeftAt(hit.Index));
@@ -548,6 +580,16 @@ namespace Orpheus.Client.UI
         // Окна по одному — по центру; оба — рядом (сумка слева, крафт справа), верхние края на одной высоте.
         void Layout()
         {
+            if (_chest.Visible)
+            {
+                // E2-5: сумка слева, сундук справа, верхние края вровень.
+                float sum = BagWindow.Width + WindowGap + ChestWindow.Width;
+                float bagY = -BagWindow.Height / 2f + WindowLift;
+                _bag.Offset = new Vector2(-sum / 2f, bagY);
+                _chest.Offset = new Vector2(-sum / 2f + BagWindow.Width + WindowGap, bagY + BagWindow.Height - ChestWindow.Height);
+                return;
+            }
+
             bool both = BagOpen && CraftOpen;
             float total = BagWindow.Width + WindowGap + CraftWindow.Width;
             float craftY = -CraftWindow.Height / 2f + WindowLift;
@@ -584,7 +626,7 @@ namespace Orpheus.Client.UI
     /// <c>bag</c> — окно открыто, половина стопки камня «в руке»; <c>hotbar</c> — окно закрыто, подсказка над панелью;
     /// <c>craft</c> — окно крафта у верстака, выбран рецепт с нехваткой, в очереди две позиции; <c>craft+bag</c> — оба окна; <c>craft-hint</c> — окна закрыты, у панели подсказка «C — верстак».
     /// </summary>
-    public sealed class UiDemo : IBagRequests, ICraftRequests
+    public sealed partial class UiDemo : IBagRequests, ICraftRequests, IBuildRequests
     {
         readonly GameUi _ui;
         readonly string _mode;
@@ -595,7 +637,7 @@ namespace Orpheus.Client.UI
 
         public UiDemo(Camera camera, string mode, WorldModel? world = null)
         {
-            _ui = new GameUi(camera, this, this);
+            _ui = new GameUi(camera, this, this, this);
             _mode = mode;
             _world = world;
             _bag.SetCell(5, Items.Torch, 12);
@@ -621,11 +663,13 @@ namespace Orpheus.Client.UI
         /// <summary>Сцена с окном крафта (нужен верстак рядом с персонажем).</summary>
         public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint";
 
-        public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode);
+        public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode) || IsBuild(mode);
 
-        public bool RequestBagMove(int from, int to) => _bag.Move(from, to);
+        public bool RequestBagMove(int from, int to) =>
+            from >= BagHand.ChestBase || to >= BagHand.ChestBase ? ChestMove(from, to) : _bag.Move(from, to);
 
-        public bool RequestBagSplit(int from, int to, int count) => _bag.Split(from, to, count);
+        public bool RequestBagSplit(int from, int to, int count) =>
+            from >= BagHand.ChestBase || to >= BagHand.ChestBase ? ChestSplit(from, to, count) : _bag.Split(from, to, count);
 
         public bool RequestBagDrop(int cell, int count = 0) => _bag.TakeFrom(cell, count == 0 ? _bag.CountIn(cell) : count) > 0;
 
@@ -668,6 +712,12 @@ namespace Orpheus.Client.UI
         public void Frame(WorldPos position)
         {
             _frame++;
+            if (IsBuild(_mode))
+            {
+                BuildFrame(position); // E2-5: UiDemo.Build.cs
+                return;
+            }
+
             var input = new UiInput { HasPointer = true };
             if (_mode == "bag")
             {
