@@ -33,7 +33,7 @@ if ($Render) {
     $tag += "-render-$Gen"
     $log = Join-Path $logDir "$tag.log"
     Remove-Item $log -ErrorAction SilentlyContinue
-    $line = "-batchmode --tile-bench $Seconds --bench-render --gen $Gen --seed 202609 --size 1024 $Extra -logFile `"$log`""
+    $line = "-batchmode -monitor 2 -screen-fullscreen 0 --tile-bench $Seconds --bench-render --gen $Gen --seed 202609 --size 1024 $Extra -logFile `"$log`""
     & (Join-Path $PSScriptRoot 'run_hidden.ps1') -Exe $exe -Arguments $line -TimeoutSec $TimeoutSec
     $code = $LASTEXITCODE
 } else {
