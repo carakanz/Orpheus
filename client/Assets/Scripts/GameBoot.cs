@@ -100,6 +100,7 @@ namespace Orpheus.Client
         TileBenchRun? _tileBench;       // 1-022: стенд «48 Tilemap» (--tile-bench): бег через шов + поток правок, замеры
         DayTintView? _dayTint;          // E1-8: тон суток (ночь, сумерки, рассвет; свет факела и костра)
         int _hudFrame;
+        PileView? _piles;               // E2-1: кучи на земле без сервера (--demo-piles, сцена снимков)
 
         void Awake()
         {
@@ -180,6 +181,12 @@ namespace Orpheus.Client
             }
 
             _heroRig = new Anim.ActorRig(Character);
+            if (Args.DemoPiles)
+            {
+                // E2-1: кучи на земле для снимка без сервера (после телепорта снимка — вокруг точки сцены).
+                _piles = new PileView(new GameObject("Piles").transform);
+                _piles.AddDemo(Map, Player.Position, t => Rules.IsBlocked(Map, t));
+            }
         }
 
         void OnDestroy()
@@ -331,6 +338,7 @@ namespace Orpheus.Client
             // 5. Персонаж и камера.
             PlaceCharacterAndCamera();
             _heroRig?.AnimateWalk(Time.deltaTime);
+            _piles?.Frame(Origin, Time.deltaTime);
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
             UpdateHud();

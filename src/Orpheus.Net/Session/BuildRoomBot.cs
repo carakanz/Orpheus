@@ -278,6 +278,11 @@ namespace Orpheus.Net.Session
 
         // ------------------------------------------------------------------ добыча
 
+        private BotPiles? _piles;
+
+        /// <summary>Куч добычи подобрано походом к ним (E2-1).</summary>
+        public int PilesCollected => _piles?.Collected ?? 0;
+
         private InputFrame Gather(NetClient client, ClientWorld world, WorldPos pos)
         {
             int stone = client.Inv.CountAt(Material.Stone);
@@ -289,6 +294,18 @@ namespace Orpheus.Net.Session
                 WoodAtGatherEnd = wood;
                 Stage = Phase.Clear;
                 return InputFrame.None;
+            }
+
+            // E2-1: добыча лежит кучей на тайле снятого объекта — подойти и подобрать, прежде чем искать следующую цель.
+            _piles ??= new BotPiles(_shape);
+            if (_piles.TrySeek(client, pos, item => item == Items.Stone || item == Items.Wood, out Input8 toPile))
+            {
+                if (toPile != Input8.None && TryDigObstacle(client, world, pos, toPile))
+                {
+                    return new InputFrame(Input8.None, InputButtons.Dig, 0, (byte)_digSlot);
+                }
+
+                return WalkFrames(pos, toPile);
             }
 
             TileCoord? target = FindGatherTarget(client, world, pos, stone < TargetStone, wood < TargetWood);

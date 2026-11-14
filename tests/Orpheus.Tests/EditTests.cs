@@ -407,11 +407,12 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Дерево топором (1-010): 18 кадров, добыча 3 древесины; клиент предсказывает сумку на своём завершении
-        /// до подтверждения сервера, сервер подтверждает сумкой (тип 26); мир сходится.
+        /// Дерево топором (1-010): 18 кадров, добыча 3 древесины. С E2-1 [док] добыча не падает в сумку и не
+        /// предсказывается: на тайле дерева появляется куча (клиент видит её сообщением 27), через 20 тактов
+        /// стоящий рядом её подбирает — сумка сервера (тип 26) приносит древесину; мир сходится.
         /// </summary>
         [Fact]
-        public void D01_S5_Dig_AxeOnTree_LootPredictedThenConfirmed()
+        public void D01_S5_Dig_AxeOnTree_LootDropsOnGround_ThenPickedUp()
         {
             WorldModel world = Flat();
             var tree = new TileCoord(301, 200);
@@ -426,18 +427,26 @@ namespace Orpheus.Tests
             rig.InputOf = _ => DigAxe; // кадр с ячейкой топора доходит раньше запроса — сервер валидирует DigStart топором
             rig.Run(2);
             c.StartDig(tree);
-            for (int t = 0; t < 24 && c.Inv.CountAt(Material.Wood) == 0; t++)
+            for (int t = 0; t < 24 && rig.Sim.Piles.Length == 0; t++)
             {
                 rig.Run(1);
             }
 
-            Assert.Equal(3, c.Inv.CountAt(Material.Wood)); // предсказание: детерминированный бросок посчитан на своём завершении
-            Assert.Empty(replies); // ответ сервера ещё не вернулся (RTT 100 мс) — предсказание опережает подтверждение
-            rig.Run(15); // подтверждение пришло
+            GroundPile pile = Assert.Single(rig.Sim.Piles.ToArray()); // добыча — кучей на тайле дерева
+            Assert.Equal(Items.Wood, pile.Item);
+            Assert.Equal(3, pile.Count);
+            Assert.Equal(tree, Torus.TileOf(rig.Sim.Shape, pile.Position));
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood)); // в сумку само не падает
+            Assert.Equal(0, c.Inv.CountAt(Material.Wood)); // и клиент добычу не предсказывает
+            rig.Run(8); // подтверждение и куча дошли
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(tree));
-            Assert.Equal(3, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood)); // сервер выдал добычу в сумку
-            Assert.Equal(3, c.Inv.CountAt(Material.Wood)); // сумка сервера (тип 26) совпала с предсказанием — без откатов
+            Assert.Equal(3, Assert.Single(c.Piles).Count);
+            rig.Run(Simulation.LootPickupDelayTicks + 8); // задержка подбора прошла — персонаж в тайле от кучи её поднял
+            Assert.Equal(0, rig.Sim.Piles.Length);
+            Assert.Empty(c.Piles);
+            Assert.Equal(3, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood));
+            Assert.Equal(3, c.Inv.CountAt(Material.Wood)); // сумка сервера (тип 26)
         }
 
         /// <summary>
@@ -476,11 +485,12 @@ namespace Orpheus.Tests
             rig.Run(25);
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(granite));
+            rig.Run(Simulation.LootPickupDelayTicks + 6); // E2-1: добыча упала кучей, через 20 тактов стоящий рядом её поднял
             int expected = DigLoot.DropFor(ObjectId.Granite, granite.X, granite.Y, world.Seed, out Material m);
             Assert.Equal(Material.Stone, m);
             Assert.InRange(expected, 1, 2);
             Assert.Equal(expected, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone));
-            Assert.Equal(expected, c.Inv.CountAt(Material.Stone)); // предсказание = сервер
+            Assert.Equal(expected, c.Inv.CountAt(Material.Stone)); // сумка сервера (тип 26)
         }
 
         /// <summary>
@@ -510,8 +520,9 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Двое копают одно дерево (1-010): правку принимает один — добыча ровно ему; второму «занято»,
-        /// сумка = сервер (предсказание добычи на завершении у проигравшего не оставляем — он не докапывал).
+        /// Двое копают одно дерево (1-010): правку принимает один, второму «занято»; добыча падает одна — кучей на
+        /// тайл дерева (E2-1 [док]: раньше — в сумку копавшего), и поднимает её целиком один из стоящих рядом —
+        /// тот, кто ближе к куче. Древесина не удваивается; сумки клиентов = сервер.
         /// </summary>
         [Fact]
         public void D01_S5_Dig_TwoDiggers_SameTree_LootExactlyOne()
@@ -536,10 +547,15 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Accepted, Assert.Single(ra).Reply);
             Assert.Equal(EditReply.Busy, Assert.Single(rb).Reply); // занял A
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(tree));
-            Assert.Equal(3, rig.Sim.GetEntity(a.EntityId).Inv.CountAt(Material.Wood)); // добыча — копавшему
-            Assert.Equal(0, rig.Sim.GetEntity(b.EntityId).Inv.CountAt(Material.Wood)); // второму — ничего
-            Assert.Equal(3, a.Inv.CountAt(Material.Wood));
-            Assert.Equal(0, b.Inv.CountAt(Material.Wood));
+            rig.Run(Simulation.LootPickupDelayTicks + 6); // куча полежала и подобрана
+            Assert.Equal(0, rig.Sim.Piles.Length);
+            Assert.Equal(2, rig.Sim.NextPileId); // куча была ровно одна
+            int wa = rig.Sim.GetEntity(a.EntityId).Inv.CountAt(Material.Wood);
+            int wb = rig.Sim.GetEntity(b.EntityId).Inv.CountAt(Material.Wood);
+            Assert.Equal(3, wa + wb); // добыча не удвоилась
+            Assert.True(wa == 3 || wb == 3, $"куча поделилась: {wa} и {wb}"); // целиком одному — ближнему к куче
+            Assert.Equal(wa, a.Inv.CountAt(Material.Wood));
+            Assert.Equal(wb, b.Inv.CountAt(Material.Wood));
         }
 
         /// <summary>
@@ -1058,7 +1074,7 @@ namespace Orpheus.Tests
             byte[] badReply = (byte[])eb.Clone();
             badReply[3] = 15;
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badReply));
-            Assert.Equal(20, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014)
+            Assert.Equal(21, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1)
         }
 
         // ---------- Строительство (1-011): палитра данными, полы, снос, обломки ----------

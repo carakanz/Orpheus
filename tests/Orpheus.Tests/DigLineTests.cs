@@ -129,12 +129,28 @@ namespace Orpheus.Tests
                            $"тактов {digTicks} ({digTicks / 30.0:0.0} с игры)");
             Assert.True(bot.Done, $"бот снял {bot.RocksDug} из {target} за {digTicks} тактов");
 
-            // Приёмка 1-010: в сумке копающего — сумма детерминированных бросков добычи по всем снятым «каменным» тайлам; откатов нет.
+            // Приёмка 1-010 + E2-1 [док]: добыча — сумма детерминированных бросков по всем снятым «каменным» тайлам — падает
+            // на землю, бот её подбирает. Ничего не удвоилось: в сумке + на земле не больше бросков (кучи старше 10 мин
+            // исчезают); бот подобрал почти всё (≥ 90 %: остаются кучи за препятствиями и последние, ещё «падающие»).
             int stoneWanted = bot.StoneTiles.Sum(e => DigLoot.DropFor(e.Raw, e.Tile.X, e.Tile.Y, world.Seed, out _));
             Assert.True(stoneWanted >= bot.RocksDug, $"броски {stoneWanted} < снятых скал {bot.RocksDug} (скала даёт 1…2)");
-            Assert.Equal(stoneWanted, digger.Inv.CountAt(Material.Stone)); // своя сумка (предсказание + тип 26)
-            Assert.Equal(stoneWanted, rig.Sim.GetEntity(digger.EntityId).Inv.CountAt(Material.Stone)); // сумка сервера
-            Assert.Equal(0, digger.World!.PredictionsRolledBack); // предсказания добычи не откатывались
+            int stoneBag = rig.Sim.GetEntity(digger.EntityId).Inv.CountAt(Material.Stone); // сумка сервера
+            int stoneGround = 0;
+            foreach (GroundPile gp in rig.Sim.Piles)
+            {
+                stoneGround += gp.Item == Items.Stone ? gp.Count : 0;
+            }
+
+            _out.WriteLine($"камень: броски {stoneWanted}, в сумке {stoneBag}, на земле {stoneGround}, куч подобрано походом {bot.PilesCollected}");
+            Assert.Equal(stoneBag, digger.Inv.CountAt(Material.Stone)); // своя сумка = сумка сервера (тип 26)
+            Assert.True(stoneBag + stoneGround <= stoneWanted, $"камня больше бросков: сумка {stoneBag} + земля {stoneGround} > {stoneWanted}");
+            if (digTicks < Simulation.PileLifetimeTicks)
+            {
+                Assert.Equal(stoneWanted, stoneBag + stoneGround); // кучи ещё не истекали — сходится точно
+            }
+
+            Assert.True(stoneBag * 10 >= stoneWanted * 9, $"бот подобрал {stoneBag} из {stoneWanted} камня (< 90 %)");
+            Assert.Equal(0, digger.World!.PredictionsRolledBack); // предсказания копания не откатывались
 
             // У наблюдателя — все снятые скалы, чанки = сервер побайтно.
             int seen = bot.RockTiles.Count(t => observer.World!.World.FindChunk(Torus.ChunkOf(shape, t)) != null &&

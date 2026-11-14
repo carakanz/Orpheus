@@ -49,6 +49,7 @@ namespace Orpheus.Net.Session
         public DigLineBot(MapShape shape, int halfLength = 48, int target = 1000)
         {
             _shape = shape;
+            _piles = new BotPiles(shape);
             HalfLength = halfLength;
             Target = target;
         }
@@ -81,8 +82,14 @@ namespace Orpheus.Net.Session
         /// <summary>Все снятые тайлы, чья добыча — камень (скалы в полосе, скалы вне полосы, гранит): сверка сумки (1-010).</summary>
         public List<(TileCoord Tile, ushort Raw)> StoneTiles { get; } = new List<(TileCoord, ushort)>();
 
-        /// <summary>Сняли <see cref="Target"/> скал.</summary>
-        public bool Done => RocksDug >= Target;
+        /// <summary>Сняли <see cref="Target"/> скал и подобрали добычу, лежащую рядом (E2-1).</summary>
+        public bool Done => RocksDug >= Target && _settled;
+
+        /// <summary>Куч добычи подобрано походом к ним (E2-1).</summary>
+        public int PilesCollected => _piles.Collected;
+
+        private readonly BotPiles _piles;
+        private bool _settled;
 
         private readonly Dictionary<ushort, TileCoord> _digTile = new Dictionary<ushort, TileCoord>();
         private readonly Dictionary<ushort, ushort> _digRaw = new Dictionary<ushort, ushort>(); // запрос → объект (для «каменной» свёрки сумки)
@@ -141,6 +148,20 @@ namespace Orpheus.Net.Session
             if (client.Digging)
             {
                 return new InputFrame(Input8.None, InputButtons.Dig, 0, _slot);
+            }
+
+            // E2-1: добыча падает на землю и первые 20 тактов не подбирается — подойти и дождаться, потом дальше по строке.
+            if (_piles.TrySeek(client, pos, null, out Input8 toPile))
+            {
+                _stillFrames = 0;
+                _lastPos = pos;
+                return new InputFrame(toPile);
+            }
+
+            if (RocksDug >= Target)
+            {
+                _settled = true; // скалы сняты, куч рядом нет — конец
+                return InputFrame.None;
             }
 
             TileCoord me = Torus.TileOf(_shape, pos);

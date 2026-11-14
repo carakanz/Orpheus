@@ -49,7 +49,37 @@ namespace Orpheus.Client
         /// </summary>
         byte HeldItemAt(byte slot) => _bag.SlotAt(slot);
 
-        /// <summary>Кусок HUD про сумку (1-002): что в руках и ненулевые материалы.</summary>
+        /// <summary>
+        /// Кучи на земле (E2-1): сервер шлёт «кучи» (27) и «кучи нет» (28) — рисует <see cref="PileView"/>. Подобранная
+        /// куча «прыгает» к поднявшему: своему персонажу или чужой сущности, если она на экране.
+        /// </summary>
+        void HookPiles(NetClient client)
+        {
+            client.PileSeen = p => _pileView?.Set(p.Id, p.Item, p.Count, p.Position);
+            client.PileGone = (m, was) =>
+            {
+                Transform? taker = null;
+                if (m.Reason == PileGoneReason.Picked)
+                {
+                    taker = m.Taker == _localId ? _g.Character
+                        : _ents.TryGetValue(m.Taker, out GameObject? go) && go.activeSelf ? go.transform : null;
+                    if (m.Taker == _localId)
+                    {
+                        PilesPicked++;
+                    }
+                }
+
+                _pileView?.Remove(m.Id, taker);
+            };
+        }
+
+        /// <summary>Куч подобрано своим персонажем (HUD).</summary>
+        public int PilesPicked { get; private set; }
+
+        /// <summary>
+        /// Кусок HUD про сумку (1-002; E2-1 — по ячейкам): что в руках, итог по материалам (стройка клавишами считает
+        /// их по всей сумке) и занятые ячейки коротко: «9:древесина×3» — номер ячейки с 1, первые 8 — быстрая панель.
+        /// </summary>
         string BagHud()
         {
             var sb = new StringBuilder("  в руках: ");
@@ -64,6 +94,24 @@ namespace Orpheus.Client
                 }
             }
 
+            sb.Append($"\nсумка {_bag.UsedCells}/{Inventory.Cells}:");
+            for (int i = 0; i < Inventory.Cells; i++)
+            {
+                byte item = _bag.ItemAt(i);
+                if (item == Items.None)
+                {
+                    continue;
+                }
+
+                int n = _bag.CountIn(i);
+                sb.Append($" {i + 1}:{ItemName(item)}");
+                if (n > 1)
+                {
+                    sb.Append('×').Append(n);
+                }
+            }
+
+            sb.Append($"  на земле куч {_pileView?.Count ?? 0}");
             return sb.ToString();
         }
 
@@ -76,7 +124,14 @@ namespace Orpheus.Client
             Items.WoodenSword => "меч",
             Items.SimpleBow => "лук",
             Items.Torch => "факел",
-            _ => $"№{id}",
+            Items.CopperPickaxe => "медная кирка",
+            Items.Wood => "древесина",
+            Items.Stone => "камень",
+            Items.Resin => "смола",
+            Items.Fiber => "волокно",
+            Items.CopperOre => "медь",
+            Items.Arrows => "стрелы",
+            _ => ItemTable.Get(id).Key, // новые строки таблицы (E2-6) — ключом, пока нет подписи
         };
 
         static string MaterialName(int m) => m switch

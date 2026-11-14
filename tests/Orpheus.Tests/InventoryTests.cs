@@ -254,7 +254,7 @@ namespace Orpheus.Tests
             Assert.NotEqual(h0, StateHash.Entity(f));
 
             Assert.Equal(h0, StateHash.Entity(sim.GetEntity(id))); // совпадение — тот же набор слов
-            Assert.Equal(16, Inventory.HashWords); // 1 выбранная + 8 ячеек + 7 счётчиков
+            Assert.Equal(41, Inventory.HashWords); // 1 выбранная + 40 ячеек (E2-1; было 16: 8 ячеек + 7 счётчиков)
         }
 
         // ---------- Сеть: выдача, сохранение за ключом, ячейка в том же кадре ----------
@@ -363,7 +363,7 @@ namespace Orpheus.Tests
 
         // ---------- Сеть (этап 4): payload, сообщение, доставка, предмет в руках в снимке ----------
 
-        /// <summary>payload сумки (23 байта): запись → чтение даёт ту же сумку; короткий буфер — ArgumentException.</summary>
+        /// <summary>payload сумки (121 байт с E2-1; до него 23): запись → чтение даёт ту же сумку; короткий буфер — ArgumentException.</summary>
         [Fact]
         public void D06_Inventory_Payload_RoundTrip()
         {
@@ -371,7 +371,7 @@ namespace Orpheus.Tests
             inv.Add(Material.Wood, 70_000);
             inv.Add(Material.Torch, 3);
             inv.Select(5);
-            Assert.Equal(23, Inventory.PayloadBytes);
+            Assert.Equal(121, Inventory.PayloadBytes);
             var buf = new byte[Inventory.PayloadBytes];
             inv.WritePayload(buf);
             Assert.Equal(inv, Inventory.ReadPayload(buf));
@@ -379,14 +379,14 @@ namespace Orpheus.Tests
             Assert.Throws<ArgumentException>(() => Inventory.ReadPayload(new byte[Inventory.PayloadBytes - 1]));
         }
 
-        /// <summary>«Сумка» (тип 26, 30 байт): читается поле в поле; выбранная ячейка ≥ 8 — ProtocolException.</summary>
+        /// <summary>«Сумка» (тип 26, 128 байт с E2-1; до него 30): читается поле в поле; выбранная ячейка ≥ 8 — ProtocolException.</summary>
         [Fact]
         public void D06_Net_InventoryMessage_RoundTrip()
         {
             var inv = Inventory.StartingKit();
             inv.Select(3);
             var m = new InventoryMessage { EntityId = 77, Version = 9, Bag = inv };
-            Assert.Equal(30, InventoryMessage.Bytes);
+            Assert.Equal(128, InventoryMessage.Bytes);
             var buf = new byte[InventoryMessage.Bytes];
             Assert.Equal(InventoryMessage.Bytes, m.Write(buf));
             InventoryMessage r = InventoryMessage.Read(buf);

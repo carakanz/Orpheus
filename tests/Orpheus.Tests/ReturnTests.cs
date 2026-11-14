@@ -404,7 +404,7 @@ namespace Orpheus.Tests
             Assert.Equal(5, sim.EntityCount);
 
             byte[] v4 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), state.Name, roster.Capture()), 2, 0);
-            Assert.Equal(6u, SaveContainer.Read(v4).Header.FormatVersion); // нынешний формат (6 с 1-007)
+            Assert.Equal(7u, SaveContainer.Read(v4).Header.FormatVersion); // нынешний формат (7 с E2-1)
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, v4)).Total);
         }
 
