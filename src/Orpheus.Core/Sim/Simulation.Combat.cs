@@ -324,8 +324,14 @@ namespace Orpheus.Core.Sim
                             EnemyMelee.ReachUnits, EnemyMelee.HalfArcSteps);
                         int slot = SlotOf(e.AttackTarget);
                         // Удар решается по позиции цели в конце замаха (docs/07, 4.6); уворот спасает i-кадрами (0-029, 2.2).
+                        // C-002 (`02` 3.4): линия удара перепроверяется и в миг приземления — стена/закрытая дверь,
+                        // вставшие между началом замаха и ударом, гасят удар (замах при открытой двери, приземлился
+                        // после закрытия — «урон за дверью 5 кадров», D08_3_1). Замах виден клиенту телеграфом,
+                        // решение — за сервером, как и у меча игрока (ResolveMeleeStrike).
                         if (slot >= 0 && _entities[slot].Alive && !_entities[slot].Mover.Dodge.Invulnerable &&
-                            sector.Overlaps(_shape, _entities[slot].Mover.Position, Collision.RadiusUnits))
+                            sector.Overlaps(_shape, _entities[slot].Mover.Position, Collision.RadiusUnits) &&
+                            StrikeLineClear(e.AttackOrigin, _entities[slot].Mover.Position,
+                                Torus.TileOf(_shape, e.Mover.Position)))
                         {
                             // Урон ночного врага ×1,25 (8.6, 1-009): 10 → 13; днём ровно ×1.
                             ApplyStrike(_entities[slot].Id, e.Id, ScaledByNight(e.AttackRaw, NightMultX1024), e.Mover.Position, knockback: true);
