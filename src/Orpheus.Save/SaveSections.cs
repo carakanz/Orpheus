@@ -71,6 +71,9 @@ namespace Orpheus.Save
             /// Пишется только ненулевое — файлы с t = 0 байт в байт как до 1-014.
             /// </summary>
             public const int WorldTime = 10;
+
+            /// <summary>Следующий номер кучи на земле (E2-1, формат 7); нет поля — 1 (куч не было). Пишется, только если больше 1.</summary>
+            public const int NextPileId = 11;
         }
 
         /// <summary>Раздел ЧАНКИ: повторяющееся поле <see cref="Chunk"/> — вложенная запись чанка.</summary>
@@ -96,6 +99,9 @@ namespace Orpheus.Save
         public static class CreaturesField
         {
             public const int Entity = 1;
+
+            /// <summary>Куча на земле (E2-1, формат 7): запись <see cref="PileField"/>; по возрастанию номера.</summary>
+            public const int Pile = 2;
         }
 
         /// <summary>Поля записи сущности (минимально: то, что есть в такте 0-006; уворот — с формата 2, 0-029).</summary>
@@ -354,6 +360,22 @@ namespace Orpheus.Save
             public const int MeleeOriginY = 22;
         }
 
+        /// <summary>Поля записи кучи на земле (E2-1, формат 7).</summary>
+        public static class PileField
+        {
+            public const int Id = 1;
+            public const int Item = 2;
+            public const int Count = 3;
+            public const int X = 4;
+            public const int Y = 5;
+
+            /// <summary>Такт, на котором куча исчезнет.</summary>
+            public const int ExpireTick = 6;
+
+            /// <summary>Такт, с которого кучу можно подобрать.</summary>
+            public const int PickupTick = 7;
+        }
+
         /// <summary>Схема записей раздела для <c>orpheus-save dump</c>: имена полей и вложенные схемы. null — схемы нет.</summary>
         public static RecordSchema? Schema(uint id) => id switch
         {
@@ -408,7 +430,15 @@ namespace Orpheus.Save
                 .Field(EntityField.MeleeAimRaw, "удар: ось")
                 .Field(EntityField.MeleeOriginX, "удар: x начала")
                 .Field(EntityField.MeleeOriginY, "удар: y начала")
-                .Field(EntityField.Inv, "сумка"));
+                .Field(EntityField.Inv, "сумка"))
+            .Field(CreaturesField.Pile, "куча на земле", new RecordSchema()
+                .Field(PileField.Id, "номер")
+                .Field(PileField.Item, "предмет")
+                .Field(PileField.Count, "количество")
+                .Field(PileField.X, "x, 1/256 тайла")
+                .Field(PileField.Y, "y, 1/256 тайла")
+                .Field(PileField.ExpireTick, "исчезнет на такте")
+                .Field(PileField.PickupTick, "подбор с такта"));
 
         private static readonly RecordSchema CharactersSchema = new RecordSchema()
             .Field(CharactersField.Character, "персонаж", new RecordSchema()

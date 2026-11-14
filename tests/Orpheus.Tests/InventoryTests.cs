@@ -130,10 +130,14 @@ namespace Orpheus.Tests
             Assert.Equal(0, inv.Add(Material.Wood, -3));
             Assert.Equal(7, inv.Add(Material.Stone, 7));
 
-            // Переполнение — насыщение, легло ровно столько, сколько влезло.
-            inv.Add(Material.Stone, Inventory.MaxCount - 7);
-            Assert.Equal(Inventory.MaxCount, inv.CountAt(Material.Stone));
+            // Переполнение (E2-1: сумка — ячейки): дерево занимает одну ячейку, камню остаётся 39 × 99;
+            // легло ровно столько, сколько влезло.
+            int full = (Inventory.Cells - 1) * ItemTable.StackMaterial;
+            Assert.Equal(full - 7, inv.Add(Material.Stone, 100_000));
+            Assert.Equal(full, inv.CountAt(Material.Stone));
             Assert.Equal(0, inv.Add(Material.Stone, 10));
+            Assert.True(inv.Spend(Material.Stone, 3 * ItemTable.StackMaterial)); // три ячейки под остальные материалы
+            full -= 3 * ItemTable.StackMaterial;
 
             // Списали нет за что — false, счётчик не тронут (рецепт 1-010 не «съедает» половину).
             Assert.False(inv.Spend(Material.Wood, 6));
@@ -151,7 +155,7 @@ namespace Orpheus.Tests
             Assert.Equal(4, inv.CountAt(Material.Copper));
             Assert.Equal(2, inv.CountAt(Material.Resin));
             Assert.Equal(1, inv.CountAt(Material.Arrows));
-            Assert.Equal(Inventory.MaxCount, inv.CountAt(Material.Stone));
+            Assert.Equal(full, inv.CountAt(Material.Stone));
         }
 
         // ---------- Ячейка едет кадром ввода ----------

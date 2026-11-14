@@ -76,31 +76,21 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Возврат при сносе (1-011, `05` 1.3): неповреждённой постройки — рецепт целиком, повреждённой — по каждому
-        /// материалу ⌊количество × прочность ÷ максимум⌋; сносителю. Не влезло в сумку — пропадает (россыпь — веха 2).
+        /// материалу ⌊количество × прочность ÷ максимум⌋. С E2-1 возврат падает кучами на тайл постройки
+        /// (подбирает любой, кто подойдёт), а не в сумку сносителя.
         /// </summary>
-        private void GiveBuildRefund(int requester, ushort preObj, byte preFloor, in BuildRecord rec)
+        private void GiveBuildRefund(long tick, TileCoord tile, ushort preObj, byte preFloor, in BuildRecord rec)
         {
-            int slot = SlotOf(requester);
             ushort key = preObj != ObjectId.Empty ? preObj : preFloor; // постройка — id объекта; снос пола — id построенного пола
-            if (slot < 0 || (preObj == ObjectId.Empty && !FloorId.IsBuilt(preFloor)) || !BuildDefs.TryGet(key, out BuildDef def))
+            if ((preObj == ObjectId.Empty && !FloorId.IsBuilt(preFloor)) || !BuildDefs.TryGet(key, out BuildDef def))
             {
                 return;
             }
 
-            ref Inventory inv = ref _entities[slot].Inv; // сумка в массиве сущностей, не копия (SimEntity — структура)
-            int k1 = BuildDefs.RefundOf(def.Count1, rec.Integrity, def.MaxIntegrity);
-            if (k1 > 0)
-            {
-                inv.Add(def.Material1, k1);
-            }
-
+            DropOnTile(tick, tile, ItemTable.OfMaterial(def.Material1), BuildDefs.RefundOf(def.Count1, rec.Integrity, def.MaxIntegrity));
             if (def.Count2 > 0)
             {
-                int k2 = BuildDefs.RefundOf(def.Count2, rec.Integrity, def.MaxIntegrity);
-                if (k2 > 0)
-                {
-                    inv.Add(def.Material2, k2);
-                }
+                DropOnTile(tick, tile, ItemTable.OfMaterial(def.Material2), BuildDefs.RefundOf(def.Count2, rec.Integrity, def.MaxIntegrity));
             }
         }
 
@@ -182,25 +172,20 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Добыча снятого природного объекта (1-010, <c>01</c> 5): число — детерминированный бросок по зерну, тайлу и id
-        /// (<see cref="DigLoot.DropFor"/>) — сервер и клиент (предсказание) считают одно и то же; материал — в сумку
-        /// <paramref name="requester"/>. Постройка (не природный) — ничего: возврат по доле прочности за строителем (1-011).
+        /// (<see cref="DigLoot.DropFor"/>). С E2-1 добыча падает кучей на тайл объекта (<see cref="DropOnTile"/>), а не в
+        /// сумку: подбирает тот, кто подойдёт. Постройка (не природный) — ничего: возврат по доле прочности (1-011).
         /// <paramref name="old"/> — что стояло на тайле ДО пачки (<see cref="_preObj"/>): после <c>ApplyEdits</c> тайл уже пуст.
         /// </summary>
-        private void GiveDigLoot(ChunkCoord chunk, ushort index, ushort old, int requester)
+        private void GiveDigLoot(long tick, ChunkCoord chunk, ushort index, ushort old)
         {
-            int slot = SlotOf(requester);
-            if (slot < 0 || !ObjectId.IsNatural(old))
+            if (!ObjectId.IsNatural(old))
             {
                 return;
             }
 
-            int x = (chunk.X << Torus.ChunkBits) + (index & (Torus.ChunkSize - 1));
-            int y = (chunk.Y << Torus.ChunkBits) + (index >> Torus.ChunkBits);
-            int n = DigLoot.DropFor(old, x, y, _world.Seed, out Material material);
-            if (n > 0)
-            {
-                _entities[slot].Inv.Add(material, n);
-            }
+            TileCoord tile = TileOf(chunk, index);
+            int n = DigLoot.DropFor(old, tile.X, tile.Y, _world.Seed, out Material material);
+            DropOnTile(tick, tile, ItemTable.OfMaterial(material), n);
         }
 
         /// <summary>Тайл двери и его соседи (chebyshev ≤ 1) свободны от живых существ — закрытие безопасно.</summary>
@@ -383,17 +368,17 @@ namespace Orpheus.Core.Sim
                         RefundCost(_edits[i].Edit, req);
                     }
 
-                    // Добыча (1-010): правка «снять природный объект» применена — материал в сумку просящего в том же такте.
+                    // Добыча (1-010, E2-1): правка «снять природный объект» применена — материал падает кучей на тайл в том же такте.
                     // Двое копающих один тайл: вторая правка — Busy, добыча ровно одному.
                     if (result == EditResult.Applied && _edits[i].Edit.Obj == ObjectId.Empty)
                     {
-                        GiveDigLoot(chunk, _edits[i].Edit.Index, _preObj[i], req);
+                        GiveDigLoot(tick, chunk, _edits[i].Edit.Index, _preObj[i]);
 
                         // Снос постройки (1-011, `05` 1.3): 100 % рецепта; повреждённой — ⌊кол × прочность ÷ максимум⌋;
                         // обломки ранней расчистки молотом — ничего.
                         if (_preHasBuild[i] && !_preBuild[i].IsDebris)
                         {
-                            GiveBuildRefund(req, _preObj[i], _preFloor[i], _preBuild[i]);
+                            GiveBuildRefund(tick, TileOf(chunk, _edits[i].Edit.Index), _preObj[i], _preFloor[i], _preBuild[i]);
                         }
                     }
                 }

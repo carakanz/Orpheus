@@ -21,6 +21,13 @@ namespace Orpheus.Net.Session
             InGame,
         }
 
+        /// <summary>Куча, о которой игроку сказано (E2-1): номер и количество в последнем сообщении.</summary>
+        private struct KnownPile
+        {
+            public int Id;
+            public ushort Count;
+        }
+
         private sealed class Player
         {
             public int Peer;
@@ -92,6 +99,10 @@ namespace Orpheus.Net.Session
             public Inventory SentInv;
             public bool HasSentInv;
             public ushort InvVersion;
+
+            /// <summary>Кучи на земле, которые игрок знает (E2-1), по номеру; вторая — рабочая для сверки после такта.</summary>
+            public List<KnownPile> KnownPiles = new List<KnownPile>();
+            public List<KnownPile> KnownPilesNext = new List<KnownPile>();
 
             /// <summary>
             /// Опережение L из последнего нового пакета ввода, кадров (0-033, 2.7) — подсказка только для отчёта о запасе (им клиент

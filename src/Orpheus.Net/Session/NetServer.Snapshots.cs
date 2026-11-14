@@ -201,6 +201,11 @@ namespace Orpheus.Net.Session
                 {
                     SendSnapshotTo(pl, entities, tick);
                     int slot = _sim.SlotOf(pl.EntityId);
+                    if (slot >= 0)
+                    {
+                        SendPilesTo(pl, entities[slot].Mover.Position); // E2-1: кучи на земле в обзоре — разницей
+                    }
+
                     if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))
                     {
                         SendInventoryTo(pl, entities[slot].Inv); // 1-002: сумка изменилась (копание, подбор, смена ячейки)

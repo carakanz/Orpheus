@@ -19,9 +19,11 @@ namespace Orpheus.Save
         internal WorldSaveData(
             string name, ulong seed, MapShape shape, int generatorVersion, byte[] baseSha256, long tick, int nextEntityId,
             ChunkCoord[] coords, uint[] revisions, byte[]?[] compressed, byte[]?[] raw, SimEntity[] entities, CharacterRecord[] characters,
-            int worldTime)
+            int worldTime, GroundPile[] piles, int nextPileId)
         {
             Characters = characters;
+            Piles = piles;
+            NextPileId = nextPileId;
             Name = name;
             Seed = seed;
             Shape = shape;
@@ -63,14 +65,23 @@ namespace Orpheus.Save
 
         /// <summary>Персонажи мира — мировая часть (копии; формат 3, 0-035).</summary>
         public CharacterRecord[] Characters { get; }
+
+        /// <summary>Кучи на земле по номеру (копии; формат 7, E2-1).</summary>
+        public GroundPile[] Piles { get; }
+
+        /// <summary>Следующий номер кучи (формат 7).</summary>
+        public int NextPileId { get; }
     }
 
     /// <summary>Загруженное из сохранения состояние такта (мир уже положен в <see cref="WorldModel"/>).</summary>
     public sealed class LoadedWorldState
     {
-        internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks, CharacterRecord[] characters, uint format, int worldTime)
+        internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks, CharacterRecord[] characters, uint format, int worldTime,
+            GroundPile[] piles, int nextPileId)
         {
             Characters = characters;
+            Piles = piles;
+            NextPileId = nextPileId;
             FormatVersion = format;
             Number = number;
             Tick = tick;
@@ -102,6 +113,12 @@ namespace Orpheus.Save
         /// </summary>
         public CharacterRecord[] Characters { get; }
 
+        /// <summary>Кучи на земле по номеру (формат 7, E2-1); у файлов до формата 7 — пусто.</summary>
+        public GroundPile[] Piles { get; }
+
+        /// <summary>Следующий номер кучи (формат 7); у старых файлов — 1.</summary>
+        public int NextPileId { get; }
+
         /// <summary>Версия формата прочитанного файла.</summary>
         public uint FormatVersion { get; }
 
@@ -117,6 +134,7 @@ namespace Orpheus.Save
             }
 
             sim.Restore(Tick, Entities, NextEntityId, WorldTime);
+            sim.RestorePiles(Piles, NextPileId); // E2-1: кучи на земле (формат 7; у старых файлов — пусто)
         }
     }
 
@@ -172,7 +190,7 @@ namespace Orpheus.Save
                 name ?? string.Empty, world.Seed, world.Shape, world.GeneratorVersion, (byte[])baseSha256.Clone(),
                 sim.Tick, sim.NextEntityId, coords, revisions, compressed, raw, sim.Entities.ToArray(),
                 characters != null ? (CharacterRecord[])characters.Clone() : Array.Empty<CharacterRecord>(),
-                sim.WorldTime);
+                sim.WorldTime, sim.Piles.ToArray(), sim.NextPileId);
         }
 
         /// <summary>
@@ -201,6 +219,11 @@ namespace Orpheus.Save
             if (replaces != 0)
             {
                 w.WriteUInt(SaveSections.WorldField.Replaces, replaces);
+            }
+
+            if (d.NextPileId > 1)
+            {
+                w.WriteUInt(SaveSections.WorldField.NextPileId, (ulong)d.NextPileId); // E2-1: куч не было — поля нет
             }
 
             if (d.WorldTime != 0)
@@ -346,6 +369,21 @@ namespace Orpheus.Save
                 ch.EndRecord(mark);
             }
 
+            // Кучи на земле (формат 7, E2-1) — в разделе СУЩЕСТВА после сущностей, по номеру.
+            for (int i = 0; i < d.Piles.Length; i++)
+            {
+                GroundPile gp = d.Piles[i];
+                int mark = e.BeginRecord(SaveSections.CreaturesField.Pile);
+                e.WriteUInt(SaveSections.PileField.Id, (ulong)(uint)gp.Id);
+                e.WriteUInt(SaveSections.PileField.Item, gp.Item);
+                e.WriteUInt(SaveSections.PileField.Count, gp.Count);
+                e.WriteInt(SaveSections.PileField.X, gp.Position.X);
+                e.WriteInt(SaveSections.PileField.Y, gp.Position.Y);
+                e.WriteInt(SaveSections.PileField.ExpireTick, gp.ExpireTick);
+                e.WriteInt(SaveSections.PileField.PickupTick, gp.PickupTick);
+                e.EndRecord(mark);
+            }
+
             var header = new SaveHeader(SaveModule.FormatVersion, SaveModule.BuildVersion, number, d.Tick, dateUnixMs);
             var sections = new List<SaveSection>
             {
@@ -430,6 +468,7 @@ namespace Orpheus.Save
             int generatorVersion = 0;
             byte[] sha = Array.Empty<byte>();
             int nextId = 1;
+            int nextPileId = 1;
             int worldTime = 0;
             var r = new RecordReader(file.Section(SaveSections.World));
             while (r.Next())
@@ -459,6 +498,9 @@ namespace Orpheus.Save
                         break;
                     case SaveSections.WorldField.NextEntityId:
                         nextId = r.UIntAsInt();
+                        break;
+                    case SaveSections.WorldField.NextPileId:
+                        nextPileId = r.UIntAsInt();
                         break;
                     case SaveSections.WorldField.WorldTime:
                     {
@@ -564,9 +606,22 @@ namespace Orpheus.Save
 
             // СУЩЕСТВА.
             var entities = new List<SimEntity>();
+            var piles = new List<GroundPile>();
             r = new RecordReader(file.Section(SaveSections.Creatures));
             while (r.Next())
             {
+                if (r.Field == SaveSections.CreaturesField.Pile)
+                {
+                    GroundPile gp = ReadPile(r.Record(), shape);
+                    if (piles.Count > 0 && gp.Id <= piles[piles.Count - 1].Id)
+                    {
+                        throw new InvalidDataException($"Куча #{gp.Id}: номер не больше предыдущего #{piles[piles.Count - 1].Id}.");
+                    }
+
+                    piles.Add(gp);
+                    continue;
+                }
+
                 if (r.Field != SaveSections.CreaturesField.Entity)
                 {
                     continue;
@@ -607,7 +662,49 @@ namespace Orpheus.Save
 
             return new LoadedWorldState(
                 file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count, characters.ToArray(),
-                file.Header.FormatVersion, worldTime);
+                file.Header.FormatVersion, worldTime, piles.ToArray(), nextPileId);
+        }
+
+        /// <summary>Куча на земле (E2-1, формат 7): предмет обязан быть в таблице, количество — 1…потолок кучи.</summary>
+        private static GroundPile ReadPile(RecordReader r, MapShape shape)
+        {
+            var p = new GroundPile();
+            int x = 0, y = 0;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.PileField.Id:
+                        p.Id = r.UIntAsInt();
+                        break;
+                    case SaveSections.PileField.Item:
+                        p.Item = (byte)r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.PileField.Count:
+                        p.Count = (ushort)r.UIntAsInt(Simulation.PileMaxCount);
+                        break;
+                    case SaveSections.PileField.X:
+                        x = r.IntAsInt();
+                        break;
+                    case SaveSections.PileField.Y:
+                        y = r.IntAsInt();
+                        break;
+                    case SaveSections.PileField.ExpireTick:
+                        p.ExpireTick = r.Int();
+                        break;
+                    case SaveSections.PileField.PickupTick:
+                        p.PickupTick = r.Int();
+                        break;
+                }
+            }
+
+            if (p.Id <= 0 || !ItemTable.Exists(p.Item) || p.Count == 0)
+            {
+                throw new InvalidDataException($"Куча #{p.Id}: предмет {p.Item} × {p.Count} — такого нет.");
+            }
+
+            p.Position = Torus.Wrap(shape, new WorldPos(x, y));
+            return p;
         }
 
         private static CharacterRecord ReadCharacter(RecordReader r, MapShape shape, int index)
@@ -633,9 +730,9 @@ namespace Orpheus.Save
                     case SaveSections.CharacterField.Inv:
                         {
                             ReadOnlySpan<byte> bag = r.Bytes();
-                            if (bag.Length != Inventory.PayloadBytes)
+                            if (bag.Length != Inventory.PayloadBytes && bag.Length != Inventory.LegacyPayloadBytes) // 23 байта — счётчики до формата 7 (E2-1)
                             {
-                                throw new InvalidDataException($"Персонаж № {index}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes}.");
+                                throw new InvalidDataException($"Персонаж № {index}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes} (или {Inventory.LegacyPayloadBytes} до формата 7).");
                             }
 
                             c.Inv = Inventory.ReadPayload(bag);
@@ -846,9 +943,9 @@ namespace Orpheus.Save
                     case SaveSections.EntityField.Inv:
                         {
                             ReadOnlySpan<byte> bag = r.Bytes();
-                            if (bag.Length != Inventory.PayloadBytes)
+                            if (bag.Length != Inventory.PayloadBytes && bag.Length != Inventory.LegacyPayloadBytes) // 23 байта — счётчики до формата 7 (E2-1)
                             {
-                                throw new InvalidDataException($"Сущность #{id}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes}.");
+                                throw new InvalidDataException($"Сущность #{id}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes} (или {Inventory.LegacyPayloadBytes} до формата 7).");
                             }
 
                             inv = Inventory.ReadPayload(bag);

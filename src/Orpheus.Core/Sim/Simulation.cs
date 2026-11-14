@@ -272,12 +272,7 @@ namespace Orpheus.Core.Sim
         /// <summary>Проходимость тайлов мира для движения (тот же делегат, что в такте).</summary>
         public TileSolid Solid => _solid;
 
-        // ---------- Сущности ----------
-
-
-
         // ---------- Ввод ----------
-
 
         /// <summary>Наибольшее число кадров ввода на такт у сетевого персонажа (<see cref="SetFramesAt"/>).</summary>
         public const int MaxFramesPerTick = 8;
@@ -394,6 +389,7 @@ namespace Orpheus.Core.Sim
 
             // 5. Правки мира: одна пачка на чанк за такт.
             ApplyEditBatches(tick);
+            StepItems(tick); // 5.2 (E2-1): заявки на сумку, истечение куч, подбор — после правок (добыча уже на земле)
 
             // 5.5. Пути (1-007): поиски такта — после правок, по миру текущего такта; ровно PathMaxPerTick — детерминизм.
             _paths.RunTick(tick);
