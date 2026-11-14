@@ -38,6 +38,8 @@ namespace Orpheus.Net.Session
         private LocalPrediction? _pred;
         private uint _reconciledTick;
         private bool _reconciledAny;
+        private bool _predLate;      // C-003: предсказание создано после первых кадров ввода — ждём, пока сервер их подтвердит
+        private uint _predLateFrame; // последний кадр, отправленный без предсказания
         private SeamWatch? _watch;
         private long _pollUs;
         private uint _lastMoveFrame;
@@ -173,9 +175,23 @@ namespace Orpheus.Net.Session
             if (_pred == null && PredictionFactory != null)
             {
                 _pred = PredictionFactory(Client); // null — ещё не готово (мир строится), спросим в следующем кадре
+                if (_pred != null && Client.InputsSent > 0)
+                {
+                    // C-003: кадры ввода уже уходили без предсказания, часть — в пути (не подтверждена). Установка по снимку
+                    // с ack старше них поставила бы предсказание в точку «до этих кадров», а в кольце их нет — сервер их
+                    // шагнёт, и каждая сверка даст правку (в паузе — сразу после её снятия). Установку откладываем до
+                    // снимка, подтвердившего последний кадр без предсказания; до тех пор позиция бота — из снимков.
+                    _predLate = true;
+                    _predLateFrame = Client.Frame;
+                }
             }
 
-            if (_pred != null && Client.HasSnapshot && (!_reconciledAny || Client.Latest.Tick != _reconciledTick))
+            if (_predLate && Client.HasSnapshot && (int)(Client.Latest.AckFrame - _predLateFrame) >= 0)
+            {
+                _predLate = false;
+            }
+
+            if (_pred != null && !_predLate && Client.HasSnapshot && (!_reconciledAny || Client.Latest.Tick != _reconciledTick))
             {
                 _reconciledAny = true;
                 _reconciledTick = Client.Latest.Tick;

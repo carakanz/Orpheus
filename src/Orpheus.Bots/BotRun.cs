@@ -193,6 +193,9 @@ namespace Orpheus.Bots
 
         public List<BotStats> Bots { get; } = new List<BotStats>();
 
+        /// <summary>Журнал паузы (C-003, <c>--pause-at</c>): когда появилось предсказание и каждая правка — см. <see cref="BotPause.Log"/>.</summary>
+        public List<string> PauseLog { get; } = new List<string>();
+
         /// <summary>Доля сверок предсказания с расхождением ≤ 0,5 тайла по всем ботам (2.13 п. 1); сверок нет — 0.</summary>
         public double PredWithinHalfTile
         {
@@ -413,6 +416,11 @@ namespace Orpheus.Bots
                 OpenedPort = bots.Length > 0 && bots[0].Client.OpenResult is OpenResultMessage r && r.Opened ? r.Port : -1,
                 DisconnectText = bots.Length > 0 ? bots[0].Client.DisconnectText : null,
             };
+
+            if (pause != null)
+            {
+                report.PauseLog.AddRange(pause.Log);
+            }
 
             for (int i = 0; i < bots.Length; i++)
             {
