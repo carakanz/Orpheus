@@ -219,12 +219,24 @@ namespace Orpheus.Core.Sim
         /// движения</b> (`05` 1.3): непроходимое — не на тайл, который задевает сущность (в том числе своя), непроходимое и
         /// ловушка — не ближе 2 тайлов к врагу (<see cref="SimEntity.KindEnemy"/>). Иначе персонаж, шагнувший на тайл в том же
         /// такте, оказался бы в стене и вышел бы сквозь стену в 1 тайл (backlog [стройка], П по 0-004).
+        /// Запросивший мёртв — false (C-004).
         /// </summary>
-        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag) =>
+        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag)
+        {
+            // Мёртвый не строит и не копает (C-004): запрос от сущности-трупа (5 с до возрождения) — отказ.
+            // Раньше убитый строитель достраивал стены и ставил дверь с места гибели (D08_3_1, такты 1292–1336).
+            // Процесс мира (requester 0 — автозакрытие двери) сущностью не является и проходит.
+            int slot = SlotOf(requester);
+            if (slot >= 0 && !_entities[slot].Alive)
+            {
+                return false;
+            }
+
             // Дверь с записью (1-012) — правка состояния (F/автозакрытие/автооткрытие): существо на тайле или
             // враг рядом не повод отказывать, выталкиванием занимается BeginDoorClose; иначе F у врага ломался бы.
-            Enqueue(tile, floor, obj, hasRecord, record, requester, tag,
+            return Enqueue(tile, floor, obj, hasRecord, record, requester, tag,
                 EditRules.NeedsClearance(obj) && !(obj == ObjectId.Door && hasRecord));
+        }
 
         private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, bool checkCreatures)
         {

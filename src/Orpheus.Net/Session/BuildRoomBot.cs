@@ -76,6 +76,7 @@ namespace Orpheus.Net.Session
         private int _stuckFrames;
         private int _frame;
         private int _prevHealth = -1; // здоровье прошлого кадра — детект нового попадания
+        private bool _dead; // свой персонаж мёртв (здоровье 0 или нет в снимке) — смерть считается один раз
         private Phase _prevStage = Phase.Gather;
         private int _closeOpenTicks; // Close: тактов дверь открыта (F отвергается — враг на тайле, выталкивание блокировано)
         private int _enterStuckTicks; // Enter: тактов позиция не меняется (враг в проёме не пускает)
@@ -130,7 +131,7 @@ namespace Orpheus.Net.Session
         /// <summary>Ячейка стартового деревянного меча (<see cref="Inventory.StartingKit"/> — 3).</summary>
         public const int SwordSlot = 3;
 
-        /// <summary>Смертей своё (пропажа <see cref="SnapshotSelf.Present"/>).</summary>
+        /// <summary>Смертей своё (здоровье 0 или пропажа <see cref="SelfState.Present"/>; каждая — один раз).</summary>
         public int Deaths { get; private set; }
 
         /// <summary>Дожило до рассвета при закрытой двери.</summary>
@@ -233,10 +234,30 @@ namespace Orpheus.Net.Session
             }
 
             SelfState self = client.Latest.Self;
-            if (!self.Present)
+            if (!self.Present || self.Health == 0)
             {
-                Deaths++;
+                // C-004: мёртвый персонаж в снимке ЕСТЬ (Present), здоровье 0 — раньше смерть не замечалась
+                // («смертей 0» при убитом строителе), а сценарий продолжал строить от имени трупа.
+                if (!_dead)
+                {
+                    _dead = true;
+                    Deaths++;
+                }
+
+                _prevHealth = -1;
                 return InputFrame.None; // возрождение — на стороне сервера (1-009)
+            }
+
+            if (_dead)
+            {
+                // Возродился у точки появления мира, а не в комнате: «закрыта и бот внутри» больше не верно —
+                // возвращаемся ко входу (этапы до двери продолжаются как шли: цели считаются от позиции).
+                _dead = false;
+                if (Stage is Phase.Enter or Phase.Close or Phase.WaitDawn)
+                {
+                    Stage = Phase.Enter;
+                    DoorClosed = false;
+                }
             }
 
             if (Stage >= Phase.WaitDawn && DoorClosed && _prevHealth >= 0 && self.Health < _prevHealth)
@@ -248,6 +269,18 @@ namespace Orpheus.Net.Session
                 }
             }
             _prevHealth = self.Health;
+
+            // C-004: самооборона и на добыче/стройке. Сутки ×30 — ночь приходит посреди стройки; без меча
+            // разбойник забивал строителя за 9 ударов (трасса сервера, такты 1028–1292), и «комнату» достраивал труп.
+            // Удар важнее копания: на мече прогресс копания стоит (1-002) и продолжается после.
+            if (Stage < Phase.Enter)
+            {
+                InputFrame? defend = ThreatFrame(client, pos);
+                if (defend != null)
+                {
+                    return defend.Value;
+                }
+            }
 
             if (client.Digging)
             {
@@ -700,10 +733,38 @@ namespace Orpheus.Net.Session
                 return InputFrame.None;
             }
 
+            // Снаружи периметра и не перед дверью (C-004: возродились у точки появления мира) — обход стен:
+            // над/под комнатой сначала вбок, потом по своему столбцу до ряда перед дверью, по нему — к двери.
+            // Жадный шаг «прямо к центру» упирался бы в свою же стену.
+            TileCoord door = DoorTile;
+            TileCoord anchor = AnchorOutside(door);
+            Int2 off = Torus.Delta(_shape, _center, me);
+            int h = RoomSize / 2;
+            if (Math.Max(Math.Abs(off.X), Math.Abs(off.Y)) > h && me != anchor)
+            {
+                TileCoord wp = anchor;
+                if (off.Y <= h)
+                {
+                    wp = Math.Abs(off.X) <= h
+                        ? Torus.Wrap(_shape, new TileCoord(_center.X + (off.X >= 0 ? h + 1 : -(h + 1)), me.Y))
+                        : Torus.Wrap(_shape, new TileCoord(me.X, _center.Y + h + 1));
+                }
+
+                InputFrame? fight = ThreatFrame(client, pos);
+                if (fight != null)
+                {
+                    return fight.Value;
+                }
+
+                // Копаем помехи (скалы, деревья) только вдали от стен: рядом с комнатой молот снёс бы свою же стену.
+                return Math.Max(Math.Abs(off.X), Math.Abs(off.Y)) > h + 1
+                    ? DigOrWalk(client, world, pos, wp)
+                    : WalkFrames(pos, StepDir(pos, TileCenter(wp)));
+            }
+
             // Враг на тайле проёма: ходьба упирается (выталкивание блокировано). F снаружи (chebyshev 1)
             // закрывает дверь и выталкивает врага; замок истёк — автооткрытие открывает проём, входим
             // (UDP Big, 1-026).
-            TileCoord door = DoorTile;
             if (pos == _lastPos && world.World.TryGetBuild(door, out BuildRecord rec) && rec.IsDoorOpen)
             {
                 if (++_enterStuckTicks > 45 && Cheb(me, door) == 1)
@@ -742,6 +803,12 @@ namespace Orpheus.Net.Session
 
             if (!rec.IsDoorOpen)
             {
+                if (!Inside(pos))
+                {
+                    Stage = Phase.Enter; // дверь закрылась, а мы снаружи (C-004): «закрыта» считается только изнутри
+                    return InputFrame.None;
+                }
+
                 DoorClosed = true; // закрыли мы или автозакрытие (30 тактов свободы тайла, `05` 2.1)
                 Stage = Phase.WaitDawn;
                 BuildTicks = Ticks - GatherTicks;
@@ -749,12 +816,12 @@ namespace Orpheus.Net.Session
             }
 
             // F — радиус chebyshev ≤ 1 от двери, тайл под нажавшим — отказ: встаём на тайл комнаты у проёма.
-            TileCoord near = Torus.Wrap(_shape, new TileCoord(door.X, door.Y + 1));
+            TileCoord near = Torus.Wrap(_shape, new TileCoord(door.X, door.Y - 1)); // C-004: было +1 — тайл СНАРУЖИ
             if (++_closeOpenTicks > 45)
             {
                 // F отвергается: враг на тайле двери, выталкивание (E,S,W,N) блокировано тайлом под нами.
                 // Уход в угол по диагонали — тайл у двери освобождается, врага выталкивает (UDP Big, 1-026).
-                near = Torus.Wrap(_shape, new TileCoord(door.X + 1, door.Y + 1));
+                near = Torus.Wrap(_shape, new TileCoord(door.X + 1, door.Y - 1));
             }
 
             client.CloseDoor(door); // каждый кадр: закрытие + замок; запрос не занимает руки (1-028)
@@ -775,8 +842,19 @@ namespace Orpheus.Net.Session
             return HammerFrame(client);
         }
 
+        /// <summary>Свой тайл — внутри комнаты (пол 3 × 3 вокруг центра).</summary>
+        private bool Inside(WorldPos pos) => Cheb(Torus.TileOf(_shape, pos), _center) <= 1;
+
         private InputFrame WaitDawn(NetClient client, WorldPos pos, long nowUs)
         {
+            if (!Inside(pos))
+            {
+                // Ждать рассвета можно только в комнате (C-004): оказались снаружи — ко входу, дверь «не закрыта».
+                DoorClosed = false;
+                Stage = Phase.Enter;
+                return InputFrame.None;
+            }
+
             WorldClock clock = client.WorldTimeClock;
             if (clock.Valid && clock.TicksAt(nowUs) >= DayClock.DawnStartTick)
             {
