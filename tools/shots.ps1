@@ -68,6 +68,8 @@ function Invoke-Shot($scene, [string] $png) {
     if ($scene.width) { $a += @('--shot-width', "$([int]$scene.width)") }
     # Extra client keys of the scene, e.g. "args": ["--paint-demo"] (E1-4).
     if ($scene.args) { $a += @($scene.args | ForEach-Object { "$_" }) }
+    # Time of day of the scene (E1-7): "time": "day" | "dusk" | "night" | "dawn" or a day fraction 0..1.
+    if ($scene.time) { $a += @('--shot-time', "$($scene.time)") }
     $a += @('--shot-size', ("{0}x{1}" -f $width, $height), '-logFile', "`"$log`"")
     # The client runs on a separate invisible desktop (tools\run_hidden.ps1): even with -batchmode the
     # player creates a window, and on the user's desktop that window takes keyboard focus.

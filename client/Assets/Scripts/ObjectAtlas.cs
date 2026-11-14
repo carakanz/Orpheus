@@ -25,6 +25,12 @@ namespace Orpheus.Client
         /// <summary>Имя пятна-тени под персонажами и врагами (рисуется кодом).</summary>
         public const string BlobName = "_blob";
 
+        /// <summary>Имя сплошного белого квадрата: контуры и тени блоков (обрыв) — цветом вершин.</summary>
+        public const string WhiteName = "_white";
+
+        /// <summary>Размер точки листа в долях текстуры (для отступа внутрь куска картинки).</summary>
+        public static Vector2 Texel { get; private set; } = new Vector2(1f / 2048f, 1f / 2048f);
+
         static Entry[] _entries = new Entry[0];
         static bool _tried;
 
@@ -91,8 +97,8 @@ namespace Orpheus.Client
             }
 
             int n = Mathf.Min(set.Names.Length, set.Sprites.Length);
-            var entries = new Entry[n + 1];
-            var textures = new Texture2D[n + 1];
+            var entries = new Entry[n + 2];
+            var textures = new Texture2D[n + 2];
             for (int i = 0; i < n; i++)
             {
                 Sprite s = set.Sprites[i];
@@ -109,6 +115,7 @@ namespace Orpheus.Client
             }
 
             entries[n] = new Entry { Name = BlobName, Width = 1f, Height = 1f, PivotX = 0.5f, PivotY = 0.5f };
+            entries[n + 1] = new Entry { Name = WhiteName, Width = 1f, Height = 1f, PivotX = 0.5f, PivotY = 0.5f };
             _entries = entries;
 
             bool noDevice = SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null;
@@ -121,6 +128,7 @@ namespace Orpheus.Client
             }
 
             textures[n] = BuildBlob();
+            textures[n + 1] = BuildWhite();
             var atlas = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: true)
             {
                 name = "ObjectAtlas",
@@ -141,12 +149,29 @@ namespace Orpheus.Client
                 entries[i].Uv = rects[i];
             }
 
+            Texel = new Vector2(1f / atlas.width, 1f / atlas.height);
+
             Material = new Material(set.ObjectShader) { name = "Objects" };
             Material.SetTexture("_MainTex", atlas);
             ShadowMaterial = new Material(set.ShadowShader) { name = "ObjectShadows" };
             ShadowMaterial.SetTexture("_MainTex", atlas);
             Debug.Log($"[objects] лист {atlas.width}x{atlas.height}, картинок {n} + пятно; шейдеры: {set.ObjectShader.name} " +
                       $"(поддержан: {set.ObjectShader.isSupported}), {set.ShadowShader.name} (поддержан: {set.ShadowShader.isSupported})");
+        }
+
+        static Texture2D BuildWhite()
+        {
+            const int size = 32;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "White" };
+            var px = new Color32[size * size];
+            for (int i = 0; i < px.Length; i++)
+            {
+                px[i] = new Color32(255, 255, 255, 255);
+            }
+
+            tex.SetPixels32(px);
+            tex.Apply(false, false);
+            return tex;
         }
 
         // Мягкое круглое пятно 64 × 64: тень под персонажем (в меше сплющивается в эллипс).

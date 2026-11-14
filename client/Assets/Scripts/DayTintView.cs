@@ -115,11 +115,9 @@ namespace Orpheus.Client
         readonly FloatingOrigin _origin;
         readonly LightIndex _lights;
 
-        readonly Transform _quad;
-        readonly SpriteRenderer _sr;
+        readonly GameObject _quad;
         readonly Material? _material;
         Texture2D? _grid;
-        Sprite? _sprite;
         Color32[] _buf = new Color32[0];
 
         // Штамп текущей сетки: перестройка — только когда изменился прямоугольник камеры или ревизии чанков под ним.
@@ -145,20 +143,30 @@ namespace Orpheus.Client
                 _material = new Material(shader) { name = "DayTint" };
             }
 
-            Sprite white = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f), 1f);
-            GameObject go = new GameObject("DayTint");
-            go.transform.SetParent(camera.transform, false);
-            go.transform.localPosition = new Vector3(0f, 0f, 5f); // перед камерой (камера на z = −10)
-            _sr = go.AddComponent<SpriteRenderer>();
-            _sr.sprite = white;
-            _sr.sortingOrder = WorldView.TintOrder; // выше земли, объектов «с высотой» и существ
-            _sr.enabled = _material != null;
-            if (_material != null)
+            // Большой квадрат перед камерой (едет с ней, закрывает любой обзор); место точки в сетке шейдер берёт по
+            // координате мира (_GridRect) — слой не зависит от размера окна и отношения сторон кадра (E1-7).
+            if (Current != null && Current._quad != null)
             {
-                _sr.sharedMaterial = _material; // иначе SpriteRenderer возьмёт Sprites/Default и нарисует белый квадрат
+                UnityEngine.Object.Destroy(Current._quad); // новый мир (повторный вход) — прежний слой убрать, иначе тон умножится дважды
             }
 
-            _quad = go.transform;
+            _quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            _quad.name = "DayTint";
+            UnityEngine.Object.Destroy(_quad.GetComponent<Collider>());
+            _quad.transform.SetParent(camera.transform, false);
+            _quad.transform.localPosition = new Vector3(0f, 0f, 5f); // перед камерой (камера на z = −10)
+            _quad.transform.localScale = new Vector3(600f, 600f, 1f);
+            var mr = _quad.GetComponent<MeshRenderer>();
+            mr.sortingOrder = WorldView.TintOrder; // выше земли, объектов «с высотой» и существ
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            mr.enabled = _material != null;
+            if (_material != null)
+            {
+                mr.sharedMaterial = _material;
+            }
+
             Current = this;
         }
 
@@ -209,7 +217,13 @@ namespace Orpheus.Client
             _material.SetFloat("_Day", day);
             _material.SetVector("_Sky", new Vector4(sky.r, sky.g, sky.b, 1f));       // векторы: цвет — уже множитель, без пересчёта гаммы
             _material.SetVector("_Fire", new Vector4(FireTone.r, FireTone.g, FireTone.b, 1f));
-            _quad.localScale = new Vector3(2f * hw, 2f * hh, 1f);
+
+            // Прямоугольник сетки в координатах Unity: точка сетки (c, r) — центр тайла (lastX − (cols − 1 − c) × step,
+            // lastY − r × step); строка 0 — низ.
+            Vector3 corner = _origin.ToUnity(Torus.CornerOf(a)); // левый верхний угол тайла a
+            float x0 = corner.x + (w - 2 - (cols - 1) * step) + 0.5f - 0.5f * step;
+            float y0 = corner.y - (h - 2) - 0.5f - 0.5f * step;
+            _material.SetVector("_GridRect", new Vector4(x0, y0, 1f / (cols * step), 1f / (rows * step)));
         }
 
         /// <summary>Штамп сетки: геометрия + ревизии чанков под прямоугольником (перестройка — только при изменении).</summary>
@@ -232,7 +246,7 @@ namespace Orpheus.Client
         {
             if (_grid == null || _grid.width != cols || _grid.height != rows)
             {
-                _grid = new Texture2D(cols, rows, TextureFormat.ARGB32, false)
+                _grid = new Texture2D(cols, rows, TextureFormat.ARGB32, false, true)
                 {
                     name = "DayTintGrid",
                     filterMode = FilterMode.Bilinear,
@@ -260,15 +274,7 @@ namespace Orpheus.Client
             _grid.SetPixels32(_buf);
             _grid.Apply(false);
 
-            // SpriteRenderer подставляет в шейдер текстуру своего спрайта — спрайт строим из самой сетки
-            // (extrude 0: без обводки краёв, билинейная фильтрация даёт мягкий свет источников).
-            if (_sprite != null)
-            {
-                UnityEngine.Object.Destroy(_sprite);
-            }
-
-            _sprite = Sprite.Create(_grid, new Rect(0f, 0f, cols, rows), new Vector2(0.5f, 0.5f), 1f, 0u);
-            _sr.sprite = _sprite;
+            _material!.SetTexture("_MainTex", _grid);
         }
 
         static byte ToByte(int x1024) => (byte)(x1024 <= 0 ? 0 : x1024 >= DayClock.LightScale ? 255 : x1024 * 255 / DayClock.LightScale);

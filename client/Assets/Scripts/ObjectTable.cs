@@ -50,6 +50,22 @@ namespace Orpheus.Client
         /// <summary>Высокий объект: его верх над своим персонажем становится полупрозрачным.</summary>
         public bool Tall;
 
+        /// <summary>
+        /// Блок (обрыв, шаг 1.6): не картинка с опорой, а каменная стенка на весь тайл — верхняя грань, поднятая на
+        /// <see cref="Height"/>, лицо к зрителю (к югу) там, где южнее блока нет, тёмный контур по свободным краям.
+        /// Куски берутся из картинок <see cref="Top"/> и <see cref="Face"/> по координате тайла (картинка — несколько тайлов).
+        /// </summary>
+        public bool Block;
+        public string Top = "", Face = "";
+
+        /// <summary>Высота блока, тайлов.</summary>
+        public float Height = 1f;
+
+        /// <summary>Цвет контура блока.</summary>
+        public Color32 Outline = new Color32(46, 34, 38, 255);
+
+        internal int TopSprite = -1, FaceSprite = -1, WhiteSprite = -1;
+
         // Заполняет ObjectTable при сборке: номера картинок листа и суммарный вес.
         internal int[] Sprites = new int[0];
         internal float[] Weights = new float[0];
@@ -110,6 +126,12 @@ namespace Orpheus.Client
                 Id = ObjectId.Stump, Variants = new[] { V("stump") },
                 ScaleMin = 0.9f, ScaleMax = 1.1f, Jitter = 0.15f, Flip = true, Shadow = 0.8f,
             },
+            // Обрыв (шаг 1.6): стенка-граница, не копается и не проходится.
+            new ObjectLook
+            {
+                Id = ObjectId.Cliff, Block = true, Top = "cliff_top", Face = "cliff_face", Height = 1.4f, Shadow = 1f,
+                Tint = new Color32(232, 222, 206, 255),
+            },
             // Костёр и факел: своих картинок в наборе нет (заказать на Мак) — пень, окрашенный огнём; круг света — DayTintView (E1-8).
             new ObjectLook
             {
@@ -142,6 +164,12 @@ namespace Orpheus.Client
                     {
                         yield return v.Sprite;
                     }
+                }
+
+                if (look.Block)
+                {
+                    if (seen.Add(look.Top)) yield return look.Top;
+                    if (seen.Add(look.Face)) yield return look.Face;
                 }
             }
         }
@@ -177,7 +205,18 @@ namespace Orpheus.Client
                 look.Sprites = sprites.ToArray();
                 look.Weights = weights.ToArray();
                 look.TotalWeight = total;
-                if (sprites.Count == 0)
+                if (look.Block)
+                {
+                    look.TopSprite = ObjectAtlas.Find(look.Top);
+                    look.FaceSprite = ObjectAtlas.Find(look.Face);
+                    look.WhiteSprite = ObjectAtlas.Find(ObjectAtlas.WhiteName);
+                    if (look.TopSprite < 0 || look.FaceSprite < 0 || look.WhiteSprite < 0)
+                    {
+                        Debug.LogWarning($"[objects] у блока {look.Id} нет картинок {look.Top} / {look.Face} — не рисуется");
+                        continue;
+                    }
+                }
+                else if (sprites.Count == 0)
                 {
                     Debug.LogWarning($"[objects] у объекта {look.Id} нет ни одной картинки — рисуется по-старому");
                     continue;
@@ -221,6 +260,19 @@ namespace Orpheus.Client
             }
 
             return null;
+        }
+
+        /// <summary>Объект — блок (обрыв)?</summary>
+        public static bool IsBlock(ushort raw)
+        {
+            if (raw == ObjectId.Empty || ObjectId.IsPart(raw))
+            {
+                return false;
+            }
+
+            int id = ObjectId.IdOf(raw);
+            ObjectLook[]? rows = id < _byId.Length ? _byId[id] : null;
+            return rows != null && rows[0].Block;
         }
 
         /// <summary>Есть ли номер в таблице на какой-нибудь земле (тогда плитки Tilemap у него нет).</summary>

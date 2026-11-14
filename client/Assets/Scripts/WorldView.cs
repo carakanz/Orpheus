@@ -88,6 +88,9 @@ namespace Orpheus.Client
             /// <summary>Объектов в строке сейчас.</summary>
             public readonly int[] RowCounts = new int[Size];
 
+            /// <summary>В строке есть блоки (обрыв): их вид зависит от соседей, в том числе в соседнем чанке.</summary>
+            public readonly bool[] RowBlocks = new bool[Size];
+
             /// <summary>Меш теней чанка (рисуется камерой теней).</summary>
             public Mesh Shadows = null!;
             public MeshRenderer ShadowRenderer = null!;
@@ -102,7 +105,7 @@ namespace Orpheus.Client
         readonly Transform _grid;
         readonly TileBase _meadow, _stone, _tree, _rock;
         readonly GroundMesh _ground;
-        readonly ObjectMesh _objects = new ObjectMesh();
+        readonly ObjectMesh _objects;
         readonly bool[] _rowDirty = new bool[Size];
         readonly Material? _groundMaterial;
         readonly TileBase?[] _floorBuf = new TileBase?[Size * Size];
@@ -129,6 +132,7 @@ namespace Orpheus.Client
             _tree = tree;
             _rock = rock;
             _ground = new GroundMesh(world);
+            _objects = new ObjectMesh(world);
             _groundMaterial = GroundAtlas.Material;
             ObjectAtlas.Ensure();
         }
@@ -448,15 +452,7 @@ namespace Orpheus.Client
                 }
 
                 any = true;
-                if (node.RowMeshes[ly] == null && (chunk == null || !RowHasObjects(chunk, ly)))
-                {
-                    node.RowCounts[ly] = 0;
-                    continue; // пустая строка без отрисовщика — нечего собирать
-                }
-
-                int n = _objects.BuildRow(chunk, node.Coord, ly, RowMesh(node, ly));
-                node.RowCounts[ly] = n;
-                node.Rows[ly]!.enabled = n > 0 && ObjectAtlas.Material != null;
+                BuildRow(node, chunk, ly);
             }
 
             if (!any)
@@ -467,6 +463,56 @@ namespace Orpheus.Client
             int shadows = _objects.BuildShadows(chunk, node.Coord, node.Shadows);
             node.ShadowRenderer.enabled = shadows > 0 && ObjectAtlas.ShadowMaterial != null;
             ApplyRowOrders(node);
+        }
+
+        void BuildRow(ChunkNode node, Chunk? chunk, int ly)
+        {
+            if (node.RowMeshes[ly] == null && (chunk == null || !RowHasObjects(chunk, ly)))
+            {
+                node.RowCounts[ly] = 0;
+                node.RowBlocks[ly] = false;
+                return; // пустая строка без отрисовщика — нечего собирать
+            }
+
+            int n = _objects.BuildRow(chunk, node.Coord, ly, RowMesh(node, ly));
+            node.RowCounts[ly] = n;
+            node.RowBlocks[ly] = n > 0 && _objects.RowHadBlocks;
+            node.Rows[ly]!.enabled = n > 0 && ObjectAtlas.Material != null;
+        }
+
+        // Пришёл чанк-сосед (dx, dy от near): строки near с блоками у общего края собрать заново — контур и лицо
+        // обрыва зависят от тайлов за краем.
+        void RebuildEdgeBlocks(ChunkNode near, int dx, int dy)
+        {
+            Chunk? chunk = _world.FindChunk(near.Coord);
+            if (chunk == null)
+            {
+                return;
+            }
+
+            int from = dy > 0 ? Size - 1 : 0, to = dy < 0 ? 0 : Size - 1;
+            bool any = false;
+            for (int ly = from; ly <= to; ly++)
+            {
+                if (!near.RowBlocks[ly])
+                {
+                    continue;
+                }
+
+                if (dx != 0 && !ObjectTable.IsBlock(near.Objs[Chunk.IndexOf(dx > 0 ? Size - 1 : 0, ly)]))
+                {
+                    continue; // у бокового края в этой строке блока нет
+                }
+
+                BuildRow(near, chunk, ly);
+                any = true;
+            }
+
+            if (any)
+            {
+                near.OrderedY = float.NaN;
+                ApplyRowOrders(near);
+            }
         }
 
         static bool RowHasObjects(Chunk chunk, int ly)
@@ -576,9 +622,10 @@ namespace Orpheus.Client
                 {
                     for (int dx = -1; dx <= 1; dx++)
                     {
-                        if ((dx != 0 || dy != 0) && TryNeighbour(c, dx, dy, out ChunkNode near) && near.HaloIncomplete)
+                        if ((dx != 0 || dy != 0) && TryNeighbour(c, dx, dy, out ChunkNode near))
                         {
-                            near.GroundDirty = true;
+                            near.GroundDirty |= near.HaloIncomplete;
+                            RebuildEdgeBlocks(near, -dx, -dy); // новый чанк от соседа — в сторону (−dx, −dy)
                         }
                     }
                 }

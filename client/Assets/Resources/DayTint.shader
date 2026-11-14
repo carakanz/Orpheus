@@ -13,6 +13,7 @@ Shader "Orpheus/DayTint"
         _Day ("Daylight (0 night .. 1 day)", Range(0, 1)) = 1
         _Sky ("Sky tone (multiplier)", Vector) = (1, 1, 1, 1)
         _Fire ("Fire light tone (multiplier)", Vector) = (1, 0.88, 0.66, 1)
+        _GridRect ("Grid rect in world", Vector) = (0, 0, 1, 1)
     }
 
     HLSLINCLUDE
@@ -25,6 +26,7 @@ Shader "Orpheus/DayTint"
         float _Day;
         float4 _Sky;
         float4 _Fire;
+        float4 _GridRect; // xy — левый нижний угол сетки в мире, zw — 1 / размер
     CBUFFER_END
 
     struct Attributes
@@ -42,8 +44,9 @@ Shader "Orpheus/DayTint"
     Varyings Vert(Attributes v)
     {
         Varyings o;
-        o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
-        o.uv = v.uv;
+        float3 wp = TransformObjectToWorld(v.positionOS.xyz);
+        o.positionCS = TransformWorldToHClip(wp);
+        o.uv = (wp.xy - _GridRect.xy) * _GridRect.zw;
         return o;
     }
 

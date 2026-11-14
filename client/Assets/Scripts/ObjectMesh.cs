@@ -29,6 +29,30 @@ namespace Orpheus.Client
             public ObjectLook Look;
             public ObjectTable.Placement Place;
             public float X, Y; // опора в узле чанка
+            public int Lx;     // столбец тайла в чанке
+            public int Near;   // блок: соседи-блоки (биты North…SouthWest)
+        }
+
+        const int North = 1, East = 2, South = 4, West = 8, SouthEast = 16, SouthWest = 32;
+
+        readonly WorldModel _world;
+        readonly MapShape _map;
+
+        public ObjectMesh(WorldModel world)
+        {
+            _world = world;
+            _map = world.Shape;
+        }
+
+        /// <summary>В последней собранной строке были блоки (их вид зависит от соседних тайлов и чанков).</summary>
+        public bool RowHadBlocks { get; private set; }
+
+        // Тайл мира (в том числе в соседнем чанке) — блок? Чанка нет (сеть: ещё не пришёл) — нет.
+        bool BlockAt(int tx, int ty)
+        {
+            TileCoord t = Torus.Wrap(_map, new TileCoord(tx, ty));
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_map, t));
+            return chunk != null && ObjectTable.IsBlock(chunk.GetObject(Chunk.IndexOf(t.X & (Size - 1), t.Y & (Size - 1))));
         }
 
         readonly Item[] _items = new Item[Size];
@@ -53,6 +77,7 @@ namespace Orpheus.Client
         {
             TileCoord corner = Torus.CornerOf(c);
             int n = 0;
+            RowHadBlocks = false;
             for (int lx = 0; lx < Size; lx++)
             {
                 int index = Chunk.IndexOf(lx, ly);
@@ -64,9 +89,26 @@ namespace Orpheus.Client
 
                 Item it;
                 it.Look = look;
-                it.Place = ObjectTable.Place(look, corner.X + lx, corner.Y + ly);
-                it.X = lx + 0.5f + it.Place.Dx;
-                it.Y = -ly - 1f + ObjectTable.BaseLift + it.Place.Dy;
+                it.Lx = lx;
+                it.Near = 0;
+                if (look.Block)
+                {
+                    int tx = corner.X + lx, ty = corner.Y + ly;
+                    it.Place = default;
+                    it.X = lx + 0.5f;
+                    it.Y = -ly - 1f; // опора блока — нижний край тайла
+                    it.Near = (BlockAt(tx, ty - 1) ? North : 0) | (BlockAt(tx + 1, ty) ? East : 0)
+                        | (BlockAt(tx, ty + 1) ? South : 0) | (BlockAt(tx - 1, ty) ? West : 0)
+                        | (BlockAt(tx + 1, ty + 1) ? SouthEast : 0) | (BlockAt(tx - 1, ty + 1) ? SouthWest : 0);
+                    RowHadBlocks = true;
+                }
+                else
+                {
+                    it.Place = ObjectTable.Place(look, corner.X + lx, corner.Y + ly);
+                    it.X = lx + 0.5f + it.Place.Dx;
+                    it.Y = -ly - 1f + ObjectTable.BaseLift + it.Place.Dy;
+                }
+
                 int at = n++;
                 while (at > 0 && _items[at - 1].Y < it.Y) // вставка: выше на экране — раньше
                 {
@@ -91,16 +133,28 @@ namespace Orpheus.Client
 
         void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, in ObjectAtlas.Entry e, bool flip, Color32 color)
         {
+            float u0 = flip ? e.Uv.xMax : e.Uv.xMin, u1 = flip ? e.Uv.xMin : e.Uv.xMax;
+            Quad(a, b, c, d, u0, e.Uv.yMin, u1, e.Uv.yMax, color);
+        }
+
+        // Прямоугольник (x0, y0)…(x1, y1) сплошным цветом (белый квадрат листа × цвет вершин).
+        void Solid(float x0, float y0, float x1, float y1, in ObjectAtlas.Entry white, Color32 color)
+        {
+            Vector2 m = white.Uv.center;
+            Quad(new Vector3(x0, y0), new Vector3(x1, y0), new Vector3(x0, y1), new Vector3(x1, y1), m.x, m.y, m.x, m.y, color);
+        }
+
+        void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float u0, float v0, float u1, float v1, Color32 color)
+        {
             int v = _pos.Count;
             _pos.Add(a); // левый нижний, правый нижний, левый верхний, правый верхний
             _pos.Add(b);
             _pos.Add(c);
             _pos.Add(d);
-            float u0 = flip ? e.Uv.xMax : e.Uv.xMin, u1 = flip ? e.Uv.xMin : e.Uv.xMax;
-            _uv.Add(new Vector2(u0, e.Uv.yMin));
-            _uv.Add(new Vector2(u1, e.Uv.yMin));
-            _uv.Add(new Vector2(u0, e.Uv.yMax));
-            _uv.Add(new Vector2(u1, e.Uv.yMax));
+            _uv.Add(new Vector2(u0, v0));
+            _uv.Add(new Vector2(u1, v0));
+            _uv.Add(new Vector2(u0, v1));
+            _uv.Add(new Vector2(u1, v1));
             _color.Add(color);
             _color.Add(color);
             _color.Add(color);
@@ -126,9 +180,16 @@ namespace Orpheus.Client
 
             Begin();
             ObjectAtlas.Entry[] entries = ObjectAtlas.Entries;
+            TileCoord corner = Torus.CornerOf(c);
             for (int i = 0; i < n; i++)
             {
                 ref Item it = ref _items[i];
+                if (it.Look.Block)
+                {
+                    Block(it, corner.X + it.Lx, corner.Y + ly, entries);
+                    continue;
+                }
+
                 ref ObjectAtlas.Entry e = ref entries[it.Place.Sprite];
                 float s = it.Place.Scale;
                 float x0 = it.X - e.PivotX * s, x1 = x0 + e.Width * s;
@@ -141,12 +202,75 @@ namespace Orpheus.Client
                 _info.Add(info);
             }
 
+            while (_info.Count < _pos.Count)
+            {
+                _info.Add(Vector2.zero); // квадраты блоков: не высокие
+            }
+
             mesh.SetVertices(_pos);
             mesh.SetUVs(0, _uv);
             mesh.SetUVs(1, _info);
             mesh.SetColors(_color);
             mesh.SetTriangles(_index, 0, calculateBounds: true);
             return n;
+        }
+
+        // Кусок картинки на тайл мира (tx, ty): картинка покрывает nx × ny тайлов; отступ внутрь на 1,5 точки — без затёков.
+        static void TileUv(in ObjectAtlas.Entry e, int tx, int ty, bool rows, out float u0, out float v0, out float u1, out float v1)
+        {
+            int nx = Mathf.Max(1, Mathf.RoundToInt(e.Width));
+            int ny = rows ? Mathf.Max(1, Mathf.RoundToInt(e.Height)) : 1;
+            int ix = ((tx % nx) + nx) % nx, iy = ((ty % ny) + ny) % ny;
+            Vector2 pad = ObjectAtlas.Texel * 1.5f;
+            u0 = e.Uv.xMin + e.Uv.width * ix / nx + pad.x;
+            u1 = e.Uv.xMin + e.Uv.width * (ix + 1) / nx - pad.x;
+            v1 = e.Uv.yMax - e.Uv.height * iy / ny - pad.y; // строка 0 картинки — верх
+            v0 = e.Uv.yMax - e.Uv.height * (iy + 1) / ny + pad.y;
+        }
+
+        // Блок (обрыв): лицо к югу, верхняя грань выше на Height, тёмный контур по свободным краям.
+        void Block(in Item it, int tx, int ty, ObjectAtlas.Entry[] entries)
+        {
+            ObjectLook look = it.Look;
+            ref ObjectAtlas.Entry white = ref entries[look.WhiteSprite];
+            float x0 = it.Lx, x1 = x0 + 1f, yb = it.Y, yt = yb + 1f, h = look.Height;
+            const float o = 0.09f; // толщина контура, тайлов
+            Color32 tint = look.Tint, line = look.Outline;
+            bool n = (it.Near & North) != 0, e = (it.Near & East) != 0, s = (it.Near & South) != 0, w = (it.Near & West) != 0;
+            bool faceW = w && (it.Near & SouthWest) == 0, faceE = e && (it.Near & SouthEast) == 0; // у соседа сбоку тоже лицо
+            float u0, v0, u1, v1;
+            if (!s)
+            {
+                TileUv(entries[look.FaceSprite], tx, 0, false, out u0, out v0, out u1, out v1);
+                Quad(new Vector3(x0, yb), new Vector3(x1, yb), new Vector3(x0, yb + h), new Vector3(x1, yb + h), u0, v0, u1, v1, tint);
+            }
+
+            TileUv(entries[look.TopSprite], tx, ty, true, out u0, out v0, out u1, out v1);
+            Quad(new Vector3(x0, yb + h), new Vector3(x1, yb + h), new Vector3(x0, yt + h), new Vector3(x1, yt + h), u0, v0, u1, v1, tint);
+
+            if (!s)
+            {
+                Solid(x0, yb, x1, yb + o, white, line);                              // подошва лица
+                Solid(x0, yb + h - o * 0.5f, x1, yb + h + o * 0.5f, white, line);      // кромка между верхом и лицом
+                if (!faceW) Solid(x0, yb, x0 + o, yb + h, white, line);
+                if (!faceE) Solid(x1 - o, yb, x1, yb + h, white, line);
+            }
+
+            if (!n) Solid(x0, yt + h - o, x1, yt + h, white, line);
+            if (!w) Solid(x0, yb + h, x0 + o, yt + h, white, line);
+            if (!e) Solid(x1 - o, yb + h, x1, yt + h, white, line);
+        }
+
+        // Тень блока: след тайла, сдвинутый по высоте вправо-вниз (и на полпути — чтобы тень была сплошной).
+        void BlockShadow(in Item it, ObjectAtlas.Entry[] entries)
+        {
+            ref ObjectAtlas.Entry white = ref entries[it.Look.WhiteSprite];
+            float h = it.Look.Height * it.Look.Shadow;
+            float dx = h * ShearX * 0.6f, dy = -h * ShearY;
+            float x0 = it.Lx, yb = it.Y;
+            var black = new Color32(0, 0, 0, 255);
+            Solid(x0 + dx * 0.5f, yb + dy * 0.5f, x0 + 1f + dx * 0.5f, yb + 1f + dy * 0.5f, white, black);
+            Solid(x0 + dx, yb + dy, x0 + 1f + dx, yb + 1f + dy, white, black);
         }
 
         /// <summary>Меш теней всего чанка; возвращает число теней.</summary>
@@ -171,6 +295,13 @@ namespace Orpheus.Client
                     float k = it.Look.Shadow;
                     if (k <= 0f)
                     {
+                        continue;
+                    }
+
+                    if (it.Look.Block)
+                    {
+                        BlockShadow(it, entries);
+                        shadows++;
                         continue;
                     }
 

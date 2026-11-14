@@ -12,7 +12,7 @@ namespace Orpheus.Editor
 {
     /// <summary>
     /// Картинки объектов «с высотой» (E1-7): <c>Assets/Art/**/[TEMP_]tree_*.png</c>, <c>bush_*</c>, <c>boulder_*</c>,
-    /// <c>ore_*</c>, <c>stump*</c>.
+    /// <c>ore_*</c>, <c>stump*</c>, а также верх и лицо обрыва <c>cliff_top</c>, <c>cliff_face</c> (шаг 1.6).
     /// <list type="bullet">
     /// <item>Импорт — всегда одинаковый, и для новых/заменённых файлов с Мака: спрайт, 128 px на единицу, опора внизу по
     /// центру, без сжатия, читаемый (клиент при запуске собирает из них один лист — <see cref="ObjectAtlas"/>).</item>
@@ -25,7 +25,7 @@ namespace Orpheus.Editor
         const string ArtDir = "Assets/Art";
         const string SetPath = "Assets/Resources/" + ObjectSet.ResourceName + ".asset";
         const string ShaderDir = "Assets/Shaders/";
-        static readonly string[] Prefixes = { "tree_", "bush_", "boulder_", "ore_", "stump" };
+        static readonly string[] Prefixes = { "tree_", "bush_", "boulder_", "ore_", "stump", "cliff_top", "cliff_face" };
         static readonly string[] Shaders = { "Objects.shader", "Shadow.shader", "ShadowComposite.shader" };
 
         /// <summary>Перед сборкой набор собирается заново; без шейдеров сборка падает, а не выходит без леса и теней.</summary>
@@ -41,7 +41,7 @@ namespace Orpheus.Editor
         }
 
         // Смена числа заставляет Unity заново импортировать картинки (их .meta мог создать общий импорт с опорой в центре).
-        public override uint GetVersion() => 1;
+        public override uint GetVersion() => 2;
 
         /// <summary>Имя вида по пути: «…/TEMP_tree_oak_a.png» → «tree_oak_a»; не объект — null.</summary>
         static string KeyOf(string path)
