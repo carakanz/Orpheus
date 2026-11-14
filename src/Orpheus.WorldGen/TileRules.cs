@@ -109,17 +109,17 @@ namespace Orpheus.WorldGen
             Array.Empty<ScatterRow>(), Array.Empty<ScatterRow>(),
             new[] { new GroupRow(ObjectId.Bush, 400, 2, 4), new GroupRow(ObjectId.Rock, 150, 1, 3) });
 
-        /// <summary>Горы: камень; валуны кучками 8 % площади (гранит — 30 % из них) и по 1–3; медь 12 на 1000; редкие деревья.</summary>
+        /// <summary>Горы: камень; валуны кучками 8 % площади (гранит — 30 % из них) и по 1–3; редкие деревья. Медь — пятнами (<see cref="DepositStage"/>, E2-6), не россыпью.</summary>
         public static readonly BiomeTileRule Mountain = new BiomeTileRule(Biome.Mountain, FloorId.Stone, 8, 30,
             Array.Empty<ScatterRow>(),
-            new[] { ScatterRow.PerThousand(ObjectId.Ore, 12) },
+            Array.Empty<ScatterRow>(),
             new[] { new GroupRow(ObjectId.Rock, 400, 1, 3), new GroupRow(ObjectId.Tree, 120, 2, 4) },
             fineMass: true);
 
-        /// <summary>Пещеры: камень; гряды 20 % (гранит 40 % из них); сталагмит 30, медь 10 на 1000.</summary>
+        /// <summary>Пещеры: камень; гряды 20 % (гранит 40 % из них); сталагмит 30 на 1000. Медь — пятнами (<see cref="DepositStage"/>).</summary>
         public static readonly BiomeTileRule Cave = new BiomeTileRule(Biome.Cave, FloorId.Stone, 20, 40,
             new[] { ScatterRow.PerThousand(ObjectId.Rock, 30) },
-            new[] { ScatterRow.PerThousand(ObjectId.Ore, 10) });
+            Array.Empty<ScatterRow>());
 
         private static readonly BiomeTileRule?[] ByBiome = Build();
 

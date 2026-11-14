@@ -177,7 +177,7 @@ namespace Orpheus.Tools.GenPreview
                 }
 
                 string name = hex ? part.Substring(2).ToUpperInvariant() : part;
-                string path = Path.Combine(pngDir, $"E1-6b_map_{(hex ? "0x" : "")}{name}.png");
+                string path = Path.Combine(pngDir, $"E2-6_map_{(hex ? "0x" : "")}{name}.png");
                 Program.WritePng(path, rgb, w, w);
                 Console.Error.WriteLine($"карта: {Path.GetFullPath(path)}");
             }
@@ -198,7 +198,18 @@ namespace Orpheus.Tools.GenPreview
                 t.ComponentsJoined.ToString(ci), t.TilesCarved.ToString(ci), t.CliffCellsOpened.ToString(ci), t.FordTiles.ToString(ci),
                 HearthStage.CountCopper(t).ToString(ci),
                 sh.Pieces.ToString(ci), sh.Longest.ToString(ci), sh.Shortest.ToString(ci), sh.MaxDepth.ToString(ci), sh.ThinPercent.ToString("F1", ci),
-                sh.LongestStraight.ToString(ci), sh.StraightOver8Percent.ToString("F2", ci), sh.NearParallelPercent.ToString("F2", ci)));
+                sh.LongestStraight.ToString(ci), sh.StraightOver8Percent.ToString("F2", ci), sh.NearParallelPercent.ToString("F2", ci),
+                DepositText(t, ObjectId.Ore, null), DepositText(t, ObjectId.Rock, DepositStats.MaskOf(t, DepositKind.Rocks)),
+                DepositText(t, ObjectId.Granite, DepositStats.MaskOf(t, DepositKind.Granite)), t.CopperStamp.HasValue ? "штамп" : "-"));
+        }
+
+        // Залежи (E2-6): пятен, тайлов, наименьшее–наибольшее пятно, размах, вне пятен, доля тайлов с ≥ 2 соседями, в 600 от Очага.
+        private static string DepositText(TileWorld t, ushort obj, bool[]? only)
+        {
+            var ci = CultureInfo.InvariantCulture;
+            DepositStats d = DepositStats.Of(t, obj, only);
+            return string.Join("/", d.Patches.ToString(ci), d.Tiles.ToString(ci), d.Smallest.ToString(ci) + "-" + d.Largest.ToString(ci),
+                d.WidestSpan.ToString(ci), d.Loose.ToString(ci), d.ClusteredPercent.ToString("F1", ci), d.Within600.ToString(ci));
         }
 
         private static byte[] Color(byte floor, ushort obj, byte biome)
@@ -209,8 +220,8 @@ namespace Orpheus.Tools.GenPreview
                 case ObjectId.Tree: return biome == Biome.Forest ? new byte[] { 0x12, 0x40, 0x18 } : new byte[] { 0x1E, 0x5A, 0x1C };
                 case ObjectId.Bush: return new byte[] { 0x8E, 0x3A, 0x6A };
                 case ObjectId.Rock: return new byte[] { 0x50, 0x4C, 0x48 };
-                case ObjectId.Granite: return new byte[] { 0x2A, 0x2A, 0x36 };
-                case ObjectId.Ore: return new byte[] { 0xE0, 0x7A, 0x20 };
+                case ObjectId.Granite: return new byte[] { 0x30, 0x24, 0x44 };
+                case ObjectId.Ore: return new byte[] { 0xFF, 0x7A, 0x10 };
                 case ObjectId.Empty: break;
                 default: return new byte[] { 0xFF, 0x00, 0xFF };
             }

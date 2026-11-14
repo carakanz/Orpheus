@@ -55,6 +55,9 @@ namespace Orpheus.WorldGen
         /// <summary>Этап 7: поставлен штамп леса.</summary>
         public bool ForestStamped { get; set; }
 
+        /// <summary>Пятна залежей (E2-6): сетка <see cref="DepositStage"/> и штамп меди у Очага.</summary>
+        public System.Collections.Generic.List<DepositPatch> Deposits { get; } = new System.Collections.Generic.List<DepositPatch>();
+
         /// <summary>Этап 7: центр штампа меди (null — своей меди хватило).</summary>
         public TileCoord? CopperStamp { get; set; }
 
@@ -134,7 +137,7 @@ namespace Orpheus.WorldGen
 
         /// <summary>
         /// Этап 11 по макрокарте (после этапа 7): биом тайлов, затем вода и берег (<see cref="WaterStage"/>), тропы
-        /// (<see cref="TrailStage"/>), обрывы (<see cref="CliffStage"/>), пол и объекты (<see cref="FloraStage"/>).
+        /// (<see cref="TrailStage"/>), обрывы (<see cref="CliffStage"/>), пол и объекты (<see cref="FloraStage"/>), залежи пятнами (<see cref="DepositStage"/>).
         /// </summary>
         public static void Run(TileWorld t)
         {
@@ -155,6 +158,7 @@ namespace Orpheus.WorldGen
             TrailStage.Run(t);
             CliffStage.Run(t);
             FloraStage.Run(t);
+            DepositStage.Run(t);
         }
 
         /// <summary>Число 0…99 999 из старших 32 бит хэша тайла (равномерно с точностью 2⁻³²).</summary>
