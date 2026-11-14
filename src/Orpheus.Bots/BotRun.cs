@@ -473,6 +473,7 @@ namespace Orpheus.Bots
                                    $"стройка {build.BuildTicks} тиков, урон за дверью {build.DamageThroughDoor} кадров, смертей {build.Deaths}, рассвет {(build.DawnReached ? "дождались" : "нет")}, ударов {build.AttacksIssued}" +
                                    $"{(build.FailReason != null ? $", отказ: {build.FailReason}" : "")}" +
                                    $"; отказов {build.Refused} ({build.RefusalsText})" +
+                                   $"; дверь: {build.DoorTrace}" +
                                    $"{(build.DamageThroughDoor > 0 ? $"; попадания: {build.DamageDetail}" : "")}";
                 }
 
