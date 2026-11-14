@@ -77,11 +77,12 @@ namespace Orpheus.Save
     public sealed class LoadedWorldState
     {
         internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks, CharacterRecord[] characters, uint format, int worldTime,
-            GroundPile[] piles, int nextPileId)
+            GroundPile[] piles, int nextPileId, string[] notes)
         {
             Characters = characters;
             Piles = piles;
             NextPileId = nextPileId;
+            Notes = notes;
             FormatVersion = format;
             Number = number;
             Tick = tick;
@@ -116,8 +117,14 @@ namespace Orpheus.Save
         /// <summary>Кучи на земле по номеру (формат 7, E2-1); у файлов до формата 7 — пусто.</summary>
         public GroundPile[] Piles { get; }
 
-        /// <summary>Следующий номер кучи (формат 7); у старых файлов — 1.</summary>
+        /// <summary>Следующий номер кучи (формат 7); у старых файлов — 1 (плюс кучи остатка старых сумок).</summary>
         public int NextPileId { get; }
+
+        /// <summary>
+        /// Строки для журнала сервера: что при чтении старого сохранения не влезло в ячейки сумки и положено на землю
+        /// (E2-1: перенос формата 6 → 7 ничего не теряет). Обычно пусто.
+        /// </summary>
+        public string[] Notes { get; }
 
         /// <summary>Версия формата прочитанного файла.</summary>
         public uint FormatVersion { get; }
@@ -607,6 +614,8 @@ namespace Orpheus.Save
             // СУЩЕСТВА.
             var entities = new List<SimEntity>();
             var piles = new List<GroundPile>();
+            var overflow = new int[ItemTable.Count];
+            var legacy = new LegacyOverflow();
             r = new RecordReader(file.Section(SaveSections.Creatures));
             while (r.Next())
             {
@@ -627,7 +636,9 @@ namespace Orpheus.Save
                     continue;
                 }
 
-                SimEntity e = ReadEntity(r.Record(), shape);
+                Array.Clear(overflow, 0, overflow.Length);
+                SimEntity e = ReadEntity(r.Record(), shape, overflow);
+                legacy.Take(overflow, e.Mover.Position, $"сущность #{e.Id}");
                 if (entities.Count > 0 && e.Id <= entities[entities.Count - 1].Id)
                 {
                     throw new InvalidDataException($"Сущность #{e.Id}: номер не больше предыдущего #{entities[entities.Count - 1].Id}.");
@@ -648,8 +659,15 @@ namespace Orpheus.Save
                         continue;
                     }
 
-                    CharacterRecord ch = ReadCharacter(r.Record(), shape, characters.Count);
+                    Array.Clear(overflow, 0, overflow.Length);
+                    CharacterRecord ch = ReadCharacter(r.Record(), shape, characters.Count, overflow);
                     CheckCharacter(ch, characters, entities);
+                    if (ch.EntityId == 0)
+                    {
+                        // Персонаж вне мира: остаток — на землю там, где он стоял. У персонажа в мире ту же сумку несёт
+                        // его сущность (остаток уже взят с неё) — второй раз не кладём.
+                        legacy.Take(overflow, ch.Mover.Position, $"персонаж «{ch.Name}»");
+                    }
                     characters.Add(ch);
                 }
             }
@@ -660,9 +678,61 @@ namespace Orpheus.Save
                 world.GetOrCreateChunk(coords[i]).Load(blobs[i], copies[i], revisions[i], changedSinceBase: true);
             }
 
+            // Остаток старых сумок (формат 4–6 → 7, E2-1): кучами на землю, без срока исчезновения — ничего не теряется.
+            nextPileId = Math.Max(nextPileId, piles.Count > 0 ? piles[piles.Count - 1].Id + 1 : 1);
+            string[] notes = legacy.ToPiles(piles, ref nextPileId, file.Header.WorldTick);
+
             return new LoadedWorldState(
                 file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count, characters.ToArray(),
-                file.Header.FormatVersion, worldTime, piles.ToArray(), nextPileId);
+                file.Header.FormatVersion, worldTime, piles.ToArray(), nextPileId, notes);
+        }
+
+        /// <summary>
+        /// Что не влезло в ячейки при чтении сумки-счётчиков старого сохранения (E2-1): копится по мере чтения сущностей
+        /// и персонажей, в конце превращается в кучи у их позиций и строки для журнала сервера.
+        /// </summary>
+        private sealed class LegacyOverflow
+        {
+            private readonly List<(WorldPos Pos, byte Item, int Count, string Who)> _items = new List<(WorldPos, byte, int, string)>();
+
+            public void Take(int[] overflow, WorldPos pos, string who)
+            {
+                for (int item = 0; item < overflow.Length; item++)
+                {
+                    if (overflow[item] > 0)
+                    {
+                        _items.Add((pos, (byte)item, overflow[item], who));
+                    }
+                }
+            }
+
+            public string[] ToPiles(List<GroundPile> piles, ref int nextPileId, long tick)
+            {
+                var notes = new string[_items.Count];
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    (WorldPos pos, byte item, int count, string who) = _items[i];
+                    int first = nextPileId;
+                    for (int left = count; left > 0;)
+                    {
+                        int n = Math.Min(left, Simulation.PileMaxCount);
+                        piles.Add(new GroundPile
+                        {
+                            Id = nextPileId++,
+                            Item = item,
+                            Count = (ushort)n,
+                            Position = pos,
+                            ExpireTick = Simulation.PileNeverExpires,
+                            PickupTick = tick,
+                        });
+                        left -= n;
+                    }
+
+                    notes[i] = $"{who}: старая сумка не влезла в {Inventory.Cells} ячеек — {ItemTable.Get(item).Key} × {count} положено на землю у {pos} (куча № {first}, не исчезает)";
+                }
+
+                return notes;
+            }
         }
 
         /// <summary>Куча на земле (E2-1, формат 7): предмет обязан быть в таблице, количество — 1…потолок кучи.</summary>
@@ -707,7 +777,7 @@ namespace Orpheus.Save
             return p;
         }
 
-        private static CharacterRecord ReadCharacter(RecordReader r, MapShape shape, int index)
+        private static CharacterRecord ReadCharacter(RecordReader r, MapShape shape, int index, int[] overflow)
         {
             var c = new CharacterRecord { Name = string.Empty, Inv = Inventory.StartingKit() }; // сумки в формате 3 нет — стартовый набор (1-002)
             int x = 0;
@@ -735,7 +805,7 @@ namespace Orpheus.Save
                                 throw new InvalidDataException($"Персонаж № {index}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes} (или {Inventory.LegacyPayloadBytes} до формата 7).");
                             }
 
-                            c.Inv = Inventory.ReadPayload(bag);
+                            c.Inv = Inventory.ReadPayload(bag, overflow);
                         }
 
                         break;
@@ -850,7 +920,7 @@ namespace Orpheus.Save
             }
         }
 
-        private static SimEntity ReadEntity(RecordReader r, MapShape shape)
+        private static SimEntity ReadEntity(RecordReader r, MapShape shape, int[] overflow)
         {
             int id = 0;
             int kind = 0;
@@ -948,7 +1018,7 @@ namespace Orpheus.Save
                                 throw new InvalidDataException($"Сущность #{id}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes} (или {Inventory.LegacyPayloadBytes} до формата 7).");
                             }
 
-                            inv = Inventory.ReadPayload(bag);
+                            inv = Inventory.ReadPayload(bag, overflow);
                         }
 
                         break;

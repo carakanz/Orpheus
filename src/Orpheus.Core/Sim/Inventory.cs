@@ -510,13 +510,20 @@ namespace Orpheus.Core.Sim
         /// <summary>
         /// Прочитать payload: <see cref="PayloadBytes"/> байт — ячейки (E2-1); ровно <see cref="LegacyPayloadBytes"/> —
         /// сумка-счётчики старого сохранения (<see cref="ReadLegacyPayload"/>). Другая длина, неизвестный предмет,
-        /// количество больше стопки — <see cref="ArgumentException"/>.
+        /// количество больше стопки — <see cref="ArgumentException"/>. Старая сумка, не влезающая в ячейки, этим
+        /// вызовом не читается (исключение): её читают с приёмником остатка — вторая перегрузка.
         /// </summary>
-        public static Inventory ReadPayload(ReadOnlySpan<byte> src)
+        public static Inventory ReadPayload(ReadOnlySpan<byte> src) => ReadPayload(src, default);
+
+        /// <summary>
+        /// То же с приёмником остатка старой сумки: <paramref name="overflow"/>[id предмета] += сколько не влезло в ячейки
+        /// (длина — не меньше <see cref="ItemTable.Count"/>). У сумки нового формата остатка не бывает.
+        /// </summary>
+        public static Inventory ReadPayload(ReadOnlySpan<byte> src, Span<int> overflow)
         {
             if (src.Length == LegacyPayloadBytes)
             {
-                return ReadLegacyPayload(src);
+                return ReadLegacyPayload(src, overflow);
             }
 
             if (src.Length < PayloadBytes)
@@ -546,11 +553,14 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Сумка-счётчики (до E2-1) → ячейки: предметы панели остаются в своих ячейках (факел — стопкой из счётчика
-        /// факелов; счётчик 0 — ячейка пустая), материалы и стрелы раскладываются стопками по сумке; факелы без
-        /// ячейки на панели — тоже в сумку. Не влезло (больше 40 ячеек) — пропадает.
+        /// Сумка-счётчики (до E2-1) → ячейки, <b>без потерь</b>: предметы панели остаются в своих ячейках (факел — стопкой
+        /// из счётчика факелов; счётчик 0 — ячейка пустая). Материалы раскладываются в два прохода: сначала по одной
+        /// стопке каждого вида (редкое не вытесняется массовым), потом остаток по порядку видов. Что не влезло в 40 ячеек
+        /// (счётчики были до 65 535) — в <paramref name="overflow"/>[id предмета]: сохранение кладёт это кучами на землю
+        /// у персонажа. Остаток есть, а приёмника нет (пустой или короткий) — <see cref="ArgumentException"/>: молча
+        /// ничего не теряется.
         /// </summary>
-        public static Inventory ReadLegacyPayload(ReadOnlySpan<byte> src)
+        public static Inventory ReadLegacyPayload(ReadOnlySpan<byte> src, Span<int> overflow)
         {
             if (src.Length < LegacyPayloadBytes)
             {
@@ -558,15 +568,20 @@ namespace Orpheus.Core.Sim
             }
 
             var inv = new Inventory();
-            int torches = LegacyCount(src, Material.Torch);
+            Span<int> left = stackalloc int[(int)Material.Count];
+            for (int m = 0; m < (int)Material.Count; m++)
+            {
+                left[m] = LegacyCount(src, (Material)m);
+            }
+
             for (int i = 0; i < Slots; i++)
             {
                 byte item = src[1 + i];
                 if (item == Items.Torch)
                 {
-                    int put = Math.Min(torches, ItemTable.MaxStackOf(item));
+                    int put = Math.Min(left[(int)Material.Torch], ItemTable.MaxStackOf(item));
                     inv.SetCell(i, item, put);
-                    torches -= put;
+                    left[(int)Material.Torch] -= put;
                 }
                 else if (ItemTable.Exists(item))
                 {
@@ -574,13 +589,32 @@ namespace Orpheus.Core.Sim
                 }
             }
 
-            inv.Add(Items.Torch, torches);
+            // Проход 1: по одной стопке каждого вида. Проход 2: остаток. Порядок видов — порядок перечисления Material.
+            for (int pass = 0; pass < 2; pass++)
+            {
+                for (int m = 0; m < (int)Material.Count; m++)
+                {
+                    byte item = ItemTable.OfMaterial((Material)m);
+                    int want = pass == 0 ? Math.Min(left[m], ItemTable.MaxStackOf(item)) : left[m];
+                    left[m] -= inv.Add(item, want);
+                }
+            }
+
             for (int m = 0; m < (int)Material.Count; m++)
             {
-                if ((Material)m != Material.Torch)
+                if (left[m] <= 0)
                 {
-                    inv.Add((Material)m, LegacyCount(src, (Material)m));
+                    continue;
                 }
+
+                byte item = ItemTable.OfMaterial((Material)m);
+                if (overflow.Length <= item)
+                {
+                    throw new ArgumentException(
+                        $"Старая сумка не влезает в {Cells} ячеек (предмет {item}: лишних {left[m]}), а приёмника остатка нет.", nameof(overflow));
+                }
+
+                overflow[item] += left[m];
             }
 
             inv.Select(src[0]);

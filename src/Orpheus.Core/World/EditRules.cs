@@ -61,6 +61,10 @@ namespace Orpheus.Core.World
 
         /// <summary>«нет ресурсов» (1-011, `05` 1.4 «Ресурсы кончились посреди линии»): стоимость тайла не списалась.</summary>
         NoResources = 14,
+
+        /// <summary>«ты мёртв» (C-004 + E2-1, протокол 21): запрос от персонажа-трупа (5 с до возрождения) — мёртвый не копает и не строит.
+        /// Раньше такой отказ уходил кодом «очередь полна».</summary>
+        Dead = 15,
     }
 
     /// <summary>
@@ -107,6 +111,7 @@ namespace Orpheus.Core.World
                 case EditReply.TierRequired: return "нужен ярус инструмента";
                 case EditReply.Debris: return "обломки";
                 case EditReply.NoResources: return "нет ресурсов";
+                case EditReply.Dead: return "ты мёртв";
                 default: return "нельзя";
             }
         }

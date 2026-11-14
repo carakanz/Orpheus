@@ -17,6 +17,9 @@ namespace Orpheus.Core.Sim
         /// <summary>Время жизни кучи: 10 мин = 18 000 тактов (<c>06</c> 5.3; для добычи копания — допущение E2-1).</summary>
         public const int PileLifetimeTicks = 10 * 60 * TicksPerSecond;
 
+        /// <summary>Срок кучи «не исчезает» (остаток старой сумки при переносе сохранения формата 6 → 7 — ничего не теряется).</summary>
+        public const long PileNeverExpires = long.MaxValue;
+
         /// <summary>Радиус подбора: 1,5 тайла = 384 unit (<c>06</c> 5.3 «касание и притяжение с 1,5 тайла»).</summary>
         public const int PickupRadiusUnits = 384;
 
@@ -100,11 +103,15 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Заявка игрока на операцию с сумкой (E2-1; клиент просит, сервер решает): исполнится в ближайшем такте
-        /// по порядку прихода. Неверная заявка молча не исполняется (сумка не меняется). Очередь полна — false.
+        /// по порядку прихода. Неверная заявка молча не исполняется (сумка не меняется). Очередь полна, персонаж мёртв
+        /// сущности нет или количество отрицательное — false.
         /// </summary>
         public bool RequestBagOp(int entityId, BagOp op, int from, int to, int count)
         {
-            if (_bagOpCount == _bagOps.Length)
+            // Мёртвый сумкой не распоряжается — то же правило, что у правок мира (C-004): отказ сразу. Умер между заявкой
+            // и тактом — заявка не исполнится (ApplyBagOp). Нет такой сущности или не персонаж — тоже отказ.
+            int slot = SlotOf(entityId);
+            if (slot < 0 || !_entities[slot].IsCharacter || !_entities[slot].Alive || count < 0 || _bagOpCount == _bagOps.Length)
             {
                 return false;
             }

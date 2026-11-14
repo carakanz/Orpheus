@@ -19,7 +19,7 @@
 ## Состояние (13.11)
 Есть: мир, постройки, позиция и сумка персонажа, обрыв записи переживается.
 
-E2-1 (14.11), формат 7: сумка — ячейками (121 байт в полях `EntityField.Inv` / `CharacterField.Inv`), кучи на земле — записи `CreaturesField.Pile` в разделе СУЩЕСТВА, `WorldField.NextPileId`. Сумка-счётчики форматов 4–6 (23 байта) читается и раскладывается по ячейкам (`Inventory.ReadLegacyPayload`); тест на настоящем файле формата 6 — `GroundItemTests.E21_Save_Format6_RealFile_…` (`tests/Orpheus.Tests/Golden/format6_bag.save`). Атомарная запись не тронута.
+E2-1 (14.11), формат 7: сумка — ячейками (121 байт в полях `EntityField.Inv` / `CharacterField.Inv`), кучи на земле — записи `CreaturesField.Pile` в разделе СУЩЕСТВА, `WorldField.NextPileId`. Сумка-счётчики форматов 4–6 (23 байта) читается и раскладывается по ячейкам без потерь (`Inventory.ReadLegacyPayload`: по стопке каждого вида, потом остаток; что не влезло в 40 ячеек — кучами без срока у позиции владельца, строки в `LoadedWorldState.Notes` → журнал сервера); тест на настоящем файле формата 6 — `GroundItemTests.E21_Save_Format6_RealFile_…` (`tests/Orpheus.Tests/Golden/format6_bag.save`). Атомарная запись не тронута.
 
 ## Дальше
 1.2 проверено (E1-2: `Cliff`, `Water`, `DryGrass` — новые значения в тех же полях, формат 6 не менялся, тест `E12_Save_…`). Вместе с 2.5 (сундук), 4.3.

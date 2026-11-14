@@ -104,6 +104,9 @@ namespace Orpheus.Net.Session
             public List<KnownPile> KnownPiles = new List<KnownPile>();
             public List<KnownPile> KnownPilesNext = new List<KnownPile>();
 
+            /// <summary>Заявок на сумку (29) принято от игрока с прошлой рассылки снимков (лимит на такт, E2-1).</summary>
+            public int BagRequestsThisTick;
+
             /// <summary>
             /// Опережение L из последнего нового пакета ввода, кадров (0-033, 2.7) — подсказка только для отчёта о запасе (им клиент
             /// правит своё же L); D_p от него не зависит (з. 2 проверки 0-033).

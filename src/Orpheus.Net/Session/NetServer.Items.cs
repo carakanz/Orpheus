@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Sim;
+using Orpheus.Core.World;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Transport;
 
@@ -37,10 +38,41 @@ namespace Orpheus.Net.Session
 
         private readonly NetPile[] _pileBatch = new NetPile[PilesMessage.MaxPiles];
 
+        /// <summary>Заявок на сумку от одного игрока за такт; сверх — отказ (общая очередь такта — 256, хватает на 32 игрока).</summary>
+        public const int MaxBagRequestsPerPlayerTick = 8;
+
+        /// <summary>Заявок на сумку отклонено: пауза, лимит игрока за такт, мёртвый персонаж, очередь такта полна.</summary>
+        public long BagRequestsRefused { get; private set; }
+
+        /// <summary>
+        /// Заявка на сумку (29). Отказ без ответа (сумка не меняется, сообщение 26 не придёт): во время паузы — заявки
+        /// не копятся и после паузы не исполняются; больше <see cref="MaxBagRequestsPerPlayerTick"/> за такт от одного
+        /// игрока — один клиент не вытесняет чужие заявки из общей очереди такта; персонаж мёртв; очередь такта полна.
+        /// </summary>
         private void OnBagRequest(Player p, in BagRequestMessage m)
         {
             BagRequestsReceived++;
-            _sim.RequestBagOp(p.EntityId, m.Op, m.From, m.To, m.Count); // решает такт; ответ — сумка (тип 26), если изменилась
+            if (Paused || p.BagRequestsThisTick >= MaxBagRequestsPerPlayerTick)
+            {
+                BagRequestsRefused++;
+                return;
+            }
+
+            p.BagRequestsThisTick++;
+            if (!_sim.RequestBagOp(p.EntityId, m.Op, m.From, m.To, m.Count)) // решает такт; итог — сумка (тип 26), если изменилась
+            {
+                BagRequestsRefused++;
+            }
+        }
+
+        /// <summary>
+        /// Почему симуляция не взяла правку игрока в очередь: персонаж мёртв — «ты мёртв» (C-004; раньше уходило
+        /// «очередь полна»), иначе очередь такта полна.
+        /// </summary>
+        private EditReply QueueRefusal(int entityId)
+        {
+            int slot = _sim.SlotOf(entityId);
+            return slot >= 0 && !_sim.Entities[slot].Alive ? EditReply.Dead : EditReply.QueueFull;
         }
 
         /// <summary>После такта: разница «что игрок знает о кучах» ↔ «что лежит в его обзоре» — сообщениями 27 и 28.</summary>

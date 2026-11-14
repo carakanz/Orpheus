@@ -222,38 +222,123 @@ namespace Orpheus.Tests
             Assert.Throws<ArgumentException>(() => Inventory.ReadPayload(new byte[50]));
         }
 
+        // Сумка формата 4…6: выбранная ячейка, 8 ячеек панели, 7 счётчиков u16 LE (дерево, камень, смола, волокно, медь, стрелы, факелы).
+        private static byte[] LegacyBag(byte selected, byte[] slots, int wood, int stone, int resin, int fiber, int copper, int arrows, int torches)
+        {
+            var b = new byte[Inventory.LegacyPayloadBytes];
+            b[0] = selected;
+            slots.CopyTo(b, 1);
+            int[] counts = { wood, stone, resin, fiber, copper, arrows, torches };
+            for (int m = 0; m < counts.Length; m++)
+            {
+                b[9 + 2 * m] = (byte)counts[m];
+                b[10 + 2 * m] = (byte)(counts[m] >> 8);
+            }
+
+            return b;
+        }
+
+        private static readonly byte[] KitSlots = { Items.StonePickaxe, Items.StoneAxe, Items.Hammer, Items.WoodenSword, Items.SimpleBow, Items.Torch, 0, 0 };
+
+        private static readonly (byte Item, string Name)[] LegacyKinds =
+        {
+            (Items.Wood, "дерево"), (Items.Stone, "камень"), (Items.Resin, "смола"), (Items.Fiber, "волокно"),
+            (Items.CopperOre, "медь"), (Items.Arrows, "стрелы"), (Items.Torch, "факелы"),
+        };
+
         /// <summary>
         /// Сумка-счётчики (23 байта, сохранения формата 4…6) → ячейки: панель на месте, факелы — стопкой в своей ячейке,
-        /// материалы — стопками в сумке; ячейка факела со счётчиком 0 — пустая.
+        /// материалы — стопками в сумке. Все семь счётчиков ненулевые, каждый вид проверен поштучно (потеря любого
+        /// материала ловится); ячейка факела со счётчиком 0 — пустая.
         /// </summary>
         [Fact]
         public void E21_Bag_LegacyCounters_ToCells()
         {
-            // выбранная 2; панель: кирка, топор, молот, меч, лук, факел, —, —; счётчики u16 LE: дерево 150, камень 40,
-            // смола 0, волокно 3, медь 7, стрелы 1200, факелы 12.
-            byte[] old =
-            {
-                2, 1, 2, 3, 4, 5, 6, 0, 0,
-                150, 0, 40, 0, 0, 0, 3, 0, 7, 0, 0xB0, 0x04, 12, 0,
-            };
+            int[] before = { 150, 40, 20, 3, 7, 1200, 12 };
+            byte[] old = LegacyBag(2, KitSlots, 150, 40, 20, 3, 7, 1200, 12);
             Assert.Equal(Inventory.LegacyPayloadBytes, old.Length);
-            Inventory inv = Inventory.ReadPayload(old);
+            Inventory inv = Inventory.ReadPayload(old); // влезает — приёмник остатка не нужен
             Assert.Equal(2, inv.Selected);
             Assert.Equal(Items.Hammer, inv.Held);
+            Assert.Equal(Items.StonePickaxe, inv.ItemAt(0));
+            Assert.Equal(Items.StoneAxe, inv.ItemAt(1));
+            Assert.Equal(Items.WoodenSword, inv.ItemAt(3));
+            Assert.Equal(Items.SimpleBow, inv.ItemAt(4));
             Assert.Equal(Items.Torch, inv.ItemAt(5));
             Assert.Equal(12, inv.CountIn(5));
-            Assert.Equal(150, inv.CountAt(Material.Wood));
-            Assert.Equal(99, inv.CountIn(8));
-            Assert.Equal(51, inv.CountIn(9));
-            Assert.Equal(40, inv.CountAt(Material.Stone));
-            Assert.Equal(3, inv.CountAt(Material.Fiber));
-            Assert.Equal(7, inv.CountAt(Material.Copper));
-            Assert.Equal(1200, inv.CountAt(Material.Arrows));
-            Assert.Equal(0, inv.CountAt(Material.Resin));
-            Assert.Equal(6 + 2 + 1 + 1 + 1 + 2, inv.UsedCells);
+            for (int k = 0; k < LegacyKinds.Length; k++)
+            {
+                Assert.True(before[k] == inv.Count(LegacyKinds[k].Item), $"{LegacyKinds[k].Name}: было {before[k]}, стало {inv.Count(LegacyKinds[k].Item)}");
+            }
 
-            old[22 - 1] = 0; // факелов 0 → ячейка факела пустая
-            Assert.Equal(Items.None, Inventory.ReadPayload(old).ItemAt(5));
+            // Сначала по одной стопке каждого вида (ячейки 8…13), потом остаток.
+            Assert.Equal((Items.Wood, 99), (inv.ItemAt(8), inv.CountIn(8)));
+            Assert.Equal((Items.Stone, 40), (inv.ItemAt(9), inv.CountIn(9)));
+            Assert.Equal((Items.Resin, 20), (inv.ItemAt(10), inv.CountIn(10)));
+            Assert.Equal((Items.Fiber, 3), (inv.ItemAt(11), inv.CountIn(11)));
+            Assert.Equal((Items.CopperOre, 7), (inv.ItemAt(12), inv.CountIn(12)));
+            Assert.Equal((Items.Arrows, 999), (inv.ItemAt(13), inv.CountIn(13)));
+            Assert.Equal((Items.Wood, 51), (inv.ItemAt(14), inv.CountIn(14)));
+            Assert.Equal((Items.Arrows, 201), (inv.ItemAt(15), inv.CountIn(15)));
+            Assert.Equal(6 + 8, inv.UsedCells);
+
+            // Факелов 0 → ячейка факела пустая; факелы без ячейки на панели — в сумку.
+            Assert.Equal(Items.None, Inventory.ReadPayload(LegacyBag(0, KitSlots, 1, 1, 1, 1, 1, 1, 0)).ItemAt(5));
+            Inventory noSlot = Inventory.ReadPayload(LegacyBag(0, new byte[8], 1, 1, 1, 1, 1, 1, 5));
+            Assert.Equal(5, noSlot.Count(Items.Torch));
+            Assert.Equal(Items.None, noSlot.ItemAt(5));
+        }
+
+        /// <summary>
+        /// Перенос сумки формата 6 → 7 ничего не теряет (проверка П, блокирующее 1): счётчики были до 65 535, в 40 ячеек
+        /// большой набор не влезает. Сначала по одной стопке каждого вида (редкое не вытесняется массовым), потом остаток;
+        /// что не влезло — в приёмник остатка. По каждому виду: было = в ячейках + в остатке. Без приёмника такая сумка
+        /// не читается (исключение), а не обрезается молча.
+        /// </summary>
+        [Theory]
+        [InlineData(4000, 300, 20, 9, 7, 50, 3)]          // набор из проверки: раньше читался как «дерево 3366», остальное пропадало
+        [InlineData(65535, 65535, 65535, 65535, 65535, 65535, 65535)]
+        [InlineData(1, 65535, 1, 1, 1, 1, 1)]
+        [InlineData(0, 0, 0, 0, 0, 40000, 5000)]
+        public void E21_Bag_LegacyCounters_Overflow_NothingLost(int wood, int stone, int resin, int fiber, int copper, int arrows, int torches)
+        {
+            int[] before = { wood, stone, resin, fiber, copper, arrows, torches };
+            byte[] old = LegacyBag(1, KitSlots, wood, stone, resin, fiber, copper, arrows, torches);
+            var overflow = new int[ItemTable.Count];
+            Inventory inv = Inventory.ReadPayload(old, overflow);
+
+            int lostCells = 0;
+            for (int k = 0; k < LegacyKinds.Length; k++)
+            {
+                byte item = LegacyKinds[k].Item;
+                Assert.True(before[k] == inv.Count(item) + overflow[item],
+                    $"{LegacyKinds[k].Name}: было {before[k]}, в ячейках {inv.Count(item)}, в остатке {overflow[item]}");
+                if (before[k] > 0)
+                {
+                    // Каждому виду досталась хотя бы одна стопка: полная или всё, что было.
+                    Assert.True(inv.Count(item) >= Math.Min(before[k], Items.MaxStackOf(item)), $"{LegacyKinds[k].Name}: вытеснен из сумки");
+                }
+
+                lostCells += overflow[item];
+            }
+
+            // Инструменты панели на месте, остаток — только когда сумка занята целиком.
+            Assert.Equal(Items.StonePickaxe, inv.ItemAt(0));
+            Assert.Equal(Items.SimpleBow, inv.ItemAt(4));
+            Assert.Equal(Items.StoneAxe, inv.Held);
+            Assert.True(lostCells > 0, "набор должен не влезать");
+            Assert.Equal(Inventory.Cells, inv.UsedCells);
+            for (int item = 0; item < overflow.Length; item++)
+            {
+                Assert.True(overflow[item] >= 0);
+            }
+
+            // Без приёмника — отказ, а не тихая потеря; повторное чтение с приёмником — тот же расклад.
+            Assert.Throws<ArgumentException>(() => Inventory.ReadPayload(old));
+            Assert.Throws<ArgumentException>(() => Inventory.ReadLegacyPayload(old, new int[3]));
+            var again = new int[ItemTable.Count];
+            Assert.Equal(inv, Inventory.ReadLegacyPayload(old, again));
+            Assert.Equal(overflow, again);
         }
 
         // ---------- Кучи на земле ----------
@@ -710,13 +795,16 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Настоящий файл формата 6 (записан сборкой <c>b2cc0b9</c> = main до E2-1: мир-заглушка 256², зерно 5, 30 тактов;
-        /// хозяин «Орфей» в мире — стартовый набор + дерево 150, камень 40, медь 7, факелов 12, в руках топор; «Эвридика»
-        /// вне мира — молот, пустая ячейка факела, волокно 3, стрелы 1200) читается: счётчики разложены по ячейкам,
-        /// куч нет. Пересохранение даёт формат 7 с теми же сумками.
+        /// Настоящий файл формата 6 (записан кодом сборки <c>b2cc0b9</c> = main до E2-1, генератор файла —
+        /// <c>Golden/format6_bag.make.cs.txt</c>: мир-заглушка 256², зерно 5, 30 тактов). Все семь счётчиков у всех ненулевые:
+        /// «Орфей» (хозяин, в мире) — стартовый набор + дерево 150, камень 40, смола 12, волокно 5, медь 7, факелов 12 — влезает;
+        /// вторая сущность в мире — дерево 4000, камень 300, смола 20, волокно 9, медь 7 — не влезает;
+        /// «Эвридика» (вне мира) — дерево 65 535, камень 2000, смола 1, волокно 3, медь 500, стрелы 1200, факелов 150 — не влезает.
+        /// Перенос 6 → 7 ничего не теряет: по каждому виду «было = в ячейках + в кучах у позиции владельца»; кучи остатка
+        /// не исчезают; о каждой — строка для журнала сервера. Пересохранение — формат 7 с теми же сумками и кучами.
         /// </summary>
         [Fact]
-        public void E21_Save_Format6_RealFile_CountersBecomeCells()
+        public void E21_Save_Format6_RealFile_CountersBecomeCells_NothingLost()
         {
             byte[] v6 = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format6_bag.save"));
             byte[] baseBytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format6_bag.base"));
@@ -727,48 +815,313 @@ namespace Orpheus.Tests
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(baseBytes), WorldSnapshot.StoredHash(baseBytes));
             Assert.Equal(6u, st.FormatVersion);
             Assert.Equal(30, st.Tick);
-            Assert.Empty(st.Piles);
-            Assert.Equal(1, st.NextPileId);
             Assert.Equal(2, st.Characters.Length);
+            Assert.Equal(2, st.Entities.Length);
 
+            // Сколько чего лежит кучами у позиции.
+            int OnGround(WorldPos at, byte item)
+            {
+                int n = 0;
+                foreach (GroundPile p in st.Piles)
+                {
+                    n += p.Position == at && p.Item == item ? p.Count : 0;
+                }
+
+                return n;
+            }
+
+            void Same(string who, Inventory bag, WorldPos at, int[] before)
+            {
+                for (int k = 0; k < LegacyKinds.Length; k++)
+                {
+                    byte item = LegacyKinds[k].Item;
+                    int cells = bag.Count(item), ground = OnGround(at, item);
+                    Assert.True(before[k] == cells + ground, $"{who}, {LegacyKinds[k].Name}: было {before[k]}, в ячейках {cells}, на земле {ground}");
+                    Assert.True(cells >= Math.Min(before[k], Items.MaxStackOf(item)), $"{who}, {LegacyKinds[k].Name}: вытеснен из сумки");
+                }
+            }
+
+            // «Орфей»: влезает целиком, куч у него нет.
             Inventory orpheus = st.Characters[0].Inv;
             Assert.Equal("Орфей", st.Characters[0].Name);
+            Assert.Equal(st.Entities[0].Id, st.Characters[0].EntityId);
+            Assert.Equal(orpheus, st.Entities[0].Inv); // сумка сущности в мире — та же
             Assert.Equal(1, orpheus.Selected);
             Assert.Equal(Items.StoneAxe, orpheus.Held);
             Assert.Equal(Items.StonePickaxe, orpheus.ItemAt(0));
             Assert.Equal(Items.Hammer, orpheus.ItemAt(2));
             Assert.Equal(Items.WoodenSword, orpheus.ItemAt(3));
             Assert.Equal(Items.SimpleBow, orpheus.ItemAt(4));
-            Assert.Equal(Items.Torch, orpheus.ItemAt(5));
-            Assert.Equal(12, orpheus.CountIn(5));
-            Assert.Equal(150, orpheus.Count(Items.Wood));
-            Assert.Equal(99, orpheus.CountIn(8));
-            Assert.Equal(51, orpheus.CountIn(9));
-            Assert.Equal(40, orpheus.Count(Items.Stone));
-            Assert.Equal(7, orpheus.Count(Items.CopperOre));
-            Assert.Equal(50, orpheus.Count(Items.Arrows));
-            Assert.Equal(11, orpheus.UsedCells);
-            Assert.Equal(orpheus, st.Entities[0].Inv); // сумка сущности в мире — та же
+            Assert.Equal((Items.Torch, 12), (orpheus.ItemAt(5), orpheus.CountIn(5)));
+            Same("Орфей", orpheus, st.Entities[0].Mover.Position, new[] { 150, 40, 12, 5, 7, 50, 12 });
+            foreach ((byte item, _) in LegacyKinds)
+            {
+                Assert.Equal(0, OnGround(st.Entities[0].Mover.Position, item));
+            }
 
+            Assert.Equal(13, orpheus.UsedCells);
+
+            // Вторая сущность в мире: дерево и камень не влезли — лежат у её ног.
+            Inventory big = st.Entities[1].Inv;
+            WorldPos bigAt = st.Entities[1].Mover.Position;
+            Same("сущность 2", big, bigAt, new[] { 4000, 300, 20, 9, 7, 50, 3 });
+            Assert.Equal(Inventory.Cells, big.UsedCells);
+            Assert.Equal(1129, OnGround(bigAt, Items.Wood));
+            Assert.Equal(201, OnGround(bigAt, Items.Stone));
+            Assert.Equal(0, OnGround(bigAt, Items.Resin));
+
+            // «Эвридика» вне мира: остаток — там, где она стояла; дерево — несколькими кучами (потолок кучи 9999).
             Inventory eurydice = st.Characters[1].Inv;
+            WorldPos eAt = st.Characters[1].Mover.Position;
+            Assert.Equal(0, st.Characters[1].EntityId);
             Assert.Equal(Items.Hammer, eurydice.ItemAt(0));
-            Assert.Equal(Items.None, eurydice.ItemAt(5)); // ячейка факела при счётчике 0 — пустая
-            Assert.Equal(Items.None, eurydice.Held);
-            Assert.Equal(3, eurydice.Count(Items.Fiber));
-            Assert.Equal(1200, eurydice.Count(Items.Arrows));
-            Assert.Equal(4, eurydice.UsedCells);
+            Assert.Equal((Items.Torch, 99), (eurydice.ItemAt(5), eurydice.CountIn(5)));
+            Same("Эвридика", eurydice, eAt, new[] { 65535, 2000, 1, 3, 500, 1200, 150 });
+            Assert.Equal(62367, OnGround(eAt, Items.Wood));
+            Assert.Equal(1901, OnGround(eAt, Items.Stone));
+            Assert.Equal(401, OnGround(eAt, Items.CopperOre));
+            Assert.Equal(201, OnGround(eAt, Items.Arrows));
+            Assert.Equal(0, OnGround(eAt, Items.Torch)); // 150 факелов влезли: 99 на панели + 51 в сумке
 
-            // Пересохранение: формат 7, сумки те же.
+            // Кучи остатка: номера с 1 подряд, не исчезают, подбирать можно сразу; строка в журнал — на каждый вид остатка.
+            Assert.Equal(2 + 7 + 3, st.Piles.Length);
+            Assert.Equal(st.Piles.Length + 1, st.NextPileId);
+            for (int i = 0; i < st.Piles.Length; i++)
+            {
+                Assert.Equal(i + 1, st.Piles[i].Id);
+                Assert.Equal(Simulation.PileNeverExpires, st.Piles[i].ExpireTick);
+                Assert.Equal(st.Tick, st.Piles[i].PickupTick);
+                Assert.InRange(st.Piles[i].Count, 1, Simulation.PileMaxCount);
+            }
+
+            Assert.Equal(6, st.Notes.Length);
+            Assert.Contains("сущность #" + st.Entities[1].Id, st.Notes[0]);
+            Assert.Contains("wood × 1129", st.Notes[0]);
+            Assert.Contains("stone × 201", st.Notes[1]);
+            Assert.Contains("«Эвридика»", st.Notes[2]);
+            Assert.Contains("wood × 62367", st.Notes[2]);
+            Assert.Contains("arrows × 201", st.Notes[5]);
+
+            // В симуляции: остаток лежит дольше обычного срока (10 мин) и дальше — не исчезает; сумка полна — не подбирается.
             WorldModel world = WorldSnapshot.LoadBase(baseBytes);
             LoadedWorldState again = WorldSave.Load(SaveContainer.Read(v6), world, WorldSnapshot.StoredHash(baseBytes));
             var sim = new Simulation(world);
             again.RestoreInto(sim);
+            Assert.Equal(12, sim.Piles.Length);
+            for (int t = 0; t < Simulation.PileLifetimeTicks + 5; t++)
+            {
+                sim.Step();
+            }
+
+            Assert.Equal(12, sim.Piles.Length);
+            Assert.Equal(big, sim.Entities[1].Inv);
+
+            // Освободил ячейку — остаток поднимается: предметы возвращаются владельцу, а не пропадают.
+            Inventory freed = sim.Entities[1].Inv;
+            freed.SetCell(39, Items.None, 0);
+            sim.SetInventory(sim.Entities[1].Id, freed);
+            sim.Step();
+            Assert.Equal(1129 - 99, sim.Piles[0].Count);
+            Assert.Equal(2871, sim.Entities[1].Inv.Count(Items.Wood));
+
+            // Пересохранение: формат 7, сумки и кучи те же, хэш состояния тот же.
             byte[] v7 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), again.Name, again.Characters), 5, 0);
             Assert.Equal(7u, SaveContainer.Read(v7).Header.FormatVersion);
             LoadedWorldState st7 = WorldSave.Load(SaveContainer.Read(v7), WorldSnapshot.LoadBase(baseBytes), WorldSnapshot.StoredHash(baseBytes));
             Assert.Equal(orpheus, st7.Characters[0].Inv);
             Assert.Equal(eurydice, st7.Characters[1].Inv);
+            Assert.Equal(12, st7.Piles.Length);
+            Assert.Equal(Simulation.PileNeverExpires, st7.Piles[11].ExpireTick);
+            Assert.Empty(st7.Notes); // формат 7 остатка не даёт — второй раз кучи не кладутся
             Assert.Equal(StateHash.Compute(sim).Total, StateHash.Compute(SaveFixtures.Load(baseBytes, v7)).Total);
+        }
+
+        // ---------- Границы заявок (проверка П: мутации M6, M7, M8) ----------
+
+        /// <summary>
+        /// Заявкой нельзя ни размножить, ни уничтожить предметы: выброс больше, чем в ячейке, кладёт на землю ровно то,
+        /// что было; перемещение и деление «в ту же ячейку» стопку не трогают; деление 0, отрицательное и больше стопки —
+        /// отказ; деление ровно всей стопки — перенос. Сумма «сумка + земля» по предмету не меняется ни на одном шаге.
+        /// </summary>
+        [Fact]
+        public void E21_BagOps_Bounds_NoDuplication_NoLoss()
+        {
+            Simulation sim = SimWithPlayer(out int id);
+            SetBag(sim, id, b => b.Inv.SetCell(10, Items.Wood, 5));
+
+            int Total()
+            {
+                int n = sim.GetEntity(id).Inv.Count(Items.Wood);
+                foreach (GroundPile p in sim.Piles)
+                {
+                    n += p.Item == Items.Wood ? p.Count : 0;
+                }
+
+                return n;
+            }
+
+            // Перемещение неполной стопки в ту же ячейку — стопка на месте (и в сумке, и заявкой).
+            Inventory inv = sim.GetEntity(id).Inv;
+            Assert.False(inv.Move(10, 10));
+            Assert.False(inv.Split(10, 10, 2));
+            Assert.Equal(5, inv.CountIn(10));
+            Assert.True(sim.RequestBagOp(id, BagOp.Move, 10, 10, 0));
+            Assert.True(sim.RequestBagOp(id, BagOp.Split, 10, 10, 2));
+            sim.Step();
+            Assert.Equal((Items.Wood, 5), (sim.GetEntity(id).Inv.ItemAt(10), sim.GetEntity(id).Inv.CountIn(10)));
+            Assert.Equal(5, Total());
+
+            // Деление: 0, отрицательное, больше стопки — отказ.
+            Assert.False(inv.Split(10, 11, 0));
+            Assert.False(inv.Split(10, 11, -3));
+            Assert.False(inv.Split(10, 11, 6));
+            Assert.Equal(0, inv.TakeFrom(10, -1));
+            Assert.Equal(0, inv.TakeFrom(10, 0));
+            Assert.Equal(inv, sim.GetEntity(id).Inv);
+            Assert.True(sim.RequestBagOp(id, BagOp.Split, 10, 11, 0));
+            Assert.True(sim.RequestBagOp(id, BagOp.Split, 10, 11, 6));
+            Assert.True(sim.RequestBagOp(id, BagOp.Split, 10, 11, 60000));
+            Assert.False(sim.RequestBagOp(id, BagOp.Split, 10, 11, -1)); // отрицательное — не берётся в очередь
+            Assert.False(sim.RequestBagOp(id, BagOp.Drop, 10, 10, -1));   // и не превращается в «выбросить всё»
+            sim.Step();
+            Assert.Equal(inv, sim.GetEntity(id).Inv);
+            Assert.Equal(0, sim.Piles.Length);
+
+            // Деление ровно всей стопки — перенос целиком.
+            Assert.True(sim.RequestBagOp(id, BagOp.Split, 10, 11, 5));
+            sim.Step();
+            Assert.Equal(Items.None, sim.GetEntity(id).Inv.ItemAt(10));
+            Assert.Equal(5, sim.GetEntity(id).Inv.CountIn(11));
+            Assert.Equal(5, Total());
+
+            // Выброс 999 из стопки в 5: на земле ровно 5, в ячейке пусто — не размножилось.
+            Assert.True(sim.RequestBagOp(id, BagOp.Drop, 11, 11, 999));
+            sim.Step();
+            Assert.Equal(5, Assert.Single(sim.Piles.ToArray()).Count);
+            Assert.Equal(0, sim.GetEntity(id).Inv.Count(Items.Wood));
+            Assert.Equal(5, Total());
+
+            // Выброс из пустой ячейки и повтор выброса — ничего нового на земле.
+            Assert.True(sim.RequestBagOp(id, BagOp.Drop, 11, 11, 3));
+            Assert.True(sim.RequestBagOp(id, BagOp.Drop, 30, 30, 0));
+            sim.Step();
+            Assert.Equal(1, sim.Piles.Length);
+            Assert.Equal(5, Total());
+
+            // Две заявки на выброс одной стопки в одном такте: вторая берёт только остаток.
+            SetBag(sim, id, b => b.Inv.SetCell(20, Items.Stone, 7));
+            sim.RequestBagOp(id, BagOp.Drop, 20, 20, 5);
+            sim.RequestBagOp(id, BagOp.Drop, 20, 20, 5);
+            sim.Step();
+            int stone = 0;
+            foreach (GroundPile p in sim.Piles)
+            {
+                stone += p.Item == Items.Stone ? p.Count : 0;
+            }
+
+            Assert.Equal(7, stone);
+            Assert.Equal(0, sim.GetEntity(id).Inv.Count(Items.Stone));
+        }
+
+        /// <summary>
+        /// Мёртвый сумкой не распоряжается (то же правило, что у правок мира, C-004): заявка трупа — отказ сразу; заявка,
+        /// поданная живым, не исполняется, если к такту он умер; мёртвый не подбирает. После возрождения — снова можно.
+        /// </summary>
+        [Fact]
+        public void E21_BagOps_DeadCharacter_Refused()
+        {
+            Simulation sim = SimWithPlayer(out int id);
+            SetBag(sim, id, b => b.Inv.SetCell(10, Items.Wood, 5));
+            sim.Step();
+
+            // Подал живым, умер до такта — не исполнено.
+            Assert.True(sim.RequestBagOp(id, BagOp.Drop, 10, 10, 0));
+            Assert.True(sim.ApplyStrike(id, 0, 500) > 0);
+            Assert.False(sim.GetEntity(id).Alive);
+            Inventory bag = sim.GetEntity(id).Inv;
+            sim.Step();
+            Assert.Equal(bag, sim.GetEntity(id).Inv);
+            Assert.Equal(0, sim.Piles.Length);
+
+            // Труп: отказ на каждую операцию; куча рядом не подбирается.
+            Assert.False(sim.RequestBagOp(id, BagOp.Drop, 10, 10, 0));
+            Assert.False(sim.RequestBagOp(id, BagOp.Move, 10, 11, 0));
+            Assert.False(sim.RequestBagOp(id, BagOp.Split, 10, 11, 1));
+            sim.AddPile(Items.Stone, 2, sim.GetEntity(id).Mover.Position);
+            sim.Step();
+            Assert.Equal(bag, sim.GetEntity(id).Inv);
+            Assert.Equal(1, sim.Piles.Length);
+
+            // Враг (не персонаж) и несуществующая сущность — отказ.
+            int enemy = sim.AddEnemy(Center(320, 220));
+            Assert.False(sim.RequestBagOp(enemy, BagOp.Drop, 0, 0, 0));
+            Assert.False(sim.RequestBagOp(999, BagOp.Drop, 0, 0, 0));
+
+            for (int i = 0; i < 400 && !sim.GetEntity(id).Alive; i++)
+            {
+                sim.Step(); // возрождение через 5 с
+            }
+
+            Assert.True(sim.GetEntity(id).Alive);
+            Assert.True(sim.RequestBagOp(id, BagOp.Split, 10, 11, 2));
+            sim.Step();
+            Assert.Equal(2, sim.GetEntity(id).Inv.CountIn(11));
+        }
+
+        /// <summary>
+        /// Кучи в хэше состояния целиком (проверка П: мутации M5, M9): две симуляции, отличающиеся только позицией кучи,
+        /// только сроком жизни, только задержкой подбора, только предметом, только номером — дают разный хэш.
+        /// </summary>
+        [Fact]
+        public void E21_StateHash_PilePosition_Expire_PickupDelay_Covered()
+        {
+            static ulong HashOf(GroundPile p, int nextId = 8)
+            {
+                var sim = new Simulation(Flat(256), maxEntities: 4);
+                sim.RestorePiles(new[] { p }, nextId);
+                return StateHash.Compute(sim).Total;
+            }
+
+            var pile = new GroundPile { Id = 7, Item = Items.Wood, Count = 3, Position = Center(10, 10), ExpireTick = 18_000, PickupTick = 10 };
+            ulong h0 = HashOf(pile);
+            Assert.Equal(h0, HashOf(pile)); // тот же набор — тот же хэш
+
+            GroundPile moved = pile;
+            moved.Position = new WorldPos(pile.Position.X + 1, pile.Position.Y);
+            Assert.NotEqual(h0, HashOf(moved));
+            moved.Position = new WorldPos(pile.Position.X, pile.Position.Y - 1);
+            Assert.NotEqual(h0, HashOf(moved));
+
+            GroundPile lives = pile;
+            lives.ExpireTick++;
+            Assert.NotEqual(h0, HashOf(lives));
+            lives.ExpireTick = Simulation.PileNeverExpires;
+            Assert.NotEqual(h0, HashOf(lives));
+
+            GroundPile delayed = pile;
+            delayed.PickupTick++;
+            Assert.NotEqual(h0, HashOf(delayed));
+
+            GroundPile other = pile;
+            other.Item = Items.Stone;
+            Assert.NotEqual(h0, HashOf(other));
+            other = pile;
+            other.Count = 4;
+            Assert.NotEqual(h0, HashOf(other));
+            other = pile;
+            other.Id = 6;
+            Assert.NotEqual(h0, HashOf(other));
+            Assert.NotEqual(h0, HashOf(pile, nextId: 9)); // счётчик номеров — тоже состояние
+
+            // То же живьём: одинаковая куча, положенная в разные места и с разной задержкой подбора.
+            var a = new Simulation(Flat(256), maxEntities: 4);
+            var b = new Simulation(Flat(256), maxEntities: 4);
+            var c = new Simulation(Flat(256), maxEntities: 4);
+            a.AddPile(Items.Wood, 3, Center(10, 10));
+            b.AddPile(Items.Wood, 3, Center(11, 10));
+            c.AddPile(Items.Wood, 3, Center(10, 10), pickupDelayTicks: 5);
+            Assert.NotEqual(StateHash.Compute(a).Total, StateHash.Compute(b).Total);
+            Assert.NotEqual(StateHash.Compute(a).Total, StateHash.Compute(c).Total);
         }
 
         // ---------- Сеть ----------
@@ -909,6 +1262,122 @@ namespace Orpheus.Tests
             rig.Run(10);
             Assert.Equal(Items.Stone, Assert.Single(late.Piles).Item);
             Assert.Equal(0, a.BadMessages + b.BadMessages + late.BadMessages);
+        }
+
+        /// <summary>
+        /// Заявки на сумку во время паузы сервер отклоняет: они не копятся и после снятия паузы не исполняются
+        /// (правило E2-1, «Решения» п. 23); после паузы новая заявка проходит как обычно.
+        /// </summary>
+        [Fact]
+        public void E21_Net_BagRequests_DuringPause_Refused_NotReplayedAfter()
+        {
+            using var rig = new EditTests.EditRig(Flat(), i => Center(300 + 3 * i, 200));
+            NetClient a = rig.Join();
+            rig.Run(10);
+            Inventory bag = rig.Sim.GetEntity(a.EntityId).Inv;
+            bag.SetCell(10, Items.Stone, 40);
+            rig.Sim.SetInventory(a.EntityId, bag);
+            rig.Run(3);
+
+            rig.Server.SetPaused(true);
+            Assert.True(a.RequestBagSplit(10, 11, 15));
+            Assert.True(a.RequestBagDrop(10));
+            rig.Run(5); // стенд шагает такт и в паузе — заявок в очереди такта быть не должно
+            Assert.Equal(2, rig.Server.BagRequestsReceived);
+            Assert.Equal(2, rig.Server.BagRequestsRefused);
+            Assert.Equal(bag, rig.Sim.GetEntity(a.EntityId).Inv);
+
+            rig.Server.SetPaused(false);
+            rig.Run(10);
+            Assert.Equal(bag, rig.Sim.GetEntity(a.EntityId).Inv); // отклонённое в паузе после паузы не исполнилось
+            Assert.Equal(0, rig.Sim.Piles.Length);
+
+            Assert.True(a.RequestBagSplit(10, 11, 15));
+            rig.Run(4);
+            Assert.Equal(15, rig.Sim.GetEntity(a.EntityId).Inv.CountIn(11));
+            Assert.Equal(15, a.Inv.CountIn(11));
+            Assert.Equal(2, rig.Server.BagRequestsRefused);
+        }
+
+        /// <summary>
+        /// Лимит заявок на игрока за такт (8): один клиент, заваливший сервер заявками, не вытесняет чужие из общей
+        /// очереди такта — его лишние отклонены, заявка второго игрока исполнена в том же такте.
+        /// </summary>
+        [Fact]
+        public void E21_Net_BagRequests_PerPlayerLimit_OneClientDoesNotStarveOthers()
+        {
+            Assert.Equal(8, NetServer.MaxBagRequestsPerPlayerTick);
+            Assert.True(Simulation.MaxBagOpsPerTick >= 8 * NetServer.MaxBagRequestsPerPlayerTick);
+            using var rig = new EditTests.EditRig(Flat(), i => Center(300 + 3 * i, 200));
+            NetClient spammer = rig.Join();
+            NetClient other = rig.Join();
+            rig.Run(10);
+            foreach (NetClient c in rig.Clients)
+            {
+                Inventory bag = rig.Sim.GetEntity(c.EntityId).Inv;
+                bag.SetCell(10, Items.Stone, 99);
+                rig.Sim.SetInventory(c.EntityId, bag);
+            }
+
+            rig.Run(3);
+
+            // 300 заявок «отделить 1 камень» в одном кадре — больше всей очереди такта (256).
+            const int Spam = 300;
+            long refused0 = rig.Server.BagRequestsRefused;
+            for (int i = 0; i < Spam; i++)
+            {
+                Assert.True(spammer.RequestBagSplit(10, 11, 1));
+            }
+
+            Assert.True(other.RequestBagSplit(10, 12, 7));
+            rig.Run(1);
+            Assert.Equal(7, rig.Sim.GetEntity(other.EntityId).Inv.CountIn(12)); // чужая заявка исполнена в том же такте
+            Assert.Equal(NetServer.MaxBagRequestsPerPlayerTick, rig.Sim.GetEntity(spammer.EntityId).Inv.CountIn(11));
+            Assert.Equal(Spam - NetServer.MaxBagRequestsPerPlayerTick, rig.Server.BagRequestsRefused - refused0);
+
+            // Следующий такт — лимит заново; предметы не терялись и не множились.
+            Assert.True(spammer.RequestBagSplit(10, 11, 1));
+            rig.Run(3);
+            Inventory s = rig.Sim.GetEntity(spammer.EntityId).Inv;
+            Assert.Equal(NetServer.MaxBagRequestsPerPlayerTick + 1, s.CountIn(11));
+            Assert.Equal(99, s.Count(Items.Stone));
+            Assert.Equal(s, spammer.Inv);
+            Assert.Equal(0, spammer.BadMessages + other.BadMessages);
+        }
+
+        /// <summary>
+        /// Мёртвый по сети: заявка на сумку отклонена, а правка мира получает свой код отказа «ты мёртв» (EditReply.Dead,
+        /// протокол 21) вместо «очередь полна».
+        /// </summary>
+        [Fact]
+        public void E21_Net_Dead_BagRequestRefused_TileEditReplyDead()
+        {
+            WorldModel world = Flat();
+            var tree = new TileCoord(301, 200);
+            world.SetBaseTile(tree, FloorId.Grass, ObjectId.Tree);
+            using var rig = new EditTests.EditRig(world, _ => Center(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(10);
+            Inventory bag = rig.Sim.GetEntity(c.EntityId).Inv;
+            bag.SetCell(10, Items.Stone, 40);
+            rig.Sim.SetInventory(c.EntityId, bag);
+            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 1); // топор в руках, копаем
+            rig.Run(3);
+
+            Assert.True(rig.Sim.ApplyStrike(c.EntityId, 0, 500) > 0);
+            Assert.False(rig.Sim.GetEntity(c.EntityId).Alive);
+            long refused0 = rig.Server.BagRequestsRefused;
+            Assert.True(c.RequestBagDrop(10));
+            c.StartDig(tree);
+            rig.Run(40);
+            Assert.Equal(1, rig.Server.BagRequestsRefused - refused0);
+            Assert.Equal(40, rig.Sim.GetEntity(c.EntityId).Inv.CountIn(10));
+            Assert.Equal(0, rig.Sim.Piles.Length);
+            Assert.Equal(ObjectId.Tree, rig.Sim.World.GetObject(tree)); // мёртвый не срубил
+            Assert.Equal(EditReply.Dead, Assert.Single(replies).Reply);
+            Assert.Equal("ты мёртв", EditRules.Describe(EditReply.Dead));
         }
     }
 }

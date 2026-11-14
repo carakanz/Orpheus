@@ -1065,14 +1065,14 @@ namespace Orpheus.Tests
             badMask[5] = 0; badMask[8] = 0; // «принято» без маски
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badMask));
 
-            // Протокол 18 (1-011): коды ответа 13 «обломки» и 14 «нет ресурсов» проходят, 15 — испорченный.
+            // Протокол 18 (1-011): коды ответа 13 «обломки» и 14 «нет ресурсов» проходят; 15 — «ты мёртв» (протокол 21), 16 — испорченный.
             var rep18 = new TileReplyMessage { RequestId = 7, Reply = EditReply.Debris, FirstRefusal = EditReply.NoResources, Mask = 0 };
             byte[] eb = NetTests.Encode(b => rep18.Write(b));
             TileReplyMessage back18 = TileReplyMessage.Read(eb);
             Assert.Equal(EditReply.Debris, back18.Reply);
             Assert.Equal(EditReply.NoResources, back18.FirstRefusal);
             byte[] badReply = (byte[])eb.Clone();
-            badReply[3] = 15;
+            badReply[3] = 16; // 15 — «ты мёртв» (E2-1, протокол 21)
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badReply));
             Assert.Equal(21, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1)
         }

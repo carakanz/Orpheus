@@ -67,7 +67,7 @@ namespace Orpheus.Net.Session
         public int Refused { get; private set; }
 
         /// <summary>Отказов по причине (индекс — <see cref="EditReply"/>, включая «нужен инструмент/ярус» — 1-010).</summary>
-        public int[] RefusedBy { get; } = new int[(int)EditReply.TierRequired + 1];
+        public int[] RefusedBy { get; } = new int[(int)EditReply.Dead + 1];
 
         /// <summary>Отказы строкой: «далеко 3, прервано 1».</summary>
         public string RefusalsText => string.Join(", ", Enumerable.Range(0, RefusedBy.Length).Where(i => RefusedBy[i] > 0)

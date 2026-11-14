@@ -13,6 +13,7 @@
 | `D07_S1_9_4_Big_Server1024_ReadyWithin5s_Under128Mb` | MetricsTests | 3 | 13.11 (1-028) | ReadyWithin5s по времени; 3-й случай → чинить в P-003 |
 | `D02_S9_2_Big_Bench1024_1000Ticks40Searches` | PathTests | 3 | 13.11 (1-026) | бенчмарк тактов под нагрузкой; 3-й случай → чинить в P-003 |
 | `D07_S2_13_9_Launcher_SingleThenOpen_FriendJoins_NoRestart` | HostProcessTests | 6 | 13.11 (E1-1), 14.11 (E1-8 П; C-003 ci) | старт > 5 с под нагрузкой; 3-й случай → чинить в P-003 |
+| `D07_S6_6_Saver_FrequentRequests_ReplaceSeries_OldGenerationsKept` | SaveEventTests | 1 | 14.11 (E2-1 П, ci) | «запись не кончилась» (11 с) в общем прогоне; одиночно зелёный 5 из 5 (≈ 0,8 с) на ветке E2-1 — время записи под нагрузкой, с форматом 7 не связано |
 | `D07_S6_5_Saver_CrashInsideReplacingSave_EveryMoment_LoadsNewestIntact` | SaveEventTests | 3 | 13.11 (1-028), 14.11 (E1-8 ci) | обрыв записи |
 | `D07_S2_3_ServerRun_HostLeftAlone_SavedAtOnce` | HostTests | 4 | 13.11 (P-004, при сборке Unity), 14.11 (E1-8 П) | в журнале была опечатка `HostLeegAlone`, класс — HostTests (не SaveTests) |
 | `PlayerLeavesAndReturns_RestartBetween_SamePlace` | ReturnTests | 1 | 11.11 (1-011) | фактический тест — `D07_S7_4_ServerThread_PlayerLeavesAndReturns_RestartBetween_SamePlace` |
