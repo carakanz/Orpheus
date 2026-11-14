@@ -142,7 +142,8 @@ namespace Orpheus.Tools.GenPreview
         {
             var ci = CultureInfo.InvariantCulture;
             Console.WriteLine("seed,ms,water_pct,sand_pct,cliff_pct,cliff_thin_pct,forest_trees_pct,meadow_trees_pct,meadow_dry_pct,mount_boulders_pct," +
-                              "cave_mass_pct,reach_pct,water_near,cliff_near,joined,carved,cliff_opened,ford_tiles,copper600");
+                              "cave_mass_pct,reach_pct,water_near,cliff_near,joined,carved,cliff_opened,ford_tiles,copper600," +
+                              "ridges,longest,shortest,max_depth,thin1_pct,straight_max,straight_over8_pct,near_parallel_pct");
             if (seeds.Contains('-'))
             {
                 // Диапазон «1-30»: только числа, без картинок.
@@ -176,7 +177,7 @@ namespace Orpheus.Tools.GenPreview
                 }
 
                 string name = hex ? part.Substring(2).ToUpperInvariant() : part;
-                string path = Path.Combine(pngDir, $"E1-2_map_{(hex ? "0x" : "")}{name}.png");
+                string path = Path.Combine(pngDir, $"E1-6b_map_{(hex ? "0x" : "")}{name}.png");
                 Program.WritePng(path, rgb, w, w);
                 Console.Error.WriteLine($"карта: {Path.GetFullPath(path)}");
             }
@@ -188,13 +189,16 @@ namespace Orpheus.Tools.GenPreview
         {
             var ci = CultureInfo.InvariantCulture;
             TileWorldStats st = TileWorldStats.Of(t);
+            CliffShapeStats sh = CliffShapeStats.Of(t);
             Console.WriteLine(string.Join(",", seed, ms.ToString("F0", ci),
                 st.WaterPercent.ToString("F2", ci), (100.0 * st.Sand / st.Tiles).ToString("F2", ci), st.CliffPercent.ToString("F2", ci),
                 st.CliffThinPercent.ToString("F1", ci), st.ForestTreePercent.ToString("F1", ci), st.MeadowTreePercent.ToString("F2", ci),
                 st.MeadowDryPercent.ToString("F1", ci), st.MountainBoulderPercent.ToString("F1", ci), st.CaveMassPercent.ToString("F1", ci),
                 (100 * st.Reach).ToString("F2", ci), st.WaterNearStart.ToString(ci), st.CliffNearStart.ToString(ci),
                 t.ComponentsJoined.ToString(ci), t.TilesCarved.ToString(ci), t.CliffCellsOpened.ToString(ci), t.FordTiles.ToString(ci),
-                HearthStage.CountCopper(t).ToString(ci)));
+                HearthStage.CountCopper(t).ToString(ci),
+                sh.Pieces.ToString(ci), sh.Longest.ToString(ci), sh.Shortest.ToString(ci), sh.MaxDepth.ToString(ci), sh.ThinPercent.ToString("F1", ci),
+                sh.LongestStraight.ToString(ci), sh.StraightOver8Percent.ToString("F2", ci), sh.NearParallelPercent.ToString("F2", ci)));
         }
 
         private static byte[] Color(byte floor, ushort obj, byte biome)
