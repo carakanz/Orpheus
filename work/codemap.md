@@ -13,6 +13,7 @@ Simulation.Combat.cs: StartAttack :21 · ApplyStrike :57 · BeginWindup :151 · 
 Simulation.Enemies.cs: Chase :24 · AddMeleeRogue :240 · StepAI :273 · UpdateTarget :393
 Simulation.Movement.cs: ISqrt :18 · StepSeparation :50 · MoveToward :98 · NewPathScheduler :112 · ResetPathCaches :119 · IsBlocked :138
 Simulation.Restore.cs: Restore :23/:32 · NextEntityId :~75 · RestoreDefaults :83
+Simulation.Piles.cs (E2-1): константы :18-42 · Piles :58 · AddPile :67 · RestorePiles :71 · RequestBagOp :101 · StepItems :119 (фаза 5.2 такта) · NearestPicker :166 · ApplyBagOp :188 · DropOnTile :222 · SpawnPile :238 · FreeGroundNear :296
 
 ## Spawner.cs - partial Simulation (спавн)
 Волны, точки появления, очередь спавна: методы по grep (класс Simulation :34).
@@ -83,8 +84,8 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Spawner.cs: partial Simulation: спавн, волны, точки появления.
 - SimEvent.cs: события симуляции (звук, эффекты, удары).
 - SimEntity.cs: сущность: статус, мувер, инвентарь.
-- Items.cs: виды предметов и их параметры.
-- Inventory.cs: инвентарь: слоты, выбор, передача.
+- Items.cs: имена id предметов и видов; свойства — в `Items/ItemTable.cs`.
+- Inventory.cs: сумка — 40 ячеек со стопками: Add / Remove / Move / Split / TakeFrom, payload 121 байт, чтение счётчиков старых сохранений.
 - InputJournal.cs: журнал ввода (реплей, сверка сервера).
 - InputFrame.cs: кадр ввода (направление, кнопки, прицел, слот).
 - EntityChunkGrid.cs: сетка чанков сущностей (быстрый поиск по тайлам).
@@ -92,6 +93,16 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - DigLoot.cs: добыча при копании (что из чего падает).
 - CharacterRecord.cs: запись персонажа (сквозной сейв).
 - CharacterNames.cs: имена персонажей.
+
+## src/Orpheus.Core/Items/ (E2-1; пространство имён Orpheus.Core.Sim)
+- ItemTable.cs: `ItemCategory`, `ItemDef`, `ItemTable` — таблица предметов данными (строки добавлять в конец).
+- GroundPile.cs: `GroundPile` (куча на земле), `BagOp` (операция с ячейками).
+
+## Сеть и клиент предметов (E2-1)
+- NetServer.Items.cs: OnBagRequest · SendPilesTo (разница куч игроку) · TakerOf. NetClient.Items.cs: Piles · RequestBagMove/Split/Drop · OnPiles · OnPileGone.
+- Protocol/Messages.cs: InventoryMessage (ячейки), NetPile, PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
+- BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room).
+- client/Assets/Scripts/PileView.cs: значки куч; NetGame.Edits.cs: HookPiles, BagHud (ячейки). tools/make_item_icons.py — заглушки значков.
 
 ## Остальное в src/Orpheus.Save/
 - WorldFolder.cs: папка мира: набор файлов и структура на диске.

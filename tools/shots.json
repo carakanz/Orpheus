@@ -1,5 +1,5 @@
 {
-  "comment": "Scenes of the screenshot stand (plan step 0.3): tools/shots.ps1 runs the built client once per scene. tile = [X, Y] in world tiles (omit or null = spawn point), width = view width in tiles (40..96). args = extra client keys (E1-4: --paint-demo repaints the floors near the spawn into a test pattern: a lake with a sand shore, patches of every ground kind, a junction of all kinds 70 tiles to the east, torches along the path and a campfire on the east shore; E1-8: --day-tick N sets the world tick of the offline shot 0..35999: day 10800, dusk 22500, night 28800, dawn 35100).",
+  "comment": "Scenes of the screenshot stand (plan step 0.3): tools/shots.ps1 runs the built client once per scene. tile = [X, Y] in world tiles (omit or null = spawn point), width = view width in tiles (40..96). args = extra client keys (E1-4: --paint-demo repaints the floors near the spawn into a test pattern: a lake with a sand shore, patches of every ground kind, a junction of all kinds 70 tiles to the east, torches along the path and a campfire on the east shore; E1-8: --day-tick N sets the world tick of the offline shot 0..35999: day 10800, dusk 22500, night 28800, dawn 35100; E2-1: --demo-piles puts ground item piles of every icon around the scene point).",
   "frame": { "width": 1920, "height": 1080 },
   "scenes": [
     { "name": "01_start_64",       "seed": "0xE50007", "size": 1024, "tile": null,       "width": 64 },
@@ -42,6 +42,8 @@
     { "name": "E1-11_walk_grass",  "seed": "0xE50007", "size": 1024, "tile": [517, 528], "width": 40, "args": ["--paint-demo", "--shot-walk", "e:8:0.15:0.3", "--shot-crop", "640x400"] },
     { "name": "E1-11_wind",        "seed": "0xE50007", "size": 1024, "tile": [527, 532], "width": 40, "args": ["--paint-demo", "--shot-walk", "stay:4:0.5:1", "--shot-crop", "800x500"] },
     { "name": "E1-11_meadow_40",   "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo"] },
-    { "name": "E1-11_meadow_96",   "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 96, "args": ["--paint-demo"] }
+    { "name": "E1-11_meadow_96",   "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 96, "args": ["--paint-demo"] },
+    { "name": "E2-1_piles_40",     "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--demo-piles"] },
+    { "name": "E2-1_piles_64",     "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--demo-piles"] }
   ]
 }

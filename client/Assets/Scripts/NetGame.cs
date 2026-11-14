@@ -699,7 +699,7 @@ namespace Orpheus.Client
             }
 
             _anim?.Frame(now, _pred!);
-            _pileView?.Frame(_origin, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
+            _pileView?.Frame(_origin!, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeFrame(me, dx, dy);

@@ -317,12 +317,12 @@ namespace Orpheus.Tests
 
             byte[] bytes = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "мир", roster.Capture()), 9, 0);
             SaveFile f = SaveContainer.Read(bytes);
-            Assert.Equal(6u, f.Header.FormatVersion); // формат 6 (1-007): мозг врага в записи сущности
+            Assert.Equal(7u, f.Header.FormatVersion); // формат 7 (E2-1; мозг врага в записи сущности — с формата 6, 1-007)
             Assert.True(f.HasSection(SaveSections.Characters));
 
             WorldModel world = WorldSnapshot.LoadBase(live.BaseBytes);
             LoadedWorldState state = WorldSave.Load(f, world, live.BaseSha);
-            Assert.Equal(6u, state.FormatVersion); // формат 6 (1-007)
+            Assert.Equal(7u, state.FormatVersion); // формат 7 (E2-1)
             Assert.Equal(2, state.Characters.Length);
             Assert.Equal("живой", state.Characters[0].Name);
             Assert.Equal(inWorld, state.Characters[0].EntityId);
