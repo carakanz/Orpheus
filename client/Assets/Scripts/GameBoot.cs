@@ -143,6 +143,11 @@ namespace Orpheus.Client
                 PaintDemo.Apply(World, Map); // E1-4: тестовый узор у старта — только для снимков
             }
 
+            if (Args.PaintForest)
+            {
+                PaintDemo.ApplyBenchForest(World, Map); // E1-7: плотный лес для замера
+            }
+
             // Правила проходимости — те же, что в такте сервера (Simulation.IsBlocked): пол и объекты, `05` 1.3.
             Rules = new Simulation(World, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
 

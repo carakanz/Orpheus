@@ -145,6 +145,9 @@ namespace Orpheus.Client
         /// </summary>
         public bool PaintDemo;
 
+        /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
+        public bool PaintForest;
+
         /// <summary>Адрес «Открыть для друзей»; null — все адреса (игра).</summary>
         public string? OpenAddress;
 
@@ -390,6 +393,9 @@ namespace Orpheus.Client
                         break;
                     case "--paint-demo":
                         a.PaintDemo = true;
+                        break;
+                    case "--paint-forest":
+                        a.PaintForest = true;
                         break;
                     case "--bench-render":
                         a.BenchRender = true;
