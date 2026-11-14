@@ -53,7 +53,6 @@ namespace Orpheus.Net.Session
         private const int R = 90; // радиус поиска пути, тайлов (окно чанков клиента — 96 × 64 в каждую сторону)
         private const int Side = 2 * R + 1;
         private const byte NoTool = byte.MaxValue;
-        private const int StuckFrames = 90;
 
         private static readonly int[] Dx4 = { 1, 0, -1, 0 };
         private static readonly int[] Dy4 = { 0, 1, 0, -1 };
@@ -76,9 +75,11 @@ namespace Orpheus.Net.Session
         private readonly Dictionary<ushort, ushort> _digRaw = new Dictionary<ushort, ushort>();
         private readonly Dictionary<TileCoord, int> _skipUntil = new Dictionary<TileCoord, int>();
         private byte _slot;
+        private int _slotFrame = -100000;
+        private const int ArmFrames = 6;
+        private byte _sentSlot;
         private int _frame;
         private WorldPos _lastPos;
-        private int _still;
 
         private bool _hasBench;
         private TileCoord _bench;
@@ -128,6 +129,13 @@ namespace Orpheus.Net.Session
         public int Explores { get; private set; }
         public int DigThroughs { get; private set; }
 
+        /// <summary>Кадров ввода прожито.</summary>
+        public int Frames => _frame;
+
+        /// <summary>Поисков пути всего и тайлов, обойдённых последним (диагностика: 1 — бот заперт или мир не пришёл).</summary>
+        public int Plans { get; private set; }
+        public int LastPlanTiles { get; private set; }
+
         /// <summary>Где стоит верстак (после постановки).</summary>
         public TileCoord? BenchTile => _hasBench ? _bench : (TileCoord?)null;
 
@@ -138,7 +146,7 @@ namespace Orpheus.Net.Session
         public string Summary =>
             $"этап {Now}; деревьев {TreesCut}, валунов {RocksDug}, залежей {OresDug}, гранита {GraniteDug}, прочего {OtherDug}; " +
             $"отказов правок {Refused} (последний: {EditRules.Describe(LastRefusal)}), заявок крафта {CraftRequests}, отказов {CraftRefused} ({LastCraftRefusal}); " +
-            $"наугад {Explores}, прорубался {DigThroughs}; кадры этапов: руда {StageFrame[1]}, верстак {StageFrame[2]}, плавка {StageFrame[3]}, " +
+            $"наугад {Explores}, прорубался {DigThroughs}, поисков {Plans} (последний — {LastPlanTiles} тайлов); кадры этапов: руда {StageFrame[1]}, верстак {StageFrame[2]}, плавка {StageFrame[3]}, " +
             $"кирка {StageFrame[4]}, гранит {StageFrame[6]}, конец {StageFrame[7]}";
 
         /// <summary>Ответ сервера на правку (подключить к <see cref="NetClient.EditReplied"/>).</summary>
@@ -174,7 +182,7 @@ namespace Orpheus.Net.Session
             {
                 Refused++;
                 LastRefusal = m.Reply;
-                _skipUntil[t] = _frame + (m.Reply == EditReply.OutOfReach ? 30 : 600);
+                _skipUntil[t] = _frame + (m.Reply == EditReply.OutOfReach || m.Reply == EditReply.ToolRequired ? 30 : 600);
                 _path.Clear();
                 _hasTarget = false;
                 return;
@@ -214,6 +222,18 @@ namespace Orpheus.Net.Session
         /// <summary>Кадр ввода (60 Гц). <paramref name="pos"/> — своя позиция (снимок или предсказание).</summary>
         public InputFrame Next(NetClient client, WorldPos pos)
         {
+            InputFrame f = Decide(client, pos);
+            if (f.Slot != _sentSlot)
+            {
+                _sentSlot = f.Slot;
+                _slotFrame = _frame; // ячейка в руках сменилась — отсчёт «взвода» заново
+            }
+
+            return f;
+        }
+
+        private InputFrame Decide(NetClient client, WorldPos pos)
+        {
             _frame++;
             ClientWorld? world = client.World;
             if (world == null || Done)
@@ -238,9 +258,9 @@ namespace Orpheus.Net.Session
                 case Stage.Bench:
                     return PlaceBench(client, world, pos);
                 case Stage.Smelt:
-                    return Craft(client, RecipeTable.CopperIngot, NeedIngots - inv.Count(Items.CopperIngot));
+                    return Craft(client, world, pos, RecipeTable.CopperIngot, NeedIngots - inv.Count(Items.CopperIngot));
                 case Stage.Pickaxe:
-                    return Craft(client, RecipeTable.CopperPickaxe, 1);
+                    return Craft(client, world, pos, RecipeTable.CopperPickaxe, 1);
                 case Stage.Equip:
                     return Equip(client, inv);
                 case Stage.Granite:
@@ -314,16 +334,75 @@ namespace Orpheus.Net.Session
 
         private static bool Wanted(byte item) => item == Items.Wood || item == Items.Stone || item == Items.CopperOre;
 
+        // Ходьба «рывками»: своя позиция приходит из снимков с опозданием (задержка сети), поэтому бот не рулит по ней на
+        // ходу, а отмеряет рывок в кадрах (25,6 unit за кадр), шагает его вслепую и ждёт, пока позиция в снимках устоится.
+        private const int SettleFrames = 6;
+        private const int MaxRunTiles = 12;
+        private int _burstLeft;
+        private Input8 _burstDir;
+        private bool _settling;
+        private int _settleSame;
+        private WorldPos _settlePos;
+        private WorldPos _burstFrom;
+        private TileCoord _burstTile;
+        private bool _burstCheck;
+        private int _stuckBursts;
+        private int _lookFrame;
+
         private InputFrame Harvest(NetClient client, ClientWorld world, WorldPos pos, Func<ushort, bool> isTarget)
         {
+            if (_burstLeft > 0)
+            {
+                _burstLeft--;
+                return new InputFrame(_burstDir, 0, 0, _slot);
+            }
+
+            if (_settling)
+            {
+                if (pos == _settlePos)
+                {
+                    _settleSame++;
+                }
+                else
+                {
+                    _settleSame = 0;
+                    _settlePos = pos;
+                }
+
+                if (_settleSame < SettleFrames)
+                {
+                    return Idle(pos);
+                }
+
+                _settling = false;
+                if (_burstCheck)
+                {
+                    _burstCheck = false;
+                    _stuckBursts = pos == _burstFrom ? _stuckBursts + 1 : 0;
+                    if (_stuckBursts >= 3)
+                    {
+                        _stuckBursts = 0;
+                        _skipUntil[_burstTile] = _frame + 600; // трижды упёрлись — этот тайл обходим
+                        _path.Clear();
+                        _hasTarget = false;
+                    }
+                }
+            }
+
             TileCoord me = Torus.TileOf(_shape, pos);
 
             // Добыча лежит рядом — дождаться подбора (или подойти), потом дальше.
             if (Now != Stage.Granite && _path.Count == 0 && _piles.TrySeek(client, pos, Wanted, out Input8 toPile))
             {
-                _still = 0;
-                _lastPos = pos;
-                return new InputFrame(toPile);
+                if (toPile != Input8.None)
+                {
+                    // Два кадра хода и ждём устойчивой позиции — шаг за шагом, без раскачки при задержке сети.
+                    _burstDir = toPile;
+                    _burstLeft = 1;
+                    BeginSettle(pos);
+                }
+
+                return new InputFrame(toPile, 0, 0, _slot);
             }
 
             if (_hasTarget && !isTarget(ObjectId.IdOf(world.World.GetObject(_target))))
@@ -336,17 +415,27 @@ namespace Orpheus.Net.Session
             {
                 if (_frame < _replanAt)
                 {
-                    return InputFrame.None;
+                    return Idle(pos);
                 }
 
-                if (!Plan(client, world, me, isTarget, allowDig: false) && !Plan(client, world, me, isTarget, allowDig: true))
+                if (!Plan(client, world, me, isTarget, allowDig: false) && !Plan(client, world, me, isTarget, allowDig: true)
+                    && !Plan(client, world, me, isTarget, allowDig: false, explore: true) && !Plan(client, world, me, isTarget, allowDig: true, explore: true))
                 {
                     _replanAt = _frame + 30; // ни цели, ни куда идти — подождать чанки
-                    return InputFrame.None;
+                    return Idle(pos);
                 }
+
+                _lookFrame = _frame;
             }
 
-            // Идём по пути: тайл за тайлом по центрам.
+            // Идём наугад — раз в секунду смотрим, не показалась ли цель в окне (тогда путь к ней заменит разведку).
+            if (!_hasTarget && _path.Count > 0 && _frame - _lookFrame >= 60)
+            {
+                _lookFrame = _frame;
+                Plan(client, world, me, isTarget, allowDig: false);
+            }
+
+            // Идём по пути: от центра тайла к центру, прямые участки — одним рывком.
             while (_path.Count > 0)
             {
                 TileCoord next = _path[0];
@@ -360,34 +449,49 @@ namespace Orpheus.Net.Session
 
                     _path.Clear(); // путь перекрыт (мир изменился) — заново
                     _hasTarget = false;
-                    return InputFrame.None;
+                    return Idle(pos);
                 }
 
                 Int2 d = Torus.Delta(_shape, pos, EditRules.CenterOf(next));
-                if (Math.Abs(d.X) <= U / 6 && Math.Abs(d.Y) <= U / 6)
+                bool offX = Math.Abs(d.X) > U / 6, offY = Math.Abs(d.Y) > U / 6;
+                if (!offX && !offY)
                 {
                     _path.RemoveAt(0);
                     continue;
                 }
 
-                var move = new Input8(Math.Abs(d.X) > U / 8 ? Math.Sign(d.X) : 0, Math.Abs(d.Y) > U / 8 ? Math.Sign(d.Y) : 0);
-                if (pos == _lastPos)
+                // Прямой участок: пока следующие тайлы пути лежат на той же линии и свободны — рывок до последнего из них.
+                if (offX != offY)
                 {
-                    if (++_still > StuckFrames)
+                    int sx = offX ? Math.Sign(d.X) : 0, sy = offY ? Math.Sign(d.Y) : 0;
+                    int run = 0;
+                    while (run + 1 < _path.Count && run < MaxRunTiles)
                     {
-                        _still = 0;
-                        _skipUntil[next] = _frame + 600; // упёрлись — этот тайл обходим
-                        _path.Clear();
-                        _hasTarget = false;
+                        Int2 step = Torus.Delta(_shape, _path[run], _path[run + 1]);
+                        if (step.X != sx || step.Y != sy || !Walkable(world, _path[run + 1]))
+                        {
+                            break;
+                        }
+
+                        run++;
+                    }
+
+                    if (run > 0)
+                    {
+                        _path.RemoveRange(0, run);
+                        next = _path[0];
+                        d = Torus.Delta(_shape, pos, EditRules.CenterOf(next));
                     }
                 }
-                else
-                {
-                    _still = 0;
-                    _lastPos = pos;
-                }
 
-                return new InputFrame(move);
+                int dist = offX ? Math.Abs(d.X) : Math.Abs(d.Y); // обе оси сбиты — сначала X, потом Y
+                _burstDir = offX ? new Input8(Math.Sign(d.X), 0) : new Input8(0, Math.Sign(d.Y));
+                _burstLeft = Math.Max(1, (dist * 20 + 256) / 512) - 1; // 25,6 unit за кадр
+                _burstFrom = pos;
+                _burstTile = next;
+                _burstCheck = true;
+                BeginSettle(pos);
+                return new InputFrame(_burstDir, 0, 0, _slot);
             }
 
             // Пришли: цель — сосед по стороне.
@@ -408,10 +512,17 @@ namespace Orpheus.Net.Session
             return Idle(pos);
         }
 
+        private void BeginSettle(WorldPos pos)
+        {
+            _settling = true;
+            _settleSame = 0;
+            _settlePos = pos;
+        }
+
         private InputFrame Idle(WorldPos pos)
         {
             _lastPos = pos;
-            return InputFrame.None;
+            return new InputFrame(Input8.None, 0, 0, _slot);
         }
 
         // Досягаемость с запасом 1/4 тайла: своя позиция — из снимка, сервер её уже обогнал.
@@ -425,6 +536,14 @@ namespace Orpheus.Net.Session
             if (slot == NoTool || world.IsPredicted(t))
             {
                 return false;
+            }
+
+            // «Взвод» инструмента: сервер смотрит предмет в руках по кадру ввода, а запрос копания приходит раньше кадра —
+            // сначала несколько кадров держим нужную ячейку (иначе «нужен инструмент»), потом просим.
+            _slot = slot;
+            if (slot != _sentSlot || _frame - _slotFrame < ArmFrames)
+            {
+                return false; // вызывающий вернёт кадр с этой ячейкой — «взвод» пойдёт
             }
 
             ushort id = client.StartDig(t);
@@ -471,9 +590,10 @@ namespace Orpheus.Net.Session
 
         /// <summary>
         /// Поиск в ширину от своего тайла: ближайший по пути тайл, у которого сосед по стороне — цель. Нашёл — путь и цель.
-        /// Не нашёл (только при <paramref name="allowDig"/>) — путь к достижимому тайлу, самому дальнему от старта.
+        /// Режим <paramref name="explore"/> (цели в окне нет): путь к ближайшему достижимому тайлу в ещё не виденной клетке
+        /// 16 × 16 (виденные — в 48 тайлах от мест, где бот уже искал); все видены — к самому дальнему от старта.
         /// </summary>
-        private bool Plan(NetClient client, ClientWorld world, TileCoord me, Func<ushort, bool> isTarget, bool allowDig)
+        private bool Plan(NetClient client, ClientWorld world, TileCoord me, Func<ushort, bool> isTarget, bool allowDig, bool explore = false)
         {
             _gen++;
             int head = 0, tail = 0;
@@ -481,7 +601,18 @@ namespace Orpheus.Net.Session
             _seen[startIdx] = _gen;
             _prev[startIdx] = -1;
             _queue[tail++] = startIdx;
-            int far = -1, farScore = -1;
+            int far = -1, farScore = -1, fresh = -1;
+            if (explore)
+            {
+                for (int cy = -3; cy <= 3; cy++)
+                {
+                    for (int cx = -3; cx <= 3; cx++)
+                    {
+                        _seenCells.Add(CellKey(Torus.Wrap(_shape, new TileCoord(me.X + cx * 16, me.Y + cy * 16))));
+                    }
+                }
+            }
+
             while (head < tail)
             {
                 int idx = _queue[head++];
@@ -491,7 +622,7 @@ namespace Orpheus.Net.Session
                 {
                     var n = Torus.Wrap(_shape, new TileCoord(here.X + Dx4[k], here.Y + Dy4[k]));
                     ushort obj = world.World.GetObject(n);
-                    if (obj != ObjectId.Empty && !ObjectId.IsPart(obj) && isTarget(ObjectId.IdOf(obj)) && !Skipped(n)
+                    if (!explore && obj != ObjectId.Empty && !ObjectId.IsPart(obj) && isTarget(ObjectId.IdOf(obj)) && !Skipped(n)
                         && !world.IsPredicted(n) && ToolSlotFor(client, obj) != NoTool)
                     {
                         BuildPath(me, idx);
@@ -503,8 +634,14 @@ namespace Orpheus.Net.Session
                     }
                 }
 
-                if (allowDig)
+                if (explore)
                 {
+                    if (fresh < 0 && !_seenCells.Contains(CellKey(here)))
+                    {
+                        fresh = idx;
+                        break; // ближайший по пути тайл новой клетки — туда
+                    }
+
                     Int2 fromStart = Torus.Delta(_shape, _start, here);
                     int score = Math.Max(Math.Abs(fromStart.X), Math.Abs(fromStart.Y));
                     if (score > farScore)
@@ -550,17 +687,64 @@ namespace Orpheus.Net.Session
                 }
             }
 
-            if (!allowDig || far < 0 || far == startIdx)
+            LastPlanTiles = tail;
+            Plans++;
+            int go = fresh >= 0 ? fresh : far;
+            if (!explore || go < 0 || go == startIdx)
             {
                 return false;
             }
 
-            BuildPath(me, far); // цели в окне нет — идём прочь от старта, окно чанков поедет следом
+            BuildPath(me, go); // цели в окне нет — идём в новые места, окно чанков поедет следом
             _hasTarget = false;
-            _pathDigs = true;
+            _pathDigs = allowDig;
             Explores++;
             return true;
         }
+
+        /// <summary>
+        /// Сколько тайлов достижимо пешком от <paramref name="me"/> (не больше <see cref="FloodLimit"/>), если тайл
+        /// <paramref name="wall"/> считать занятым (<paramref name="useWall"/>).
+        /// </summary>
+        private int Flood(ClientWorld world, TileCoord me, TileCoord wall, bool useWall)
+        {
+            _gen++;
+            int head = 0, tail = 0;
+            int startIdx = R * Side + R;
+            _seen[startIdx] = _gen;
+            _queue[tail++] = startIdx;
+            while (head < tail && tail < FloodLimit)
+            {
+                int idx = _queue[head++];
+                int cx = idx % Side - R, cy = idx / Side - R;
+                for (int k = 0; k < 4; k++)
+                {
+                    int nx = cx + Dx4[k], ny = cy + Dy4[k];
+                    if (Math.Abs(nx) > R || Math.Abs(ny) > R)
+                    {
+                        continue;
+                    }
+
+                    int nidx = (ny + R) * Side + nx + R;
+                    var n = Torus.Wrap(_shape, new TileCoord(me.X + nx, me.Y + ny));
+                    if (_seen[nidx] == _gen || (useWall && n.X == wall.X && n.Y == wall.Y) || !Walkable(world, n))
+                    {
+                        continue;
+                    }
+
+                    _seen[nidx] = _gen;
+                    _queue[tail++] = nidx;
+                }
+            }
+
+            return tail;
+        }
+
+        private const int FloodLimit = 400;
+
+        private readonly HashSet<int> _seenCells = new HashSet<int>();
+
+        private static int CellKey(TileCoord t) => (t.X >> 4) | ((t.Y >> 4) << 12);
 
         private void BuildPath(TileCoord me, int idx)
         {
@@ -596,10 +780,17 @@ namespace Orpheus.Net.Session
             }
 
             TileCoord me = Torus.TileOf(_shape, pos);
+            int open = Flood(world, me, me, false);
             for (int k = 0; k < BenchDx.Length; k++)
             {
                 var t = Torus.Wrap(_shape, new TileCoord(me.X + BenchDx[k], me.Y + BenchDy[k]));
                 if (_benchRefused.Contains(t) || world.World.GetObject(t) != ObjectId.Empty || !Walkable(world, t))
+                {
+                    continue;
+                }
+
+                // Верстак не должен запереть бота (он твёрдый): с ним на этом тайле доступно почти столько же, сколько без него.
+                if (!(_armed && _armTile.X == t.X && _armTile.Y == t.Y) && Flood(world, me, t, true) < open - open / 8 - 1)
                 {
                     continue;
                 }
@@ -648,17 +839,31 @@ namespace Orpheus.Net.Session
             return new InputFrame(Input8.None, 0, 0, slot);
         }
 
-        private InputFrame Craft(NetClient client, byte recipe, int count)
+        private InputFrame Craft(NetClient client, ClientWorld world, WorldPos pos, byte recipe, int count)
         {
+            // Тот же путь, что у окна крафта (CraftDesk): строка рецепта по данным клиента → кнопка «сделать».
             // Очередь пуста и ответа давно нет — заявка (первая или повтор); пока очередь идёт — стоим у верстака.
-            if (count > 0 && client.Craft.IsEmpty && _frame - _craftFrame > 90 && client.RequestCraft(recipe, count))
+            _desk ??= new CraftDesk(client);
+            if (count > 0 && client.Craft.IsEmpty && _frame - _craftFrame > 90)
             {
-                _craftFrame = _frame;
-                CraftRequests++;
+                CraftLine line = CraftDesk.LineOf(recipe, client.Inv, client.Craft, world.World, pos);
+                if (_desk.Make(line, count))
+                {
+                    _craftFrame = _frame;
+                    CraftRequests++;
+                }
+                else
+                {
+                    LastCraftRefusal = line.State; // своя проверка не пустила (станок далеко, не хватает) — видно в итоге
+                }
             }
 
-            return InputFrame.None;
+            return Stand();
         }
+
+        private InputFrame Stand() => new InputFrame(Input8.None, 0, 0, _slot);
+
+        private CraftDesk? _desk;
 
         private InputFrame Equip(NetClient client, in Inventory inv)
         {

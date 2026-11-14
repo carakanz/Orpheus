@@ -1,0 +1,129 @@
+using System;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
+
+namespace Orpheus.Net.Session
+{
+    /// <summary>Куда уходят заявки изготовления (E2-3): клиент сети (<see cref="NetClient"/>) или показ без сервера.</summary>
+    public interface ICraftRequests
+    {
+        /// <summary>Изготовить рецепт × count (решает сервер; ответ — сообщение 31, очередь — 32, сумка — 26).</summary>
+        bool RequestCraft(int recipe, int count = 1);
+
+        /// <summary>Отменить позицию очереди изготовления (ингредиенты вернутся в сумку).</summary>
+        bool RequestCraftCancel(int index);
+    }
+
+    public sealed partial class NetClient : ICraftRequests
+    {
+    }
+
+    /// <summary>Строка списка рецептов для окна крафта (E2-3 → шаг 2.4).</summary>
+    public readonly struct CraftLine
+    {
+        /// <summary>Номер рецепта.</summary>
+        public readonly byte Recipe;
+
+        /// <summary>Что скажет сервер на заявку «× 1» по своим данным клиента: «принято» или причина (нет станка, далеко,
+        /// не хватает, очередь полна, мёртв).</summary>
+        public readonly CraftReply State;
+
+        /// <summary>На сколько изготовлений хватает ингредиентов в сумке.</summary>
+        public readonly int Affordable;
+
+        public CraftLine(byte recipe, CraftReply state, int affordable)
+        {
+            Recipe = recipe;
+            State = state;
+            Affordable = affordable;
+        }
+
+        /// <summary>Можно делать прямо сейчас («белая» строка, <c>06</c> 3.3).</summary>
+        public bool CanMake => State == CraftReply.Accepted;
+    }
+
+    /// <summary>
+    /// «Стол» окна крафта (E2-3): общий путь для окна игрока (шаг 2.4) и для ботов / тестов — как <see cref="BagHand"/>
+    /// у сумки. Правил игры здесь нет: строки списка считаются теми же функциями ядра (<see cref="CraftRules"/>), что
+    /// проверяет сервер, а решает всё равно он. Заявки не предсказываются.
+    /// </summary>
+    public sealed class CraftDesk
+    {
+        private readonly ICraftRequests _requests;
+
+        public CraftDesk(ICraftRequests requests)
+        {
+            _requests = requests;
+        }
+
+        /// <summary>Заявок «изготовить» / «отменить» отправлено.</summary>
+        public int MakeRequests { get; private set; }
+        public int CancelRequests { get; private set; }
+
+        /// <summary>
+        /// Строка рецепта по данным клиента: сумка (<paramref name="bag"/>), очередь (<paramref name="queue"/>), свой мир
+        /// и позиция (станок рядом), жив ли персонаж.
+        /// </summary>
+        public static CraftLine LineOf(int recipe, in Inventory bag, in CraftQueue queue, WorldModel world, WorldPos pos, bool alive = true)
+        {
+            if (!RecipeTable.Exists(recipe))
+            {
+                return new CraftLine(0, CraftReply.NoRecipe, 0);
+            }
+
+            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+            int can = CraftRules.Affordable(in bag, in def);
+            CraftReply state = CraftReply.Accepted;
+            if (!alive)
+            {
+                state = CraftReply.Dead;
+            }
+            else if (queue.RoomFor(def.Id) == 0)
+            {
+                state = CraftReply.QueueFull;
+            }
+            else
+            {
+                state = CraftRules.StationCheck(world, pos, def.Station);
+                if (state == CraftReply.Accepted && can == 0)
+                {
+                    state = CraftReply.NoIngredients;
+                }
+            }
+
+            return new CraftLine(def.Id, state, can);
+        }
+
+        /// <summary>Сколько не хватает ингредиента № <paramref name="i"/> на одно изготовление (0 — хватает) — подпись «красной» строки.</summary>
+        public static int Missing(int recipe, int i, in Inventory bag)
+        {
+            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+            return i < def.IngredientCount ? Math.Max(0, def.IngredientCountOf(i) - bag.Count(def.IngredientItem(i))) : 0;
+        }
+
+        /// <summary>Кнопка «сделать» (× 1, × 10…): заявка уходит, только если строка «белая»; иначе — false без заявки.</summary>
+        public bool Make(in CraftLine line, int count = 1)
+        {
+            if (!line.CanMake || count <= 0 || !_requests.RequestCraft(line.Recipe, count))
+            {
+                return false;
+            }
+
+            MakeRequests++;
+            return true;
+        }
+
+        /// <summary>Отмена позиции очереди.</summary>
+        public bool Cancel(in CraftQueue queue, int index)
+        {
+            if ((uint)index >= (uint)queue.Count || !_requests.RequestCraftCancel(index))
+            {
+                return false;
+            }
+
+            CancelRequests++;
+            return true;
+        }
+    }
+}

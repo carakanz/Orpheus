@@ -169,6 +169,12 @@ namespace Orpheus.Client
                 Id = ObjectId.Campfire, Variants = new[] { V("stump") },
                 Tint = new Color32(255, 150, 60, 255), Size = 0.9f, Shadow = 0f,
             },
+            // Верстак I (E2-3): своей картинки нет (заказать) — крупный пень цвета доски, чтобы станок был виден в мире.
+            new ObjectLook
+            {
+                Id = ObjectId.Workbench, Variants = new[] { V("stump") },
+                Tint = new Color32(196, 150, 96, 255), Size = 1.15f, Shadow = 0.6f,
+            },
             new ObjectLook
             {
                 Id = ObjectId.Torch, Variants = new[] { V("stump") },

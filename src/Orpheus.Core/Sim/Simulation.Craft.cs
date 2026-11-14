@@ -19,10 +19,10 @@ namespace Orpheus.Core.Sim
     public sealed partial class Simulation
     {
         /// <summary>Станок работает не дальше 3 тайлов от центра персонажа до центра тайла станка (<c>06</c> 3.3) = 768 unit.</summary>
-        public const int CraftRadiusUnits = 3 * Torus.SubTilesPerTile;
+        public const int CraftRadiusUnits = CraftRules.RadiusUnits;
 
         /// <summary>Дальше радиуса станок ищется ещё до 8 тайлов — чтобы отличить «слишком далеко» от «станка нет».</summary>
-        public const int CraftSearchTiles = 8;
+        public const int CraftSearchTiles = CraftRules.SearchTiles;
 
         /// <summary>Наибольшее N в заявке «изготовить × N»; больше — обрезается (не отказ).</summary>
         public const int MaxCraftCount = CraftQueue.MaxLeft;
@@ -168,59 +168,10 @@ namespace Orpheus.Core.Sim
             return CraftReply.Accepted;
         }
 
-        /// <summary>На сколько изготовлений хватает ингредиентов в сумке (по всем ячейкам).</summary>
-        public static int Affordable(in Inventory inv, in RecipeDef def)
-        {
-            int can = int.MaxValue;
-            for (int i = 0; i < def.IngredientCount; i++)
-            {
-                can = Math.Min(can, inv.Count(def.IngredientItem(i)) / def.IngredientCountOf(i));
-            }
+        /// <inheritdoc cref="CraftRules.Affordable"/>
+        public static int Affordable(in Inventory inv, in RecipeDef def) => CraftRules.Affordable(in inv, in def);
 
-            return can == int.MaxValue ? 0 : can;
-        }
-
-        /// <summary>Станок рядом: принято / слишком далеко / нет. Обход — строки сверху вниз, слева направо.</summary>
-        private CraftReply StationCheck(WorldPos pos, CraftStation station)
-        {
-            ushort want = RecipeTable.ObjectOf(station);
-            if (want == ObjectId.Empty)
-            {
-                return CraftReply.Accepted;
-            }
-
-            TileCoord center = Torus.TileOf(_shape, pos);
-            long r2 = (long)CraftRadiusUnits * CraftRadiusUnits;
-            bool seen = false;
-            for (int dy = -CraftSearchTiles; dy <= CraftSearchTiles; dy++)
-            {
-                for (int dx = -CraftSearchTiles; dx <= CraftSearchTiles; dx++)
-                {
-                    var t = new TileCoord(center.X + dx, center.Y + dy);
-                    if (!_shape.Wraps && ((uint)t.X >= (uint)_shape.Width || (uint)t.Y >= (uint)_shape.Height))
-                    {
-                        continue;
-                    }
-
-                    t = Torus.Wrap(_shape, t);
-                    ushort raw = _world.GetObject(t);
-                    if (raw == ObjectId.Empty || ObjectId.IsPart(raw) || ObjectId.IdOf(raw) != want)
-                    {
-                        continue;
-                    }
-
-                    seen = true;
-                    WorldPos c = Torus.CornerOf(t);
-                    var mid = new WorldPos(c.X + Torus.SubTilesPerTile / 2, c.Y + Torus.SubTilesPerTile / 2);
-                    if (Torus.Dist2(_shape, pos, mid) <= r2)
-                    {
-                        return CraftReply.Accepted;
-                    }
-                }
-            }
-
-            return seen ? CraftReply.StationFar : CraftReply.NoStation;
-        }
+        private CraftReply StationCheck(WorldPos pos, CraftStation station) => CraftRules.StationCheck(_world, pos, station);
 
         // Заявка «изготовить» в такте: проверки ещё раз (сумка и место могли измениться с момента заявки).
         private void ApplyCraft(long tick, int slot, int recipe, int count)

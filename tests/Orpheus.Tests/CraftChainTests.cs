@@ -5,6 +5,7 @@ using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
+using Orpheus.Net.Transport;
 using Orpheus.Server;
 using Orpheus.WorldGen;
 using Xunit;
@@ -25,7 +26,7 @@ namespace Orpheus.Tests
             _out = output;
         }
 
-        /// <summary>Зерно тяжёлого прогона на настоящем мире (генератор v7, 1024²): подобрано перебором 1…12 — см. карточку E2-3.</summary>
+        /// <summary>Зерно тяжёлого прогона на настоящем мире (генератор v7, 1024²): из двенадцати (1…12) бот доходит на всех; 3 — одно из самых быстрых (карточка E2-3).</summary>
         public const ulong RealSeed = 3;
 
         private sealed class Outcome
@@ -73,7 +74,8 @@ namespace Orpheus.Tests
                 Assert.NotNull(bot);
                 _out.WriteLine($"craft_chain: {bot!.Summary}");
                 _out.WriteLine($"тактов {ticks} ({ticks / 30.0:0.0} с игры), на часах {wall.Elapsed.TotalSeconds:0.0} с; " +
-                               $"заявок крафта серверу {rig.Server.CraftRequestsReceived}, отказов {rig.Server.CraftRequestsRefused}, плохих сообщений {c.BadMessages}");
+                               $"заявок крафта серверу {rig.Server.CraftRequestsReceived}, отказов {rig.Server.CraftRequestsRefused}, плохих сообщений {c.BadMessages}; " +
+                               $"клиент {c.State}, чанков {c.World?.ChunkCount ?? -1}, снимков {(c.HasSnapshot ? c.Latest.Tick : 0)}, кадров бота {bot.Frames}, копает {c.Digging}, куч {c.Piles.Count}");
                 return new Outcome { Bot = bot, Client = c, Sim = rig.Sim, Ticks = ticks };
             }
             finally
@@ -171,9 +173,12 @@ namespace Orpheus.Tests
             AssertChain(o);
         }
 
-        /// <summary>Перебор зёрен (не тест приёмки): запускать вручную, чтобы подобрать <see cref="RealSeed"/>.</summary>
+        /// <summary>
+        /// Тяжёлый: то же на двенадцати зёрнах настоящего мира без задержки сети — бот не подогнан под одно зерно
+        /// (медь и гранит он ищет сам: разведка по клеткам 16 × 16).
+        /// </summary>
         [Theory]
-        [Trait("Category", "Probe")]
+        [Trait("Category", "Big")]
         [InlineData(1)]
         [InlineData(2)]
         [InlineData(3)]
@@ -186,12 +191,13 @@ namespace Orpheus.Tests
         [InlineData(10)]
         [InlineData(11)]
         [InlineData(12)]
-        public void E23_CraftChain_Probe_Seeds(int seed)
+        public void E23_CraftChain_Big_RealWorldV7_Seeds1To12(int seed)
         {
             MapShape shape = MapShape.World(1024);
             WorldModel world = WorldGenModule.Current.Generate(shape, (ulong)seed);
             Outcome o = Run(world, ServerRun.SpawnPoint(shape, 0), limitTicks: 40_000);
             _out.WriteLine($"зерно {seed}: {(o.Bot.Done ? "ДОШЁЛ" : "нет")}, тактов {o.Ticks}");
+            AssertChain(o);
         }
     }
 }
