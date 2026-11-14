@@ -114,9 +114,9 @@ namespace Orpheus.Bots
                     case "--script":
                         o.Script = Value(args, ref i);
                         if (Array.IndexOf(SimBot.Scripts, o.Script) < 0 && o.Script != DodgeBot.Name && o.Script != DigLineBot.Name
-                            && o.Script != BuildRoomBot.Name && o.Script != NightCampBot.Name)
+                            && o.Script != BuildRoomBot.Name && o.Script != NightCampBot.Name && o.Script != CraftChainBot.Name)
                         {
-                            throw new ArgumentException($"--script: сценария «{o.Script}» нет; есть: {string.Join(", ", SimBot.Scripts)}, {DodgeBot.Name}, {DigLineBot.Name}, {BuildRoomBot.Name}, {NightCampBot.Name}.");
+                            throw new ArgumentException($"--script: сценария «{o.Script}» нет; есть: {string.Join(", ", SimBot.Scripts)}, {DodgeBot.Name}, {DigLineBot.Name}, {BuildRoomBot.Name}, {NightCampBot.Name}, {CraftChainBot.Name}.");
                         }
 
                         break;
