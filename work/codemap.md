@@ -111,8 +111,9 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 ## Интерфейс (E2-2) - client/Assets/Scripts/UI
 - UiRoot.cs: `UiRoot` (холст перед камерой, Fit, FromScreen, Node/Picture/Label), `UiGroup` (привязка, Contains/Local).
 - UiStyle.cs: цвета, `Frame` (рамка с 9 срезами кодом), `Font`.
-- UiParts.cs: `UiItemIcon`, `UiSlotGrid` (Set/Select/Hover/Hit), `UiWindow`, `UiTooltip`, `UiCarry`, `UiBar`.
-- GameUi.cs: `UiInput`, `BagWindow`, `GameUi` (ReadInput, Frame, PointerBlocked, EscapeUsed, SlotClicked), `UiDemo` (--ui-demo).
+- UiParts.cs: `UiItemIcon` (Set/Dim), `UiSlotGrid` (Set/Select/Hover/Hit), `UiWindow`, `UiButton` (E2-4: кнопка, вкладка, строка), `UiTooltip`, `UiCarry`, `UiBar`.
+- CraftWindow.cs (E2-4): `CraftWindow` (SelectTab/SelectRow, HitTest → `CraftHit`, CenterOf, Show: строки, карточка ShowCard, очередь ShowQueue); раскладка — константы в начале класса.
+- GameUi.cs: `UiInput`, `UiCraftState`, `BagWindow`, `GameUi` (ReadInput, Frame, CraftReplied, CraftClick / CraftKeys / Make, FindStation, Layout, PointerBlocked, OverWindow, EscapeUsed, SlotClicked), `UiDemo` (--ui-demo bag|hotbar|craft|craft+bag|craft-hint; CraftScript).
 - UiStrings.cs: строки и названия предметов по ключу.
 - src/Orpheus.Net/Session/BagHand.cs: `IBagRequests`, `BagHand` (Sync, Left, Right, Quick, Outside, ShownCount, QuickTarget); тесты `BagHandTests.cs`.
 - NetGame.Edits.cs: UiFrame (перед SendInput), блокировка мыши в UpdateEdits.
