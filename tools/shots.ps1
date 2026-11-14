@@ -29,7 +29,9 @@ param(
     # Run every scene twice and compare the PNG (proof that a rerun gives the same frames).
     [switch] $Check,
     # Per-scene limit, seconds.
-    [int] $TimeoutSec = 60
+    [int] $TimeoutSec = 60,
+    # Display the player binds to (2 = the Author's non-primary monitor); nothing is shown on it.
+    [int] $Monitor = 2
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,7 +61,9 @@ $total = [Diagnostics.Stopwatch]::StartNew()
 function Invoke-Shot($scene, [string] $png) {
     $log = Join-Path $logDir ($scene.name + '.log')
     if (Test-Path $png) { Remove-Item -Force $png }
-    $a = @('-batchmode', '--seed', "$($scene.seed)", '--size', "$($scene.size)", '--screenshot', "`"$png`"")
+    # -monitor 2 + a tiny window: the player binds its swap chain to the NON-primary display, so a fullscreen
+    # app on the primary monitor does not blink (the picture itself is rendered to a texture of --shot-size).
+    $a = @('-batchmode', '-monitor', "$Monitor", '-screen-fullscreen', '0', '-screen-width', '320', '-screen-height', '180', '--seed', "$($scene.seed)", '--size', "$($scene.size)", '--screenshot', "`"$png`"")
     if ($scene.tile) { $a += @('--shot-tile', ("{0},{1}" -f [int]$scene.tile[0], [int]$scene.tile[1])) }
     if ($scene.width) { $a += @('--shot-width', "$([int]$scene.width)") }
     # Extra client keys of the scene, e.g. "args": ["--paint-demo"] (E1-4).
