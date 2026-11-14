@@ -164,7 +164,7 @@ namespace Orpheus.Net.Session
                 byte floor = World.World.GetFloor(t);
                 var rec = new BuildRecord((ushort)EntityId, def.MaxIntegrity, 0, floor, 0);
                 var edit = floorKey
-                    ? new TileEdit(0, (byte)obj, ObjectId.Empty, rec) // пол: слой пола := ключ, объект пустой
+                    ? new TileEdit(0, BuildDefs.FloorOf(obj), ObjectId.Empty, rec) // пол: слой пола := пол ключа, объект пустой
                     : new TileEdit(0, floor, obj, rec);
                 if (!World.Predict(id, i, t, edit))
                 {

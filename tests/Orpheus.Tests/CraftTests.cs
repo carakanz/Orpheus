@@ -798,7 +798,7 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => CraftStateMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             Assert.True(Codec.IsKnown(30) && Codec.IsKnown(31) && Codec.IsKnown(32));
-            Assert.False(Codec.IsKnown(33));
+            Assert.False(Codec.IsKnown(36)); // E2-5: 33–35 заняты (действие, ответ, сундук)
         }
 
         private static void Give(EditTests.EditRig rig, NetClient c, params (byte Item, int Count)[] items)

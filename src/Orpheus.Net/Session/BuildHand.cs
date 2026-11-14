@@ -88,6 +88,9 @@ namespace Orpheus.Net.Session
         /// <summary>Ключ выбранной постройки.</summary>
         public ushort Key => BuildDefs.Palette[Selected];
 
+        /// <summary>Номер последнего отправленного запроса (постановка или починка); 0 — ещё не было.</summary>
+        public ushort LastRequest { get; private set; }
+
         /// <summary>Заявок постановки и починки отправлено.</summary>
         public int PlaceRequests { get; private set; }
         public int RepairRequests { get; private set; }
@@ -116,11 +119,11 @@ namespace Orpheus.Net.Session
         public static bool IsHammer(byte item) => Items.DigToolOf(item) == ToolKind.Hammer;
 
         /// <summary>
-        /// Что сделает ЛКМ по тайлу и можно ли (данные клиента: свой мир, место, сумка, жив ли). На тайле повреждённая
-        /// постройка — починка (<see cref="EditRules.CheckRepair"/>, цена по сумке); иначе постановка выбранного
-        /// (<see cref="EditRules.CheckPlaceTile"/>; непроходимое — не на себя; цена по сумке).
+        /// Что сделает ЛКМ по тайлу и можно ли (данные клиента: свой мир, место, сумка, предмет в руках по своим кадрам,
+        /// жив ли). На тайле повреждённая постройка — починка (<see cref="EditRules.CheckRepair"/>, цена по сумке); иначе
+        /// постановка выбранного (<see cref="EditRules.CheckPlaceTile"/>; непроходимое — не на себя; цена по сумке).
         /// </summary>
-        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, bool alive, TileCoord tile, ushort key)
+        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, byte held, bool alive, TileCoord tile, ushort key)
         {
             EditReply repair = EditRules.CheckRepair(world, self, tile, out BuildDef rdef, out int r1, out int r2);
             if (repair != EditReply.Empty && repair != EditReply.Intact && repair != EditReply.OutOfReach)
@@ -130,7 +133,7 @@ namespace Orpheus.Net.Session
                     repair = EditReply.NoResources;
                 }
 
-                return new BuildCheck(BuildAction.Repair, Gate(repair, alive, bag), world.GetObject(Torus.Wrap(world.Shape, tile)),
+                return new BuildCheck(BuildAction.Repair, Gate(repair, alive, held), world.GetObject(Torus.Wrap(world.Shape, tile)),
                     rdef.Material1, r1, rdef.Material2, r2);
             }
 
@@ -146,20 +149,20 @@ namespace Orpheus.Net.Session
                 reply = EditReply.NoResources;
             }
 
-            return new BuildCheck(BuildAction.Place, Gate(reply, alive, bag), key, def.Material1, def.Count1, def.Material2, def.Count2);
+            return new BuildCheck(BuildAction.Place, Gate(reply, alive, held), key, def.Material1, def.Count1, def.Material2, def.Count2);
         }
 
         // Общие отказы раньше остальных: мёртвый не строит, без молота — «нужен молот».
-        private static EditReply Gate(EditReply reply, bool alive, in Inventory bag) =>
-            !alive ? EditReply.Dead : !IsHammer(bag.Held) ? EditReply.ToolRequired : reply;
+        private static EditReply Gate(EditReply reply, bool alive, byte held) =>
+            !alive ? EditReply.Dead : !IsHammer(held) ? EditReply.ToolRequired : reply;
 
         /// <summary>
         /// ЛКМ по тайлу: проверка <see cref="Check"/>; можно — заявка (постановка с предсказанием или починка), иначе заявки
         /// нет. Возвращает проверку (причину покажет призрак / строка у курсора).
         /// </summary>
-        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, bool alive, TileCoord tile)
+        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, byte held, bool alive, TileCoord tile)
         {
-            BuildCheck c = Check(world, self, bag, alive, tile, Key);
+            BuildCheck c = Check(world, self, bag, held, alive, tile, Key);
             if (!c.Ok)
             {
                 return c;
@@ -167,14 +170,21 @@ namespace Orpheus.Net.Session
 
             if (c.Action == BuildAction.Repair)
             {
-                if (_requests.Repair(tile) != 0)
+                ushort id = _requests.Repair(tile);
+                if (id != 0)
                 {
                     RepairRequests++;
+                    LastRequest = id;
                 }
             }
-            else if (_requests.Place(tile, tile, c.Key, self) != 0)
+            else
             {
-                PlaceRequests++;
+                ushort id = _requests.Place(tile, tile, c.Key, self);
+                if (id != 0)
+                {
+                    PlaceRequests++;
+                    LastRequest = id;
+                }
             }
 
             return c;
@@ -190,6 +200,7 @@ namespace Orpheus.Net.Session
             if (id != 0)
             {
                 PlaceRequests++;
+                LastRequest = id;
             }
 
             return id;

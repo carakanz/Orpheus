@@ -1164,7 +1164,7 @@ namespace Orpheus.Tests
             BagRequestMessage req = BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal(BagOp.Split, req.Op);
             Assert.Equal(15, req.Count);
-            buf[2] = 40; // ячейка вне сумки
+            buf[2] = 70; // ячейка вне сумки и сундука (E2-5: 40…69 — ячейки открытого сундука)
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
             buf[2] = 6;
             buf[1] = 0; // нет такой операции
@@ -1255,7 +1255,7 @@ namespace Orpheus.Tests
             Assert.Equal(Items.None, a.Inv.ItemAt(7));
             Assert.Equal(15, Assert.Single(a.Piles).Count);
             Assert.Equal(15, Assert.Single(b.Piles).Count);
-            Assert.False(a.RequestBagMove(0, 40));
+            Assert.False(a.RequestBagMove(0, 70)); // E2-5: 40…69 — сундук
             Assert.Equal(3, rig.Server.BagRequestsReceived);
 
             NetClient late = rig.Join();

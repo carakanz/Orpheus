@@ -180,6 +180,17 @@ namespace Orpheus.Client
                 Id = ObjectId.Torch, Variants = new[] { V("obj_torch") },
                 Size = 0.8f, Shadow = 0f,
             },
+            // Сундук и кровать (E2-5): заглушки TEMP_obj_chest / bed (tools/make_item_icons.py, 128 × 160, опора внизу по центру).
+            new ObjectLook
+            {
+                Id = ObjectId.Chest, Variants = new[] { V("obj_chest") },
+                Size = 0.9f, Shadow = 0.4f,
+            },
+            new ObjectLook
+            {
+                Id = ObjectId.Bed, Variants = new[] { V("obj_bed") },
+                Shadow = 0.3f,
+            },
         };
 
         /// <summary>Опора объекта в своём тайле: по центру, на этой высоте от нижнего края тайла.</summary>

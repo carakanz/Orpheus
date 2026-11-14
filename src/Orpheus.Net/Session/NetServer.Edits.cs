@@ -252,7 +252,7 @@ namespace Orpheus.Net.Session
                     BuildDefs.TryGet(m.Obj, out BuildDef def) ? def.MaxIntegrity : BuildRecord.MaxIntegrity,
                     0, floor, 0);
                 if (check == EditReply.Accepted &&
-                    !_sim.RequestPlayerEdit(t, floorKey ? (byte)m.Obj : floor, floorKey ? ObjectId.Empty : m.Obj,
+                    !_sim.RequestPlayerEdit(t, floorKey ? BuildDefs.FloorOf(m.Obj) : floor, floorKey ? ObjectId.Empty : m.Obj,
                         true, rec, p.EntityId, tag))
                 {
                     check = QueueRefusal(p.EntityId); // очередь такта полна или персонаж мёртв (C-004)

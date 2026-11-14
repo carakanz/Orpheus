@@ -195,7 +195,7 @@ namespace Orpheus.Client
         /// ячейках интерфейса и у куч на земле не рисуется — берётся копия картинки с прозрачным левым верхним углом.
         /// У готовой картинки (без уголка) и без видеокарты значок остаётся как есть.
         /// </summary>
-        static Sprite Unmarked(Sprite s)
+        internal static Sprite Unmarked(Sprite s)
         {
             const int mark = 8;
             try
@@ -241,7 +241,7 @@ namespace Orpheus.Client
             }
         }
 
-        static Sprite? Find(string name)
+        internal static Sprite? Find(string name)
         {
             ObjectAtlas.Ensure();
             ObjectSet? set = ObjectAtlas.Set;

@@ -81,7 +81,7 @@ namespace Orpheus.Core.Sim
         /// </summary>
         private void GiveBuildRefund(long tick, TileCoord tile, ushort preObj, byte preFloor, in BuildRecord rec)
         {
-            ushort key = preObj != ObjectId.Empty ? preObj : preFloor; // постройка — id объекта; снос пола — id построенного пола
+            ushort key = preObj != ObjectId.Empty ? preObj : BuildDefs.FloorKey(preFloor); // постройка — id объекта; снос пола — ключ пола (E2-5)
             if ((preObj == ObjectId.Empty && !FloorId.IsBuilt(preFloor)) || !BuildDefs.TryGet(key, out BuildDef def))
             {
                 return;
@@ -284,7 +284,7 @@ namespace Orpheus.Core.Sim
             }
 
             def = default;
-            return FloorId.IsBuilt(edit.Floor) && BuildDefs.TryGet(edit.Floor, out def);
+            return FloorId.IsBuilt(edit.Floor) && BuildDefs.TryGet(BuildDefs.FloorKey(edit.Floor), out def);
         }
 
         /// <summary>Вернуть стоимость постановки при отказе после списания (1-011, `05` 1.4).</summary>

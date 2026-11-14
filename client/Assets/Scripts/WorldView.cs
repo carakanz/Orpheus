@@ -167,7 +167,9 @@ namespace Orpheus.Client
         /// Плитка Tilemap пола по id ядра (E1-4): только построенные полы (<see cref="GroundKind.Built"/>) — каменной плитой
         /// поверх земли; природные полы и воду рисует меш земли (<see cref="GroundTable"/>) — плитки нет.
         /// </summary>
-        public TileBase? FloorTile(byte floor) => GroundTable.Of(floor).Kind == GroundKind.Built ? _stone : null;
+        public TileBase? FloorTile(byte floor) =>
+            GroundTable.Of(floor).Kind != GroundKind.Built ? null
+            : BuildLook.TileOf(BuildDefs.FloorKey(floor)) ?? _stone; // E2-5: доски, плиты, настил (заглушки скрипта)
 
         /// <summary>Меш земли узла собран по этому полу тайла (lx, ly) — «правка видна в тот же кадр» для проверок.</summary>
         public static bool GroundShows(ChunkNode node, int lx, int ly, byte floor) =>
@@ -224,12 +226,15 @@ namespace Orpheus.Client
                 case ObjectId.Bush: return _tree;
                 case ObjectId.Granite: return _rock;
                 case ObjectId.Ore: return _rock;
-                // Стена игрока (0-028, правки): камня-спрайта нет (1-024) — рисуем камнем пола, стена видна (1-022, шаг 4).
-                case ObjectId.StoneWall: return _stone;
+                // Стены, забор, дверь (E2-5): плитки заглушек tools/make_item_icons.py; нет картинки — как раньше (камень пола).
+                case ObjectId.StoneWall:
+                case ObjectId.WoodWall:
+                case ObjectId.WoodFence:
+                    return BuildLook.TileOf(ObjectId.IdOf(obj)) ?? _stone;
                 // Ковёр (1-011, бесплатная постройка): своего спрайта нет (1-024) — рисуем лугом, проба 1-022 видит клетку.
                 case ObjectId.Carpet: return _meadow;
                 // Дверь (1-012): закрытая — камнем (видная преграда), открытая — светлее (лугом); свои спрайты — 1-024.
-                case ObjectId.Door: return _stone;
+                case ObjectId.Door: return BuildLook.TileOf(ObjectId.Door) ?? _stone;
                 // Факел и костёр (E1-8: свет источников для тона суток): своего спрайта нет (1-024) — рисуем валуном,
                 // чтобы в кадре было видно, от чего круг света.
                 case ObjectId.Torch: return _rock;
@@ -239,7 +244,8 @@ namespace Orpheus.Client
         }
 
         /// <summary>Тайл двери по состоянию (1-012): открытая — светлее (луг), закрытая — как <see cref="ObjectTile"/>.</summary>
-        public TileBase DoorTile(bool open) => open ? _meadow : _stone;
+        public TileBase DoorTile(bool open) =>
+            (open ? BuildLook.Tile(BuildLook.DoorOpen) : BuildLook.TileOf(ObjectId.Door)) ?? (open ? _meadow : _stone);
 
         /// <summary>Сдвинуть окно к персонажу: выбросить вышедшие чанки в пул, залить вошедшие, расставить узлы от якоря.</summary>
         public void UpdateWindow(WorldPos character)

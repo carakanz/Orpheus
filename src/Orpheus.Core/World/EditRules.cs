@@ -356,7 +356,7 @@ namespace Orpheus.Core.World
                 }
 
                 bool liquid = floor == FloorId.Water || floor == FloorId.Lava;
-                if (obj == FloorId.Platform)
+                if (obj == BuildDefs.PlatformKey)
                 {
                     return liquid ? EditReply.Accepted : EditReply.NotAllowed; // настил — только над жидкостью (`05` 1.3)
                 }
