@@ -25,7 +25,7 @@ namespace Orpheus.WorldGen
         /// вода, берег, обрывы, тропы, лес куртинами, сухая трава, без скальной массы гор. Макрокарта (этапы 1–3, 7) при
         /// этом не менялась, её версия осталась <see cref="MacroGenerator.GeneratorVersion"/>.
         /// </summary>
-        public const int GeneratorVersion = 5;
+        public const int GeneratorVersion = 6;
 
         /// <summary>Ключ сервера <c>--gen</c>.</summary>
         public const string Key = "v1";
@@ -58,6 +58,7 @@ namespace Orpheus.WorldGen
             TileStage.Run(t);
             HearthStage.StampCopper(t);
             ConnectStage.Run(t);
+            CliffStage.DropStubs(t);
             return t;
         }
 

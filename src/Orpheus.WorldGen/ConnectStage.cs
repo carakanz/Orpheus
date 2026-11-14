@@ -13,8 +13,8 @@ namespace Orpheus.WorldGen
     /// <para>
     /// Как: один поиск кратчайших путей от главной компоненты по всему тору (очереди по цене, алгоритм Дейла). Цена входа:
     /// проходимый тайл 0; дерево, куст, валун 1; скальная масса 2; вода 3; обрыв 5; залежь — нельзя. Для каждой
-    /// присоединяемой компоненты путь до главной расчищается: <b>обрыв</b> — убирается весь его сегмент 4 × 4 (проход, как
-    /// у нарезки линий); <b>вода</b> — брод из песка кистью 3 × 3; скальная масса — кистью 4 × 4; прочее — один тайл.
+    /// присоединяемой компоненты путь до главной расчищается: <b>обрыв</b> — убираются его тайлы в квадрате 5 × 5 вокруг тайла пути (проход, как
+    /// у нарезки гряд; пол — земля); <b>вода</b> — брод из песка кистью 3 × 3; скальная масса — кистью 4 × 4; прочее — один тайл.
     /// Обрыв и вода дороже деревьев, но дешевле длинного прокапывания скал: отрезанное ими открывается проходом и бродом.
     /// </para>
     /// Порядок обхода фиксирован (очереди, соседи в порядке +x, −x, +y, −y), результат один на любой машине.
@@ -44,6 +44,9 @@ namespace Orpheus.WorldGen
         public const int CostMass = 2;
         public const int CostWater = 3;
         public const int CostCliff = 5;
+
+        /// <summary>Проход в обрыве на пути присоединения: квадрат (2 · это + 1)² тайлов вокруг тайла пути.</summary>
+        public const int CliffPassHalf = 2;
 
         private const int Buckets = CostCliff + 1;
         private const byte DirNone = 255;
@@ -275,7 +278,7 @@ namespace Orpheus.WorldGen
         }
 
         /// <summary>
-        /// Расчистить преграду (x, y): обрыв — весь сегмент 4 × 4; вода — брод из песка 3 × 3; скальная масса — кистью 4 × 4
+        /// Расчистить преграду (x, y): обрыв — его тайлы в квадрате 5 × 5 (пол — земля); вода — брод из песка 3 × 3; скальная масса — кистью 4 × 4
         /// (x − 1…x + 2); прочее — один тайл. Возвращает число снятых объектов (броды и сегменты считаются в мире отдельно).
         /// </summary>
         private static int Carve(TileWorld t, int x, int y)
@@ -285,16 +288,15 @@ namespace Orpheus.WorldGen
             int i = (y * w) + x;
             if (t.Objects[i] == ObjectId.Cliff)
             {
-                int x0 = x & ~(GridField.Step - 1);
-                int y0 = y & ~(GridField.Step - 1);
-                for (int dy = 0; dy < GridField.Step; dy++)
+                for (int dy = -CliffPassHalf; dy <= CliffPassHalf; dy++)
                 {
-                    for (int dx = 0; dx < GridField.Step; dx++)
+                    for (int dx = -CliffPassHalf; dx <= CliffPassHalf; dx++)
                     {
-                        int j = ((y0 + dy) * w) + x0 + dx;
+                        int j = (((y + dy) & mask) * w) + ((x + dx) & mask);
                         if (t.Objects[j] == ObjectId.Cliff)
                         {
                             t.Objects[j] = ObjectId.Empty;
+                            t.Floor[j] = FloorId.Dirt;
                         }
                     }
                 }

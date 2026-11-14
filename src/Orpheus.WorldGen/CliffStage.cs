@@ -52,168 +52,325 @@ namespace Orpheus.WorldGen
     }
 
     /// <summary>
-    /// Обрывы-границы (карточка E1-2, план 1.2; образец — Factorio): непроходимые и неломаемые линии там, где рельеф
-    /// (<see cref="ReliefMap"/>) переходит с уровня на уровень.
+    /// Обрывы-границы (карточки E1-2, E1-6b; план 1.2, 1.6б; образец — Factorio): непроходимые и неломаемые гряды скал —
+    /// плавные извилистые полосы толщиной 2–3 тайла вокруг возвышенностей, с редкими ясными проходами.
     /// <para>
-    /// Сетка ячеек 4 × 4 тайла; углы ячейки — узлы решётки рельефа. Ребро ячейки «пересечено», если уровни двух его углов
-    /// разные; ячейка с пересечёнными рёбрами получает кусок обрыва: узел в тайле (1, 1) ячейки и «рукава» толщиной в один
-    /// тайл к каждому пересечённому ребру (влево — (0, 1), вправо — (2, 1), (3, 1), вверх — (1, 0), вниз — (1, 2), (1, 3)).
-    /// Соседние ячейки стыкуются на общем ребре, поэтому линия связна по 4 сторонам и не пропускает даже по диагонали.
+    /// 1. <b>Поле.</b> Высота рельефа (<see cref="ReliefMap"/>) берётся в ячейках 2 × 2 тайла с искривлением координат шумом
+    /// (<see cref="CellsWarp"/>, до ±<see cref="WarpTiles"/> тайлов). Возвышенность уровня k — ячейки выше квантиля
+    /// <see cref="LevelPerMille"/>[k] (уровней — один-два).
     /// </para>
     /// <para>
-    /// Кусок не ставится: в <see cref="WaterStage.NoWaterRadius"/> от Очага; в ячейку с водой или берегом; на тропу; где шум
-    /// «обрывистости» (ячейки 128, 64) в нижних <see cref="SkipPerMille"/> ‰ — это длинные разрывы. Затем по каждой связной
-    /// линии идёт обход в ширину от её первой ячейки, и каждая <see cref="GapEvery"/>-я ячейка убирается — проход шириной 4
-    /// тайла не реже чем через 44 тайла линии. Обрывки короче <see cref="MinRunCells"/> ячеек убираются.
-    /// Ячейки-проходы помечаются <see cref="TileWorld.MarkClear"/>: этап 11 не ставит туда объекты и кладёт землю.
+    /// 2. <b>Чистка формы.</b> Маска возвышенности закрывается и открывается кругом (<see cref="CloseR2"/>, <see cref="OpenR2"/>):
+    /// узкие протоки и языки уже ~16 тайлов исчезают, углы скругляются; острова и дыры меньше <see cref="MinAreaCells"/> ячеек
+    /// убираются. Поэтому линия не идёт рядом сама с собой и не штрихует луг.
     /// </para>
+    /// <para>
+    /// 3. <b>Полоса.</b> По маске считается расстояние до её края со знаком (евклидово, в тайлах; между центрами ячеек —
+    /// билинейно). Обрыв — тайлы возвышенности, у которых расстояние до края плюс дрожание (шум <see cref="CellsWobble"/>,
+    /// ±1,3 тайла) лежит в [0, толщина); толщина — 2–3 тайла, местами осыпи до 4 (шум <see cref="CellsThick"/>). Дрожание
+    /// ломает прямые отрезки. Полоса второго уровня ближе <see cref="MinApartTiles"/> тайлов к краю первого не ставится.
+    /// </para>
+    /// <para>
+    /// 4. <b>Где обрыва нет:</b> в <see cref="WaterStage.NoWaterRadius"/> от Очага, в воде и на берегу, на тропе и в тайле от
+    /// неё (проход по тропе — 4–5 тайлов).
+    /// </para>
+    /// <para>
+    /// 5. <b>Проходы.</b> Каждая связная гряда короче <see cref="MinLineTiles"/> убирается; по остальным идёт обход в ширину от
+    /// конца гряды, и каждые <see cref="GapPeriod"/> шагов вырезается проход в <see cref="GapTiles"/> шагов; обрубки короче
+    /// <see cref="MinRunTiles"/> убираются. Проход и тайлы вокруг помечаются <see cref="TileWorld.MarkClear"/>: этап 11 кладёт
+    /// туда землю и не ставит объекты.
+    /// </para>
+    /// Только целые числа; порядок обхода фиксирован.
     /// </summary>
     public static class CliffStage
     {
         public const int Stage = 17;
 
-        public const int FieldCliffiness = 1;
+        public const int FieldWarpX = 2;
+        public const int FieldWarpY = 3;
+        public const int FieldWobble = 4;
+        public const int FieldThick = 5;
 
-        public static readonly int[] CellsCliffiness = { 128, 64 };
+        /// <summary>Доля ячеек ниже края возвышенности уровня k, ‰ (по возрастанию; один-два уровня).</summary>
+        public static readonly int[] LevelPerMille = { 740 };
 
-        /// <summary>Доля ячеек линии, убираемая шумом обрывистости, ‰.</summary>
-        public const int SkipPerMille = 100;
+        /// <summary>Вес размытой маски горных биомов против рельефа и радиус размытия, ячеек (два прохода).</summary>
+        public const int RockyWeight = 2;
+        public const int BlurCells = 8;
 
-        /// <summary>Период проходов вдоль линии, ячеек (12 ячеек = 44 тайла обрыва + проход 4).</summary>
-        public const int GapEvery = 12;
+        public static readonly int[] CellsWarp = { 64, 32 };
+        public static readonly int[] CellsWobble = { 8, 4 };
+        public static readonly int[] CellsThick = { 32, 16 };
 
-        /// <summary>Линия короче — не обрыв, а мусор: убирается (до нарезки проходов).</summary>
-        public const int MinLineCells = 8;
+        /// <summary>Размах дрожания края: поле Q16 − ½, умноженное на это, — сдвиг в 1/256 тайла (2000 — обычно ±1, изредка до ±3 тайлов).</summary>
+        public const int WobbleQ8 = 2200;
 
-        /// <summary>Обрывок после нарезки короче — убирается.</summary>
-        public const int MinRunCells = 3;
+        /// <summary>Гряда длиннее после нарезки (кольцо: обход сходится с двух сторон) режется ещё раз посередине.</summary>
+        public const int MaxRunTiles = 80;
 
-        private const byte EdgeLeft = 1;
-        private const byte EdgeRight = 2;
-        private const byte EdgeUp = 4;
-        private const byte EdgeDown = 8;
+        /// <summary>Наибольшее искривление координат, тайлов.</summary>
+        public const int WarpTiles = 10;
+
+        /// <summary>Квадраты радиусов закрытия и открытия маски, ячеек² (ячейка — 2 тайла): 4,5 и 5 ячеек.</summary>
+        public const int CloseR2 = 20;
+        public const int OpenR2 = 26;
+
+        /// <summary>Остров возвышенности или дыра в ней меньше — убирается, ячеек (400 ячеек = 1600 тайлов).</summary>
+        public const int MinAreaCells = 400;
+
+        /// <summary>Полоса верхнего уровня не ближе стольких тайлов к краю нижнего.</summary>
+        public const int MinApartTiles = 20;
+
+        /// <summary>Гряда короче — мусор, убирается до нарезки проходов.</summary>
+        public const int MinLineTiles = 28;
+
+        /// <summary>Период проходов вдоль гряды и ширина прохода, шагов обхода (шаг — тайл по оси, 1,4 тайла по диагонали).</summary>
+        public const int GapPeriod = 64;
+        public const int GapTiles = 5;
+
+        /// <summary>Обрубок после нарезки короче — убирается.</summary>
+        public const int MinRunTiles = 12;
+
+        /// <summary>Предел счёта расстояния до края маски, ячеек.</summary>
+        private const int DistCap = 12;
+
+        private const int Far = 1 << 20;
 
         /// <summary>Поставить обрывы (после воды и троп, до объектов этапа 11).</summary>
         public static void Run(TileWorld t)
         {
             int w = t.WorldSize;
-            int n = w >> GridField.StepBits;
-            int cmask = n - 1;
+            int m = w >> 1;
+            int mmask = m - 1;
             int half = w >> 1;
             ulong seed = t.Macro.Map.Seed;
             ReliefMap relief = t.Relief;
 
-            // Пересечённые рёбра ячеек.
-            var edges = new byte[n * n];
-            var keep = new bool[n * n];
-            for (int j = 0; j < n; j++)
-            {
-                for (int i = 0; i < n; i++)
-                {
-                    int a = relief.NodeLevel(i, j);
-                    int b = relief.NodeLevel(i + 1, j);
-                    int c = relief.NodeLevel(i, j + 1);
-                    int d = relief.NodeLevel(i + 1, j + 1);
-                    byte e = 0;
-                    if (a != c) e |= EdgeLeft;
-                    if (b != d) e |= EdgeRight;
-                    if (a != b) e |= EdgeUp;
-                    if (c != d) e |= EdgeDown;
-                    edges[(j * n) + i] = e;
-                    keep[(j * n) + i] = e != 0;
-                }
-            }
-
-            // Обрывистость: нижние SkipPerMille ‰ ячеек линии — разрыв.
-            var cliffiness = new FieldNoise(MacroGenerator.FieldSeed(seed, Stage, FieldCliffiness), w, CellsCliffiness, ridged: false);
-            var cv = new ushort[n * n];
-            var hist = new int[LatticeNoise.One];
-            long lineCells = 0;
-            for (int c = 0; c < keep.Length; c++)
-            {
-                if (keep[c])
-                {
-                    int v = cliffiness.Sample(((c & cmask) << GridField.StepBits) + 2, ((c / n) << GridField.StepBits) + 2);
-                    cv[c] = (ushort)v;
-                    hist[v]++;
-                    lineCells++;
-                }
-            }
-
-            int skipBelow = GridField.QuantileBelow(hist, lineCells * SkipPerMille / 1000);
-            long r = WaterStage.NoWaterRadius + GridField.Step;
-            for (int c = 0; c < keep.Length; c++)
-            {
-                if (!keep[c])
-                {
-                    continue;
-                }
-
-                int ci = c & cmask;
-                int cj = c / n;
-                long dx = IntMath.Wrap((ci << GridField.StepBits) + 2 - half, w);
-                long dy = IntMath.Wrap((cj << GridField.StepBits) + 2 - half, w);
-                if (cv[c] < skipBelow || (dx * dx) + (dy * dy) <= r * r || CellBusy(t, ci, cj))
-                {
-                    keep[c] = false;
-                }
-            }
-
-            // Короткие линии — прочь; длинные — нарезать проходами; обрывки — прочь.
-            var level = new int[n * n];
-            var queue = new int[n * n];
-            DropShort(keep, edges, n, MinLineCells, level, queue, cutSeed: MacroGenerator.StageSeed(seed, Stage), t);
-            DropShort(keep, edges, n, MinRunCells, level, queue, cutSeed: 0, null);
-
-            // Тайлы.
+            // 1. Поле высот в ячейках 2 × 2 с искривлением координат.
+            var warpX = new FieldNoise(MacroGenerator.FieldSeed(seed, Stage, FieldWarpX), w, CellsWarp, ridged: false);
+            var warpY = new FieldNoise(MacroGenerator.FieldSeed(seed, Stage, FieldWarpY), w, CellsWarp, ridged: false);
+            var field = new ushort[m * m];
+            var rocky = new int[m * m];
             int mask = w - 1;
-            for (int c = 0; c < keep.Length; c++)
+            var hist = new int[LatticeNoise.One];
+            for (int j = 0; j < m; j++)
             {
-                if (!keep[c])
+                for (int i = 0; i < m; i++)
                 {
-                    continue;
+                    int x = (i << 1) + 1;
+                    int y = (j << 1) + 1;
+                    int sx = Warp(warpX.Sample(x, y));
+                    int sy = Warp(warpY.Sample(x, y));
+                    field[(j * m) + i] = (ushort)relief.HeightAt(x + sx, y + sy);
+                    byte b = t.Biome[(((y + sy) & mask) * w) + ((x + sx) & mask)];
+                    rocky[(j * m) + i] = b == Biome.Mountain || b == Biome.Cave ? LatticeNoise.One - 1 : 0;
+                }
+            }
+
+            // Горы тянут поле вверх: размытая маска горных биомов весит вдвое больше рельефа — гряды опоясывают горы.
+            rocky = Blur(Blur(rocky, m, BlurCells), m, BlurCells);
+            for (int c = 0; c < field.Length; c++)
+            {
+                int v = ((RockyWeight * rocky[c]) + field[c]) / (RockyWeight + 1);
+                field[c] = (ushort)v;
+                hist[v]++;
+            }
+
+            var wobble = new FieldNoise(MacroGenerator.FieldSeed(seed, Stage, FieldWobble), w, CellsWobble, ridged: false);
+            var thick = new FieldNoise(MacroGenerator.FieldSeed(seed, Stage, FieldThick), w, CellsThick, ridged: false);
+            var cliff = new bool[w * w];
+            int[]? lower = null; // расстояние до края нижнего уровня в ячейках, Q8 тайлов
+            long r = WaterStage.NoWaterRadius + GridField.Step;
+            var sqrtQ8 = new int[(DistCap * DistCap) + 1];
+            for (int d2 = 0; d2 < sqrtQ8.Length; d2++)
+            {
+                sqrtQ8[d2] = (int)IntMath.Isqrt((long)d2 << 18); // 2·√d2 тайлов, Q8
+            }
+
+            for (int level = 0; level < LevelPerMille.Length; level++)
+            {
+                int threshold = GridField.QuantileBelow(hist, (long)field.Length * LevelPerMille[level] / 1000);
+                var high = new bool[m * m];
+                for (int c = 0; c < high.Length; c++)
+                {
+                    high[c] = field[c] >= threshold;
                 }
 
-                int x0 = (c & cmask) << GridField.StepBits;
-                int y0 = (c / n) << GridField.StepBits;
-                byte e = edges[c];
-                Put(t, x0 + 1, y0 + 1);
-                if ((e & EdgeLeft) != 0)
+                // 2. Чистка формы: закрыть, открыть, убрать мелкие острова и дыры.
+                high = Not(Near(Not(Near(high, m, CloseR2)), m, CloseR2));
+                high = Near(Not(Near(Not(high), m, OpenR2)), m, OpenR2);
+                DropSmall(high, m, true);
+                DropSmall(high, m, false);
+
+                // 3. Расстояние до края со знаком в ячейках, Q8 тайлов: внутри > 0.
+                int[] inside = Dist2(Not(high), m);
+                int[] outside = Dist2(high, m);
+                var sd = new int[m * m];
+                for (int c = 0; c < sd.Length; c++)
                 {
-                    Put(t, x0, y0 + 1);
+                    sd[c] = high[c] ? sqrtQ8[inside[c]] - 256 : 256 - sqrtQ8[outside[c]];
                 }
 
-                if ((e & EdgeRight) != 0)
+                for (int y = 0; y < w; y++)
                 {
-                    Put(t, x0 + 2, y0 + 1);
-                    Put(t, x0 + 3, y0 + 1);
+                    long dy = IntMath.Wrap(y - half, w);
+                    int j0 = ((y - 1) >> 1) & mmask;
+                    int j1 = (j0 + 1) & mmask;
+                    int fy = (y & 1) == 0 ? 3 : 1;
+                    for (int x = 0; x < w; x++)
+                    {
+                        int i0 = ((x - 1) >> 1) & mmask;
+                        int i1 = (i0 + 1) & mmask;
+                        int fx = (x & 1) == 0 ? 3 : 1;
+                        int a = sd[(j0 * m) + i0];
+                        int b = sd[(j0 * m) + i1];
+                        int c = sd[(j1 * m) + i0];
+                        int d = sd[(j1 * m) + i1];
+                        if (a < -1024 && b < -1024 && c < -1024 && d < -1024)
+                        {
+                            continue; // далеко снаружи
+                        }
+
+                        int s = (((a * (4 - fx)) + (b * fx)) * (4 - fy) + (((c * (4 - fx)) + (d * fx)) * fy)) >> 4;
+                        if (s > 2048)
+                        {
+                            continue; // далеко внутри
+                        }
+
+                        if (lower != null)
+                        {
+                            int la = lower[(j0 * m) + i0];
+                            int lb = lower[(j0 * m) + i1];
+                            int lc = lower[(j1 * m) + i0];
+                            int ld = lower[(j1 * m) + i1];
+                            int ls = (((la * (4 - fx)) + (lb * fx)) * (4 - fy) + (((lc * (4 - fx)) + (ld * fx)) * fy)) >> 4;
+                            if (ls < MinApartTiles << 8)
+                            {
+                                continue;
+                            }
+                        }
+
+                        s += ((wobble.Sample(x, y) - (LatticeNoise.One >> 1)) * WobbleQ8) >> 16;
+                        int th = 720 + (((thick.Sample(x, y) - 30000) * 2300) >> 16);
+                        th = th < 620 ? 620 : (th > 1100 ? 1100 : th);
+                        if (s < 0 || s >= th)
+                        {
+                            continue;
+                        }
+
+                        long dx = IntMath.Wrap(x - half, w);
+                        if ((dx * dx) + (dy * dy) <= r * r || Busy(t, x, y))
+                        {
+                            continue;
+                        }
+
+                        cliff[(y * w) + x] = true;
+                    }
                 }
 
-                if ((e & EdgeUp) != 0)
-                {
-                    Put(t, x0 + 1, y0);
-                }
+                lower = sd;
+            }
 
-                if ((e & EdgeDown) != 0)
+            // 5. Короткие гряды — прочь; длинные — нарезать проходами; обрубки — прочь.
+            var depth = new int[w * w];
+            var queue = new int[w * w];
+            Runs(cliff, w, MinLineTiles, depth, queue, MacroGenerator.StageSeed(seed, Stage), t, periodic: true);
+            Runs(cliff, w, MinRunTiles, depth, queue, 0, t, periodic: false);
+            Runs(cliff, w, MinRunTiles, depth, queue, 0, null, periodic: false);
+
+            for (int i = 0; i < cliff.Length; i++)
+            {
+                if (cliff[i])
                 {
-                    Put(t, x0 + 1, y0 + 2);
-                    Put(t, x0 + 1, y0 + 3);
+                    t.Objects[i] = ObjectId.Cliff;
                 }
             }
         }
 
-        private static void Put(TileWorld t, int x, int y) => t.Objects[(y * t.WorldSize) + x] = ObjectId.Cliff;
+        /// <summary>Размытие квадратом (2r + 1)² по тору: скользящие суммы по строкам, затем по столбцам.</summary>
+        private static int[] Blur(int[] a, int m, int r)
+        {
+            int mmask = m - 1;
+            int n = (2 * r) + 1;
+            var tmp = new int[a.Length];
+            var res = new int[a.Length];
+            for (int j = 0; j < m; j++)
+            {
+                int row = j * m;
+                long sum = 0;
+                for (int k = -r; k <= r; k++)
+                {
+                    sum += a[row + (k & mmask)];
+                }
 
-        // В ячейке вода, берег или тропа — обрыва нет.
-        private static bool CellBusy(TileWorld t, int ci, int cj)
+                for (int i = 0; i < m; i++)
+                {
+                    tmp[row + i] = (int)(sum / n);
+                    sum += a[row + ((i + r + 1) & mmask)] - a[row + ((i - r) & mmask)];
+                }
+            }
+
+            for (int i = 0; i < m; i++)
+            {
+                long sum = 0;
+                for (int k = -r; k <= r; k++)
+                {
+                    sum += tmp[((k & mmask) * m) + i];
+                }
+
+                for (int j = 0; j < m; j++)
+                {
+                    res[(j * m) + i] = (int)(sum / n);
+                    sum += tmp[(((j + r + 1) & mmask) * m) + i] - tmp[(((j - r) & mmask) * m) + i];
+                }
+            }
+
+            return res;
+        }
+
+        /// <summary>После этапа 12 (он прорезает проходы): убрать обрубки гряд короче <see cref="MinRunTiles"/>.</summary>
+        public static void DropStubs(TileWorld t)
         {
             int w = t.WorldSize;
-            for (int dy = 0; dy < GridField.Step; dy++)
+            var cliff = new bool[w * w];
+            for (int i = 0; i < cliff.Length; i++)
             {
-                int row = (((cj << GridField.StepBits) + dy) * w) + (ci << GridField.StepBits);
-                for (int dx = 0; dx < GridField.Step; dx++)
+                cliff[i] = t.Objects[i] == ObjectId.Cliff;
+            }
+
+            Runs(cliff, w, MinRunTiles, new int[w * w], new int[w * w], 0, null, periodic: false);
+            for (int i = 0; i < cliff.Length; i++)
+            {
+                if (!cliff[i] && t.Objects[i] == ObjectId.Cliff)
                 {
-                    if (t.Floor[row + dx] != FloorId.Empty || (t.Marks[row + dx] & TileWorld.MarkTrail) != 0)
+                    t.Objects[i] = ObjectId.Empty;
+                }
+            }
+        }
+
+        /// <summary>Искривление координаты из значения поля Q16: −<see cref="WarpTiles"/>…+<see cref="WarpTiles"/> тайлов.</summary>
+        private static int Warp(int q16)
+        {
+            int s = (int)(((long)(q16 - (LatticeNoise.One >> 1)) * 2 * ((2 * WarpTiles) + 1)) >> 16);
+            return s < -WarpTiles ? -WarpTiles : (s > WarpTiles ? WarpTiles : s);
+        }
+
+        // Вода, берег, тропа или тайл рядом с тропой — обрыва нет.
+        private static bool Busy(TileWorld t, int x, int y)
+        {
+            int w = t.WorldSize;
+            int mask = w - 1;
+            if (t.Floor[(y * w) + x] != FloorId.Empty)
+            {
+                return true;
+            }
+
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                int row = ((y + dy) & mask) * w;
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if ((t.Marks[row + ((x + dx) & mask)] & TileWorld.MarkTrail) != 0)
                     {
                         return true;
                     }
@@ -223,18 +380,103 @@ namespace Orpheus.WorldGen
             return false;
         }
 
-        /// <summary>
-        /// Связные линии ячеек (соседи — через пересечённое общее ребро): линия короче <paramref name="minCells"/> убирается.
-        /// С <paramref name="world"/> — ещё и нарезка: обход в ширину от первой ячейки линии, каждая <see cref="GapEvery"/>-я
-        /// глубина (со сдвигом от хэша первой ячейки) — проход; ячейки прохода помечаются в мире.
-        /// </summary>
-        private static void DropShort(bool[] keep, byte[] edges, int n, int minCells, int[] level, int[] queue, ulong cutSeed, TileWorld? world)
+        private static bool[] Not(bool[] a)
         {
-            int cmask = n - 1;
-            var seen = new bool[keep.Length];
-            for (int s = 0; s < keep.Length; s++)
+            var r = new bool[a.Length];
+            for (int i = 0; i < a.Length; i++)
             {
-                if (!keep[s] || seen[s])
+                r[i] = !a[i];
+            }
+
+            return r;
+        }
+
+        /// <summary>Расширение маски кругом: ячейка в ответе, если в маске есть ячейка не дальше √<paramref name="r2"/> (тор).</summary>
+        private static bool[] Near(bool[] src, int m, int r2)
+        {
+            int[] d2 = Dist2(src, m);
+            var r = new bool[src.Length];
+            for (int i = 0; i < r.Length; i++)
+            {
+                r[i] = d2[i] <= r2;
+            }
+
+            return r;
+        }
+
+        /// <summary>
+        /// Квадрат евклидова расстояния (в ячейках) до ближайшей ячейки маски, не больше <see cref="DistCap"/>² (тор):
+        /// расстояние по строке двумя проходами, затем наименьшее g² + dy² по столбцу в окне ±<see cref="DistCap"/>.
+        /// </summary>
+        private static int[] Dist2(bool[] src, int m)
+        {
+            int mmask = m - 1;
+            var g = new int[m * m];
+            for (int j = 0; j < m; j++)
+            {
+                int row = j * m;
+                int run = DistCap;
+                for (int k = 0; k < 2 * m; k++) // слева направо, два круга — тор
+                {
+                    int i = k & mmask;
+                    run = src[row + i] ? 0 : (run < DistCap ? run + 1 : DistCap);
+                    if (k >= m)
+                    {
+                        g[row + i] = run;
+                    }
+                }
+
+                run = DistCap;
+                for (int k = (2 * m) - 1; k >= 0; k--)
+                {
+                    int i = k & mmask;
+                    run = src[row + i] ? 0 : (run < DistCap ? run + 1 : DistCap);
+                    if (k < m && run < g[row + i])
+                    {
+                        g[row + i] = run;
+                    }
+                }
+            }
+
+            const int cap2 = DistCap * DistCap;
+            var d2 = new int[m * m];
+            for (int j = 0; j < m; j++)
+            {
+                for (int i = 0; i < m; i++)
+                {
+                    int best = g[(j * m) + i];
+                    best *= best;
+                    if (best > 0)
+                    {
+                        for (int dy = 1; dy <= DistCap && dy * dy < best; dy++)
+                        {
+                            int up = g[(((j - dy) & mmask) * m) + i];
+                            int dn = g[(((j + dy) & mmask) * m) + i];
+                            int lo = up < dn ? up : dn;
+                            int v = (lo * lo) + (dy * dy);
+                            if (v < best)
+                            {
+                                best = v;
+                            }
+                        }
+                    }
+
+                    d2[(j * m) + i] = best > cap2 ? cap2 : best;
+                }
+            }
+
+            return d2;
+        }
+
+        /// <summary>Убрать связные куски значения <paramref name="value"/> (4 стороны, тор) меньше <see cref="MinAreaCells"/> ячеек.</summary>
+        private static void DropSmall(bool[] a, int m, bool value)
+        {
+            int mmask = m - 1;
+            var seen = new bool[a.Length];
+            var queue = new int[a.Length];
+            for (int s = 0; s < a.Length; s++)
+            {
+                if (a[s] != value || seen[s])
                 {
                     continue;
                 }
@@ -242,69 +484,128 @@ namespace Orpheus.WorldGen
                 int qt = 0;
                 queue[qt++] = s;
                 seen[s] = true;
-                level[s] = 0;
                 for (int qh = 0; qh < qt; qh++)
                 {
                     int u = queue[qh];
-                    int ui = u & cmask;
-                    int uj = u / n;
-                    byte e = edges[u];
+                    int ui = u & mmask;
+                    int uj = u / m;
                     for (int k = 0; k < 4; k++)
                     {
-                        if ((e & (1 << k)) == 0)
-                        {
-                            continue;
-                        }
-
-                        int vi = k == 0 ? (ui - 1) & cmask : k == 1 ? (ui + 1) & cmask : ui;
-                        int vj = k == 2 ? (uj - 1) & cmask : k == 3 ? (uj + 1) & cmask : uj;
-                        int v = (vj * n) + vi;
-                        if (keep[v] && !seen[v])
+                        int vi = k == 0 ? (ui + 1) & mmask : k == 1 ? (ui - 1) & mmask : ui;
+                        int vj = k == 2 ? (uj + 1) & mmask : k == 3 ? (uj - 1) & mmask : uj;
+                        int v = (vj * m) + vi;
+                        if (a[v] == value && !seen[v])
                         {
                             seen[v] = true;
-                            level[v] = level[u] + 1;
                             queue[qt++] = v;
                         }
                     }
                 }
 
-                if (qt < minCells)
+                if (qt < MinAreaCells)
                 {
                     for (int k = 0; k < qt; k++)
                     {
-                        keep[queue[k]] = false;
-                    }
-
-                    continue;
-                }
-
-                if (world == null)
-                {
-                    continue;
-                }
-
-                int offset = (int)((SplitMix64.Hash(s & cmask, s / n, cutSeed) >> 33) % GapEvery);
-                for (int k = 0; k < qt; k++)
-                {
-                    int c = queue[k];
-                    if ((level[c] + offset) % GapEvery == GapEvery - 1)
-                    {
-                        keep[c] = false;
-                        MarkClear(world, c & cmask, c / n);
+                        a[queue[k]] = !value;
                     }
                 }
             }
         }
 
-        private static void MarkClear(TileWorld t, int ci, int cj)
+        // Обход в ширину куска гряды от тайла start (8 соседей, тор): depth — шаги; возвращает число тайлов в queue.
+        private static int Bfs(bool[] cliff, int w, int start, int[] depth, int[] queue, int[] stamp, int mark)
         {
-            int w = t.WorldSize;
-            for (int dy = 0; dy < GridField.Step; dy++)
+            int mask = w - 1;
+            int qt = 0;
+            queue[qt++] = start;
+            stamp[start] = mark;
+            depth[start] = 0;
+            for (int qh = 0; qh < qt; qh++)
             {
-                int row = (((cj << GridField.StepBits) + dy) * w) + (ci << GridField.StepBits);
-                for (int dx = 0; dx < GridField.Step; dx++)
+                int u = queue[qh];
+                int ux = u & mask;
+                int uy = u / w;
+                for (int k = 0; k < 9; k++)
                 {
-                    t.Marks[row + dx] |= TileWorld.MarkClear;
+                    if (k == 4)
+                    {
+                        continue;
+                    }
+
+                    int v = (((uy + (k / 3) - 1) & mask) * w) + ((ux + (k % 3) - 1) & mask);
+                    if (cliff[v] && stamp[v] != mark)
+                    {
+                        stamp[v] = mark;
+                        depth[v] = depth[u] + 1;
+                        queue[qt++] = v;
+                    }
+                }
+            }
+
+            return qt;
+        }
+
+        /// <summary>
+        /// Связные гряды (8 соседей): длина — глубина обхода от конца гряды (самого дальнего тайла от первого по индексу).
+        /// Гряда короче <paramref name="minTiles"/> убирается. С <paramref name="world"/> — ещё и нарезка: шаги
+        /// <see cref="GapPeriod"/> − <see cref="GapTiles"/> … <see cref="GapPeriod"/> − 1 каждого периода (со сдвигом от хэша
+        /// гряды) — проход; он и тайлы в двух шагах вокруг помечаются в мире.
+        /// </summary>
+        private static void Runs(bool[] cliff, int w, int minTiles, int[] depth, int[] queue, ulong cutSeed, TileWorld? world, bool periodic)
+        {
+            int mask = w - 1;
+            var stamp = new int[cliff.Length];
+            int mark = 0;
+            for (int s = 0; s < cliff.Length; s++)
+            {
+                if (!cliff[s] || stamp[s] != 0)
+                {
+                    continue;
+                }
+
+                int qt = Bfs(cliff, w, s, depth, queue, stamp, ++mark);
+                int end = queue[qt - 1];
+                qt = Bfs(cliff, w, end, depth, queue, stamp, ++mark);
+                int length = depth[queue[qt - 1]] + 1;
+                if (length < minTiles)
+                {
+                    for (int k = 0; k < qt; k++)
+                    {
+                        cliff[queue[k]] = false;
+                    }
+
+                    continue;
+                }
+
+                if (world == null || (!periodic && length <= MaxRunTiles))
+                {
+                    continue;
+                }
+
+                // Сдвиг: первый проход не ближе MinRunTiles от конца гряды.
+                int span = GapPeriod - GapTiles - MinRunTiles;
+                int offset = (int)((SplitMix64.Hash(end & mask, end / w, cutSeed) >> 33) % (ulong)span);
+                for (int k = 0; k < qt; k++)
+                {
+                    int c = queue[k];
+                    int phase = (depth[c] + offset) % GapPeriod;
+                    bool gap = periodic
+                        ? phase >= GapPeriod - GapTiles && length - depth[c] > MinRunTiles
+                        : depth[c] >= (length - GapTiles) / 2 && depth[c] < (length + GapTiles) / 2;
+                    if (gap)
+                    {
+                        cliff[c] = false;
+                        int cx = c & mask;
+                        int cy = c / w;
+                        for (int dy = -2; dy <= 2; dy++)
+                        {
+                            int row = ((cy + dy) & mask) * w;
+                            for (int dx = -2; dx <= 2; dx++)
+                            {
+                                world.Marks[row + ((cx + dx) & mask)] |= TileWorld.MarkClear;
+                            }
+                        }
+                    }
                 }
             }
         }
