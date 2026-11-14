@@ -23,12 +23,20 @@ MonoBehaviour:
   - bush_b
   - cliff_face
   - cliff_top
+  - item_arrows
   - item_copper_ore
+  - item_copper_pickaxe
   - item_fiber
   - item_generic
+  - item_hammer
   - item_resin
+  - item_simple_bow
   - item_stone
+  - item_stone_axe
+  - item_stone_pickaxe
+  - item_torch
   - item_wood
+  - item_wooden_sword
   - ore_copper_a
   - ore_copper_b
   - stump
@@ -49,12 +57,20 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 61448e6c5fd0bc84c9e73a3e43610cf6, type: 3}
   - {fileID: 21300000, guid: a05fa683b66cd30438a1e0f467512e18, type: 3}
   - {fileID: 21300000, guid: efac622f0f8e3e945bb837b4673c9ad3, type: 3}
+  - {fileID: 21300000, guid: edf6731c48c6a904488a910940e2b681, type: 3}
   - {fileID: 21300000, guid: 6310ad425eb12374b87ec1225b625f9b, type: 3}
+  - {fileID: 21300000, guid: 1e97411ec36c03443bd332425d6c25c1, type: 3}
   - {fileID: 21300000, guid: 021ba28da001a4649b5e8e5d248fc04a, type: 3}
   - {fileID: 21300000, guid: ff5157e185c338d47b46a87726a318f3, type: 3}
+  - {fileID: 21300000, guid: f4d20fc6b2309654b955e488d6d0d8bb, type: 3}
   - {fileID: 21300000, guid: f312c1a6b4592b7469f3c38674a01ef3, type: 3}
+  - {fileID: 21300000, guid: d760e36f414e35d4daf1eb69f95a2d4a, type: 3}
   - {fileID: 21300000, guid: ebe46fb9676ea924cbf7d858b7ef51b2, type: 3}
+  - {fileID: 21300000, guid: 7889123d40fe69043a9abb4e9e6cad42, type: 3}
+  - {fileID: 21300000, guid: 3e4577d6a6c61f5478ea9c0f54a70bc7, type: 3}
+  - {fileID: 21300000, guid: bea09a988e762ce4ea66b917fb4c32d9, type: 3}
   - {fileID: 21300000, guid: 51a4bd4cd4a99f04da00e90e70de105f, type: 3}
+  - {fileID: 21300000, guid: d104885345ea64241a7a9db19babe60b, type: 3}
   - {fileID: 21300000, guid: fb8d37141611ba9408368e286e66b726, type: 3}
   - {fileID: 21300000, guid: 681614429da6d5a4cb4732a5ba590ae0, type: 3}
   - {fileID: 21300000, guid: e64bcf538694f05418aab7e195b27470, type: 3}

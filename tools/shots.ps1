@@ -70,7 +70,10 @@ function Invoke-Shot($scene, [string] $png) {
     if ($scene.args) { $a += @($scene.args | ForEach-Object { "$_" }) }
     # Time of day of the scene (E1-7): "time": "day" | "dusk" | "night" | "dawn" or a day fraction 0..1.
     if ($scene.time) { $a += @('--shot-time', "$($scene.time)") }
-    $a += @('--shot-size', ("{0}x{1}" -f $width, $height), '-logFile', "`"$log`"")
+    # E2-2: a scene may carry its own frame size (UI at 1280x720): "frame": { "width": W, "height": H }.
+    $sw = $width; $sh = $height
+    if ($scene.frame) { $sw = [int]$scene.frame.width; $sh = [int]$scene.frame.height }
+    $a += @('--shot-size', ("{0}x{1}" -f $sw, $sh), '-logFile', "`"$log`"")
     # The client runs on a separate invisible desktop (tools\run_hidden.ps1): even with -batchmode the
     # player creates a window, and on the user's desktop that window takes keyboard focus.
     $hidden = Join-Path $PSScriptRoot 'run_hidden.ps1'

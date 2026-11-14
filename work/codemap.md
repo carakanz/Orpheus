@@ -104,6 +104,15 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room).
 - client/Assets/Scripts/PileView.cs: значки куч; NetGame.Edits.cs: HookPiles, BagHud (ячейки). tools/make_item_icons.py — заглушки значков.
 
+## Интерфейс (E2-2) - client/Assets/Scripts/UI
+- UiRoot.cs: `UiRoot` (холст перед камерой, Fit, FromScreen, Node/Picture/Label), `UiGroup` (привязка, Contains/Local).
+- UiStyle.cs: цвета, `Frame` (рамка с 9 срезами кодом), `Font`.
+- UiParts.cs: `UiItemIcon`, `UiSlotGrid` (Set/Select/Hover/Hit), `UiWindow`, `UiTooltip`, `UiCarry`, `UiBar`.
+- GameUi.cs: `UiInput`, `BagWindow`, `GameUi` (ReadInput, Frame, PointerBlocked, EscapeUsed, SlotClicked), `UiDemo` (--ui-demo).
+- UiStrings.cs: строки и названия предметов по ключу.
+- src/Orpheus.Net/Session/BagHand.cs: `IBagRequests`, `BagHand` (Sync, Left, Right, Quick, Outside, ShownCount, QuickTarget); тесты `BagHandTests.cs`.
+- NetGame.Edits.cs: UiFrame (перед SendInput), блокировка мыши в UpdateEdits.
+
 ## Остальное в src/Orpheus.Save/
 - WorldFolder.cs: папка мира: набор файлов и структура на диске.
 - SaveSections.cs: секции сейва: виды, границы.
