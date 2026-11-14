@@ -32,6 +32,7 @@ namespace Orpheus.Net.Session
         private SimBot? _bot;
         private DodgeBot? _dodge;
         private DigLineBot? _digLine;
+        private CraftChainBot? _craft;
         private BuildRoomBot? _build;
         private NightCampBot? _camp;
         private InputFrame _current;
@@ -90,6 +91,9 @@ namespace Orpheus.Net.Session
         /// <summary>Бот <c>dig_line</c> (0-028) — после входа; иначе null.</summary>
         public DigLineBot? DigLine => _digLine;
 
+        /// <summary>Сценарий <c>craft_chain</c> (E2-3; после входа); другой сценарий — null.</summary>
+        public CraftChainBot? CraftChain => _craft;
+
         /// <summary>Бот <c>build_room</c> (1-026, приёмка `08` 3.1 1.5) — после входа; иначе null.</summary>
         public BuildRoomBot? Builder => _build;
 
@@ -141,6 +145,16 @@ namespace Orpheus.Net.Session
                     var dig = new DigLineBot(Client.Shape);
                     _digLine = dig;
                     Client.EditReplied = dig.OnReply;
+                }
+            }
+            else if (_script == CraftChainBot.Name)
+            {
+                if (_craft == null && Client.HasSnapshot && Client.Latest.Self.Present)
+                {
+                    var craft = new CraftChainBot(Client.Shape, Client.Latest.Self.Position);
+                    _craft = craft;
+                    Client.EditReplied = craft.OnReply;
+                    Client.CraftReplied = craft.OnCraftReply;
                 }
             }
             else if (_script == BuildRoomBot.Name)
@@ -221,6 +235,12 @@ namespace Orpheus.Net.Session
                     WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
                         : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
                     _current = pos.HasValue ? _digLine.Next(Client, pos.Value) : InputFrame.None; // каждый кадр: кнопка копания — в кадрах
+                }
+                else if (_script == CraftChainBot.Name)
+                {
+                    WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
+                        : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
+                    _current = pos.HasValue && _craft != null ? _craft.Next(Client, pos.Value) : InputFrame.None; // E2-3: добыча, верстак, крафт
                 }
                 else if (_build != null)
                 {

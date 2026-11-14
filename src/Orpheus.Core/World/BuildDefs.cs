@@ -67,6 +67,10 @@ namespace Orpheus.Core.World
             // Костёр (`05` 101, `06` 339: 8 камня + 4 древесины, прочность 60; свет 4 / 8 — `01` 6, 1-014).
             Table[ObjectId.Campfire] = new BuildDef(Material.Stone, 8, Material.Wood, 4, 60, false);
 
+            // Верстак I (E2-3; `06` 3.3: 10 древесины + 6 камня, руками, прочность 100; ставится молотом — `06` 3.7 п. 1).
+            // В документе 2 × 2; пока 1 × 1 — многотайловой постановки в ядре нет (допущение E2-3).
+            Table[ObjectId.Workbench] = new BuildDef(Material.Wood, 10, Material.Stone, 6, 100, false);
+
             // Полы: «не бьют» — прочность полная, снос возвращает рецепт целиком; над глубиной настил 2 — за генератором (`01` 5, `[док]`).
             Table[FloorId.WoodFloor] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
             Table[FloorId.StoneFloor] = new BuildDef(Material.Stone, 1, Material.Stone, 0, BuildRecord.MaxIntegrity, true);

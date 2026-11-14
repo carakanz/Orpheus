@@ -77,7 +77,7 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 0 }));
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 4 }));
             Assert.Equal("Хост вышел. Мир сохранён у него", new ClosingMessage { Reason = ClosingReason.HostLeft }.Describe());
-            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.BagRequest + 1 })); // последний тип — BagRequest (E2-1)
+            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.CraftState + 1 })); // последний тип — CraftState (E2-3; до него — BagRequest, E2-1)
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.MeleeResult + 1 })); // 15 не занят: после MeleeResult (0-029)
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { 15 }));
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.Chunk - 1 })); // … и до Chunk (0-026)

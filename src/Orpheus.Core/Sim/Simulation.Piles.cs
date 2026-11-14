@@ -136,6 +136,7 @@ namespace Orpheus.Core.Sim
             }
 
             _bagOpCount = 0;
+            StepCraft(tick); // E2-3: очереди изготовления — после заявок, до подбора
             if (_pileCount == 0)
             {
                 return;
@@ -206,6 +207,11 @@ namespace Orpheus.Core.Sim
             int slot = SlotOf(r.EntityId);
             if (slot < 0 || !_entities[slot].IsCharacter || !_entities[slot].Alive)
             {
+                if (slot >= 0 && (r.Op == BagOp.Craft || r.Op == BagOp.CraftCancel))
+                {
+                    CraftRefusedEvent(tick, r.EntityId, r.Op, r.From, CraftReply.Dead); // умер между заявкой и тактом — ответ всё равно один
+                }
+
                 return;
             }
 
@@ -229,6 +235,13 @@ namespace Orpheus.Core.Sim
 
                         break;
                     }
+
+                case BagOp.Craft:
+                    ApplyCraft(tick, slot, r.From, r.Count);
+                    break;
+                case BagOp.CraftCancel:
+                    ApplyCraftCancel(tick, slot, r.From, r.Count);
+                    break;
             }
         }
 
@@ -249,7 +262,7 @@ namespace Orpheus.Core.Sim
             SpawnPile(tick, item, count, pos, LootPickupDelayTicks);
         }
 
-        private int SpawnPile(long tick, byte item, int count, WorldPos position, int pickupDelayTicks)
+        private int SpawnPile(long tick, byte item, int count, WorldPos position, int pickupDelayTicks, bool forever = false)
         {
             if (count <= 0 || !ItemTable.Exists(item))
             {
@@ -257,7 +270,7 @@ namespace Orpheus.Core.Sim
             }
 
             WorldPos pos = FreeGroundNear(Torus.Wrap(_shape, position));
-            long expire = tick + PileLifetimeTicks;
+            long expire = forever ? PileNeverExpires : tick + PileLifetimeTicks;
             long pickup = tick + Math.Max(0, pickupDelayTicks);
             int first = 0;
             while (count > 0)

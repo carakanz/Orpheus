@@ -65,6 +65,100 @@ namespace Orpheus.Net.Session
             }
         }
 
+        /// <summary>Заявок изготовления (30) принято.</summary>
+        public long CraftRequestsReceived { get; private set; }
+
+        /// <summary>Заявок изготовления отклонено (любая причина, кроме «принято»).</summary>
+        public long CraftRequestsRefused { get; private set; }
+
+        /// <summary>Сообщений «очередь изготовления» (32) отправлено.</summary>
+        public long CraftStatesSent { get; private set; }
+
+        /// <summary>
+        /// Заявка изготовления (30; E2-3): на каждую — <b>ровно один</b> ответ (31). Отказ сразу (пауза — заявки не копятся;
+        /// лимит заявок игрока за такт, общий с сумкой; проверка симуляции: нет рецепта, мёртв, нет станка, не хватает…) —
+        /// ответ уходит тут же. Заявка, взятая в очередь такта, ответа сразу не получает: его даёт такт — «принято» или
+        /// причина (события <see cref="SimEventKind.CraftQueued"/> / <see cref="SimEventKind.CraftCancelled"/> /
+        /// <see cref="SimEventKind.CraftRefused"/>, рассылка — <see cref="SendCraftTo"/>). Крафт клиент не предсказывает.
+        /// </summary>
+        private void OnCraftRequest(Player p, in CraftRequestMessage m)
+        {
+            CraftRequestsReceived++;
+            CraftReply reply;
+            if (Paused)
+            {
+                reply = CraftReply.Paused;
+            }
+            else if (p.BagRequestsThisTick >= MaxBagRequestsPerPlayerTick)
+            {
+                reply = CraftReply.Busy;
+            }
+            else
+            {
+                p.BagRequestsThisTick++;
+                reply = m.Op == CraftOp.Make
+                    ? _sim.RequestCraft(p.EntityId, m.Arg, m.Count)
+                    : _sim.RequestCraftCancel(p.EntityId, m.Arg, m.Count);
+            }
+
+            if (reply != CraftReply.Accepted)
+            {
+                CraftRequestsRefused++;
+                SendCraftReply(p, m.Op, m.Arg, reply);
+            }
+        }
+
+        private void SendCraftReply(Player p, CraftOp op, byte arg, CraftReply reply)
+        {
+            int len = new CraftReplyMessage { Op = op, Arg = arg, Reply = reply }.Write(_buf);
+            _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+        }
+
+        /// <summary>
+        /// После такта: ответы (31) на заявки, решённые этим тактом, — по событиям, в порядке заявок; очередь изготовления —
+        /// сообщением 32, если изменился состав позиций или признак «идёт». Прогресс каждый такт не шлётся.
+        /// </summary>
+        private void SendCraftTo(Player pl, in SimEntity self)
+        {
+            ReadOnlySpan<SimEvent> events = _sim.Events;
+            for (int e = 0; e < events.Length; e++)
+            {
+                if (events[e].Requester != self.Id)
+                {
+                    continue;
+                }
+
+                switch (events[e].Kind)
+                {
+                    case SimEventKind.CraftQueued:
+                        SendCraftReply(pl, CraftOp.Make, (byte)events[e].Victim, CraftReply.Accepted);
+                        break;
+                    case SimEventKind.CraftCancelled:
+                        SendCraftReply(pl, CraftOp.Cancel, (byte)events[e].Victim, CraftReply.Accepted);
+                        break;
+                    case SimEventKind.CraftRefused:
+                        CraftRequestsRefused++;
+                        SendCraftReply(pl, events[e].Damage == (int)BagOp.CraftCancel ? CraftOp.Cancel : CraftOp.Make,
+                            (byte)events[e].Victim, (CraftReply)events[e].Tag);
+                        break;
+                }
+            }
+
+            bool running = !self.Craft.IsEmpty && self.Alive
+                && _sim.CraftStationNear(self.Id, RecipeTable.Get(self.Craft.RecipeAt(0)).Station);
+            if (pl.HasSentCraft ? (self.Craft.SameEntries(pl.SentCraft) && running == pl.SentCraftRunning) : self.Craft.IsEmpty)
+            {
+                return;
+            }
+
+            pl.SentCraft = self.Craft;
+            pl.SentCraftRunning = running;
+            pl.HasSentCraft = true;
+            int len = new CraftStateMessage { EntityId = self.Id, Tick = (uint)_sim.Tick, Running = running, Queue = self.Craft }.Write(_buf);
+            _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+            CraftStatesSent++;
+        }
+
         /// <summary>
         /// Почему симуляция не взяла правку игрока в очередь: персонаж мёртв — «ты мёртв» (C-004; раньше уходило
         /// «очередь полна»), иначе очередь такта полна.

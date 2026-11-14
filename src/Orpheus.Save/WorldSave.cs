@@ -284,6 +284,14 @@ namespace Orpheus.Save
                 var bag = new byte[Inventory.PayloadBytes]; // сумка — всегда (1-004): StateHash её считает, round-trip обязан сходиться
                 x.Inv.WritePayload(bag);
                 e.WriteBytes(SaveSections.EntityField.Inv, bag);
+                if (!x.Craft.IsEmpty)
+                {
+                    // Очередь изготовления (формат 8, E2-3): ингредиенты уже сняты из сумки — без неё они пропали бы.
+                    var craft = new byte[CraftQueue.PayloadBytes];
+                    x.Craft.WritePayload(craft);
+                    e.WriteBytes(SaveSections.EntityField.Craft, craft);
+                }
+
                 // Бой (формат 6, 1-007): StateHash считает здоровье/замах/регенерацию/отбрасывание/прицел — пишем всегда.
                 e.WriteInt(SaveSections.EntityField.Health, x.Health);
                 e.WriteInt(SaveSections.EntityField.MaxHealth, x.MaxHealth);
@@ -933,6 +941,7 @@ namespace Orpheus.Save
             int buttons = 0;
             MeleeAction melee = default;
             Dodge dodge = default; // формат 1 полей уворота не пишет — уворот нулевой («ещё не было»)
+            CraftQueue craft = default; // очередь изготовления — формат 8 (E2-3); нет поля — пустая
             Inventory inv = default; // сумку в раздел сущностей пишет только формат 5 (1-004); в форматах 1–4 её нет
             EnemyBrain brain = default; // мозг (формат 6, 1-007): в форматах 1–5 поля нет — Archetype 0, враг стоит
             bool hasBrain = false;
@@ -1019,6 +1028,25 @@ namespace Orpheus.Save
                             }
 
                             inv = Inventory.ReadPayload(bag, overflow);
+                        }
+
+                        break;
+                    case SaveSections.EntityField.Craft:
+                        {
+                            ReadOnlySpan<byte> q = r.Bytes();
+                            if (q.Length != CraftQueue.PayloadBytes)
+                            {
+                                throw new InvalidDataException($"Сущность #{id}: очередь изготовления {q.Length} байт, ждали {CraftQueue.PayloadBytes}.");
+                            }
+
+                            try
+                            {
+                                craft = CraftQueue.ReadPayload(q);
+                            }
+                            catch (ArgumentException ex)
+                            {
+                                throw new InvalidDataException($"Сущность #{id}: {ex.Message}", ex);
+                            }
                         }
 
                         break;
@@ -1174,6 +1202,7 @@ namespace Orpheus.Save
                 },
                 Input = InputFrame.FromCode((byte)direction, (ushort)buttons, (ushort)aimAngle, (byte)inputSlot),
                 Inv = inv,
+                Craft = craft,
                 Brain = hasBrain ? brain : default,
                 Health = (short)health,
                 MaxHealth = (short)maxHealth,

@@ -97,11 +97,16 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 ## src/Orpheus.Core/Items/ (E2-1; пространство имён Orpheus.Core.Sim)
 - ItemTable.cs: `ItemCategory`, `ItemDef`, `ItemTable` — таблица предметов данными (строки добавлять в конец).
 - GroundPile.cs: `GroundPile` (куча на земле), `BagOp` (операция с ячейками).
+- RecipeTable.cs (E2-3): `CraftStation`, `RecipeDef`, `RecipeTable` — рецепты данными (строки — в конец). CraftQueue.cs: `CraftReply`, `CraftQueue` (очередь изготовления в `SimEntity.Craft`, payload 12 байт). CraftRules.cs: `Affordable`, `StationCheck` — общие для сервера и клиента.
+- Sim/Simulation.Craft.cs (E2-3): CheckCraft · RequestCraft · RequestCraftCancel · RefundCraftQueue · ApplyCraft · ApplyCraftCancel · StepCraft (фаза 5.2 такта, после заявок на сумку).
 
 ## Сеть и клиент предметов (E2-1)
 - NetServer.Items.cs: OnBagRequest · SendPilesTo (разница куч игроку) · TakerOf. NetClient.Items.cs: Piles · RequestBagMove/Split/Drop · OnPiles · OnPileGone.
 - Protocol/Messages.cs: InventoryMessage (ячейки), NetPile, PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
 - BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room).
+- Крафт (E2-3): Protocol/CraftMessages.cs — CraftRequestMessage (30), CraftReplyMessage (31), CraftStateMessage (32). NetServer.Items.cs: OnCraftRequest · SendCraftTo. NetClient.Items.cs: Craft · CraftRunning · CraftProgressAt · RequestCraft · RequestCraftCancel. CraftDesk.cs: `ICraftRequests`, `CraftLine`, `ICraftCancelChecked`, `CraftDesk` (LineOf · Missing · Make · Cancel) — путь окна крафта и ботов.
+- CraftChainBot*.cs (craft_chain, E2-3): `.cs` — Next / Decide (этапы Stage), OnReply · `.Harvest.cs` — Harvest (ходьба рывками, копание, подбор), Dig, ToolSlotFor · `.Path.cs` — Plan (поиск в ширину, разведка по клеткам), Flood, BuildPath · `.Bench.cs` — PlaceBench, Craft, Equip.
+- CharacterRoster.cs: Restore (загрузка: очередь изготовления → в сумку записи) · Park (уход из мира: очередь → в сумку).
 - client/Assets/Scripts/PileView.cs: значки куч; NetGame.Edits.cs: HookPiles, BagHud (ячейки). tools/make_item_icons.py — заглушки значков.
 
 ## Интерфейс (E2-2) - client/Assets/Scripts/UI

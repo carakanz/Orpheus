@@ -531,6 +531,12 @@ namespace Orpheus.Net.Session
                     case MessageType.Piles when State == NetClientState.InGame:
                         OnPiles(data); // E2-1: кучи на земле
                         break;
+                    case MessageType.CraftReply when State == NetClientState.InGame:
+                        OnCraftReply(CraftReplyMessage.Read(data)); // E2-3
+                        break;
+                    case MessageType.CraftState when State == NetClientState.InGame:
+                        OnCraftState(CraftStateMessage.Read(data)); // E2-3
+                        break;
                     case MessageType.PileGone when State == NetClientState.InGame:
                         OnPileGone(PileGoneMessage.Read(data)); // E2-1
                         break;

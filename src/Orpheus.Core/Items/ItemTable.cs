@@ -92,6 +92,9 @@ namespace Orpheus.Core.Sim
         /// <summary>Стопка снаряжения (<c>06</c> 5.3: 1).</summary>
         public const ushort StackGear = 1;
 
+        /// <summary>Стопка еды (<c>06</c> 1.3: еда 30).</summary>
+        public const ushort StackFood = 30;
+
         private static readonly ItemDef[] Rows =
         {
             new ItemDef(Items.None, "none", 0, ItemCategory.None, lengthUnits: Reach.HandsUnits), // руки копают то, что разрешено таблицей (1-010)
@@ -108,7 +111,15 @@ namespace Orpheus.Core.Sim
             new ItemDef(Items.Fiber, "fiber", StackMaterial, ItemCategory.Material),
             new ItemDef(Items.CopperOre, "copper_ore", StackMaterial, ItemCategory.Material),
             new ItemDef(Items.Arrows, "arrows", StackAmmo, ItemCategory.Consumable),
-            // Новые строки — сюда, в конец (E2-6: глина, кирки ярусов); id = место в таблице.
+            // E2-3 (шаг 2.3, `06` раздел 10): переработанное, медный ярус, еда среза.
+            new ItemDef(Items.CopperIngot, "copper_ingot", StackMaterial, ItemCategory.Material),
+            new ItemDef(Items.Rope, "rope", StackMaterial, ItemCategory.Material),
+            new ItemDef(Items.CopperAxe, "copper_axe", StackGear, ItemCategory.Tool, Items.KindTool, Items.ToolAxe, Items.TierCopper, ToolKind.Axe, Reach.PickaxeUnits),
+            new ItemDef(Items.CopperSword, "copper_sword", StackGear, ItemCategory.Weapon, Items.KindMelee, lengthUnits: Reach.SwordUnits),
+            new ItemDef(Items.CopperBow, "copper_bow", StackGear, ItemCategory.Weapon, Items.KindRanged),
+            new ItemDef(Items.Meat, "meat", StackMaterial, ItemCategory.Material),
+            new ItemDef(Items.RoastMeat, "roast_meat", StackFood, ItemCategory.Consumable),
+            // Новые строки — сюда, в конец; id = место в таблице.
         };
 
         static ItemTable()

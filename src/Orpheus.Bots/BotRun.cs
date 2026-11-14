@@ -104,6 +104,9 @@ namespace Orpheus.Bots
 
         /// <summary>Сценарий <c>dig_line</c> (0-028): итог строкой; иначе null.</summary>
         public string? DigLine { get; set; }
+
+        /// <summary>Итог сценария <c>craft_chain</c> (E2-3) строкой; другой сценарий — null.</summary>
+        public string? CraftChain { get; set; }
         public int RocksDug { get; set; }
 
         /// <summary>Сценарий <c>build_room</c> (1-026, приёмка `08` 3.1 1.5): итог строкой; иначе null.</summary>
@@ -473,6 +476,11 @@ namespace Orpheus.Bots
                                  $"предсказаний {bots[i].Client.World?.Predicted ?? 0}, откатов {bots[i].Client.World?.PredictionsRolledBack ?? 0}";
                 }
 
+                if (bots[i].CraftChain != null)
+                {
+                    st.CraftChain = bots[i].CraftChain!.Summary;
+                }
+
                 BuildRoomBot? build = bots[i].Builder;
                 if (build != null)
                 {
@@ -577,6 +585,11 @@ namespace Orpheus.Bots
                 if (report.Bots[i].Dodge != null)
                 {
                     console?.WriteLine($"  уворот, бот {i}: {report.Bots[i].Dodge}");
+                }
+
+                if (report.Bots[i].CraftChain != null)
+                {
+                    console?.WriteLine($"  craft_chain, бот {i}: {report.Bots[i].CraftChain}");
                 }
 
                 if (report.Bots[i].DigLine != null)
@@ -811,6 +824,11 @@ namespace Orpheus.Bots
                 w.WriteNumber("clockSamplesWhileHeld", b.ClockSamplesWhileHeld);
                 w.WriteNumber("pausesReleasedBySnapshot", b.PausesReleasedBySnapshot);
                 w.WriteNumber("pausesStale", b.PausesStale);
+                if (b.CraftChain != null)
+                {
+                    w.WriteString("craftChain", b.CraftChain);
+                }
+
                 if (b.DigLine != null)
                 {
                     w.WriteString("digLine", b.DigLine);

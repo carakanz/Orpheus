@@ -205,6 +205,7 @@ namespace Orpheus.Net.Session
                     if (slot >= 0)
                     {
                         SendPilesTo(pl, entities[slot].Mover.Position); // E2-1: кучи на земле в обзоре — разницей
+                        SendCraftTo(pl, entities[slot]); // E2-3: очередь изготовления — владельцу, когда изменилась
                     }
 
                     if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))

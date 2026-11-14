@@ -107,6 +107,11 @@ namespace Orpheus.Net.Session
             /// <summary>Заявок на сумку (29) принято от игрока с прошлой рассылки снимков (лимит на такт, E2-1).</summary>
             public int BagRequestsThisTick;
 
+            /// <summary>Очередь изготовления, отправленная игроку (E2-3), и признак «идёт»; <see cref="HasSentCraft"/> — слана хоть раз.</summary>
+            public CraftQueue SentCraft;
+            public bool SentCraftRunning;
+            public bool HasSentCraft;
+
             /// <summary>
             /// Опережение L из последнего нового пакета ввода, кадров (0-033, 2.7) — подсказка только для отчёта о запасе (им клиент
             /// правит своё же L); D_p от него не зависит (з. 2 проверки 0-033).
