@@ -103,7 +103,7 @@ namespace Orpheus.WorldGen
         public static readonly int[] CellsThick = { 32, 16 };
 
         /// <summary>Размах дрожания края: поле Q16 − ½, умноженное на это, — сдвиг в 1/256 тайла (2000 — обычно ±1, изредка до ±3 тайлов).</summary>
-        public const int WobbleQ8 = 2200;
+        public const int WobbleQ8 = 1900;
 
         /// <summary>Гряда длиннее после нарезки (кольцо: обход сходится с двух сторон) режется ещё раз посередине.</summary>
         public const int MaxRunTiles = 80;
@@ -211,9 +211,10 @@ namespace Orpheus.WorldGen
                     sd[c] = high[c] ? sqrtQ8[inside[c]] - 256 : 256 - sqrtQ8[outside[c]];
                 }
 
+                var band = new bool[w * w];
+                var depthQ8 = new short[w * w];
                 for (int y = 0; y < w; y++)
                 {
-                    long dy = IntMath.Wrap(y - half, w);
                     int j0 = ((y - 1) >> 1) & mmask;
                     int j1 = (j0 + 1) & mmask;
                     int fy = (y & 1) == 0 ? 3 : 1;
@@ -250,21 +251,43 @@ namespace Orpheus.WorldGen
                             }
                         }
 
-                        s += ((wobble.Sample(x, y) - (LatticeNoise.One >> 1)) * WobbleQ8) >> 16;
-                        int th = 720 + (((thick.Sample(x, y) - 30000) * 2300) >> 16);
+                        int th = 740 + (((thick.Sample(x, y) - 30000) * 2300) >> 16);
                         th = th < 620 ? 620 : (th > 1100 ? 1100 : th);
-                        if (s < 0 || s >= th)
+                        depthQ8[(y * w) + x] = (short)s;
+                        s += ((wobble.Sample(x, y) - (LatticeNoise.One >> 1)) * WobbleQ8) >> 16;
+                        band[(y * w) + x] = s >= 0 && s < th;
+                    }
+                }
+
+                // Полоса не тоньше двух тайлов по каждой оси: к тайлу без соседей сверху и снизу (слева и справа)
+                // добавляется сосед с той стороны, где глубже в возвышенность.
+                for (int y = 0; y < w; y++)
+                {
+                    long dy = IntMath.Wrap(y - half, w);
+                    int up = ((y - 1) & mask) * w;
+                    int down = ((y + 1) & mask) * w;
+                    int row = y * w;
+                    for (int x = 0; x < w; x++)
+                    {
+                        if (!band[row + x])
                         {
                             continue;
                         }
 
                         long dx = IntMath.Wrap(x - half, w);
-                        if ((dx * dx) + (dy * dy) <= r * r || Busy(t, x, y))
+                        bool near = (dx * dx) + (dy * dy) <= r * r;
+                        Put(t, cliff, x, y, near);
+                        int xl = (x - 1) & mask;
+                        int xr = (x + 1) & mask;
+                        if (!band[up + x] && !band[down + x])
                         {
-                            continue;
+                            Put(t, cliff, x, depthQ8[up + x] > depthQ8[down + x] ? (y - 1) & mask : (y + 1) & mask, near);
                         }
 
-                        cliff[(y * w) + x] = true;
+                        if (!band[row + xl] && !band[row + xr])
+                        {
+                            Put(t, cliff, depthQ8[row + xl] > depthQ8[row + xr] ? xl : xr, y, near);
+                        }
                     }
                 }
 
@@ -345,6 +368,15 @@ namespace Orpheus.WorldGen
                 {
                     t.Objects[i] = ObjectId.Empty;
                 }
+            }
+        }
+
+        // Тайл обрыва, если он не у Очага, не в воде, не на берегу и не у тропы.
+        private static void Put(TileWorld t, bool[] cliff, int x, int y, bool nearStart)
+        {
+            if (!nearStart && !Busy(t, x, y))
+            {
+                cliff[(y * t.WorldSize) + x] = true;
             }
         }
 

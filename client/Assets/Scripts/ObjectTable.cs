@@ -51,8 +51,8 @@ namespace Orpheus.Client
         public bool Tall;
 
         /// <summary>
-        /// Блок (обрыв, шаг 1.6): не картинка с опорой, а каменная стенка на весь тайл — верхняя грань, поднятая на
-        /// <see cref="Height"/>, лицо к зрителю (к югу) там, где южнее блока нет, тёмный контур по свободным краям.
+        /// Блок (обрыв, шаги 1.6, 1.6б): не картинка с опорой, а кусок скальной гряды на весь тайл — верхняя грань, поднятая на
+        /// <see cref="Height"/>, лицо к зрителю (к югу) там, где южнее блока нет, наклонные бока, тёмный контур по свободным краям.
         /// Куски берутся из картинок <see cref="Top"/> и <see cref="Face"/> по координате тайла (картинка — несколько тайлов).
         /// </summary>
         public bool Block;
@@ -64,6 +64,21 @@ namespace Orpheus.Client
         /// <summary>Цвет контура блока.</summary>
         public Color32 Outline = new Color32(46, 34, 38, 255);
 
+        /// <summary>Блок-гряда (E1-6b): цвет лица, освещённого (западного) и теневого (восточного) боков.</summary>
+        public Color32 FaceTint = new Color32(255, 255, 255, 255), SideLit = new Color32(255, 255, 255, 255), SideDark = new Color32(255, 255, 255, 255);
+
+        /// <summary>На сколько тайлов верх гряды уже подошвы со свободного бока (бок — наклонная грань).</summary>
+        public float Inset = 0.34f;
+
+        /// <summary>Рисунок верха крупнее в столько раз (картинка «галька» читается как скала, а не мостовая).</summary>
+        public int TopCells = 1;
+
+        /// <summary>Камни-украшения гряды (без коллизий): картинки, доля тайлов с камнем на верху (внутри / у края), с осыпью у подошвы.</summary>
+        public string[] Deco = new string[0];
+        public float DecoTop, DecoEdge, DecoFoot;
+        public Color32 DecoTint = new Color32(255, 255, 255, 255), RubbleTint = new Color32(255, 255, 255, 255);
+
+        internal int[] DecoSprites = new int[0];
         internal int TopSprite = -1, FaceSprite = -1, WhiteSprite = -1;
 
         // Заполняет ObjectTable при сборке: номера картинок листа и суммарный вес.
@@ -126,11 +141,15 @@ namespace Orpheus.Client
                 Id = ObjectId.Stump, Variants = new[] { V("stump") },
                 ScaleMin = 0.9f, ScaleMax = 1.1f, Jitter = 0.15f, Flip = true, Shadow = 0.8f,
             },
-            // Обрыв (шаг 1.6): стенка-граница, не копается и не проходится.
+            // Обрыв (шаги 1.6, 1.6б): скальная гряда-граница, не копается и не проходится. Верх — тёмный камень с валунами,
+            // лицо к югу в 1,7 тайла, наклонные бока, контур; форма — по соседним тайлам-обрывам (ObjectMesh.Block).
             new ObjectLook
             {
-                Id = ObjectId.Cliff, Block = true, Top = "cliff_top", Face = "cliff_face", Height = 1.4f, Shadow = 1f,
-                Tint = new Color32(232, 222, 206, 255),
+                Id = ObjectId.Cliff, Block = true, Top = "cliff_top", Face = "cliff_face", Height = 1.7f, Shadow = 1f,
+                Tint = new Color32(150, 142, 140, 255), TopCells = 2,
+                FaceTint = new Color32(178, 150, 132, 255), SideLit = new Color32(205, 180, 160, 255), SideDark = new Color32(112, 98, 100, 255),
+                Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.3f, DecoEdge = 0.55f, DecoFoot = 0.35f,
+                DecoTint = new Color32(214, 204, 200, 255), RubbleTint = new Color32(196, 188, 186, 255),
             },
             // Костёр и факел: своих картинок в наборе нет (заказать на Мак) — пень, окрашенный огнём; круг света — DayTintView (E1-8).
             new ObjectLook
@@ -210,6 +229,17 @@ namespace Orpheus.Client
                     look.TopSprite = ObjectAtlas.Find(look.Top);
                     look.FaceSprite = ObjectAtlas.Find(look.Face);
                     look.WhiteSprite = ObjectAtlas.Find(ObjectAtlas.WhiteName);
+                    var deco = new List<int>();
+                    foreach (string name in look.Deco)
+                    {
+                        int d = ObjectAtlas.Find(name);
+                        if (d >= 0)
+                        {
+                            deco.Add(d);
+                        }
+                    }
+
+                    look.DecoSprites = deco.ToArray();
                     if (look.TopSprite < 0 || look.FaceSprite < 0 || look.WhiteSprite < 0)
                     {
                         Debug.LogWarning($"[objects] у блока {look.Id} нет картинок {look.Top} / {look.Face} — не рисуется");

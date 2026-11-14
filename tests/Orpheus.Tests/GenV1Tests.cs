@@ -70,8 +70,8 @@ namespace Orpheus.Tests
             ulong gen = StateHash.Generation(loaded);
             _out.WriteLine($"зерно 1: макрокарта {a.Macro.Map.HashHex()}, снимок {Sha(baseA)}, генерация {gen:x16}");
             Assert.Equal("912d8e607f4a3b7c2f9b8400c288dd72c4fbc873c3ee61d9303122a0fcb3f202", a.Macro.Map.HashHex());
-            Assert.Equal("32485b08eb835cf8cd50c0d347e601627bb823210f9f9066810e38ff1eb8ba01", Sha(baseA));
-            Assert.Equal(0xdf29806f3715daa3UL, gen);
+            Assert.Equal("b991822e265e33ed9b5b84a8721f7cddca34028413d65900bbd468714a248789", Sha(baseA));
+            Assert.Equal(0xe6669b714a51e52aUL, gen);
 
             TileWorld other = GeneratorV1.BuildTiles(MapShape.World(W), 2);
             Assert.NotEqual(StateHash.Generation(GeneratorV1.ToModel(other)), gen);

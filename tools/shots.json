@@ -33,9 +33,10 @@
     { "name": "29_real_lake_forest", "seed": "0xE50007", "size": 1024, "tile": [610, 800], "width": 64 },
     { "name": "30_real_river_64",    "seed": "0xE50007", "size": 1024, "tile": [812, 400], "width": 64 },
     { "name": "31_real_mountains",   "seed": "0xE50007", "size": 1024, "tile": [760, 450], "width": 64 },
-    { "name": "32_cliff_meadow_64",  "seed": "0xE50007", "size": 1024, "tile": [312, 480], "width": 64 },
-    { "name": "33_cliff_meadow_40",  "seed": "0xE50007", "size": 1024, "tile": [312, 480], "width": 40 },
-    { "name": "34_cliff_forest_64",  "seed": "0xE50007", "size": 1024, "tile": [600, 312], "width": 64 },
-    { "name": "35_cliff_rocks_96",   "seed": "0xE50007", "size": 1024, "tile": [696, 600], "width": 96 }
+    { "name": "32_ridge_vertical_64", "seed": "0xE50007", "size": 1024, "tile": [322, 470], "width": 64 },
+    { "name": "33_ridge_gap_40",      "seed": "0xE50007", "size": 1024, "tile": [327, 493], "width": 40 },
+    { "name": "34_ridge_forest_64",   "seed": "0xE50007", "size": 1024, "tile": [285, 108], "width": 64 },
+    { "name": "35_ridge_mountains_96", "seed": "0xE50007", "size": 1024, "tile": [760, 470], "width": 96 },
+    { "name": "36_ridge_along_40",    "seed": "0xE50007", "size": 1024, "tile": [262, 103], "width": 40 }
   ]
 }

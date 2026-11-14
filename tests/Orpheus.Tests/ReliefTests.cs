@@ -36,9 +36,8 @@ namespace Orpheus.Tests
             public int ToForest;
             public int ToMountain;
             public int ToWater;
-            public int LongestRun;
-            public double RunsOver60;
-            public int Runs;
+            public CliffShapeStats Shape = null!;
+            public double NearRocky;
         }
 
         private static readonly Lazy<Seed[]> All = new Lazy<Seed[]>(
@@ -49,7 +48,8 @@ namespace Orpheus.Tests
             TileWorld t = GeneratorV1.BuildTiles(MapShape.World(W), (ulong)seed);
             var r = new Seed { Id = seed, S = TileWorldStats.Of(t) };
             Walk(t, r);
-            CliffRuns(t, r);
+            r.Shape = CliffShapeStats.Of(t);
+            r.NearRocky = CliffsNearRocky(t);
             return r;
         }
 
@@ -99,44 +99,36 @@ namespace Orpheus.Tests
             }
         }
 
-        // Сплошные куски обрыва (8 соседей): самый длинный и доля кусков длиннее 60 тайлов.
-        private static void CliffRuns(TileWorld t, Seed r)
+        // Доля тайлов обрыва, у которых в 24 тайлах по осям или диагоналям есть горы или пещеры (гряды опоясывают горы).
+        private static double CliffsNearRocky(TileWorld t)
         {
-            int n = W * W;
-            var seen = new bool[n];
-            var stack = new Stack<int>();
-            int over = 0;
-            for (int s = 0; s < n; s++)
+            long cliffs = 0;
+            long near = 0;
+            for (int y = 0; y < W; y++)
             {
-                if (t.Objects[s] != ObjectId.Cliff || seen[s])
+                for (int x = 0; x < W; x++)
                 {
-                    continue;
-                }
-
-                int size = 0;
-                seen[s] = true;
-                stack.Push(s);
-                while (stack.Count > 0)
-                {
-                    int u = stack.Pop();
-                    size++;
-                    for (int k = 0; k < 9; k++)
+                    if (t.Objects[(y * W) + x] != ObjectId.Cliff)
                     {
-                        int v = ((((u / W) + (k / 3) - 1) & (W - 1)) * W) + (((u % W) + (k % 3) - 1) & (W - 1));
-                        if (!seen[v] && t.Objects[v] == ObjectId.Cliff)
+                        continue;
+                    }
+
+                    cliffs++;
+                    bool hit = false;
+                    for (int k = 0; k < 9 && !hit; k++)
+                    {
+                        for (int d = 0; d <= 24 && !hit; d += 4)
                         {
-                            seen[v] = true;
-                            stack.Push(v);
+                            byte b = t.Biome[(((y + (((k / 3) - 1) * d)) & (W - 1)) * W) + ((x + (((k % 3) - 1) * d)) & (W - 1))];
+                            hit = b == Biome.Mountain || b == Biome.Cave;
                         }
                     }
-                }
 
-                r.Runs++;
-                r.LongestRun = Math.Max(r.LongestRun, size);
-                over += size > 60 ? 1 : 0;
+                    near += hit ? 1 : 0;
+                }
             }
 
-            r.RunsOver60 = r.Runs == 0 ? 0 : (double)over / r.Runs;
+            return cliffs == 0 ? 1.0 : (double)near / cliffs;
         }
 
         // ---------- 30 зёрен ----------
@@ -157,22 +149,45 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Обрывы — 1,5–5 % тайлов, и это линии: у ≥ 80 % тайлов обрыва не больше 4 соседей-обрывов из 8. Проходы: сплошной
-        /// кусок линии длиннее 60 тайлов — редкость (≤ 10 % кусков; длиннее бывает только на развилках линий), а длиннее 160 нет вовсе.
+        /// Обрывы (E1-6b) — 0,6–2,5 % тайлов, и это гряды-полосы, а не стенки и не пятна: полос толщиной в тайл ≤ 6 %,
+        /// глубже 5 шагов от края нет (толщина до ~4 тайлов и осыпи). Проходы: гряда без прохода не длиннее 80 шагов,
+        /// обрубков короче 12 нет.
         /// </summary>
         [Fact]
-        public void E12_30Seeds_Cliffs_ThinLines_WithGaps()
+        public void E16b_30Seeds_Cliffs_Bands_WithGaps()
         {
             foreach (Seed s in All.Value)
             {
-                _out.WriteLine($"зерно {s.Id}: обрывы {s.S.CliffPercent:F2} %, тонких {s.S.CliffThinPercent:F1} %, кусков {s.Runs}, " +
-                               $"самый длинный {s.LongestRun}, длиннее 60 — {100 * s.RunsOver60:F1} %");
+                _out.WriteLine($"зерно {s.Id}: обрывы {s.S.CliffPercent:F2} %, гряд {s.Shape.Pieces}, длина {s.Shape.Shortest}…{s.Shape.Longest}, " +
+                               $"глубина {s.Shape.MaxDepth}, в один тайл {s.Shape.ThinPercent:F1} %");
             }
 
-            Assert.All(All.Value, s => Assert.InRange(s.S.CliffPercent, 1.5, 5.0));
-            Assert.All(All.Value, s => Assert.True(s.S.CliffThinPercent >= 80.0, $"зерно {s.Id}: тонких {s.S.CliffThinPercent:F1} %"));
-            Assert.All(All.Value, s => Assert.True(s.RunsOver60 <= 0.10, $"зерно {s.Id}: кусков длиннее 60 — {100 * s.RunsOver60:F1} %"));
-            Assert.All(All.Value, s => Assert.True(s.LongestRun <= 160, $"зерно {s.Id}: кусок {s.LongestRun} тайлов без прохода"));
+            Assert.All(All.Value, s => Assert.InRange(s.S.CliffPercent, 0.6, 2.5));
+            Assert.All(All.Value, s => Assert.True(s.Shape.ThinPercent <= 6.0, $"зерно {s.Id}: полос в один тайл {s.Shape.ThinPercent:F1} %"));
+            Assert.All(All.Value, s => Assert.InRange(s.Shape.MaxDepth, 2, 5));
+            Assert.All(All.Value, s => Assert.True(s.Shape.Longest <= 80, $"зерно {s.Id}: гряда {s.Shape.Longest} шагов без прохода"));
+            Assert.All(All.Value, s => Assert.True(s.Shape.Shortest >= CliffStage.MinRunTiles, $"зерно {s.Id}: обрубок {s.Shape.Shortest}"));
+            Assert.All(All.Value, s => Assert.InRange(s.Shape.Pieces, 20, 160));
+        }
+
+        /// <summary>
+        /// Линия гряды извилистая и одна (E1-6b): прямых отрезков края длиннее 8 тайлов — ≤ 10 % края, длиннее 40 нет;
+        /// «коридоров» между двумя линиями в 10–16 тайлах друг от друга — ≤ 6 % от числа тайлов обрыва (у генератора E1-2
+        /// с вложенными линиями уровней — десятки процентов); ≥ 75 % тайлов обрыва — в 24 тайлах от гор или пещер (остальное — плато на лугу и в лесу).
+        /// </summary>
+        [Fact]
+        public void E16b_30Seeds_Cliffs_Winding_NotNested_AroundMountains()
+        {
+            foreach (Seed s in All.Value)
+            {
+                _out.WriteLine($"зерно {s.Id}: прямой край до {s.Shape.LongestStraight}, длиннее 8 — {s.Shape.StraightOver8Percent:F2} %, " +
+                               $"коридоры {s.Shape.NearParallelPercent:F2} %, у гор {100 * s.NearRocky:F1} %");
+            }
+
+            Assert.All(All.Value, s => Assert.True(s.Shape.StraightOver8Percent <= 10.0, $"зерно {s.Id}: прямых {s.Shape.StraightOver8Percent:F2} %"));
+            Assert.All(All.Value, s => Assert.True(s.Shape.LongestStraight <= 40, $"зерно {s.Id}: прямой край {s.Shape.LongestStraight}"));
+            Assert.All(All.Value, s => Assert.True(s.Shape.NearParallelPercent <= 6.0, $"зерно {s.Id}: коридоры {s.Shape.NearParallelPercent:F2} %"));
+            Assert.All(All.Value, s => Assert.True(s.NearRocky >= 0.75, $"зерно {s.Id}: у гор {100 * s.NearRocky:F1} %"));
         }
 
         /// <summary>От Очага без копания достижимы ≥ 90 % всех проходимых тайлов мира (вода и обрывы не режут мир на части).</summary>
@@ -252,9 +267,9 @@ namespace Orpheus.Tests
             Assert.All(levels, n => Assert.True(n > W * W / 9 / 20, "уровень почти пуст"));
         }
 
-        /// <summary>Обрыв стоит только там, где рядом (в своей ячейке 4 × 4 и вокруг) рельеф меняет уровень; в воде и на берегу обрывов нет.</summary>
+        /// <summary>В воде и на берегу обрывов нет; тропа и тайл рядом с ней свободны от обрыва (проход по тропе).</summary>
         [Fact]
-        public void E12_Cliffs_OnLevelBorders_NotInWater()
+        public void E16b_Cliffs_NotInWater_NotOnTrails()
         {
             TileWorld t = GeneratorV1.BuildTiles(MapShape.World(W), 2);
             int cliffs = 0;
@@ -270,11 +285,11 @@ namespace Orpheus.Tests
                     cliffs++;
                     Assert.NotEqual(FloorId.Water, t.Floor[(y * W) + x]);
                     Assert.NotEqual(FloorId.Sand, t.Floor[(y * W) + x]);
-                    int i = x >> 2;
-                    int j = y >> 2;
-                    int a = t.Relief.NodeLevel(i, j);
-                    bool border = t.Relief.NodeLevel(i + 1, j) != a || t.Relief.NodeLevel(i, j + 1) != a || t.Relief.NodeLevel(i + 1, j + 1) != a;
-                    Assert.True(border, $"обрыв ({x}, {y}) не на границе уровней");
+                    for (int k = 0; k < 9; k++)
+                    {
+                        int v = (((y + (k / 3) - 1) & (W - 1)) * W) + ((x + (k % 3) - 1) & (W - 1));
+                        Assert.True((t.Marks[v] & TileWorld.MarkTrail) == 0, $"обрыв ({x}, {y}) у тропы");
+                    }
                 }
             }
 
