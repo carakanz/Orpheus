@@ -94,6 +94,7 @@ namespace Orpheus.Client
             RenderTexture? prevActive = RenderTexture.active;
             try
             {
+                WorldFx.BeforeManualRender(w, h); // E1-7: тени и тон — под размер снимка, а не окна
                 cam.targetTexture = rt;
                 cam.Render();
                 RenderTexture.active = rt;

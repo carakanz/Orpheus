@@ -16,7 +16,7 @@ namespace Orpheus.Editor
     /// <list type="bullet">
     /// <item>Импорт — всегда одинаковый, и для новых/заменённых файлов с Мака: спрайт, 128 px на единицу, опора внизу по
     /// центру, без сжатия, читаемый (клиент при запуске собирает из них один лист — <see cref="ObjectAtlas"/>).</item>
-    /// <item><c>Assets/Resources/ObjectSet.asset</c> — список этих спрайтов и шейдеры объектов, теней и тона суток;
+    /// <item><c>Assets/Resources/ObjectSet.asset</c> — список этих спрайтов и шейдеры объектов и теней;
     /// пересобирается при импорте и перед каждой сборкой, поэтому всё попадает в сборку без ручных шагов.</item>
     /// </list>
     /// </summary>
@@ -26,9 +26,9 @@ namespace Orpheus.Editor
         const string SetPath = "Assets/Resources/" + ObjectSet.ResourceName + ".asset";
         const string ShaderDir = "Assets/Shaders/";
         static readonly string[] Prefixes = { "tree_", "bush_", "boulder_", "ore_", "stump" };
-        static readonly string[] Shaders = { "Objects.shader", "Shadow.shader", "ShadowComposite.shader", "DayTint.shader" };
+        static readonly string[] Shaders = { "Objects.shader", "Shadow.shader", "ShadowComposite.shader" };
 
-        /// <summary>Перед сборкой набор собирается заново; без шейдеров сборка падает, а не выходит без леса и ночи.</summary>
+        /// <summary>Перед сборкой набор собирается заново; без шейдеров сборка падает, а не выходит без леса и теней.</summary>
         sealed class BeforeBuild : IPreprocessBuildWithReport
         {
             public int callbackOrder => 1;
@@ -136,12 +136,11 @@ namespace Orpheus.Editor
             }
 
             if (set.ObjectShader != shaders[0] || set.ShadowShader != shaders[1] || set.ShadowCompositeShader != shaders[2]
-                || set.DayTintShader != shaders[3] || !set.Names.SequenceEqual(order) || !set.Sprites.SequenceEqual(sorted))
+                || !set.Names.SequenceEqual(order) || !set.Sprites.SequenceEqual(sorted))
             {
                 set.ObjectShader = shaders[0];
                 set.ShadowShader = shaders[1];
                 set.ShadowCompositeShader = shaders[2];
-                set.DayTintShader = shaders[3];
                 set.Names = order;
                 set.Sprites = sorted;
                 EditorUtility.SetDirty(set);

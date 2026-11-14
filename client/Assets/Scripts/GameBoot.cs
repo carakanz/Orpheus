@@ -98,6 +98,7 @@ namespace Orpheus.Client
         Anim.ActorRig? _heroRig;        // K-001: ходьба и дыхание своего персонажа офлайн
         Anim.AnimShowcase? _showcase;   // K-001: показ анимации и замер (--anim-shots, --anim-bench)
         TileBenchRun? _tileBench;       // 1-022: стенд «48 Tilemap» (--tile-bench): бег через шов + поток правок, замеры
+        DayTintView? _dayTint;          // E1-8: тон суток (ночь, сумерки, рассвет; свет факела и костра)
         int _hudFrame;
 
         void Awake()
@@ -110,6 +111,7 @@ namespace Orpheus.Client
             }
 
             CreateInput();
+            WorldFx.Init(Camera, Character); // E1-7: слой теней, персонаж за кроной (до первого WorldView)
 
             // Сетевой режим (0-012): мир присылает сервер, поэтому здесь только связь; окно — сразу с HUD-текстом.
             // Одиночная и хост (0-024) — тот же сетевой режим: сервер — дочерний процесс, вход через 127.0.0.1 (07, 2.3).
@@ -157,6 +159,7 @@ namespace Orpheus.Client
             View = new WorldView(World, Origin, Grid, TileMeadow, TileStone, TileTree, TileRock);
             View.UpdateWindow(Player.Position);
             PlaceCharacterAndCamera();
+            _dayTint = new DayTintView(Camera, World, Origin); // E1-8: тон суток (офлайн-часы — Simulation.WorldTime + --day-tick)
 
             if (Args.Smoke)
             {
@@ -328,6 +331,7 @@ namespace Orpheus.Client
             // 5. Персонаж и камера.
             PlaceCharacterAndCamera();
             _heroRig?.AnimateWalk(Time.deltaTime);
+            _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
             UpdateHud();
             _smoke?.AfterFrame();
@@ -343,6 +347,7 @@ namespace Orpheus.Client
             Vector3 p = Origin.ToUnity(from) + new Vector3(dx / FloatingOrigin.UnitsPerTile, -dy / FloatingOrigin.UnitsPerTile, 0f);
             Character.position = p;
             Camera.transform.position = p + CameraOffset;
+            WorldFx.SetHero(p);
         }
 
         void UpdateHud()

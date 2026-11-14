@@ -148,6 +148,12 @@ namespace Orpheus.Client
         /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
         public bool PaintForest;
 
+        /// <summary>
+        /// E1-8 (тон суток): такт суток мира (0…35 999), задающий время офлайн-снимков — у офлайна часы мира
+        /// стартуют с 0 (Simulation.WorldTime), ключ задаёт сдвиг. В сети время присылает сервер, ключ игнорируется.
+        /// </summary>
+        public int DayTick;
+
         /// <summary>Адрес «Открыть для друзей»; null — все адреса (игра).</summary>
         public string? OpenAddress;
 
@@ -175,7 +181,7 @@ namespace Orpheus.Client
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo]";
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--day-tick 0…35999]";
 
         public static ClientArgs Parse(string[] args)
         {
@@ -396,6 +402,26 @@ namespace Orpheus.Client
                         break;
                     case "--paint-forest":
                         a.PaintForest = true;
+                        break;
+                    case "--day-tick":
+                        i++;
+                        if (!int.TryParse(next, NumberStyles.Integer, CultureInfo.InvariantCulture, out a.DayTick)
+                            || a.DayTick < 0 || a.DayTick >= 36_000)
+                        {
+                            a.Error = $"--day-tick: нужен такт суток 0…35999, дано '{next}'";
+                            a.DayTick = 0;
+                        }
+
+                        break;
+                    case "--shot-time":
+                        // E1-7: время суток словом (день, сумерки, ночь, рассвет) или долей суток 0…1 — то же, что --day-tick.
+                        i++;
+                        if (next == null || !DayTintView.TryParseTime(next, out a.DayTick))
+                        {
+                            a.Error = $"--shot-time: нужно день|сумерки|ночь|рассвет (day|dusk|night|dawn) или доля суток 0…1, дано '{next}'";
+                            a.DayTick = 0;
+                        }
+
                         break;
                     case "--bench-render":
                         a.BenchRender = true;

@@ -4,21 +4,20 @@ using Orpheus.Core.World;
 namespace Orpheus.WorldGen
 {
     /// <summary>
-    /// Этап 12 «Перевалы и связность», минимум вехи 1 (карточка 1-017; docs/01, 2 «Этап 12», «Гарантии»; `08` 3.1 — без
-    /// гарантий расстояний «перевал не реже 200»).
+    /// Этап 12 «Перевалы и связность» (карточки 1-017, E1-2; docs/01, 2 «Этап 12», «Гарантии»).
     /// <para>
-    /// Проходимый тайл — природный пол проходим и объект не твёрдый; соседство — 4 стороны по тору (персонаж — круг 0,4 тайла,
+    /// Проходимый тайл — пол проходим (вода — нет) и объект не твёрдый; соседство — 4 стороны по тору (персонаж — круг 0,4 тайла,
     /// между двумя преградами по диагонали не пролезает). Компонента Очага — главная. Присоединяется каждая другая компонента,
-    /// где есть тайл лугов или леса, или размером ≥ 64 тайлов (`01` 2, этап 6: «область ≥ 64»); мелкие карманы в толще гор и
-    /// пещер остаются — до них докапываются.
+    /// где есть тайл лугов или леса, или размером ≥ 64 тайлов; мелкие карманы в толще пещер остаются.
     /// </para>
     /// <para>
-    /// Как: один проход 0-1 BFS от главной компоненты по всему тору — цена входа в преграду 1, в проходимый тайл 0, залежь
-    /// не прокапывается никогда. Для каждой присоединяемой компоненты берётся её тайл с наименьшей ценой, путь по родителям
-    /// до главной расчищается: преграда в скальной массе (скала или гранит на камне гор и пещер) — кистью 4 × 4 (перевал
-    /// шириной 4, `01` 2 (а)), прочая (дерево, куст, валун) — один тайл. Пути — кратчайшие по числу преград: рубится минимум.
+    /// Как: один поиск кратчайших путей от главной компоненты по всему тору (очереди по цене, алгоритм Дейла). Цена входа:
+    /// проходимый тайл 0; дерево, куст, валун 1; скальная масса 2; вода 3; обрыв 5; залежь — нельзя. Для каждой
+    /// присоединяемой компоненты путь до главной расчищается: <b>обрыв</b> — убирается весь его сегмент 4 × 4 (проход, как
+    /// у нарезки линий); <b>вода</b> — брод из песка кистью 3 × 3; скальная масса — кистью 4 × 4; прочее — один тайл.
+    /// Обрыв и вода дороже деревьев, но дешевле длинного прокапывания скал: отрезанное ими открывается проходом и бродом.
     /// </para>
-    /// Порядок обхода фиксирован (очередь, соседи в порядке +x, −x, +y, −y), результат один на любой машине.
+    /// Порядок обхода фиксирован (очереди, соседи в порядке +x, −x, +y, −y), результат один на любой машине.
     /// </summary>
     public static class ConnectStage
     {
@@ -31,10 +30,48 @@ namespace Orpheus.WorldGen
         /// <summary>Ширина перевала через скальную массу, тайлов.</summary>
         public const int PassWidth = 4;
 
+        /// <summary>Брод длиннее стольких тайлов воды к области меньше <see cref="IslandJoinSize"/> тайлов не делается (остров остаётся островом).</summary>
+        public const int MaxFordLength = 12;
+
+        public const int IslandJoinSize = 6000;
+
+        /// <summary>Карман меньше стольких тайлов присоединяется, только если цена пути не больше <see cref="MaxPocketCost"/>.</summary>
+        public const int MinPocketSize = 16;
+
+        public const int MaxPocketCost = 2;
+
+        public const int CostObject = 1;
+        public const int CostMass = 2;
+        public const int CostWater = 3;
+        public const int CostCliff = 5;
+
+        private const int Buckets = CostCliff + 1;
         private const byte DirNone = 255;
 
         /// <summary>Тайл проходим без копания.</summary>
         public static bool Passable(byte floor, ushort obj) => FloorId.IsPassable(floor) && !ObjectId.IsSolid(obj);
+
+        // Цена входа в непроходимый тайл; 0 — нельзя (залежь).
+        private static int CostOf(TileWorld t, int i)
+        {
+            ushort o = t.Objects[i];
+            if (o == ObjectId.Ore)
+            {
+                return 0;
+            }
+
+            if (o == ObjectId.Cliff)
+            {
+                return CostCliff;
+            }
+
+            if (!FloorId.IsPassable(t.Floor[i]))
+            {
+                return CostWater;
+            }
+
+            return IsMass(t, i) ? CostMass : CostObject;
+        }
 
         /// <summary>Этап 12: присоединить отрезанные компоненты к компоненте Очага.</summary>
         public static void Run(TileWorld t)
@@ -84,7 +121,7 @@ namespace Orpheus.WorldGen
                 return;
             }
 
-            // 0-1 BFS от главной компоненты: dist — сколько преград прокопать, dir — откуда пришли.
+            // Кратчайшие пути от главной компоненты: dist — цена расчистки, dir — откуда пришли.
             var dist = new int[n];
             var dir = new byte[n];
             for (int i = 0; i < n; i++)
@@ -93,61 +130,73 @@ namespace Orpheus.WorldGen
                 dir[i] = DirNone;
             }
 
-            // Двухсторонняя очередь на кольцевом буфере: 0-шаги — в голову, 1-шаги — в хвост.
-            int cap = 2 * n;
-            var dq = new int[cap];
-            int head = 0;
-            int tail = 0;
+            var bucket = new int[Buckets][];
+            var fill = new int[Buckets];
+            for (int k = 0; k < Buckets; k++)
+            {
+                bucket[k] = new int[k == 0 ? n : 1024];
+            }
+
+            long pending = 0;
             for (int i = 0; i < n; i++)
             {
                 if (label[i] == main)
                 {
                     dist[i] = 0;
-                    dq[tail++] = i;
+                    bucket[0][fill[0]++] = i;
+                    pending++;
                 }
             }
 
-            int count = tail;
-            while (count > 0)
+            for (int cur = 0; pending > 0; cur++)
             {
-                int u = dq[head];
-                head = head + 1 == cap ? 0 : head + 1;
-                count--;
-                int du = dist[u];
-                int ux = u & mask;
-                int uy = u >> shift;
-                for (int k = 0; k < 4; k++)
+                int slot = cur % Buckets;
+                for (int at = 0; at < fill[slot]; at++) // очередь растёт, пока идём: шаги цены 0 — в неё же
                 {
-                    int vx = k == 0 ? (ux + 1) & mask : k == 1 ? (ux - 1) & mask : ux;
-                    int vy = k == 2 ? (uy + 1) & mask : k == 3 ? (uy - 1) & mask : uy;
-                    int v = (vy << shift) | vx;
-                    if (obj[v] == ObjectId.Ore)
+                    int u = bucket[slot][at];
+                    pending--;
+                    if (dist[u] != cur)
                     {
-                        continue; // залежь не прокапываем: штамп меди и жилы целы
+                        continue; // устаревшая запись
                     }
 
-                    int cost = label[v] >= 0 ? 0 : 1;
-                    int dv = du + cost;
-                    if (dv >= dist[v])
+                    int ux = u & mask;
+                    int uy = u >> shift;
+                    for (int k = 0; k < 4; k++)
                     {
-                        continue;
-                    }
+                        int vx = k == 0 ? (ux + 1) & mask : k == 1 ? (ux - 1) & mask : ux;
+                        int vy = k == 2 ? (uy + 1) & mask : k == 3 ? (uy - 1) & mask : uy;
+                        int v = (vy << shift) | vx;
+                        int cost = 0;
+                        if (label[v] < 0)
+                        {
+                            cost = CostOf(t, v);
+                            if (cost == 0)
+                            {
+                                continue; // залежь не прокапываем: штамп меди и жилы целы
+                            }
+                        }
 
-                    dist[v] = dv;
-                    dir[v] = (byte)k;
-                    if (cost == 0)
-                    {
-                        head = head == 0 ? cap - 1 : head - 1;
-                        dq[head] = v;
-                    }
-                    else
-                    {
-                        dq[tail] = v;
-                        tail = tail + 1 == cap ? 0 : tail + 1;
-                    }
+                        int dv = cur + cost;
+                        if (dv >= dist[v])
+                        {
+                            continue;
+                        }
 
-                    count++;
+                        dist[v] = dv;
+                        dir[v] = (byte)k;
+                        int to = dv % Buckets;
+                        if (fill[to] == bucket[to].Length)
+                        {
+                            Array.Resize(ref bucket[to], bucket[to].Length * 2);
+                        }
+
+                        bucket[to][fill[to]++] = v;
+                        pending++;
+                    }
                 }
+
+                fill[slot] = 0;
             }
 
             // Ближайший к главной тайл каждой присоединяемой компоненты (равные — меньший индекс).
@@ -176,6 +225,33 @@ namespace Orpheus.WorldGen
                     continue;
                 }
 
+                // Карман в чаще: мал и далеко (рубить больше двух деревьев) — остаётся карманом, длинных просек не рубим.
+                if (size[c] < MinPocketSize && dist[i] > MaxPocketCost)
+                {
+                    continue;
+                }
+
+                // Остров: путь к нему — длинный брод, а сам он мал. Не присоединяем: на остров — настилом.
+                if (size[c] < IslandJoinSize)
+                {
+                    int wet = 0;
+                    for (int j = i; dist[j] > 0;)
+                    {
+                        wet += floor[j] == FloorId.Water ? 1 : 0;
+                        int kj = dir[j];
+                        int jx = j & mask;
+                        int jy = j >> shift;
+                        jx = kj == 0 ? (jx - 1) & mask : kj == 1 ? (jx + 1) & mask : jx;
+                        jy = kj == 2 ? (jy - 1) & mask : kj == 3 ? (jy + 1) & mask : jy;
+                        j = (jy << shift) | jx;
+                    }
+
+                    if (wet > MaxFordLength)
+                    {
+                        continue;
+                    }
+                }
+
                 joined++;
                 while (dist[i] > 0)
                 {
@@ -198,12 +274,53 @@ namespace Orpheus.WorldGen
             t.TilesCarved = carved;
         }
 
-        /// <summary>Расчистить преграду (x, y): скальная масса — кистью 4 × 4 (x − 1…x + 2), прочее — один тайл. Возвращает число снятых объектов.</summary>
+        /// <summary>
+        /// Расчистить преграду (x, y): обрыв — весь сегмент 4 × 4; вода — брод из песка 3 × 3; скальная масса — кистью 4 × 4
+        /// (x − 1…x + 2); прочее — один тайл. Возвращает число снятых объектов (броды и сегменты считаются в мире отдельно).
+        /// </summary>
         private static int Carve(TileWorld t, int x, int y)
         {
             int w = t.WorldSize;
             int mask = w - 1;
             int i = (y * w) + x;
+            if (t.Objects[i] == ObjectId.Cliff)
+            {
+                int x0 = x & ~(GridField.Step - 1);
+                int y0 = y & ~(GridField.Step - 1);
+                for (int dy = 0; dy < GridField.Step; dy++)
+                {
+                    for (int dx = 0; dx < GridField.Step; dx++)
+                    {
+                        int j = ((y0 + dy) * w) + x0 + dx;
+                        if (t.Objects[j] == ObjectId.Cliff)
+                        {
+                            t.Objects[j] = ObjectId.Empty;
+                        }
+                    }
+                }
+
+                t.CliffCellsOpened++;
+                return 0;
+            }
+
+            if (!FloorId.IsPassable(t.Floor[i]))
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        int j = (((y + dy) & mask) * w) + ((x + dx) & mask);
+                        if (t.Floor[j] == FloorId.Water)
+                        {
+                            t.Floor[j] = FloorId.Sand;
+                            t.FordTiles++;
+                        }
+                    }
+                }
+
+                return 0;
+            }
+
             if (!IsMass(t, i))
             {
                 t.Objects[i] = ObjectId.Empty;
@@ -217,7 +334,7 @@ namespace Orpheus.WorldGen
                 {
                     int j = (((y + dy) & mask) * w) + ((x + dx) & mask);
                     ushort o = t.Objects[j];
-                    if (o != ObjectId.Empty && o != ObjectId.Ore && ObjectId.IsSolid(o))
+                    if (o != ObjectId.Empty && o != ObjectId.Ore && o != ObjectId.Cliff && ObjectId.IsSolid(o))
                     {
                         t.Objects[j] = ObjectId.Empty;
                         carved++;
@@ -308,6 +425,29 @@ namespace Orpheus.WorldGen
             }
 
             return open == 0 ? 1.0 : (double)reached / open;
+        }
+
+        /// <summary>Доля всех проходимых тайлов мира, достижимых от Очага без копания (приёмка E1-2: ≥ 90 %).</summary>
+        public static double ReachableShare(TileWorld t)
+        {
+            int[] label = Label(t, out _);
+            int w = t.WorldSize;
+            int main = label[((w >> 1) * w) + (w >> 1)];
+            long passable = 0;
+            long reached = 0;
+            for (int i = 0; i < label.Length; i++)
+            {
+                if (label[i] >= 0)
+                {
+                    passable++;
+                    if (label[i] == main)
+                    {
+                        reached++;
+                    }
+                }
+            }
+
+            return passable == 0 ? 1.0 : (double)reached / passable;
         }
     }
 }

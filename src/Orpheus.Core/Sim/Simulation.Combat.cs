@@ -324,8 +324,14 @@ namespace Orpheus.Core.Sim
                             EnemyMelee.ReachUnits, EnemyMelee.HalfArcSteps);
                         int slot = SlotOf(e.AttackTarget);
                         // Удар решается по позиции цели в конце замаха (docs/07, 4.6); уворот спасает i-кадрами (0-029, 2.2).
+                        // C-002 (`02` 3.4): линия удара перепроверяется и в миг приземления — стена/закрытая дверь,
+                        // вставшие между началом замаха и ударом, гасят удар (замах при открытой двери, приземлился
+                        // после закрытия — «урон за дверью 5 кадров», D08_3_1). Замах виден клиенту телеграфом,
+                        // решение — за сервером, как и у меча игрока (ResolveMeleeStrike).
                         if (slot >= 0 && _entities[slot].Alive && !_entities[slot].Mover.Dodge.Invulnerable &&
-                            sector.Overlaps(_shape, _entities[slot].Mover.Position, Collision.RadiusUnits))
+                            sector.Overlaps(_shape, _entities[slot].Mover.Position, Collision.RadiusUnits) &&
+                            StrikeLineClear(e.AttackOrigin, _entities[slot].Mover.Position,
+                                Torus.TileOf(_shape, e.Mover.Position)))
                         {
                             // Урон ночного врага ×1,25 (8.6, 1-009): 10 → 13; днём ровно ×1.
                             ApplyStrike(_entities[slot].Id, e.Id, ScaledByNight(e.AttackRaw, NightMultX1024), e.Mover.Position, knockback: true);
@@ -407,7 +413,9 @@ namespace Orpheus.Core.Sim
         /// Линия удара чиста (`02` 3.1, 3.4): отрезок «начало удара — центр цели» с шагом
         /// <see cref="StrikeLosStepUnits"/> unit не пересекает непроходимых тайлов (<see cref="IsBlocked"/>:
         /// стена, скала, дерево, гранит, закрытая дверь/ворота); тайл атакующего пропускается,
-        /// забор проходим — линию не прерывает. Шов тора: разность — <see cref="Torus.Delta"/>.
+        /// только если сам проходим (открытая дверь, забор), — стоит врагу на ЗАКРЫТУЮ дверь (закрылась
+        /// под ним, C-001), она перекрывает линию: цель за дверью не под ударом; забор проходим —
+        /// линию не прерывает. Шов тора: разность — <see cref="Torus.Delta"/>.
         /// </summary>
         private bool StrikeLineClear(WorldPos from, WorldPos to, TileCoord own)
         {
@@ -419,7 +427,7 @@ namespace Orpheus.Core.Sim
                     from.X + (int)((long)d.X * i / steps),
                     from.Y + (int)((long)d.Y * i / steps));
                 TileCoord tile = Torus.TileOf(_shape, p);
-                if (tile == own)
+                if (tile == own && !StrikeTileBlocked(own))
                 {
                     continue;
                 }

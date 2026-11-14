@@ -384,6 +384,68 @@ namespace Orpheus.Tests
             Assert.Equal(100, Hp(sim, ch));
         }
 
+        /// <summary>
+        /// Удар сквозь закрытую дверь с порога (C-001, `02` 3.4): дверь закрыта, враг стоит НА тайле
+        /// двери (закрылась под ним — сдвиг из непроходимого тайла не форсируется), игрок за дверью
+        /// в зоне удара. За 300 тактов — ни одного удара: закрытая дверь под атакующим — преграда
+        /// линии, безусловный пропуск «своего» тайла её не отменяет.
+        /// </summary>
+        [Fact]
+        public void W13_StrikeLine_ClosedDoor_RogueOnThreshold_NoStrike()
+        {
+            var sim = new Simulation(Flat(1317));
+            int ch = sim.AddEntity(new WorldPos(10 * U + U / 2, 10 * U + 200)); // игрок за дверью, ряд 10
+            Door(sim, 10, 11); // закрытая (open=false)
+            sim.Step();
+            sim.AddMeleeRogue(At(10, 11)); // враг на пороге: дистанция 184 ≤ 460
+
+            Steps(sim, 300);
+            Assert.Equal(100, Hp(sim, ch)); // «урон за дверью 4 кадра» (D08_3_1) не повторяется
+        }
+
+        /// <summary>
+        /// Открытая дверь с порога бьёт (C-001, фикс не ломает проход): тот же порог, дверь открыта —
+        /// за 300 тактов удар есть (открытая дверь под атакующим — проходима, линию не перекрывает).
+        /// </summary>
+        [Fact]
+        public void W13_StrikeLine_OpenDoor_RogueOnThreshold_Strikes()
+        {
+            var sim = new Simulation(Flat(1318));
+            int ch = sim.AddEntity(new WorldPos(10 * U + U / 2, 10 * U + 200));
+            Door(sim, 10, 11, open: true);
+            sim.Step();
+            sim.AddMeleeRogue(At(10, 11));
+
+            Steps(sim, 300);
+            Assert.True(Hp(sim, ch) < 100, "враг на пороге открытой двери бьёт");
+        }
+
+        /// <summary>
+        /// Остаточный вектор удара (C-002, `02` 3.4): замах начат при ОТКРЫТОЙ двери (линия чиста —
+        /// замах разрешён), дверь ЗАКРЫВАЕТСЯ до приземления удара. Линия перепроверяется в миг попадания —
+        /// за 300 тактов после закрытия ни одного попадания («урон за дверью 5 кадров», D08_3_1).
+        /// </summary>
+        [Fact]
+        public void W14_Strike_Swing_Starts_OpenDoor_Closes_BeforeHit_NoStrike()
+        {
+            var sim = new Simulation(Flat(1319));
+            int ch = sim.AddEntity(new WorldPos(10 * U + U / 2, 10 * U + 200)); // игрок за дверью, ряд 10
+            Door(sim, 10, 11, open: true);
+            sim.Step();
+            int rogue = sim.AddMeleeRogue(At(10, 11)); // враг на пороге, дверь открыта — цикл удара идёт
+
+            int t = 0;
+            while (t++ < 300 && sim.GetEntity(rogue).AttackWindup == 0)
+            {
+                sim.Step(); // ждём начала замаха (замах — 12 тактов, EnemyBrain.WindupTicks)
+            }
+
+            Assert.True(sim.GetEntity(rogue).AttackWindup > 0, "замах начался при открытой двери");
+            Door(sim, 10, 11); // закрываем дверь в середине замаха
+            Steps(sim, 300); // этот замах приземляется за закрытой дверью; новых замахов закрытая дверь не пропускает
+            Assert.Equal(100, Hp(sim, ch)); // «урон за дверью 5 кадров» не повторяется
+        }
+
         // ------------------------------------------------ з.3: leash 60 тайлов от точки появления
 
         /// <summary>

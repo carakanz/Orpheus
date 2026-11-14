@@ -90,6 +90,9 @@ namespace Orpheus.Client.Anim
             _sprite.localRotation = Quaternion.Euler(0f, 0f, p.RotationDeg);
             _sprite.localScale = new Vector3(p.ScaleX, p.ScaleY, 1f);
             _sr.flipX = p.FlipX;
+            // E1-7: существо сортируется с объектами «с высотой» по нижней кромке (ноги — опора спрайта без сдвига позы).
+            int order = WorldView.SortOrderAt(_root.position.y + _basePos.y);
+            _sr.sortingOrder = order;
             _sr.color = new Color(_baseColor.r * p.TintR, _baseColor.g * p.TintG, _baseColor.b * p.TintB, _baseColor.a * p.Alpha);
 
             for (int i = 0; i < _ghosts.Length; i++)
@@ -103,6 +106,7 @@ namespace Orpheus.Client.Anim
                 }
 
                 g.enabled = true;
+                g.sortingOrder = order;
                 float d = AnimParams.GhostSpacing * (i + 1);
                 g.transform.localPosition = _basePos + new Vector3(p.GhostDirX * d, p.GhostDirY * d, 0f);
                 g.transform.localRotation = _sprite.localRotation;

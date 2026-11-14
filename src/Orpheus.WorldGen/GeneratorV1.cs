@@ -20,8 +20,12 @@ namespace Orpheus.WorldGen
     /// </summary>
     public sealed class GeneratorV1 : IWorldGenerator
     {
-        /// <summary>Версия генератора — пишется в снимок генерации (docs/07, 3.4).</summary>
-        public const int GeneratorVersion = MacroGenerator.GeneratorVersion;
+        /// <summary>
+        /// Версия генератора — пишется в снимок генерации (docs/07, 3.4). 4 — мир 1-017 (общая с макрокартой); 5 — E1-2:
+        /// вода, берег, обрывы, тропы, лес куртинами, сухая трава, без скальной массы гор. Макрокарта (этапы 1–3, 7) при
+        /// этом не менялась, её версия осталась <see cref="MacroGenerator.GeneratorVersion"/>.
+        /// </summary>
+        public const int GeneratorVersion = 5;
 
         /// <summary>Ключ сервера <c>--gen</c>.</summary>
         public const string Key = "v1";

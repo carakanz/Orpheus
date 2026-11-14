@@ -1,21 +1,15 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using Orpheus.Core.World;
 using UnityEngine;
 
 namespace Orpheus.Client
 {
     /// <summary>
-    /// Слой теней, тон суток и свет источников, видимость своего персонажа за кроной (E1-7 и E1-8, план 1.7–1.8).
+    /// Слой теней и видимость своего персонажа за кроной (E1-7, план 1.7). Тон суток — <see cref="DayTintView"/> (E1-8).
     /// Только вид: ничего не решает и ядро не трогает.
     /// <list type="bullet">
     /// <item><b>Тени.</b> Меши теней чанков и пятна под существами лежат в слое <see cref="ShadowLayer"/>; его рисует
     /// отдельная камера в текстуру (половина разрешения, смешивание «наибольшее») — тени не складываются в чёрное.
     /// Текстура ложится на землю один раз большим квадратом перед основной камерой (<see cref="WorldView.ShadowOrder"/>).</item>
-    /// <item><b>Тон суток.</b> Квадрат поверх мира умножает кадр на цвет неба по доле суток; в кругах света факелов и
-    /// костров тон плавно уходит в тёплый свет. Время — такт суток сервера (сеть), локальные часы без сервера или
-    /// ключ <c>--shot-time</c>.</item>
     /// <item><b>Персонаж за кроной.</b> Шейдеру объектов каждый кадр отдаётся место своего персонажа: кроны перед ним
     /// становятся полупрозрачными в круге <see cref="HeroFadeRadius"/>.</item>
     /// </list>
@@ -34,142 +28,25 @@ namespace Orpheus.Client
         /// <summary>Ноги существа ниже центра круга коллизии (корня) на столько тайлов (опора спрайта).</summary>
         public const float FootOffset = 0.4f;
 
-        const int MaxLights = 32;
-
         static readonly int HeroId = Shader.PropertyToID("_OrphHero");
         static readonly int HeroFadeId = Shader.PropertyToID("_OrphHeroFade");
         static readonly int ShadowTexId = Shader.PropertyToID("_OrphShadowTex");
         static readonly int ShadowRectId = Shader.PropertyToID("_OrphShadowRect");
-        static readonly int AmbientId = Shader.PropertyToID("_OrphAmbient");
-        static readonly int LightColorId = Shader.PropertyToID("_OrphLightColor");
-        static readonly int LightsId = Shader.PropertyToID("_OrphLights");
-        static readonly int LightCountId = Shader.PropertyToID("_OrphLightCount");
 
         static Camera? _main;
         static Camera? _shadowCam;
         static RenderTexture? _shadowRt;
         static Mesh? _blobMesh;
         static bool _ready;
-        static double _localTicks;
-        static float _fixedTime = -1f;
-        static Vector3 _hero;
-        static bool _hasHero;
-        static readonly List<Vector4> Found = new List<Vector4>(64);
-        static readonly Vector4[] Lights = new Vector4[MaxLights];
-
-        /// <summary>Окно чанков, из которого берутся источники света (ставит <see cref="WorldView"/>).</summary>
-        public static WorldView? View;
-
-        /// <summary>Сеть: такт суток по часам сервера (0…35 999) или −1, пока часы не сверены. Без сети — null.</summary>
-        public static Func<int>? NetDayTicks;
-
-        /// <summary>Доля суток 0…1 сейчас (0 — начало дня, 0,6 — сумерки, 0,65 — ночь, 0,95 — рассвет).</summary>
-        public static float DayFraction
-        {
-            get
-            {
-                if (_fixedTime >= 0f)
-                {
-                    return _fixedTime;
-                }
-
-                int net = NetDayTicks != null ? NetDayTicks() : -1;
-                double ticks = net >= 0 ? net : _localTicks;
-                return (float)(ticks % DayClock.TicksPerDay / DayClock.TicksPerDay);
-            }
-        }
-
-        /// <summary>
-        /// Ключ <c>--shot-time</c>: «день», «сумерки», «ночь», «рассвет» (или day, dusk, night, dawn) либо доля суток 0…1.
-        /// Возвращает false, если значение не понято.
-        /// </summary>
-        public static bool TryParseTime(string text, out float fraction)
-        {
-            switch (text.Trim().ToLowerInvariant())
-            {
-                case "день":
-                case "day":
-                    fraction = 0.3f;
-                    return true;
-                case "сумерки":
-                case "dusk":
-                    fraction = (DayClock.DuskStartTick + DayClock.NightStartTick) * 0.5f / DayClock.TicksPerDay;
-                    return true;
-                case "ночь":
-                case "night":
-                    fraction = (DayClock.NightStartTick + DayClock.DawnStartTick) * 0.5f / DayClock.TicksPerDay;
-                    return true;
-                case "рассвет":
-                case "dawn":
-                    fraction = (DayClock.DawnStartTick + DayClock.TicksPerDay) * 0.5f / DayClock.TicksPerDay;
-                    return true;
-            }
-
-            return float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out fraction)
-                   && fraction >= 0f && fraction <= 1f;
-        }
-
-        // ---------- Тон суток: цвет неба по доле суток ----------
-
-        static readonly Color Day = new Color(1f, 1f, 1f);
-        static readonly Color Dusk = new Color(1f, 0.66f, 0.42f);       // тёплый оранжеватый
-        static readonly Color Night = new Color(0.25f, 0.34f, 0.62f);   // тёмно-синий, яркость ~0,35–0,4
-        static readonly Color Dawn = new Color(0.80f, 0.62f, 0.74f);    // холодно-розовый
-
-        // Опорные точки: (доля суток, цвет); между ними — плавно. Границы фаз — DayClock.
-        static readonly (float At, Color Tone)[] Keys = BuildKeys();
-
-        static (float, Color)[] BuildKeys()
-        {
-            const float day = DayClock.TicksPerDay;
-            float dusk = DayClock.DuskStartTick / day, night = DayClock.NightStartTick / day, dawn = DayClock.DawnStartTick / day;
-            return new[]
-            {
-                (0f, Day),
-                (dusk - 0.03f, Day),                                     // к вечеру свет теплеет ещё до сумерек
-                (dusk, Color.Lerp(Day, Dusk, 0.45f)),
-                ((dusk + night) * 0.5f, Dusk),
-                (night, Color.Lerp(Dusk, Night, 0.8f)),
-                (night + 0.012f, Night),
-                (dawn, Night),
-                ((dawn + 1f) * 0.5f, Dawn),
-                (1f, Day),
-            };
-        }
-
-        /// <summary>Цвет неба (множитель кадра) по доле суток 0…1.</summary>
-        public static Color ToneAt(float f)
-        {
-            f = Mathf.Repeat(f, 1f);
-            for (int i = 1; i < Keys.Length; i++)
-            {
-                if (f <= Keys[i].At)
-                {
-                    float span = Keys[i].At - Keys[i - 1].At;
-                    float t = span > 1e-6f ? (f - Keys[i - 1].At) / span : 1f;
-                    return Color.Lerp(Keys[i - 1].Tone, Keys[i].Tone, t * t * (3f - 2f * t));
-                }
-            }
-
-            return Day;
-        }
-
         // ---------- Запуск ----------
 
         /// <summary>Создать камеру теней и квадраты наложения. Без видеокарты или набора — ничего не делает.</summary>
-        public static void Init(Camera main, Transform hero, ClientArgs args)
+        public static void Init(Camera main, Transform hero)
         {
             _main = main;
-            _fixedTime = args.ShotTime;
-            _localTicks = 0;
             _ready = false;
-            _hasHero = false;
             Shader.SetGlobalVector(HeroId, Vector4.zero);
             Shader.SetGlobalVector(HeroFadeId, new Vector4(HeroFadeAlpha, 0f, 0f, 0f));
-            Shader.SetGlobalVector(AmbientId, Vector4.one);
-            Shader.SetGlobalVector(LightColorId, new Vector4(1f, 0.86f, 0.62f, 1f));
-            Shader.SetGlobalVectorArray(LightsId, Lights);
-            Shader.SetGlobalFloat(LightCountId, 0f);
 
             ObjectAtlas.Ensure();
             ObjectSet? set = ObjectAtlas.Set;
@@ -202,15 +79,9 @@ namespace Orpheus.Client
                 AddActorShadow(hero, 0.8f);
             }
 
-            if (set.DayTintShader != null)
-            {
-                Overlay(main, "DayTint", new Material(set.DayTintShader) { name = "DayTint" }, WorldView.TintOrder);
-            }
-
             _ready = true;
             Sync(main.aspect, main.pixelHeight);
-            Debug.Log($"[fx] тени: {(_shadowCam != null ? "есть" : "нет")}, тон суток: {(set.DayTintShader != null ? "есть" : "нет")}, " +
-                      $"время {(_fixedTime >= 0f ? $"задано {_fixedTime:0.000}" : "по часам")}");
+            Debug.Log($"[fx] слой теней: {(_shadowCam != null ? "есть" : "нет")}");
         }
 
         // Большой квадрат перед камерой (едет вместе с ней): закрывает любой обзор.
@@ -271,11 +142,9 @@ namespace Orpheus.Client
 
         // ---------- Кадр ----------
 
-        /// <summary>Место своего персонажа (корень: центр круга коллизии) — для полупрозрачных крон и ночного света рядом.</summary>
+        /// <summary>Место своего персонажа (корень: центр круга коллизии) — для полупрозрачных крон перед ним.</summary>
         public static void SetHero(Vector3 root)
         {
-            _hero = root;
-            _hasHero = true;
             float foot = root.y - FootOffset;
             Shader.SetGlobalVector(HeroId, new Vector4(root.x, foot + 0.75f, foot, HeroFadeRadius));
         }
@@ -288,7 +157,6 @@ namespace Orpheus.Client
                 return;
             }
 
-            _localTicks += Time.deltaTime * DayClock.TicksPerSecond;
             Sync(_main.aspect, _main.pixelHeight);
         }
 
@@ -304,6 +172,7 @@ namespace Orpheus.Client
             }
 
             Sync(w / (float)h, h);
+            DayTintView.Current?.Refresh(w / (float)h); // слой тона — под размер этого кадра
             if (_shadowCam != null)
             {
                 _shadowCam.Render();
@@ -313,7 +182,6 @@ namespace Orpheus.Client
         static void Sync(float aspect, int pixelHeight)
         {
             Camera main = _main!;
-            UpdateTone(main, aspect);
             if (_shadowCam == null)
             {
                 return;
@@ -360,46 +228,6 @@ namespace Orpheus.Client
             _shadowCam.aspect = aspect;
             float halfW = half * aspect;
             Shader.SetGlobalVector(ShadowRectId, new Vector4(p.x - halfW, p.y - half, 0.5f / halfW, 0.5f / half));
-        }
-
-        static void UpdateTone(Camera main, float aspect)
-        {
-            Color tone = ToneAt(DayFraction);
-            Shader.SetGlobalVector(AmbientId, new Vector4(tone.r, tone.g, tone.b, 1f));
-            int n = 0;
-            float dark = 1f - (0.21f * tone.r + 0.72f * tone.g + 0.07f * tone.b);
-            if (dark > 0.03f)
-            {
-                // Рядом со своим персонажем ночью чуть светлее: он и земля вокруг различимы.
-                if (_hasHero)
-                {
-                    Lights[n++] = new Vector4(_hero.x, _hero.y, 3.4f, 0.3f);
-                }
-
-                WorldView? view = View;
-                if (view != null)
-                {
-                    Found.Clear();
-                    view.CollectLights(Found);
-                    Vector3 c = main.transform.position;
-                    float halfH = main.orthographicSize, halfW = halfH * aspect;
-                    float t = Time.time;
-                    for (int i = 0; i < Found.Count && n < MaxLights; i++)
-                    {
-                        Vector4 l = Found[i];
-                        if (Mathf.Abs(l.x - c.x) > halfW + l.z || Mathf.Abs(l.y - c.y) > halfH + l.z)
-                        {
-                            continue; // круг света за экраном
-                        }
-
-                        l.z *= 1f + 0.025f * Mathf.Sin(t * 9f + l.x * 1.7f + l.y); // огонь слегка дрожит
-                        Lights[n++] = l;
-                    }
-                }
-            }
-
-            Shader.SetGlobalVectorArray(LightsId, Lights);
-            Shader.SetGlobalFloat(LightCountId, n);
         }
     }
 }

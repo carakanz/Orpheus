@@ -149,14 +149,11 @@ namespace Orpheus.Client
             return n;
         }
 
-        /// <summary>
-        /// Меш теней всего чанка и список источников света (x, y в узле чанка, z — радиус); возвращает число теней.
-        /// </summary>
-        public int BuildShadows(Chunk? chunk, ChunkCoord c, Mesh mesh, List<Vector3> lights)
+        /// <summary>Меш теней всего чанка; возвращает число теней.</summary>
+        public int BuildShadows(Chunk? chunk, ChunkCoord c, Mesh mesh)
         {
             Builds++;
             mesh.Clear();
-            lights.Clear();
             if (chunk == null)
             {
                 return 0;
@@ -171,11 +168,6 @@ namespace Orpheus.Client
                 for (int i = 0; i < n; i++)
                 {
                     ref Item it = ref _items[i];
-                    if (it.Look.Light > 0f)
-                    {
-                        lights.Add(new Vector3(it.X, it.Y + 0.3f, it.Look.Light));
-                    }
-
                     float k = it.Look.Shadow;
                     if (k <= 0f)
                     {

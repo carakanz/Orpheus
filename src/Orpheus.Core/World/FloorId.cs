@@ -29,7 +29,7 @@ namespace Orpheus.Core.World
         public const byte Sand = 4;
         public const byte Snow = 5;
 
-        /// <summary>Жидкости: по воде идут (в брод), лава — нет.</summary>
+        /// <summary>Жидкости: непроходимы (вода — с E1-2, план 1.2: озёра и реки — преграда; через воду — настил или брод из песка).</summary>
         public const byte Water = 6;
         public const byte Lava = 7;
 
@@ -41,8 +41,11 @@ namespace Orpheus.Core.World
         /// <summary>Лесная подстилка — природный пол леса (`01` 3 «Лес»: трава и хвоя; генератор v1, 1-017).</summary>
         public const byte ForestFloor = 11;
 
+        /// <summary>Сухая трава — природный пол пятнами на лугу (E1-2, план 1.3).</summary>
+        public const byte DryGrass = 12;
+
         /// <summary>Наибольший описанный id: таблица заполнена до него включительно.</summary>
-        public const byte MaxKnown = 11;
+        public const byte MaxKnown = 12;
 
         /// <summary>Размер таблицы свойств (id 0…<see cref="MaxKnown"/>).</summary>
         public const int TableSize = MaxKnown + 1;
@@ -56,7 +59,7 @@ namespace Orpheus.Core.World
             /// <summary>Опора: на тайле стоят постройки и существа (земля, камень, построенный пол). Вода и лава — не опора, на них — только настил.</summary>
             Solid = 1,
 
-            /// <summary>Через тайл проходят: вода — да, лава и скала — нет.</summary>
+            /// <summary>Через тайл проходят: вода и лава — нет.</summary>
             Passable = 2,
 
             /// <summary>Природный пол: под построенным его хранят в <see cref="BuildRecord.NaturalFloor"/>.</summary>
@@ -75,12 +78,13 @@ namespace Orpheus.Core.World
             Properties.Solid | Properties.Passable | Properties.Natural, // Stone (почва, не скала-объект)
             Properties.Solid | Properties.Passable | Properties.Natural, // Sand
             Properties.Solid | Properties.Passable | Properties.Natural, // Snow
-            Properties.Passable | Properties.Natural,             // Water
+            Properties.Natural,                                   // Water: не идут (E1-2); не опора — на ней только настил
             Properties.Natural,                                   // Lava: идут в неё — нет
             Properties.Solid | Properties.Passable | Properties.Built, // WoodFloor
             Properties.Solid | Properties.Passable | Properties.Built, // StoneFloor
             Properties.Solid | Properties.Passable | Properties.Built, // Platform (настил)
             Properties.Solid | Properties.Passable | Properties.Natural, // ForestFloor
+            Properties.Solid | Properties.Passable | Properties.Natural, // DryGrass
         };
 
         /// <summary>Свойства id; неизвестный id (выше <see cref="MaxKnown"/>) — <see cref="Properties.None"/>.</summary>

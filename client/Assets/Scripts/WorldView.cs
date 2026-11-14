@@ -92,9 +92,6 @@ namespace Orpheus.Client
             public Mesh Shadows = null!;
             public MeshRenderer ShadowRenderer = null!;
 
-            /// <summary>Источники света чанка: x, y в узле, z — радиус (E1-8).</summary>
-            public readonly List<Vector3> Lights = new List<Vector3>();
-
             /// <summary>Высота узла, для которой строкам выставлен порядок отрисовки.</summary>
             public float OrderedY = float.NaN;
         }
@@ -134,7 +131,6 @@ namespace Orpheus.Client
             _ground = new GroundMesh(world);
             _groundMaterial = GroundAtlas.Material;
             ObjectAtlas.Ensure();
-            WorldFx.View = this;
         }
 
         /// <summary>Чанков в окне сейчас.</summary>
@@ -190,25 +186,6 @@ namespace Orpheus.Client
         public static bool ObjectShows(ChunkNode node, int lx, int ly, ushort obj) =>
             node.HasFloors && node.Objs[Chunk.IndexOf(lx, ly)] == obj;
 
-        /// <summary>Источники света окна в координатах Unity: xy — место, z — радиус (E1-8).</summary>
-        public void CollectLights(List<Vector4> into)
-        {
-            for (int i = 0; i < _count; i++)
-            {
-                ChunkNode node = _nodes[_current[i]];
-                if (node.Lights.Count == 0)
-                {
-                    continue;
-                }
-
-                Vector3 at = node.Root.transform.position;
-                foreach (Vector3 l in node.Lights)
-                {
-                    into.Add(new Vector4(at.x + l.x, at.y + l.y, l.z, 1f));
-                }
-            }
-        }
-
         /// <summary>
         /// Тайл Tilemap объекта по сырому id ядра; пусто, неизвестное и всё, что рисуется мешем по таблице
         /// <see cref="ObjectTable"/> (деревья, кусты, валуны, руда, пни, костёр, факел — E1-7), — null.
@@ -239,6 +216,10 @@ namespace Orpheus.Client
                 case ObjectId.Carpet: return _meadow;
                 // Дверь (1-012): закрытая — камнем (видная преграда), открытая — светлее (лугом); свои спрайты — 1-024.
                 case ObjectId.Door: return _stone;
+                // Факел и костёр (E1-8: свет источников для тона суток): своего спрайта нет (1-024) — рисуем валуном,
+                // чтобы в кадре было видно, от чего круг света.
+                case ObjectId.Torch: return _rock;
+                case ObjectId.Campfire: return _rock;
                 default: return null;
             }
         }
@@ -483,7 +464,7 @@ namespace Orpheus.Client
                 return;
             }
 
-            int shadows = _objects.BuildShadows(chunk, node.Coord, node.Shadows, node.Lights);
+            int shadows = _objects.BuildShadows(chunk, node.Coord, node.Shadows);
             node.ShadowRenderer.enabled = shadows > 0 && ObjectAtlas.ShadowMaterial != null;
             ApplyRowOrders(node);
         }

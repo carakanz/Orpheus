@@ -16,7 +16,30 @@ namespace Orpheus.WorldGen
             Biome = new byte[n];
             Floor = new byte[n];
             Objects = new ushort[n];
+            Shore = new byte[n];
+            Marks = new byte[n];
+            Relief = ReliefMap.Create(WorldSize, macro.Map.Seed);
         }
+
+        /// <summary>Пометка <see cref="Marks"/>: тайл на тропе (объектов нет, пол — земля; обрыв здесь прерывается).</summary>
+        public const byte MarkTrail = 1;
+
+        /// <summary>Пометка <see cref="Marks"/>: проход в линии обрыва — объектов нет, пол — земля.</summary>
+        public const byte MarkClear = 2;
+
+        /// <summary>Рельеф: высота и уровни 0…3 (E1-2).</summary>
+        public ReliefMap Relief { get; }
+
+        /// <summary>Расстояние до воды по 4 сторонам: 0 — вода, 1…3 — берег, <see cref="WaterStage.ShoreFar"/> — дальше.</summary>
+        public byte[] Shore { get; }
+
+        /// <summary>Пометки генератора на тайл (<see cref="MarkTrail"/>, <see cref="MarkClear"/>); в мир не пишутся.</summary>
+        public byte[] Marks { get; }
+
+        /// <summary>Этап 12: сколько сегментов обрыва убрано и сколько тайлов воды стало бродом.</summary>
+        public int CliffCellsOpened { get; set; }
+
+        public int FordTiles { get; set; }
 
         public MacroWorld Macro { get; }
 
@@ -109,114 +132,29 @@ namespace Orpheus.WorldGen
             return map.Biome[((sy >> MacroMap.CellBits) * map.Size) + (sx >> MacroMap.CellBits)];
         }
 
-        /// <summary>Этап 11 по макрокарте (после этапа 7): биом, пол и объекты тайлов.</summary>
+        /// <summary>
+        /// Этап 11 по макрокарте (после этапа 7): биом тайлов, затем вода и берег (<see cref="WaterStage"/>), тропы
+        /// (<see cref="TrailStage"/>), обрывы (<see cref="CliffStage"/>), пол и объекты (<see cref="FloraStage"/>).
+        /// </summary>
         public static void Run(TileWorld t)
         {
             MacroMap map = t.Macro.Map;
             int w = t.WorldSize;
-            ulong seed = map.Seed;
-            FieldNoise detailX = CreateDetailX(w, seed);
-            FieldNoise detailY = CreateDetailY(w, seed);
-            FieldNoise mass = CreateRockMass(w, seed);
-            var massValue = new ushort[w * w];
-
-            // Проход 1: биом тайла; для биомов со скальной массой — шум массы и гистограмма по биому.
-            var hist = new int[Biome.Count][];
+            FieldNoise detailX = CreateDetailX(w, map.Seed);
+            FieldNoise detailY = CreateDetailY(w, map.Seed);
             for (int y = 0; y < w; y++)
             {
                 int row = y * w;
                 for (int x = 0; x < w; x++)
                 {
-                    byte b = TileBiome(map, detailX, detailY, x, y);
-                    t.Biome[row + x] = b;
-                    if (TileRules.For(b).RockSharePercent > 0 && !TileWorld.InStartZone(w, x, y))
-                    {
-                        int v = mass.Sample(x, y);
-                        massValue[row + x] = (ushort)v;
-                        (hist[b] ??= new int[LatticeNoise.One])[v]++;
-                    }
+                    t.Biome[row + x] = TileBiome(map, detailX, detailY, x, y);
                 }
             }
 
-            // Пороги: масса — значения ≥ rock[b], гранит — ≥ granite[b] (доли считаются от тайлов биома вне стартовой зоны).
-            var rockFrom = new int[Biome.Count];
-            var graniteFrom = new int[Biome.Count];
-            for (int b = 0; b < Biome.Count; b++)
-            {
-                rockFrom[b] = int.MaxValue;
-                graniteFrom[b] = int.MaxValue;
-                if (hist[b] == null)
-                {
-                    continue;
-                }
-
-                BiomeTileRule rule = TileRules.For((byte)b);
-                long total = 0;
-                foreach (int c in hist[b]!)
-                {
-                    total += c;
-                }
-
-                long rockCount = (total * rule.RockSharePercent + 50) / 100;
-                long graniteCount = (rockCount * rule.GraniteOfRockPercent + 50) / 100;
-                rockFrom[b] = Threshold(hist[b]!, rockCount);
-                graniteFrom[b] = Threshold(hist[b]!, graniteCount);
-            }
-
-            // Проход 2: пол и объекты.
-            ulong tileSeed = MacroGenerator.StageSeed(seed, Stage);
-            for (int y = 0; y < w; y++)
-            {
-                int row = y * w;
-                for (int x = 0; x < w; x++)
-                {
-                    int i = row + x;
-                    byte b = t.Biome[i];
-                    BiomeTileRule rule = TileRules.For(b);
-                    t.Floor[i] = rule.Floor;
-                    if (TileWorld.InStartZone(w, x, y))
-                    {
-                        t.Floor[i] = FloorId.Grass;
-                        continue;
-                    }
-
-                    ushort obj = ObjectId.Empty;
-                    bool inMass = false;
-                    if (rule.RockSharePercent > 0 && massValue[i] >= rockFrom[b])
-                    {
-                        inMass = true;
-                        obj = massValue[i] >= graniteFrom[b] ? ObjectId.Granite : ObjectId.Rock;
-                    }
-
-                    int u = Roll(SplitMix64.Hash(x, y, tileSeed));
-                    int acc = 0;
-                    bool placed = false;
-                    for (int k = 0; k < rule.Deposits.Count && !placed; k++)
-                    {
-                        acc += rule.Deposits[k].Per100k;
-                        if (u < acc)
-                        {
-                            obj = rule.Deposits[k].Object;
-                            placed = true;
-                        }
-                    }
-
-                    if (!inMass)
-                    {
-                        for (int k = 0; k < rule.Scatter.Count && !placed; k++)
-                        {
-                            acc += rule.Scatter[k].Per100k;
-                            if (u < acc)
-                            {
-                                obj = rule.Scatter[k].Object;
-                                placed = true;
-                            }
-                        }
-                    }
-
-                    t.Objects[i] = obj;
-                }
-            }
+            WaterStage.Run(t);
+            TrailStage.Run(t);
+            CliffStage.Run(t);
+            FloraStage.Run(t);
         }
 
         /// <summary>Число 0…99 999 из старших 32 бит хэша тайла (равномерно с точностью 2⁻³²).</summary>

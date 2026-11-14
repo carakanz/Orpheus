@@ -12,7 +12,8 @@ namespace Orpheus.Client
     /// номера полов в памяти клиента.
     /// <list type="bullet">
     /// <item>У старта (сцена «озеро»): озеро неправильной формы с песчаным берегом к западу, лужа рядом, пятна голой
-    /// земли, сухой травы, лесной подстилки и каменистой земли, тропинка в один тайл, две площадки построенного пола.</item>
+    /// земли, сухой травы, лесной подстилки и каменистой земли, тропинка в один тайл, две площадки построенного пола,
+    /// факелы вдоль тропинки и костёр на берегу (E1-8: источники света для тона суток).</item>
     /// <item>В <see cref="JunctionDx"/> тайлах к востоку (сцена «стык»): шесть видов земли клиньями вокруг пруда.</item>
     /// </list>
     /// </summary>
@@ -51,6 +52,16 @@ namespace Orpheus.Client
             // Построенные полы (плиткой поверх земли).
             painted += Rect(world, map, cx + 11, cy + 13, 4, 3, FloorId.StoneFloor);
             painted += Rect(world, map, cx - 8, cy + 10, 3, 2, FloorId.WoodFloor);
+
+            // Источники света (E1-8, тон суток): факелы вдоль тропинки, костёр на восточном берегу озера
+            // (песок между водой и сушей). Пол сохраняется, объект — как содержимое генерации (ревизия 0).
+            for (int x = cx + 3; x <= cx + 27; x += 8)
+            {
+                int y = cy + 3 + Mathf.RoundToInt(1.6f * Mathf.Sin(x * 0.45f));
+                painted += Light(world, map, x, y, ObjectId.Torch);
+            }
+
+            painted += Light(world, map, cx + LakeDx + 10, cy + LakeDy, ObjectId.Campfire);
 
             // Стык: клинья шести видов земли и пруд в середине.
             byte[] kinds = { FloorId.Grass, GroundTable.DryGrassFloor, FloorId.Dirt, FloorId.ForestFloor, FloorId.Sand, FloorId.Stone };
@@ -209,9 +220,9 @@ namespace Orpheus.Client
                 }
             }
 
-            n += Set(world, map, x0, y0, FloorId.Dirt, ObjectId.Campfire);
-            n += Set(world, map, x0 + 3, y0 - 2, FloorId.Grass, ObjectId.Torch);
-            n += Set(world, map, x0 - 9, y0 - 22, FloorId.Grass, ObjectId.Torch); // у опушки
+            n += Light(world, map, x0, y0, ObjectId.Campfire);
+            n += Light(world, map, x0 + 3, y0 - 2, ObjectId.Torch);
+            n += Light(world, map, x0 - 9, y0 - 22, ObjectId.Torch); // у опушки
             Debug.Log($"[paint-demo] лес у {x0},{y0}: костёр на поляне, факелы у {x0 + 3},{y0 - 2} и {x0 - 9},{y0 - 22}");
             return n;
         }
@@ -242,6 +253,16 @@ namespace Orpheus.Client
             }
 
             Debug.Log($"[paint-forest] лес для замера: тайлов {n}, деревьев {trees} ({100f * trees / Mathf.Max(n, 1):0} %)");
+        }
+
+        /// <summary>Поставить источник света (факел/костёр) на существующий пол (E1-8).</summary>
+        static int Light(WorldModel world, MapShape map, int x, int y, ushort obj)
+        {
+            TileCoord t = Torus.Wrap(map, new TileCoord(x, y));
+            Chunk chunk = world.GetOrCreateChunk(Torus.ChunkOf(map, t));
+            ushort index = (ushort)Chunk.IndexOf(t.X, t.Y);
+            chunk.SetBaseTile(index, chunk.GetFloor(index), obj);
+            return 1;
         }
     }
 }

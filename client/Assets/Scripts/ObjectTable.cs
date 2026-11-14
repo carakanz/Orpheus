@@ -18,7 +18,7 @@ namespace Orpheus.Client
         }
     }
 
-    /// <summary>Строка таблицы «объект ядра → вид» (E1-7): какие картинки, как разбросать, тень, свет.</summary>
+    /// <summary>Строка таблицы «объект ядра → вид» (E1-7): какие картинки, как разбросать, тень.</summary>
     public sealed class ObjectLook
     {
         /// <summary>Номер объекта ядра (<see cref="ObjectId"/>).</summary>
@@ -49,9 +49,6 @@ namespace Orpheus.Client
 
         /// <summary>Высокий объект: его верх над своим персонажем становится полупрозрачным.</summary>
         public bool Tall;
-
-        /// <summary>Радиус круга света ночью, тайлов; 0 — не светит.</summary>
-        public float Light;
 
         // Заполняет ObjectTable при сборке: номера картинок листа и суммарный вес.
         internal int[] Sprites = new int[0];
@@ -113,16 +110,16 @@ namespace Orpheus.Client
                 Id = ObjectId.Stump, Variants = new[] { V("stump") },
                 ScaleMin = 0.9f, ScaleMax = 1.1f, Jitter = 0.15f, Flip = true, Shadow = 0.8f,
             },
-            // Костёр и факел: своих картинок в наборе нет (заказать на Мак) — пень, окрашенный огнём; главное — круг света.
+            // Костёр и факел: своих картинок в наборе нет (заказать на Мак) — пень, окрашенный огнём; круг света — DayTintView (E1-8).
             new ObjectLook
             {
                 Id = ObjectId.Campfire, Variants = new[] { V("stump") },
-                Tint = new Color32(255, 150, 60, 255), Size = 0.9f, Shadow = 0f, Light = 7f,
+                Tint = new Color32(255, 150, 60, 255), Size = 0.9f, Shadow = 0f,
             },
             new ObjectLook
             {
                 Id = ObjectId.Torch, Variants = new[] { V("stump") },
-                Tint = new Color32(255, 214, 110, 255), Size = 0.5f, Shadow = 0f, Light = 5.5f,
+                Tint = new Color32(255, 214, 110, 255), Size = 0.5f, Shadow = 0f,
             },
         };
 
