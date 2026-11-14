@@ -23,7 +23,7 @@ namespace Orpheus.Client
         static readonly Color Ok = new Color(0.35f, 1f, 0.45f, 0.62f);
         static readonly Color Bad = new Color(1f, 0.28f, 0.22f, 0.62f);
         static readonly Color Fix = new Color(1f, 0.85f, 0.25f, 0.9f);
-        static readonly Color GridColor = new Color(1f, 1f, 1f, 0.16f);
+        static readonly Color GridColor = new Color(1f, 1f, 1f, 0.13f);
 
         readonly GameObject _root;
         readonly SpriteRenderer[] _ghost = new SpriteRenderer[Slots];
@@ -120,8 +120,8 @@ namespace Orpheus.Client
             for (int i = 0; i < n; i++)
             {
                 float o = -half + i;
-                Edge(_grid[i], c + new Vector3(o, 0f, 0f), 0.03f, len, GridColor);
-                Edge(_grid[n + i], c + new Vector3(0f, o, 0f), len, 0.03f, GridColor);
+                Edge(_grid[i], c + new Vector3(o, 0f, 0f), 0.06f, len, GridColor); // 0,06 тайла: на 720p (32 px на тайл) — 2 px, не пропадает
+                Edge(_grid[n + i], c + new Vector3(0f, o, 0f), len, 0.06f, GridColor);
             }
         }
 

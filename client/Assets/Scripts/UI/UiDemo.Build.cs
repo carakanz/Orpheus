@@ -112,6 +112,7 @@ namespace Orpheus.Client.UI
             }
 
             build.Chest = _chest;
+            build.Use = _chestOpen ? UseKind.None : ObjectUse.Find(_world, position, null, out _, out UseKind use) ? use : UseKind.None;
             _ui.Frame(input, _bag, selected: _mode == "build" ? 2 : 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100,
                 new UiCraftState { Queue = _queue, World = _world, Position = position }, build);
         }

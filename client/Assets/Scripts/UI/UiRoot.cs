@@ -97,8 +97,10 @@ namespace Orpheus.Client.UI
         /// <summary>Точка мира Unity → координаты холста (через видовую область камеры; стенд снимков, E2-5).</summary>
         public Vector2 FromWorld(Vector3 world)
         {
-            Vector3 v = _camera.WorldToViewportPoint(world);
-            return new Vector2(v.x * Size.x, v.y * Size.y);
+            // Не через видовую область камеры: в снимке кадр — текстура своего размера, а камера знает соотношение окна.
+            Vector3 d = world - _camera.transform.position;
+            float k = RefHeight / (2f * _camera.orthographicSize);
+            return Size / 2f + new Vector2(d.x * k, d.y * k);
         }
 
         /// <summary>Точка окна (пиксели, начало слева внизу) → координаты холста.</summary>
