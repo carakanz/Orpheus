@@ -61,9 +61,18 @@ namespace Orpheus.Core.Sim
                         // Обломки кончились: тайл остаётся как есть (пол природный), запись снимается правкой без записи.
                         applied = RequestEdit(tile, _world.GetFloor(tile), ObjectId.Empty);
                     }
-                    else if (!e.Debris && (rec.Flags & (byte)e.Clear) != 0 && !(e.Clear == BuildFlags.RepairBlocked && LaterRepairBlock(i, tick)))
+                    else if (!e.Debris)
                     {
-                        applied = RequestEdit(tile, _world.GetFloor(tile), _world.GetObject(tile), rec.WithoutFlags(e.Clear));
+                        // C-005: два флага урона (10 с и 3 с) — одна правка на тайл в такт: снимаем всё, что истекло у тайла,
+                        // одной записью, а другие истёкшие записи тайла убираем — иначе две правки из одной старой записи
+                        // вернули бы друг другу снятый флаг.
+                        BuildFlags clear = ExpiredFlags(i, tick) & (BuildFlags)rec.Flags;
+                        applied = clear == BuildFlags.None
+                            || RequestEdit(tile, _world.GetFloor(tile), _world.GetObject(tile), rec.WithoutFlags(clear));
+                        if (applied)
+                        {
+                            DropExpiredFlagsAfter(i, tick);
+                        }
                     }
                 }
 
@@ -75,21 +84,41 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// У тайла записи истечения № <paramref name="i"/> есть ещё не наступившее истечение «чинить нельзя» — урон был позже
+        /// Флаги урона тайла записи истечения № <paramref name="i"/>, которые пора снять: «урон последние 10 с» — если у тайла
+        /// есть наступившее истечение этого флага (как до C-005); «чинить нельзя» — если есть наступившее и нет ненаступившего
         /// (C-005: 3 с отсчитываются от последнего урона, а не от первого).
         /// </summary>
-        private bool LaterRepairBlock(int i, long tick)
+        private BuildFlags ExpiredFlags(int i, long tick)
         {
+            bool damage = false, repairDue = false, repairLater = false;
             for (int j = 0; j < _expireCount; j++)
             {
                 ExpireEntry o = _expire[j];
-                if (j != i && o.EndTick > tick && !o.Debris && o.Clear == BuildFlags.RepairBlocked && o.Index == _expire[i].Index && o.Chunk == _expire[i].Chunk)
+                if (o.Debris || o.Index != _expire[i].Index || o.Chunk != _expire[i].Chunk)
                 {
-                    return true;
+                    continue;
                 }
+
+                bool due = o.EndTick <= tick;
+                damage |= due && o.Clear == BuildFlags.DamagedRecent;
+                repairDue |= due && o.Clear == BuildFlags.RepairBlocked;
+                repairLater |= !due && o.Clear == BuildFlags.RepairBlocked;
             }
 
-            return false;
+            return (damage ? BuildFlags.DamagedRecent : BuildFlags.None) | (repairDue && !repairLater ? BuildFlags.RepairBlocked : BuildFlags.None);
+        }
+
+        /// <summary>Убрать наступившие истечения флагов урона того же тайла после № <paramref name="i"/> — их сняла правка № i.</summary>
+        private void DropExpiredFlagsAfter(int i, long tick)
+        {
+            for (int j = _expireCount - 1; j > i; j--)
+            {
+                ExpireEntry o = _expire[j];
+                if (!o.Debris && o.EndTick <= tick && o.Index == _expire[i].Index && o.Chunk == _expire[i].Chunk)
+                {
+                    _expire[j] = _expire[--_expireCount];
+                }
+            }
         }
 
         /// <summary>

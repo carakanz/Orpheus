@@ -360,6 +360,36 @@ namespace Orpheus.Tests
             Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
         }
 
+        /// <summary>
+        /// C-005: истечения обоих флагов урона в один такт (удар, через 7 с второй удар: 10 с первого и 3 с второго кончаются
+        /// вместе) — одна правка на тайл, оба флага сняты; ни один не «застревает» навсегда. Ядро без сети.
+        /// </summary>
+        [Fact]
+        public void C005_Repair_DamageFlags_ExpireSameTick_BothCleared()
+        {
+            var sim = new Simulation(World(), maxEntities: 4);
+            var t = new TileCoord(310, 210);
+            Assert.True(sim.RequestEdit(t, FloorId.Grass, ObjectId.StoneWall, new BuildRecord(1, 300, 0, FloorId.Grass, 0)));
+            sim.Step();
+            Assert.True(sim.DamageBuilding(t, 10));
+            for (int i = 0; i < BuildDefs.DamageFlagTicks - BuildDefs.RepairBlockTicks; i++)
+            {
+                sim.Step();
+            }
+
+            Assert.True(sim.DamageBuilding(t, 10));
+            for (int i = 0; i < BuildDefs.RepairBlockTicks + 3; i++)
+            {
+                sim.Step();
+                Assert.True(sim.World.TryGetBuild(t, out BuildRecord r));
+                Assert.True(r.IsRepairBlocked == r.IsDamagedRecent, $"такт {sim.Tick}: флаги {r.Flags}"); // уходят вместе
+            }
+
+            Assert.True(sim.World.TryGetBuild(t, out BuildRecord rec));
+            Assert.Equal(280, rec.Integrity);
+            Assert.Equal(0, rec.Flags);
+        }
+
         // ---------- Сундук ----------
 
         private static BagHand Hand(NetClient c)
