@@ -17,6 +17,7 @@ namespace Orpheus.Net.Protocol
     /// «Заявка изготовления» (E2-3, тип 30, канал 2; docs/06 3.5 «рецепт R × n»): операция, рецепт или номер позиции
     /// очереди, количество. Поля: тип 1 + операция 1 + аргумент 1 + количество u16. Станок в заявке не едет — сервер
     /// сам ищет его рядом с персонажем. Ответ — тип 31; очередь — тип 32; сумка — тип 26.
+    /// У отмены в поле количества едет рецепт позиции — сверка против сдвига очереди.
     /// </summary>
     public struct CraftRequestMessage
     {
@@ -27,7 +28,8 @@ namespace Orpheus.Net.Protocol
         /// <summary>Номер рецепта (<see cref="CraftOp.Make"/>) или позиции очереди (<see cref="CraftOp.Cancel"/>).</summary>
         public byte Arg;
 
-        /// <summary>Сколько раз изготовить (у отмены — 0).</summary>
+        /// <summary>Сколько раз изготовить; у отмены — рецепт, который клиент видел в этой позиции (сверка на сервере:
+        /// очередь могла сдвинуться, пока заявка шла; не совпал — отказ «нет позиции»).</summary>
         public ushort Count;
 
         public int Write(Span<byte> dest)
@@ -45,7 +47,8 @@ namespace Orpheus.Net.Protocol
             var r = Codec.Begin(src, MessageType.CraftRequest);
             var m = new CraftRequestMessage { Op = (CraftOp)r.ReadByte(), Arg = r.ReadByte(), Count = r.ReadUInt16() };
             r.ExpectEnd();
-            if (m.Op < CraftOp.Make || m.Op > CraftOp.Cancel || (m.Op == CraftOp.Cancel && m.Arg >= CraftQueue.MaxEntries))
+            if (m.Op < CraftOp.Make || m.Op > CraftOp.Cancel
+                || (m.Op == CraftOp.Cancel && (m.Arg >= CraftQueue.MaxEntries || !RecipeTable.Exists(m.Count))))
             {
                 throw new ProtocolException($"Заявка изготовления: операция {(byte)m.Op}, аргумент {m.Arg}.");
             }
@@ -58,7 +61,8 @@ namespace Orpheus.Net.Protocol
 
     /// <summary>
     /// «Ответ на заявку изготовления» (E2-3, тип 31, канал 2): принято или причина отказа. Поля: тип 1 + операция 1 +
-    /// аргумент 1 + ответ 1. На каждую заявку — ровно один ответ, по порядку заявок.
+    /// аргумент 1 + ответ 1. На каждую заявку — ровно один ответ: отказ — сразу, итог заявки, взятой в очередь такта
+    /// («принято» или причина), — после такта; ответы идут в порядке решения.
     /// </summary>
     public struct CraftReplyMessage
     {

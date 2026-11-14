@@ -108,12 +108,27 @@ namespace Orpheus.Net.Session
         /// <summary>Заявка серверу: отменить позицию очереди изготовления (ингредиенты вернутся в сумку).</summary>
         public bool RequestCraftCancel(int index)
         {
-            if (State != NetClientState.InGame || (uint)index >= CraftQueue.MaxEntries)
+            // В заявке едет рецепт, который клиент видит в позиции: сдвинулась очередь на сервере — отказ, а не отмена соседней.
+            if (State != NetClientState.InGame || (uint)index >= (uint)Craft.Count)
             {
                 return false;
             }
 
-            return SendCraftRequest(CraftOp.Cancel, (byte)index, 0);
+            return SendCraftRequest(CraftOp.Cancel, (byte)index, Craft.RecipeAt(index));
+        }
+
+        /// <summary>
+        /// То же с явным рецептом позиции — тем, который видел заявитель (окно могло не успеть получить новую очередь):
+        /// на сервере в позиции уже другой рецепт — ответ «нет позиции», соседняя позиция не отменяется.
+        /// </summary>
+        public bool RequestCraftCancel(int index, int recipe)
+        {
+            if (State != NetClientState.InGame || (uint)index >= CraftQueue.MaxEntries || !RecipeTable.Exists(recipe))
+            {
+                return false;
+            }
+
+            return SendCraftRequest(CraftOp.Cancel, (byte)index, (ushort)recipe);
         }
 
         private bool SendCraftRequest(CraftOp op, byte arg, ushort count)

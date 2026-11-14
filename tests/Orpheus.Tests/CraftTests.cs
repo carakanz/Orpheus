@@ -8,6 +8,7 @@ using Orpheus.Core.World;
 using Orpheus.Net;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
+using Orpheus.Net.Transport;
 using Orpheus.Save;
 using Xunit;
 
@@ -758,9 +759,16 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
             buf[1] = 3;
             Assert.Throws<ProtocolException>(() => CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
-            n = new CraftRequestMessage { Op = CraftOp.Cancel, Arg = 4 }.Write(buf);
-            Assert.Equal("1E-02-04-00-00", BitConverter.ToString(buf, 0, n));
+            n = new CraftRequestMessage { Op = CraftOp.Cancel, Arg = 4, Count = RecipeTable.CopperIngot }.Write(buf);
+            Assert.Equal("1E-02-04-09-00", BitConverter.ToString(buf, 0, n)); // отмена: позиция 4, в ней клиент видит рецепт 9
+            CraftRequestMessage cancel = CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
+            Assert.Equal((CraftOp.Cancel, 4, (int)RecipeTable.CopperIngot), (cancel.Op, (int)cancel.Arg, (int)cancel.Count));
             buf[2] = 5; // позиции 5 в очереди нет
+            Assert.Throws<ProtocolException>(() => CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
+            buf[2] = 4;
+            buf[3] = 0; // отмена без рецепта позиции
+            Assert.Throws<ProtocolException>(() => CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
+            buf[3] = 99; // нет такого рецепта
             Assert.Throws<ProtocolException>(() => CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
             Assert.Throws<ProtocolException>(() => CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n - 1)));
 
@@ -931,6 +939,345 @@ namespace Orpheus.Tests
             Assert.Equal(CraftReply.Dead, Assert.Single(replies).Reply);
             Assert.Equal(81, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Fiber));
             Assert.Equal(0, c.BadMessages);
+        }
+
+        // ---------- Доработка по проверке (П) ----------
+
+        private static readonly byte[] Kinds = { Items.Wood, Items.Stone, Items.Fiber, Items.Resin, Items.CopperOre, Items.CopperIngot, Items.Rope };
+
+        private static int[] Totals(Simulation sim, in Inventory bag)
+        {
+            var t = new int[Kinds.Length];
+            for (int k = 0; k < Kinds.Length; k++)
+            {
+                t[k] = bag.Count(Kinds[k]) + OnGround(sim, Kinds[k]);
+            }
+
+            return t;
+        }
+
+        /// <summary>
+        /// Отмена рецептов с двумя и тремя ингредиентами возвращает <b>каждый</b>: медная кирка (слитки + древесина),
+        /// медный лук (древесина + слитки + верёвка); то же при смерти (кучей) и при уходе из мира (в сумку).
+        /// </summary>
+        [Fact]
+        public void E23_Cancel_Death_Leave_MultiIngredient_ReturnEveryIngredient()
+        {
+            (byte, int)[] start = { (Items.CopperIngot, 30), (Items.Wood, 40), (Items.Rope, 9) };
+
+            // Отмена: кирка × 2 (16 слитков, 6 древесины) и лук × 2 (20 древесины, 8 слитков, 6 верёвок).
+            Simulation sim = Sim(out int id, null, start);
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperPickaxe, 2));
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperBow, 2));
+            Run(sim, 3);
+            Inventory bag = sim.GetEntity(id).Inv;
+            Assert.Equal((6, 14, 3), (bag.Count(Items.CopperIngot), bag.Count(Items.Wood), bag.Count(Items.Rope)));
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraftCancel(id, 1, RecipeTable.CopperBow));
+            Run(sim, 1);
+            bag = sim.GetEntity(id).Inv;
+            Assert.Equal((14, 34, 9), (bag.Count(Items.CopperIngot), bag.Count(Items.Wood), bag.Count(Items.Rope)));
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraftCancel(id, 0, RecipeTable.CopperPickaxe));
+            Run(sim, 1);
+            bag = sim.GetEntity(id).Inv;
+            Assert.Equal((30, 40, 9), (bag.Count(Items.CopperIngot), bag.Count(Items.Wood), bag.Count(Items.Rope)));
+            Assert.Equal(0, bag.Count(Items.CopperPickaxe) + bag.Count(Items.CopperBow));
+            Assert.Equal(0, sim.Piles.Length);
+
+            // Смерть: все три ингредиента лука и оба — кирки лежат кучами; кучи не исчезают.
+            sim = Sim(out id, null, start);
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperPickaxe, 1));
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperBow, 1));
+            Run(sim, 2);
+            Assert.True(sim.ApplyStrike(id, 0, 500) > 0);
+            Run(sim, 1);
+            bag = sim.GetEntity(id).Inv;
+            Assert.Equal((12, 13, 3), (OnGround(sim, Items.CopperIngot), OnGround(sim, Items.Wood), OnGround(sim, Items.Rope)));
+            Assert.Equal((18, 27, 6), (bag.Count(Items.CopperIngot), bag.Count(Items.Wood), bag.Count(Items.Rope)));
+            foreach (GroundPile p in sim.Piles)
+            {
+                Assert.Equal(Simulation.PileNeverExpires, p.ExpireTick);
+            }
+
+            // Уход из мира: всё в сумке.
+            sim = Sim(out id, null, start);
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperBow, 2));
+            Run(sim, 5);
+            sim.RefundCraftQueue(id);
+            bag = sim.GetEntity(id).Inv;
+            Assert.Equal((30, 40, 9), (bag.Count(Items.CopperIngot), bag.Count(Items.Wood), bag.Count(Items.Rope)));
+        }
+
+        /// <summary>
+        /// Отмена сверяет рецепт позиции: заявка «отменить позицию 0 (слиток)», пришедшая после того, как слиток доделался и
+        /// очередь сдвинулась, не отменяет соседнюю позицию — отказ «нет позиции» (событие), очередь цела.
+        /// </summary>
+        [Fact]
+        public void E23_Cancel_Race_QueueShifted_NeighbourNotCancelled()
+        {
+            Simulation sim = Sim(out int id, null, (Items.CopperOre, 2), (Items.Wood, 16));
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperIngot, 1));
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.WoodenSword, 2));
+            Run(sim, T - 1);
+            Assert.Equal(2, sim.GetEntity(id).Craft.Count);
+
+            // Заявка отмены взята (позиция 0 — слиток), но раньше неё в том же такте… нет: заявки идут до изготовления.
+            // Гонка — между заявкой и тактом: слиток доделывается тактом T, заявка с «позиция 0 = слиток» приходит после.
+            Run(sim, 1);
+            Assert.Equal(1, sim.GetEntity(id).Inv.Count(Items.CopperIngot));
+            Assert.Equal(RecipeTable.WoodenSword, sim.GetEntity(id).Craft.RecipeAt(0));
+            Assert.Equal(CraftReply.NoEntry, sim.RequestCraftCancel(id, 0, RecipeTable.CopperIngot)); // проверка сразу
+            Run(sim, 1);
+            Assert.Equal(2, sim.GetEntity(id).Craft.LeftAt(0));
+            Assert.Equal(0, sim.GetEntity(id).Inv.Count(Items.Wood));
+
+            // То же внутри такта: две заявки отмены позиции 0 с рецептом «меч» в один такт — первая отменяет мечи, вторая
+            // видит в позиции 0 уже пусто → отказ событием; с рецептом соседа после сдвига — тоже отказ.
+            Simulation two = Sim(out int id2, null, (Items.CopperOre, 4), (Items.Wood, 8));
+            Assert.Equal(CraftReply.Accepted, two.RequestCraft(id2, RecipeTable.CopperIngot, 2));
+            Assert.Equal(CraftReply.Accepted, two.RequestCraft(id2, RecipeTable.WoodenSword, 1));
+            Run(two, 2);
+            Assert.Equal(CraftReply.Accepted, two.RequestCraftCancel(id2, 0, RecipeTable.CopperIngot));
+            Assert.Equal(CraftReply.Accepted, two.RequestCraftCancel(id2, 0, RecipeTable.CopperIngot)); // дубль: к такту позиция 0 — уже меч
+            Run(two, 1);
+            SimEntity e = two.GetEntity(id2);
+            Assert.Equal(1, e.Craft.Count);
+            Assert.Equal(RecipeTable.WoodenSword, e.Craft.RecipeAt(0)); // сосед не отменён
+            Assert.Equal(4, e.Inv.Count(Items.CopperOre));
+            Assert.Equal(0, e.Inv.Count(Items.Wood));
+            SimEvent[] events = two.Events.ToArray();
+            SimEvent ok = Assert.Single(events, ev => ev.Kind == SimEventKind.CraftCancelled);
+            Assert.Equal((id2, 0, (int)RecipeTable.CopperIngot), (ok.Requester, ok.Victim, ok.Tag));
+            SimEvent refused = Assert.Single(events, ev => ev.Kind == SimEventKind.CraftRefused);
+            Assert.Equal((id2, 0, (int)CraftReply.NoEntry, (int)BagOp.CraftCancel), (refused.Requester, refused.Victim, refused.Tag, refused.Damage));
+        }
+
+        /// <summary>Расстояние до станка считается по тору: верстак по ту сторону шва мира в 2 тайлах — рядом, в 4 — далеко.</summary>
+        [Fact]
+        public void E23_Station_AcrossWorldSeam()
+        {
+            foreach ((int bx, int by, CraftReply want) in new[]
+                     {
+                         (1022, 200, CraftReply.Accepted), (1021, 200, CraftReply.Accepted), (1020, 200, CraftReply.StationFar),
+                         (1017, 200, CraftReply.StationFar), (1012, 200, CraftReply.NoStation),
+                     })
+            {
+                WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+                Assert.True(world.Shape.Wraps);
+                world.SetBaseTile(new TileCoord(bx, by), FloorId.Grass, ObjectId.Workbench);
+                var sim = new Simulation(world, maxEntities: 4);
+                int id = sim.AddEntity(Center(0, 200)); // тайл x = 0: верстак — за швом, на x = 1020…1022
+                var bag = new Inventory();
+                bag.Add(Items.Wood, 8);
+                sim.SetInventory(id, bag);
+                Assert.Equal(want, sim.RequestCraft(id, RecipeTable.WoodenSword, 1));
+                Assert.Equal(want, CraftRules.StationCheck(world, Center(0, 200), CraftStation.Workbench));
+                Run(sim, T);
+                Assert.Equal(want == CraftReply.Accepted ? 1 : 0, sim.GetEntity(id).Inv.Count(Items.WoodenSword));
+            }
+
+            // И по вертикали: персонаж на строке 1023, костёр на строке 1.
+            WorldModel w2 = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            w2.SetBaseTile(new TileCoord(500, 1), FloorId.Grass, ObjectId.Campfire);
+            Assert.Equal(CraftReply.Accepted, CraftRules.StationCheck(w2, Center(500, 1023), CraftStation.Campfire));
+            Assert.Equal(CraftReply.StationFar, CraftRules.StationCheck(w2, Center(500, 1021), CraftStation.Campfire));
+        }
+
+        /// <summary>
+        /// Блокирующее проверки (П): очередь → сохранение → загрузка так, как её делает сервер (`RestoreInto` +
+        /// `CharacterRoster.Restore`: персонаж, бывший в мире, после перезапуска вне мира) → по каждому виду сумма та же:
+        /// ингредиенты очереди вернулись в сумку записи; не влезшее — кучей у позиции персонажа, куча не исчезает.
+        /// </summary>
+        [Fact]
+        public void E23_Save_Load_ServerRestart_QueueFolded_NothingLost()
+        {
+            foreach (bool fullBag in new[] { false, true })
+            {
+                SaveFixtures.LiveWorld live = SaveFixtures.Create(256, 23, bots: 0);
+                Simulation sim = live.Sim;
+                int id = sim.AddEntity(Orpheus.Server.ServerRun.SpawnPoint(sim.Shape, 0));
+                var bag = new Inventory();
+                bag.Add(Items.CopperIngot, 20);
+                bag.Add(Items.Wood, 30);
+                bag.Add(Items.Rope, 6);
+                bag.Add(Items.Fiber, 12);
+                sim.SetInventory(id, bag);
+                int[] before = Totals(sim, sim.GetEntity(id).Inv);
+
+                // Состояние «три позиции в очереди, игрок отошёл от верстака»: лук × 2 (20 древесины, 8 слитков, 6 верёвок),
+                // кирка × 1 (8 слитков, 3 древесины), верёвка × 2 (6 волокна); ингредиенты из сумки сняты.
+                var q = new CraftQueue();
+                Assert.Equal(2, q.Push(RecipeTable.CopperBow, 2));
+                Assert.Equal(1, q.Push(RecipeTable.CopperPickaxe, 1));
+                Assert.Equal(2, q.Push(RecipeTable.Rope, 2));
+                q.Progress = 7;
+                Inventory inv = bag;
+                Assert.True(inv.Remove(Items.Wood, 23) && inv.Remove(Items.CopperIngot, 16) && inv.Remove(Items.Rope, 6) && inv.Remove(Items.Fiber, 6));
+                if (fullBag)
+                {
+                    for (int cell = 0; cell < Inventory.Cells; cell++)
+                    {
+                        if (inv.ItemAt(cell) == Items.None)
+                        {
+                            inv.SetCell(cell, Items.Meat, 99); // свободных ячеек нет — возврат не влезет целиком
+                        }
+                    }
+                }
+
+                sim.SetInventory(id, inv);
+                SimEntity e = sim.GetEntity(id);
+                var chars = new[] { new CharacterRecord { IsHost = true, Name = "Орфей", EntityId = id, Inv = inv } };
+                WorldSaveData data = WorldSave.Capture(sim, live.BaseSha, "перезапуск", chars);
+                Assert.Equal(id, data.Entities[0].Id);
+                data.Entities[0].Craft = q;
+                byte[] save = WorldSave.Build(data, 1, 0);
+
+                // Сервер после падения: загрузка файла → персонажи мира.
+                WorldModel world3 = WorldSnapshot.LoadBase(live.BaseBytes);
+                LoadedWorldState st = WorldSave.Load(SaveContainer.Read(save), world3, live.BaseSha);
+                Assert.Equal(q, st.Entities[0].Craft); // в файле очередь есть
+                var loaded = new Simulation(world3, maxEntities: 8);
+                st.RestoreInto(loaded);
+                CharacterRoster roster = CharacterRoster.Restore(st.Characters, loaded);
+                Assert.Equal(0, loaded.EntityCount); // игрок вне мира
+                Assert.Equal(0, roster[0].EntityId);
+
+                int[] after = Totals(loaded, roster[0].Inv);
+                // До постановки очереди было: слитки 20, древесина 30, верёвка 6, волокно 12 — столько же должно быть и после.
+                int[] want = before;
+                for (int k = 0; k < Kinds.Length; k++)
+                {
+                    Assert.True(want[k] == after[k], $"{(fullBag ? "полная сумка" : "обычная")}, {ItemTable.Get(Kinds[k]).Key}: было {want[k]}, после загрузки {after[k]}");
+                }
+
+                if (fullBag)
+                {
+                    Assert.True(loaded.Piles.Length > 0);
+                    foreach (GroundPile p in loaded.Piles)
+                    {
+                        Assert.Equal(Simulation.PileNeverExpires, p.ExpireTick);
+                        Assert.True(Torus.Dist2(loaded.Shape, p.Position, e.Mover.Position) <= 4L * U * U);
+                    }
+                }
+                else
+                {
+                    Assert.Equal(0, loaded.Piles.Length);
+                    Assert.Equal(20, roster[0].Inv.Count(Items.CopperIngot));
+                    Assert.Equal(30, roster[0].Inv.Count(Items.Wood));
+                }
+            }
+        }
+
+        /// <summary>
+        /// По сети: очередь → игрок уходит из мира (отключился сам) → ингредиенты в сумке персонажа за ключом; обрыв связи
+        /// по таймауту — то же; вернувшийся входит с полной сумкой и пустой очередью.
+        /// </summary>
+        [Fact]
+        public void E23_Net_LeaveWorld_And_Timeout_ReturnQueueToBag()
+        {
+            foreach (bool timeout in new[] { false, true })
+            {
+                using var rig = new EditTests.EditRig(World(), _ => Center(300, 200));
+                NetClient c = rig.Join();
+                rig.Run(10);
+                Give(rig, c, (Items.CopperIngot, 20), (Items.Wood, 30), (Items.Rope, 6));
+                rig.Run(3);
+                Assert.True(c.RequestCraft(RecipeTable.CopperPickaxe, 1));
+                Assert.True(c.RequestCraft(RecipeTable.CopperBow, 2));
+                rig.Run(4);
+                SimEntity e = rig.Sim.GetEntity(c.EntityId);
+                Assert.Equal(2, e.Craft.Count);
+                Assert.Equal((4, 7, 0), (e.Inv.Count(Items.CopperIngot), e.Inv.Count(Items.Wood), e.Inv.Count(Items.Rope)));
+                int character = rig.Server.Characters.FindEntity(c.EntityId);
+                Assert.True(character >= 0);
+
+                if (timeout)
+                {
+                    // Обрыв связи: транспорт сообщает серверу «таймаут» (клиент ничего не слал).
+                    for (int peer = 0; peer < 64; peer++)
+                    {
+                        ((ITransportHandler)rig.Server).OnDisconnected(peer, NetDisconnectReason.Timeout, ReadOnlySpan<byte>.Empty);
+                    }
+                }
+                else
+                {
+                    c.Disconnect();
+                    rig.Clients.Remove(c);
+                    rig.Run(5);
+                    c.Transport.Dispose();
+                }
+
+                Assert.Equal(0, rig.Sim.EntityCount);
+                CharacterRecord rec = rig.Server.Characters[character];
+                Assert.Equal(0, rec.EntityId);
+                Assert.Equal((20, 30, 6), (rec.Inv.Count(Items.CopperIngot), rec.Inv.Count(Items.Wood), rec.Inv.Count(Items.Rope)));
+                Assert.Equal(0, rec.Inv.Count(Items.CopperPickaxe) + rec.Inv.Count(Items.CopperBow));
+                Assert.Equal(0, rig.Sim.Piles.Length);
+            }
+        }
+
+        /// <summary>
+        /// На каждую заявку — ровно один ответ: отказ сразу; заявка, взятая в такт, получает «принято» или причину после
+        /// такта (вторая из двух одинаковых — «не хватает», а не «принято» и потом отказ); отмена исчезнувшей позиции —
+        /// «нет позиции». Отмена по сети несёт рецепт позиции.
+        /// </summary>
+        [Fact]
+        public void E23_Net_ExactlyOneReplyPerRequest_CancelCarriesRecipe()
+        {
+            using var rig = new EditTests.EditRig(World(), _ => Center(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<CraftReplyMessage>();
+            c.CraftReplied = replies.Add;
+            rig.Run(10);
+            Give(rig, c, (Items.Fiber, 3), (Items.CopperOre, 4), (Items.Wood, 8));
+            rig.Run(3);
+
+            // Две заявки «верёвка × 1» при трёх волокнах в одном кадре: обе проходят проверку «сразу», вторую отклоняет такт.
+            Assert.True(c.RequestCraft(RecipeTable.Rope, 1));
+            Assert.True(c.RequestCraft(RecipeTable.Rope, 1));
+            Assert.True(c.RequestCraft(RecipeTable.CopperPickaxe, 1)); // отказ сразу
+            rig.Run(4);
+            Assert.Equal(3, replies.Count);
+            Assert.Single(replies.FindAll(r => r.Reply == CraftReply.Accepted && r.Arg == RecipeTable.Rope));
+            Assert.Single(replies.FindAll(r => r.Reply == CraftReply.NoIngredients && r.Arg == RecipeTable.Rope));
+            Assert.Single(replies.FindAll(r => r.Reply == CraftReply.NoIngredients && r.Arg == RecipeTable.CopperPickaxe));
+            rig.Run(T);
+            Assert.Equal(3, replies.Count); // готовность — не ответ на заявку
+
+            // Очередь: 2 слитка, меч. Клиент видит позицию 0 = слиток; пока заявка отмены «в пути», слитки доделываются.
+            replies.Clear();
+            Assert.True(c.RequestCraft(RecipeTable.CopperIngot, 2));
+            Assert.True(c.RequestCraft(RecipeTable.WoodenSword, 1));
+            rig.Run(4);
+            Assert.Equal(2, replies.Count);
+            Assert.Equal(RecipeTable.CopperIngot, c.Craft.RecipeAt(0));
+            CraftQueue seen = c.Craft;
+            var desk = new CraftDesk(new StaleRequests(c, seen)); // окно, не успевшее получить новую очередь
+            rig.Run(2 * T); // слитки готовы, в позиции 0 на сервере — меч
+            Assert.True(desk.Cancel(seen, 0));
+            rig.Run(4);
+            Assert.Equal(3, replies.Count);
+            Assert.Equal((CraftOp.Cancel, CraftReply.NoEntry), (replies[2].Op, replies[2].Reply));
+            Assert.Equal(2, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodenSword) + rig.Sim.GetEntity(c.EntityId).Craft.Count); // меч стартового набора + заказанный (в очереди или уже готов): заказ не отменён
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Wood)); // древесина на меч не вернулась
+            Assert.Equal(2, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.CopperIngot));
+            Assert.Equal(0, c.BadMessages);
+        }
+
+        // Заявки «как из окна с устаревшей очередью»: отмена уходит с рецептом, который окно видело в позиции.
+        private sealed class StaleRequests : ICraftRequests
+        {
+            private readonly NetClient _client;
+            private readonly CraftQueue _seen;
+
+            public StaleRequests(NetClient client, CraftQueue seen)
+            {
+                _client = client;
+                _seen = seen;
+            }
+
+            public bool RequestCraft(int recipe, int count = 1) => _client.RequestCraft(recipe, count);
+
+            public bool RequestCraftCancel(int index) => _client.RequestCraftCancel(index, _seen.RecipeAt(index));
         }
     }
 }

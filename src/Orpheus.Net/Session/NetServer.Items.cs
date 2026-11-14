@@ -75,10 +75,11 @@ namespace Orpheus.Net.Session
         public long CraftStatesSent { get; private set; }
 
         /// <summary>
-        /// Заявка изготовления (30; E2-3): на каждую — ответ (31). Пауза — отказ «пауза» (заявки не копятся); лимит заявок
-        /// игрока за такт — общий с сумкой (<see cref="MaxBagRequestsPerPlayerTick"/>); остальное решает симуляция:
-        /// проверка сразу (причина — в ответе) и ещё раз в такте (отказ такта — вторым ответом, событие
-        /// <see cref="SimEventKind.CraftRefused"/>). Крафт клиент не предсказывает: итог — сумка (26) и очередь (32).
+        /// Заявка изготовления (30; E2-3): на каждую — <b>ровно один</b> ответ (31). Отказ сразу (пауза — заявки не копятся;
+        /// лимит заявок игрока за такт, общий с сумкой; проверка симуляции: нет рецепта, мёртв, нет станка, не хватает…) —
+        /// ответ уходит тут же. Заявка, взятая в очередь такта, ответа сразу не получает: его даёт такт — «принято» или
+        /// причина (события <see cref="SimEventKind.CraftQueued"/> / <see cref="SimEventKind.CraftCancelled"/> /
+        /// <see cref="SimEventKind.CraftRefused"/>, рассылка — <see cref="SendCraftTo"/>). Крафт клиент не предсказывает.
         /// </summary>
         private void OnCraftRequest(Player p, in CraftRequestMessage m)
         {
@@ -97,15 +98,14 @@ namespace Orpheus.Net.Session
                 p.BagRequestsThisTick++;
                 reply = m.Op == CraftOp.Make
                     ? _sim.RequestCraft(p.EntityId, m.Arg, m.Count)
-                    : _sim.RequestCraftCancel(p.EntityId, m.Arg);
+                    : _sim.RequestCraftCancel(p.EntityId, m.Arg, m.Count);
             }
 
             if (reply != CraftReply.Accepted)
             {
                 CraftRequestsRefused++;
+                SendCraftReply(p, m.Op, m.Arg, reply);
             }
-
-            SendCraftReply(p, m.Op, m.Arg, reply);
         }
 
         private void SendCraftReply(Player p, CraftOp op, byte arg, CraftReply reply)
@@ -115,7 +115,7 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
-        /// После такта: отказы такта (заявка принята, но к такту условия изменились) — ответом 31; очередь изготовления —
+        /// После такта: ответы (31) на заявки, решённые этим тактом, — по событиям, в порядке заявок; очередь изготовления —
         /// сообщением 32, если изменился состав позиций или признак «идёт». Прогресс каждый такт не шлётся.
         /// </summary>
         private void SendCraftTo(Player pl, in SimEntity self)
@@ -123,10 +123,24 @@ namespace Orpheus.Net.Session
             ReadOnlySpan<SimEvent> events = _sim.Events;
             for (int e = 0; e < events.Length; e++)
             {
-                if (events[e].Kind == SimEventKind.CraftRefused && events[e].Requester == self.Id)
+                if (events[e].Requester != self.Id)
                 {
-                    CraftRequestsRefused++;
-                    SendCraftReply(pl, CraftOp.Make, (byte)events[e].Victim, (CraftReply)events[e].Tag);
+                    continue;
+                }
+
+                switch (events[e].Kind)
+                {
+                    case SimEventKind.CraftQueued:
+                        SendCraftReply(pl, CraftOp.Make, (byte)events[e].Victim, CraftReply.Accepted);
+                        break;
+                    case SimEventKind.CraftCancelled:
+                        SendCraftReply(pl, CraftOp.Cancel, (byte)events[e].Victim, CraftReply.Accepted);
+                        break;
+                    case SimEventKind.CraftRefused:
+                        CraftRequestsRefused++;
+                        SendCraftReply(pl, events[e].Damage == (int)BagOp.CraftCancel ? CraftOp.Cancel : CraftOp.Make,
+                            (byte)events[e].Victim, (CraftReply)events[e].Tag);
+                        break;
                 }
             }
 
