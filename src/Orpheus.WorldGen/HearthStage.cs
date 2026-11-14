@@ -182,7 +182,12 @@ namespace Orpheus.WorldGen
             {
                 for (int dx = -CopperStampHalf; dx <= CopperStampHalf; dx++)
                 {
-                    t.Objects[(((cy + dy) & mask) * w) + ((cx + dx) & mask)] = ObjectId.Empty;
+                    int j = (((cy + dy) & mask) * w) + ((cx + dx) & mask);
+                    t.Objects[j] = ObjectId.Empty;
+                    if (t.Floor[j] == FloorId.Water)
+                    {
+                        t.Floor[j] = FloorId.Sand; // штамп на озере — отмель (E1-2)
+                    }
                 }
             }
 
