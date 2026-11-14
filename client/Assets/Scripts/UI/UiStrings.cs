@@ -30,7 +30,89 @@ namespace Orpheus.Client.UI
             ["fiber"] = "Волокно",
             ["copper_ore"] = "Медная руда",
             ["arrows"] = "Стрелы",
+            ["copper_ingot"] = "Медный слиток",
+            ["rope"] = "Верёвка",
+            ["copper_axe"] = "Медный топор",
+            ["copper_sword"] = "Медный меч",
+            ["copper_bow"] = "Медный лук",
+            ["meat"] = "Мясо",
+            ["roast_meat"] = "Жареное мясо",
         };
+
+        // ---------- окно крафта (E2-4) ----------
+
+        public const string CraftTitle = "Изготовление";
+        public const string CraftKey = "C";
+        public const string CraftNeeds = "Нужно:";
+        public const string CraftQueue = "Очередь — щелчок по позиции отменяет её";
+        public const string CraftQueueEmpty = "Очередь пуста";
+        public const string CraftQueueStopped = "Стоит: подойдите к станку";
+        public const string CraftDead = "Вы погибли: изготовление — после возрождения";
+        public const string CraftMake1 = "Сделать 1";
+        public const string CraftMake5 = "Сделать 5";
+        public const string CraftMakeAll = "Сделать всё";
+
+        /// <summary>Кнопка «всё», когда известно, на сколько хватает.</summary>
+        public static string CraftMakeAllOf(int n) => $"Все {n}";
+        public const string CraftHint = "Enter — сделать 1    Shift+Enter — 5    Ctrl+Enter — всё    Del — отменить последнюю\nPgUp / PgDn — рецепт    Home / End — вкладка    C, Esc — закрыть";
+
+        /// <summary>Вкладка окна крафта: название станка.</summary>
+        public static string StationName(CraftStation s) => s switch
+        {
+            CraftStation.Workbench => "Верстак",
+            CraftStation.Campfire => "Костёр",
+            _ => "Руками",
+        };
+
+        /// <summary>Пометка рецепта, станка которого рядом нет.</summary>
+        public static string StationNeeded(CraftStation s) => s switch
+        {
+            CraftStation.Workbench => "нужен верстак",
+            CraftStation.Campfire => "нужен костёр",
+            _ => string.Empty,
+        };
+
+        /// <summary>Подсказка у быстрой панели: рядом станок, окно крафта — клавиша C.</summary>
+        public static string StationHint(CraftStation s) => s == CraftStation.Campfire ? "C — костёр" : "C — верстак";
+
+        /// <summary>Название рецепта = название того, что получается (в срезе у предмета один рецепт).</summary>
+        public static string RecipeName(int recipe) => ItemName(RecipeTable.Get(recipe).Result);
+
+        /// <summary>Строка под названием в карточке: сколько получится и за сколько.</summary>
+        public static string RecipeYield(in RecipeDef def) =>
+            $"Получится: {def.ResultCount}    Время: {def.Ticks / 30f:0.#} с    {StationName(def.Station)}";
+
+        /// <summary>Состояние рецепта в карточке: «можно сделать N» или почему нельзя.</summary>
+        public static string CraftState(CraftReply state, CraftStation station, int affordable) => state switch
+        {
+            CraftReply.Accepted => $"Хватает на {affordable}",
+            CraftReply.NoStation => station == CraftStation.Campfire ? "Нужен костёр рядом" : "Нужен верстак рядом",
+            CraftReply.StationFar => station == CraftStation.Campfire ? "Костёр слишком далеко" : "Верстак слишком далеко",
+            CraftReply.NoIngredients => "Не хватает материалов",
+            CraftReply.QueueFull => "Очередь полна",
+            CraftReply.Dead => "Вы погибли",
+            _ => CraftRefusal(state, station),
+        };
+
+        /// <summary>Отказ сервера (сообщение 31) — короткая строка внизу окна.</summary>
+        public static string CraftRefusal(CraftReply reply, CraftStation station) => reply switch
+        {
+            CraftReply.NoStation => station == CraftStation.Campfire ? "Отказ: рядом нет костра" : "Отказ: рядом нет верстака",
+            CraftReply.StationFar => "Отказ: слишком далеко от станка",
+            CraftReply.NoIngredients => "Отказ: не хватает материалов",
+            CraftReply.QueueFull => "Отказ: очередь полна",
+            CraftReply.Dead => "Отказ: вы погибли",
+            CraftReply.Paused => "Отказ: игра на паузе",
+            CraftReply.Busy => "Отказ: слишком много заявок, повторите",
+            CraftReply.NoEntry => "Отказ: такой позиции в очереди уже нет",
+            CraftReply.NoRecipe => "Отказ: нет такого рецепта",
+            CraftReply.BadCount => "Отказ: неверное количество",
+            CraftReply.NoEntity => "Отказ: персонажа нет в мире",
+            _ => "Отказ сервера",
+        };
+
+        /// <summary>Подсказка позиции очереди.</summary>
+        public static string QueueTip(int recipe, int left) => $"{RecipeName(recipe)}: осталось {left} — щелчок отменит";
 
         /// <summary>Название предмета для подсказки.</summary>
         public static string ItemName(byte item)
@@ -41,5 +123,57 @@ namespace Orpheus.Client.UI
 
         /// <summary>Подсказка ячейки: название и количество в стопке.</summary>
         public static string ItemTip(byte item, int count) => count > 1 ? $"{ItemName(item)} × {count}" : ItemName(item);
+
+        // ---------- режим стройки, сундук, F (E2-5) ----------
+
+        static readonly Dictionary<ushort, string> BuildNames = new Dictionary<ushort, string>
+        {
+            [Orpheus.Core.World.BuildDefs.WoodFloorKey] = "Пол деревянный",
+            [Orpheus.Core.World.BuildDefs.StoneFloorKey] = "Пол каменный",
+            [Orpheus.Core.World.BuildDefs.PlatformKey] = "Настил",
+            [Orpheus.Core.World.ObjectId.WoodWall] = "Стена деревянная",
+            [Orpheus.Core.World.ObjectId.StoneWall] = "Стена каменная",
+            [Orpheus.Core.World.ObjectId.WoodFence] = "Забор",
+            [Orpheus.Core.World.ObjectId.Door] = "Дверь",
+            [Orpheus.Core.World.ObjectId.Torch] = "Факел",
+            [Orpheus.Core.World.ObjectId.Campfire] = "Костёр",
+            [Orpheus.Core.World.ObjectId.Workbench] = "Верстак",
+            [Orpheus.Core.World.ObjectId.Chest] = "Сундук",
+            [Orpheus.Core.World.ObjectId.Bed] = "Кровать",
+        };
+
+        /// <summary>Название постройки по ключу (лента, призрак).</summary>
+        public static string BuildName(ushort key) => BuildNames.TryGetValue(key, out string? n) ? n : key.ToString();
+
+        public const string BuildKeys = "Q / E — выбор      ЛКМ — поставить, починить      ПКМ — снести";
+        public const string BuildDead = "Вы погибли: строить — после возрождения";
+
+        /// <summary>Строка у курсора: «Сундук — нельзя: занято» / «Починить: 1 камень».</summary>
+        public static string GhostNote(bool repair, bool ok, string reason, ushort key, string cost) =>
+            repair ? (ok ? $"Починить: {cost}" : $"Починить нельзя: {reason}")
+            : ok ? $"{BuildName(key)}: {cost}" : $"{BuildName(key)} — нельзя: {reason}";
+
+        /// <summary>Прочность постройки под курсором.</summary>
+        public static string Integrity(int cur, int max) => $"Прочность {cur} / {max}";
+
+        public const string ChestTitle = "Сундук";
+        public const string ChestHint = "ЛКМ — взять / положить      ПКМ — половину\nShift+ЛКМ — в сумку / в сундук";
+        public const string ChestKeys = "F, Esc";
+
+        /// <summary>Подсказка над панелью: что сделает F.</summary>
+        public static string UseHint(Orpheus.Net.Session.UseKind kind) => kind switch
+        {
+            Orpheus.Net.Session.UseKind.Door => "F — закрыть дверь",
+            Orpheus.Net.Session.UseKind.Workbench => "F — верстак",
+            Orpheus.Net.Session.UseKind.Campfire => "F — костёр",
+            Orpheus.Net.Session.UseKind.Chest => "F — сундук",
+            Orpheus.Net.Session.UseKind.Bed => "F — кровать",
+            _ => string.Empty,
+        };
+
+        public const string BedSet = "Кровать: здесь вы возродитесь";
+
+        /// <summary>Отказ сервера на действие с объектом.</summary>
+        public static string UseRefusal(string reason) => $"Нельзя: {reason}";
     }
 }

@@ -208,6 +208,8 @@ namespace Orpheus.Net.Session
                         SendCraftTo(pl, entities[slot]); // E2-3: очередь изготовления — владельцу, когда изменилась
                     }
 
+                    SendChestTo(pl, slot); // E2-5: открытый сундук — содержимое, если изменилось, или «закрыт»
+
                     if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))
                     {
                         SendInventoryTo(pl, entities[slot].Inv); // 1-002: сумка изменилась (копание, подбор, смена ячейки)

@@ -94,6 +94,15 @@ namespace Orpheus.Client.UI
             Canvas.ForceUpdateCanvases();
         }
 
+        /// <summary>Точка мира Unity → координаты холста (через видовую область камеры; стенд снимков, E2-5).</summary>
+        public Vector2 FromWorld(Vector3 world)
+        {
+            // Не через видовую область камеры: в снимке кадр — текстура своего размера, а камера знает соотношение окна.
+            Vector3 d = world - _camera.transform.position;
+            float k = RefHeight / (2f * _camera.orthographicSize);
+            return Size / 2f + new Vector2(d.x * k, d.y * k);
+        }
+
         /// <summary>Точка окна (пиксели, начало слева внизу) → координаты холста.</summary>
         public Vector2 FromScreen(Vector2 screen) =>
             new Vector2(screen.x / Mathf.Max(1, Screen.width) * Size.x, screen.y / Mathf.Max(1, Screen.height) * Size.y);
@@ -128,7 +137,7 @@ namespace Orpheus.Client.UI
         {
             var t = Node(parent, name, x, y, w, h).gameObject.AddComponent<Text>();
             t.font = UiStyle.Font;
-            t.fontSize = size;
+            t.fontSize = Mathf.Max(size, UiStyle.MinFont); // E2-4: мельче 12 px на 720p не пишем
             t.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
             t.alignment = align;
             t.color = color;
@@ -155,8 +164,22 @@ namespace Orpheus.Client.UI
     {
         public readonly RectTransform Rt;
         readonly Vector2 _anchor;
-        readonly Vector2 _offset;
+        Vector2 _offset;
         readonly Vector2 _size;
+
+        /// <summary>Сдвиг левого нижнего угла от точки привязки (E2-4: окна встают рядом, когда открыты оба).</summary>
+        public Vector2 Offset
+        {
+            get => _offset;
+            set
+            {
+                if (_offset != value)
+                {
+                    _offset = value;
+                    Rt.anchoredPosition = value;
+                }
+            }
+        }
 
         public UiGroup(UiRoot root, string name, Vector2 anchor, Vector2 offset, Vector2 size)
         {

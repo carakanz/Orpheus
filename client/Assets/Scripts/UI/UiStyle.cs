@@ -24,6 +24,19 @@ namespace Orpheus.Client.UI
         public static readonly Color32 BarBack = new Color32(86, 66, 52, 255);
         public static readonly Color32 Clear = new Color32(0, 0, 0, 0);
 
+        // E2-4: выключенная кнопка / строка, приглушённый текст, «не хватает», фон карточки.
+        public static readonly Color32 CellOff = new Color32(206, 184, 142, 255);
+        public static readonly Color32 InkSoft = new Color32(128, 106, 84, 255);
+        public static readonly Color32 TextDim = new Color32(134, 112, 88, 255);
+        public static readonly Color32 TextBad = new Color32(184, 40, 30, 255);
+        public static readonly Color32 Card = new Color32(214, 186, 134, 255);
+
+        /// <summary>
+        /// Наименьший размер шрифта, единиц холста (E2-4): 18 единиц = 12 px на кадре 1280 × 720 — мельче не читается.
+        /// <see cref="UiRoot.Label"/> поднимает до него любой меньший размер.
+        /// </summary>
+        public const int MinFont = 18;
+
         /// <summary>Сторона ячейки и зазор между ячейками.</summary>
         public const float CellSize = 64f;
         public const float CellGap = 6f;

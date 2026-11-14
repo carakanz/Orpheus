@@ -202,6 +202,7 @@ namespace Orpheus.Net.Session
             if (character >= 0)
             {
                 _sim.SetInventory(id, Characters[character].Inv); // сумка вернувшегося — записана при уходе (1-002)
+                _sim.SetBed(id, Characters[character].HasBed, Characters[character].Bed); // E2-5: кровать — тоже
                 Characters.SetInWorld(character, id, m.Name);
                 CharactersReturned++;
             }

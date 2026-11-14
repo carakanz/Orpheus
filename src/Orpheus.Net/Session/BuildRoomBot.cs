@@ -166,7 +166,7 @@ namespace Orpheus.Net.Session
                 Refused++;
                 _refused[m.Reply] = _refused.TryGetValue(m.Reply, out int n) ? n + 1 : 1;
                 _armObj = 0; // отказ: следующий запрос той же цели заново «взводится» кадром с молотом
-                if (obj == FloorId.WoodFloor)
+                if (obj == BuildDefs.WoodFloorKey)
                 {
                     _floorReq = 0;
                     _skipUntil[_center] = _frame + RefusalCooldownFrames;
@@ -195,7 +195,7 @@ namespace Orpheus.Net.Session
                 case ObjectId.Door:
                     DoorPlaced = true;
                     break;
-                case FloorId.WoodFloor:
+                case BuildDefs.WoodFloorKey:
                     _floorReq = 0;
                     _floorRow++;
                     break;
@@ -542,15 +542,18 @@ namespace Orpheus.Net.Session
             int y = _center.Y - h + 1 + _floorRow % 3;
             var from = Torus.Wrap(_shape, new TileCoord(_center.X - h + 1, y));
             var to = Torus.Wrap(_shape, new TileCoord(_center.X + h - 1, y));
-            if (!PlaceArmed(FloorId.WoodFloor, from))
+            if (!PlaceArmed(BuildDefs.WoodFloorKey, from))
             {
                 return HammerFrame(client);
             }
 
-            ushort id = client.Place(from, to, FloorId.WoodFloor, pos);
+            // E2-5: тот же путь, что у игрока, — «молот» BuildHand (ряд пола — линией, как ведение с зажатой ЛКМ).
+            BuildHand build = Build(client);
+            build.Select(BuildDefs.WoodFloorKey);
+            ushort id = build.PlaceLine(from, to, pos);
             if (id != 0)
             {
-                _reqObj[id] = FloorId.WoodFloor;
+                _reqObj[id] = BuildDefs.WoodFloorKey;
                 _floorReq = id;
             }
 
@@ -612,7 +615,7 @@ namespace Orpheus.Net.Session
             {
                 if (PlaceArmed(ObjectId.StoneWall, wall))
                 {
-                    ushort id = client.Place(wall, wall, ObjectId.StoneWall, pos);
+                    ushort id = ClickBuild(client, world, pos, ObjectId.StoneWall, wall);
                     if (id != 0)
                     {
                         _reqObj[id] = ObjectId.StoneWall;
@@ -711,7 +714,7 @@ namespace Orpheus.Net.Session
             {
                 if (PlaceArmed(ObjectId.Door, door))
                 {
-                    ushort id = client.Place(door, door, ObjectId.Door, pos);
+                    ushort id = ClickBuild(client, world, pos, ObjectId.Door, door);
                     if (id != 0)
                     {
                         _reqObj[id] = ObjectId.Door;
@@ -1037,6 +1040,35 @@ namespace Orpheus.Net.Session
         /// проверяет молот по <c>Inv.Held</c> кадра, который пришёл ПОСЛЕ запроса. Первый кадр на цели бот просто
         /// стоит с молотом — на следующем кадре <c>Held</c> сервера уже молот, и запрос проходит.
         /// </summary>
+        private BuildHand? _build;
+
+        /// <summary>«Молот» бота (E2-5) — тот же <see cref="BuildHand"/>, что у окна игрока.</summary>
+        private BuildHand Build(NetClient client) => _build ??= new BuildHand(client);
+
+        /// <summary>Хватает ли сумки на стену, дверь и пол (E2-5, после «рукой» BuildHand): метрика для журнала.</summary>
+        public int LocalRefusals { get; private set; }
+
+        /// <summary>
+        /// ЛКМ «молотом» по тайлу (E2-5): выбор постройки в ленте и щелчок — проверка теми же функциями ядра, что у сервера
+        /// и призрака игрока; можно — заявка (номер запроса), нельзя — 0 и тайл в cooldown, как после отказа сервера.
+        /// </summary>
+        private ushort ClickBuild(NetClient client, ClientWorld world, WorldPos pos, ushort key, TileCoord t)
+        {
+            BuildHand build = Build(client);
+            build.Select(key);
+            int before = build.PlaceRequests;
+            BuildCheck chk = build.Click(world.World, pos, client.Inv, client.HeldItem, true, t);
+            if (chk.Ok && build.PlaceRequests > before)
+            {
+                return build.LastRequest;
+            }
+
+            LocalRefusals++;
+            _armObj = 0;
+            _skipUntil[t] = _frame + RefusalCooldownFrames / 3; // своя проверка — короткий cooldown: сумка/рука догоняют сервер
+            return 0;
+        }
+
         private bool PlaceArmed(ushort obj, TileCoord t)
         {
             if (_armObj == obj && _armTile == t && _frame > _armFrame)

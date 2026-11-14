@@ -1051,12 +1051,12 @@ namespace Orpheus.Tests
             Assert.Equal("15 02 01 00 04 01 00 00 80", string.Join(" ", pb.Select(x => x.ToString("x2"))));
             Assert.Equal(0x80000001u, TileReplyMessage.Read(pb).Mask);
 
-            // Протокол 19 (1-012): операция 4 «закрыть дверь» проходит, 5 — испорченная.
+            // Протокол 19 (1-012): операция 4 «закрыть дверь» проходит; с протокола 23 (E2-5) 5 — починка, 6 — испорченная.
             byte[] closeDoor = (byte[])rb.Clone();
             closeDoor[3] = (byte)TileOp.CloseDoor;
             Assert.Equal(TileOp.CloseDoor, TileRequestMessage.Read(closeDoor, map).Op);
             byte[] badOp = (byte[])rb.Clone();
-            badOp[3] = 5;
+            badOp[3] = 6;
             Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(badOp, map));
             byte[] outside = (byte[])rb.Clone();
             outside[15] = 0x04; // y конца 1032
@@ -1072,9 +1072,9 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Debris, back18.Reply);
             Assert.Equal(EditReply.NoResources, back18.FirstRefusal);
             byte[] badReply = (byte[])eb.Clone();
-            badReply[3] = 16; // 15 — «ты мёртв» (E2-1, протокол 21)
+            badReply[3] = 19; // 15 — «ты мёртв» (E2-1, протокол 21); 16–18 — «цело», «под ударом», «пауза» (E2-5, протокол 23)
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badReply));
-            Assert.Equal(22, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1), 22 — крафт: заявка 30, ответ 31, очередь 32 (E2-3)
+            Assert.Equal(23, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1), 22 — крафт: заявка 30, ответ 31, очередь 32 (E2-3), 23 — починка, действие 33–35, сундук (E2-5)
         }
 
         // ---------- Строительство (1-011): палитра данными, полы, снос, обломки ----------
@@ -1098,7 +1098,7 @@ namespace Orpheus.Tests
             Assert.Equal(1, fence.Count1); Assert.Equal((ushort)45, fence.MaxIntegrity);
             Assert.True(BuildDefs.TryGet(ObjectId.Door, out BuildDef door));
             Assert.Equal(6, door.Count1); Assert.Equal((ushort)90, door.MaxIntegrity);
-            Assert.True(BuildDefs.TryGet(FloorId.WoodFloor, out BuildDef floor));
+            Assert.True(BuildDefs.TryGet(BuildDefs.WoodFloorKey, out BuildDef floor)); // E2-5: ключ пола — FloorKeyBase + id пола
             Assert.True(floor.IsFloor); Assert.Equal(1, floor.Count1); Assert.Equal(BuildRecord.MaxIntegrity, floor.MaxIntegrity);
             Assert.False(BuildDefs.TryGet(ObjectId.Carpet, out _)); // ковёр и шипы — бесплатные, вне таблицы
             Assert.False(BuildDefs.TryGet(0, out _));
@@ -1133,10 +1133,10 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.ToolRequired, EditRules.CheckDig(w, c, floorTile, times, Items.StoneAxe));
             Assert.Equal(EditReply.Empty, EditRules.CheckDig(w, TileCenter(12, 10), grass, times, Items.Hammer)); // пустая трава
 
-            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, grass, FloorId.WoodFloor));
-            Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(w, c, water, FloorId.WoodFloor));
-            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, water, FloorId.Platform));
-            Assert.Equal(EditReply.NotAllowed, EditRules.CheckPlaceTile(w, c, grass, FloorId.Platform)); // настил — только над жидкостью
+            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, grass, BuildDefs.WoodFloorKey));
+            Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(w, c, water, BuildDefs.WoodFloorKey));
+            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, water, BuildDefs.PlatformKey));
+            Assert.Equal(EditReply.NotAllowed, EditRules.CheckPlaceTile(w, c, grass, BuildDefs.PlatformKey)); // настил — только над жидкостью
             Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, floorTile, ObjectId.StoneWall)); // стена на построенном полу
 
             // Обломки — через снос повреждённой постройки симуляцией (запись с флагом «обломки»).
@@ -1174,7 +1174,7 @@ namespace Orpheus.Tests
             rig.Run(3);
 
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
-            c.Place(new TileCoord(301, 200), new TileCoord(303, 200), FloorId.WoodFloor, self);
+            c.Place(new TileCoord(301, 200), new TileCoord(303, 200), BuildDefs.WoodFloorKey, self);
             rig.Run(5);
             for (int x = 301; x <= 303; x++)
             {
@@ -1216,7 +1216,7 @@ namespace Orpheus.Tests
             rig.InputOf = _ => HammerHold;
             rig.Run(3);
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
-            c.Place(new TileCoord(301, 200), new TileCoord(301, 200), FloorId.WoodFloor, self);
+            c.Place(new TileCoord(301, 200), new TileCoord(301, 200), BuildDefs.WoodFloorKey, self);
             rig.Run(5);
             Assert.Equal(FloorId.WoodFloor, rig.Sim.World.GetFloor(new TileCoord(301, 200)));
 

@@ -1,3 +1,4 @@
+using System;
 using Orpheus.Core.Sim;
 
 namespace Orpheus.Core.World
@@ -46,14 +47,35 @@ namespace Orpheus.Core.World
     }
 
     /// <summary>
-    /// Палитра построек вехи 1 (1-011): таблица <see cref="BuildDef"/> по ключу (id объекта или id построенного пола).
+    /// Палитра построек вехи 1 (1-011): таблица <see cref="BuildDef"/> по ключу постройки. Ключ — id объекта или
+    /// <b>ключ пола</b> <see cref="FloorKey"/> = <see cref="FloorKeyBase"/> + id построенного пола (E2-5: раньше ключом пола
+    /// был сам id пола 8…10 и он совпадал с id ворот, сундука и кровати — сундук и кровать нельзя было поставить, а снос
+    /// сундука возвращал цену каменного пола).
     /// </summary>
     public static class BuildDefs
     {
-        /// <summary>Наибольший ключ таблицы (id построек ≤ <see cref="ObjectId.MaxKnownId"/> (костёр 26, 1-014), полы — до <see cref="FloorId.MaxKnown"/>).</summary>
-        public const int MaxKey = ObjectId.MaxKnownId > FloorId.MaxKnown ? ObjectId.MaxKnownId : FloorId.MaxKnown;
+        /// <summary>Ключи полов начинаются здесь (id объектов — до <see cref="ObjectId.MaxKnownId"/>, в 10 битах id).</summary>
+        public const ushort FloorKeyBase = 0x100;
+
+        /// <summary>Ключи построенных полов (E2-5).</summary>
+        public const ushort WoodFloorKey = FloorKeyBase + FloorId.WoodFloor;
+        public const ushort StoneFloorKey = FloorKeyBase + FloorId.StoneFloor;
+        public const ushort PlatformKey = FloorKeyBase + FloorId.Platform;
+
+        /// <summary>Наибольший ключ объекта в таблице.</summary>
+        public const int MaxKey = ObjectId.MaxKnownId;
 
         private static readonly BuildDef[] Table = new BuildDef[MaxKey + 1];
+        private static readonly BuildDef[] Floors = new BuildDef[FloorId.MaxKnown + 1];
+
+        /// <summary>Ключ постройки «пол» по id пола.</summary>
+        public static ushort FloorKey(byte floor) => (ushort)(FloorKeyBase + floor);
+
+        /// <summary>Id пола по ключу пола (смысл есть, если <see cref="IsFloorKeyRange"/>).</summary>
+        public static byte FloorOf(ushort key) => (byte)(key - FloorKeyBase);
+
+        /// <summary>Ключ лежит в диапазоне ключей полов.</summary>
+        public static bool IsFloorKeyRange(ushort key) => key >= FloorKeyBase && key <= FloorKeyBase + FloorId.MaxKnown;
 
         static BuildDefs()
         {
@@ -71,18 +93,60 @@ namespace Orpheus.Core.World
             // В документе 2 × 2; пока 1 × 1 — многотайловой постановки в ядре нет (допущение E2-3).
             Table[ObjectId.Workbench] = new BuildDef(Material.Wood, 10, Material.Stone, 6, 100, false);
 
+            // Сундук и кровать (E2-5; `05` 1.3: сундук 8 древесины / 100, кровать 10 древесины + 5 волокна / 40).
+            // Кровать в документе 1 × 2; пока 1 × 1 — многотайловой постановки в ядре нет (допущение E2-5, как у верстака).
+            Table[ObjectId.Chest] = new BuildDef(Material.Wood, 8, Material.Wood, 0, 100, false);
+            Table[ObjectId.Bed] = new BuildDef(Material.Wood, 10, Material.Fiber, 5, 40, false);
+
             // Полы: «не бьют» — прочность полная, снос возвращает рецепт целиком; над глубиной настил 2 — за генератором (`01` 5, `[док]`).
-            Table[FloorId.WoodFloor] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
-            Table[FloorId.StoneFloor] = new BuildDef(Material.Stone, 1, Material.Stone, 0, BuildRecord.MaxIntegrity, true);
-            Table[FloorId.Platform] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
+            Floors[FloorId.WoodFloor] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
+            Floors[FloorId.StoneFloor] = new BuildDef(Material.Stone, 1, Material.Stone, 0, BuildRecord.MaxIntegrity, true);
+            Floors[FloorId.Platform] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
         }
 
-        /// <summary>Описание постройки по ключу (id объекта или id построенного пола); вне таблицы — false.</summary>
+        private static readonly ushort[] PaletteKeys =
+        {
+            WoodFloorKey, StoneFloorKey, PlatformKey,
+            ObjectId.WoodWall, ObjectId.StoneWall, ObjectId.WoodFence, ObjectId.Door,
+            ObjectId.Torch, ObjectId.Campfire, ObjectId.Workbench, ObjectId.Chest, ObjectId.Bed,
+        };
+
+        /// <summary>
+        /// Лента построек режима стройки (E2-5, `05` 1.3 «палитра»): ключи таблицы в порядке показа — полы, стены, забор,
+        /// дверь, свет, станки, хранение, мебель. Калитки отдельной нет: калитка — дверь в заборе (`05` 3.3).
+        /// </summary>
+        public static ReadOnlySpan<ushort> Palette => PaletteKeys;
+
+        /// <summary>Хватает ли в сумке материалов на постройку (та же смета, что списывает такт).</summary>
+        public static bool Affordable(in BuildDef def, in Inventory bag)
+        {
+            if (def.Count2 > 0 && def.Material2 == def.Material1)
+            {
+                return bag.CountAt(def.Material1) >= def.Count1 + def.Count2;
+            }
+
+            return bag.CountAt(def.Material1) >= def.Count1 && (def.Count2 <= 0 || bag.CountAt(def.Material2) >= def.Count2);
+        }
+
+        /// <summary>
+        /// Цена починки (`05` 1.3): по каждому материалу рецепта ⌈количество × недостающая доля прочности⌉
+        /// (каменная стена на половине прочности — 1 камень).
+        /// </summary>
+        public static int RepairCostOf(int count, ushort integrity, ushort maxIntegrity) =>
+            maxIntegrity == 0 || integrity >= maxIntegrity ? 0 : (int)(((long)count * (maxIntegrity - integrity) + maxIntegrity - 1) / maxIntegrity);
+
+        /// <summary>Описание постройки по ключу (id объекта или ключ пола <see cref="FloorKey"/>); вне таблицы — false.</summary>
         public static bool TryGet(ushort key, out BuildDef def)
         {
             if (key <= MaxKey && Table[key].Count1 > 0)
             {
                 def = Table[key];
+                return true;
+            }
+
+            if (IsFloorKeyRange(key) && Floors[key - FloorKeyBase].Count1 > 0)
+            {
+                def = Floors[key - FloorKeyBase];
                 return true;
             }
 

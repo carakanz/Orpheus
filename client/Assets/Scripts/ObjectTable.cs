@@ -163,22 +163,33 @@ namespace Orpheus.Client
                 Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.45f, DecoEdge = 0.7f, DecoFoot = 0.35f,
                 DecoTint = new Color32(214, 204, 200, 255), RubbleTint = new Color32(196, 188, 186, 255),
             },
-            // Костёр и факел: своих картинок в наборе нет (заказать на Мак) — пень, окрашенный огнём; круг света — DayTintView (E1-8).
+            // Костёр, верстак I и факел (E2-4): свои заглушки TEMP_obj_* (tools/make_item_icons.py, 128 × 160, опора внизу по
+            // центру); круг света костра и факела — DayTintView (E1-8). Огонь тени не бросает.
             new ObjectLook
             {
-                Id = ObjectId.Campfire, Variants = new[] { V("stump") },
-                Tint = new Color32(255, 150, 60, 255), Size = 0.9f, Shadow = 0f,
-            },
-            // Верстак I (E2-3): своей картинки нет (заказать) — крупный пень цвета доски, чтобы станок был виден в мире.
-            new ObjectLook
-            {
-                Id = ObjectId.Workbench, Variants = new[] { V("stump") },
-                Tint = new Color32(196, 150, 96, 255), Size = 1.15f, Shadow = 0.6f,
+                Id = ObjectId.Campfire, Variants = new[] { V("obj_campfire") },
+                Size = 0.95f, Shadow = 0f,
             },
             new ObjectLook
             {
-                Id = ObjectId.Torch, Variants = new[] { V("stump") },
-                Tint = new Color32(255, 214, 110, 255), Size = 0.5f, Shadow = 0f,
+                Id = ObjectId.Workbench, Variants = new[] { V("obj_workbench") },
+                Shadow = 0.5f,
+            },
+            new ObjectLook
+            {
+                Id = ObjectId.Torch, Variants = new[] { V("obj_torch") },
+                Size = 0.8f, Shadow = 0f,
+            },
+            // Сундук и кровать (E2-5): заглушки TEMP_obj_chest / bed (tools/make_item_icons.py, 128 × 160, опора внизу по центру).
+            new ObjectLook
+            {
+                Id = ObjectId.Chest, Variants = new[] { V("obj_chest") },
+                Size = 0.9f, Shadow = 0.4f,
+            },
+            new ObjectLook
+            {
+                Id = ObjectId.Bed, Variants = new[] { V("obj_bed") },
+                Shadow = 0.3f,
             },
         };
 

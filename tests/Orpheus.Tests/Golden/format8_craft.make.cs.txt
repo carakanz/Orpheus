@@ -1,0 +1,67 @@
+using System;
+using System.IO;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
+using Orpheus.Save;
+using Orpheus.Server;
+using Orpheus.WorldGen;
+using Xunit;
+
+namespace Orpheus.Tests
+{
+    /// <summary>
+    /// Разовый генератор файла формата 8 для теста E2-5 (запускается на коде ветки task/E2-3 — до E2-5): мир-заглушка
+    /// 256², зерно 5; персонаж с очередью изготовления; на тайлах — сундук и кровать (объекты по номеру, содержимого
+    /// в формате 8 нет); каменная стена; персонаж вне мира; куча руды.
+    /// </summary>
+    public class MakeV8
+    {
+        [Fact]
+        public void Make_Format8_Craft_File()
+        {
+            WorldModel world = WorldGenModule.Stub.Generate(MapShape.World(256), 5);
+            byte[] baseBytes = WorldSnapshot.WriteBase(world);
+            var sim = new Simulation(world);
+            WorldPos pa = ServerRun.SpawnPoint(world.Shape, 0);
+            int a = sim.AddEntity(pa);
+
+            var bag = Inventory.StartingKit();
+            bag.Add(Items.Wood, 60);
+            bag.Add(Items.Stone, 20);
+            bag.Add(Items.Fiber, 30);
+            sim.SetInventory(a, bag);
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(a, RecipeTable.Rope, 4));
+
+            TileCoord at = Torus.TileOf(world.Shape, pa);
+            var chest = new TileCoord(at.X + 3, at.Y);
+            var bed = new TileCoord(at.X + 3, at.Y + 2);
+            var wall = new TileCoord(at.X - 3, at.Y);
+            Assert.True(sim.RequestEdit(chest, FloorId.Grass, ObjectId.Chest));
+            Assert.True(sim.RequestEdit(bed, FloorId.Grass, ObjectId.Bed));
+            Assert.True(sim.RequestEdit(wall, FloorId.Grass, ObjectId.StoneWall));
+            sim.AddPile(Items.CopperOre, 9, new WorldPos(pa.X + 40 * 256, pa.Y + 40 * 256));
+            for (int i = 0; i < 20; i++)
+            {
+                sim.Step();
+            }
+
+            var bag2 = Inventory.StartingKit();
+            bag2.Add(Items.Stone, 77);
+            var chars = new[]
+            {
+                new CharacterRecord { IsHost = true, Name = "Орфей", EntityId = a, Inv = sim.GetEntity(a).Inv },
+                new CharacterRecord { Name = "Эвридика", EntityId = 0, Inv = bag2, Mover = new Mover(ServerRun.SpawnPoint(world.Shape, 3)) },
+            };
+
+            byte[] save = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат8", chars), 6, 0);
+            Assert.Equal(8u, SaveContainer.Read(save).Header.FormatVersion);
+            string dir = Environment.GetEnvironmentVariable("V8_OUT")!;
+            File.WriteAllBytes(Path.Combine(dir, "format8_craft.save"), save);
+            File.WriteAllBytes(Path.Combine(dir, "format8_craft.base"), baseBytes);
+            File.WriteAllText(Path.Combine(dir, "format8_craft.hash.txt"),
+                StateHash.Compute(sim).Total.ToString("x16") + " " + chest.X + "," + chest.Y + " " + bed.X + "," + bed.Y + " " + wall.X + "," + wall.Y);
+        }
+    }
+}

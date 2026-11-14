@@ -48,11 +48,50 @@ namespace Orpheus.Net.Session
     /// остаётся в своей ячейке, рука помнит ячейку и количество; заявка уходит, когда предмет кладут или выбрасывают:
     /// целая стопка — <see cref="BagOp.Move"/>, часть — <see cref="BagOp.Split"/>, мимо окна — <see cref="BagOp.Drop"/>.
     /// После заявки рука пуста: результат — сумка сервера (сообщение 26), предсказания нет.
+    /// <para>
+    /// E2-5: открыт сундук (<see cref="SyncChest"/>) — ячейки <see cref="ChestBase"/>…+29 — его ячейки; перенос сумка ↔
+    /// сундук теми же заявками (номера ячеек 40…69 уходят серверу как есть), Shift+ЛКМ перекидывает между сумкой и сундуком.
+    /// </para>
     /// </summary>
     public sealed class BagHand
     {
         private readonly IBagRequests _requests;
         private Inventory _bag;
+        private Inventory _chest;
+
+        /// <summary>Первая ячейка открытого сундука в номерах руки (E2-5): 40.</summary>
+        public const int ChestBase = Inventory.Cells;
+
+        /// <summary>Сундук открыт — ячейки 40…69 доступны.</summary>
+        public bool ChestOpen { get; private set; }
+
+        /// <summary>Ячеек доступно руке сейчас: сумка, с открытым сундуком — и он.</summary>
+        public int CellCount => ChestOpen ? ChestBase + Simulation.ChestCells : Inventory.Cells;
+
+        /// <summary>Предмет и количество в ячейке руки (сумка или сундук).</summary>
+        public byte ItemAt(int cell) => cell >= ChestBase ? _chest.ItemAt(cell - ChestBase) : _bag.ItemAt(cell);
+
+        public int CountIn(int cell) => cell >= ChestBase ? _chest.CountIn(cell - ChestBase) : _bag.CountIn(cell);
+
+        /// <summary>
+        /// Свежий сундук сервера (E2-5) — звать каждый кадр после <see cref="Sync"/>. Сундук закрылся или взятая из него
+        /// стопка изменилась — рука подстраивается, как у сумки.
+        /// </summary>
+        public void SyncChest(bool open, in Inventory chest)
+        {
+            ChestOpen = open;
+            _chest = open ? chest : default;
+            if (Holding && From >= ChestBase)
+            {
+                if (!open || ItemAt(From) != Item)
+                {
+                    Cancel();
+                    return;
+                }
+
+                Count = Math.Min(Count, CountIn(From));
+            }
+        }
 
         public BagHand(IBagRequests requests)
         {
@@ -91,6 +130,16 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            if (From >= ChestBase)
+            {
+                if (dead)
+                {
+                    Cancel();
+                }
+
+                return; // стопка из сундука — сверяет SyncChest
+            }
+
             if (dead || bag.ItemAt(From) != Item)
             {
                 Cancel();
@@ -101,7 +150,7 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>Число, которое окно показывает в ячейке: без того, что «в руке».</summary>
-        public int ShownCount(int cell) => _bag.CountIn(cell) - (Holding && cell == From ? Count : 0);
+        public int ShownCount(int cell) => CountIn(cell) - (Holding && cell == From ? Count : 0);
 
         /// <summary>Опустить руку без заявки.</summary>
         public void Cancel()
@@ -113,18 +162,18 @@ namespace Orpheus.Net.Session
         /// <summary>ЛКМ по ячейке: пустой рукой — взять всю стопку, с предметом — положить (перенос, доукладка, обмен).</summary>
         public BagClick Left(int cell)
         {
-            if ((uint)cell >= Inventory.Cells || Dead)
+            if ((uint)cell >= CellCount || Dead)
             {
                 return BagClick.None;
             }
 
-            return Holding ? Put(cell) : Take(cell, _bag.CountIn(cell));
+            return Holding ? Put(cell) : Take(cell, CountIn(cell));
         }
 
         /// <summary>ПКМ по ячейке: пустой рукой — взять половину (с округлением вверх), с предметом — вернуть на место.</summary>
         public BagClick Right(int cell)
         {
-            if ((uint)cell >= Inventory.Cells || Dead)
+            if ((uint)cell >= CellCount || Dead)
             {
                 return BagClick.None;
             }
@@ -135,7 +184,7 @@ namespace Orpheus.Net.Session
                 return BagClick.Cancelled;
             }
 
-            return Take(cell, (_bag.CountIn(cell) + 1) / 2);
+            return Take(cell, (CountIn(cell) + 1) / 2);
         }
 
         /// <summary>
@@ -144,12 +193,14 @@ namespace Orpheus.Net.Session
         /// </summary>
         public BagClick Quick(int cell)
         {
-            if ((uint)cell >= Inventory.Cells || Dead || Holding || _bag.ItemAt(cell) == Items.None)
+            if ((uint)cell >= CellCount || Dead || Holding || ItemAt(cell) == Items.None)
             {
                 return BagClick.None;
             }
 
-            int to = QuickTarget(_bag, cell);
+            int to = !ChestOpen ? QuickTarget(_bag, cell)
+                : cell >= ChestBase ? FitTarget(_bag, ItemAt(cell), 0, Inventory.Cells)      // сундук → сумка
+                : FitTarget(_chest, ItemAt(cell), 0, Simulation.ChestCells, ChestBase);   // сумка → сундук
             return to >= 0 && Send(_requests.RequestBagMove(cell, to)) ? BagClick.Moved : BagClick.None;
         }
 
@@ -162,7 +213,7 @@ namespace Orpheus.Net.Session
             }
 
             int from = From;
-            int count = Count == _bag.CountIn(from) ? 0 : Count; // 0 — «всю стопку»
+            int count = Count == CountIn(from) ? 0 : Count; // 0 — «всю стопку»
             Cancel();
             return Send(_requests.RequestBagDrop(from, count)) ? BagClick.Dropped : BagClick.None;
         }
@@ -178,20 +229,27 @@ namespace Orpheus.Net.Session
 
             bool fromBar = cell < Inventory.Slots;
             int lo = fromBar ? Inventory.Slots : 0, hi = fromBar ? Inventory.Cells : Inventory.Slots;
+            return FitTarget(bag, item, lo, hi);
+        }
+
+        /// <summary>Куда положить предмет в ячейках [lo; hi): в стопку того же предмета с местом, иначе в первую пустую;
+        /// некуда — −1. Номер — плюс <paramref name="offset"/> (ячейки сундука в номерах руки).</summary>
+        public static int FitTarget(in Inventory inv, byte item, int lo, int hi, int offset = 0)
+        {
             int max = ItemTable.MaxStackOf(item);
             for (int i = lo; i < hi; i++)
             {
-                if (bag.ItemAt(i) == item && bag.CountIn(i) < max)
+                if (inv.ItemAt(i) == item && inv.CountIn(i) < max)
                 {
-                    return i;
+                    return i + offset;
                 }
             }
 
             for (int i = lo; i < hi; i++)
             {
-                if (bag.ItemAt(i) == Items.None)
+                if (inv.ItemAt(i) == Items.None)
                 {
-                    return i;
+                    return i + offset;
                 }
             }
 
@@ -200,7 +258,7 @@ namespace Orpheus.Net.Session
 
         private BagClick Take(int cell, int count)
         {
-            byte item = _bag.ItemAt(cell);
+            byte item = ItemAt(cell);
             if (item == Items.None || count <= 0)
             {
                 return BagClick.None;
@@ -221,14 +279,14 @@ namespace Orpheus.Net.Session
                 return BagClick.Cancelled;
             }
 
-            if (count >= _bag.CountIn(from))
+            if (count >= CountIn(from))
             {
                 Cancel();
                 return Send(_requests.RequestBagMove(from, cell)) ? BagClick.Moved : BagClick.None;
             }
 
             // Часть стопки: в пустую ячейку или в стопку того же предмета — сколько влезает.
-            byte there = _bag.ItemAt(cell);
+            byte there = ItemAt(cell);
             if (there != Items.None)
             {
                 if (there != Item)
@@ -236,7 +294,7 @@ namespace Orpheus.Net.Session
                     return BagClick.None; // чужой предмет: часть стопки обменять нельзя — рука остаётся
                 }
 
-                count = Math.Min(count, ItemTable.MaxStackOf(Item) - _bag.CountIn(cell));
+                count = Math.Min(count, ItemTable.MaxStackOf(Item) - CountIn(cell));
                 if (count <= 0)
                 {
                     return BagClick.None;

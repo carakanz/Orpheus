@@ -59,3 +59,23 @@ client/Assets/Art/_TEMP/TEMP_item_simple_bow.png,placeholder,К,значок п�
 client/Assets/Art/_TEMP/TEMP_item_torch.png,placeholder,К,значок предмета «факел» 64x64 (E2-2); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_copper_pickaxe.png,placeholder,К,значок предмета «медная кирка» 64x64 (E2-2); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_arrows.png,placeholder,К,значок предмета «стрелы» 64x64 (E2-2); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_copper_ingot.png,placeholder,К,значок предмета «медный слиток» 64x64 (E2-4); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_rope.png,placeholder,К,значок предмета «верёвка» 64x64 (E2-4); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_copper_axe.png,placeholder,К,значок предмета «медный топор» 64x64 (E2-4); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_copper_sword.png,placeholder,К,значок предмета «медный меч» 64x64 (E2-4); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_copper_bow.png,placeholder,К,значок предмета «медный лук» 64x64 (E2-4); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_meat.png,placeholder,К,значок предмета «мясо» 64x64 (E2-4); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_roast_meat.png,placeholder,К,значок предмета «жареное мясо» 64x64 (E2-4); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_obj_workbench.png,placeholder,К,"объект «верстак» 128x160, вид сверху с наклоном, опора — низ по центру (E2-4); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_campfire.png,placeholder,К,"объект «костёр» 128x160, опора — низ по центру (E2-4); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_torch.png,placeholder,К,"объект «факел на земле» 128x160, опора — низ по центру (E2-4); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_chest.png,placeholder,К,"объект «сундук» 128x160, вид сверху с наклоном, опора — низ по центру (E2-5); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_bed.png,placeholder,К,"объект «кровать» 128x160 (в ядре 1 x 1, в `05` 1 x 2), опора — низ по центру (E2-5); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_floor_wood.png,placeholder,К,"пол «деревянный» 128x128 (доски), плитка встык, без уголка (E2-5, исключение E1-9: решётка уголков на всём полу); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_floor_stone.png,placeholder,К,"пол «каменный» 128x128 (плиты), плитка встык, без уголка (E2-5, исключение E1-9); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_floor_platform.png,placeholder,К,"пол «настил над водой» 128x128, плитка встык, без уголка (E2-5, исключение E1-9); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_wall_wood.png,placeholder,К,"стена деревянная 128x128 (сруб сверху, тень к зрителю), плитка встык, без уголка (E2-5, исключение E1-9: стены идут сплошной линией); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_wall_stone.png,placeholder,К,"стена каменная 128x128 (кладка), плитка встык, без уголка (E2-5, исключение E1-9); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_fence.png,placeholder,К,"забор деревянный 128x128 (жерди и столбики), плитка встык, без уголка (E2-5, исключение E1-9); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_door.png,placeholder,К,"дверь деревянная закрытая 128x128, плитка в ряду стены, без уголка (E2-5, исключение E1-9); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_door_open.png,placeholder,К,"дверь деревянная открытая 128x128, плитка в ряду стены, без уголка (E2-5, исключение E1-9); скрипт tools/make_item_icons.py"

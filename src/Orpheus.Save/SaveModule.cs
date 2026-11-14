@@ -17,10 +17,12 @@ namespace Orpheus.Save
         /// 7 — сумка ячейками (payload 121 байт вместо 23) и кучи на земле (<c>CreaturesField.Pile</c>, <c>WorldField.NextPileId</c>;
         /// E2-1): у форматов 4–6 сумка-счётчики читается и раскладывается по ячейкам (<c>Inventory.ReadLegacyPayload</c>), куч нет.
         /// 8 — очередь изготовления у сущности (<c>EntityField.Craft</c>, E2-3): у форматов 1–7 поля нет — очередь пустая.
+        /// 9 — сундуки с содержимым (<c>CreaturesField.Chest</c>) и точка возрождения у кровати (<c>EntityField.BedX/BedY</c>,
+        /// <c>CharacterField.BedX/BedY</c>; E2-5): у форматов 1–8 сундуки пустые, кровати нет — возрождение у старта.
         /// Миграций ещё нет: формат 1 читается тем же кодом, у сущностей без полей уворота он нулевой; формат 1–2 — без
         /// персонажей; формат 3 — персонажи без сумки (стартовый набор) (6.7: «новое поле с умолчанием миграции не требует»).
         /// </summary>
-        public const uint FormatVersion = 8;
+        public const uint FormatVersion = 9;
 
         /// <summary>Версия сборки в заголовке сохранения: растёт с выпусками.</summary>
         public const uint BuildVersion = 1;

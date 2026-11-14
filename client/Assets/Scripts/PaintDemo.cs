@@ -255,7 +255,70 @@ namespace Orpheus.Client
             Debug.Log($"[paint-forest] лес для замера: тайлов {n}, деревьев {trees} ({100f * trees / Mathf.Max(n, 1):0} %)");
         }
 
+        /// <summary>
+        /// Дом для сцен E2-5 (<c>--ui-demo build|chest|house</c>) вокруг тайла персонажа (cx, cy): <c>house</c> — каменные
+        /// стены 7 × 6 с дверью внизу, деревянный пол внутри, верстак, сундук, кровать, факел, дорожка из каменного пола к
+        /// двери; <c>build</c> — недостроенный угол (часть стен, пол) и дерево слева (красный призрак); <c>chest</c> — сундук
+        /// в двух тайлах восточнее на деревянном полу. Только для снимков: пишет базовые тайлы мира без записей построек.
+        /// </summary>
+        public static void House(WorldModel world, MapShape map, int cx, int cy, string mode)
+        {
+            if (mode == "chest")
+            {
+                Rect(world, map, cx - 1, cy - 1, 5, 3, FloorId.WoodFloor);
+                Light(world, map, cx + 2, cy, ObjectId.Chest);
+                Light(world, map, cx - 2, cy - 1, ObjectId.Torch);
+                return;
+            }
+
+            if (mode == "build")
+            {
+                Rect(world, map, cx + 1, cy - 3, 4, 3, FloorId.WoodFloor);
+                for (int x = cx; x <= cx + 5; x++)
+                {
+                    Light(world, map, x, cy - 4, ObjectId.StoneWall);
+                }
+
+                for (int y = cy - 4; y <= cy - 2; y++)
+                {
+                    Light(world, map, cx + 5, y, ObjectId.StoneWall);
+                }
+
+                Light(world, map, cx - 3, cy + 1, ObjectId.Tree);
+                Light(world, map, cx - 2, cy - 2, ObjectId.Workbench);
+                return;
+            }
+
+            // house: стены по контуру x ∈ [cx − 3; cx + 3], y ∈ [cy − 3; cy + 2]; дверь — (cx, cy + 2).
+            int x0 = cx - 3, x1 = cx + 3, y0 = cy - 3, y1 = cy + 2;
+            Rect(world, map, x0 + 1, y0 + 1, x1 - x0 - 1, y1 - y0 - 1, FloorId.WoodFloor);
+            Rect(world, map, cx, y1 + 1, 1, 3, FloorId.StoneFloor);
+            for (int x = x0; x <= x1; x++)
+            {
+                Light(world, map, x, y0, ObjectId.StoneWall);
+                Light(world, map, x, y1, x == cx ? ObjectId.Door : ObjectId.StoneWall);
+            }
+
+            for (int y = y0 + 1; y < y1; y++)
+            {
+                Light(world, map, x0, y, ObjectId.StoneWall);
+                Light(world, map, x1, y, ObjectId.StoneWall);
+            }
+
+            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed);
+            Light(world, map, x1 - 1, y0 + 1, ObjectId.Workbench);
+            Light(world, map, x1 - 1, y1 - 1, ObjectId.Chest);
+            Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
+            for (int x = x1 + 2; x <= x1 + 6; x++)
+            {
+                Light(world, map, x, y1, ObjectId.WoodFence); // забор двора
+            }
+        }
+
         /// <summary>Поставить источник света (факел/костёр) на существующий пол (E1-8).</summary>
+        /// <summary>Поставить объект на тайл показа (E2-4: верстак для сцены окна крафта); пол остаётся.</summary>
+        public static void Put(WorldModel world, MapShape map, int x, int y, ushort obj) => Light(world, map, x, y, obj);
+
         static int Light(WorldModel world, MapShape map, int x, int y, ushort obj)
         {
             TileCoord t = Torus.Wrap(map, new TileCoord(x, y));

@@ -98,6 +98,23 @@ namespace Orpheus.Core.Sim
             }
 
             StateHashResult r = Compute(sim.World, sim.Tick, sim.WorldTime, sim.Entities);
+            if (sim.ChestCount > 0)
+            {
+                // Сундуки с содержимым (E2-5) входят в состояние: тайл и ячейки по порядку (Y, X). Сундуков нет — хэш прежний.
+                var hc = new Hasher64(r.Total);
+                ReadOnlySpan<Geometry.TileCoord> tiles = sim.ChestTiles;
+                ReadOnlySpan<Inventory> chests = sim.ChestContents;
+                hc.Add(tiles.Length);
+                for (int i = 0; i < tiles.Length; i++)
+                {
+                    hc.Add(tiles[i].X);
+                    hc.Add(tiles[i].Y);
+                    chests[i].AddTo(ref hc);
+                }
+
+                r = new StateHashResult(r.Tick, hc.Value, r.World);
+            }
+
             if (sim.NextPileId == 1)
             {
                 return r; // куч не было ни разу — хэш тот же, что до E2-1 (эталоны сценариев без добычи не меняются)
@@ -231,6 +248,12 @@ namespace Orpheus.Core.Sim
             if (!e.Craft.IsEmpty)
             {
                 e.Craft.AddTo(ref h); // очередь изготовления (E2-3) — только непустая: хэши сценариев без крафта прежние
+            }
+
+            if (e.HasBed)
+            {
+                h.Add(e.Bed.X); // точка возрождения (E2-5) — только назначенная: хэши сценариев без кровати прежние
+                h.Add(e.Bed.Y);
             }
 
             return h.Value;

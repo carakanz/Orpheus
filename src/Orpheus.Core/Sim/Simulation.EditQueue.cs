@@ -68,8 +68,12 @@ namespace Orpheus.Core.Sim
             public readonly int Tag;
             public readonly bool CheckCreatures;
 
-            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit, int requester, int tag, bool checkCreatures)
+            /// <summary>Починка (E2-5): цена — по недостающей доле прочности (<c>PreRepair</c>), не цена постановки.</summary>
+            public readonly bool Repair;
+
+            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit, int requester, int tag, bool checkCreatures, bool repair = false)
             {
+                Repair = repair;
                 Chunk = chunk;
                 Arrival = arrival;
                 Edit = edit;

@@ -160,6 +160,8 @@ namespace Orpheus.Net.Session
                 Mover m = sim.Entities[slot].Mover;
                 r.Mover = m;
                 r.Inv = sim.Entities[slot].Inv; // сумка остаётся за ключом (1-002)
+                r.HasBed = sim.Entities[slot].HasBed; // E2-5: точка возрождения у кровати — тоже
+                r.Bed = sim.Entities[slot].Bed;
                 sim.RemoveEntity(r.EntityId);
             }
 

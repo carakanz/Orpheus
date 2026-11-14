@@ -51,6 +51,10 @@ namespace Orpheus.Core.Sim
             public byte From;
             public byte To;
             public ushort Count;
+
+            /// <summary>Заявка с открытым сундуком (E2-5): ячейки от <see cref="ChestCellBase"/> — ячейки сундука на этом тайле.</summary>
+            public bool HasChest;
+            public TileCoord Chest;
         }
 
         private GroundPile[] _piles = new GroundPile[64];
@@ -212,6 +216,12 @@ namespace Orpheus.Core.Sim
                     CraftRefusedEvent(tick, r.EntityId, r.Op, r.From, CraftReply.Dead); // умер между заявкой и тактом — ответ всё равно один
                 }
 
+                return;
+            }
+
+            if (r.HasChest)
+            {
+                ApplyChestOp(tick, slot, r); // E2-5: сумка ↔ сундук
                 return;
             }
 

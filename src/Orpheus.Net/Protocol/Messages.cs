@@ -121,6 +121,17 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: очередь изготовления персонажа — владельцу, когда изменилась (E2-3).</summary>
         CraftState = 32,
+
+        // E2-5, объекты с действием и сундук (docs/05 1.3, 7.3), канал 2. Протокол 23.
+
+        /// <summary>Клиент → сервер, канал 2: действие с объектом (F): открыть сундук, назначить кровать; закрыть сундук (E2-5).</summary>
+        UseRequest = 33,
+
+        /// <summary>Сервер → клиент, канал 2: ответ на действие — принято или причина (E2-5).</summary>
+        UseReply = 34,
+
+        /// <summary>Сервер → клиент, канал 2: содержимое открытого сундука или «закрыт» (E2-5).</summary>
+        ChestState = 35,
     }
 
     /// <summary>
@@ -1108,12 +1119,16 @@ namespace Orpheus.Net.Protocol
             return w.BytesWritten;
         }
 
+        /// <summary>Ячеек в заявке: сумка (0…39) и открытый сундук (40…69; E2-5).</summary>
+        public const int MaxCell = Inventory.Cells + Simulation.ChestCells;
+
         public static BagRequestMessage Read(ReadOnlySpan<byte> src)
         {
             var r = Codec.Begin(src, MessageType.BagRequest);
             var m = new BagRequestMessage { Op = (BagOp)r.ReadByte(), From = r.ReadByte(), To = r.ReadByte(), Count = r.ReadUInt16() };
             r.ExpectEnd();
-            if (m.Op < BagOp.Move || m.Op > BagOp.Drop || m.From >= Inventory.Cells || m.To >= Inventory.Cells)
+            // E2-5: ячейки от Inventory.Cells — ячейки открытого сундука (их 30); какой сундук — помнит сервер.
+            if (m.Op < BagOp.Move || m.Op > BagOp.Drop || m.From >= MaxCell || m.To >= MaxCell)
             {
                 throw new ProtocolException($"Заявка на сумку: операция {(byte)m.Op}, ячейки {m.From} → {m.To}.");
             }
@@ -1147,11 +1162,11 @@ namespace Orpheus.Net.Protocol
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
         /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001), 26 (сумка, 1-002) и 27…29 (кучи и заявка на сумку, E2-1;
-        /// затем 30…32 — крафт, E2-3; последний — CraftState); 15 не занят.
+        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; последний — ChestState); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.CraftState);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.ChestState);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)

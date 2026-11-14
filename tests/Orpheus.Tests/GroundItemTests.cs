@@ -759,8 +759,8 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "кучи", chars), 3, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(8u, f.Header.FormatVersion); // 8 — очередь изготовления (E2-3); сумка и кучи — как в формате 7
-            Assert.Equal(8u, SaveModule.FormatVersion);
+            Assert.Equal(9u, f.Header.FormatVersion); // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5); сумка и кучи — как в формате 7
+            Assert.Equal(9u, SaveModule.FormatVersion);
 
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(bag, st.Characters[0].Inv);
@@ -926,7 +926,7 @@ namespace Orpheus.Tests
 
             // Пересохранение: формат 7, сумки и кучи те же, хэш состояния тот же.
             byte[] v7 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), again.Name, again.Characters), 5, 0);
-            Assert.Equal(8u, SaveContainer.Read(v7).Header.FormatVersion); // нынешний формат (8 с E2-3)
+            Assert.Equal(9u, SaveContainer.Read(v7).Header.FormatVersion); // нынешний формат (9 с E2-5)
             LoadedWorldState st7 = WorldSave.Load(SaveContainer.Read(v7), WorldSnapshot.LoadBase(baseBytes), WorldSnapshot.StoredHash(baseBytes));
             Assert.Equal(orpheus, st7.Characters[0].Inv);
             Assert.Equal(eurydice, st7.Characters[1].Inv);
@@ -1130,7 +1130,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_Net_GoldenBytes_Piles_PileGone_BagRequest()
         {
-            Assert.Equal(22, NetModule.ProtocolVersion); // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3)
+            Assert.Equal(23, NetModule.ProtocolVersion); // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5)
 
             var buf = new byte[PilesMessage.MaxBytes];
             var piles = new[]
@@ -1164,7 +1164,7 @@ namespace Orpheus.Tests
             BagRequestMessage req = BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal(BagOp.Split, req.Op);
             Assert.Equal(15, req.Count);
-            buf[2] = 40; // ячейка вне сумки
+            buf[2] = 70; // ячейка вне сумки и сундука (E2-5: 40…69 — ячейки открытого сундука)
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
             buf[2] = 6;
             buf[1] = 0; // нет такой операции
@@ -1255,7 +1255,7 @@ namespace Orpheus.Tests
             Assert.Equal(Items.None, a.Inv.ItemAt(7));
             Assert.Equal(15, Assert.Single(a.Piles).Count);
             Assert.Equal(15, Assert.Single(b.Piles).Count);
-            Assert.False(a.RequestBagMove(0, 40));
+            Assert.False(a.RequestBagMove(0, 70)); // E2-5: 40…69 — сундук
             Assert.Equal(3, rig.Server.BagRequestsReceived);
 
             NetClient late = rig.Join();

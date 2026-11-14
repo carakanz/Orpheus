@@ -41,7 +41,7 @@ namespace Orpheus.Net.Session
 
         private bool SendBagRequest(BagOp op, int from, int to, int count)
         {
-            if (State != NetClientState.InGame || (uint)from >= Inventory.Cells || (uint)to >= Inventory.Cells || count < 0)
+            if (State != NetClientState.InGame || (uint)from >= BagRequestMessage.MaxCell || (uint)to >= BagRequestMessage.MaxCell || count < 0) // E2-5: 40…69 — сундук
             {
                 return false;
             }

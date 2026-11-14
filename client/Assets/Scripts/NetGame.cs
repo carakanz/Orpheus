@@ -491,7 +491,7 @@ namespace Orpheus.Client
             // 1-002: прицел и ячейка — в каждый кадр ввода (журнал 2.4); в net-smoke кадр скриптованный, без мыши.
             ushort aim = _args.NetSmokeSeconds > 0 ? (ushort)0 : ComputeAim();
             byte slot = _args.NetSmokeSeconds > 0 ? SmokeMeleeSlot(now) : (byte)_slot;
-            if (_args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame())
+            if (_args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame() && !ShiftForWindow())
             {
                 _dodgeWait = DodgeWaitFrames; // 0-034: нажатие ждёт направления до 0,1 с
                 DodgePresses++;
@@ -783,9 +783,24 @@ namespace Orpheus.Client
 
         // E1-1 (план, шаг 1.1): колесо мыши — обзор от 40 до 96 тайлов в ширину, как офлайн; на геймпаде — плечи.
         // Ячейка быстрой панели (1-002, `02` 1.1): клавиши 1–8 или колесо с зажатым Alt — до окна панели (шаг 2.2).
+        /// <summary>
+        /// E2-4: Shift нажат, пока курсор над открытым окном (Shift+ЛКМ — «перекинуть») — в игру уворотом не уходит.
+        /// X и кнопка геймпада уворачиваются как раньше.
+        /// </summary>
+        bool ShiftForWindow()
+        {
+            Keyboard? kb = Keyboard.current;
+            return _ui != null && _ui.OverWindow && kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame);
+        }
+
         void UpdateZoom()
         {
             float scroll = _g.ZoomAxis.ReadValue<float>();
+            if (_ui != null && _ui.OverWindow)
+            {
+                scroll = 0f; // E2-4: колесо над окном сумки или крафта обзор не меняет
+            }
+
             Keyboard? kb = Keyboard.current;
             bool slotWheel = kb != null && (kb.leftAltKey.isPressed || kb.rightAltKey.isPressed);
             if (scroll > 0.01f)

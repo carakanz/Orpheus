@@ -404,6 +404,64 @@ namespace Orpheus.Core.Sim
             return true;
         }
 
+        /// <summary>
+        /// Переместить ячейку одной сумки в ячейку другой (E2-5: сумка ↔ сундук) — те же правила, что у
+        /// <see cref="Move(int, int)"/>: пустая цель — перенос, тот же предмет — доукладка, иначе обмен.
+        /// </summary>
+        public static bool Move(ref Inventory src, int from, ref Inventory dst, int to)
+        {
+            if ((uint)from >= Cells || (uint)to >= Cells || src.Raw(from) == 0)
+            {
+                return false;
+            }
+
+            uint a = src.Raw(from), b = dst.Raw(to);
+            if (b != 0 && (byte)a == (byte)b)
+            {
+                int put = Math.Min((int)(a >> 8), ItemTable.MaxStackOf((byte)a) - (int)(b >> 8));
+                if (put > 0)
+                {
+                    dst.SetRaw(to, Pack((byte)b, (int)(b >> 8) + put));
+                    src.SetRaw(from, Pack((byte)a, (int)(a >> 8) - put));
+                    return true;
+                }
+            }
+
+            src.SetRaw(from, b);
+            dst.SetRaw(to, a);
+            return true;
+        }
+
+        /// <summary>Отделить <paramref name="count"/> штук из ячейки одной сумки в ячейку другой (E2-5) — правила <see cref="Split(int, int, int)"/>.</summary>
+        public static bool Split(ref Inventory src, int from, ref Inventory dst, int to, int count)
+        {
+            if ((uint)from >= Cells || (uint)to >= Cells || count <= 0)
+            {
+                return false;
+            }
+
+            uint a = src.Raw(from), b = dst.Raw(to);
+            int have = (int)(a >> 8);
+            if (a == 0 || count > have)
+            {
+                return false;
+            }
+
+            int there = 0;
+            if (b != 0)
+            {
+                there = (int)(b >> 8);
+                if ((byte)b != (byte)a || there + count > ItemTable.MaxStackOf((byte)a))
+                {
+                    return false;
+                }
+            }
+
+            dst.SetRaw(to, Pack((byte)a, there + count));
+            src.SetRaw(from, Pack((byte)a, have - count));
+            return true;
+        }
+
         /// <summary>Вынуть из ячейки до <paramref name="count"/> штук (выброс на землю); возвращает, сколько вынуто.</summary>
         public int TakeFrom(int cell, int count)
         {

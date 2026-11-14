@@ -421,10 +421,10 @@ namespace Orpheus.Tests
             }
 
             Assert.Equal(EditReply.DigFirst, EditRules.CheckPlaceTile(world, me, new TileCoord(11, 10), ObjectId.WoodWall));
-            Assert.Equal(EditReply.DigFirst, EditRules.CheckPlaceTile(world, me, new TileCoord(11, 10), FloorId.WoodFloor));
+            Assert.Equal(EditReply.DigFirst, EditRules.CheckPlaceTile(world, me, new TileCoord(11, 10), BuildDefs.WoodFloorKey));
             Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(world, me, new TileCoord(10, 11), ObjectId.WoodWall));
-            Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(world, me, new TileCoord(10, 11), FloorId.WoodFloor));
-            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(world, me, new TileCoord(10, 11), FloorId.Platform));
+            Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(world, me, new TileCoord(10, 11), BuildDefs.WoodFloorKey));
+            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(world, me, new TileCoord(10, 11), BuildDefs.PlatformKey));
 
             Assert.False(FloorId.IsPassable(FloorId.Water));
             Assert.True(FloorId.IsPassable(FloorId.DryGrass));

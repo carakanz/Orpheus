@@ -102,6 +102,10 @@ namespace Orpheus.Save
 
             /// <summary>Куча на земле (E2-1, формат 7): запись <see cref="PileField"/>; по возрастанию номера.</summary>
             public const int Pile = 2;
+
+            /// <summary>Сундук с содержимым (E2-5, формат 9): запись <see cref="ChestField"/>; по возрастанию (Y, X) тайла.
+            /// Пустой сундук записи не имеет.</summary>
+            public const int Chest = 3;
         }
 
         /// <summary>Поля записи сущности (минимально: то, что есть в такте 0-006; уворот — с формата 2, 0-029).</summary>
@@ -298,6 +302,12 @@ namespace Orpheus.Save
             /// <summary>Очередь изготовления (<c>Craft</c>, формат 8, E2-3): payload <c>CraftQueue.PayloadBytes</c> байт; пишется,
             /// только если очередь не пуста. Нет поля (форматы 1–7 и пустая очередь) — очередь пустая.</summary>
             public const int Craft = 65;
+
+            /// <summary>Точка возрождения у кровати (E2-5, формат 9): тайл X; пишется, только если назначена. Нет поля — у старта.</summary>
+            public const int BedX = 66;
+
+            /// <summary>Точка возрождения у кровати: тайл Y.</summary>
+            public const int BedY = 67;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>
@@ -362,6 +372,20 @@ namespace Orpheus.Save
 
             /// <summary>Удар: начало удара, y в 1/256 тайла.</summary>
             public const int MeleeOriginY = 22;
+
+            /// <summary>Точка возрождения у кровати (E2-5, формат 9): тайл X персонажа вне мира; нет поля — у старта.</summary>
+            public const int BedX = 23;
+
+            /// <summary>Точка возрождения у кровати: тайл Y.</summary>
+            public const int BedY = 24;
+        }
+
+        /// <summary>Поля записи сундука (E2-5, формат 9): тайл и ячейки (payload сумки, заняты первые 30 ячеек).</summary>
+        public static class ChestField
+        {
+            public const int X = 1;
+            public const int Y = 2;
+            public const int Cells = 3;
         }
 
         /// <summary>Поля записи кучи на земле (E2-1, формат 7).</summary>
@@ -435,7 +459,9 @@ namespace Orpheus.Save
                 .Field(EntityField.MeleeOriginX, "удар: x начала")
                 .Field(EntityField.MeleeOriginY, "удар: y начала")
                 .Field(EntityField.Inv, "сумка")
-                .Field(EntityField.Craft, "очередь изготовления"))
+                .Field(EntityField.Craft, "очередь изготовления")
+                .Field(EntityField.BedX, "кровать: x тайла")
+                .Field(EntityField.BedY, "кровать: y тайла"))
             .Field(CreaturesField.Pile, "куча на земле", new RecordSchema()
                 .Field(PileField.Id, "номер")
                 .Field(PileField.Item, "предмет")
@@ -443,7 +469,11 @@ namespace Orpheus.Save
                 .Field(PileField.X, "x, 1/256 тайла")
                 .Field(PileField.Y, "y, 1/256 тайла")
                 .Field(PileField.ExpireTick, "исчезнет на такте")
-                .Field(PileField.PickupTick, "подбор с такта"));
+                .Field(PileField.PickupTick, "подбор с такта"))
+            .Field(CreaturesField.Chest, "сундук", new RecordSchema()
+                .Field(ChestField.X, "x тайла")
+                .Field(ChestField.Y, "y тайла")
+                .Field(ChestField.Cells, "ячейки"));
 
         private static readonly RecordSchema CharactersSchema = new RecordSchema()
             .Field(CharactersField.Character, "персонаж", new RecordSchema()
@@ -468,7 +498,9 @@ namespace Orpheus.Save
                 .Field(CharacterField.MeleeResolved, "удар решён")
                 .Field(CharacterField.MeleeAimRaw, "удар: ось")
                 .Field(CharacterField.MeleeOriginX, "удар: x начала")
-                .Field(CharacterField.MeleeOriginY, "удар: y начала"));
+                .Field(CharacterField.MeleeOriginY, "удар: y начала")
+                .Field(CharacterField.BedX, "кровать: x тайла")
+                .Field(CharacterField.BedY, "кровать: y тайла"));
     }
 
     /// <summary>Имена полей записи и схемы вложенных записей (только для текстового вывода).</summary>

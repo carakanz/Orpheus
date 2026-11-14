@@ -114,6 +114,12 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            if (m.Op == TileOp.Repair)
+            {
+                OnRepair(p, s, pos, m, held); // E2-5: починка (NetServer.Use.cs)
+                return;
+            }
+
             // Копание запрашивается с любым предметом в руках (1-010): «нужен топор», «нужна кирка: медная» — ответ CheckDig
             // строкой, а не молчание (карточка: отказ показывается строкой сервера). DigStop проходит всегда.
 
@@ -246,7 +252,7 @@ namespace Orpheus.Net.Session
                     BuildDefs.TryGet(m.Obj, out BuildDef def) ? def.MaxIntegrity : BuildRecord.MaxIntegrity,
                     0, floor, 0);
                 if (check == EditReply.Accepted &&
-                    !_sim.RequestPlayerEdit(t, floorKey ? (byte)m.Obj : floor, floorKey ? ObjectId.Empty : m.Obj,
+                    !_sim.RequestPlayerEdit(t, floorKey ? BuildDefs.FloorOf(m.Obj) : floor, floorKey ? ObjectId.Empty : m.Obj,
                         true, rec, p.EntityId, tag))
                 {
                     check = QueueRefusal(p.EntityId); // очередь такта полна или персонаж мёртв (C-004)

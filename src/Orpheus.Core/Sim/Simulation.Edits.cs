@@ -81,7 +81,7 @@ namespace Orpheus.Core.Sim
         /// </summary>
         private void GiveBuildRefund(long tick, TileCoord tile, ushort preObj, byte preFloor, in BuildRecord rec)
         {
-            ushort key = preObj != ObjectId.Empty ? preObj : preFloor; // постройка — id объекта; снос пола — id построенного пола
+            ushort key = preObj != ObjectId.Empty ? preObj : BuildDefs.FloorKey(preFloor); // постройка — id объекта; снос пола — ключ пола (E2-5)
             if ((preObj == ObjectId.Empty && !FloorId.IsBuilt(preFloor)) || !BuildDefs.TryGet(key, out BuildDef def))
             {
                 return;
@@ -238,7 +238,7 @@ namespace Orpheus.Core.Sim
                 EditRules.NeedsClearance(obj) && !(obj == ObjectId.Door && hasRecord));
         }
 
-        private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, bool checkCreatures)
+        private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, bool checkCreatures, bool repair = false)
         {
             if (_editCount == _edits.Length)
             {
@@ -256,7 +256,7 @@ namespace Orpheus.Core.Sim
                 Torus.ChunkOf(_shape, t),
                 _editCount,
                 hasRecord ? new TileEdit(index, floor, obj, record) : new TileEdit(index, floor, obj),
-                requester, tag, checkCreatures);
+                requester, tag, checkCreatures, repair);
             _editCount++;
             return true;
         }
@@ -284,7 +284,7 @@ namespace Orpheus.Core.Sim
             }
 
             def = default;
-            return FloorId.IsBuilt(edit.Floor) && BuildDefs.TryGet(edit.Floor, out def);
+            return FloorId.IsBuilt(edit.Floor) && BuildDefs.TryGet(BuildDefs.FloorKey(edit.Floor), out def);
         }
 
         /// <summary>Вернуть стоимость постановки при отказе после списания (1-011, `05` 1.4).</summary>
@@ -367,6 +367,12 @@ namespace Orpheus.Core.Sim
                         AddDoor(TileOf(chunk, _edits[i].Edit.Index));
                     }
 
+                    // Сундук (E2-5): снесён или разрушен — содержимое кучами на его тайл (и от правок мира, без заказчика).
+                    if (result == EditResult.Applied && ObjectId.IdOf(_preObj[i]) == ObjectId.Chest && _edits[i].Edit.Obj != _preObj[i])
+                    {
+                        SpillChest(tick, TileOf(chunk, _edits[i].Edit.Index));
+                    }
+
                     int req = _edits[i].Requester;
                     if (req <= 0)
                     {
@@ -375,7 +381,11 @@ namespace Orpheus.Core.Sim
 
                     // Возврат оплаченного (1-011): «занято существом»/«враг»/«занято» после пачки — сумка целая
                     // (`05` 1.4: «его ресурсы не списаны»).
-                    if (_costPaid[i] != 0 && result != EditResult.Applied)
+                    if (_costPaid[i] == 2 && result != EditResult.Applied)
+                    {
+                        RefundRepair(i, req); // E2-5: починка оплачена, но не применилась
+                    }
+                    else if (_costPaid[i] != 0 && result != EditResult.Applied)
                     {
                         RefundCost(_edits[i].Edit, req);
                     }
@@ -438,6 +448,12 @@ namespace Orpheus.Core.Sim
                     e.Requester, e.Tag, e.CheckCreatures);
                 _preHasBuild[i] = false; // снос в обломки — без возврата (`05` 1.3); запись «получав урон» больше не считается сносимой
                 AddExpire(tick + BuildDefs.DebrisTicks, e.Chunk, index, debris: true);
+                return;
+            }
+
+            if (IsRepairEdit(i))
+            {
+                PreRepair(i); // E2-5: починка — цена по недостающей доле прочности, не цена постановки
                 return;
             }
 

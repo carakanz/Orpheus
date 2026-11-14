@@ -109,11 +109,22 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - CharacterRoster.cs: Restore (загрузка: очередь изготовления → в сумку записи) · Park (уход из мира: очередь → в сумку).
 - client/Assets/Scripts/PileView.cs: значки куч; NetGame.Edits.cs: HookPiles, BagHud (ячейки). tools/make_item_icons.py — заглушки значков.
 
+## Стройка, сундук, кровать (E2-5)
+- Sim/Simulation.Build.cs: RequestRepair · IsRepairEdit · PreRepair · RefundRepair · RequestSetBed · SetBed · RespawnPointOf · сундуки: ChestCells (30) · ChestCellBase · ChestTiles/ChestContents · TryGetChest · SetChest · RestoreChests · RequestChestOp · ApplyChestOp · SpillChest · StoreChest.
+- World/BuildDefs.cs: FloorKeyBase / WoodFloorKey… · FloorKey · FloorOf · Palette · Affordable · RepairCostOf · TryGet. World/EditRules.cs: Intact/UnderAttack/Paused (16–18) · MaxReply · UseRadiusTiles · InUseRadius · CheckRepair · RepairAffordable.
+- Net/Protocol/UseMessages.cs: UseOp · UseRequestMessage (33) · UseReplyMessage (34) · ChestStateMessage (35). EditMessages: TileOp.Repair (5). Messages: BagRequestMessage.MaxCell (70).
+- Net/Session/NetServer.Use.cs: OnRepair · OnUseRequest · OnChestBagRequest · SendChestTo · CloseChest. NetClient.Use.cs: Repair · RequestUse · RequestCloseChest · Chest/ChestOpen/ChestTile · UseReplied · ChestChanged.
+- Net/Session/BuildHand.cs: IBuildRequests · IUseRequests · BuildAction · BuildCheck · BuildHand (Step, Select, Check, Click, PlaceLine, CostLine, LastRequest). ObjectUse.cs: UseKind · KindOf · At · Find (правило F). BagHand: SyncChest · ChestBase · ItemAt/CountIn · FitTarget.
+- Save: SaveSections CreaturesField.Chest · ChestField · EntityField.BedX/BedY · CharacterField.BedX/BedY; WorldSave ReadChest. CharacterRecord.HasBed/Bed; CharacterRoster.Park (кровать за ключом).
+- client: UI/GameUi.Build.cs (UiBuildState, UiNote, ShowBuild, SyncChestWindow, OpenCraft, Notify) · UI/BuildBar.cs (BuildBar, ChestWindow) · UI/UiDemo.Build.cs (--ui-demo build|chest|house) · BuildGhost.cs · BuildLook.cs · NetGame.Edits.cs (BuildState, UseObject, HammerEdits) · PaintDemo.House.
+- tests/BuildTests.cs (E25_*); Golden/format8_craft.*.
+
 ## Интерфейс (E2-2) - client/Assets/Scripts/UI
 - UiRoot.cs: `UiRoot` (холст перед камерой, Fit, FromScreen, Node/Picture/Label), `UiGroup` (привязка, Contains/Local).
 - UiStyle.cs: цвета, `Frame` (рамка с 9 срезами кодом), `Font`.
-- UiParts.cs: `UiItemIcon`, `UiSlotGrid` (Set/Select/Hover/Hit), `UiWindow`, `UiTooltip`, `UiCarry`, `UiBar`.
-- GameUi.cs: `UiInput`, `BagWindow`, `GameUi` (ReadInput, Frame, PointerBlocked, EscapeUsed, SlotClicked), `UiDemo` (--ui-demo).
+- UiParts.cs: `UiItemIcon` (Set/Dim), `UiSlotGrid` (Set/Select/Hover/Hit), `UiWindow`, `UiButton` (E2-4: кнопка, вкладка, строка), `UiTooltip`, `UiCarry`, `UiBar`.
+- CraftWindow.cs (E2-4): `CraftWindow` (SelectTab/SelectRow, HitTest → `CraftHit`, CenterOf, Show: строки, карточка ShowCard, очередь ShowQueue); раскладка — константы в начале класса.
+- GameUi.cs: `UiInput`, `UiCraftState`, `BagWindow`, `GameUi` (ReadInput, Frame, CraftReplied, CraftClick / CraftKeys / Make, FindStation, Layout, PointerBlocked, OverWindow, EscapeUsed, SlotClicked), `UiDemo` (--ui-demo bag|hotbar|craft|craft+bag|craft-hint; CraftScript).
 - UiStrings.cs: строки и названия предметов по ключу.
 - src/Orpheus.Net/Session/BagHand.cs: `IBagRequests`, `BagHand` (Sync, Left, Right, Quick, Outside, ShownCount, QuickTarget); тесты `BagHandTests.cs`.
 - NetGame.Edits.cs: UiFrame (перед SendInput), блокировка мыши в UpdateEdits.
