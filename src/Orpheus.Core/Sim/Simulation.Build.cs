@@ -359,7 +359,7 @@ namespace Orpheus.Core.Sim
             {
                 if (chest.CountIn(c) > 0)
                 {
-                    SpawnPile(tick, chest.ItemAt(c), chest.CountIn(c), center, LootPickupDelayTicks, PileNeverExpires);
+                    SpawnPile(tick, chest.ItemAt(c), chest.CountIn(c), center, LootPickupDelayTicks, true);
                 }
             }
         }
