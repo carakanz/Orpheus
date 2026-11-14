@@ -167,6 +167,10 @@ namespace Orpheus.Client
         public static bool GroundShows(ChunkNode node, int lx, int ly, byte floor) =>
             node.HasFloors && !node.GroundDirty && node.Floors[Chunk.IndexOf(lx, ly)] == floor;
 
+        /// <summary>Замер (E1-7): время сборки объектов и теней целого чанка при входе в окно, такты Stopwatch, и число таких сборок.</summary>
+        public long FreshObjectTicks { get; private set; }
+        public int FreshObjectFills { get; private set; }
+
         /// <summary>Мешей строк объектов и теней собрано за всё время (E1-7).</summary>
         public int ObjectBuilds => _objects.Builds;
 
@@ -477,7 +481,7 @@ namespace Orpheus.Client
             int n = _objects.BuildRow(chunk, node.Coord, ly, RowMesh(node, ly));
             node.RowCounts[ly] = n;
             node.RowBlocks[ly] = n > 0 && _objects.RowHadBlocks;
-            node.Rows[ly]!.enabled = n > 0 && ObjectAtlas.Material != null;
+            node.Rows[ly]!.enabled = n > 0 && ObjectAtlas.Material != null && !WorldFx.Off("norows");
         }
 
         // Пришёл чанк-сосед (dx, dy от near): строки near с блоками у общего края собрать заново — контур и лицо
@@ -612,7 +616,14 @@ namespace Orpheus.Client
             node.Objects.SetTilesBlock(Block, _objBuf!);
             node.HasFloors = true;
             Fills++;
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             BuildObjects(node, chunk, all: fresh);
+            long dt = System.Diagnostics.Stopwatch.GetTimestamp() - t0;
+            if (fresh)
+            {
+                FreshObjectTicks += dt;
+                FreshObjectFills++;
+            }
 
             if (fresh)
             {

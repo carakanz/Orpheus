@@ -61,7 +61,7 @@ namespace Orpheus.Client
                 main.gameObject.AddComponent<WorldFxDriver>();
             }
 
-            if (set.ShadowCompositeShader != null && ObjectAtlas.ShadowMaterial != null)
+            if (set.ShadowCompositeShader != null && ObjectAtlas.ShadowMaterial != null && !Off("noshadow"))
             {
                 var go = new GameObject("ShadowCamera");
                 _shadowCam = go.AddComponent<Camera>();
@@ -83,6 +83,9 @@ namespace Orpheus.Client
             Sync(main.aspect, main.pixelHeight);
             Debug.Log($"[fx] слой теней: {(_shadowCam != null ? "есть" : "нет")}");
         }
+
+        /// <summary>Отладка замеров: переменная среды ORPH_FX со словами noshadow, notint, norows выключает слой.</summary>
+        public static bool Off(string word) => (System.Environment.GetEnvironmentVariable("ORPH_FX") ?? "").Contains(word);
 
         // Большой квадрат перед камерой (едет вместе с ней): закрывает любой обзор.
         static void Overlay(Camera main, string name, Material material, int order)

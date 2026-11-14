@@ -608,7 +608,8 @@ namespace Orpheus.Client
             Debug.Log($"[tilebench] окно: ног пройдено {_legsDone}, макс {_maxWindow} чанков (предел {ChunkWindow.MaxChunks}), дыр {_holes}, " +
                       $"узлов создано {_view.NodesCreated} (Tilemap-рендереров {2 * _view.NodesCreated}), мешей земли собрано {_view.GroundBuilds}, " +
                       $"видимых тайлов объектов (отрисовок Individual) ~{_visibleObjects}, объектов «с высотой» в окне до {_objectQuads} " +
-                      $"(мешей строк и теней собрано {_view.ObjectBuilds}); GC {gcKbPerFrame:0.0} КБ/кадр; " +
+                      $"(мешей строк и теней собрано {_view.ObjectBuilds}, объекты чанка при входе — " +
+                      $"{_view.FreshObjectTicks * 1e6 / System.Diagnostics.Stopwatch.Frequency / Math.Max(_view.FreshObjectFills, 1):0} мкс × {_view.FreshObjectFills}); GC {gcKbPerFrame:0.0} КБ/кадр; " +
                       $"тайлов сверено {_tilesChecked}, расхождений с ядром {_tileMismatches}");
 
             int code = _errors == 0 && _holes == 0 && _sameFrameBad == 0 && _tileMismatches == 0 && n > 0 ? 0 : 1;
