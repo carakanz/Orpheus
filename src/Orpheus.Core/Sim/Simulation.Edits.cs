@@ -367,6 +367,12 @@ namespace Orpheus.Core.Sim
                         AddDoor(TileOf(chunk, _edits[i].Edit.Index));
                     }
 
+                    // Сундук (E2-5): снесён или разрушен — содержимое кучами на его тайл (и от правок мира, без заказчика).
+                    if (result == EditResult.Applied && ObjectId.IdOf(_preObj[i]) == ObjectId.Chest && _edits[i].Edit.Obj != _preObj[i])
+                    {
+                        SpillChest(tick, TileOf(chunk, _edits[i].Edit.Index));
+                    }
+
                     int req = _edits[i].Requester;
                     if (req <= 0)
                     {
@@ -375,7 +381,11 @@ namespace Orpheus.Core.Sim
 
                     // Возврат оплаченного (1-011): «занято существом»/«враг»/«занято» после пачки — сумка целая
                     // (`05` 1.4: «его ресурсы не списаны»).
-                    if (_costPaid[i] != 0 && result != EditResult.Applied)
+                    if (_costPaid[i] == 2 && result != EditResult.Applied)
+                    {
+                        RefundRepair(i, req); // E2-5: починка оплачена, но не применилась
+                    }
+                    else if (_costPaid[i] != 0 && result != EditResult.Applied)
                     {
                         RefundCost(_edits[i].Edit, req);
                     }
@@ -438,6 +448,12 @@ namespace Orpheus.Core.Sim
                     e.Requester, e.Tag, e.CheckCreatures);
                 _preHasBuild[i] = false; // снос в обломки — без возврата (`05` 1.3); запись «получав урон» больше не считается сносимой
                 AddExpire(tick + BuildDefs.DebrisTicks, e.Chunk, index, debris: true);
+                return;
+            }
+
+            if (IsRepairEdit(i))
+            {
+                PreRepair(i); // E2-5: починка — цена по недостающей доле прочности, не цена постановки
                 return;
             }
 

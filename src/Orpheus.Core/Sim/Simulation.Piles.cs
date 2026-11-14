@@ -51,6 +51,10 @@ namespace Orpheus.Core.Sim
             public byte From;
             public byte To;
             public ushort Count;
+
+            /// <summary>Заявка с открытым сундуком (E2-5): ячейки от <see cref="ChestCellBase"/> — ячейки сундука на этом тайле.</summary>
+            public bool HasChest;
+            public TileCoord Chest;
         }
 
         private GroundPile[] _piles = new GroundPile[64];
@@ -210,6 +214,12 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
+            if (r.HasChest)
+            {
+                ApplyChestOp(tick, slot, r); // E2-5: сумка ↔ сундук
+                return;
+            }
+
             ref Inventory inv = ref _entities[slot].Inv; // сумка в массиве сущностей, не копия
             switch (r.Op)
             {
@@ -257,7 +267,7 @@ namespace Orpheus.Core.Sim
             SpawnPile(tick, item, count, pos, LootPickupDelayTicks);
         }
 
-        private int SpawnPile(long tick, byte item, int count, WorldPos position, int pickupDelayTicks)
+        private int SpawnPile(long tick, byte item, int count, WorldPos position, int pickupDelayTicks, long expireTick = 0)
         {
             if (count <= 0 || !ItemTable.Exists(item))
             {
@@ -265,7 +275,7 @@ namespace Orpheus.Core.Sim
             }
 
             WorldPos pos = FreeGroundNear(Torus.Wrap(_shape, position));
-            long expire = tick + PileLifetimeTicks;
+            long expire = expireTick != 0 ? expireTick : tick + PileLifetimeTicks;
             long pickup = tick + Math.Max(0, pickupDelayTicks);
             int first = 0;
             while (count > 0)

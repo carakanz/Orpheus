@@ -1,3 +1,4 @@
+using System;
 using Orpheus.Core.Sim;
 
 namespace Orpheus.Core.World
@@ -71,11 +72,47 @@ namespace Orpheus.Core.World
             // В документе 2 × 2; пока 1 × 1 — многотайловой постановки в ядре нет (допущение E2-3).
             Table[ObjectId.Workbench] = new BuildDef(Material.Wood, 10, Material.Stone, 6, 100, false);
 
+            // Сундук и кровать (E2-5; `05` 1.3: сундук 8 древесины / 100, кровать 10 древесины + 5 волокна / 40).
+            // Кровать в документе 1 × 2; пока 1 × 1 — многотайловой постановки в ядре нет (допущение E2-5, как у верстака).
+            Table[ObjectId.Chest] = new BuildDef(Material.Wood, 8, Material.Wood, 0, 100, false);
+            Table[ObjectId.Bed] = new BuildDef(Material.Wood, 10, Material.Fiber, 5, 40, false);
+
             // Полы: «не бьют» — прочность полная, снос возвращает рецепт целиком; над глубиной настил 2 — за генератором (`01` 5, `[док]`).
             Table[FloorId.WoodFloor] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
             Table[FloorId.StoneFloor] = new BuildDef(Material.Stone, 1, Material.Stone, 0, BuildRecord.MaxIntegrity, true);
             Table[FloorId.Platform] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
         }
+
+        private static readonly ushort[] PaletteKeys =
+        {
+            FloorId.WoodFloor, FloorId.StoneFloor, FloorId.Platform,
+            ObjectId.WoodWall, ObjectId.StoneWall, ObjectId.WoodFence, ObjectId.Door,
+            ObjectId.Torch, ObjectId.Campfire, ObjectId.Workbench, ObjectId.Chest, ObjectId.Bed,
+        };
+
+        /// <summary>
+        /// Лента построек режима стройки (E2-5, `05` 1.3 «палитра»): ключи таблицы в порядке показа — полы, стены, забор,
+        /// дверь, свет, станки, хранение, мебель. Калитки отдельной нет: калитка — дверь в заборе (`05` 3.3).
+        /// </summary>
+        public static ReadOnlySpan<ushort> Palette => PaletteKeys;
+
+        /// <summary>Хватает ли в сумке материалов на постройку (та же смета, что списывает такт).</summary>
+        public static bool Affordable(in BuildDef def, in Inventory bag)
+        {
+            if (def.Count2 > 0 && def.Material2 == def.Material1)
+            {
+                return bag.CountAt(def.Material1) >= def.Count1 + def.Count2;
+            }
+
+            return bag.CountAt(def.Material1) >= def.Count1 && (def.Count2 <= 0 || bag.CountAt(def.Material2) >= def.Count2);
+        }
+
+        /// <summary>
+        /// Цена починки (`05` 1.3): по каждому материалу рецепта ⌈количество × недостающая доля прочности⌉
+        /// (каменная стена на половине прочности — 1 камень).
+        /// </summary>
+        public static int RepairCostOf(int count, ushort integrity, ushort maxIntegrity) =>
+            maxIntegrity == 0 || integrity >= maxIntegrity ? 0 : (int)(((long)count * (maxIntegrity - integrity) + maxIntegrity - 1) / maxIntegrity);
 
         /// <summary>Описание постройки по ключу (id объекта или id построенного пола); вне таблицы — false.</summary>
         public static bool TryGet(ushort key, out BuildDef def)

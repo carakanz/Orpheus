@@ -65,6 +65,15 @@ namespace Orpheus.Core.World
         /// <summary>«ты мёртв» (C-004 + E2-1, протокол 21): запрос от персонажа-трупа (5 с до возрождения) — мёртвый не копает и не строит.
         /// Раньше такой отказ уходил кодом «очередь полна».</summary>
         Dead = 15,
+
+        /// <summary>«цело» (E2-5, протокол 23): чинить нечего — прочность полная.</summary>
+        Intact = 16,
+
+        /// <summary>«под ударом» (E2-5, `05` 1.3): постройку, недавно получавшую урон, чинить нельзя.</summary>
+        UnderAttack = 17,
+
+        /// <summary>«пауза» (E2-5): действие с объектом во время паузы мира.</summary>
+        Paused = 18,
     }
 
     /// <summary>
@@ -112,6 +121,9 @@ namespace Orpheus.Core.World
                 case EditReply.Debris: return "обломки";
                 case EditReply.NoResources: return "нет ресурсов";
                 case EditReply.Dead: return "ты мёртв";
+                case EditReply.Intact: return "цело";
+                case EditReply.UnderAttack: return "под ударом";
+                case EditReply.Paused: return "пауза";
                 default: return "нельзя";
             }
         }
@@ -222,6 +234,8 @@ namespace Orpheus.Core.World
                 case ObjectId.Door:
                 case ObjectId.Campfire:
                 case ObjectId.Workbench: // E2-3: верстак I, пока 1 × 1
+                case ObjectId.Chest:     // E2-5: сундук
+                case ObjectId.Bed:       // E2-5: кровать, пока 1 × 1
                     return true;
                 default:
                     return false;
@@ -357,6 +371,63 @@ namespace Orpheus.Core.World
 
             return EditReply.Accepted;
         }
+
+        /// <summary>Наибольший код ответа (проверка сообщений сети).</summary>
+        public const EditReply MaxReply = EditReply.Paused;
+
+        /// <summary>Объекты с действием (F) — в этом радиусе от тайла персонажа по оси максимума: 3 тайла (E2-5).</summary>
+        public const int UseRadiusTiles = 3;
+
+        /// <summary>Тайл в радиусе действия (сундук, кровать): от тайла персонажа ≤ 3 по оси максимума, по тору.</summary>
+        public static bool InUseRadius(in MapShape map, WorldPos center, TileCoord tile)
+        {
+            Int2 d = Torus.Delta(map, Torus.TileOf(map, center), Torus.Wrap(map, tile));
+            return Math.Abs(d.X) <= UseRadiusTiles && Math.Abs(d.Y) <= UseRadiusTiles;
+        }
+
+        /// <summary>
+        /// Проверка починки (E2-5, `05` 1.3 «Починка»): радиус постановки, на тайле постройка с неполной прочностью,
+        /// не получавшая урон недавно (флаг <see cref="BuildFlags.DamagedRecent"/>). Цена — по каждому материалу рецепта
+        /// ⌈количество × недостающая доля⌉ (<see cref="BuildDefs.RepairCostOf"/>); хватает ли — проверяет вызывающий
+        /// (<see cref="RepairAffordable"/>) и такт. Полы не чинятся (их не бьют).
+        /// </summary>
+        public static EditReply CheckRepair(WorldModel world, WorldPos center, TileCoord tile, out BuildDef def, out int cost1, out int cost2)
+        {
+            def = default;
+            cost1 = 0;
+            cost2 = 0;
+            if (!InPlaceRadius(world.Shape, center, tile))
+            {
+                return EditReply.OutOfReach;
+            }
+
+            TileCoord t = Torus.Wrap(world.Shape, tile);
+            ushort obj = world.GetObject(t);
+            if (obj == ObjectId.Empty || ObjectId.IsNatural(obj) || ObjectId.IsPart(obj)
+                || !world.TryGetBuild(t, out BuildRecord rec) || rec.IsDebris || !BuildDefs.TryGet(obj, out def))
+            {
+                return EditReply.Empty;
+            }
+
+            if (rec.Integrity >= def.MaxIntegrity)
+            {
+                return EditReply.Intact;
+            }
+
+            if (rec.IsDamagedRecent)
+            {
+                return EditReply.UnderAttack;
+            }
+
+            cost1 = BuildDefs.RepairCostOf(def.Count1, rec.Integrity, def.MaxIntegrity);
+            cost2 = def.Count2 > 0 ? BuildDefs.RepairCostOf(def.Count2, rec.Integrity, def.MaxIntegrity) : 0;
+            return EditReply.Accepted;
+        }
+
+        /// <summary>Хватает ли в сумке на починку с такой ценой.</summary>
+        public static bool RepairAffordable(in BuildDef def, int cost1, int cost2, in Sim.Inventory bag) =>
+            BuildDefs.Affordable(new BuildDef(def.Material1, cost1, def.Material2, cost2, def.MaxIntegrity, false), bag)
+            || (cost1 <= 0 && cost2 <= 0);
 
         /// <summary>
         /// Тайлы линии от <paramref name="from"/> до <paramref name="to"/> (Брезенхэм по кратчайшему пути тора, концы включены) —

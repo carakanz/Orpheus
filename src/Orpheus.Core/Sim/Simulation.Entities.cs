@@ -81,7 +81,7 @@ namespace Orpheus.Core.Sim
         private void Respawn(ref SimEntity e, long tick)
         {
             e.Health = e.MaxHealth;
-            e.Mover = new Mover(Torus.Wrap(_shape, _respawnCenter), e.Mover.UnitsPerTickX10);
+            e.Mover = new Mover(Torus.Wrap(_shape, RespawnPointOf(ref e)), e.Mover.UnitsPerTickX10); // E2-5: у кровати, если цела
             e.InvulnTicks = InvulnRespawnTicks;
             e.RegenTicks = RegenDelayTicks;
             e.RegenCarryX100 = 0;
