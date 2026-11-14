@@ -1,4 +1,5 @@
 using Orpheus.Core.Geometry;
+using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 
 namespace Orpheus.Bots
@@ -21,6 +22,8 @@ namespace Orpheus.Bots
         private readonly int[] _frames;
         private readonly long[] _resyncLast;
         private readonly long[] _resyncAtResume;
+        private readonly bool[] _hadPred;
+        private readonly long[] _resyncSeen;
         private bool _requested;
         private bool _released;
 
@@ -43,6 +46,9 @@ namespace Orpheus.Bots
                 _resyncAtResume[i] = -1;
             }
 
+            _hadPred = new bool[n];
+            _resyncSeen = new long[n];
+            Log = new System.Collections.Generic.List<string>();
             MovedFrames = new long[n];
             InputsInPause = new long[n];
         }
@@ -61,6 +67,45 @@ namespace Orpheus.Bots
 
         /// <summary>Правок предсказания после снятия паузы (до конца прогона); пауза не снималась — −1.</summary>
         public long ResyncedAfter(int i) => _resyncAtResume[i] < 0 ? -1 : (_bots[i].Prediction?.Resynced ?? 0) - _resyncAtResume[i];
+
+        /// <summary>
+        /// Журнал (C-003): когда у бота появилось предсказание и каждая правка — время, пауза, снимок, ack, что сервер применил
+        /// («своё» снимка), где стояло предсказание, сущности рядом. Не больше <see cref="LogLimit"/> строк.
+        /// </summary>
+        public System.Collections.Generic.List<string> Log { get; }
+
+        /// <summary>Потолок строк журнала.</summary>
+        public const int LogLimit = 64;
+
+        private void Note(int i, double seconds, string what)
+        {
+            if (Log.Count >= LogLimit)
+            {
+                return;
+            }
+
+            NetClient c = _bots[i].Client;
+            LocalPrediction? p = _bots[i].Prediction;
+            string near = string.Empty;
+            if (c.HasSnapshot)
+            {
+                for (int k = 0; k < c.Latest.Count; k++)
+                {
+                    SnapshotEntity e = c.Latest.Entities[k];
+                    if (e.Id != c.EntityId)
+                    {
+                        near += $" [{e}]";
+                    }
+                }
+            }
+
+            Log.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "бот {0}, {1:0.000} с: {2}; пауза {3} (запрошена {4}, снята {5}); снимок {6}, ack {7}, отправлен кадр {8}; сервер: {9}; предсказание: {10}, расхождение {11} u, сверок {12}, установок {13}, правок {14}; чужие:{15}",
+                i, seconds, what, c.Paused ? "стоит" : "нет", _requested ? "да" : "нет", _released ? "да" : "нет",
+                c.HasSnapshot ? c.Latest.Tick : 0, c.HasSnapshot ? c.Latest.AckFrame : 0, c.Frame,
+                c.HasSnapshot ? c.Latest.Self.ToString() : "—", p != null ? p.Position.ToString() : "—", p?.LastDevUnits ?? 0,
+                p?.Compared ?? 0, p?.Initial ?? 0, p?.Resynced ?? 0, near.Length == 0 ? " нет" : near));
+        }
 
         /// <summary>Кадр ботов (после их <see cref="NetBot.Frame"/>): запросы паузы по расписанию и замер.</summary>
         public void Frame(double seconds)
@@ -85,6 +130,18 @@ namespace Orpheus.Bots
                 LocalPrediction? p = _bots[i].Prediction;
                 WorldPos self = c.HasSnapshot ? c.Latest.Self.Position : default;
                 WorldPos pred = p?.Position ?? default;
+                if (p != null && !_hadPred[i])
+                {
+                    _hadPred[i] = true;
+                    Note(i, seconds, "предсказание создано (мир бота построен)");
+                }
+
+                if (p != null && p.Resynced != _resyncSeen[i])
+                {
+                    _resyncSeen[i] = p.Resynced;
+                    Note(i, seconds, "ПРАВКА предсказания");
+                }
+
                 if (c.Paused)
                 {
                     if (!_was[i])
