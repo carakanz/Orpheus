@@ -144,6 +144,10 @@ namespace Orpheus.Client
                 case ObjectId.Carpet: return _meadow;
                 // Дверь (1-012): закрытая — камнем (видная преграда), открытая — светлее (лугом); свои спрайты — 1-024.
                 case ObjectId.Door: return _stone;
+                // Факел и костёр (E1-8: свет источников для тона суток): своего спрайта нет (1-024) — рисуем валуном,
+                // чтобы в кадре было видно, от чего круг света.
+                case ObjectId.Torch: return _rock;
+                case ObjectId.Campfire: return _rock;
                 default: return null;
             }
         }

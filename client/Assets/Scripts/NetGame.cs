@@ -99,6 +99,7 @@ namespace Orpheus.Client
         MapShape _map;
         FloatingOrigin? _origin;
         WorldView? _view;
+        DayTintView? _tint; // E1-8: тон суток; время — WorldClock клиента (приходит в заголовке снимков)
         WorldPos _localPos;
         Simulation? _netRules;
         LocalPrediction? _pred;
@@ -414,6 +415,7 @@ namespace Orpheus.Client
             cw.ChunkChanged = c => view.ShowChunk(c);
             cw.ChunkRemoved = c => view.HideChunk(c);
             cw.RolledBack = OnRolledBack; // 0-028: откат правки — красная вспышка с причиной
+            _tint = new DayTintView(_g.Camera, _world!, _origin!); // E1-8: тон суток (время мира — часы из заголовка снимков)
             _localPos = spawn;
 
             // Проходимость — тот же IsBlocked ядра, что в такте сервера; предсказание стартует из точки поселения.
@@ -659,6 +661,7 @@ namespace Orpheus.Client
             _g.Character.gameObject.SetActive(true);
             _g.Character.position = _origin!.ToUnity(me) + new Vector3(dx / sub, -dy / sub, 0f);
             _g.Camera.transform.position = _g.Character.position + GameBoot.CameraOffset;
+            _tint?.Update(_client!.WorldTimeClock.TicksAt(now)); // E1-8: фон тона — оценка часов мира (заголовок снимков + местный ход)
 
             // Чужие: набор — новейший снимок, позиция — RemoteInterpolation на время показа этого кадра.
             _seen.Clear();
