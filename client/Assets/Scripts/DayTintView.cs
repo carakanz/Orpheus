@@ -7,14 +7,16 @@ using UnityEngine;
 namespace Orpheus.Client
 {
     /// <summary>
-    /// Тон суток (план 1.8, карточка E1-8): полноэкранный полупрозрачный слой поверх мира — темнота ночи,
-    /// сумерек и рассвета; свет факела и костра — «дырки» в темноте.
+    /// Тон суток (план 1.8, карточка E1-8; правка E1-7): полноэкранный слой поверх мира, кадр умножается на тон —
+    /// день без изменений, сумерки тёплые, ночь тёмно-синяя, рассвет холодно-розовый; свет факела и костра —
+    /// тёплые круги в темноте.
     /// <para>
     /// Кадр считается так: для прямоугольника камеры строится сетка тайлов (текстура R8: k биома по полу,
     /// G8: свет источников из <see cref="LightIndex"/>, билинейно — свет кругом). Шейдер «Orpheus/DayTint»
-    /// (в <c>Assets/Resources</c> — так шейдер гарантированно в сборке) рисует альфу (1 − L) × <c>_Max</c>,
-    /// где L = фон × k + источники (<see cref="DayTint"/>), цвет темноты — холодный синий ночью, тёплый
-    /// в сумерках и на рассвете. Днём на открытой земле L = 1 — слой невидим; лес чуть темнее (k = 870).
+    /// (в <c>Assets/Resources</c> — так шейдер гарантированно в сборке) умножает кадр на цвет неба
+    /// (<see cref="ToneAt"/> по такту суток), ночью в лесу — ещё на k; где светит источник, тон уходит в тёплый свет.
+    /// Днём множитель ровно 1 — слой невидим (E1-7: раньше k = 1024 не помещался в байт сетки и день выходил
+    /// тёмно-бурым; поправка леса днём убрана — лес затеняют тени крон).
     /// </para>
     /// <para>
     /// Сетка перестраивается, только если изменился прямоугольник камеры (движение, зум) или ревизии чанков
@@ -24,17 +26,88 @@ namespace Orpheus.Client
     /// </summary>
     public sealed class DayTintView
     {
-        /// <summary>Максимальная альфа темноты при L = 0 (полная тьма — не чернота: 0,78).</summary>
-        public const float MaxDarkness = 0.78f;
+        /// <summary>Слой последнего созданного мира — для ручной отрисовки кадра другого размера (<see cref="Refresh"/>).</summary>
+        public static DayTintView? Current { get; private set; }
+
+        // Цвет неба — множитель кадра. Яркость ночи ~0,35–0,4: персонаж и земля рядом различимы.
+        static readonly Color DayTone = new Color(1f, 1f, 1f);
+        static readonly Color DuskTone = new Color(1f, 0.66f, 0.42f);      // тёплый оранжеватый
+        static readonly Color NightTone = new Color(0.25f, 0.34f, 0.62f);  // тёмно-синий
+        static readonly Color DawnTone = new Color(0.80f, 0.62f, 0.74f);   // холодно-розовый
+
+        /// <summary>Тёплый свет факела и костра (множитель кадра в середине круга света).</summary>
+        static readonly Color FireTone = new Color(1f, 0.88f, 0.66f);
+
+        // Опорные точки тона: (такт суток, цвет); между ними — плавно. Границы фаз — DayClock.
+        static readonly (float At, Color Tone)[] Keys =
+        {
+            (0f, DayTone),
+            (DayClock.DuskStartTick - 900f, DayTone),                                   // за полминуты до сумерек свет теплеет
+            (DayClock.DuskStartTick, Color.Lerp(DayTone, DuskTone, 0.45f)),
+            ((DayClock.DuskStartTick + DayClock.NightStartTick) * 0.5f, DuskTone),
+            (DayClock.NightStartTick, Color.Lerp(DuskTone, NightTone, 0.8f)),
+            (DayClock.NightStartTick + 400f, NightTone),
+            (DayClock.DawnStartTick, NightTone),
+            ((DayClock.DawnStartTick + DayClock.TicksPerDay) * 0.5f, DawnTone),
+            (DayClock.TicksPerDay, DayTone),
+        };
+
+        /// <summary>Цвет неба (множитель кадра) по такту суток: день — ровно белый.</summary>
+        public static Color ToneAt(int worldTicks)
+        {
+            float t = DayClock.Wrap(worldTicks);
+            for (int i = 1; i < Keys.Length; i++)
+            {
+                if (t <= Keys[i].At)
+                {
+                    float span = Keys[i].At - Keys[i - 1].At;
+                    float f = span > 1e-3f ? (t - Keys[i - 1].At) / span : 1f;
+                    return Color.Lerp(Keys[i - 1].Tone, Keys[i].Tone, f * f * (3f - 2f * f));
+                }
+            }
+
+            return DayTone;
+        }
+
+        /// <summary>
+        /// Время суток словом или долей (ключ <c>--shot-time</c>, поле <c>time</c> сцены стенда) → такт суток:
+        /// «день», «сумерки», «ночь», «рассвет» (day, dusk, night, dawn) — середина фазы; число 0…1 — доля суток.
+        /// </summary>
+        public static bool TryParseTime(string text, out int ticks)
+        {
+            switch (text.Trim().ToLowerInvariant())
+            {
+                case "день":
+                case "day":
+                    ticks = DayClock.DuskStartTick / 2;
+                    return true;
+                case "сумерки":
+                case "dusk":
+                    ticks = (DayClock.DuskStartTick + DayClock.NightStartTick) / 2;
+                    return true;
+                case "ночь":
+                case "night":
+                    ticks = (DayClock.NightStartTick + DayClock.DawnStartTick) / 2;
+                    return true;
+                case "рассвет":
+                case "dawn":
+                    ticks = (DayClock.DawnStartTick + DayClock.TicksPerDay) / 2;
+                    return true;
+            }
+
+            ticks = 0;
+            if (!float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float f)
+                || f < 0f || f > 1f)
+            {
+                return false;
+            }
+
+            ticks = Math.Min(DayClock.TicksPerDay - 1, (int)(f * DayClock.TicksPerDay));
+            return true;
+        }
 
         /// <summary>Сторона сетки не больше этого числа тайлов (зум максимально дальний — 96…128 тайлов).</summary>
         const int MaxGrid = 256;
-
-        /// <summary>Темнота ночи: холодный синий.</summary>
-        static readonly Color NightColor = new Color(0.02f, 0.05f, 0.18f);
-
-        /// <summary>Темнота сумерек и рассвета: тёплый (полная величина — на границе с днём, ночная — в смеси).</summary>
-        static readonly Color DuskColor = new Color(0.32f, 0.13f, 0.06f);
 
         readonly Camera _camera;
         readonly WorldModel _world;
@@ -42,15 +115,14 @@ namespace Orpheus.Client
         readonly FloatingOrigin _origin;
         readonly LightIndex _lights;
 
-        readonly Transform _quad;
-        readonly SpriteRenderer _sr;
+        readonly GameObject _quad;
         readonly Material? _material;
         Texture2D? _grid;
-        Sprite? _sprite;
         Color32[] _buf = new Color32[0];
 
         // Штамп текущей сетки: перестройка — только когда изменился прямоугольник камеры или ревизии чанков под ним.
         int _stamp;
+        int _ticks;
 
         public DayTintView(Camera camera, WorldModel world, FloatingOrigin origin)
         {
@@ -61,7 +133,7 @@ namespace Orpheus.Client
             _lights = world.Lights;
 
             Shader shader = Shader.Find("Orpheus/DayTint");
-            if (shader == null || !shader.isSupported)
+            if (shader == null || !shader.isSupported || WorldFx.Off("notint"))
             {
                 Debug.LogWarning("[daytint] шейдер Orpheus/DayTint не найден/не поддержан — тон суток выключен");
                 _material = null;
@@ -71,81 +143,166 @@ namespace Orpheus.Client
                 _material = new Material(shader) { name = "DayTint" };
             }
 
-            Sprite white = Sprite.Create(Texture2D.whiteTexture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f), 1f);
-            GameObject go = new GameObject("DayTint");
-            go.transform.SetParent(camera.transform, false);
-            go.transform.localPosition = new Vector3(0f, 0f, 5f); // перед камерой (камера на z = −10)
-            _sr = go.AddComponent<SpriteRenderer>();
-            _sr.sprite = white;
-            _sr.sortingOrder = 1000; // выше объектов (WorldView.ObjectOrder = 10)
-            _sr.enabled = _material != null;
-            if (_material != null)
+            // Большой квадрат перед камерой (едет с ней, закрывает любой обзор); место точки в сетке шейдер берёт по
+            // координате мира (_GridRect) — слой не зависит от размера окна и отношения сторон кадра (E1-7).
+            if (Current != null && Current._quad != null)
             {
-                _sr.sharedMaterial = _material; // иначе SpriteRenderer возьмёт Sprites/Default и нарисует белый квадрат
+                UnityEngine.Object.Destroy(Current._quad); // новый мир (повторный вход) — прежний слой убрать, иначе тон умножится дважды
             }
 
-            _quad = go.transform;
+            _quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            _quad.name = "DayTint";
+            UnityEngine.Object.Destroy(_quad.GetComponent<Collider>());
+            _quad.transform.SetParent(camera.transform, false);
+            _quad.transform.localPosition = new Vector3(0f, 0f, 5f); // перед камерой (камера на z = −10)
+            _quad.transform.localScale = new Vector3(600f, 600f, 1f);
+            var mr = _quad.GetComponent<MeshRenderer>();
+            mr.sortingOrder = WorldView.TintOrder; // выше земли, объектов «с высотой» и существ
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            mr.enabled = _material != null;
+            if (_material != null)
+            {
+                mr.sharedMaterial = _material;
+            }
+
+            Current = this;
         }
+
+        /// <summary>
+        /// Перед ручной отрисовкой камеры в текстуру с другим отношением сторон (снимок, замер): слой и сетка — под
+        /// этот кадр, а не под окно.
+        /// </summary>
+        public void Refresh(float aspect) => Update(_ticks, aspect);
 
         /// <summary>
         /// Обновить кадр тона по такту суток: фон и цвет — каждый кадр, сетка тайлов — при движении камеры
         /// или правке чанков под ней.
         /// </summary>
-        public void Update(int worldTicks)
+        public void Update(int worldTicks, float aspect = 0f)
         {
+            _ticks = worldTicks;
             if (_material == null)
             {
                 return;
             }
 
-            int bg = DayClock.BackgroundX1024(worldTicks);
-            float f = (bg - DayClock.NightBgX1024) / (float)(DayClock.DayBgX1024 - DayClock.NightBgX1024); // 0 ночь → 1 день
-            Color tint = Color.LerpUnclamped(NightColor, DuskColor, f);
+            if (aspect <= 0f)
+            {
+                aspect = _camera.aspect;
+            }
 
-            // Прямоугольник камеры в тайлах мира (мировая Y вниз → низ экрана = больший Y).
+            int bg = DayClock.BackgroundX1024(worldTicks);
+            float day = (bg - DayClock.NightBgX1024) / (float)(DayClock.DayBgX1024 - DayClock.NightBgX1024); // 0 ночь → 1 день
+            Color sky = ToneAt(worldTicks);
+
+            // Прямоугольник камеры в тайлах мира (мировая Y вниз → низ экрана = больший Y), расширенный до сетки в
+            // Align тайлов: пока камера не перешла её линию, сетка та же (E1-7: раньше сетка пересобиралась при каждом
+            // сдвиге края обзора на тайл, а смена места без смены размера не замечалась вовсе).
             Vector3 c = _camera.transform.position;
-            float hh = _camera.orthographicSize, hw = hh * _camera.aspect;
+            float hh = _camera.orthographicSize, hw = hh * aspect;
             TileCoord a = Torus.TileOf(_map, _origin.FromUnity(new Vector3(c.x - hw, c.y + hh, 0f)));
             TileCoord b = Torus.TileOf(_map, _origin.FromUnity(new Vector3(c.x + hw, c.y - hh, 0f)));
-            int w = Mod(b.X - a.X, _map.Width) + 3, h = Mod(b.Y - a.Y, _map.Height) + 3; // + поля на случай шва и скруглений
-            int minX = a.X - 1, minY = a.Y - 1;
+            int minX = FloorTo(a.X - 1, Align), minY = FloorTo(a.Y - 1, Align);
+            int w = CeilTo(Mod(b.X - a.X, _map.Width) + (a.X - minX) + 2, Align);
+            int h = CeilTo(Mod(b.Y - a.Y, _map.Height) + (a.Y - minY) + 2, Align);
             int step = Math.Max(1, (Math.Max(w, h) + MaxGrid - 1) / MaxGrid);
             int cols = (w + step - 1) / step, rows = (h + step - 1) / step;
 
-            int stamp = Stamp(minX, minY, cols, rows, step);
+            int stamp = Stamp(minX, minY, w, h, step);
             if (stamp != _stamp)
             {
                 _stamp = stamp;
-                Fill(minX, minY, w, h, step, cols, rows);
+                Fill(minX, minY, step, cols, rows);
             }
 
-            _material.SetFloat("_Bg", bg / (float)DayClock.LightScale);
-            _material.SetColor("_Tint", tint);
-            _material.SetFloat("_Max", MaxDarkness);
-            _quad.localScale = new Vector3(2f * hw, 2f * hh, 1f);
+            _material.SetFloat("_Day", day);
+            _material.SetVector("_Sky", new Vector4(sky.r, sky.g, sky.b, 1f));       // векторы: цвет — уже множитель, без пересчёта гаммы
+            _material.SetVector("_Fire", new Vector4(FireTone.r, FireTone.g, FireTone.b, 1f));
+
+            // Прямоугольник сетки в координатах Unity: точка (col, row) — центр тайла (minX + col × step,
+            // minY + (rows − 1 − row) × step); строка 0 — низ.
+            Vector3 corner = _origin.ToUnity(Torus.CornerOf(a)); // левый верхний угол тайла a
+            float x0 = corner.x - (a.X - minX) + 0.5f - 0.5f * step;
+            float y0 = corner.y - (minY + (rows - 1) * step - a.Y) - 0.5f - 0.5f * step;
+            _material.SetVector("_GridRect", new Vector4(x0, y0, 1f / (cols * step), 1f / (rows * step)));
         }
 
-        /// <summary>Штамп сетки: геометрия + ревизии чанков под прямоугольником (перестройка — только при изменении).</summary>
-        int Stamp(int minX, int minY, int cols, int rows, int step)
+        /// <summary>Сетка привязана к линиям через столько тайлов.</summary>
+        const int Align = 8;
+
+        static int FloorTo(int v, int m) => v - Mod(v, m);
+
+        static int CeilTo(int v, int m) => (v + m - 1) / m * m;
+
+        /// <summary>Штамп сетки: место, размер + ревизии чанков под прямоугольником (перестройка — только при изменении).</summary>
+        int Stamp(int minX, int minY, int w, int h, int step)
         {
-            int h = cols * 73856093 ^ rows * 19349663 ^ step * 83492791;
-            for (int cy = 0; cy <= (rows * step) / Torus.ChunkSize; cy++)
+            int s = (minX * 73856093) ^ (minY * 19349663) ^ (w * 83492791) ^ (h * 2654435) ^ step;
+            int cx0 = FloorTo(minX, Torus.ChunkSize), cy0 = FloorTo(minY, Torus.ChunkSize);
+            for (int y = cy0; y < minY + h; y += Torus.ChunkSize)
             {
-                for (int cx = 0; cx <= (cols * step) / Torus.ChunkSize; cx++)
+                for (int x = cx0; x < minX + w; x += Torus.ChunkSize)
                 {
-                    Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_map, Torus.Wrap(_map, new TileCoord(minX + cx * Torus.ChunkSize, minY + cy * Torus.ChunkSize))));
-                    h = unchecked(h * 1000003 + (int)(chunk?.Revision ?? 0));
+                    Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_map, Torus.Wrap(_map, new TileCoord(x, y))));
+                    s = unchecked(s * 1000003 + (int)(chunk?.Revision ?? 0));
                 }
             }
 
-            return h;
+            return s;
         }
 
-        void Fill(int minX, int minY, int w, int h, int step, int cols, int rows)
+        // Есть ли в чанке источник света (факел, костёр) — по ревизии чанка, чтобы не просматривать его каждый раз.
+        readonly System.Collections.Generic.Dictionary<ChunkCoord, (uint Revision, bool Has)> _hasLight =
+            new System.Collections.Generic.Dictionary<ChunkCoord, (uint, bool)>();
+
+        bool HasLight(ChunkCoord cc)
+        {
+            Chunk? chunk = _world.FindChunk(Torus.Wrap(_map, cc));
+            if (chunk == null)
+            {
+                return false;
+            }
+
+            if (_hasLight.TryGetValue(cc, out (uint Revision, bool Has) e) && e.Revision == chunk.Revision)
+            {
+                return e.Has;
+            }
+
+            bool has = false;
+            for (int i = 0; i < Torus.ChunkSize * Torus.ChunkSize && !has; i++)
+            {
+                ushort id = ObjectId.IdOf(chunk.GetObject(i));
+                has = id == ObjectId.Torch || id == ObjectId.Campfire;
+            }
+
+            _hasLight[cc] = (chunk.Revision, has);
+            return has;
+        }
+
+        // Свет источника достаёт не дальше соседнего чанка (так же считает сетка света ядра: окно 3 × 3).
+        bool LightNear(ChunkCoord cc)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (HasLight(new ChunkCoord(cc.X + dx, cc.Y + dy)))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        void Fill(int minX, int minY, int step, int cols, int rows)
         {
             if (_grid == null || _grid.width != cols || _grid.height != rows)
             {
-                _grid = new Texture2D(cols, rows, TextureFormat.ARGB32, false)
+                _grid = new Texture2D(cols, rows, TextureFormat.ARGB32, false, true)
                 {
                     name = "DayTintGrid",
                     filterMode = FilterMode.Bilinear,
@@ -154,34 +311,44 @@ namespace Orpheus.Client
                 _buf = new Color32[cols * rows];
             }
 
-            int lastX = minX + w - 1, lastY = minY + h - 1;
+            // Чанк и «рядом есть свет» — один раз на отрезок строки внутри чанка, а не на каждый тайл: сетка света ядра
+            // (LightIndex) спрашивается только там, где источник есть в окне 3 × 3 чанка.
+            bool have = false;
+            ChunkCoord last = default;
+            Chunk? chunk = null;
+            bool lit = false;
             for (int r = 0; r < rows; r++)
             {
-                // Строка 0 текстуры — низ квада (uv v = 0) = низ экрана = максимальная Y мира.
-                int ty = lastY - r * step;
+                // Строка 0 текстуры — низ (v = 0) = низ экрана = наибольшая Y мира.
+                int ty = minY + (rows - 1 - r) * step;
                 for (int cIdx = 0; cIdx < cols; cIdx++)
                 {
-                    int tx = lastX - (cols - 1 - cIdx) * step;
-                    TileCoord t = Torus.Wrap(_map, new TileCoord(tx, ty));
-                    int k = DayTint.BiomeKX1024ForFloor(_world.GetFloor(t));
-                    int s = _lights.SourceLightX1024(t);
-                    _buf[r * cols + cIdx] = new Color32((byte)(k >> 2), (byte)(s >> 2), 0, 255);
+                    TileCoord t = Torus.Wrap(_map, new TileCoord(minX + cIdx * step, ty));
+                    ChunkCoord cc = Torus.ChunkOf(_map, t);
+                    if (!have || cc != last)
+                    {
+                        have = true;
+                        last = cc;
+                        chunk = _world.FindChunk(cc);
+                        lit = LightNear(cc);
+                    }
+
+                    byte floor = chunk == null
+                        ? FloorId.Grass
+                        : chunk.GetFloor(Chunk.IndexOf(t.X & (Torus.ChunkSize - 1), t.Y & (Torus.ChunkSize - 1)));
+                    int k = DayTint.BiomeKX1024ForFloor(floor);
+                    int s = lit ? _lights.SourceLightX1024(t) : 0;
+                    // 1024 → 255 (E1-7: было k >> 2 = 256 → байт 0: открытая земля считалась полной тьмой, день выходил бурым).
+                    _buf[r * cols + cIdx] = new Color32(ToByte(k), ToByte(s), 0, 255);
                 }
             }
 
             _grid.SetPixels32(_buf);
             _grid.Apply(false);
-
-            // SpriteRenderer подставляет в шейдер текстуру своего спрайта — спрайт строим из самой сетки
-            // (extrude 0: без обводки краёв, билинейная фильтрация даёт мягкий свет источников).
-            if (_sprite != null)
-            {
-                UnityEngine.Object.Destroy(_sprite);
-            }
-
-            _sprite = Sprite.Create(_grid, new Rect(0f, 0f, cols, rows), new Vector2(0.5f, 0.5f), 1f, 0u);
-            _sr.sprite = _sprite;
+            _material!.SetTexture("_MainTex", _grid);
         }
+
+        static byte ToByte(int x1024) => (byte)(x1024 <= 0 ? 0 : x1024 >= DayClock.LightScale ? 255 : x1024 * 255 / DayClock.LightScale);
 
         static int Mod(int v, int m)
         {

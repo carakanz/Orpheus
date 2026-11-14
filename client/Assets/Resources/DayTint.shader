@@ -1,17 +1,19 @@
-// Тон суток (план 1.8, карточка E1-8): полноэкранный тёмный слой над миром.
+// Тон суток (план 1.8, карточка E1-8; правка E1-7): полноэкранный слой над миром, кадр УМНОЖАЕТСЯ на тон.
 // _MainTex — сетка тайлов камеры: R = k биома (по полу), G = свет источников (обе в 1/255), билинейная —
-// свет факела и костра кругом, без клеточных границ. L = _Bg × R + G (всё в 0..1); альфа = (1 − L) × _Max.
-// _Tint — цвет темноты: ночью холодный синий, в сумерках и на рассвете — тёплый (выбирает код по фазе).
-// Шейдер лежит в Assets/Resources — так он гарантированно попадает в сборку (GROUND-шейдер включён
-// ссылкой из GroundSet.asset, у тона такой ссылки нет).
+// свет факела и костра кругом, без клеточных границ.
+// Тон = _Sky (цвет неба по времени суток: день — белый, сумерки — тёплый, ночь — тёмно-синий, рассвет —
+// холодно-розовый) × k (поправка леса; днём выключена: _Day = 1 → множитель ровно 1, день без изменений);
+// в круге света источника тон плавно уходит в тёплый _Fire (не темнее неба).
+// Шейдер лежит в Assets/Resources — так он гарантированно попадает в сборку.
 Shader "Orpheus/DayTint"
 {
     Properties
     {
         _MainTex ("L grid (R = k, G = sources)", 2D) = "white" {}
-        _Bg ("Background (0..1)", Range(0, 1)) = 1
-        _Tint ("Darkness color", Color) = (0.03, 0.06, 0.2, 1)
-        _Max ("Max darkness alpha", Range(0, 1)) = 0.78
+        _Day ("Daylight (0 night .. 1 day)", Range(0, 1)) = 1
+        _Sky ("Sky tone (multiplier)", Vector) = (1, 1, 1, 1)
+        _Fire ("Fire light tone (multiplier)", Vector) = (1, 0.88, 0.66, 1)
+        _GridRect ("Grid rect in world", Vector) = (0, 0, 1, 1)
     }
 
     HLSLINCLUDE
@@ -21,9 +23,10 @@ Shader "Orpheus/DayTint"
     SAMPLER(sampler_MainTex);
 
     CBUFFER_START(UnityPerMaterial)
-        float _Bg;
-        half4 _Tint;
-        float _Max;
+        float _Day;
+        float4 _Sky;
+        float4 _Fire;
+        float4 _GridRect; // xy — левый нижний угол сетки в мире, zw — 1 / размер
     CBUFFER_END
 
     struct Attributes
@@ -41,16 +44,20 @@ Shader "Orpheus/DayTint"
     Varyings Vert(Attributes v)
     {
         Varyings o;
-        o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
-        o.uv = v.uv;
+        float3 wp = TransformObjectToWorld(v.positionOS.xyz);
+        o.positionCS = TransformWorldToHClip(wp);
+        o.uv = (wp.xy - _GridRect.xy) * _GridRect.zw;
         return o;
     }
 
     half4 Frag(Varyings i) : SV_Target
     {
         half2 g = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv).rg;
-        half l = saturate(g.r * _Bg + g.g);
-        return half4(_Tint.rgb, (1.0 - l) * _Max);
+        half k = lerp(g.r, 1.0, _Day);
+        half3 tone = _Sky.rgb * k;
+        half lit = saturate(g.g * 1.15);
+        lit = lit * lit * (3.0 - 2.0 * lit);
+        return half4(lerp(tone, max(tone, _Fire.rgb), lit), 1);
     }
     ENDHLSL
 
@@ -65,7 +72,7 @@ Shader "Orpheus/DayTint"
             Cull Off
             ZWrite Off
             ZTest Always
-            Blend SrcAlpha OneMinusSrcAlpha
+            Blend DstColor Zero, Zero One
 
             HLSLPROGRAM
             #pragma vertex Vert
@@ -80,7 +87,7 @@ Shader "Orpheus/DayTint"
             Cull Off
             ZWrite Off
             ZTest Always
-            Blend SrcAlpha OneMinusSrcAlpha
+            Blend DstColor Zero, Zero One
 
             HLSLPROGRAM
             #pragma vertex Vert

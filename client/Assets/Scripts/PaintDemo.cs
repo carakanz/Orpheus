@@ -83,6 +83,7 @@ namespace Orpheus.Client
             }
 
             painted += Blob(world, map, jx, jy, 3.2f, FloorId.Water, 7, keepObjects: false);
+            painted += Forest(world, map, cx + ForestDx, cy + ForestDy);
             Debug.Log($"[paint-demo] перекрашено тайлов: {painted}; озеро у {cx + LakeDx},{cy + LakeDy}, стык у {jx},{jy}");
         }
 
@@ -135,6 +136,123 @@ namespace Orpheus.Client
             ushort obj = keepObjects ? chunk.GetObject(index) : ObjectId.Empty;
             chunk.SetLocalTile(new TileEdit(index, floor, obj));
             return 1;
+        }
+
+        static int Set(WorldModel world, MapShape map, int x, int y, byte floor, ushort obj)
+        {
+            TileCoord t = Torus.Wrap(map, new TileCoord(x, y));
+            Chunk? chunk = world.FindChunk(Torus.ChunkOf(map, t));
+            if (chunk == null)
+            {
+                return 0;
+            }
+
+            chunk.SetLocalTile(new TileEdit((ushort)Chunk.IndexOf(t.X, t.Y), floor, obj));
+            return 1;
+        }
+
+        /// <summary>Центр поляны демо-леса от старта, тайлов (E1-7).</summary>
+        public const int ForestDx = 8, ForestDy = 52;
+
+        /// <summary>Доля тайлов под деревьями в глубине демо-леса и леса стенда (план 1.3: 35–55 %).</summary>
+        public const float ForestDensity = 0.45f;
+
+        // E1-7: плотный лес (пятно ~27 тайлов) с поляной, костром и факелом, тропой в 2 тайла на север к старту;
+        // опушка редеет; на лугу вокруг — редкие деревья, кусты, валуны, медь, пни.
+        static int Forest(WorldModel world, MapShape map, int x0, int y0)
+        {
+            const float radius = 27f;
+            float p1 = GroundAtlas.Hash(1, 0, 21) * 6.28f, p2 = GroundAtlas.Hash(2, 0, 21) * 6.28f;
+            int n = 0;
+            for (int dy = -44; dy <= 44; dy++)
+            {
+                for (int dx = -50; dx <= 50; dx++)
+                {
+                    int x = x0 + dx, y = y0 + dy;
+                    float a = Mathf.Atan2(dy, dx);
+                    float edge = radius * (1f + 0.18f * Mathf.Sin(3f * a + p1) + 0.1f * Mathf.Sin(7f * a + p2));
+                    float r = Mathf.Sqrt(dx * dx + dy * dy);
+                    float inside = edge - r; // > 0 — в лесу, тайлов до опушки
+                    float path = Mathf.Abs(dx - 2.5f * Mathf.Sin(dy * 0.22f)); // тропа от поляны на север
+                    bool onPath = dy < 0 && path < 1.2f;
+                    bool glade = r < 5.2f + 1.2f * Mathf.Sin(4f * a);
+                    float h = GroundAtlas.Hash(x, y, 77);
+                    float h2 = GroundAtlas.Hash(x, y, 78);
+                    byte floor;
+                    ushort obj = ObjectId.Empty;
+                    if (inside > 0f)
+                    {
+                        floor = onPath ? FloorId.Dirt : glade ? FloorId.Grass : FloorId.ForestFloor;
+                        if (!onPath && !glade)
+                        {
+                            float density = ForestDensity * Mathf.Clamp01(0.35f + inside / 5f); // опушка редеет
+                            obj = h < density ? ObjectId.Tree : h2 < 0.05f ? ObjectId.Bush : h2 > 0.985f ? ObjectId.Rock : ObjectId.Empty;
+                        }
+                        else if (glade && !onPath && r > 3.4f)
+                        {
+                            obj = h2 < 0.10f ? ObjectId.Stump : h2 > 0.94f ? ObjectId.Bush : ObjectId.Empty;
+                        }
+                    }
+                    else if (inside > -14f)
+                    {
+                        // Луг у опушки: редкие деревья (оливы, кипарисы), кусты, валуны, медь.
+                        if (onPath && inside > -6f)
+                        {
+                            n += Set(world, map, x, y, FloorId.Dirt, ObjectId.Empty);
+                            continue;
+                        }
+
+                        floor = FloorId.Grass;
+                        float fall = Mathf.Clamp01(1f + inside / 14f);
+                        obj = h < 0.07f * fall ? ObjectId.Tree
+                            : h2 < 0.03f ? ObjectId.Bush
+                            : h2 > 0.985f ? ObjectId.Rock
+                            : h2 > 0.975f ? ObjectId.Granite
+                            : h2 > 0.968f ? ObjectId.Ore
+                            : ObjectId.Empty;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+
+                    n += Set(world, map, x, y, floor, obj);
+                }
+            }
+
+            n += Light(world, map, x0, y0, ObjectId.Campfire);
+            n += Light(world, map, x0 + 3, y0 - 2, ObjectId.Torch);
+            n += Light(world, map, x0 - 9, y0 - 22, ObjectId.Torch); // у опушки
+            Debug.Log($"[paint-demo] лес у {x0},{y0}: костёр на поляне, факелы у {x0 + 3},{y0 - 2} и {x0 - 9},{y0 - 22}");
+            return n;
+        }
+
+        /// <summary>
+        /// Ключ <c>--paint-forest</c> (E1-7), только для замера <c>--tile-bench</c>: плотный лес (<see cref="ForestDensity"/>)
+        /// полосами ±70 тайлов вдоль средней строки и среднего столбца мира (там бегает стенд), сами строка и столбец
+        /// (по 2 тайла) — свободная тропа.
+        /// </summary>
+        public static void ApplyBenchForest(WorldModel world, MapShape map)
+        {
+            int cx = map.Width / 2, cy = map.Height / 2, n = 0, trees = 0;
+            for (int y = 0; y < map.Height; y++)
+            {
+                for (int x = 0; x < map.Width; x++)
+                {
+                    int ax = Mathf.Abs(x - cx), ay = Mathf.Abs(y - cy);
+                    if (ax > 70 && ay > 70)
+                    {
+                        continue;
+                    }
+
+                    bool lane = x == cx || x == cx - 1 || y == cy || y == cy - 1;
+                    bool tree = !lane && GroundAtlas.Hash(x, y, 77) < ForestDensity;
+                    n += Set(world, map, x, y, lane ? FloorId.Dirt : FloorId.ForestFloor, tree ? ObjectId.Tree : ObjectId.Empty);
+                    trees += tree ? 1 : 0;
+                }
+            }
+
+            Debug.Log($"[paint-forest] лес для замера: тайлов {n}, деревьев {trees} ({100f * trees / Mathf.Max(n, 1):0} %)");
         }
 
         /// <summary>Поставить источник света (факел/костёр) на существующий пол (E1-8).</summary>

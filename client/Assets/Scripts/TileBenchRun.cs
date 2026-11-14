@@ -136,6 +136,7 @@ namespace Orpheus.Client
             Camera cam = _g.Camera;
             RenderTexture? prevTarget = cam.targetTexture;
             RenderTexture? prevActive = RenderTexture.active;
+            WorldFx.BeforeManualRender(1920, 1080); // E1-7: слой теней входит в замер
             cam.targetTexture = _benchRt;
             cam.Render();
             RenderTexture.active = _benchRt;
@@ -322,10 +323,12 @@ namespace Orpheus.Client
             {
                 _visibleObjectsTick = (int)sec;
                 _visibleObjects = VisibleObjectTiles();
+                _objectQuads = Math.Max(_objectQuads, _view.ObjectQuads());
             }
         }
 
         int _visibleObjectsTick;
+        int _objectQuads; // E1-7: наибольшее число объектов «с высотой» в окне (квадратов в мешах строк)
 
         void NextLeg()
         {
@@ -477,7 +480,7 @@ namespace Orpheus.Client
             {
                 Vector3Int cell = WorldView.CellOf(lx, ly);
                 if (node.Floor.GetTile(cell) != _view.FloorTile(floor) || node.Objects.GetTile(cell) != _view.ObjectTile(obj)
-                    || !WorldView.GroundShows(node, lx, ly, floor))
+                    || !WorldView.GroundShows(node, lx, ly, floor) || !WorldView.ObjectShows(node, lx, ly, obj))
                 {
                     _sameFrameBad++;
                     Fail($"правка {t} не видна в тот же кадр: тайл Tilemap ≠ ядро");
@@ -604,7 +607,9 @@ namespace Orpheus.Client
                       $"полная перелицовка окна ({_maxWindow} чанков) ≈ {_maxWindow * paintUs / 1000:0.00} мс");
             Debug.Log($"[tilebench] окно: ног пройдено {_legsDone}, макс {_maxWindow} чанков (предел {ChunkWindow.MaxChunks}), дыр {_holes}, " +
                       $"узлов создано {_view.NodesCreated} (Tilemap-рендереров {2 * _view.NodesCreated}), мешей земли собрано {_view.GroundBuilds}, " +
-                      $"видимых тайлов объектов (отрисовок Individual) ~{_visibleObjects}; GC {gcKbPerFrame:0.0} КБ/кадр; " +
+                      $"видимых тайлов объектов (отрисовок Individual) ~{_visibleObjects}, объектов «с высотой» в окне до {_objectQuads} " +
+                      $"(мешей строк и теней собрано {_view.ObjectBuilds}, объекты чанка при входе — " +
+                      $"{_view.FreshObjectTicks * 1e6 / System.Diagnostics.Stopwatch.Frequency / Math.Max(_view.FreshObjectFills, 1):0} мкс × {_view.FreshObjectFills}); GC {gcKbPerFrame:0.0} КБ/кадр; " +
                       $"тайлов сверено {_tilesChecked}, расхождений с ядром {_tileMismatches}");
 
             int code = _errors == 0 && _holes == 0 && _sameFrameBad == 0 && _tileMismatches == 0 && n > 0 ? 0 : 1;

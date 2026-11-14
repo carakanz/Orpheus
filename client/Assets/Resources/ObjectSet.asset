@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3131d5ad34a164e41bafa6a0389b6d39, type: 3}
+  m_Name: ObjectSet
+  m_EditorClassIdentifier: Orpheus.Client::Orpheus.Client.ObjectSet
+  ObjectShader: {fileID: 4800000, guid: 25babfe76aaa2124fbb41e02a6e58db5, type: 3}
+  ShadowShader: {fileID: 4800000, guid: b23076deb94783c46ab57a8db59e77f7, type: 3}
+  ShadowCompositeShader: {fileID: 4800000, guid: 0bb8a640dd5545648a21584ca68f2305, type: 3}
+  Names:
+  - boulder_a
+  - boulder_b
+  - boulder_c
+  - bush_a
+  - bush_b
+  - cliff_face
+  - cliff_top
+  - ore_copper_a
+  - ore_copper_b
+  - stump
+  - tree_cypress_a
+  - tree_cypress_b
+  - tree_oak_a
+  - tree_oak_autumn
+  - tree_oak_b
+  - tree_olive_a
+  - tree_olive_b
+  - tree_pine_a
+  - tree_pine_b
+  Sprites:
+  - {fileID: 21300000, guid: 9cd204394baa5a04a8341833ea995edd, type: 3}
+  - {fileID: 21300000, guid: 4a59c5f5ca5cf304493d763aee095db3, type: 3}
+  - {fileID: 21300000, guid: 143dec2dead50a444a4e9c21c448431f, type: 3}
+  - {fileID: 21300000, guid: d813ac3c1c4892f40956e52738e84d23, type: 3}
+  - {fileID: 21300000, guid: 61448e6c5fd0bc84c9e73a3e43610cf6, type: 3}
+  - {fileID: 21300000, guid: a05fa683b66cd30438a1e0f467512e18, type: 3}
+  - {fileID: 21300000, guid: efac622f0f8e3e945bb837b4673c9ad3, type: 3}
+  - {fileID: 21300000, guid: fb8d37141611ba9408368e286e66b726, type: 3}
+  - {fileID: 21300000, guid: 681614429da6d5a4cb4732a5ba590ae0, type: 3}
+  - {fileID: 21300000, guid: e64bcf538694f05418aab7e195b27470, type: 3}
+  - {fileID: 21300000, guid: b83107639958d7e4f8df0731d7bafb8d, type: 3}
+  - {fileID: 21300000, guid: e033339acf31de247bd4a655b8f5f37c, type: 3}
+  - {fileID: 21300000, guid: 8574d9c1077c62244a580cae81fbc759, type: 3}
+  - {fileID: 21300000, guid: f71c09319aa1458438729a9884f2b827, type: 3}
+  - {fileID: 21300000, guid: a027214f4b8f3cc438a9395f2231eff5, type: 3}
+  - {fileID: 21300000, guid: e986c088b66e8df41bb08b503159a755, type: 3}
+  - {fileID: 21300000, guid: d91badb0328eb9b4cac5544529807745, type: 3}
+  - {fileID: 21300000, guid: e57073c774d138949b94f5487108bbe1, type: 3}
+  - {fileID: 21300000, guid: 86a3d0f3a8be0b7429f26d0dc82361c6, type: 3}

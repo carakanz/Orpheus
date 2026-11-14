@@ -661,6 +661,7 @@ namespace Orpheus.Client
             _g.Character.gameObject.SetActive(true);
             _g.Character.position = _origin!.ToUnity(me) + new Vector3(dx / sub, -dy / sub, 0f);
             _g.Camera.transform.position = _g.Character.position + GameBoot.CameraOffset;
+            WorldFx.SetHero(_g.Character.position);
             _tint?.Update(_client!.WorldTimeClock.TicksAt(now)); // E1-8: фон тона — оценка часов мира (заголовок снимков + местный ход)
 
             // Чужие: набор — новейший снимок, позиция — RemoteInterpolation на время показа этого кадра.
@@ -768,6 +769,7 @@ namespace Orpheus.Client
             sr.color = new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
             sr.sortingOrder = WorldView.ObjectOrder;
             sr.spriteSortPoint = SpriteSortPoint.Pivot;
+            WorldFx.AddActorShadow(root.transform, 0.8f); // E1-7: пятно-тень под существом
             _ents[id] = root;
             return root;
         }

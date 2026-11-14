@@ -111,6 +111,7 @@ namespace Orpheus.Client
             }
 
             CreateInput();
+            WorldFx.Init(Camera, Character); // E1-7: слой теней, персонаж за кроной (до первого WorldView)
 
             // Сетевой режим (0-012): мир присылает сервер, поэтому здесь только связь; окно — сразу с HUD-текстом.
             // Одиночная и хост (0-024) — тот же сетевой режим: сервер — дочерний процесс, вход через 127.0.0.1 (07, 2.3).
@@ -142,6 +143,11 @@ namespace Orpheus.Client
             if (Args.PaintDemo)
             {
                 PaintDemo.Apply(World, Map); // E1-4: тестовый узор у старта — только для снимков
+            }
+
+            if (Args.PaintForest)
+            {
+                PaintDemo.ApplyBenchForest(World, Map); // E1-7: плотный лес для замера
             }
 
             // Правила проходимости — те же, что в такте сервера (Simulation.IsBlocked): пол и объекты, `05` 1.3.
@@ -341,6 +347,7 @@ namespace Orpheus.Client
             Vector3 p = Origin.ToUnity(from) + new Vector3(dx / FloatingOrigin.UnitsPerTile, -dy / FloatingOrigin.UnitsPerTile, 0f);
             Character.position = p;
             Camera.transform.position = p + CameraOffset;
+            WorldFx.SetHero(p);
         }
 
         void UpdateHud()
