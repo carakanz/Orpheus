@@ -192,7 +192,7 @@ namespace Orpheus.Client
                         continue; // прозрачное, контур, пурпурный уголок заглушки
                     }
 
-                    double k = 0.15 + (max - min) / 255.0;
+                    double k = 0.05 + (max - min) / 255.0 * (max - min) / 255.0 * 4.0; // насыщенные точки весят намного больше
                     r += c.r * k;
                     g += c.g * k;
                     b += c.b * k;

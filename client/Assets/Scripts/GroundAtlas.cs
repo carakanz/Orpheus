@@ -87,12 +87,15 @@ namespace Orpheus.Client
             };
             int missing = 0;
             var buf = new Color32[size * size];
+            var means = new Vector4[16]; // средний цвет слоя — для поправки контраста (E1-11)
             for (int i = 0; i < layers.Length; i++)
             {
                 Texture2D? t = set.Find(layers[i].Name);
                 if (t != null && t.isReadable && t.width == size && t.height == size)
                 {
-                    array.SetPixels32(t.GetPixels32(0), i, 0);
+                    Color32[] own = t.GetPixels32(0);
+                    array.SetPixels32(own, i, 0);
+                    means[i] = Mean(own);
                     continue;
                 }
 
@@ -120,6 +123,7 @@ namespace Orpheus.Client
                 }
 
                 array.SetPixels32(buf, i, 0);
+                means[i] = Mean(buf);
             }
 
             array.Apply(updateMipmaps: true, makeNoLongerReadable: true);
@@ -137,13 +141,36 @@ namespace Orpheus.Client
                 bool has = i < layers.Length;
                 Color c = has ? layers[i].Tint : Color.white;
                 tints[i] = new Vector4(c.r, c.g, c.b, has ? layers[i].Saturation : 1f);
-                mixes[i] = new Vector4(has ? layers[i].Patches : 0f, 0f, 0f, 0f);
+                mixes[i] = new Vector4(has ? layers[i].Patches : 0f, has ? layers[i].Contrast : 1f, 0f, 0f);
             }
 
             Shader.SetGlobalVectorArray("_OrphLayerTint", tints);
             Shader.SetGlobalVectorArray("_OrphLayerMix", mixes);
+            Shader.SetGlobalVectorArray("_OrphLayerMean", means);
             Debug.Log($"[ground] материал: шейдер {set.Shader.name} (поддержан: {set.Shader.isSupported}), слоёв {layers.Length} по {size}x{size}, без картинки {missing}");
             return mat;
+        }
+
+        // Средний цвет картинки — в том пространстве, в котором шейдер читает текстуру.
+        static Vector4 Mean(Color32[] px)
+        {
+            double r = 0, g = 0, b = 0;
+            int n = 0;
+            for (int i = 0; i < px.Length; i += 7)
+            {
+                r += px[i].r;
+                g += px[i].g;
+                b += px[i].b;
+                n++;
+            }
+
+            var c = new Color((float)(r / n / 255.0), (float)(g / n / 255.0), (float)(b / n / 255.0), 1f);
+            if (QualitySettings.activeColorSpace == ColorSpace.Linear)
+            {
+                c = c.linear;
+            }
+
+            return new Vector4(c.r, c.g, c.b, 1f);
         }
 
         // ---------- Шум ----------

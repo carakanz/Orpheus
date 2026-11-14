@@ -84,23 +84,26 @@ namespace Orpheus.Client
             Color32 tint = look.Tint;
             for (int i = 0; i < count && _count < MaxLeaves; i++)
             {
-                float tone = Range(0.82f, 1.12f);
+                float tone = Range(0.66f, 0.95f); // чуть темнее кроны: лист виден и на её фоне
                 ref Leaf l = ref _leaves[_count++];
                 // Крона — верхние ~60 % картинки (у куста — вся), по ширине — середина.
-                float up = burst ? Range(0.25f, 0.95f) : Range(0.45f, 0.9f);
-                l.X0 = basePos.x + Range(-0.36f, 0.36f) * w + dir.x * 0.15f;
+                float up = burst ? Range(0.25f, 0.95f) : Range(0.34f, 0.8f);
+                l.X0 = basePos.x + Range(-0.42f, 0.42f) * w + dir.x * 0.2f;
                 l.Y0 = basePos.y + h * up;
-                l.Y1 = basePos.y + Range(-0.35f, 0.3f) - (burst ? 0f : 0.05f);
-                l.Drift = dir.x * Range(0.2f, 0.7f) + Range(-0.25f, 0.25f);
+                l.Y1 = basePos.y + Range(-0.5f, 0.25f);
+                l.Drift = dir.x * Range(0.3f, 0.9f) + Range(-0.35f, 0.35f);
                 l.Fall = Range(1f, 1.5f) * (burst ? Range(0.7f, 1f) : 1f);
                 l.Age = burst ? -Range(0f, 0.25f) : -Range(0f, 0.18f); // отрываются не все разом
                 l.Swing = Range(0.1f, 0.22f);
                 l.Freq = Range(5f, 8f);
                 l.Phase = Range(0f, 6.28f);
-                l.Size = Range(0.14f, 0.21f) * Mathf.Clamp(h / 2.6f, 0.75f, 1.15f);
+                l.Size = Range(0.24f, 0.36f) * Mathf.Clamp(h / 2.6f, 0.8f, 1.15f);
+                // Насыщеннее среднего цвета кроны (бледная олива иначе теряется на траве).
+                float cr = c.r * tint.r / 255f, cg = c.g * tint.g / 255f, cb = c.b * tint.b / 255f;
+                float grey = (cr + cg + cb) / 3f;
                 l.Color = new Color32(
-                    (byte)Mathf.Min(255f, c.r * tint.r / 255f * tone), (byte)Mathf.Min(255f, c.g * tint.g / 255f * tone),
-                    (byte)Mathf.Min(255f, c.b * tint.b / 255f * tone), 255);
+                    (byte)Mathf.Clamp((grey + (cr - grey) * 1.7f) * tone, 0f, 255f), (byte)Mathf.Clamp((grey + (cg - grey) * 1.7f) * tone, 0f, 255f),
+                    (byte)Mathf.Clamp((grey + (cb - grey) * 1.7f) * tone, 0f, 255f), 255);
                 Shedded++;
             }
         }

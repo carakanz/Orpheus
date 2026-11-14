@@ -115,7 +115,7 @@ namespace Orpheus.Client
                 Id = ObjectId.Tree, Ground = GroundTable.Forest, Patch = 9f,
                 Variants = new[] { V("tree_oak_a", 3), V("tree_oak_b", 3), V("tree_oak_autumn", 0.5f), V("tree_pine_a", 3), V("tree_pine_b", 3) },
                 ScaleMin = 0.85f, ScaleMax = 1.15f, Jitter = 0.2f, Flip = true, Tall = true,
-                Sway = 0.028f, LeavesMin = 4, LeavesMax = 10,
+                Sway = 0.028f, LeavesMin = 6, LeavesMax = 10,
             },
             // Луг и всё остальное: олива и кипарис, изредка осенний дуб.
             new ObjectLook
@@ -123,7 +123,7 @@ namespace Orpheus.Client
                 Id = ObjectId.Tree, Patch = 7f,
                 Variants = new[] { V("tree_olive_a", 3), V("tree_olive_b", 3), V("tree_oak_autumn", 0.4f), V("tree_cypress_a", 2), V("tree_cypress_b", 2) },
                 ScaleMin = 0.85f, ScaleMax = 1.15f, Jitter = 0.2f, Flip = true, Tall = true,
-                Sway = 0.028f, LeavesMin = 4, LeavesMax = 10,
+                Sway = 0.028f, LeavesMin = 6, LeavesMax = 10,
             },
             new ObjectLook
             {

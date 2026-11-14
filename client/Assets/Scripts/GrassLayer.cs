@@ -55,7 +55,7 @@ namespace Orpheus.Client
 
         public static readonly TuftRule[] Rules =
         {
-            new TuftRule { Ground = GroundTable.Grass, Min = 2, Max = 4, Clump = 0.9f, Shape = 0, Shapes = 4, SizeMin = 0.27f, SizeMax = 0.6f, Tint = new Color32(118, 158, 62, 255) },
+            new TuftRule { Ground = GroundTable.Grass, Min = 2, Max = 4, Clump = 0.9f, Shape = 0, Shapes = 4, SizeMin = 0.3f, SizeMax = 0.62f, Tint = new Color32(128, 176, 66, 255) },
             new TuftRule { Ground = GroundTable.DryGrass, Min = 1, Max = 2, Chance = 0.7f, Clump = 0.5f, Shape = 0, Shapes = 4, SizeMin = 0.25f, SizeMax = 0.5f, Tint = new Color32(204, 172, 78, 255) },
             new TuftRule { Ground = GroundTable.Forest, Min = 1, Max = 1, Chance = 0.22f, Shape = ShapeFern, SizeMin = 0.4f, SizeMax = 0.62f, Tint = new Color32(96, 126, 56, 255) },
         };
@@ -314,7 +314,8 @@ namespace Orpheus.Client
 
         // ---------- Лист пучков и материал ----------
 
-        const int Cell = 64;
+        const int Cell = 128;
+        const float K = Cell / 64f; // формы заданы в клетке 64 — множитель
         static Material? _material;
         static bool _tried;
 
@@ -361,7 +362,7 @@ namespace Orpheus.Client
         }
 
         // Светлый тон, тень и контур: картинка почти белая — цвет даёт вершина (контур остаётся тёмным).
-        static readonly Color Light = new Color(1f, 1f, 1f), Dark = new Color(0.74f, 0.80f, 0.70f), Line = new Color(0.24f, 0.22f, 0.20f);
+        static readonly Color Light = new Color(1f, 1f, 1f), Dark = new Color(0.70f, 0.78f, 0.66f), Line = new Color(0.17f, 0.16f, 0.15f);
 
         /// <summary>
         /// Лист 8 форм по 64 × 64: травинки — изогнутые клинья от общей опоры (низ по центру клетки), светлая и теневая
@@ -419,7 +420,7 @@ namespace Orpheus.Client
             }
 
             // Лист (частица): овал с контуром, светлая и теневая половины.
-            Dot(px, w, ShapeLeaf, 32f, 32f, 13f, 21f, Color.white);
+            Dot(px, w, ShapeLeaf, 32f, 32f, 18f, 27f, Color.white);
 
             var tex = new Texture2D(w, Cell, TextureFormat.RGBA32, mipChain: true)
             {
@@ -449,7 +450,8 @@ namespace Orpheus.Client
         static void Blade(Color[] px, int texW, int cell, float x0, float y0, float x1, float y1, float bend, float width)
         {
             const int segs = 8;
-            const float outline = 1.7f;
+            const float outline = 1.5f * K;
+            x0 *= K; y0 *= K; x1 *= K; y1 *= K; bend *= K; width *= K;
             var pts = new Vector2[segs + 1];
             Vector2 a = new Vector2(x0, y0), b = new Vector2(x1, y1);
             Vector2 n = new Vector2(-(b.y - a.y), b.x - a.x).normalized;
@@ -460,9 +462,22 @@ namespace Orpheus.Client
                 pts[i] = Vector2.Lerp(a, b, t) + n * (bend * t * t) - n * (bend * t);
             }
 
-            for (int y = 2; y < Cell - 2; y++)
+            // Рамка травинки — считаем только точки рядом с ней.
+            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+            foreach (Vector2 q in pts)
             {
-                for (int x = 2; x < Cell - 2; x++)
+                minX = Mathf.Min(minX, q.x);
+                maxX = Mathf.Max(maxX, q.x);
+                minY = Mathf.Min(minY, q.y);
+                maxY = Mathf.Max(maxY, q.y);
+            }
+
+            float pad = width * 0.5f + outline + 1f;
+            int fromX = Mathf.Max(2, (int)(minX - pad)), toX = Mathf.Min(Cell - 2, (int)(maxX + pad) + 1);
+            int fromY = Mathf.Max(2, (int)(minY - pad)), toY = Mathf.Min(Cell - 2, (int)(maxY + pad) + 1);
+            for (int y = fromY; y < toY; y++)
+            {
+                for (int x = fromX; x < toX; x++)
                 {
                     var p = new Vector2(x + 0.5f, y + 0.5f);
                     float best = float.MaxValue, bestT = 0f, bestSide = 0f;
@@ -499,7 +514,8 @@ namespace Orpheus.Client
         // Овал (початок камыша, колосок, лист): контур и заливка в два тона.
         static void Dot(Color[] px, int texW, int cell, float cx, float cy, float rx, float ry, Color tone)
         {
-            const float outline = 1.7f;
+            const float outline = 1.5f * K;
+            cx *= K; cy *= K; rx *= K; ry *= K;
             for (int y = 1; y < Cell - 1; y++)
             {
                 for (int x = 1; x < Cell - 1; x++)

@@ -31,17 +31,21 @@ namespace Orpheus.Client
         public readonly float Saturation;
         public readonly float Patches;
 
-        public GroundLayer(string name, Color32 fallback) : this(name, fallback, Color.white, 1f, 0f)
+        /// <summary>Контраст рисунка картинки: 1 — как есть, 0 — ровный средний цвет (нарисованные в картинке травинки не спорят с пучками).</summary>
+        public readonly float Contrast;
+
+        public GroundLayer(string name, Color32 fallback) : this(name, fallback, Color.white, 1f, 0f, 1f)
         {
         }
 
-        public GroundLayer(string name, Color32 fallback, Color tint, float saturation, float patches)
+        public GroundLayer(string name, Color32 fallback, Color tint, float saturation, float patches, float contrast = 1f)
         {
             Name = name;
             Fallback = fallback;
             Tint = tint;
             Saturation = saturation;
             Patches = patches;
+            Contrast = contrast;
         }
     }
 
@@ -85,8 +89,8 @@ namespace Orpheus.Client
             new GroundLayer("ground_sand", new Color32(232, 208, 144, 255), Color.white, 1f, 0.3f),
             new GroundLayer("ground_dirt", new Color32(150, 96, 64, 255), Color.white, 1f, 0.4f),
             // Сухая трава — охристая, а не чистый жёлтый; луг — приглушён: менее кислотный, чуть темнее и теплее (слово Автора 14.11).
-            new GroundLayer("ground_drygrass", new Color32(200, 172, 80, 255), new Color(0.93f, 0.86f, 0.78f), 0.70f, 1f),
-            new GroundLayer("ground_grass", new Color32(112, 170, 44, 255), new Color(0.87f, 0.83f, 0.86f), 0.60f, 1f),
+            new GroundLayer("ground_drygrass", new Color32(200, 172, 80, 255), new Color(0.93f, 0.86f, 0.78f), 0.70f, 1f, 0.6f),
+            new GroundLayer("ground_grass", new Color32(112, 170, 44, 255), new Color(0.86f, 0.86f, 0.80f), 0.68f, 1f, 0.5f),
             new GroundLayer("ground_forest", new Color32(84, 92, 44, 255), Color.white, 1f, 0.5f),
             new GroundLayer("ground_rocky", new Color32(176, 168, 150, 255)),
         };

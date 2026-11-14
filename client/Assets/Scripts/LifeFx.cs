@@ -41,8 +41,8 @@ namespace Orpheus.Client
         /// <summary>Сила толчка: смещение верха, тайлов на тайл высоты (ветер — 0,03–0,05).</summary>
         public const float PushStrength = 0.085f, HitStrength = 0.14f;
 
-        /// <summary>Трава ложится в этом радиусе от ног, тайлов, и распрямляется за столько секунд.</summary>
-        public const float TrailRadius = 0.75f, TrailRecover = 1.1f;
+        /// <summary>Трава ложится в этом радиусе от ног (в половине радиуса — совсем), тайлов, и распрямляется за столько секунд.</summary>
+        public const float TrailRadius = 1.0f, TrailRecover = 1.2f;
 
         const int TrailSize = 256;
         const float TrailTexelsPerTile = 2f;
@@ -100,6 +100,18 @@ namespace Orpheus.Client
         /// <summary>Толчков дано за всё время (замер, лог).</summary>
         public static int Pushes { get; private set; }
 
+        /// <summary>Точек следа, где трава сейчас примята (лог ленты).</summary>
+        public static int TrailTexels()
+        {
+            int n = 0;
+            for (int i = 2; i < _trail.Length; i += 4)
+            {
+                n += _trail[i] > 0 ? 1 : 0;
+            }
+
+            return n;
+        }
+
         /// <summary>Отладка: ORPH_FX со словом nolife выключает ветер, толчки и след (замер «до/после»).</summary>
         static bool _off;
 
@@ -144,6 +156,16 @@ namespace Orpheus.Client
                 _trail[i + 1] = 128;
                 _trail[i + 2] = 0;
                 _trail[i + 3] = 255;
+            }
+
+            if (WorldFx.Off("trailtest"))
+            {
+                // Отладка: вся трава лежит вправо — проверка, что шейдер читает след.
+                for (int i = 0; i < _trail.Length; i += 4)
+                {
+                    _trail[i] = 255;
+                    _trail[i + 2] = 255;
+                }
             }
 
             _trailTex.LoadRawTextureData(_trail);
@@ -358,14 +380,14 @@ namespace Orpheus.Client
             {
                 Vector2 p = Vector2.Lerp(from, to, k / (float)n);
                 int cx = Mathf.FloorToInt(p.x * TrailTexelsPerTile), cy = Mathf.FloorToInt(p.y * TrailTexelsPerTile);
-                for (int y = cy - 2; y <= cy + 2; y++)
+                for (int y = cy - 3; y <= cy + 3; y++)
                 {
-                    for (int x = cx - 2; x <= cx + 2; x++)
+                    for (int x = cx - 3; x <= cx + 3; x++)
                     {
                         var c = new Vector2((x + 0.5f) / TrailTexelsPerTile, (y + 0.5f) / TrailTexelsPerTile);
                         Vector2 d = c - p;
                         float dist = d.magnitude;
-                        float a = 1f - Mathf.SmoothStep(TrailRadius * 0.45f, TrailRadius, dist);
+                        float a = 1f - Mathf.Clamp01((dist - TrailRadius * 0.5f) / (TrailRadius * 0.5f)); // 1 под ногами, 0 на краю пятна
                         if (a <= 0.02f)
                         {
                             continue;

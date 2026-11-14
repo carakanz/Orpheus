@@ -45,8 +45,10 @@ Shader "Orpheus/Ground"
 
     // E1-11 (план 1.12): поправка цвета слоя из таблицы земли (GroundTable): rgb — множитель, a — насыщенность;
     // _OrphLayerMix.x — сила крупных пятен оттенка по миру (луг не ровной заливкой). Задаёт GroundAtlas.
+    // _OrphLayerMix.y — контраст рисунка (1 — как в картинке), _OrphLayerMean — средний цвет картинки слоя.
     float4 _OrphLayerTint[16];
     float4 _OrphLayerMix[16];
+    float4 _OrphLayerMean[16];
 
     struct Attributes
     {
@@ -100,6 +102,7 @@ Shader "Orpheus/Ground"
         col *= (1.0 + (low.b - 0.5) * 2.0 * _Variation);
         // Поправка слоя: насыщенность и множитель цвета; крупные пятна (16–32 тайла) — где суше и теплее, где сочнее и темнее.
         float4 tint = _OrphLayerTint[(int)id];
+        col = lerp(_OrphLayerMean[(int)id].rgb, col, _OrphLayerMix[(int)id].y);
         col = lerp(dot(col, half3(0.30, 0.59, 0.11)).xxx, col, tint.a) * tint.rgb;
         half patch = (SAMPLE_TEXTURE2D_LOD(_Noise, sampler_Noise, wp / 128.0 + float2(0.31, 0.77), 0).b - 0.5) * 2.0 * _OrphLayerMix[(int)id].x;
         col *= patch > 0 ? lerp(half3(1, 1, 1), half3(1.10, 1.03, 0.84), patch) : lerp(half3(1, 1, 1), half3(0.86, 0.93, 0.92), -patch);

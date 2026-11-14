@@ -150,7 +150,7 @@ namespace Orpheus.Client
                 UnityEngine.Object.Destroy(_strip);
                 _strip = null;
                 _g.ScriptedInput = Orpheus.Core.Sim.InputFrame.None;
-                Debug.Log($"[screenshot] лента: кадров {_walkFrames} через {a.WalkInterval:0.00} с, вырезка {cw}x{ch}, толчков деревьев {LifeFx.Pushes}, листьев выпущено {LeafFx.Shedded}");
+                Debug.Log($"[screenshot] лента: кадров {_walkFrames} через {a.WalkInterval:0.00} с, вырезка {cw}x{ch}, толчков деревьев {LifeFx.Pushes}, листьев выпущено {LeafFx.Shedded}, точек следа {LifeFx.TrailTexels()}");
             }
         }
 
