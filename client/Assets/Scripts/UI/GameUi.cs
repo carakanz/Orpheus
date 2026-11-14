@@ -45,7 +45,7 @@ namespace Orpheus.Client.UI
         {
             _top = new UiSlotGrid(Rt, Pad, TopY, Inventory.Slots, 1, 0, UiStyle.CellBar, keyLabels: true);
             _main = new UiSlotGrid(Rt, Pad, MainY, Inventory.Slots, (Inventory.Cells - Inventory.Slots) / Inventory.Slots, Inventory.Slots, UiStyle.Cell);
-            _hint = UiRoot.Label(Rt, "Hint", Pad, Pad - 2f, Width - 2f * Pad, HintHeight, 15, TextAnchor.MiddleLeft, UiStyle.TextDark);
+            _hint = UiRoot.Label(Rt, "Hint", Pad, Pad - 2f, Width - 2f * Pad, HintHeight, 16, TextAnchor.MiddleLeft, UiStyle.TextDark);
             _hint.text = UiStrings.BagHint;
             UiRoot.Label(Rt, "Key", Pad, Height - Pad - TitleHeight, Width - 2f * Pad, TitleHeight, 16, TextAnchor.MiddleRight, UiStyle.TextDark)
                 .text = UiStrings.BagKeys;
