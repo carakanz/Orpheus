@@ -132,12 +132,12 @@ namespace Orpheus.Client.UI
             _noticeUntil = Time.unscaledTime + MessageSeconds;
         }
 
-        /// <summary>Открыть окно крафта на вкладке станка (F у верстака или костра).</summary>
+        /// <summary>Открыть окно «сумка + изготовление» (F у верстака или костра; E2-9: разделы вместо вкладок станков).</summary>
         public void OpenCraft(CraftStation station, in UiCraftState craft)
         {
             SetChestShown(false);
+            SetOpen(true);
             SetCraftOpen(true, craft);
-            _craft.SelectTab(CraftWindow.TabOf(station));
         }
 
         // Сундук сервера открылся / закрылся: окно сундука и сумка — рядом; крафт закрывается.

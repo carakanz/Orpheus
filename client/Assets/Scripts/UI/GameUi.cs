@@ -27,12 +27,17 @@ namespace Orpheus.Client.UI
         public bool Toggle;
         public bool Escape;
 
-        /// <summary>C — открыть / закрыть окно крафта (E2-4).</summary>
+        /// <summary>C — открыть / закрыть окно «сумка + изготовление» (E2-4, E2-9: то же окно, что Tab).</summary>
         public bool Craft;
 
-        /// <summary>Клавиши окна крафта: вкладка (Home / End: −1 / +1), рецепт (PgUp / PgDn: −1 / +1), Enter — сделать
-        /// (с Shift — 5, с Ctrl — всё), Del — отменить последнюю позицию очереди.</summary>
+        /// <summary>Клавиши окна изготовления: раздел (Home / End: −1 / +1; с Shift — подраздел), рецепт (PgUp / PgDn:
+        /// −1 / +1), Enter — сделать (с Shift — 5, с Ctrl — всё), Del — отменить последнюю позицию очереди, Ins — галочка
+        /// «Только доступные» (E2-9).</summary>
         public int TabStep;
+        public bool Filter;
+
+        /// <summary>Колесо мыши за кадр (вверх — больше нуля): над сеткой рецептов — прокрутка (E2-9).</summary>
+        public float Wheel;
         public int RowStep;
         public bool Make;
         public bool Ctrl;
@@ -264,6 +269,7 @@ namespace Orpheus.Client.UI
                 input.LeftDown = mouse.leftButton.wasPressedThisFrame;
                 input.LeftHeld = mouse.leftButton.isPressed;
                 input.RightDown = mouse.rightButton.wasPressedThisFrame;
+                input.Wheel = mouse.scroll.ReadValue().y;
             }
 
             Keyboard? kb = Keyboard.current;
@@ -278,6 +284,7 @@ namespace Orpheus.Client.UI
                 input.RowStep = (kb.pageDownKey.wasPressedThisFrame ? 1 : 0) - (kb.pageUpKey.wasPressedThisFrame ? 1 : 0);
                 input.Make = kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame;
                 input.CancelLast = kb.deleteKey.wasPressedThisFrame;
+                input.Filter = kb.insertKey.wasPressedThisFrame;
                 input.BuildStep = (kb.eKey.wasPressedThisFrame ? 1 : 0) - (kb.qKey.wasPressedThisFrame ? 1 : 0); // E2-5
             }
 
@@ -318,18 +325,14 @@ namespace Orpheus.Client.UI
                 _capture = false;
             }
 
-            if (input.Toggle)
+            // E2-9: Tab и C открывают одно окно — сумка слева, изготовление справа; закрывают его же. При открытом
+            // сундуке (сумка + сундук) Tab закрывает всё, C — сундук закрывает и открывает сумку с изготовлением.
+            if (input.Toggle || input.Craft)
             {
-                if (BagOpen)
-                {
-                    CloseChestByUser(); // сумку закрыли — сундук рядом с ней тоже
-                }
-
-                SetOpen(!BagOpen);
-            }
-            else if (input.Craft)
-            {
-                SetCraftOpen(!CraftOpen, craft);
+                bool open = input.Craft ? !CraftOpen : !(BagOpen || CraftOpen);
+                CloseChestByUser();
+                SetOpen(open);
+                SetCraftOpen(open, craft);
             }
             else if (input.Escape && (BagOpen || CraftOpen || _chest.Visible))
             {
@@ -345,7 +348,7 @@ namespace Orpheus.Client.UI
             Vector2 size = _root.Size, p = input.Pointer;
             int cell = -1;
             CraftHit hit = default;
-            bool overUi = false;
+            bool overUi = false, overGrid = false;
             OverWindow = false;
             if (input.HasPointer)
             {
@@ -367,7 +370,9 @@ namespace Orpheus.Client.UI
                 else if (_craft.Contains(size, p))
                 {
                     overUi = OverWindow = true;
-                    hit = _craft.HitTest(_craft.Local(size, p));
+                    Vector2 local = _craft.Local(size, p);
+                    hit = _craft.HitTest(local);
+                    overGrid = _craft.OverGrid(local);
                 }
             }
 
@@ -381,7 +386,12 @@ namespace Orpheus.Client.UI
                         : new CraftLine((byte)r, CraftReply.NoStation, 0);
                 }
 
+                _craft.Refresh(_lines); // E2-9: сетка подраздела (CraftShelf.Shown) — до клавиш и щелчков
                 CraftKeys(input, craft, dead);
+                if (overGrid && Mathf.Abs(input.Wheel) > 0.01f)
+                {
+                    _craft.Scroll(input.Wheel > 0f ? -1 : 1);
+                }
             }
 
             bool held = _hand.Holding;
@@ -480,6 +490,10 @@ namespace Orpheus.Client.UI
             {
                 tip = UiStrings.QueueTip(craft.Queue.RecipeAt(hit.Index), craft.Queue.LeftAt(hit.Index));
             }
+            else if (hit.Part == CraftPart.Cell && CraftOpen)
+            {
+                tip = RecipeTip(_craft.RecipeInCell(hit.Index), bag, craft.Stock);
+            }
 
             _tip.Show(tip, size, p);
             _carry.Show(_hand.Item, _hand.Count, p);
@@ -494,16 +508,40 @@ namespace Orpheus.Client.UI
             }
         }
 
-        // Щелчок по окну крафта: вкладка, строка, кнопка «сделать», позиция очереди (отмена).
+        // Подсказка значка рецепта: название, «есть / нужно» (те же числа, что в карточке), станок, что мешает.
+        string? RecipeTip(int recipe, in Inventory bag, ChestStock? stock)
+        {
+            return recipe == 0 ? null : UiStrings.RecipeTip(recipe, _lines[recipe], CraftDesk.Have(recipe, 0, bag, stock),
+                CraftDesk.Have(recipe, 1, bag, stock), CraftDesk.Have(recipe, 2, bag, stock));
+        }
+
+        // Щелчок по окну изготовления: раздел, подраздел, галочка, значок рецепта, полоса прокрутки, кнопка «сделать»,
+        // позиция очереди (отмена).
         void CraftClick(CraftHit hit, in UiCraftState craft, bool dead)
         {
             switch (hit.Part)
             {
-                case CraftPart.Tab:
-                    _craft.SelectTab(hit.Index);
+                case CraftPart.Section:
+                    _craft.SelectSection(hit.Index);
+                    _craft.Refresh(_lines);
                     break;
-                case CraftPart.Row:
-                    _craft.SelectRow(hit.Index);
+                case CraftPart.Sub:
+                    _craft.SelectSub(hit.Index);
+                    _craft.Refresh(_lines);
+                    break;
+                case CraftPart.Filter:
+                    _craft.ToggleFilter();
+                    _craft.Refresh(_lines);
+                    break;
+                case CraftPart.Cell:
+                    _craft.SelectCell(hit.Index);
+                    break;
+                case CraftPart.ScrollBar:
+                    if (hit.Index >= 0)
+                    {
+                        _craft.Scroll(hit.Index == 0 ? -CraftWindow.GridRows : CraftWindow.GridRows);
+                    }
+
                     break;
                 case CraftPart.Button:
                     Make(hit.Index < CraftWindow.ButtonCounts.Length ? CraftWindow.ButtonCounts[hit.Index] : 0, dead);
@@ -523,12 +561,27 @@ namespace Orpheus.Client.UI
         {
             if (input.TabStep != 0)
             {
-                _craft.SelectTab(_craft.Tab + input.TabStep);
+                if (input.Shift)
+                {
+                    _craft.SelectSub(_craft.Sub + input.TabStep);
+                }
+                else
+                {
+                    _craft.SelectSection(_craft.Section + input.TabStep);
+                }
+
+                _craft.Refresh(_lines);
+            }
+
+            if (input.Filter)
+            {
+                _craft.ToggleFilter();
+                _craft.Refresh(_lines);
             }
 
             if (input.RowStep != 0)
             {
-                _craft.SelectRow(_craft.SelectedRow + input.RowStep);
+                _craft.StepRecipe(input.RowStep);
             }
 
             if (input.Make)
@@ -616,8 +669,7 @@ namespace Orpheus.Client.UI
             if (open && !CraftOpen)
             {
                 FindStation(craft, force: true);
-                _craft.SelectTab(CraftWindow.TabOf(_near)); // открылось у станка — сразу его вкладка
-                _message = null;
+                _message = null; // раздел и подраздел — те, что были открыты в прошлый раз (E2-9)
             }
 
             _craft.Visible = open;
@@ -625,10 +677,13 @@ namespace Orpheus.Client.UI
     }
 
     /// <summary>
-    /// Показ интерфейса без сервера (E2-2, E2-4; сцены стенда снимков, ключ <c>--ui-demo bag|hotbar|craft|craft+bag|craft-hint</c>):
+    /// Показ интерфейса без сервера (E2-2, E2-4; сцены стенда снимков, ключ <c>--ui-demo bag|hotbar|craft|craft+bag|craft-hint|inv|inv-weapons|inv-buildings</c>):
     /// сумка с набором предметов, заявки исполняются тут же над этой сумкой и очередью, курсор и щелчки — скриптом.
     /// <c>bag</c> — окно открыто, половина стопки камня «в руке»; <c>hotbar</c> — окно закрыто, подсказка над панелью;
-    /// <c>craft</c> — окно крафта у верстака, выбран рецепт с нехваткой, в очереди две позиции; <c>craft+bag</c> — оба окна; <c>craft-hint</c> — окна закрыты, у панели подсказка «C — верстак».
+    /// <c>craft-hint</c> — окна закрыты, у панели подсказка «C — верстак». E2-9: <c>inv</c> (и прежние <c>craft</c>,
+    /// <c>craft+bag</c>) — окно «сумка + изготовление» у верстака: Инструменты → Кирки, в очереди кирка и слитки, выбрана
+    /// медная кирка (слитков не хватает), подсказка над её значком; <c>inv-weapons</c> — Оружие → Мечи с галочкой «Только
+    /// доступные»; <c>inv-buildings</c> — Здания → Дерево (до шага 2.11 пусто).
     /// </summary>
     public sealed partial class UiDemo : IBagRequests, ICraftRequests, IBuildRequests
     {
@@ -665,7 +720,10 @@ namespace Orpheus.Client.UI
         }
 
         /// <summary>Сцена с окном крафта (нужен верстак рядом с персонажем).</summary>
-        public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint" || mode == "craft-chest";
+        public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint" || mode == "craft-chest" || IsInv(mode);
+
+        /// <summary>Сцены окна «сумка + изготовление» (E2-9).</summary>
+        public static bool IsInv(string? mode) => mode == "inv" || mode == "inv-weapons" || mode == "inv-buildings";
 
         public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode) || IsBuild(mode);
 
@@ -752,6 +810,34 @@ namespace Orpheus.Client.UI
             _ui.Frame(input, _bag, selected: 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100, craft);
         }
 
+        // Скрипт окна «сумка + изготовление» (E2-9; верстак рядом). Шаги — (кадр, часть окна, номер, щелчок).
+        // inv: C → Инструменты → Кирки → каменная кирка «Сделать 1» → Материалы → слиток «Сделать всё» → Инструменты
+        // (подраздел запомнен) → медная кирка (слитков не хватает) → курсор над её значком (подсказка).
+        static readonly (int Frame, CraftPart Part, int Index)[] InvSteps =
+        {
+            (5, CraftPart.Section, 2), (8, CraftPart.Sub, 0), (11, CraftPart.Cell, 0), (14, CraftPart.Button, 0),
+            (17, CraftPart.Section, 5), (20, CraftPart.Cell, 0), (23, CraftPart.Button, 2),
+            (26, CraftPart.Section, 2), (29, CraftPart.Cell, 1), (99, CraftPart.Cell, 1),
+        };
+
+        // inv-weapons: Tab → Оружие → Мечи → галочка «Только доступные» → деревянный меч, курсор над ним.
+        static readonly (int Frame, CraftPart Part, int Index)[] WeaponSteps =
+        {
+            (5, CraftPart.Section, 3), (8, CraftPart.Sub, 0), (11, CraftPart.Filter, 0), (14, CraftPart.Cell, 0), (99, CraftPart.Cell, 0),
+        };
+
+        // inv-buildings: Tab → Здания (подраздел «Дерево»; рецептов построек до шага 2.11 нет).
+        static readonly (int Frame, CraftPart Part, int Index)[] BuildingSteps =
+        {
+            (5, CraftPart.Section, 0), (99, CraftPart.Section, 0),
+        };
+
+        // craft-chest (E2-10): C → Инструменты → Кирки → медная кирка: слитков в сумке 5, ещё 12 в сундуке рядом.
+        static readonly (int Frame, CraftPart Part, int Index)[] ChestSteps =
+        {
+            (5, CraftPart.Section, 2), (8, CraftPart.Sub, 0), (11, CraftPart.Cell, 1), (99, CraftPart.Button, 0),
+        };
+
         static ChestStock DemoStock()
         {
             var stock = new ChestStock();
@@ -760,8 +846,6 @@ namespace Orpheus.Client.UI
             return stock;
         }
 
-        // Скрипт окна крафта (вкладка «Верстак» открывается сама — верстак рядом): слиток «всё» → стрелы × 2 → выбрана
-        // медная кирка (слитков не хватает); курсор — над первой строкой списка.
         void CraftScript(ref UiInput input)
         {
             int f = _frame;
@@ -771,38 +855,27 @@ namespace Orpheus.Client.UI
                 return;
             }
 
-            if (_mode == "craft-chest")
-            {
-                // E2-10: окно открыто, выбрана медная кирка — слитков в сумке 5, ещё 12 в сундуке рядом: «есть 17 / 8 (в сундуке)».
-                input.Craft = f == 2;
-                input.Pointer = f < 4 ? new Vector2(40f, 40f) : _ui.CraftPoint(CraftPart.Row, 4);
-                input.LeftDown = f == 5;
-                input.LeftHeld = input.LeftDown;
-                return;
-            }
-
-            if (_mode == "craft+bag")
-            {
-                input.Toggle = f == 2;
-                f--;
-            }
-
-            input.Craft = f == 2;
+            // Открыть: inv и прежние craft — клавишей C, остальные — Tab (то же окно).
+            bool byC = _mode == "inv" || _mode == "craft" || _mode == "craft+bag" || _mode == "craft-chest";
+            input.Craft = byC && f == 2;
+            input.Toggle = !byC && f == 2;
             if (f < 4)
             {
                 input.Pointer = new Vector2(40f, 40f);
                 return;
             }
 
-            (CraftPart Part, int Index) at =
-                f < 7 ? (CraftPart.Row, 3)        // медный слиток
-                : f < 10 ? (CraftPart.Button, 2)  // «сделать всё»
-                : f < 13 ? (CraftPart.Row, 2)     // стрелы
-                : f < 18 ? (CraftPart.Button, 0)  // «сделать 1» дважды
-                : f < 21 ? (CraftPart.Row, 4)     // медная кирка
-                : (CraftPart.Row, 0);     // курсор над строкой, которую можно сделать
-            input.Pointer = _ui.CraftPoint(at.Part, at.Index) + (f >= 21 ? new Vector2(120f, -6f) : Vector2.zero);
-            input.LeftDown = f == 5 || f == 8 || f == 11 || f == 14 || f == 16 || f == 19;
+            var steps = _mode == "inv-weapons" ? WeaponSteps : _mode == "inv-buildings" ? BuildingSteps : _mode == "craft-chest" ? ChestSteps : InvSteps;
+            int k = 0;
+            while (k < steps.Length - 1 && f > steps[k].Frame)
+            {
+                k++;
+            }
+
+            var step = steps[k];
+            bool last = k == steps.Length - 1;
+            input.Pointer = _ui.CraftPoint(step.Part, step.Index) + (last ? new Vector2(10f, -8f) : Vector2.zero);
+            input.LeftDown = !last && f == step.Frame;
             input.LeftHeld = input.LeftDown;
         }
     }

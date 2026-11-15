@@ -39,6 +39,26 @@ namespace Orpheus.Client.UI
 
         bool _dim;
 
+        /// <summary>
+        /// Значок рецепта (E2-9): предмет виден всегда, число — «сколько можно сделать» (и 1 тоже); 0 — без числа.
+        /// </summary>
+        public void SetBadge(byte item, int badge)
+        {
+            if (item != _item)
+            {
+                _item = item;
+                _image.sprite = item == Items.None ? null : PileView.SpriteFor(item);
+                _image.enabled = item != Items.None;
+            }
+
+            int shown = item != Items.None && badge > 0 ? badge : 0;
+            if (shown != _shown)
+            {
+                _shown = shown;
+                _count.text = shown > 0 ? shown.ToString() : string.Empty;
+            }
+        }
+
         /// <summary>Показать предмет и количество; нет предмета или 0 штук — пусто.</summary>
         public void Set(byte item, int count)
         {
@@ -94,6 +114,8 @@ namespace Orpheus.Client.UI
             Rt = UiRoot.Node(parent, "Grid", x, y, WidthOf(columns), WidthOf(rows));
             _plain = UiStyle.Frame(fill, UiStyle.Ink);
             _hoverSprite = UiStyle.Frame(UiStyle.CellHover, UiStyle.Ink);
+            _offSprite = UiStyle.Frame(UiStyle.CellOff, UiStyle.InkSoft);
+            _off = new bool[columns * rows];
             _back = new Image[columns * rows];
             _icons = new UiItemIcon[columns * rows];
             for (int i = 0; i < _back.Length; i++)
@@ -119,6 +141,34 @@ namespace Orpheus.Client.UI
 
         /// <summary>Содержимое ячейки сетки <paramref name="i"/> (0…<see cref="Count"/>−1).</summary>
         public void Set(int i, byte item, int count) => _icons[i].Set(item, count);
+
+        /// <summary>Ячейка-рецепт (E2-9): значок, число «можно сделать», приглушена ли (сделать сейчас нельзя).</summary>
+        public void SetRecipe(int i, byte item, int badge, bool off)
+        {
+            _icons[i].SetBadge(item, badge);
+            _icons[i].Dim(off);
+            if (_off[i] != off)
+            {
+                _off[i] = off;
+                if (i != _hover)
+                {
+                    _back[i].sprite = off ? _offSprite : _plain;
+                }
+            }
+        }
+
+        /// <summary>Показать / спрятать ячейку (сетка рецептов: ячейки за концом списка не видны).</summary>
+        public void Show(int i, bool on)
+        {
+            if (_back[i].enabled != on)
+            {
+                _back[i].enabled = on;
+                _icons[i].Rt.gameObject.SetActive(on);
+            }
+        }
+
+        bool[] _off = System.Array.Empty<bool>();
+        Sprite _offSprite = null!;
 
         /// <summary>Рамка выбранной ячейки; −1 — нет.</summary>
         public void Select(int i)
@@ -146,7 +196,7 @@ namespace Orpheus.Client.UI
 
             if ((uint)_hover < (uint)_back.Length)
             {
-                _back[_hover].sprite = _plain;
+                _back[_hover].sprite = _off[_hover] ? _offSprite : _plain;
             }
 
             _hover = i;
@@ -266,6 +316,7 @@ namespace Orpheus.Client.UI
         readonly Text _text;
         string _shown = string.Empty;
         const float Height = 34f;
+        float _height = Height;
 
         public UiTooltip(UiRoot root)
         {
@@ -294,12 +345,24 @@ namespace Orpheus.Client.UI
                 _shown = text!;
                 _text.text = _shown;
                 float w = Mathf.Ceil(_text.preferredWidth) + 24f;
-                _rt.sizeDelta = new Vector2(w, Height);
-                _back.rectTransform.sizeDelta = new Vector2(w, Height);
+                // Несколько строк (подсказка рецепта, E2-9): высота по тексту, текст сверху вниз.
+                int lines = 1;
+                foreach (char ch in _shown)
+                {
+                    if (ch == '\n')
+                    {
+                        lines++;
+                    }
+                }
+
+                _height = lines > 1 ? lines * 26f + 14f : Height;
+                _rt.sizeDelta = new Vector2(w, _height);
+                _back.rectTransform.sizeDelta = new Vector2(w, _height);
+                _text.rectTransform.sizeDelta = new Vector2(w, _height);
             }
 
             float width = _rt.sizeDelta.x;
-            _rt.anchoredPosition = new Vector2(Mathf.Clamp(at.x + 18f, 4f, canvas.x - width - 4f), Mathf.Clamp(at.y + 14f, 4f, canvas.y - Height - 4f));
+            _rt.anchoredPosition = new Vector2(Mathf.Clamp(at.x + 18f, 4f, canvas.x - width - 4f), Mathf.Clamp(at.y + 14f, 4f, canvas.y - _height - 4f));
         }
     }
 
