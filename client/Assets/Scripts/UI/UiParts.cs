@@ -23,7 +23,7 @@ namespace Orpheus.Client.UI
             Rt = UiRoot.Node(parent, "Item", x, y, box, box);
             float pad = (box - icon) / 2f;
             _image = UiRoot.Picture(Rt, "Icon", pad, pad, icon, icon, null, sliced: false);
-            _count = UiRoot.Label(Rt, "Count", 0f, 4f, box - 6f, 24f, 20, TextAnchor.LowerRight, UiStyle.TextLight, outline: true, bold: true);
+            _count = UiRoot.Label(Rt, "Count", 0f, 1f, box - 4f, 22f, box >= 44f ? 19 : 18, TextAnchor.LowerRight, UiStyle.TextLight, outline: true, bold: true);
             Set(Items.None, 0);
         }
 
@@ -84,9 +84,45 @@ namespace Orpheus.Client.UI
     }
 
     /// <summary>
+    /// Вид ячеек сетки (C-008): картинки фона — обычная, под курсором, выключенная (рецепт, которого не сделать), рамка
+    /// выбранной и цвет подписи клавиши. <see cref="Glass"/> — полупрозрачное «стекло» поверх мира, <see cref="Chest"/> —
+    /// то же другого оттенка (сундук), <see cref="Parchment"/> — прежний пергамент (для будущих диалогов).
+    /// </summary>
+    public sealed class UiCellLook
+    {
+        public readonly Sprite Plain, Hover, Off, Selected;
+        public readonly Color32 KeyColor;
+        public readonly bool KeyOutline;
+
+        public UiCellLook(Sprite plain, Sprite hover, Sprite off, Sprite selected, Color32 keyColor, bool keyOutline)
+        {
+            Plain = plain;
+            Hover = hover;
+            Off = off;
+            Selected = selected;
+            KeyColor = keyColor;
+            KeyOutline = keyOutline;
+        }
+
+        static UiCellLook? _glass, _chest;
+
+        public static UiCellLook Glass => _glass ??= new UiCellLook(UiStyle.Frame(UiStyle.Glass, UiStyle.GlassEdge, thick: 2f, radius: 6f),
+            UiStyle.Frame(UiStyle.GlassHover, UiStyle.GlassEdge, thick: 2f, radius: 6f), UiStyle.Frame(UiStyle.GlassOff, UiStyle.GlassOffEdge, thick: 2f, radius: 6f),
+            UiStyle.Frame(UiStyle.Clear, UiStyle.Gold, thick: 4f, radius: 8f), UiStyle.TextLight, true);
+
+        public static UiCellLook Chest => _chest ??= new UiCellLook(UiStyle.Frame(UiStyle.GlassChest, UiStyle.GlassChestEdge, thick: 2f, radius: 6f),
+            UiStyle.Frame(UiStyle.GlassHover, UiStyle.GlassChestEdge, thick: 2f, radius: 6f), UiStyle.Frame(UiStyle.GlassOff, UiStyle.GlassOffEdge, thick: 2f, radius: 6f),
+            UiStyle.Frame(UiStyle.Clear, UiStyle.Gold, thick: 4f, radius: 8f), UiStyle.TextLight, true);
+
+        public static UiCellLook Parchment(Color32 fill) => new UiCellLook(UiStyle.Frame(fill, UiStyle.Ink), UiStyle.Frame(UiStyle.CellHover, UiStyle.Ink),
+            UiStyle.Frame(UiStyle.CellOff, UiStyle.InkSoft), UiStyle.Frame(UiStyle.Clear, UiStyle.Ochre, thick: 5f, radius: 9f), UiStyle.TextDark, false);
+    }
+
+    /// <summary>
     /// Сетка ячеек (E2-2): фон ячейки, значок с числом, рамка выбранной, подсветка под курсором, подпись клавиши.
     /// Ячейки нумеруются слева направо, сверху вниз, начиная с <see cref="First"/> — номер ячейки сумки. Ничего не
     /// знает про сумку: что показывать, говорит владелец (<see cref="Set"/>), попадание — <see cref="Hit"/>.
+    /// C-008: размер ячейки и вид (<see cref="UiCellLook"/>) задаёт владелец; по умолчанию — 48 единиц.
     /// </summary>
     public sealed class UiSlotGrid
     {
@@ -94,50 +130,75 @@ namespace Orpheus.Client.UI
         public readonly int First;
         public readonly int Columns;
         public readonly int Rows;
+        public readonly float Cell;
         readonly Image[] _back;
         readonly UiItemIcon[] _icons;
         readonly Image _selected;
-        readonly Sprite _plain;
-        readonly Sprite _hoverSprite;
+        readonly UiCellLook _look;
         int _hover = -1;
         int _sel = -1;
 
+        /// <summary>Шаг ячеек стандартного размера.</summary>
         public const float Step = UiStyle.CellSize + UiStyle.CellGap;
 
         public static float WidthOf(int columns) => columns * Step - UiStyle.CellGap;
 
+        public static float WidthOf(int columns, float cell) => columns * (cell + UiStyle.CellGap) - UiStyle.CellGap;
+
+        /// <summary>Шаг ячеек этой сетки.</summary>
+        public float Pitch => Cell + UiStyle.CellGap;
+
+        public float Width => WidthOf(Columns, Cell);
+
+        public float Height => WidthOf(Rows, Cell);
+
         public UiSlotGrid(Transform parent, float x, float y, int columns, int rows, int first, Color32 fill, bool keyLabels = false)
+            : this(parent, x, y, columns, rows, first, UiCellLook.Parchment(fill), keyLabels)
+        {
+        }
+
+        public UiSlotGrid(Transform parent, float x, float y, int columns, int rows, int first, UiCellLook look, bool keyLabels = false,
+            float cell = UiStyle.CellSize, float icon = UiStyle.IconSize)
         {
             First = first;
             Columns = columns;
             Rows = rows;
-            Rt = UiRoot.Node(parent, "Grid", x, y, WidthOf(columns), WidthOf(rows));
-            _plain = UiStyle.Frame(fill, UiStyle.Ink);
-            _hoverSprite = UiStyle.Frame(UiStyle.CellHover, UiStyle.Ink);
-            _offSprite = UiStyle.Frame(UiStyle.CellOff, UiStyle.InkSoft);
+            Cell = cell;
+            _look = look;
+            Rt = UiRoot.Node(parent, "Grid", x, y, WidthOf(columns, cell), WidthOf(rows, cell));
             _off = new bool[columns * rows];
             _back = new Image[columns * rows];
             _icons = new UiItemIcon[columns * rows];
             for (int i = 0; i < _back.Length; i++)
             {
                 Vector2 at = CellOrigin(i);
-                _back[i] = UiRoot.Picture(Rt, "Cell", at.x, at.y, UiStyle.CellSize, UiStyle.CellSize, _plain);
-                _icons[i] = new UiItemIcon(Rt, at.x, at.y, UiStyle.CellSize);
+                _back[i] = UiRoot.Picture(Rt, "Cell", at.x, at.y, cell, cell, look.Plain);
+                _icons[i] = new UiItemIcon(Rt, at.x, at.y, cell, Mathf.Min(icon, cell - 8f));
                 if (keyLabels)
                 {
-                    UiRoot.Label(Rt, "Key", at.x + UiStyle.CellSize - 28f, at.y + UiStyle.CellSize - 25f, 21f, 20f, 16, TextAnchor.UpperRight, UiStyle.TextDark, bold: true)
+                    // C-008: номер клавиши — мелко в левом верхнем углу (число стопки — справа внизу), как в Terraria.
+                    UiRoot.Label(Rt, "Key", at.x + 4f, at.y + cell - 21f, 20f, 20f, 16, TextAnchor.UpperLeft, look.KeyColor, outline: look.KeyOutline, bold: true)
                         .text = (i + 1).ToString();
                 }
             }
 
-            _selected = UiRoot.Picture(Rt, "Selected", 0f, 0f, UiStyle.CellSize + 8f, UiStyle.CellSize + 8f,
-                UiStyle.Frame(UiStyle.Clear, UiStyle.Ochre, thick: 5f, radius: 9f));
+            _selected = UiRoot.Picture(Rt, "Selected", 0f, 0f, cell + 6f, cell + 6f, look.Selected);
             _selected.enabled = false;
         }
 
         public int Count => _back.Length;
 
-        Vector2 CellOrigin(int i) => new Vector2(i % Columns * Step, (Rows - 1 - i / Columns) * Step);
+        Vector2 CellOrigin(int i) => new Vector2(i % Columns * Pitch, (Rows - 1 - i / Columns) * Pitch);
+
+        /// <summary>Середина ячейки сетки <paramref name="i"/> в координатах родителя сетки.</summary>
+        public Vector2 CenterOf(int i) => Rt.anchoredPosition + CellOrigin(i) + new Vector2(Cell / 2f, Cell / 2f);
+
+        /// <summary>Точка (в координатах родителя) внутри прямоугольника всей сетки, включая зазоры (C-008: это уже не мир).</summary>
+        public bool Covers(Vector2 parentPoint)
+        {
+            Vector2 p = parentPoint - Rt.anchoredPosition;
+            return Rt.gameObject.activeInHierarchy && p.x >= 0f && p.y >= 0f && p.x < Width && p.y < Height;
+        }
 
         /// <summary>Содержимое ячейки сетки <paramref name="i"/> (0…<see cref="Count"/>−1).</summary>
         public void Set(int i, byte item, int count) => _icons[i].Set(item, count);
@@ -152,7 +213,7 @@ namespace Orpheus.Client.UI
                 _off[i] = off;
                 if (i != _hover)
                 {
-                    _back[i].sprite = off ? _offSprite : _plain;
+                    _back[i].sprite = off ? _look.Off : _look.Plain;
                 }
             }
         }
@@ -168,7 +229,6 @@ namespace Orpheus.Client.UI
         }
 
         bool[] _off = System.Array.Empty<bool>();
-        Sprite _offSprite = null!;
 
         /// <summary>Рамка выбранной ячейки; −1 — нет.</summary>
         public void Select(int i)
@@ -182,7 +242,7 @@ namespace Orpheus.Client.UI
             _selected.enabled = (uint)i < (uint)_back.Length;
             if (_selected.enabled)
             {
-                _selected.rectTransform.anchoredPosition = CellOrigin(i) - new Vector2(4f, 4f);
+                _selected.rectTransform.anchoredPosition = CellOrigin(i) - new Vector2(3f, 3f);
             }
         }
 
@@ -196,13 +256,13 @@ namespace Orpheus.Client.UI
 
             if ((uint)_hover < (uint)_back.Length)
             {
-                _back[_hover].sprite = _off[_hover] ? _offSprite : _plain;
+                _back[_hover].sprite = _off[_hover] ? _look.Off : _look.Plain;
             }
 
             _hover = i;
             if ((uint)i < (uint)_back.Length)
             {
-                _back[i].sprite = _hoverSprite;
+                _back[i].sprite = _look.Hover;
             }
         }
 
@@ -215,8 +275,8 @@ namespace Orpheus.Client.UI
                 return -1;
             }
 
-            int col = (int)(p.x / Step), rowUp = (int)(p.y / Step);
-            if (col >= Columns || rowUp >= Rows || p.x - col * Step >= UiStyle.CellSize || p.y - rowUp * Step >= UiStyle.CellSize)
+            int col = (int)(p.x / Pitch), rowUp = (int)(p.y / Pitch);
+            if (col >= Columns || rowUp >= Rows || p.x - col * Pitch >= Cell || p.y - rowUp * Pitch >= Cell)
             {
                 return -1;
             }
@@ -254,20 +314,34 @@ namespace Orpheus.Client.UI
         readonly Image _back;
         readonly Sprite _plain, _hover, _selected, _off;
         readonly float _w, _h;
+        readonly bool _glass;
         int _state = -1;
 
         public UiButton(Transform parent, float x, float y, float w, float h, string text, int size = 20, TextAnchor align = TextAnchor.MiddleCenter,
-            float textPad = 0f)
+            float textPad = 0f, bool glass = false)
         {
             _w = w;
             _h = h;
+            _glass = glass;
             Rt = UiRoot.Node(parent, "Button", x, y, w, h);
-            _plain = UiStyle.Frame(UiStyle.Cell, UiStyle.Ink);
-            _hover = UiStyle.Frame(UiStyle.CellHover, UiStyle.Ink);
-            _selected = UiStyle.Frame(UiStyle.CellHover, UiStyle.Ochre, thick: 4f);
-            _off = UiStyle.Frame(UiStyle.CellOff, UiStyle.InkSoft);
+            if (glass)
+            {
+                // C-008: кнопка-«стекло» поверх мира: светлый текст с обводкой.
+                _plain = UiStyle.Frame(UiStyle.Glass, UiStyle.GlassEdge, thick: 2f, radius: 6f);
+                _hover = UiStyle.Frame(UiStyle.GlassHover, UiStyle.GlassEdge, thick: 2f, radius: 6f);
+                _selected = UiStyle.Frame(UiStyle.GlassHover, UiStyle.Gold, thick: 3f, radius: 6f);
+                _off = UiStyle.Frame(UiStyle.GlassOff, UiStyle.GlassOffEdge, thick: 2f, radius: 6f);
+            }
+            else
+            {
+                _plain = UiStyle.Frame(UiStyle.Cell, UiStyle.Ink);
+                _hover = UiStyle.Frame(UiStyle.CellHover, UiStyle.Ink);
+                _selected = UiStyle.Frame(UiStyle.CellHover, UiStyle.Ochre, thick: 4f);
+                _off = UiStyle.Frame(UiStyle.CellOff, UiStyle.InkSoft);
+            }
+
             _back = UiRoot.Picture(Rt, "Back", 0f, 0f, w, h, _plain);
-            Label = UiRoot.Label(Rt, "Text", textPad, 0f, w - 2f * textPad, h, size, align, UiStyle.TextDark, bold: true);
+            Label = UiRoot.Label(Rt, "Text", textPad, 0f, w - 2f * textPad, h, size, align, glass ? UiStyle.TextLight : UiStyle.TextDark, outline: glass, bold: true);
             Label.text = text;
             Set(false, false, true);
         }
@@ -304,7 +378,7 @@ namespace Orpheus.Client.UI
 
             _state = state;
             _back.sprite = state == 3 ? _off : state == 2 || state == 4 ? _selected : state == 1 ? _hover : _plain;
-            Label.color = enabled ? UiStyle.TextDark : UiStyle.TextDim;
+            Label.color = _glass ? (enabled ? UiStyle.TextLight : new Color32(170, 176, 200, 200)) : enabled ? UiStyle.TextDark : UiStyle.TextDim;
         }
     }
 

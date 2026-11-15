@@ -90,6 +90,8 @@ namespace Orpheus.Client
             };
             _craftState = craft;
             UI.UiBuildState build = _args.NetSmokeSeconds > 0 ? default : BuildState(c, pr);
+            _ui.MapSnapshot = c.HasSnapshot ? c.Latest : null; // C-008: точки игроков и врагов на мини-карте
+            _ui.MapSelf = _localId;
             _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0,
                 Orpheus.Core.Movement.Stamina.Max, craft, build);
             if (_ui.SlotClicked >= 0)
