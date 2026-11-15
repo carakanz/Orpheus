@@ -94,19 +94,55 @@ namespace Orpheus.Client
             Vector3 c = origin.ToUnity(EditRules.CenterOf(Torus.Wrap(map, tile)));
             bool repair = check.Action == BuildAction.Repair;
             Color col = repair ? (check.Ok ? Fix : Bad) : check.Ok ? Ok : Bad;
-            string? name = repair ? null : BuildLook.NameOf(check.Key);
+            // E2-12: стена, забор, дверь — ячейки 0,5 × 0,5: призрак — прямоугольник ячеек (BuildCheck.Cells) без картинки тайла.
+            bool cells = !repair && check.Cells != 0 && check.Cells != BuildCells.Full;
+            float w = 1f, h = 1f;
+            if (cells)
+            {
+                CellBox(check.Cells, out float ox, out float oy, out w, out h);
+                c += new Vector3(ox, oy, 0f);
+            }
+
+            string? name = repair || cells ? null : BuildLook.NameOf(check.Key);
             Sprite? s = name != null ? BuildLook.Centered(name) : null;
             _ghost[slot].sprite = s;
             _ghost[slot].enabled = s != null;
             _ghost[slot].color = new Color(col.r, col.g, col.b, 0.72f);
             _ghost[slot].transform.position = c;
             _fill[slot].transform.position = c;
-            _fill[slot].transform.localScale = new Vector3(1f, 1f, 1f);
-            _fill[slot].color = new Color(col.r, col.g, col.b, repair ? 0.18f : 0.28f);
-            Edge(_frame[slot][0], c + new Vector3(0f, 0.5f, 0f), 1f + Line, Line, col);
-            Edge(_frame[slot][1], c + new Vector3(0f, -0.5f, 0f), 1f + Line, Line, col);
-            Edge(_frame[slot][2], c + new Vector3(-0.5f, 0f, 0f), Line, 1f + Line, col);
-            Edge(_frame[slot][3], c + new Vector3(0.5f, 0f, 0f), Line, 1f + Line, col);
+            _fill[slot].transform.localScale = new Vector3(w, h, 1f);
+            _fill[slot].color = new Color(col.r, col.g, col.b, repair ? 0.18f : cells ? 0.55f : 0.28f);
+            Edge(_frame[slot][0], c + new Vector3(0f, h / 2f, 0f), w + Line, Line, col);
+            Edge(_frame[slot][1], c + new Vector3(0f, -h / 2f, 0f), w + Line, Line, col);
+            Edge(_frame[slot][2], c + new Vector3(-w / 2f, 0f, 0f), Line, h + Line, col);
+            Edge(_frame[slot][3], c + new Vector3(w / 2f, 0f, 0f), Line, h + Line, col);
+        }
+
+        /// <summary>
+        /// Прямоугольник ячеек маски (E2-12) относительно центра тайла в единицах Unity: сдвиг (Y Unity вверх, ячейка qy 0 —
+        /// северная, сверху) и размер (0,5 или 1 по оси).
+        /// </summary>
+        public static void CellBox(byte mask, out float ox, out float oy, out float w, out float h)
+        {
+            int x0 = 1, x1 = 0, y0 = 1, y1 = 0;
+            for (int q = 0; q < 4; q++)
+            {
+                if ((mask & (1 << q)) == 0)
+                {
+                    continue;
+                }
+
+                int qx = q & 1, qy = q >> 1;
+                x0 = Mathf.Min(x0, qx);
+                x1 = Mathf.Max(x1, qx);
+                y0 = Mathf.Min(y0, qy);
+                y1 = Mathf.Max(y1, qy);
+            }
+
+            ox = (x0 + x1 + 1) * 0.25f - 0.5f;
+            oy = -((y0 + y1 + 1) * 0.25f - 0.5f);
+            w = (x1 - x0 + 1) * 0.5f;
+            h = (y1 - y0 + 1) * 0.5f;
         }
 
         // Линии сетки по границам тайлов квадрата 13 × 13 вокруг тайла персонажа.

@@ -295,6 +295,7 @@ namespace Orpheus.Client
             if (_nodes.TryGetValue(c, out ChunkNode? node))
             {
                 Fill(node, c);
+                RefreshSeams(c); // E2-12: контур тонкой стены у соседнего чанка зависит от ячеек этого
                 return;
             }
 
@@ -606,6 +607,35 @@ namespace Orpheus.Client
             node.GroundDirty = false;
         }
 
+        /// <summary>
+        /// Тонкие стены у границы (E2-12): контур ячейки зависит от соседней ячейки за границей тайла — у соседних чанков
+        /// перерисовать плитки построек-ячеек в ряду, прилегающем к чанку <paramref name="c"/> (только их, без заливки чанка).
+        /// </summary>
+        void RefreshSeams(ChunkCoord c)
+        {
+            for (int k = 0; k < 4; k++)
+            {
+                int dx = k == 0 ? 1 : k == 1 ? -1 : 0, dy = k == 2 ? 1 : k == 3 ? -1 : 0;
+                if (!TryNeighbour(c, dx, dy, out ChunkNode n) || !n.HasFloors)
+                {
+                    continue;
+                }
+
+                TileCoord corner = Torus.CornerOf(n.Coord);
+                for (int i = 0; i < Size; i++)
+                {
+                    int lx = dx == 1 ? 0 : dx == -1 ? Size - 1 : i;
+                    int ly = dy == 1 ? 0 : dy == -1 ? Size - 1 : i;
+                    TileCoord t = Torus.Wrap(_map, new TileCoord(corner.X + lx, corner.Y + ly));
+                    ushort obj = _world.GetObject(t);
+                    if (BuildCells.IsCellBuilding(obj))
+                    {
+                        n.Objects.SetTile(new Vector3Int(lx, -ly - 1, 0), ThinWallLook.TileAt(_world, t, obj));
+                    }
+                }
+            }
+        }
+
         bool TryNeighbour(ChunkCoord c, int dx, int dy, out ChunkNode node) =>
             _nodes.TryGetValue(Torus.Wrap(_map, new ChunkCoord(c.X + dx, c.Y + dy)), out node!);
 
@@ -671,10 +701,16 @@ namespace Orpheus.Client
                         if (ly > maxY) maxY = ly;
                     }
 
-                    TileBase? tile = ObjectTile(obj);
-                    if (obj == ObjectId.Door && chunk != null && chunk.TryGetBuild(index, out BuildRecord rec))
+                    TileBase? tile;
+                    if (BuildCells.IsCellBuilding(obj))
                     {
-                        tile = DoorTile(rec.IsDoorOpen); // 1-012: состояние двери видно (открытая светлее)
+                        // E2-12: стена, забор, дверь — ячейки 0,5 × 0,5 с автосоединением (контур по краям без соседа).
+                        TileCoord corner = Torus.CornerOf(c);
+                        tile = ThinWallLook.TileAt(_world, Torus.Wrap(_map, new TileCoord(corner.X + lx, corner.Y + ly)), obj);
+                    }
+                    else
+                    {
+                        tile = ObjectTile(obj);
                     }
 
                     _objBuf[row + lx] = tile;
