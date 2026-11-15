@@ -275,7 +275,8 @@ namespace Orpheus.Client.Anim
             // --- удар ---
             if (s.Swing != SwingPhase.None)
             {
-                SwingOffset(s.Swing, Clamp01(s.SwingProgress), s.SwingDirX, s.SwingDirY, t, ref p);
+                float lunge = s.Held == HeldLook.Sword ? ActionAnim.SwordLunge(s.SwingDirY) : AnimParams.StrikeLunge; // C-012
+                SwingOffset(s.Swing, Clamp01(s.SwingProgress), s.SwingDirX, s.SwingDirY, t, lunge, ref p);
             }
 
             // --- копание инструментом (E2-7): замах в такт ядра ---
@@ -334,7 +335,10 @@ namespace Orpheus.Client.Anim
             // --- меч в руке следует фазе удара ---
             if (s.Swing != SwingPhase.None && !toolAction)
             {
-                handTarget = ActionAnim.SwordDeg(s.Swing, Clamp01(s.SwingProgress));
+                float aimDeg = ActionAnim.AimDeg(s.SwingDirX, s.SwingDirY);
+                handTarget = s.Held == HeldLook.Sword // C-012: кончик меча — по дуге зоны удара ядра
+                    ? ActionAnim.SwordHandDeg(p, s.Swing, Clamp01(s.SwingProgress), aimDeg)
+                    : ActionAnim.SwordDeg(s.Swing, Clamp01(s.SwingProgress), aimDeg);
                 handDirect = true;
             }
 
@@ -406,7 +410,7 @@ namespace Orpheus.Client.Anim
         }
 
         /// <summary>Замах: отклонение назад с приседанием и дрожью; удар — выпад вперёд; отход — плавный возврат.</summary>
-        static void SwingOffset(SwingPhase phase, float q, float dx, float dy, float t, ref Pose p)
+        static void SwingOffset(SwingPhase phase, float q, float dx, float dy, float t, float lungeLen, ref Pose p)
         {
             float back, lean, squash = 0f;
             switch (phase)
@@ -428,7 +432,7 @@ namespace Orpheus.Client.Anim
                 case SwingPhase.Strike:
                 {
                     float e = Math.Min(1f, q * 2f);
-                    back = Lerp(-AnimParams.WindupBack, AnimParams.StrikeLunge, e);
+                    back = Lerp(-AnimParams.WindupBack, lungeLen, e);
                     lean = Lerp(AnimParams.WindupLeanDeg, -AnimParams.StrikeLeanDeg, e);
                     squash = -0.06f * e; // вытягивается в выпаде
                     break;
@@ -436,7 +440,7 @@ namespace Orpheus.Client.Anim
                 default:
                 {
                     float e = q * q * (3f - 2f * q);
-                    back = AnimParams.StrikeLunge * (1f - e);
+                    back = lungeLen * (1f - e);
                     lean = -AnimParams.StrikeLeanDeg * (1f - e);
                     break;
                 }
