@@ -162,7 +162,7 @@ namespace Orpheus.Client
 
         /// <summary>
         /// E2-17, только для снимков без сервера: дом из тонких стен с мебелью, дверями и забором вокруг персонажа
-        /// (<see cref="PaintDemo.Home"/>); слово — где стоит персонаж: <c>overview</c>, <c>south</c>, <c>north</c>,
+        /// (<see cref="global::Orpheus.Client.PaintDemo.Home"/>); слово — где стоит персонаж: <c>overview</c>, <c>south</c>, <c>north</c>,
         /// <c>behind</c>, <c>door</c>, <c>camp</c>, <c>fence</c>.
         /// </summary>
         public string? HomeDemo;
@@ -492,7 +492,7 @@ namespace Orpheus.Client
                         break;
                     case "--home-demo":
                         i++;
-                        if (!PaintDemo.IsHomeMode(next))
+                        if (!global::Orpheus.Client.PaintDemo.IsHomeMode(next))
                         {
                             a.Error = $"--home-demo: нужно overview, south, north, behind, door, camp или fence, дано '{next}'";
                         }
