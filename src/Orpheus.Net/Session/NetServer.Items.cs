@@ -159,6 +159,50 @@ namespace Orpheus.Net.Session
             CraftStatesSent++;
         }
 
+        /// <summary>Сводка «сундуки рядом» пересчитывается раз в столько тактов (и сразу после своего изготовления / отмены).</summary>
+        public const int StockEveryTicks = 5;
+
+        /// <summary>Сообщений «сундуки рядом» (36) отправлено.</summary>
+        public long NearbyStockSent { get; private set; }
+
+        private readonly ChestStock _stockScratch = new ChestStock();
+
+        /// <summary>
+        /// E2-10: после такта — сводка «сколько каждого предмета в сундуках рядом» (36) владельцу, если изменилась. Считается
+        /// раз в <see cref="StockEveryTicks"/> тактов (сдвиг по номеру сущности — игроки не в одном такте) и в такте, где
+        /// игрок поставил или отменил изготовление (сундуки рядом могли опустеть). Пустая сводка до первой непустой не шлётся.
+        /// </summary>
+        private void SendStockTo(Player pl)
+        {
+            bool due = (_sim.Tick + pl.EntityId) % StockEveryTicks == 0;
+            if (!due)
+            {
+                ReadOnlySpan<SimEvent> events = _sim.Events;
+                for (int e = 0; e < events.Length && !due; e++)
+                {
+                    due = events[e].Requester == pl.EntityId
+                        && (events[e].Kind == SimEventKind.CraftQueued || events[e].Kind == SimEventKind.CraftCancelled);
+                }
+            }
+
+            if (!due)
+            {
+                return;
+            }
+
+            _sim.FillChestStock(pl.EntityId, _stockScratch);
+            if (pl.HasSentStock ? _stockScratch.Equals(pl.SentStock) : _stockScratch.IsEmpty)
+            {
+                return;
+            }
+
+            pl.SentStock.CopyFrom(_stockScratch);
+            pl.HasSentStock = true;
+            int len = new NearbyStockMessage { Stock = _stockScratch }.Write(_buf);
+            _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+            NearbyStockSent++;
+        }
+
         /// <summary>
         /// Почему симуляция не взяла правку игрока в очередь: персонаж мёртв — «ты мёртв» (C-004; раньше уходило
         /// «очередь полна»), иначе очередь такта полна.

@@ -53,6 +53,9 @@ namespace Orpheus.Client.UI
         public int Progress;
         public WorldModel? World;
         public WorldPos Position;
+
+        /// <summary>E2-10: сводка сервера «сундуки рядом» (<c>NetClient.NearbyStock</c>) — «есть» с учётом сундуков; null — только сумка.</summary>
+        public ChestStock? Stock;
     }
 
     /// <summary>Окно сумки (E2-2): 8 × 5 ячеек, верхняя строка — быстрая панель (ячейки 0…7), ниже — ячейки 8…39.</summary>
@@ -374,7 +377,7 @@ namespace Orpheus.Client.UI
                 for (int r = 1; r < _lines.Length; r++)
                 {
                     _lines[r] = craft.World != null
-                        ? CraftDesk.LineOf(r, bag, craft.Queue, craft.World, craft.Position, !dead)
+                        ? CraftDesk.LineOf(r, bag, craft.Queue, craft.World, craft.Position, !dead, craft.Stock)
                         : new CraftLine((byte)r, CraftReply.NoStation, 0);
                 }
 
@@ -453,6 +456,7 @@ namespace Orpheus.Client.UI
 
             if (CraftOpen)
             {
+                _craft.Stock = craft.Stock; // E2-10: «есть» карточки — сумка + сундуки рядом
                 _craft.Show(_lines, bag, craft.Queue, craft.Running, craft.Progress, dead, hit, _message);
             }
 

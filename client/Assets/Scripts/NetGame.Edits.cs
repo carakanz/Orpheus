@@ -83,6 +83,7 @@ namespace Orpheus.Client
             var craft = new UI.UiCraftState
             {
                 Queue = c.Craft, Running = c.CraftRunning, Progress = c.CraftProgressAt(c.ServerTick), World = _world, Position = _localPos,
+                Stock = c.NearbyStock, // E2-10: сундуки рядом — «есть» в окне
             };
             _craftState = craft;
             UI.UiBuildState build = _args.NetSmokeSeconds > 0 ? default : BuildState(c, pr);

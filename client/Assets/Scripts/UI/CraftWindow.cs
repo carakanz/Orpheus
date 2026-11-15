@@ -248,6 +248,9 @@ namespace Orpheus.Client.UI
         /// Показать: строки рецептов (<paramref name="lines"/> — по номеру рецепта, из <see cref="CraftDesk.LineOf"/>), сумка
         /// и очередь сервера, идёт ли первая позиция и сколько её тактов прошло, часть под курсором, строка отказа.
         /// </summary>
+        /// <summary>E2-10: сводка «сундуки рядом» для карточки рецепта (ставит <see cref="GameUi"/> перед <see cref="Show"/>).</summary>
+        public ChestStock? Stock { get; set; }
+
         public void Show(CraftLine[] lines, in Inventory bag, in CraftQueue queue, bool running, int progress, bool dead, CraftHit hover, string? message)
         {
             for (int t = 0; t < _tabs.Length; t++)
@@ -331,9 +334,18 @@ namespace Orpheus.Client.UI
 
             for (int k = 0; recipe > 0 && k < def.IngredientCount; k++)
             {
-                int need = def.IngredientCountOf(k), have = bag.Count(def.IngredientItem(k));
-                bool lacks = CraftDesk.Missing(recipe, k, bag) > 0;
+                // E2-10: «есть» — сумка + сундуки рядом (сводка сервера); взятое из сундуков помечено в названии.
+                int need = def.IngredientCountOf(k), have = CraftDesk.Have(recipe, k, bag, Stock);
+                bool lacks = CraftDesk.Missing(recipe, k, bag, Stock) > 0;
                 Ingredient ing = _ingredients[k];
+                string name = CraftDesk.InChests(recipe, k, Stock) > 0
+                    ? UiStrings.ItemName(def.IngredientItem(k)) + UiStrings.CraftInChest
+                    : UiStrings.ItemName(def.IngredientItem(k));
+                if (ing.Name.text != name)
+                {
+                    ing.Name.text = name;
+                }
+
                 ing.Have.text = $"{have} / {need}";
                 ing.Have.color = lacks ? UiStyle.TextBad : UiStyle.TextDark;
                 ing.Name.color = lacks ? UiStyle.TextBad : UiStyle.TextDark;

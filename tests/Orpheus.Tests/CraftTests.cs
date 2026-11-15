@@ -477,9 +477,12 @@ namespace Orpheus.Tests
             Assert.Equal(0, OnGround(sim, Items.Arrows));
         }
 
-        /// <summary>Смерть: очередь сбрасывается, ингредиенты оставшихся изготовлений — кучей у тела; готовое — в сумке.</summary>
+        /// <summary>
+        /// Смерть: очередь сбрасывается, ингредиенты оставшихся изготовлений — в сумку (E2-10; до E2-10 — кучей у тела),
+        /// не влезшее — кучей у тела; готовое — в сумке.
+        /// </summary>
         [Fact]
-        public void E23_Death_DropsQueueAsPiles()
+        public void E23_Death_RefundsQueueToBag()
         {
             Simulation sim = Sim(out int id, null, (Items.CopperOre, 10), (Items.Wood, 16));
             Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperIngot, 5));
@@ -493,14 +496,33 @@ namespace Orpheus.Tests
             Assert.False(e.Alive);
             Assert.True(e.Craft.IsEmpty);
             Assert.Equal(0, e.Craft.Progress);
-            Assert.Equal(0, e.Inv.Count(Items.CopperOre));
-            Assert.Equal(0, e.Inv.Count(Items.Wood));
+            Assert.Equal(8, e.Inv.Count(Items.CopperOre));
+            Assert.Equal(16, e.Inv.Count(Items.Wood));
             Assert.Equal(1, e.Inv.Count(Items.CopperIngot));
-            Assert.Equal(8, OnGround(sim, Items.CopperOre));
-            Assert.Equal(16, OnGround(sim, Items.Wood));
+            Assert.Equal(0, sim.Piles.Length);
+
+            // Сумка полна — не влезшее кучей у тела, куча не исчезает.
+            sim = Sim(out id, null, (Items.CopperOre, 10));
+            Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperIngot, 5));
+            Run(sim, 1);
+            Inventory full = sim.GetEntity(id).Inv;
+            for (int c = 0; c < Inventory.Cells; c++)
+            {
+                if (full.CountIn(c) == 0)
+                {
+                    Assert.True(full.SetCell(c, Items.Torch, 1));
+                }
+            }
+
+            Assert.True(sim.SetInventory(id, full));
+            body = sim.GetEntity(id).Mover.Position;
+            Assert.True(sim.ApplyStrike(id, 0, 500) > 0);
+            Run(sim, 1);
+            Assert.Equal(10, OnGround(sim, Items.CopperOre));
             foreach (GroundPile p in sim.Piles)
             {
                 Assert.True(Torus.Dist2(sim.Shape, p.Position, body) <= (long)U * U);
+                Assert.Equal(Simulation.PileNeverExpires, p.ExpireTick);
             }
         }
 
@@ -747,7 +769,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_Net_GoldenBytes_CraftRequest_Reply_State()
         {
-            Assert.Equal(23, NetModule.ProtocolVersion);
+            Assert.Equal(24, NetModule.ProtocolVersion);
             var buf = new byte[64];
 
             int n = new CraftRequestMessage { Op = CraftOp.Make, Arg = RecipeTable.CopperPickaxe, Count = 0x0102 }.Write(buf);
@@ -798,7 +820,7 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => CraftStateMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             Assert.True(Codec.IsKnown(30) && Codec.IsKnown(31) && Codec.IsKnown(32));
-            Assert.False(Codec.IsKnown(36)); // E2-5: 33–35 заняты (действие, ответ, сундук)
+            Assert.False(Codec.IsKnown(37)); // E2-5: 33–35 заняты (действие, ответ, сундук); E2-10: 36 — сундуки рядом
         }
 
         private static void Give(EditTests.EditRig rig, NetClient c, params (byte Item, int Count)[] items)
@@ -983,7 +1005,7 @@ namespace Orpheus.Tests
             Assert.Equal(0, bag.Count(Items.CopperPickaxe) + bag.Count(Items.CopperBow));
             Assert.Equal(0, sim.Piles.Length);
 
-            // Смерть: все три ингредиента лука и оба — кирки лежат кучами; кучи не исчезают.
+            // Смерть: все три ингредиента лука и оба — кирки возвращаются в сумку (E2-10).
             sim = Sim(out id, null, start);
             Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperPickaxe, 1));
             Assert.Equal(CraftReply.Accepted, sim.RequestCraft(id, RecipeTable.CopperBow, 1));
@@ -991,12 +1013,8 @@ namespace Orpheus.Tests
             Assert.True(sim.ApplyStrike(id, 0, 500) > 0);
             Run(sim, 1);
             bag = sim.GetEntity(id).Inv;
-            Assert.Equal((12, 13, 3), (OnGround(sim, Items.CopperIngot), OnGround(sim, Items.Wood), OnGround(sim, Items.Rope)));
-            Assert.Equal((18, 27, 6), (bag.Count(Items.CopperIngot), bag.Count(Items.Wood), bag.Count(Items.Rope)));
-            foreach (GroundPile p in sim.Piles)
-            {
-                Assert.Equal(Simulation.PileNeverExpires, p.ExpireTick);
-            }
+            Assert.Equal(0, sim.Piles.Length);
+            Assert.Equal((30, 40, 9), (bag.Count(Items.CopperIngot), bag.Count(Items.Wood), bag.Count(Items.Rope)));
 
             // Уход из мира: всё в сумке.
             sim = Sim(out id, null, start);

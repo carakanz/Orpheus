@@ -206,6 +206,7 @@ namespace Orpheus.Net.Session
                     {
                         SendPilesTo(pl, entities[slot].Mover.Position); // E2-1: кучи на земле в обзоре — разницей
                         SendCraftTo(pl, entities[slot]); // E2-3: очередь изготовления — владельцу, когда изменилась
+                        SendStockTo(pl); // E2-10: сундуки рядом — владельцу, когда сводка изменилась
                     }
 
                     SendChestTo(pl, slot); // E2-5: открытый сундук — содержимое, если изменилось, или «закрыт»

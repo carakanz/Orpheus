@@ -53,6 +53,15 @@ namespace Orpheus.Net.Session
 
         // ---------- Крафт (E2-3) ----------
 
+        /// <summary>
+        /// E2-10: сколько каждого предмета в сундуках рядом (по видам станка), как прислал сервер (тип 36). Окно крафта
+        /// прибавляет к сумке при расчёте «есть» (<see cref="CraftDesk"/>).
+        /// </summary>
+        public ChestStock NearbyStock { get; } = new ChestStock();
+
+        /// <summary>Сообщений «сундуки рядом» (36) принято.</summary>
+        public long NearbyStockSeen { get; private set; }
+
         /// <summary>Очередь изготовления своего персонажа, как её прислал сервер (тип 32); пустая — ничего не делается.</summary>
         public CraftQueue Craft { get; private set; }
 

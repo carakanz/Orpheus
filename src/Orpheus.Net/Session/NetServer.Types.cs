@@ -112,6 +112,10 @@ namespace Orpheus.Net.Session
             public bool SentCraftRunning;
             public bool HasSentCraft;
 
+            /// <summary>Сводка «сундуки рядом», отправленная игроку (E2-10); <see cref="HasSentStock"/> — слана хоть раз.</summary>
+            public ChestStock SentStock = new ChestStock();
+            public bool HasSentStock;
+
             /// <summary>Открытый игроком сундук (E2-5): тайл; отправленное содержимое (<see cref="ChestSent"/> — слано после открытия).</summary>
             public bool ChestOpen;
             public TileCoord ChestTile;

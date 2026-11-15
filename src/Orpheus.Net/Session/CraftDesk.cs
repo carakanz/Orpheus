@@ -40,7 +40,7 @@ namespace Orpheus.Net.Session
         /// не хватает, очередь полна, мёртв).</summary>
         public readonly CraftReply State;
 
-        /// <summary>На сколько изготовлений хватает ингредиентов в сумке.</summary>
+        /// <summary>На сколько изготовлений хватает ингредиентов в сумке и в сундуках рядом (E2-10, сводка сервера).</summary>
         public readonly int Affordable;
 
         public CraftLine(byte recipe, CraftReply state, int affordable)
@@ -74,9 +74,11 @@ namespace Orpheus.Net.Session
 
         /// <summary>
         /// Строка рецепта по данным клиента: сумка (<paramref name="bag"/>), очередь (<paramref name="queue"/>), свой мир
-        /// и позиция (станок рядом), жив ли персонаж.
+        /// и позиция (станок рядом), жив ли персонаж; <paramref name="stock"/> — сводка сервера «сундуки рядом» (E2-10,
+        /// <see cref="NetClient.NearbyStock"/>), её предметы считаются «есть» наравне с сумкой; null — только сумка.
         /// </summary>
-        public static CraftLine LineOf(int recipe, in Inventory bag, in CraftQueue queue, WorldModel world, WorldPos pos, bool alive = true)
+        public static CraftLine LineOf(int recipe, in Inventory bag, in CraftQueue queue, WorldModel world, WorldPos pos, bool alive = true,
+            ChestStock? stock = null)
         {
             if (!RecipeTable.Exists(recipe))
             {
@@ -84,7 +86,7 @@ namespace Orpheus.Net.Session
             }
 
             ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
-            int can = CraftRules.Affordable(in bag, in def);
+            int can = CraftRules.Affordable(in bag, in def, stock);
             CraftReply state = CraftReply.Accepted;
             if (!alive)
             {
@@ -106,11 +108,37 @@ namespace Orpheus.Net.Session
             return new CraftLine(def.Id, state, can);
         }
 
-        /// <summary>Сколько не хватает ингредиента № <paramref name="i"/> на одно изготовление (0 — хватает) — подпись «красной» строки.</summary>
-        public static int Missing(int recipe, int i, in Inventory bag)
+        /// <summary>
+        /// Сколько не хватает ингредиента № <paramref name="i"/> на одно изготовление (0 — хватает) — подпись «красной»
+        /// строки; с <paramref name="stock"/> — с учётом сундуков рядом (E2-10).
+        /// </summary>
+        public static int Missing(int recipe, int i, in Inventory bag, ChestStock? stock = null) =>
+            Math.Max(0, Need(recipe, i) - Have(recipe, i, bag, stock));
+
+        /// <summary>Сколько ингредиента № <paramref name="i"/> «есть»: сумка + сундуки рядом (E2-10) — число «есть / нужно» окна.</summary>
+        public static int Have(int recipe, int i, in Inventory bag, ChestStock? stock = null)
         {
             ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
-            return i < def.IngredientCount ? Math.Max(0, def.IngredientCountOf(i) - bag.Count(def.IngredientItem(i))) : 0;
+            if (i >= def.IngredientCount)
+            {
+                return 0;
+            }
+
+            byte item = def.IngredientItem(i);
+            return bag.Count(item) + (stock?.Count(def.Station, item) ?? 0);
+        }
+
+        /// <summary>Сколько ингредиента № <paramref name="i"/> лежит в сундуках рядом (E2-10) — пометка «в сундуке».</summary>
+        public static int InChests(int recipe, int i, ChestStock? stock)
+        {
+            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+            return i < def.IngredientCount && stock != null ? stock.Count(def.Station, def.IngredientItem(i)) : 0;
+        }
+
+        private static int Need(int recipe, int i)
+        {
+            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+            return i < def.IngredientCount ? def.IngredientCountOf(i) : 0;
         }
 
         /// <summary>Кнопка «сделать» (× 1, × 10…): заявка уходит, только если строка «белая»; иначе — false без заявки.</summary>
