@@ -112,6 +112,8 @@ namespace Orpheus.Core.Sim
         /// недостающее изготавливается здесь же: ⌈недостаёт ÷ выход⌉ изготовлений, ингредиенты — <see cref="TakeIngredients"/>
         /// (сумка → сундуки рядом), лишнее от выхода рецепта (стена — по 2, пол — по 4) — в сумку (не влезло — кучей у ног).
         /// Масса — как у изготовления: ингредиенты превращаются в предметы рецепта, предмет-постройка уходит в постройку.
+        /// C-013: остаток не влезает в сумку — отказ «сумка полна» до списания (<see cref="CraftRules.MenuLeftoverFits"/>);
+        /// без остатка (выход 1) свободная ячейка не нужна.
         /// </summary>
         private void PayOrCraft(int i, int slot, byte item, int units)
         {
@@ -146,6 +148,13 @@ namespace Orpheus.Core.Sim
                 if (AffordableNear(slot, def) < runs)
                 {
                     _preResult[i] = EditResult.NoResources;
+                    return;
+                }
+
+                // C-013: выход 1 — сумка не нужна (полная — всё равно ставится); остаток от выхода > 1 — должен влезть.
+                if (!CraftRules.MenuLeftoverFits(in inv, item, units))
+                {
+                    _preResult[i] = EditResult.BagFull;
                     return;
                 }
 

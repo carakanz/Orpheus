@@ -48,5 +48,11 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Отменить позицию очереди изготовления (E2-3; <see cref="Simulation.RequestCraftCancel"/>).</summary>
         CraftCancel = 5,
+
+        /// <summary>
+        /// Изготовить сразу в ячейку сумки (C-013; <see cref="Simulation.RequestCraftInto"/>): рецепт, ячейка (0xFF — куда
+        /// влезет), сколько раз. Без очереди и без времени — как изготовление при постановке (E2-16).
+        /// </summary>
+        CraftInto = 6,
     }
 }

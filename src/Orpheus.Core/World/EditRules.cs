@@ -86,6 +86,12 @@ namespace Orpheus.Core.World
         /// требует станок (верстак, костёр), а его в радиусе крафта нет. Ничего не снято.
         /// </summary>
         NoStation = 20,
+
+        /// <summary>
+        /// «сумка полна» (C-013, протокол 29): постановка из меню с изготовлением, остаток от выхода рецепта (стена — 2, пол — 4)
+        /// некуда положить. Ничего не снято.
+        /// </summary>
+        BagFull = 21,
     }
 
     /// <summary>
@@ -138,6 +144,7 @@ namespace Orpheus.Core.World
                 case EditReply.Paused: return "пауза";
                 case EditReply.FurnitureInTile: return "мешает мебель — ставьте её после стен";
                 case EditReply.NoStation: return "нужен станок рядом";
+                case EditReply.BagFull: return "сумка полна — остатку некуда лечь";
                 default: return "нельзя";
             }
         }
@@ -179,6 +186,7 @@ namespace Orpheus.Core.World
                 case EditResult.EnemyNear: return EditReply.EnemyNear;
                 case EditResult.NoResources: return EditReply.NoResources;
                 case EditResult.NoStation: return EditReply.NoStation;
+                case EditResult.BagFull: return EditReply.BagFull;
                 default: return EditReply.NotAllowed;
             }
         }
@@ -396,7 +404,7 @@ namespace Orpheus.Core.World
         }
 
         /// <summary>Наибольший код ответа (проверка сообщений сети).</summary>
-        public const EditReply MaxReply = EditReply.NoStation;
+        public const EditReply MaxReply = EditReply.BagFull;
 
         /// <summary>Объекты с действием (F) — в этом радиусе от тайла персонажа по оси максимума: 3 тайла (E2-5).</summary>
         public const int UseRadiusTiles = 3;

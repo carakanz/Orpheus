@@ -42,6 +42,10 @@ namespace Orpheus.Core.Sim
         /// <summary>Позиция очереди изготовления отменена, ингредиенты возвращены (E2-3): <see cref="SimEvent.Requester"/> — кто,
         /// <see cref="SimEvent.Victim"/> — номер позиции, <see cref="SimEvent.Tag"/> — рецепт.</summary>
         CraftCancelled = 10,
+
+        /// <summary>Изготовлено сразу в сумку (C-013, <see cref="BagOp.CraftInto"/>): <see cref="SimEvent.Requester"/> — кто,
+        /// <see cref="SimEvent.Victim"/> — рецепт, <see cref="SimEvent.Damage"/> — сколько изготовлений, <see cref="SimEvent.Tag"/> — ячейка.</summary>
+        CraftMade = 11,
     }
 
     /// <summary>
