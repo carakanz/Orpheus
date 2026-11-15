@@ -77,7 +77,9 @@ def load_ledger(raw):
 
 def save_ledger(raw, led):
     raw.mkdir(parents=True, exist_ok=True)
-    ledger_path(raw).write_text(json.dumps(led, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
+    tmp = ledger_path(raw).with_suffix(".tmp")   # через временный файл: при нехватке места старый учёт цел
+    tmp.write_text(json.dumps(led, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
+    tmp.replace(ledger_path(raw))
 
 
 def queue_len():
