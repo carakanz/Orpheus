@@ -47,6 +47,10 @@ namespace Orpheus.Client.UI
             {
                 _bag.SetCell(6, Items.StoneWall, 24); // E2-11: стена — предмет в ячейке панели 7
                 _bag.Select(6);
+                if (_mode == "build" && _ui.Ruler.Mode == PlaceMode.Ruler)
+                {
+                    _ui.ToggleRuler(); // C-015: сцена «поштучно» — у быстрой панели значок зигзага
+                }
             }
 
             if (_mode == "turn")

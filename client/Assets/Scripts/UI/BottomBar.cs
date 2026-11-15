@@ -9,18 +9,56 @@ namespace Orpheus.Client.UI
     /// <summary>
     /// Быстрая панель 1–8 (C-015, слова Автора 15.11: «верхний левый угол инвентарь»): ряд полупрозрачных ячеек в левом
     /// верхнем углу, всегда на экране, с подписями клавиш; по Q под ним раскрывается сумка (<see cref="BagWindow"/>), и
-    /// ряд работает как её верхний ряд (как в Terraria). Места — <see cref="HudLayout"/>.
+    /// ряд работает как её верхний ряд (как в Terraria). Справа от ряда — маленькая кнопка режима постановки (слово
+    /// Автора: «маленькой иконкой линейки или зигзага около инвентаря»): линейка — режим «линейка», зигзаг — «поштучно»;
+    /// щелчок переключает (как Tab). Значки — шейдером (<see cref="UiShape"/>). Места — <see cref="HudLayout"/>.
     /// </summary>
     public sealed class HotbarView : UiGroup
     {
         public readonly UiSlotGrid Grid;
+        readonly Image _modeBack;
+        readonly UiShape _modeIcon;
+        readonly Sprite _modePlain, _modeHover;
+        bool _ruler = true, _hover;
 
         public HotbarView(UiRoot root)
             : base(root, "Hotbar", new Vector2(0f, 1f), new Vector2(HudLayout.Margin, -HudLayout.Margin - HudLayout.HotbarH),
-                new Vector2(HudLayout.HotbarW, HudLayout.HotbarH))
+                new Vector2(HudLayout.ModeX + HudLayout.ModeButton - HudLayout.Margin, HudLayout.HotbarH))
         {
             Grid = new UiSlotGrid(Rt, 0f, 0f, Inventory.Slots, 1, 0, UiCellLook.Glass, keyLabels: true);
+            float mx = HudLayout.ModeX - HudLayout.Margin, my = (HudLayout.HotbarH - HudLayout.ModeButton) / 2f;
+            _modePlain = UiStyle.Frame(UiStyle.Glass, UiStyle.GlassEdge, thick: 2f, radius: 6f);
+            _modeHover = UiStyle.Frame(UiStyle.GlassHover, UiStyle.Gold, thick: 2f, radius: 6f);
+            _modeBack = UiRoot.Picture(Rt, "ModeBack", mx, my, HudLayout.ModeButton, HudLayout.ModeButton, _modePlain);
+            const float inset = 5f;
+            _modeIcon = UiShape.Create(Rt, "ModeIcon", mx + inset, my + inset, HudLayout.ModeButton - 2f * inset, HudLayout.ModeButton - 2f * inset,
+                UiShape.Shape.Ruler, UiStyle.TextLight);
         }
+
+        /// <summary>Курсор (точка холста) над кнопкой режима.</summary>
+        public bool OverMode(Vector2 canvas, Vector2 point) => Visible && HudLayout.OverMode(canvas.y, point.x, point.y);
+
+        /// <summary>Значок режима: линейка или зигзаг; подсветка под курсором.</summary>
+        public void SetMode(bool ruler, bool hover)
+        {
+            if (ruler != _ruler)
+            {
+                _ruler = ruler;
+                _modeIcon.Kind = ruler ? UiShape.Shape.Ruler : UiShape.Shape.Zigzag;
+            }
+
+            if (hover != _hover)
+            {
+                _hover = hover;
+                _modeBack.sprite = hover ? _modeHover : _modePlain;
+            }
+        }
+
+        /// <summary>Ячейка панели (0…7) под точкой группы; мимо — −1.</summary>
+        public int CellAt(Vector2 local) => Grid.Hit(local);
+
+        /// <summary>Середина ячейки панели в координатах группы.</summary>
+        public Vector2 CellCenter(int cell) => Grid.CenterOf(cell);
 
         /// <summary>Ряд ячеек — интерфейс.</summary>
         public void AddZones(UiPointer p, Vector2 canvas)
@@ -85,12 +123,6 @@ namespace Orpheus.Client.UI
             _stamina = UiShape.Create(Rt, "StaminaOrb", Width - Orb, 0f, Orb, Orb, UiShape.Shape.Orb, UiStyle.OrbStamina);
             _healthText = UiRoot.Label(Rt, "HealthText", 0f, Orb / 2f - 15f, Orb, 30f, 22, TextAnchor.MiddleCenter, UiStyle.TextLight, outline: true, bold: true);
         }
-
-        /// <summary>Ячейка панели (0…7) под точкой группы; мимо — −1.</summary>
-        public int CellAt(Vector2 local) => Grid.Hit(local);
-
-        /// <summary>Середина ячейки панели в координатах группы.</summary>
-        public Vector2 CellCenter(int cell) => Grid.CenterOf(cell);
 
         /// <summary>Сфера или рамка способности под точкой группы.</summary>
         public Part PartAt(Vector2 local)

@@ -100,6 +100,15 @@ namespace Orpheus.Tests
                 Assert.True(ax > HudLayout.OrbCenter(w, false).X && ax < HudLayout.OrbCenter(w, true).X, "способности — между сферами");
             }
 
+            // Значок режима «линейка / поштучно» — справа от панели, по середине её высоты; интерфейс, щелчок попадает в него.
+            float modeX = HudLayout.ModeX + HudLayout.ModeButton / 2f, modeY = HudLayout.ModeY(H) + HudLayout.ModeButton / 2f;
+            Assert.True(HudLayout.ModeX > HudLayout.Margin + HudLayout.HotbarW);
+            Assert.Equal(HudLayout.SlotCenter(H, 0).Y, modeY, 3);
+            Assert.True(p.Over(modeX, modeY));
+            Assert.True(HudLayout.OverMode(H, modeX, modeY));
+            Assert.False(HudLayout.OverMode(H, modeX, modeY - HudLayout.Cell));
+            Assert.True(HudLayout.ModeX + HudLayout.ModeButton < HudLayout.MapX(1440f));
+
             // Под быстрой панелью (сумка закрыта) и центр экрана — мир.
             (float sx, float sy) = HudLayout.SlotCenter(H, 2);
             Assert.False(p.Over(sx, sy - 2f * HudLayout.Cell));

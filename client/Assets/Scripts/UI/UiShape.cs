@@ -25,6 +25,12 @@ namespace Orpheus.Client.UI
 
             /// <summary>Замок закрытой способности.</summary>
             Lock = 2,
+
+            /// <summary>Линейка — значок режима постановки «линейка» (у быстрой панели).</summary>
+            Ruler = 3,
+
+            /// <summary>Зигзаг — значок режима постановки «поштучно».</summary>
+            Zigzag = 4,
         }
 
         static Material? _material;

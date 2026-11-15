@@ -377,11 +377,12 @@ namespace Orpheus.Client.UI
             int cell = -1, chestButton = -1;
             CraftHit hit = default;
             BottomBar.Part barPart = BottomBar.Part.None;
-            bool overGrid = false;
+            bool overGrid = false, overMode = false;
             OverWindow = false;
             if (input.HasPointer)
             {
                 cell = _hotbar.CellAt(_hotbar.Local(size, p));
+                overMode = _hotbar.OverMode(size, p);
                 if (cell < 0)
                 {
                     barPart = overUi ? _bar.PartAt(_bar.Local(size, p)) : BottomBar.Part.None;
@@ -437,7 +438,11 @@ namespace Orpheus.Client.UI
             Route = UiPointer.Route(overUi, held, _capture);
             if (input.LeftDown)
             {
-                if (cell >= 0 && (BagOpen || cell >= BagHand.ChestBase))
+                if (overMode && !held)
+                {
+                    ToggleRuler(); // C-015: значок у быстрой панели — как Tab
+                }
+                else if (cell >= 0 && (BagOpen || cell >= BagHand.ChestBase))
                 {
                     if (input.Ctrl && !held)
                     {
@@ -510,6 +515,7 @@ namespace Orpheus.Client.UI
             }
 
             _hotbar.Grid.Select(selected);
+            _hotbar.SetMode(_ruler.Mode == PlaceMode.Ruler, overMode);
             _hotbar.Grid.Hover(cell >= 0 && cell < Inventory.Slots ? cell : -1);
             if (BagOpen)
             {
@@ -565,6 +571,10 @@ namespace Orpheus.Client.UI
             else if (chestButton >= 0)
             {
                 tip = chestButton == 0 ? UiStrings.ChestTakeAllTip : UiStrings.ChestPutAllTip;
+            }
+            else if (overMode)
+            {
+                tip = UiStrings.PlaceModeTip(_ruler.Mode == PlaceMode.Ruler);
             }
             else if (barPart != BottomBar.Part.None)
             {
@@ -716,7 +726,7 @@ namespace Orpheus.Client.UI
         // сумки, заголовок — на уровне быстрой панели); изготовление — левый нижний угол (не доходит до сумки и сферы).
         void Layout()
         {
-            _chest.Offset = new Vector2(HudLayout.Margin + BagWindow.Width + 24f, -HudLayout.BagTop - ChestWindow.GridHeight);
+            _chest.Offset = new Vector2(HudLayout.ModeX + HudLayout.ModeButton + 16f, -HudLayout.BagTop - ChestWindow.GridHeight); // правее значка режима
         }
 
         void SetOpen(bool open)

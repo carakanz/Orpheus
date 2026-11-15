@@ -114,6 +114,15 @@
     { "name": "C-008_weapons_720", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "inv-weapons"], "frame": { "width": 1280, "height": 720 } },
     { "name": "C-008_hotbar_night", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "time": "night", "args": ["--paint-demo", "--ui-demo", "hotbar"], "frame": { "width": 1280, "height": 720 } },
     { "name": "C-008_minimap", "seed": "0xE50007", "size": 1024, "tile": [512, 538], "width": 64, "args": ["--paint-demo", "--ui-demo", "hotbar"] },
+    { "name": "C-015_hotbar_1080", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "hotbar"], "frame": { "width": 1920, "height": 1080 } },
+    { "name": "C-015_hotbar_1440", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "hotbar"], "frame": { "width": 2560, "height": 1440 } },
+    { "name": "C-015_hotbar_2160", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "hotbar"], "frame": { "width": 3840, "height": 2160 } },
+    { "name": "C-015_bag_1080", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "bag"], "frame": { "width": 1920, "height": 1080 } },
+    { "name": "C-015_bag_2160", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "bag"], "frame": { "width": 3840, "height": 2160 } },
+    { "name": "C-015_craft_bag_1080", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "craft+bag"], "frame": { "width": 1920, "height": 1080 } },
+    { "name": "C-015_craft_bag_2160", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "craft+bag"], "frame": { "width": 3840, "height": 2160 } },
+    { "name": "C-015_single_2160", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "build"], "frame": { "width": 3840, "height": 2160 } },
+    { "name": "C-015_chest_1080", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "chest"] },
     { "name": "E2-7_walk", "comment": "E2-7: walking strip (step in time with speed, sway). Action strips (chop, pick on stone, build, pickup, carry, sword in hand) come from the offline showcase, not this file: Orpheus.exe --anim-shots <dir> -> E2-7_*.png (run via tools\\run_hidden.ps1).", "seed": "0xE50007", "size": 1024, "tile": [514, 532], "width": 40, "args": ["--paint-demo", "--shot-walk", "e:8:0.08:0.5", "--shot-crop", "640x400"] }
   ]
 }

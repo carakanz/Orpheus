@@ -23,6 +23,16 @@ namespace Orpheus.Net.Session
         public const float HotbarW = Inventory.Slots * (Cell + Gap) - Gap;
         public const float HotbarH = Cell;
 
+        /// <summary>
+        /// Значок режима постановки «линейка / поштучно» (C-015, слово Автора: «маленькой иконкой линейки или зигзага около
+        /// инвентаря») — квадратная кнопка справа от быстрой панели, по середине её высоты; щелчок — как Tab.
+        /// </summary>
+        public const float ModeButton = 36f, ModeGap = 8f;
+        public const float ModeX = Margin + HotbarW + ModeGap;
+
+        /// <summary>Низ значка режима на холсте высоты <paramref name="canvasH"/>.</summary>
+        public static float ModeY(float canvasH) => HotbarY(canvasH) + (HotbarH - ModeButton) / 2f;
+
         /// <summary>Верх сетки сумки, единиц от верхнего края холста: сразу под быстрой панелью (её ряд — как верхний ряд сумки).</summary>
         public const float BagTop = Margin + HotbarH + Gap;
 
@@ -67,7 +77,15 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>Быстрая панель — ряд ячеек целиком (зазоры тоже).</summary>
-        public static void HotbarZones(UiPointer p, float canvasH) => p.Add(Margin, HotbarY(canvasH), HotbarW, HotbarH);
+        public static void HotbarZones(UiPointer p, float canvasH)
+        {
+            p.Add(Margin, HotbarY(canvasH), HotbarW, HotbarH);
+            p.Add(ModeX, ModeY(canvasH), ModeButton, ModeButton);
+        }
+
+        /// <summary>Точка холста над значком режима «линейка / поштучно».</summary>
+        public static bool OverMode(float canvasH, float x, float y) =>
+            x >= ModeX && x < ModeX + ModeButton && y >= ModeY(canvasH) && y < ModeY(canvasH) + ModeButton;
 
         /// <summary>Мини-карта — интерфейс целиком (развёрнутая).</summary>
         public static void MapZones(UiPointer p, float ox, float oy) => p.Add(ox, oy, MapSize, MapSize);
