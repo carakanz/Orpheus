@@ -51,6 +51,10 @@ LABEL = {k: n for _, items in SECTIONS for k, n in items}
 CHOICE = {
     "wood": "probe:wood_b", "stone": "probe:stone_b", "copper_ingot": "probe:copper_ingot_b",
     "copper_pickaxe": "probe:copper_pickaxe_b", "stone_wall": "probe:stone_wall_b", "workbench": "probe:workbench_b",
+    # выбор из двух вариантов (15.11): у первого — плашка, два обуха, нет тетивы и т. п. (карточка, «Набор 15.11»)
+    "stone_floor": "s_stone_floor_2", "door": "s_door_2", "stone_axe": "s_stone_axe_2", "copper_axe": "s_copper_axe_2",
+    # перезаказ с поправкой (_r)
+    "platform": "s_platform_r", "wood_wall": "s_wood_wall_r", "hammer": "s_hammer_r", "copper_ore": "s_copper_ore_r",
 }
 
 

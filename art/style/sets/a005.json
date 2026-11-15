@@ -557,6 +557,46 @@
    "prompt": "a simple single wooden bed, a sturdy brown wooden frame with a headboard, a red wool blanket and a white pillow, seen from above at a three-quarter angle, the whole bed visible",
    "style": "b",
    "negative_extra": "room, wall, bedroom, rug, person"
+  },
+  {
+   "key": "s_platform_r",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5422,
+   "prompt": "a long narrow low wooden dock walkway section over water, a deck of brown wooden planks laid crosswise, the deck is about twice as long as wide, resting on six thin round wooden stilt posts with dark wet lower ends that stick down below the deck, seen from above at a three-quarter angle so the deck top is clearly visible, a pier piece, not a table, not a bench",
+   "style": "b",
+   "negative_extra": "water, sea, waves, railing, house, boat, table, bench, stairs, steps, stone base"
+  },
+  {
+   "key": "s_wood_wall_r",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5423,
+   "prompt": "a single upright section of a wooden house wall, a thick solid rectangular wall block as tall as it is wide, its front face made of long horizontal sawn brown planks with straight seams and a squared timber post at each corner, the flat top face shows the solid thickness of the wall about one third of its width, sturdy and blocky like the stone brick wall block, standing upright",
+   "style": "b",
+   "negative_extra": "floor, flat tile, roof, window, door, house, cabin, log pile, firewood stack, round log ends, stack of logs"
+  },
+  {
+   "key": "s_hammer_r",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5403,
+   "prompt": "a primitive stone sledgehammer lying diagonally, a long straight light brown wooden handle running from the lower left to the upper right, at the upper right end a rectangular block of grey stone with two flat ends sits across the handle, firmly lashed to it with crossed leather cord, the head and the handle form one connected object, the whole hammer fully visible including the end of the handle",
+   "style": "b",
+   "negative_extra": "pickaxe, spike, axe blade, claw, nails, round badge, medallion, circle background, disc, plate, emblem, coin, frame, cropped handle, floating head"
+  },
+  {
+   "key": "s_copper_ore_r",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5412,
+   "prompt": "a single rough chunk of copper ore floating alone, an angular piece of cool dark grey rock with sharp chipped facets, thick veins and bright shiny metallic orange copper nuggets sticking out of its faces, strong contrast between the grey rock and the glowing orange copper",
+   "style": "b",
+   "negative_extra": "green object, malachite, rounded square plate, tile, badge, card, frame, backdrop, beige background, app icon background, rust"
   }
  ]
 }
