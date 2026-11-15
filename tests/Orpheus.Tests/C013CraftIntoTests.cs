@@ -449,6 +449,60 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(bad.AsSpan(0, n), map));
         }
 
+        /// <summary>
+        /// П. 9 (слово Автора 15.11: «F — верстак не нужно»): у верстака и костра нет действия F — ни под курсором, ни ближайшим
+        /// (F берёт сундук рядом); рецепты верстака доступны в окне изготовления, когда верстак рядом (строка рецепта — «можно»).
+        /// </summary>
+        [Fact]
+        public void C013_F_Does_Not_Use_Workbench_Recipes_Near_Station()
+        {
+            var sim = new Simulation(Flat());
+            var bag = new Inventory();
+            bag.Add(Items.Workbench, 1);
+            bag.Add(Items.Campfire, 1);
+            bag.Add(Items.Chest, 1);
+            bag.Add(Items.Wood, 20);
+            int me = Me(sim, bag);
+            var bench = new TileCoord(101, 101);
+            var fire = new TileCoord(98, 100);
+            var chest = new TileCoord(100, 103);
+            Assert.Equal(EditResult.Applied, PlaceItem(sim, me, ObjectId.Workbench, bench));
+            Assert.Equal(EditResult.Applied, PlaceItem(sim, me, ObjectId.Campfire, fire));
+            WorldPos self = sim.GetEntity(me).Mover.Position;
+            Assert.Equal(UseKind.None, ObjectUse.KindOf(ObjectId.Workbench));
+            Assert.Equal(UseKind.None, ObjectUse.KindOf(ObjectId.Campfire));
+            Assert.Equal(UseKind.None, ObjectUse.At(sim.World, self, bench));
+            Assert.False(ObjectUse.Find(sim.World, self, bench, out _, out _));
+
+            Assert.Equal(EditResult.Applied, PlaceItem(sim, me, ObjectId.Chest, chest));
+            Assert.True(ObjectUse.Find(sim.World, self, bench, out TileCoord t, out UseKind k));
+            Assert.Equal((chest, UseKind.Chest), (t, k));
+
+            CraftLine sword = CraftDesk.LineOf(Recipe(Items.WoodenSword), sim.GetEntity(me).Inv, default, sim.World, self);
+            Assert.Equal(CraftReply.Accepted, sword.State); // верстак рядом — рецепт верстака в обычном окне
+        }
+
+        // Постановка предмета-постройки из сумки (любая ячейка с ним), такт; ответ такта.
+        private static EditResult PlaceItem(Simulation sim, int me, ushort key, TileCoord t)
+        {
+            var plan = new PlannedEdit[EditRules.MaxLineTiles];
+            int n = BuildPlanner.Plan(sim.World, sim.GetEntity(me).Mover.Position, key, t, t, 0, (ushort)me, plan);
+            Assert.True(n > 0);
+            Assert.Equal(EditReply.Accepted, plan[0].Check);
+            Assert.True(sim.RequestPlayerEdit(plan[0].Tile, plan[0].Floor, plan[0].Obj, true, plan[0].Record, me, 0, Simulation.AnyCell, plan[0].FloorOnly));
+            sim.Step();
+            EditResult r = EditResult.Applied;
+            foreach (SimEvent e in sim.Events)
+            {
+                if (e.Kind == SimEventKind.TileEdit && e.Requester == me)
+                {
+                    r = e.Result;
+                }
+            }
+
+            return r;
+        }
+
         private sealed class NoBag : IBagRequests
         {
             public bool RequestBagMove(int from, int to) => true;

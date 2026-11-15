@@ -258,7 +258,7 @@ namespace Orpheus.Client.UI
             string? note = null;
             float integrity = -1f;
             bool bad = false;
-            if ((build.Hammer || build.Placing) && !overUi && !_hand.Holding)
+            if ((build.Hammer || build.Placing) && !overUi && (!_hand.Holding || build.FromCursor)) // C-013: постройка на курсоре — строка у курсора тоже
             {
                 if (build.Dragging && build.Plan != null)
                 {

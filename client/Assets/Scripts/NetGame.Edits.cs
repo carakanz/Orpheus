@@ -350,12 +350,7 @@ namespace Orpheus.Client
                 case UseKind.Door:
                     c.CloseDoor(t);
                     break;
-                case UseKind.Workbench:
-                    _ui?.OpenCraft(CraftStation.Workbench, _craftState);
-                    break;
-                case UseKind.Campfire:
-                    _ui?.OpenCraft(CraftStation.Campfire, _craftState);
-                    break;
+                // C-013 («F — верстак не нужно»): верстак и костёр F не открывает — ObjectUse их не выдаёт.
                 case UseKind.Chest:
                 case UseKind.Bed:
                     c.RequestUse(t);

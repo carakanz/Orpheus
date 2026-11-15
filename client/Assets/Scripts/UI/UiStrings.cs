@@ -328,8 +328,7 @@ namespace Orpheus.Client.UI
         public static string UseHint(Orpheus.Net.Session.UseKind kind) => kind switch
         {
             Orpheus.Net.Session.UseKind.Door => "F — закрыть дверь",
-            Orpheus.Net.Session.UseKind.Workbench => "F — верстак",
-            Orpheus.Net.Session.UseKind.Campfire => "F — костёр",
+            // C-013: «F — верстак не нужно» — у станков действия F нет (ObjectUse.KindOf), подсказки тоже.
             Orpheus.Net.Session.UseKind.Chest => "F — сундук",
             Orpheus.Net.Session.UseKind.Bed => "F — кровать",
             _ => string.Empty,
