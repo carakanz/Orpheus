@@ -244,7 +244,7 @@ namespace Orpheus.WorldGen
                     int x = (cx + ox) & mask;
                     int y = (cy + oy) & mask;
                     int j = (y * w) + x;
-                    if ((t.Marks[j] & TileWorld.MarkGorge) == 0)
+                    if (t.Objects[j] == ObjectId.Cliff)
                     {
                         continue;
                     }
@@ -255,10 +255,7 @@ namespace Orpheus.WorldGen
                         near = k != 12 && t.Objects[(((y + (k / 5) - 2) & mask) * w) + ((x + (k % 5) - 2) & mask)] == ObjectId.Cliff;
                     }
 
-                    if (!near)
-                    {
-                        t.Marks[j] &= unchecked((byte)~TileWorld.MarkGorge);
-                    }
+                    t.Marks[j] = near ? (byte)(t.Marks[j] | TileWorld.MarkGorge) : (byte)(t.Marks[j] & ~TileWorld.MarkGorge); // выемка у оставшейся скалы — тоже полоса
                 }
             }
         }

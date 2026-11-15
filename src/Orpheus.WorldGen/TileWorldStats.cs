@@ -58,6 +58,7 @@ namespace Orpheus.WorldGen
             int half = w >> 1;
             var s = new TileWorldStats { Tiles = (long)w * w, Reach = ConnectStage.ReachableShare(t) };
             long r2 = (long)StartRadius * StartRadius;
+            bool[] granite = DepositStats.MaskOf(t, DepositKind.Granite), rocks = DepositStats.MaskOf(t, DepositKind.Rocks);
             for (int y = 0; y < w; y++)
             {
                 long dy = IntMath.Wrap(y - half, w);
@@ -93,8 +94,8 @@ namespace Orpheus.WorldGen
                     }
 
                     bool boulder = obj == ObjectId.Rock || obj == ObjectId.Granite;
-                    // C-016 (v8): горы считаются по открытой земле — скала массива и тайлы у неё (без объектов) не в счёт.
-                    bool rockyOpen = obj != ObjectId.Cliff && (t.Marks[i] & TileWorld.MarkGorge) == 0;
+                    // C-016 (v8) [док]: валуны гор — по открытой земле без пятен залежей (ядра гранита и россыпи — залежи, не россыпь валунов биома).
+                    bool rockyOpen = obj != ObjectId.Cliff && (t.Marks[i] & TileWorld.MarkGorge) == 0 && !granite[i] && !rocks[i];
                     switch (t.Biome[i])
                     {
                         case Biome.Meadow:

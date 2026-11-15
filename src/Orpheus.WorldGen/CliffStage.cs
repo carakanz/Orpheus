@@ -52,33 +52,29 @@ namespace Orpheus.WorldGen
     }
 
     /// <summary>
-    /// Обрывы-границы (карточки E1-2, E1-6b; план 1.2, 1.6б; образец — Factorio): непроходимые и неломаемые гряды скал —
-    /// плавные извилистые полосы толщиной 2–3 тайла вокруг возвышенностей, с редкими ясными проходами.
+    /// Горы-лабиринт (карточки E1-2, E1-6b, C-016; генератор v8): непроходимые и неломаемые скальные массивы 12–20 тайлов
+    /// поперёк с узкими ущельями (2–3 тайла), хребтами, тупиками и долинами.
     /// <para>
-    /// 1. <b>Поле.</b> Высота рельефа (<see cref="ReliefMap"/>) берётся в ячейках 2 × 2 тайла с искривлением координат шумом
-    /// (<see cref="CellsWarp"/>, до ±<see cref="WarpTiles"/> тайлов). Возвышенность уровня k — ячейки выше квантиля
-    /// <see cref="LevelPerMille"/>[k] (уровней — один-два).
+    /// 1. <b>Поле.</b> Высота рельефа (<see cref="ReliefMap"/>) плюс размытая маска гор и пещер, в ячейках 2 × 2 тайла с
+    /// искривлением координат шумом (<see cref="CellsWarp"/>, до ±<see cref="WarpTiles"/> тайлов). Возвышенность — ячейки
+    /// выше квантиля <see cref="LevelPerMille"/>.
     /// </para>
     /// <para>
-    /// 2. <b>Чистка формы.</b> Маска возвышенности закрывается и открывается кругом (<see cref="CloseR2"/>, <see cref="OpenR2"/>):
-    /// узкие протоки и языки уже ~16 тайлов исчезают, углы скругляются; острова и дыры меньше <see cref="MinAreaCells"/> ячеек
-    /// убираются. Поэтому линия не идёт рядом сама с собой и не штрихует луг.
+    /// 2. <b>Чистка формы.</b> Маска закрывается и открывается кругом (<see cref="CloseR2"/>, <see cref="OpenR2"/>); острова
+    /// и дыры меньше <see cref="MinAreaCells"/> ячеек убираются.
     /// </para>
     /// <para>
-    /// 3. <b>Полоса.</b> По маске считается расстояние до её края со знаком (евклидово, в тайлах; между центрами ячеек —
-    /// билинейно). Обрыв — тайлы возвышенности, у которых расстояние до края плюс дрожание (шум <see cref="CellsWobble"/>,
-    /// ±1,3 тайла) лежит в [0, толщина); толщина — 2–3 тайла, местами осыпи до 4 (шум <see cref="CellsThick"/>). Дрожание
-    /// ломает прямые отрезки. Полоса второго уровня ближе <see cref="MinApartTiles"/> тайлов к краю первого не ставится.
+    /// 3. <b>Лабиринт</b> (<c>MazeCells</c>): возвышенность — скала, разбитая на глыбы Вороного; между соседними глыбами —
+    /// ущелье, если граница открыта (по направлению хребтов района); часть глыб — долины. Край тайла — по расстоянию до
+    /// маски скалы со знаком (билинейно между ячейками) с дрожанием (<see cref="CellsWobble"/>), которое только подъедает
+    /// скалу. Щель в один тайл расширяется до двух (<c>WidenGaps</c>).
     /// </para>
     /// <para>
-    /// 4. <b>Где обрыва нет:</b> в <see cref="WaterStage.NoWaterRadius"/> от Очага, в воде и на берегу, на тропе и в тайле от
-    /// неё (проход по тропе — 4–5 тайлов).
+    /// 4. <b>Где скалы нет:</b> в <see cref="WaterStage.NoWaterRadius"/> от Очага, в воде и на берегу, на тропе и в тайле от
+    /// неё. Тайлы в 2 от скалы помечаются <see cref="TileWorld.MarkGorge"/> — без деревьев, валунов и залежей.
     /// </para>
     /// <para>
-    /// 5. <b>Проходы.</b> Каждая связная гряда короче <see cref="MinLineTiles"/> убирается; по остальным идёт обход в ширину от
-    /// конца гряды, и каждые <see cref="GapPeriod"/> шагов вырезается проход в <see cref="GapTiles"/> шагов; обрубки короче
-    /// <see cref="MinRunTiles"/> убираются. Проход и тайлы вокруг помечаются <see cref="TileWorld.MarkClear"/>: этап 11 кладёт
-    /// туда землю и не ставит объекты.
+    /// 5. Обрубки короче <see cref="MinRunTiles"/> убираются (и ещё раз после этапа 12 — <see cref="DropStubs"/>).
     /// </para>
     /// Только целые числа; порядок обхода фиксирован.
     /// </summary>
@@ -89,7 +85,6 @@ namespace Orpheus.WorldGen
         public const int FieldWarpX = 2;
         public const int FieldWarpY = 3;
         public const int FieldWobble = 4;
-        public const int FieldThick = 5;
         public const int FieldMazeA = 6;
         public const int FieldMazeB = 7;
         public const int FieldGate = 8;
@@ -130,7 +125,6 @@ namespace Orpheus.WorldGen
 
         public static readonly int[] CellsWarp = { 64, 32 };
         public static readonly int[] CellsWobble = { 8, 4 };
-        public static readonly int[] CellsThick = { 32, 16 };
 
         /// <summary>Размах дрожания края: поле Q16 − ½, умноженное на это, — сдвиг в 1/256 тайла (2000 — обычно ±1, изредка до ±3 тайлов).</summary>
         public const int WobbleQ8 = 1900;
@@ -148,8 +142,6 @@ namespace Orpheus.WorldGen
         /// <summary>Остров возвышенности или дыра в ней меньше — убирается, ячеек (400 ячеек = 1600 тайлов).</summary>
         public const int MinAreaCells = 400;
 
-        /// <summary>Полоса верхнего уровня не ближе стольких тайлов к краю нижнего.</summary>
-        public const int MinApartTiles = 20;
 
         /// <summary>Гряда короче — мусор, убирается до нарезки проходов.</summary>
         public const int MinLineTiles = 28;
@@ -207,9 +199,7 @@ namespace Orpheus.WorldGen
             }
 
             var wobble = new FieldNoise(MacroGenerator.FieldSeed(seed, Stage, FieldWobble), w, CellsWobble, ridged: false);
-            var thick = new FieldNoise(MacroGenerator.FieldSeed(seed, Stage, FieldThick), w, CellsThick, ridged: false);
             var cliff = new bool[w * w];
-            int[]? lower = null; // расстояние до края нижнего уровня в ячейках, Q8 тайлов
             long r = WaterStage.NoWaterRadius + GridField.Step;
             var sqrtQ8 = new int[(DistCap * DistCap) + 1];
             for (int d2 = 0; d2 < sqrtQ8.Length; d2++)
@@ -231,15 +221,6 @@ namespace Orpheus.WorldGen
                 high = Near(Not(Near(Not(high), m, OpenR2)), m, OpenR2);
                 DropSmall(high, m, true);
                 DropSmall(high, m, false);
-
-                // 3. Расстояние до края со знаком в ячейках, Q8 тайлов: внутри > 0.
-                int[] inside = Dist2(Not(high), m);
-                int[] outside = Dist2(high, m);
-                var sd = new int[m * m];
-                for (int c = 0; c < sd.Length; c++)
-                {
-                    sd[c] = high[c] ? sqrtQ8[inside[c]] - 256 : 256 - sqrtQ8[outside[c]];
-                }
 
                 // 3'. Массивы-лабиринт (C-016, генератор v8): возвышенность — сплошная скала, в ней долины и узкие ущелья.
                 bool[] rock = MazeCells(t, high, m);
@@ -282,7 +263,6 @@ namespace Orpheus.WorldGen
                 }
 
                 WidenGaps(cliff, w);
-                lower = sd;
             }
 
             // 5. Короткие гряды — прочь; длинные — нарезать проходами; обрубки — прочь.
@@ -349,6 +329,11 @@ namespace Orpheus.WorldGen
             var warpY = new FieldNoise(MacroGenerator.FieldSeed(t.Macro.Map.Seed, Stage, FieldGate), w, CellsMazeWarp, ridged: false);
             int g = MazeGrid;
             int gn = m / g; // клеток сетки по стороне (m и g — степени двойки)
+            if (gn < 4)
+            {
+                return high; // мир меньше 64²: в окне 3 × 3 глыбы повторяются по тору — лабиринта нет, возвышенность целиком скала
+            }
+
             int gmask = gn - 1;
             // Точки глыб, Q8 ячеек, в своей клетке сетки с полем 1 ячейка от края.
             var fx = new int[gn * gn];

@@ -26,7 +26,7 @@ namespace Orpheus.Tests
             _out = output;
         }
 
-        /// <summary>Зерно тяжёлого прогона на настоящем мире (генератор v7, 1024²): из двенадцати (1…12) бот доходит на всех; 3 — одно из самых быстрых (карточка E2-3).</summary>
+        /// <summary>Зерно тяжёлого прогона на настоящем мире (генератор v7, 1024²; с C-016 — v8): из двенадцати (1…12) бот доходит на всех; 3 — одно из самых быстрых (карточка E2-3).</summary>
         public const ulong RealSeed = 3;
 
         private sealed class Outcome
@@ -160,15 +160,15 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Тяжёлый: настоящий мир (генератор v7, 1024², зерно <see cref="RealSeed"/>), старт у Очага, задержка сети 100 мс.
+        /// Тяжёлый: настоящий мир (генератор v8 — горы-лабиринт, 1024², зерно <see cref="RealSeed"/>), старт у Очага, задержка сети 100 мс.
         /// </summary>
         [Fact]
         [Trait("Category", "Big")]
-        public void E23_CraftChain_Big_RealWorldV7_Rtt100_StartingKit_To_CopperPickaxe_To_Granite()
+        public void E23_CraftChain_Big_RealWorldV8_Rtt100_StartingKit_To_CopperPickaxe_To_Granite()
         {
             MapShape shape = MapShape.World(1024);
             WorldModel world = WorldGenModule.Current.Generate(shape, RealSeed);
-            Assert.Equal(7, world.GeneratorVersion);
+            Assert.Equal(8, world.GeneratorVersion);
             Outcome o = Run(world, ServerRun.SpawnPoint(shape, 0), limitTicks: 60_000, rttMs: 100);
             AssertChain(o);
         }
@@ -191,7 +191,7 @@ namespace Orpheus.Tests
         [InlineData(10)]
         [InlineData(11)]
         [InlineData(12)]
-        public void E23_CraftChain_Big_RealWorldV7_Seeds1To12(int seed)
+        public void E23_CraftChain_Big_RealWorldV8_Seeds1To12(int seed)
         {
             MapShape shape = MapShape.World(1024);
             WorldModel world = WorldGenModule.Current.Generate(shape, (ulong)seed);

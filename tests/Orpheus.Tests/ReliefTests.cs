@@ -40,7 +40,11 @@ namespace Orpheus.Tests
             public double NearRocky;
 
             // C-016 (v8): достижимость ключевых мест без копания — залежь меди и дерево леса с соседом-тайлом, куда дошли.
-            public long Ore, OreReached, ForestTrees, ForestTreesReached;
+            public long Ore, OreReached, Granite, GraniteReached, ForestTrees, ForestTreesReached;
+
+            // Объектов (деревья, кусты, валуны, залежи) в 2 тайлах от скалы — должно быть 0 (MarkGorge).
+            public long ObjectsByRock;
+            public string ObjectsByRockKinds = "";
 
             // Щелей в один тайл между скалами (обрыв с двух противоположных сторон) и тайлов ущелий 2–3 тайла.
             public long Gap1, Gorge;
@@ -58,6 +62,7 @@ namespace Orpheus.Tests
             r.NearRocky = CliffsNearRocky(t);
             KeyPlaces(t, reached, r);
             Gorges(t, r);
+            ObjectsByRock(t, r);
             return r;
         }
 
@@ -123,7 +128,9 @@ namespace Orpheus.Tests
             var got = new bool[n];
             var queue = new int[n];
             int qt = 0;
-            bool Key(int i) => t.Objects[i] == ObjectId.Ore || (t.Objects[i] == ObjectId.Tree && t.Biome[i] == Biome.Forest);
+            bool[] graniteCore = DepositStats.MaskOf(t, DepositKind.Granite); // ядра гранита; валуны пещер в карманах — не в счёт
+            bool Key(int i) => t.Objects[i] == ObjectId.Ore || (t.Objects[i] == ObjectId.Granite && graniteCore[i])
+                || (t.Objects[i] == ObjectId.Tree && t.Biome[i] == Biome.Forest);
             int Next(int i, int k) => ((((i / W) + (k == 2 ? 1 : k == 3 ? -1 : 0)) & (W - 1)) * W) + (((i % W) + (k == 0 ? 1 : k == 1 ? -1 : 0)) & (W - 1));
             for (int i = 0; i < n; i++)
             {
@@ -164,12 +171,48 @@ namespace Orpheus.Tests
                     r.Ore++;
                     r.OreReached += got[i] ? 1 : 0;
                 }
+                else if (t.Objects[i] == ObjectId.Granite && graniteCore[i])
+                {
+                    r.Granite++;
+                    r.GraniteReached += got[i] ? 1 : 0;
+                }
                 else if (Key(i))
                 {
                     r.ForestTrees++;
                     r.ForestTreesReached += got[i] ? 1 : 0;
                 }
             }
+        }
+
+        // Объект (не скала, не пусто) в 2 тайлах от скалы — ущелья и проходы должны быть чистыми (C-016, MarkGorge).
+        private static void ObjectsByRock(TileWorld t, Seed r)
+        {
+            var kinds = new Dictionary<ushort, int>();
+            for (int y = 0; y < W; y++)
+            {
+                for (int x = 0; x < W; x++)
+                {
+                    ushort o = t.Objects[(y * W) + x];
+                    if (o == ObjectId.Empty || o == ObjectId.Cliff)
+                    {
+                        continue;
+                    }
+
+                    bool near = false;
+                    for (int k = 0; k < 25 && !near; k++)
+                    {
+                        near = t.Objects[(((y + (k / 5) - 2) & (W - 1)) * W) + ((x + (k % 5) - 2) & (W - 1))] == ObjectId.Cliff;
+                    }
+
+                    if (near)
+                    {
+                        r.ObjectsByRock++;
+                        kinds[o] = kinds.TryGetValue(o, out int c) ? c + 1 : 1;
+                    }
+                }
+            }
+
+            r.ObjectsByRockKinds = string.Join(", ", kinds.OrderBy(k => k.Key).Select(k => $"{k.Key}×{k.Value}"));
         }
 
         // Проходимый тайл между скалами по оси: щель в 1 тайл (скала вплотную с двух сторон) и ущелье (скала с двух сторон в ≤ 3 тайлах).
@@ -282,8 +325,8 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Связность при горах-лабиринте (C-016): от Очага без копания достижимы ≥ 95 % проходимых тайлов, ≥ 97 % залежей
-        /// меди (докопаться от тайла, куда дошли: пятно целиком) и ≥ 97 % деревьев леса; до леса, гор и воды — проверка
+        /// Связность при горах-лабиринте (C-016): от Очага без копания достижимы ≥ 98 % проходимых тайлов, ≥ 97 % залежей
+        /// меди и гранита (докопаться от тайла, куда дошли: пятно целиком) и ≥ 97 % деревьев леса; до леса, гор и воды — проверка
         /// <see cref="E12_30Seeds_EveryRegionWithin1080TilesOfStart"/>.
         /// </summary>
         [Fact]
@@ -291,12 +334,71 @@ namespace Orpheus.Tests
         {
             foreach (Seed s in All.Value)
             {
-                _out.WriteLine($"зерно {s.Id}: достижимо {100 * s.S.Reach:F2} %, медь {s.OreReached}/{s.Ore}, деревья леса {s.ForestTreesReached}/{s.ForestTrees}");
+                _out.WriteLine($"зерно {s.Id}: достижимо {100 * s.S.Reach:F2} %, медь {s.OreReached}/{s.Ore}, гранит {s.GraniteReached}/{s.Granite}, " +
+                               $"деревья леса {s.ForestTreesReached}/{s.ForestTrees}");
             }
 
-            Assert.All(All.Value, s => Assert.True(s.S.Reach >= 0.95, $"зерно {s.Id}: достижимо {100 * s.S.Reach:F2} %"));
+            Assert.All(All.Value, s => Assert.True(s.S.Reach >= 0.98, $"зерно {s.Id}: достижимо {100 * s.S.Reach:F2} %"));
+            Assert.All(All.Value, s => Assert.True(s.GraniteReached * 100 >= s.Granite * 97, $"зерно {s.Id}: гранит {s.GraniteReached}/{s.Granite}"));
             Assert.All(All.Value, s => Assert.True(s.OreReached * 100 >= s.Ore * 97, $"зерно {s.Id}: медь {s.OreReached}/{s.Ore}"));
             Assert.All(All.Value, s => Assert.True(s.ForestTreesReached * 100 >= s.ForestTrees * 97, $"зерно {s.Id}: деревья {s.ForestTreesReached}/{s.ForestTrees}"));
+        }
+
+        /// <summary>
+        /// Ущелья и проходы между массивами чистые (C-016): в 2 тайлах от скалы нет деревьев, кустов, валунов и залежей
+        /// (выемки жил — скала убрана, полоса пересчитана по оставшейся скале).
+        /// </summary>
+        [Fact]
+        public void C016_30Seeds_Gorges_FreeOfTreesRocksDeposits()
+        {
+            foreach (Seed s in All.Value)
+            {
+                _out.WriteLine($"зерно {s.Id}: объектов в 2 тайлах от скалы {s.ObjectsByRock} ({s.ObjectsByRockKinds})");
+            }
+
+            Assert.All(All.Value, s => Assert.Equal(0, s.ObjectsByRock));
+        }
+
+        /// <summary>
+        /// Выемка с медью в скальном массиве (C-016): карман меньше <see cref="ConnectStage.MinJoinSize"/> тайлов в горах
+        /// этап 12 обычно не присоединяет, но карман у залежи — присоединяет всегда (проход прорублен, жила цела).
+        /// </summary>
+        [Fact]
+        public void C016_Connect_JoinsCopperHollowInsideRock()
+        {
+            MacroWorld macro = MacroGenerator.Generate(W, 6, BiomeSet.Slice);
+            Array.Fill(macro.Map.Biome, Biome.Meadow);
+            var t = new TileWorld(macro);
+            HearthStage.RunMacro(macro);
+            TileStage.Run(t);
+            Array.Fill(t.Objects, ObjectId.Empty);
+            Array.Fill(t.Floor, FloorId.Grass);
+            Array.Fill(t.Biome, Biome.Meadow);
+            const int x0 = 200, y0 = 200, size = 30;
+            for (int y = y0; y < y0 + size; y++)
+            {
+                for (int x = x0; x < x0 + size; x++)
+                {
+                    int i = (y * W) + x;
+                    t.Biome[i] = Biome.Mountain;
+                    t.Floor[i] = FloorId.Stone;
+                    bool hollow = x >= x0 + 12 && x < x0 + 17 && y >= y0 + 12 && y < y0 + 17; // 5 × 5
+                    t.Objects[i] = hollow ? ObjectId.Empty : ObjectId.Cliff;
+                }
+            }
+
+            int ore = ((y0 + 14) * W) + x0 + 14;
+            t.Objects[ore] = ObjectId.Ore;
+            int inHollow = ((y0 + 12) * W) + x0 + 12;
+            int hearth = ((W / 2) * W) + (W / 2);
+            int[] before = ConnectStage.Label(t, out _);
+            Assert.NotEqual(before[hearth], before[inHollow]);
+            ConnectStage.Run(t);
+            int[] after = ConnectStage.Label(t, out _);
+            Assert.Equal(after[hearth], after[inHollow]);
+            Assert.Equal(ObjectId.Ore, t.Objects[ore]);
+            Assert.Equal(ObjectId.Empty, t.Objects[inHollow]);
+            Assert.True(t.ComponentsJoined >= 1);
         }
 
         /// <summary>От Очага без копания достижимы ≥ 90 % всех проходимых тайлов мира (вода и обрывы не режут мир на части).</summary>
