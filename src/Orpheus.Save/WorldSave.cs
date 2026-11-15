@@ -677,8 +677,14 @@ namespace Orpheus.Save
                 }
 
                 byte[] blob = Chunk.Decompress(data);
+                bool widened = file.Header.FormatVersion < 11; // E2-15: записи построек 8 → 9 байт (байт слоёв — 0)
+                if (widened)
+                {
+                    blob = Chunk.WidenLegacyBlob(blob);
+                }
+
                 check.ReadBlob(blob); // проверка блока до того, как трогать мир
-                bool converted = file.Header.FormatVersion < 10 && LegacyWalls.Convert(blob, ref legacyWalls); // E2-12
+                bool converted = (file.Header.FormatVersion < 10 && LegacyWalls.Convert(blob, ref legacyWalls)) || widened; // E2-12
                 coords.Add(c);
                 revisions.Add(revision);
                 blobs.Add(blob);

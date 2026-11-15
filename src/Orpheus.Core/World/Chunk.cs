@@ -51,20 +51,21 @@ namespace Orpheus.Core.World
         /// <summary>Поле «число записей построек» в блоке чанка: 2 байта.</summary>
         public const int BuildCountBytes = 2;
 
-        /// <summary>Байт на запись постройки в блоке чанка: индекс тайла (2) + запись (8).</summary>
+        /// <summary>Байт на запись постройки в блоке чанка: индекс тайла (2) + запись (9, E2-15).</summary>
         public const int BuildEntryBytes = 2 + BuildRecord.SizeBytes;
 
         /// <summary>Блок чанка без записей построек: 3072 + 2.</summary>
         public const int MinBlobBytes = LayerBytes + BuildCountBytes;
 
         /// <summary>
-        /// Наибольший блок чанка — запись постройки у каждого тайла: 3074 + 10 · 1024 = 13 314 байт.
+        /// Наибольший блок чанка — запись постройки у каждого тайла: 3074 + 11 · 1024 = 14 338 байт.
         /// Предел при распаковке (backlog [сохранения]): больше — блок испорчен, дальше не разворачиваем.
         /// </summary>
         public const int MaxBlobBytes = MinBlobBytes + BuildEntryBytes * TileCount;
 
         private readonly byte[] _layers = new byte[LayerBytes];
         private Dictionary<ushort, BuildRecord>? _builds;
+        private int _offsetCount;
         private readonly BuildMapPool? _buildMaps;
 
         private uint _revision;
@@ -116,10 +117,16 @@ namespace Orpheus.Core.World
         /// <summary>Число записей построек.</summary>
         public int BuildCount => _builds == null ? 0 : _builds.Count;
 
+        /// <summary>
+        /// Записей со сдвигом мебели на полтайла (E2-15, <see cref="BuildRecord.HasOffset"/>): 0 — «свеса» мебели из тайлов
+        /// этого чанка в соседние нет, соседей смотреть не нужно (<see cref="BuildCells.OverhangAt"/>).
+        /// </summary>
+        public int OffsetCount => _offsetCount;
+
         /// <summary>Плотные слои (3072 байта, плоскостями) только для чтения.</summary>
         public ReadOnlySpan<byte> Layers => _layers;
 
-        /// <summary>Размер несжатого блока: слои + число записей + записи (3072 + 2 + 10·n).</summary>
+        /// <summary>Размер несжатого блока: слои + число записей + записи (3072 + 2 + 11·n).</summary>
         public int BlobBytes => MinBlobBytes + BuildEntryBytes * BuildCount;
 
         /// <summary>Ревизия, с которой собрана сжатая копия (смысл есть, только если копия есть).</summary>
@@ -207,7 +214,7 @@ namespace Orpheus.Core.World
         public void SetBaseBuild(int index, BuildRecord record)
         {
             CheckIndex(index);
-            Builds()[(ushort)index] = record;
+            SetRecord(index, record);
             _copy = null;
         }
 
@@ -289,11 +296,11 @@ namespace Orpheus.Core.World
             WriteTile(edit.Index, edit.Floor, edit.Obj);
             if (edit.HasRecord)
             {
-                Builds()[edit.Index] = edit.Record;
+                SetRecord(edit.Index, edit.Record);
             }
             else
             {
-                _builds?.Remove(edit.Index);
+                RemoveRecord(edit.Index);
             }
 
             _copy = null;
@@ -473,7 +480,7 @@ namespace Orpheus.Core.World
         // ---------- Блок чанка: слои + записи (сеть 3.6, снимок 3.4) ----------
 
         /// <summary>
-        /// Несжатый блок: слои (3072, плоскостями), число записей (2), записи «индекс (2) + запись (8)»
+        /// Несжатый блок: слои (3072, плоскостями), число записей (2), записи «индекс (2) + запись (9)»
         /// по возрастанию индекса. Возвращает число байт.
         /// </summary>
         public int WriteBlob(Span<byte> dest)
@@ -519,6 +526,7 @@ namespace Orpheus.Core.World
 
             src.Slice(0, LayerBytes).CopyTo(_layers);
             _builds?.Clear();
+            _offsetCount = 0;
             int at = MinBlobBytes;
             for (int i = 0; i < count; i++)
             {
@@ -528,7 +536,7 @@ namespace Orpheus.Core.World
                     throw new InvalidDataException($"Блок чанка: запись постройки с индексом {index}.");
                 }
 
-                Builds()[(ushort)index] = BuildRecord.Read(src.Slice(at + 2));
+                SetRecord(index, BuildRecord.Read(src.Slice(at + 2)));
                 at += BuildEntryBytes;
             }
 
@@ -569,11 +577,11 @@ namespace Orpheus.Core.World
             WriteTile(index, edit.Floor, edit.Obj);
             if (edit.HasRecord)
             {
-                Builds()[(ushort)index] = edit.Record;
+                SetRecord(index, edit.Record);
             }
             else
             {
-                _builds?.Remove((ushort)index);
+                RemoveRecord(index);
             }
 
             MarkDirty(index);
@@ -584,6 +592,64 @@ namespace Orpheus.Core.World
             _layers[index] = floor;
             _layers[ObjectLowOffset + index] = (byte)obj;
             _layers[ObjectHighOffset + index] = (byte)(obj >> 8);
+        }
+
+        // Запись тайла и счёт записей со сдвигом мебели (E2-15).
+        private void SetRecord(int index, in BuildRecord record)
+        {
+            Dictionary<ushort, BuildRecord> builds = Builds();
+            if (builds.TryGetValue((ushort)index, out BuildRecord old) && old.HasOffset)
+            {
+                _offsetCount--;
+            }
+
+            builds[(ushort)index] = record;
+            if (record.HasOffset)
+            {
+                _offsetCount++;
+            }
+        }
+
+        private void RemoveRecord(int index)
+        {
+            if (_builds != null && _builds.TryGetValue((ushort)index, out BuildRecord old))
+            {
+                if (old.HasOffset)
+                {
+                    _offsetCount--;
+                }
+
+                _builds.Remove((ushort)index);
+            }
+        }
+
+        /// <summary>
+        /// Расширить старый блок чанка (записи по <see cref="BuildRecord.LegacySizeBytes"/> = 8 байт: сохранения форматов 1–10,
+        /// снимок мира версии 2) до нынешнего (9 байт, E2-15): байт слоёв записи — 0 (пол — весь тайл, мебель без сдвига).
+        /// </summary>
+        public static byte[] WidenLegacyBlob(ReadOnlySpan<byte> old)
+        {
+            const int oldEntry = 2 + BuildRecord.LegacySizeBytes;
+            if (old.Length < MinBlobBytes)
+            {
+                throw new InvalidDataException($"Старый блок чанка: нужно не меньше {MinBlobBytes} байт, есть {old.Length}.");
+            }
+
+            int count = Bytes.ReadUInt16(old, LayerBytes);
+            int expected = MinBlobBytes + oldEntry * count;
+            if (old.Length != expected)
+            {
+                throw new InvalidDataException($"Старый блок чанка: на {count} записей нужно {expected} байт, есть {old.Length}.");
+            }
+
+            var blob = new byte[MinBlobBytes + BuildEntryBytes * count];
+            old.Slice(0, MinBlobBytes).CopyTo(blob);
+            for (int i = 0; i < count; i++)
+            {
+                old.Slice(MinBlobBytes + i * oldEntry, oldEntry).CopyTo(blob.AsSpan(MinBlobBytes + i * BuildEntryBytes));
+            }
+
+            return blob;
         }
 
         private Dictionary<ushort, BuildRecord> Builds() =>

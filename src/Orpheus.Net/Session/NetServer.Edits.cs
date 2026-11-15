@@ -222,8 +222,7 @@ namespace Orpheus.Net.Session
 
         private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m, byte held)
         {
-            int n = EditRules.Line(_sim.Shape, m.From, m.To, _line);
-            if (n < 0 || !EditRules.IsPlaceable(m.Obj))
+            if (!EditRules.IsPlaceable(m.Obj))
             {
                 Reply(p, m.RequestId, EditReply.NotAllowed, EditReply.NotAllowed, 0);
                 return;
@@ -252,60 +251,7 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            if (BuildCells.IsCellBuilding(m.Obj))
-            {
-                PlaceCells(p, s, pos, m); // E2-12: стена, забор, дверь — ячейки 0,5 × 0,5 (NetServer.Cells.cs)
-                return;
-            }
-
-            EditReply first = EditReply.Accepted;
-            int queued = 0;
-            for (int i = 0; i < n; i++)
-            {
-                TileCoord t = _line[i];
-                EditReply check = EditRules.CheckPlaceTile(_sim.World, pos, t, m.Obj);
-                if (check == EditReply.Accepted && _hasDummy && EditRules.NeedsClearance(m.Obj) && EditRules.EnemyTooClose(_sim.Shape, _dummy.Position, t))
-                {
-                    check = EditReply.EnemyNear;
-                }
-
-                int tag = (m.RequestId << TagLineBits) | i;
-                byte floor = _sim.World.GetFloor(t);
-                bool floorKey = EditRules.IsFloorKey(m.Obj); // запрос «поставить пол»: слой пола := m.Obj, объект пустой
-                BuildRecord rec = new BuildRecord((ushort)p.EntityId,
-                    BuildDefs.TryGet(m.Obj, out BuildDef def) ? def.MaxIntegrity : BuildRecord.MaxIntegrity,
-                    0, floor, 0);
-                if (check == EditReply.Accepted &&
-                    !_sim.RequestPlayerEdit(t, floorKey ? BuildDefs.FloorOf(m.Obj) : floor, floorKey ? ObjectId.Empty : m.Obj,
-                        true, rec, p.EntityId, tag, m.Cell))
-                {
-                    check = QueueRefusal(p.EntityId); // очередь такта полна или персонаж мёртв (C-004)
-                }
-
-                if (check != EditReply.Accepted)
-                {
-                    if (first == EditReply.Accepted)
-                    {
-                        first = check;
-                    }
-
-                    continue;
-                }
-
-                queued++;
-            }
-
-            if (queued == 0)
-            {
-                Reply(p, m.RequestId, first, first, 0);
-                return;
-            }
-
-            int k = s.PendingCount++;
-            s.PendingId[k] = m.RequestId;
-            s.PendingMask[k] = 0;
-            s.PendingFirst[k] = first;
-            s.PendingLeft[k] = queued;
+            PlacePlan(p, s, pos, m); // E2-15: план заявки — общий с предсказанием клиента (NetServer.Cells.cs)
         }
 
         /// <summary>
@@ -365,18 +311,15 @@ namespace Orpheus.Net.Session
         {
             s.Digging = false;
             EditReply check = EditRules.CheckDig(_sim.World, pos, s.DigTile, DigTimes, held);
-            byte floor = _sim.World.GetFloor(s.DigTile);
             if (check == EditReply.Accepted && DigKeyOf(s.DigTile) != s.DigObj)
             {
                 check = EditReply.Empty; // тайл не тот, что в начале копания (3.7)
             }
 
-            // Снос построенного пола (1-011, `05` 1.3): слой пола возвращается природному из записи.
-            byte newFloor = FloorId.IsBuilt(floor) && _sim.World.TryGetBuild(s.DigTile, out BuildRecord rec)
-                ? rec.NaturalFloor
-                : floor;
+            // Снос по слоям (E2-15): верх или обломки — пол остаётся; верха нет — построенный пол, слой пола — природный из записи.
+            BuildLayers.AfterDig(_sim.World, s.DigTile, out byte newFloor, out bool keep, out BuildRecord rest);
             if (check == EditReply.Accepted &&
-                !_sim.RequestPlayerEdit(s.DigTile, newFloor, ObjectId.Empty, false, default, p.EntityId, TagDig | (s.DigRequest << TagLineBits)))
+                !_sim.RequestPlayerEdit(s.DigTile, newFloor, ObjectId.Empty, keep, rest, p.EntityId, TagDig | (s.DigRequest << TagLineBits)))
             {
                 check = QueueRefusal(p.EntityId);
             }

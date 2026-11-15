@@ -30,8 +30,11 @@ namespace Orpheus.Core.World
         /// <summary>Метка «ORPW».</summary>
         public static ReadOnlySpan<byte> Magic => new byte[] { (byte)'O', (byte)'R', (byte)'P', (byte)'W' };
 
-        /// <summary>Версия формата: 2 — SHA-256 покрывает и заголовок (0-009).</summary>
-        public const byte FormatVersion = 2;
+        /// <summary>Версия формата: 2 — SHA-256 покрывает и заголовок (0-009); 3 — запись постройки 9 байт (E2-15).</summary>
+        public const byte FormatVersion = 3;
+
+        /// <summary>Прошлая версия (записи построек по 8 байт): читается, блоки расширяются (<see cref="Chunk.WidenLegacyBlob"/>).</summary>
+        public const byte LegacyFormatVersion = 2;
 
         /// <summary>Вид: снимок генерации.</summary>
         public const byte KindBase = 0;
@@ -212,9 +215,11 @@ namespace Orpheus.Core.World
             public readonly ulong Seed;
             public readonly int GeneratorVersion;
             public readonly int ChunkCount;
+            public readonly bool Legacy;
 
-            public Header(MapShape shape, ulong seed, int generatorVersion, int chunkCount)
+            public Header(MapShape shape, ulong seed, int generatorVersion, int chunkCount, bool legacy)
             {
+                Legacy = legacy;
                 Shape = shape;
                 Seed = seed;
                 GeneratorVersion = generatorVersion;
@@ -234,7 +239,7 @@ namespace Orpheus.Core.World
                 throw new InvalidDataException("Это не снимок мира Orpheus: нет метки ORPW.");
             }
 
-            if (data[4] != FormatVersion)
+            if (data[4] != FormatVersion && data[4] != LegacyFormatVersion)
             {
                 throw new InvalidDataException($"Версия формата снимка {data[4]}, сборка понимает {FormatVersion}.");
             }
@@ -267,7 +272,7 @@ namespace Orpheus.Core.World
                 throw new InvalidDataException($"Снимок: версия {version}, чанков {count} — повреждён.");
             }
 
-            return new Header(shape, seed, version, count);
+            return new Header(shape, seed, version, count, data[4] == LegacyFormatVersion);
         }
 
         private static void ReadChunks(byte[] data, Header h, WorldModel model, bool changedSinceBase)
@@ -334,6 +339,13 @@ namespace Orpheus.Core.World
 
             for (int i = 0; i < coords.Length; i++)
             {
+                if (h.Legacy)
+                {
+                    // E2-15: версия 2 — записи по 8 байт; хэш сверен по старому блоку, копия по сети — из нового.
+                    blobs[i] = Chunk.WidenLegacyBlob(blobs[i]);
+                    compressed[i] = null!;
+                }
+
                 model.GetOrCreateChunk(coords[i]).Load(blobs[i], compressed[i], revisions[i], changedSinceBase);
             }
         }

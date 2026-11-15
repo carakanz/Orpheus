@@ -205,6 +205,11 @@ namespace Orpheus.Core.World
             if (here == ObjectId.Empty || ObjectId.IdOf(obj) == ObjectId.Door)
             {
                 EditReply r = EditRules.CheckPlaceTile(world, center, t, obj);
+                if (r == EditReply.Accepted && (want & BuildLayers.OverhangAt(world, t, solidOnly: false)) != 0)
+                {
+                    r = EditReply.Busy; // E2-15: в эти ячейки свешивается мебель соседнего тайла
+                }
+
                 if (r == EditReply.Accepted)
                 {
                     mask = want;
@@ -236,9 +241,9 @@ namespace Orpheus.Core.World
 
             byte before = MaskOf(here, true, rec);
             add = (byte)(want & ~before & Full);
-            if (add == 0)
+            if (add == 0 || (add & BuildLayers.OverhangAt(world, t, solidOnly: false)) != 0)
             {
-                return EditReply.Busy;
+                return EditReply.Busy; // E2-15: заняты — свои ячейки или свес мебели соседа
             }
 
             mask = (byte)(before | add);

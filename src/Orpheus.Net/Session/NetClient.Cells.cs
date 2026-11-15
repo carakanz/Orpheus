@@ -7,15 +7,15 @@ using Orpheus.Net.Protocol;
 namespace Orpheus.Net.Session
 {
     /// <summary>
-    /// Предсказание постановки построек-ячеек (E2-12, протокол 26): те же функции ядра, что у сервера
-    /// (<see cref="BuildCells.Line"/>, <see cref="BuildCells.DoorMaskFor"/>, <see cref="BuildCells.CheckPlace"/>) — тайл
-    /// линии становится «маска := прежняя | добавленные», по предмету из ячейки панели на добавленную ячейку (дверь — один).
+    /// Предсказание постановки (E2-12 → E2-15): тот же план, что у сервера (<see cref="BuildPlanner.Plan"/>) — стена, забор, пол
+    /// ячейками 0,5, дверь парой ячеек, мебель тайлом-якорем со сдвигом, прочее тайлами; по предмету из ячейки панели на
+    /// правку (стена, забор, пол — на добавленную ячейку). Ковёр и шипы (вне таблицы) — без предмета.
     /// </summary>
     public sealed partial class NetClient
     {
-        private readonly CellGroup[] _cellGroups = new CellGroup[EditRules.MaxLineTiles];
+        private readonly PlannedEdit[] _plan = new PlannedEdit[EditRules.MaxLineTiles];
 
-        private ushort PlaceCells(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad)
+        private ushort PlacePlan(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad)
         {
             if (State != NetClientState.InGame || World == null || cell >= Inventory.Slots)
             {
@@ -23,52 +23,43 @@ namespace Orpheus.Net.Session
             }
 
             MapShape shape = World.Shape;
-            bool door = ObjectId.IdOf(obj) == ObjectId.Door;
-            int n;
-            if (door)
-            {
-                _cellGroups[0] = new CellGroup(Torus.Wrap(shape, from), BuildCells.DoorMaskFor(World.World, from, quad & 3), 0, 1);
-                n = 1;
-            }
-            else
-            {
-                n = BuildCells.Line(shape, BuildCells.CellOf(from, quad & 3), BuildCells.CellOf(to, (quad >> 2) & 3), _cellGroups);
-            }
-
+            int n = BuildPlanner.Plan(World.World, self, obj, from, to, quad, (ushort)EntityId, _plan);
             if (n < 0)
             {
                 return 0;
             }
 
             ushort id = NextRequest();
-            BuildDefs.TryGet(obj, out BuildDef def);
-            var inv = Inv;
+            bool free = !BuildDefs.TryGet(obj, out BuildDef def); // ковёр, шипы — вне таблицы: без предмета (как у сервера)
+            var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
             for (int i = 0; i < n; i++)
             {
-                CellGroup g = _cellGroups[i];
-                TileCoord t = g.Tile;
-                if (BuildCells.CheckPlace(World.World, self, t, obj, g.Mask, out byte mask, out byte add) != EditReply.Accepted)
+                PlannedEdit e = _plan[i];
+                if (e.Check != EditReply.Accepted)
                 {
                     continue;
                 }
 
-                int units = door ? 1 : BuildCells.Count(add);
-                if (inv.ItemAt(cell) != def.Item || inv.CountIn(cell) < units || inv.TakeFrom(cell, units) != units)
+                int units = e.Units;
+                if (!free && (inv.ItemAt(cell) != def.Item || inv.CountIn(cell) < units || inv.TakeFrom(cell, units) != units))
                 {
                     break; // предметы кончились посреди линии (`05` 1.4): остаток не предсказываем
                 }
 
-                byte floor = World.World.GetFloor(t);
-                BuildRecord rec = World.World.GetObject(t) == obj && World.World.TryGetBuild(t, out BuildRecord old)
-                    ? old.WithCells(mask)
-                    : new BuildRecord((ushort)EntityId, def.MaxIntegrity, 0, floor, 0, mask);
-                if (!World.Predict(id, g.First, t, new TileEdit(0, floor, obj, rec)))
+                if (!World.Predict(id, e.First, e.Tile, new TileEdit(0, e.Floor, e.Obj, e.Record)))
                 {
-                    inv.SetCell(cell, def.Item, inv.CountIn(cell) + units); // чанка нет — предмет на место
+                    if (!free)
+                    {
+                        inv.SetCell(cell, def.Item, inv.CountIn(cell) + units); // чанка нет — предмет на место
+                    }
+
                     continue;
                 }
 
-                _spends.Add(new SpendEntry { Request = id, LineIndex = g.First, Item = def.Item, Cell = cell, InvVersion = InvVersion, Count = (byte)units });
+                if (!free)
+                {
+                    _spends.Add(new SpendEntry { Request = id, LineIndex = e.First, Item = def.Item, Cell = cell, InvVersion = InvVersion, Count = (byte)units });
+                }
             }
 
             Inv = inv;

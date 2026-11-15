@@ -37,7 +37,7 @@ namespace Orpheus.Core.Sim
                     continue;
                 }
 
-                long d2 = Torus.Dist2(_shape, center, EditRules.CenterOf(t));
+                long d2 = Torus.Dist2(_shape, center, BuildLayers.CenterAt(_world, t));
                 if (d2 > r2)
                 {
                     continue;

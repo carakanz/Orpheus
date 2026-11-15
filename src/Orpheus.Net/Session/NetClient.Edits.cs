@@ -44,7 +44,6 @@ namespace Orpheus.Net.Session
         }
 
         private readonly System.Collections.Generic.List<SpendEntry> _spends = new System.Collections.Generic.List<SpendEntry>();
-        private readonly TileCoord[] _line = new TileCoord[EditRules.MaxLineTiles];
 
         /// <summary>Каждый ответ сервера на правку (после <see cref="ClientWorld.Resolve"/>).</summary>
         public Action<TileReplyMessage>? EditReplied { get; set; }
@@ -136,72 +135,8 @@ namespace Orpheus.Net.Session
         /// биты 2–3 — в тайле конца (<see cref="TileRequestMessage.Quad"/>). Стена, забор, дверь — ячейками
         /// (<see cref="PlaceCells"/>), остальное — как <see cref="Place(TileCoord, TileCoord, ushort, WorldPos, byte)"/>.
         /// </summary>
-        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad)
-        {
-            if (BuildCells.IsCellBuilding(obj))
-            {
-                return PlaceCells(from, to, obj, self, cell, (byte)(quad & 15));
-            }
-
-            if (State != NetClientState.InGame || World == null || cell >= Inventory.Slots)
-            {
-                return 0;
-            }
-
-            int n = EditRules.Line(World.Shape, from, to, _line);
-            if (n < 0)
-            {
-                return 0;
-            }
-
-            ushort id = NextRequest();
-            bool floorKey = EditRules.IsFloorKey(obj);
-            bool free = !BuildDefs.TryGet(obj, out BuildDef def); // ковёр, шипы — вне таблицы: без предмета (как у сервера)
-            var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
-            for (int i = 0; i < n; i++)
-            {
-                TileCoord t = _line[i];
-                if (EditRules.CheckPlaceTile(World.World, self, t, obj) != EditReply.Accepted)
-                {
-                    continue;
-                }
-
-                if (!free && (inv.ItemAt(cell) != def.Item || inv.TakeFrom(cell, 1) != 1))
-                {
-                    break; // «предметы кончились посреди линии» (`05` 1.4): остаток линии не предсказываем
-                }
-
-                byte floor = World.World.GetFloor(t);
-                var rec = new BuildRecord((ushort)EntityId, def.MaxIntegrity, 0, floor, 0);
-                var edit = floorKey
-                    ? new TileEdit(0, BuildDefs.FloorOf(obj), ObjectId.Empty, rec) // пол: слой пола := пол ключа, объект пустой
-                    : new TileEdit(0, floor, obj, rec);
-                if (!World.Predict(id, i, t, edit))
-                {
-                    if (!free)
-                    {
-                        inv.SetCell(cell, def.Item, inv.CountIn(cell) + 1); // чанка нет — предсказания нет, предмет на место
-                    }
-
-                    continue;
-                }
-
-                if (free)
-                {
-                    continue;
-                }
-
-                _spends.Add(new SpendEntry { Request = id, LineIndex = (byte)i, Item = def.Item, Cell = cell, InvVersion = InvVersion });
-            }
-
-            Inv = inv;
-            SendRequest(new TileRequestMessage
-            {
-                RequestId = id, Op = TileOp.Place, Frame = _input.LastFrame + 1, From = Torus.Wrap(World.Shape, from), To = Torus.Wrap(World.Shape, to), Obj = obj,
-                Cell = cell,
-            });
-            return id;
-        }
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad) =>
+            PlacePlan(from, to, obj, self, cell, (byte)(quad & 15)); // E2-15: план заявки — общий с сервером (NetClient.Cells.cs)
 
         /// <summary>
         /// F (1-012, протокол 19): закрыть дверь на тайле <paramref name="tile"/>. Предсказание — record-only
@@ -283,15 +218,9 @@ namespace Orpheus.Net.Session
                 return; // тайл уже не тот (пачка сервера) — предсказывать нечего, ответ придёт «пусто»
             }
 
-            // Снос построенного пола: слой пола возвращается природному из записи (1-011, `05` 1.3).
-            byte newFloor = World.World.GetFloor(_digTile);
-            bool hasRecord = World.World.TryGetBuild(_digTile, out BuildRecord rec);
-            if (FloorId.IsBuilt(newFloor) && hasRecord)
-            {
-                newFloor = rec.NaturalFloor;
-            }
-
-            World.Predict(_digRequest, 0, _digTile, new TileEdit(0, newFloor, ObjectId.Empty));
+            // Снос по слоям (E2-15, как у сервера): верх или обломки — пол остаётся; верха нет — построенный пол.
+            BuildLayers.AfterDig(World.World, _digTile, out byte newFloor, out bool keep, out BuildRecord rest);
+            World.Predict(_digRequest, 0, _digTile, keep ? new TileEdit(0, newFloor, ObjectId.Empty, rest) : new TileEdit(0, newFloor, ObjectId.Empty));
 
             // E2-1: возврат сноса и добыча копания падают кучами на землю (сервер пришлёт «кучи», тип 27) —
             // сумка от них не меняется, предсказывать нечего. Подбор не предсказывается: ждём сумку сервера (тип 26).

@@ -1,3 +1,4 @@
+using System;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.World;
 
@@ -18,36 +19,49 @@ namespace Orpheus.Core.Sim
         private const byte CostPaidRepair = 0x80;
 
         /// <summary>
-        /// Сколько предметов стоит правка-постановка (E2-12): стена и забор — по одному на добавленную ячейку
-        /// (ячеек в новой маске минус ячеек того же вида до пачки), дверь и прочее — один.
+        /// Что ставит правка № <paramref name="i"/> и сколько предметов это стоит (по состоянию тайла до пачки, E2-15 — по
+        /// слоям): новый верх — его постройка (стена и забор — по предмету на ячейку, прочее — один); та же стена/забор с новыми
+        /// ячейками — по предмету на добавленную; построенный пол с новыми ячейками — по предмету на добавленную ячейку пола
+        /// (верх тайла при этом не меняется). Не постановка (снос, копание, смена состояния двери, урон) — false.
         /// </summary>
-        private int PlacementUnits(int i)
+        private bool PlacementOf(int i, out BuildDef def, out int units)
         {
             TileEdit edit = _edits[i].Edit;
-            if (!BuildCells.IsCellBuilding(edit.Obj) || ObjectId.IdOf(edit.Obj) == ObjectId.Door)
-            {
-                return 1;
-            }
-
-            byte after = BuildCells.MaskOf(edit.Obj, edit.HasRecord, edit.Record);
-            byte before = _preObj[i] == edit.Obj ? BuildCells.MaskOf(_preObj[i], _preHasBuild[i], _preBuild[i]) : (byte)0;
-            int n = BuildCells.Count((byte)(after & ~before));
-            return n < 1 ? 1 : n;
-        }
-
-        /// <summary>
-        /// Постройка правки-постановки: ключ — id объекта; для пола — ключ <b>построенного</b> пола в слое пола
-        /// (природные полы 1…7 с постройками не путаются: снос и копание ничего не стоят).
-        /// </summary>
-        private static bool CostOf(in TileEdit edit, out BuildDef def)
-        {
+            units = 0;
             if (edit.Obj != ObjectId.Empty)
             {
-                return BuildDefs.TryGet(edit.Obj, out def);
+                bool cellWall = BuildCells.IsCellBuilding(edit.Obj) && ObjectId.IdOf(edit.Obj) != ObjectId.Door;
+                if (_preObj[i] != edit.Obj)
+                {
+                    units = cellWall ? Math.Max(1, BuildCells.Count(BuildCells.MaskOf(edit.Obj, edit.HasRecord, edit.Record))) : 1;
+                    return BuildDefs.TryGet(edit.Obj, out def);
+                }
+
+                if (cellWall)
+                {
+                    byte after = BuildCells.MaskOf(edit.Obj, edit.HasRecord, edit.Record);
+                    byte before = BuildCells.MaskOf(_preObj[i], _preHasBuild[i], _preBuild[i]);
+                    int added = BuildCells.Count((byte)(after & ~before));
+                    if (added > 0)
+                    {
+                        units = added;
+                        return BuildDefs.TryGet(edit.Obj, out def);
+                    }
+                }
+            }
+
+            // Пол (нижний слой): ячеек построенного пола стало больше.
+            byte floorAfter = BuildLayers.FloorCellsOf(edit.Floor, edit.HasRecord, edit.Record);
+            byte floorBefore = _preFloor[i] == edit.Floor ? BuildLayers.FloorCellsOf(_preFloor[i], _preHasBuild[i], _preBuild[i]) : (byte)0;
+            int floorAdded = BuildCells.Count((byte)(floorAfter & ~floorBefore));
+            if (floorAdded > 0 && BuildDefs.TryGet(BuildDefs.FloorKey(edit.Floor), out def))
+            {
+                units = floorAdded;
+                return true;
             }
 
             def = default;
-            return FloorId.IsBuilt(edit.Floor) && BuildDefs.TryGet(BuildDefs.FloorKey(edit.Floor), out def);
+            return false;
         }
 
         /// <summary>
@@ -58,12 +72,11 @@ namespace Orpheus.Core.Sim
         private void PayPlacement(int i)
         {
             ref EditRequest e = ref _edits[i];
-            if (!CostOf(e.Edit, out BuildDef def))
+            if (!PlacementOf(i, out BuildDef def, out int units))
             {
                 return;
             }
 
-            int units = PlacementUnits(i);
             int slot = SlotOf(e.Requester);
             int cell = slot < 0 ? -1 : CellWith(in _entities[slot].Inv, def.Item, e.Cell);
             if (cell < 0 || _entities[slot].Inv.CountIn(cell) < units || _entities[slot].Inv.TakeFrom(cell, units) != units)
@@ -110,7 +123,7 @@ namespace Orpheus.Core.Sim
         /// </summary>
         private void RefundPlacement(int i, int requester)
         {
-            if (CostOf(_edits[i].Edit, out BuildDef def) && def.Item != Items.None)
+            if (PlacementOf(i, out BuildDef def, out _) && def.Item != Items.None)
             {
                 ReturnBuildItem(requester, _edits[i].Cell, def.Item, _costPaid[i]); // E2-12: столько, сколько снято (по ячейке)
             }
@@ -146,20 +159,36 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Возврат при сносе (E2-11, как в Terraria): один предмет-постройка кучей на тайл постройки (подбирает любой, кто
-        /// подойдёт), а не материалы. Обломки (разрушили враги, снос под ударом) сюда не попадают — ничего (<c>05</c> 1.3).
+        /// Возврат при сносе (E2-11, как в Terraria): предмет-постройка кучей на тайл постройки (подбирает любой, кто подойдёт),
+        /// а не материалы. Обломки (разрушили враги, снос под ударом) сюда не попадают — ничего (<c>05</c> 1.3). E2-15 — по
+        /// слоям: снят верх — его предмет (стена и забор — по предмету на ячейку, дверь и мебель — один), пол остаётся; верха
+        /// не было, снят построенный пол — по предмету на ячейку пола.
         /// </summary>
-        private void GiveBuildRefund(long tick, TileCoord tile, ushort preObj, byte preFloor, byte preCells)
+        private void GiveBuildRefund(long tick, TileCoord tile, int i)
         {
-            // E2-12: стена и забор — по предмету на ячейку (старая стена в 1 тайл — 4 ячейки), дверь — один.
-            int units = BuildCells.IsCellBuilding(preObj) && ObjectId.IdOf(preObj) != ObjectId.Door ? BuildCells.Count(preCells) : 1;
-            ushort key = preObj != ObjectId.Empty ? preObj : BuildDefs.FloorKey(preFloor); // постройка — id объекта; снос пола — ключ пола (E2-5)
-            if ((preObj == ObjectId.Empty && !FloorId.IsBuilt(preFloor)) || !BuildDefs.TryGet(key, out BuildDef def))
+            ushort preObj = _preObj[i];
+            BuildRecord pre = _preBuild[i];
+            int units;
+            ushort key;
+            if (preObj != ObjectId.Empty)
             {
-                return;
+                units = BuildCells.IsCellBuilding(preObj) && ObjectId.IdOf(preObj) != ObjectId.Door ? BuildCells.Count(BuildCells.MaskOf(preObj, true, pre)) : 1;
+                key = preObj;
+            }
+            else if (FloorId.IsBuilt(_preFloor[i]) && !FloorId.IsBuilt(_edits[i].Edit.Floor))
+            {
+                units = BuildCells.Count(BuildLayers.FloorCellsOf(_preFloor[i], true, pre));
+                key = BuildDefs.FloorKey(_preFloor[i]);
+            }
+            else
+            {
+                return; // не снос (постановка пола в тайл с записью)
             }
 
-            DropOnTile(tick, tile, def.Item, units);
+            if (BuildDefs.TryGet(key, out BuildDef def))
+            {
+                DropOnTile(tick, tile, def.Item, units);
+            }
         }
     }
 }
