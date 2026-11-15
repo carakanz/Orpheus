@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using Orpheus.Core.Sim;
+using Orpheus.Net.Session;
 
 namespace Orpheus.Client.UI
 {
@@ -14,6 +15,39 @@ namespace Orpheus.Client.UI
         public const string BagHint = "ЛКМ — взять / положить      ПКМ — взять 1 (ещё ПКМ — ещё 1)\nShift+ЛКМ — половину      Ctrl+ЛКМ — перекинуть      ЛКМ мимо окна — выбросить";
         public const string BagDead = "Вы погибли: сумка откроется для действий после возрождения";
         public const string BagKeys = "Q / I";
+
+        // ---------- C-008: окна как в Terraria ----------
+
+        /// <summary>Подсказка клавиш сумки — одной строкой мелко под сеткой (полная — <see cref="BagHint"/>, при наведении).</summary>
+        public const string BagHintShort = "ПКМ — 1   Shift — половина   Ctrl — перекинуть";
+        public const string BagTitleKeys = "Сумка  (Q)";
+        public const string ChestTitleKeys = "Сундук  (F)";
+        public const string ChestTakeAll = "Взять всё";
+        public const string ChestPutAll = "Положить всё";
+        /// <summary>C-008: почему «Взять / Положить всё» остановился (null — сказать нечего).</summary>
+        public static string? MoveAllStopped(MoveAllStop why) => why switch
+        {
+            MoveAllStop.NoRoom => "Не всё влезло — нет места",
+            MoveAllStop.NotAccepted => "Сервер не принял перенос",
+            MoveAllStop.Dead => "Мёртвый не переносит",
+            _ => null,
+        };
+
+        public const string ChestTakeAllTip = "Всё из сундука — в сумку";
+        public const string ChestPutAllTip = "Сумка (без быстрой панели) — в сундук";
+        public const string CraftTitleKeys = "Изготовление  (C)";
+        public const string CraftMakeTip = "ЛКМ — сделать 1   Shift — 5   Ctrl — всё (Enter)";
+        public const string AbilityLocked = "Способность — откроется позже";
+        public const string PassiveLocked = "Пассивная способность — откроется позже";
+        public const string MapCollapsed = "Карта (M)";
+        public const string CraftEmptyShort = "Здесь пока нет рецептов";
+        public const string CraftEmptyFilteredShort = "Сейчас ничего не сделать — Ins: показать все";
+
+        public static string FilterTip(bool on) => on ? "Только доступные: вкл (Ins)" : "Только доступные: выкл (Ins)";
+
+        public static string HealthTip(int cur, int max) => $"Здоровье {cur} / {max}";
+
+        public static string StaminaTip(int cur, int max) => $"Выносливость {cur} / {max}";
 
         static readonly Dictionary<string, string> ItemNames = new Dictionary<string, string>
         {

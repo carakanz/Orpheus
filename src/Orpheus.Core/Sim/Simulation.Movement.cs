@@ -207,40 +207,6 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Тайл цели погони (E2-12): тайл под целью; если он непроходим (игрок прижат к тонкой стене — стоит в свободных
-        /// ячейках её тайла), — проходимый сосед (8, сначала прямые), ближайший к цели: это сторона стены, где стоит цель.
-        /// Иначе заливка «цель в замкнутой области» не срабатывала (тайл цели — стена), и каждый пересчёт шёл полным A*.
-        /// </summary>
-        private TileCoord ChaseGoal(WorldPos target)
-        {
-            TileCoord t = Torus.Wrap(_shape, Torus.TileOf(_shape, target));
-            if (!IsBlocked(_shape, t))
-            {
-                return t;
-            }
-
-            TileCoord best = t;
-            long bestD = long.MaxValue;
-            for (int k = 0; k < 8; k++)
-            {
-                TileCoord n = Torus.Wrap(_shape, new TileCoord(t.X + PathFinder.NeighborDx[k], t.Y + PathFinder.NeighborDy[k]));
-                if (IsBlocked(_shape, n))
-                {
-                    continue;
-                }
-
-                long d = Torus.Dist2(_shape, target, EditRules.CenterOf(n));
-                if (d < bestD)
-                {
-                    best = n;
-                    bestD = d;
-                }
-            }
-
-            return best;
-        }
-
-        /// <summary>
         /// Существо стоит «внутри твёрдого» (E2-12): на тайле закрытой двери/ворот (закрыли под ним правкой без выталкивания,
         /// C-001) или центром в твёрдой ячейке. Свободная половина тайла тонкой стены — не «внутри».
         /// </summary>

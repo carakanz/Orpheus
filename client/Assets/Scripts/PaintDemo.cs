@@ -277,7 +277,7 @@ namespace Orpheus.Client
                 return;
             }
 
-            if (mode == "build" || mode.StartsWith("ruler")) // E2-13: сцены линейки — тот же недостроенный угол
+            if (mode == "build" || mode == "build-open" || mode.StartsWith("ruler")) // E2-13: сцены линейки — тот же недостроенный угол
             {
                 Rect(world, map, cx + 1, cy - 3, 4, 3, FloorId.WoodFloor);
                 for (int x = cx; x <= cx + 5; x++)

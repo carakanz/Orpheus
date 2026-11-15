@@ -11,7 +11,7 @@ E2-5: сундук и кровать (TEMP_obj_chest / bed, 128 x 160, с уго
 (TEMP_obj_wall_* / fence / door*). Плитки кладутся встык по сетке — пурпурный уголок был бы решёткой на всём доме,
 поэтому у них его нет (исключение E1-9 «бесшовные текстуры», слова «без уголка» в notes манифеста).
 
-Запуск из корня репозитория:  python tools/make_item_icons.py
+Запуск из корня репозитория:  python tools/make_item_icons.py   (C-008: --c008 — только значки построек по силуэту)
 """
 
 from __future__ import annotations
@@ -519,11 +519,145 @@ BUILD_ICONS = {
 }
 
 
+# C-008 (слово Автора 15.11: «очень плохо читается отличие стены от пола»): значки построек — по силуэту, а не только
+# по фактуре. Стена — вертикальный кусок в ракурсе 3/4 (светлый верх, высокая тёмная лицевая грань, видна толщина);
+# пол — плоская плитка ромбом почти сверху, низкая, с тенью под краем; настил — доски на сваях над водой; забор —
+# столбики с перекладинами и просветами; дверь — полотно в раме с ручкой. Материал — цветом и фактурой.
+MATS = {
+    "wood": {"top": (206, 156, 98, 255), "face": (140, 92, 52, 255), "dark": (96, 62, 36, 255), "line": (110, 72, 40, 255)},
+    "stone": {"top": (196, 196, 204, 255), "face": (128, 128, 140, 255), "dark": (84, 84, 96, 255), "line": (70, 70, 82, 255)},
+}
+SHADOW = (0, 0, 0, 70)
+
+
+def shadow(d: ImageDraw.ImageDraw, box) -> None:
+    x0, y0, x1, y1 = [v * S for v in box]
+    d.ellipse([x0, y0, x1, y1], fill=SHADOW)
+
+
+def icon_wall(mat: str) -> Image.Image:
+    m = MATS[mat]
+    img, d = canvas()
+    shadow(d, (6, 52, 60, 62))
+    top = p(14, 8, 58, 8, 50, 18, 6, 18)                       # верхняя грань (толщина стены видна)
+    face = p(6, 18, 50, 18, 50, 56, 6, 56)                     # высокая лицевая грань
+    side = p(50, 18, 58, 8, 58, 46, 50, 56)                    # торец справа — объём
+    d.polygon(face, fill=m["face"])
+    d.polygon(side, fill=m["dark"])
+    d.polygon(top, fill=m["top"])
+    if mat == "wood":
+        for x in (17, 28, 39):                                  # брёвна / доски сруба по лицу
+            d.line(p(x, 19, x, 55), fill=m["line"], width=2 * S)
+        for x in (11, 22, 33, 44):                              # торцы брёвен сверху
+            d.ellipse([(x - 3) * S + 4 * S, 10 * S, (x + 3) * S + 4 * S, 16 * S], fill=(232, 190, 130, 255), outline=m["line"], width=S)
+    else:
+        for y in (30, 43):                                      # кладка: ряды и швы со сдвигом
+            d.line(p(6, y, 50, y), fill=m["line"], width=2 * S)
+        for x, y0, y1 in ((20, 18, 30), (38, 18, 30), (12, 30, 43), (30, 30, 43), (46, 30, 43), (22, 43, 56), (40, 43, 56)):
+            d.line(p(x, y0, x, y1), fill=m["line"], width=2 * S)
+        d.line(p(16, 13, 52, 13), fill=(220, 220, 228, 255), width=S)
+    for pts in (face, side, top):
+        d.line(pts + [pts[0]], fill=OUT, width=W, joint="curve")
+    return img
+
+
+def icon_floor(mat: str) -> Image.Image:
+    m = MATS[mat]
+    img, d = canvas()
+    shadow(d, (4, 36, 62, 58))
+    top = p(32, 16, 60, 32, 32, 48, 4, 32)                      # плитка ромбом, почти сверху
+    lip_l = p(4, 32, 32, 48, 32, 53, 4, 37)                     # низкий край (толщина 5)
+    lip_r = p(32, 48, 60, 32, 60, 37, 32, 53)
+    d.polygon(lip_l, fill=m["face"])
+    d.polygon(lip_r, fill=m["dark"])
+    d.polygon(top, fill=m["top"])
+    if mat == "wood":
+        for t in (0.25, 0.5, 0.75):                             # доски вдоль одной стороны ромба
+            ax, ay = 32 + (4 - 32) * t, 16 + (32 - 16) * t
+            bx, by = 60 + (32 - 60) * t, 32 + (48 - 32) * t
+            d.line(p(ax, ay, bx, by), fill=m["line"], width=2 * S)
+    else:
+        for t in (1 / 3, 2 / 3):                                # плиты сеткой
+            d.line(p(32 + (4 - 32) * t, 16 + (32 - 16) * t, 60 + (32 - 60) * t, 32 + (48 - 32) * t), fill=m["line"], width=2 * S)
+            d.line(p(32 + (60 - 32) * t, 16 + (32 - 16) * t, 4 + (32 - 4) * t, 32 + (48 - 32) * t), fill=m["line"], width=2 * S)
+    for pts in (lip_l, lip_r, top):
+        d.line(pts + [pts[0]], fill=OUT, width=W, joint="curve")
+    return img
+
+
+def icon_platform() -> Image.Image:
+    img, d = canvas()
+    for y in (52, 58):                                          # вода под настилом
+        d.line(p(4, y, 16, y - 2, 28, y, 40, y - 2, 52, y, 60, y - 2), fill=(70, 150, 220, 255), width=2 * S)
+    for x in (12, 32, 52):                                      # сваи
+        d.rectangle([(x - 3) * S, 26 * S, (x + 3) * S, 54 * S], fill=(110, 76, 44, 255), outline=OUT, width=2 * S)
+    top = p(32, 10, 60, 24, 32, 38, 4, 24)
+    lip = p(4, 24, 32, 38, 60, 24, 60, 28, 32, 42, 4, 28)
+    d.polygon(lip, fill=(120, 84, 48, 255))
+    d.polygon(top, fill=(176, 128, 76, 255))
+    for t in (0.2, 0.4, 0.6, 0.8):                              # доски с просветами
+        d.line(p(32 + (4 - 32) * t, 10 + (24 - 10) * t, 60 + (32 - 60) * t, 24 + (38 - 24) * t), fill=(64, 46, 28, 255), width=2 * S)
+    for pts in (lip, top):
+        d.line(pts + [pts[0]], fill=OUT, width=W, joint="curve")
+    return img
+
+
+def icon_fence() -> Image.Image:
+    img, d = canvas()
+    shadow(d, (4, 50, 60, 60))
+    for y in (24, 40):                                          # перекладины (между ними — просвет)
+        d.rectangle([4 * S, (y - 3) * S, 60 * S, (y + 3) * S], fill=(176, 124, 72, 255), outline=OUT, width=2 * S)
+    for x in (10, 32, 54):                                      # столбики с заострённым верхом
+        poly(d, p(x - 5, 54, x - 5, 16, x, 9, x + 5, 16, x + 5, 54), (140, 94, 54, 255))
+        d.line(p(x - 2, 18, x - 2, 50), fill=(190, 140, 88, 255), width=S)
+    return img
+
+
+def icon_door() -> Image.Image:
+    img, d = canvas()
+    shadow(d, (8, 54, 56, 62))
+    d.rounded_rectangle([10 * S, 4 * S, 54 * S, 58 * S], radius=10 * S, fill=(92, 60, 34, 255), outline=OUT, width=W)   # рама
+    d.rounded_rectangle([16 * S, 9 * S, 48 * S, 58 * S], radius=8 * S, fill=(184, 128, 72, 255), outline=OUT, width=2 * S)  # полотно
+    for x in (24, 32, 40):
+        d.line(p(x, 12, x, 56), fill=(130, 86, 48, 255), width=2 * S)
+    for y in (20, 46):                                          # оковка
+        d.rectangle([17 * S, (y - 2) * S, 47 * S, (y + 2) * S], fill=(96, 96, 110, 255))
+    ell(d, (40, 32, 46, 38), (240, 200, 70, 255))               # ручка
+    return img
+
+
+BUILD_NOTE_C008 = "значок предмета-постройки «{0}» 64x64 по силуэту ({1}), контур и плоский цвет (C-008, было E2-11); скрипт tools/make_item_icons.py"
+BUILD_ICONS_C008 = {
+    "wood_floor": (lambda: icon_floor("wood"), BUILD_NOTE_C008.format("пол деревянный", "плоская плитка ромбом")),
+    "stone_floor": (lambda: icon_floor("stone"), BUILD_NOTE_C008.format("пол каменный", "плоская плитка ромбом")),
+    "platform": (icon_platform, BUILD_NOTE_C008.format("настил", "доски на сваях над водой")),
+    "wood_wall": (lambda: icon_wall("wood"), BUILD_NOTE_C008.format("стена деревянная", "кусок стены в 3/4")),
+    "stone_wall": (lambda: icon_wall("stone"), BUILD_NOTE_C008.format("стена каменная", "кусок стены в 3/4")),
+    "wood_fence": (icon_fence, BUILD_NOTE_C008.format("забор", "столбики и перекладины")),
+    "door": (icon_door, BUILD_NOTE_C008.format("дверь", "полотно в раме с ручкой")),
+}
+BUILD_ICONS.update(BUILD_ICONS_C008)
+
+
 def main() -> None:
+    import sys
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     with MANIFEST.open(encoding="utf-8", newline="") as f:
         rows = list(csv.reader(f))
     known = {r[0] for r in rows if r}
+    if "--c008" in sys.argv:
+        # C-008: только значки построек по силуэту (остальные картинки не трогать); строки манифеста — новое описание.
+        notes_of = {f"client/Assets/Art/_TEMP/TEMP_item_{k}.png": n for k, (_, n) in BUILD_ICONS_C008.items()}
+        for key, (draw, notes) in BUILD_ICONS_C008.items():
+            img = draw().resize((64, 64), Image.LANCZOS)
+            ImageDraw.Draw(img).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))  # пурпурный уголок заглушки
+            rel = f"client/Assets/Art/_TEMP/TEMP_item_{key}.png"
+            img.save(ROOT / rel, optimize=False)
+            print(rel)
+        rows = [[r[0], r[1], r[2], notes_of[r[0]]] if r and r[0] in notes_of else r for r in rows]
+        with MANIFEST.open("w", encoding="utf-8", newline="") as f:
+            csv.writer(f, lineterminator=chr(10)).writerows(rows)
+        return
     for key, (draw, notes) in {**ICONS, **BUILD_ICONS}.items():
         img = draw().resize((64, 64), Image.LANCZOS)
         ImageDraw.Draw(img).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))  # пурпурный уголок заглушки

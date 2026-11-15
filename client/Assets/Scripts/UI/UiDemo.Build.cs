@@ -22,7 +22,7 @@ namespace Orpheus.Client.UI
         bool _chestOpen;
 
         /// <summary>Сцена режима стройки, сундука или дома (E2-5).</summary>
-        public static bool IsBuild(string? mode) => mode == "build" || mode == "chest" || mode == "house" || mode == "thin" || IsRuler(mode);
+        public static bool IsBuild(string? mode) => mode == "build" || mode == "build-open" || mode == "chest" || mode == "house" || mode == "thin" || IsRuler(mode);
 
         /// <summary>E2-13: сцены линейки — протягивание стены (<c>ruler-wall</c>) и пола (<c>ruler-floor</c>).</summary>
         public static bool IsRuler(string? mode) => mode == "ruler-wall" || mode == "ruler-floor";
@@ -43,7 +43,7 @@ namespace Orpheus.Client.UI
                 _chestOpen = true;
             }
 
-            if (_mode == "build")
+            if (_mode == "build" || _mode == "build-open")
             {
                 _bag.SetCell(6, Items.StoneWall, 24); // E2-11: стена — предмет в ячейке панели 7
                 _bag.Select(6);
@@ -94,7 +94,12 @@ namespace Orpheus.Client.UI
             var input = new UiInput { HasPointer = true, Pointer = new Vector2(40f, 40f) };
             var build = new UiBuildState { ChestOpen = _chestOpen, Chest = _chest };
             TileCoord me = Torus.TileOf(_world!.Shape, position);
-            if (_mode == "build")
+            if (_mode == "build-open")
+            {
+                input.Toggle = _frame == 2; // C-008: сумка и изготовление открыты, курсор над миром — призрак виден
+            }
+
+            if (_mode == "build" || _mode == "build-open")
             {
                 var good = new TileCoord(me.X + 3, me.Y - 1);
                 var bad = new TileCoord(me.X - 3, me.Y + 1); // дерево сцены
@@ -107,7 +112,12 @@ namespace Orpheus.Client.UI
                     _ghost.Show(_origin, _world.Shape, position, 0, true, good, ok);
                     _ghost.Show(_origin, _world.Shape, position, 1, true, bad, build.Check);
                     // Курсор — над красным призраком: строка причины у курсора.
-                    input.Pointer = _ui.WorldToCanvas(_origin.ToUnity(EditRules.CenterOf(bad)) + new Vector3(0.2f, -0.1f, 0f));
+                    TileCoord at = _mode == "build-open" ? good : bad;
+                    input.Pointer = _ui.WorldToCanvas(_origin.ToUnity(EditRules.CenterOf(at)) + new Vector3(0.2f, -0.1f, 0f));
+                    if (_mode == "build-open")
+                    {
+                        build.Check = ok; // строка у курсора — про зелёный призрак
+                    }
                 }
             }
             else if (IsRuler(_mode))
@@ -143,7 +153,7 @@ namespace Orpheus.Client.UI
 
             build.Chest = _chest;
             build.Use = _chestOpen ? UseKind.None : ObjectUse.Find(_world, position, null, out _, out UseKind use) ? use : UseKind.None;
-            _ui.Frame(input, _bag, selected: _mode == "build" || IsRuler(_mode) ? 6 : 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100,
+            _ui.Frame(input, _bag, selected: _mode == "build" || _mode == "build-open" || IsRuler(_mode) ? 6 : 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100,
                 new UiCraftState { Queue = _queue, World = _world, Position = position }, build);
         }
     }
