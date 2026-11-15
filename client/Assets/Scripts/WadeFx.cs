@@ -17,11 +17,11 @@ namespace Orpheus.Client
     /// </summary>
     public static class WadeFx
     {
-        /// <summary>Глубина «по колено» в воде, тайлов (спрайт 1,5 тайла — ~20 %).</summary>
-        public const float WaterDepth = 0.3f;
+        /// <summary>Глубина «по колено» в воде, тайлов (спрайт 1,5 тайла; низ листа — тень и сандалии, колено — на ~0,4 от низа).</summary>
+        public const float WaterDepth = 0.4f;
 
         /// <summary>Сколько ног скрывает куст, тайлов.</summary>
-        public const float BushHide = 0.2f;
+        public const float BushHide = 0.3f;
 
         /// <summary>Скорость входа/выхода (тайлов глубины за секунду): граница не скачком.</summary>
         public const float DepthRate = 2.4f;
