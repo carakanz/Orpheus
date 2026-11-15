@@ -323,8 +323,8 @@ namespace Orpheus.Client
                 Light(world, map, x1, y, ObjectId.StoneWall);
             }
 
-            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed);
-            Light(world, map, x1 - 1, y0 + 1, ObjectId.Workbench);
+            Light(world, map, x0 + 1, y0 + 1, BuildLayers.Turned(ObjectId.Bed, 1)); // E2-16: кровать 1 × 2 — поперёк, в один ряд
+            Light(world, map, x1 - 2, y0 + 1, ObjectId.Workbench); // E2-16: верстак 2 × 2
             Light(world, map, x1 - 1, y1 - 1, ObjectId.Chest);
             Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
             for (int x = x1 + 2; x <= x1 + 6; x++)
@@ -392,7 +392,7 @@ namespace Orpheus.Client
                 Cells(world, map, x, y1, ObjectId.WoodFence, BuildCells.DoorSouth, false); // забор двора — тонкий
             }
 
-            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed);
+            Light(world, map, x0 + 1, y0 + 1, BuildLayers.Turned(ObjectId.Bed, 1)); // E2-16: кровать 1 × 2 — поперёк, в один ряд
             Light(world, map, x1 - 1, y0 + 1, ObjectId.Chest);
             Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
         }
@@ -464,7 +464,7 @@ namespace Orpheus.Client
                 Cells(world, map, x, hy - 1, ObjectId.WoodWall, BuildCells.DoorSouth, false);
             }
 
-            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed);
+            Light(world, map, x0 + 1, y0 + 1, BuildLayers.Turned(ObjectId.Bed, 1)); // E2-16: кровать 1 × 2 — поперёк, в один ряд
             Light(world, map, x0 + 3, y0 + 1, ObjectId.Chest);
             Light(world, map, hx + 1, y0 + 1, ObjectId.Workbench);
             Light(world, map, hx + 3, y0 + 1, ObjectId.Chest);

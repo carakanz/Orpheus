@@ -252,9 +252,10 @@ namespace Orpheus.Client.UI
                 {
                     BuildCheck c = build.Check;
                     bool repair = c.Action == BuildAction.Repair;
+                    int inHand = build.FromMenu ? build.MenuAvailable : bag.CountIn(selected); // E2-16: из меню — готовые + изготовимые
                     string cost = repair ? CostText(c)
-                        : build.RulerMode && BuildRuler.KindOf(c.Key) != RulerKind.Single ? UiStrings.RulerHint(BuildRuler.KindOf(c.Key), bag.CountIn(selected))
-                        : UiStrings.PlaceHint(bag.CountIn(selected));
+                        : build.RulerMode && BuildRuler.KindOf(c.Key) != RulerKind.Single ? UiStrings.RulerHint(BuildRuler.KindOf(c.Key), inHand)
+                        : UiStrings.PlaceHint(inHand);
                     note = UiStrings.GhostNote(repair, c.Ok, c.Reason, c.Key, cost);
                     bad = !c.Ok;
                 }
