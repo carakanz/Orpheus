@@ -10,12 +10,14 @@
  "camera": {
   "icon_a": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
   "icon_b": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
-  "icon_c": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame"
+  "icon_c": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
+  "icon_c2": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame"
  },
  "negative": {
   "icon_a": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, outline, line art, ink lines, cel shading, flat colors",
   "icon_b": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, cel shading, flat colors",
-  "icon_c": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, dull colors, desaturated"
+  "icon_c": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, dull colors, desaturated",
+  "icon_c2": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, dull colors, desaturated, halo, outer glow, glow on the background, light bleeding into the background"
  },
  "subjects": [
   {
@@ -41,18 +43,23 @@
    "kind": "icon_a",
    "w": 1024,
    "h": 1024,
-   "seed": 5103,
-   "prompt": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
-   "style": "a"
+   "seed": 5113,
+   "prompt": "a single small copper ingot lying flat, the classic trapezoidal ingot bar shape: a long narrow rectangular bar with a flat top face, sloped side faces and sharp straight bevelled edges, about three times longer than wide, polished bright orange-red copper with a shiny metallic highlight along the top edges, the bar is small in the frame with a lot of empty background around it",
+   "style": "a",
+   "prompt_v1": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "seed_v1": 5103
   },
   {
    "key": "copper_pickaxe_a",
    "kind": "icon_a",
    "w": 1024,
    "h": 1024,
-   "seed": 5104,
-   "prompt": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
-   "style": "a"
+   "seed": 5114,
+   "prompt": "a copper pickaxe, double-ended pick, two symmetric pointed spikes on a straight wooden handle, no hammer face, no axe blade, side view 3/4, the handle runs diagonally from the lower left to the upper right, light brown wood with a leather grip wrap near the end, the slender curved head of polished bright orange copper sits across the top of the handle with two equally long sharp points curving downward on both sides",
+   "style": "a",
+   "prompt_v1": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "seed_v1": 5104,
+   "negative_extra": "hammer, hammer head, flat striking face, axe, axe blade, hatchet, adze, single point, mallet"
   },
   {
    "key": "stone_wall_a",
@@ -95,18 +102,23 @@
    "kind": "icon_b",
    "w": 1024,
    "h": 1024,
-   "seed": 5103,
-   "prompt": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
-   "style": "b"
+   "seed": 5113,
+   "prompt": "a single small copper ingot lying flat, the classic trapezoidal ingot bar shape: a long narrow rectangular bar with a flat top face, sloped side faces and sharp straight bevelled edges, about three times longer than wide, polished bright orange-red copper with a shiny metallic highlight along the top edges, the bar is small in the frame with a lot of empty background around it",
+   "style": "b",
+   "prompt_v1": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "seed_v1": 5103
   },
   {
    "key": "copper_pickaxe_b",
    "kind": "icon_b",
    "w": 1024,
    "h": 1024,
-   "seed": 5104,
-   "prompt": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
-   "style": "b"
+   "seed": 5114,
+   "prompt": "a copper pickaxe, double-ended pick, two symmetric pointed spikes on a straight wooden handle, no hammer face, no axe blade, side view 3/4, the handle runs diagonally from the lower left to the upper right, light brown wood with a leather grip wrap near the end, the slender curved head of polished bright orange copper sits across the top of the handle with two equally long sharp points curving downward on both sides",
+   "style": "b",
+   "prompt_v1": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "seed_v1": 5104,
+   "negative_extra": "hammer, hammer head, flat striking face, axe, axe blade, hatchet, adze, single point, mallet"
   },
   {
    "key": "stone_wall_b",
@@ -146,21 +158,26 @@
   },
   {
    "key": "copper_ingot_c",
-   "kind": "icon_c",
+   "kind": "icon_c2",
    "w": 1024,
    "h": 1024,
-   "seed": 5103,
-   "prompt": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
-   "style": "c"
+   "seed": 5113,
+   "prompt": "a single small copper ingot lying flat, the classic trapezoidal ingot bar shape: a long narrow rectangular bar with a flat top face, sloped side faces and sharp straight bevelled edges, about three times longer than wide, polished bright orange-red copper with a shiny metallic highlight along the top edges, the bar is small in the frame with a lot of empty background around it",
+   "style": "c",
+   "prompt_v1": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "seed_v1": 5103
   },
   {
    "key": "copper_pickaxe_c",
    "kind": "icon_c",
    "w": 1024,
    "h": 1024,
-   "seed": 5104,
-   "prompt": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
-   "style": "c"
+   "seed": 5114,
+   "prompt": "a copper pickaxe, double-ended pick, two symmetric pointed spikes on a straight wooden handle, no hammer face, no axe blade, side view 3/4, the handle runs diagonally from the lower left to the upper right, light brown wood with a leather grip wrap near the end, the slender curved head of polished bright orange copper sits across the top of the handle with two equally long sharp points curving downward on both sides",
+   "style": "c",
+   "prompt_v1": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "seed_v1": 5104,
+   "negative_extra": "hammer, hammer head, flat striking face, axe, axe blade, hatchet, adze, single point, mallet"
   },
   {
    "key": "stone_wall_c",

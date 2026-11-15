@@ -102,7 +102,8 @@ def cmd_queue(keys, raw, force, front=False):
             continue
         s = subj[k]
         prompt = build_prompt(data, s)
-        g = graph(prompt, data["negative"][s["kind"]], s["w"], s["h"], s["seed"], f"orpheus/{data['set']}_{k}")
+        neg = data["negative"][s["kind"]] + (", " + s["negative_extra"] if s.get("negative_extra") else "")   # свой негатив предмета
+        g = graph(prompt, neg, s["w"], s["h"], s["seed"], f"orpheus/{data['set']}_{k}")
         body = {"prompt": g, "client_id": str(uuid.uuid4())}
         if front:   # проба промпта — в начало своей же очереди
             body["front"] = True
