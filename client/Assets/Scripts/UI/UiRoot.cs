@@ -22,6 +22,14 @@ namespace Orpheus.Client.UI
         /// <summary>Холст последнего созданного интерфейса (для снимка).</summary>
         public static UiRoot? Current { get; private set; }
 
+        /// <summary>
+        /// C-015: пикселей кадра на единицу холста (высота кадра / 1080): 1 на 1080p, 1,33 на 1440p, 2 на 4K. По нему
+        /// надписи (<see cref="UiTextFx"/>) и группы (<see cref="UiGroup"/>) встают на целые пиксели.
+        /// </summary>
+        public static float PixelsPerUnit { get; private set; } = 1f;
+
+        readonly System.Collections.Generic.List<UiGroup> _groups = new System.Collections.Generic.List<UiGroup>();
+
         readonly Camera _camera;
         readonly Canvas _canvas;
         readonly RectTransform _rt;
@@ -38,11 +46,14 @@ namespace Orpheus.Client.UI
             _canvas.renderMode = RenderMode.WorldSpace;
             _canvas.worldCamera = camera;
             _canvas.sortingOrder = SortOrder;
+            _canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1; // C-015: вид и уровень фигур UiShape
             _rt = (RectTransform)go.transform;
             _rt.pivot = new Vector2(0.5f, 0.5f);
             Current = this;
             FitToScreen();
         }
+
+        internal void Register(UiGroup group) => _groups.Add(group);
 
         /// <summary>Корень: сюда вешаются группы (<see cref="UiGroup"/>).</summary>
         public RectTransform Transform => _rt;
@@ -85,6 +96,12 @@ namespace Orpheus.Client.UI
             {
                 // Текст растрируется под пиксели кадра: 1 единица холста = pixelHeight / 1080 px.
                 _canvas.scaleFactor = Mathf.Max(0.25f, pixelHeight / RefHeight);
+                PixelsPerUnit = _canvas.scaleFactor;
+                foreach (UiGroup group in _groups)
+                {
+                    group.Snap(); // C-015: группы — на целые пиксели нового кадра
+                }
+
                 foreach (Graphic g in _rt.GetComponentsInChildren<Graphic>(true))
                 {
                     g.SetAllDirty();
@@ -145,12 +162,9 @@ namespace Orpheus.Client.UI
             t.supportRichText = false;
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
-            if (outline)
-            {
-                var o = t.gameObject.AddComponent<Outline>();
-                o.effectColor = UiStyle.Ink;
-                o.effectDistance = new Vector2(2f, -2f); // C-008: цифры поверх мира — обводка толще
-            }
+            // C-015: надпись — на целые пиксели кадра; обводка (числа поверх мира) — 8 сторон, целые пиксели.
+            var fx = t.gameObject.AddComponent<UiTextFx>();
+            fx.Outline = outline;
 
             return t;
         }
@@ -176,7 +190,7 @@ namespace Orpheus.Client.UI
                 if (_offset != value)
                 {
                     _offset = value;
-                    Rt.anchoredPosition = value;
+                    Snap();
                 }
             }
         }
@@ -186,9 +200,26 @@ namespace Orpheus.Client.UI
             _anchor = anchor;
             _offset = offset;
             _size = size;
+            _root = root;
             Rt = UiRoot.Node(root.Transform, name, 0f, 0f, size.x, size.y);
             Rt.anchorMin = Rt.anchorMax = anchor;
-            Rt.anchoredPosition = offset;
+            root.Register(this);
+            Snap();
+        }
+
+        readonly UiRoot _root;
+
+        /// <summary>
+        /// C-015: поставить группу на целый пиксель кадра (её левый нижний угол). Дробный сдвиг меньше пикселя — только в
+        /// отрисовке; попадание курсора считается по <see cref="Offset"/> как есть.
+        /// </summary>
+        internal void Snap()
+        {
+            float ppu = UiRoot.PixelsPerUnit;
+            Vector2 canvas = _root.Size;
+            Vector2 at = new Vector2(canvas.x * _anchor.x + _offset.x, canvas.y * _anchor.y + _offset.y);
+            Vector2 snapped = new Vector2(Mathf.Round(at.x * ppu) / ppu, Mathf.Round(at.y * ppu) / ppu);
+            Rt.anchoredPosition = _offset + (snapped - at);
         }
 
         public Vector2 Size => _size;

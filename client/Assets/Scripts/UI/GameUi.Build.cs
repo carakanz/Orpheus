@@ -186,9 +186,9 @@ namespace Orpheus.Client.UI
             _noticeText = UiRoot.Label(_notice.Rt, "Text", 0f, 0f, nw, nh, 22, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _notice.Visible = false;
 
-            // E2-13: подпись режима постановки — над левым краем быстрой панели (справа — подсказка станка).
+            // E2-13: подпись режима постановки — над нижней панелью слева от середины (справа — подсказка станка).
             const float mw = 430f, mh = 34f; // E2-16: + «R — повернуть», «из меню: есть N»
-            _mode = new UiGroup(root, "PlaceMode", new Vector2(0.5f, 0f), new Vector2(-BottomBar.PanelW / 2f, barTop + 6f), new Vector2(mw, mh));
+            _mode = new UiGroup(root, "PlaceMode", new Vector2(0.5f, 0f), new Vector2(-mw + 2f, barTop + 6f), new Vector2(mw, mh));
             UiRoot.Picture(_mode.Rt, "Back", 0f, 0f, mw, mh, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
             _modeText = UiRoot.Label(_mode.Rt, "Text", 0f, 0f, mw, mh, 18, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _mode.Visible = false;

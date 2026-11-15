@@ -283,7 +283,12 @@ namespace Orpheus.Client.UI
         public static string PlaceHint(int inHand) => $"ЛКМ — поставить, зажать — подряд (в руке {inHand})";
 
         /// <summary>E2-13: подпись режима постановки у панели.</summary>
-        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (Tab — поштучно)" : "Поштучно   (Tab — линейка)"; // E2-16: R — поворот
+        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (Tab или значок у панели — поштучно)" : "Поштучно   (Tab или значок у панели — линейка)"; // E2-16: R — поворот
+
+        /// <summary>C-015: подсказка значка режима у быстрой панели (линейка / зигзаг).</summary>
+        public static string PlaceModeTip(bool ruler) => ruler
+            ? "Линейка: зажать ЛКМ и протянуть — стены и заборы линией, пол прямоугольником\nЩелчок или Tab — поштучно"
+            : "Поштучно: щелчок — одна постройка, зажать — по ячейкам под курсором\nЩелчок или Tab — линейка";
 
         /// <summary>Подпись режима с поворотом и «из меню» (E2-16): «R — повернуть», «Esc / ПКМ — убрать».</summary>
         public static string PlaceModeLabel(bool ruler, bool rotatable, bool menu, int available) =>

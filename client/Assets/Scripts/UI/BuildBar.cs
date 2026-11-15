@@ -10,7 +10,7 @@ namespace Orpheus.Client.UI
     // E2-11: лента построек молота (BuildBar, E2-5) убрана — постройки стали предметами и берутся в руку из панели.
 
     /// <summary>
-    /// Окно сундука (E2-5 → C-008, как в Terraria): под сумкой сетка 6 × 5 (30, `06` 5.3) полупрозрачных ячеек другого
+    /// Окно сундука (E2-5 → C-008 → C-015, как в Terraria): справа от сумки сетка 6 × 5 (30, `06` 5.3) полупрозрачных ячеек другого
     /// оттенка, справа — кнопки «Взять всё» / «Положить всё» (пачка обычных заявок переноса — <see cref="BagHand.TakeAll"/>,
     /// <see cref="BagHand.PutAll"/>). Ячейки в номерах «руки» — 40…69 (<see cref="BagHand.ChestBase"/>).
     /// </summary>
@@ -23,6 +23,9 @@ namespace Orpheus.Client.UI
         static readonly float GridH = UiSlotGrid.WidthOf(Rows);
         public static readonly float Width = GridW + ButtonGap + ButtonW;
         public static readonly float Height = GridH + Gap + TitleH;
+
+        /// <summary>Высота сетки (C-015: верх сетки сундука — вровень с сеткой сумки).</summary>
+        public static float GridHeight => GridH;
 
         readonly UiSlotGrid _grid;
         readonly UiButton _take, _put;
