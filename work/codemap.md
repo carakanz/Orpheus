@@ -105,6 +105,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Protocol/Messages.cs: InventoryMessage (ячейки), NetPile, PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
 - BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room).
 - Крафт (E2-3): Protocol/CraftMessages.cs — CraftRequestMessage (30), CraftReplyMessage (31), CraftStateMessage (32). NetServer.Items.cs: OnCraftRequest · SendCraftTo. NetClient.Items.cs: Craft · CraftRunning · CraftProgressAt · RequestCraft · RequestCraftCancel. CraftDesk.cs: `ICraftRequests`, `CraftLine`, `ICraftCancelChecked`, `CraftDesk` (LineOf · Missing · Make · Cancel) — путь окна крафта и ботов.
+- Полки окна изготовления (E2-9): `src/Orpheus.Net/Session/CraftShelf.cs` — Sections (разделы и подразделы), Rows (ключ результата → раздел / подраздел), Place · Recipes · CountIn · Shown (фильтр «только доступные») · Available · Badge (число на значке); тесты `CraftShelfTests`.
 - CraftChainBot*.cs (craft_chain, E2-3): `.cs` — Next / Decide (этапы Stage), OnReply · `.Harvest.cs` — Harvest (ходьба рывками, копание, подбор), Dig, ToolSlotFor · `.Path.cs` — Plan (поиск в ширину, разведка по клеткам), Flood, BuildPath · `.Bench.cs` — PlaceBench, Craft, Equip.
 - CharacterRoster.cs: Restore (загрузка: очередь изготовления → в сумку записи) · Park (уход из мира: очередь → в сумку).
 - client/Assets/Scripts/PileView.cs: значки куч; NetGame.Edits.cs: HookPiles, BagHud (ячейки). tools/make_item_icons.py — заглушки значков.
@@ -123,7 +124,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - UiRoot.cs: `UiRoot` (холст перед камерой, Fit, FromScreen, Node/Picture/Label), `UiGroup` (привязка, Contains/Local).
 - UiStyle.cs: цвета, `Frame` (рамка с 9 срезами кодом), `Font`.
 - UiParts.cs: `UiItemIcon` (Set/Dim), `UiSlotGrid` (Set/Select/Hover/Hit), `UiWindow`, `UiButton` (E2-4: кнопка, вкладка, строка), `UiTooltip`, `UiCarry`, `UiBar`.
-- CraftWindow.cs (E2-4): `CraftWindow` (SelectTab/SelectRow, HitTest → `CraftHit`, CenterOf, Show: строки, карточка ShowCard, очередь ShowQueue); раскладка — константы в начале класса.
+- CraftWindow.cs (E2-4 → E2-9): `CraftWindow` — разделы / подразделы / сетка рецептов (Refresh → CraftShelf.Shown, SelectSection · SelectSub · SelectCell · StepRecipe · Scroll · ToggleFilter, HitTest → `CraftHit` (Section, Sub, Cell, Filter, ScrollBar, Button, Queue), CenterOf, Show: ShowGrid · ShowCard · ShowQueue); раскладка — константы в начале класса. Демо-скрипты `--ui-demo inv*` — `UiDemo.CraftScript` в GameUi.cs (таблицы шагов InvSteps, WeaponSteps, BuildingSteps).
 - GameUi.cs: `UiInput`, `UiCraftState`, `BagWindow`, `GameUi` (ReadInput, Frame, CraftReplied, CraftClick / CraftKeys / Make, FindStation, Layout, PointerBlocked, OverWindow, EscapeUsed, SlotClicked), `UiDemo` (--ui-demo bag|hotbar|craft|craft+bag|craft-hint; CraftScript).
 - UiStrings.cs: строки и названия предметов по ключу.
 - src/Orpheus.Net/Session/BagHand.cs: `IBagRequests`, `BagHand` (Sync, Left, Right, Quick, Outside, ShownCount, QuickTarget); тесты `BagHandTests.cs`.

@@ -42,7 +42,6 @@ namespace Orpheus.Client.UI
         // ---------- окно крафта (E2-4) ----------
 
         public const string CraftTitle = "Изготовление";
-        public const string CraftKey = "C";
         public const string CraftNeeds = "Нужно:";
         public const string CraftQueue = "Очередь — щелчок по позиции отменяет её";
         public const string CraftQueueEmpty = "Очередь пуста";
@@ -52,9 +51,76 @@ namespace Orpheus.Client.UI
         public const string CraftMake5 = "Сделать 5";
         public const string CraftMakeAll = "Сделать всё";
 
+        // ---------- окно «сумка + изготовление» (E2-9) ----------
+
+        public const string CraftKeyInv = "Tab · C · Esc";
+        public const string CraftOnlyAvailable = "Только доступные";
+        public const string CraftFlat = "Все рецепты раздела";
+        public const string CraftEmptySub = "Здесь пока нет рецептов";
+        public const string CraftEmptyFiltered = "Сейчас здесь ничего не сделать\nснимите «Только доступные» (Ins)";
+        public const string CraftPick = "Выберите рецепт в сетке слева";
+        public const string CraftHintInv = "Enter — сделать 1   Shift+Enter — 5   Ctrl+Enter — всё   Del — отменить последнюю   Ins — только доступные\nPgUp / PgDn — рецепт   Home / End — раздел   Shift+Home / End — подраздел   колесо — прокрутка";
+
+        static readonly Dictionary<string, string> ShelfNames = new Dictionary<string, string>
+        {
+            ["buildings"] = "Здания",
+            ["furniture"] = "Мебель",
+            ["tools"] = "Инструменты",
+            ["weapons"] = "Оружие",
+            ["armor"] = "Броня",
+            ["materials"] = "Материалы",
+            ["food"] = "Еда",
+            ["buildings/wood"] = "Дерево",
+            ["buildings/stone"] = "Камень",
+            ["buildings/copper"] = "Медь",
+            ["furniture/stations"] = "Станки",
+            ["furniture/storage"] = "Хранение",
+            ["furniture/sleep"] = "Сон",
+            ["furniture/light"] = "Свет",
+            ["furniture/misc"] = "Прочее",
+            ["tools/picks"] = "Кирки",
+            ["tools/axes"] = "Топоры",
+            ["tools/hammers"] = "Молоты",
+            ["weapons/swords"] = "Мечи",
+            ["weapons/bows"] = "Луки",
+            ["weapons/ammo"] = "Стрелы",
+            ["armor/head"] = "Шлемы",
+            ["armor/body"] = "Доспехи",
+            ["armor/legs"] = "Поножи",
+        };
+
+        /// <summary>Название раздела по ключу (<c>CraftShelf.Sections</c>); нет подписи — сам ключ.</summary>
+        public static string SectionName(string key) => ShelfNames.TryGetValue(key, out string? n) ? n : key;
+
+        /// <summary>Название подраздела по ключам раздела и подраздела.</summary>
+        public static string SubName(string section, string sub) => ShelfNames.TryGetValue(section + "/" + sub, out string? n) ? n : sub;
+
+        /// <summary>
+        /// Подсказка значка рецепта: название (× выход), ингредиенты «есть / нужно», станок и что сейчас мешает.
+        /// <paramref name="have"/> — сколько каждого ингредиента есть (то же число, что в карточке).
+        /// </summary>
+        public static string RecipeTip(int recipe, Orpheus.Net.Session.CraftLine line, int have0, int have1, int have2)
+        {
+            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+            var sb = new System.Text.StringBuilder(RecipeName(recipe));
+            if (def.ResultCount > 1)
+            {
+                sb.Append(" × ").Append(def.ResultCount);
+            }
+
+            for (int i = 0; i < def.IngredientCount; i++)
+            {
+                int have = i == 0 ? have0 : i == 1 ? have1 : have2;
+                sb.Append('\n').Append(ItemName(def.IngredientItem(i))).Append("  ").Append(have).Append(" / ").Append(def.IngredientCountOf(i));
+            }
+
+            sb.Append('\n').Append(def.Station == CraftStation.None ? "Руками, где угодно" : "Станок: " + StationName(def.Station).ToLowerInvariant());
+            sb.Append('\n').Append(CraftState(line.State, def.Station, line.Affordable));
+            return sb.ToString();
+        }
+
         /// <summary>Кнопка «всё», когда известно, на сколько хватает.</summary>
         public static string CraftMakeAllOf(int n) => $"Все {n}";
-        public const string CraftHint = "Enter — сделать 1    Shift+Enter — 5    Ctrl+Enter — всё    Del — отменить последнюю\nPgUp / PgDn — рецепт    Home / End — вкладка    C, Esc — закрыть";
 
         /// <summary>Вкладка окна крафта: название станка.</summary>
         public static string StationName(CraftStation s) => s switch
