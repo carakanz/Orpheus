@@ -134,6 +134,7 @@ namespace Orpheus.Client.UI
                 int avail = MenuHand.Available(_world, position, _bag, null, Items.Bed);
                 BuildCheck menu = MenuHand.Check(_world, position, _bag, 6, Items.Bed, avail, true, at, 0, 1);
                 _ghost.Show(_origin, _world.Shape, position, 0, true, at, menu);
+                _ghost.Show(_origin, _world.Shape, position, 1, false, at, menu); // второго призрака в сцене нет
                 build.Placing = true;
                 build.HasGhost = true;
                 build.Check = menu;

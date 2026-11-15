@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using Orpheus.Core.Sim;
+using Orpheus.Core.World;
 using Orpheus.Net.Session;
 
 namespace Orpheus.Client.UI
@@ -256,7 +257,15 @@ namespace Orpheus.Client.UI
         };
 
         /// <summary>Название постройки по ключу (лента, призрак).</summary>
-        public static string BuildName(ushort key) => BuildNames.TryGetValue(key, out string? n) ? n : key.ToString();
+        public static string BuildName(ushort key)
+        {
+            if (key > ObjectId.IdMask && !ObjectId.IsPart(key))
+            {
+                key = ObjectId.IdOf(key); // E2-16: повёрнутая постройка — то же имя
+            }
+
+            return BuildNames.TryGetValue(key, out string? n) ? n : key.ToString();
+        }
 
         public const string BuildDead = "Вы погибли: строить — после возрождения";
 
@@ -273,8 +282,8 @@ namespace Orpheus.Client.UI
 
         /// <summary>Подпись режима с поворотом и «из меню» (E2-16): «R — повернуть», «Esc / ПКМ — убрать».</summary>
         public static string PlaceModeLabel(bool ruler, bool rotatable, bool menu, int available) =>
-            (rotatable ? "R — повернуть   " : string.Empty)
-            + (menu ? $"Из меню: есть {available}   (Esc / ПКМ — убрать)" : PlaceModeLabel(ruler));
+            (rotatable ? "R — поворот   " : string.Empty)
+            + (menu ? $"из меню: {available}  (Esc — убрать)" : PlaceModeLabel(ruler));
 
         /// <summary>Кнопка в карточке рецепта постройки (E2-16).</summary>
         public const string PlaceFromMenu = "Поставить";
