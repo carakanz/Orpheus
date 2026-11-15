@@ -145,6 +145,10 @@ namespace Orpheus.Net.Session
         /// </summary>
         public void Sync(in Inventory bag, bool dead)
         {
+            // C-013: стопка ячейки руки уменьшилась (постройку с курсора поставили, сервер снял предмет) — уходят штуки из руки:
+            // в руке остаётся остаток, а не прежнее число (рука могла держать часть стопки).
+            int spent = Holding && From < ChestBase && _bag.ItemAt(From) == Item && bag.ItemAt(From) == Item
+                ? Math.Max(0, _bag.CountIn(From) - bag.CountIn(From)) : 0;
             _bag = bag;
             Dead = dead;
             if (!Holding)
@@ -168,8 +172,18 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            Count = Math.Min(Count, bag.CountIn(From));
+            Count = Math.Min(Count - spent, bag.CountIn(From));
+            if (Count <= 0)
+            {
+                Cancel();
+            }
         }
+
+        /// <summary>
+        /// C-013 (приёмка Автора 15.11: «установка с инвентаря не работает. Только с панели внизу»): в руке курсора постройка
+        /// из сумки (не из сундука) — щелчок в мир её ставит (из ячейки <see cref="From"/>), а не выбрасывает.
+        /// </summary>
+        public bool HoldsPlaceable => Holding && !Dead && From < ChestBase && BuildHand.IsBuildItem(Item);
 
         /// <summary>Число, которое окно показывает в ячейке: без того, что «в руке».</summary>
         public int ShownCount(int cell) => CountIn(cell) - (Holding && cell == From ? Count : 0);

@@ -11,6 +11,10 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Отменить позицию очереди № <see cref="CraftRequestMessage.Arg"/> (ингредиенты вернутся).</summary>
         Cancel = 2,
+
+        /// <summary>C-013: изготовить рецепт <see cref="CraftRequestMessage.Arg"/> × <see cref="CraftRequestMessage.Count"/>
+        /// сразу в ячейку сумки <see cref="CraftRequestMessage.Cell"/> (0xFF — куда влезет), без очереди.</summary>
+        MakeInto = 3,
     }
 
     /// <summary>
@@ -18,10 +22,11 @@ namespace Orpheus.Net.Protocol
     /// очереди, количество. Поля: тип 1 + операция 1 + аргумент 1 + количество u16. Станок в заявке не едет — сервер
     /// сам ищет его рядом с персонажем. Ответ — тип 31; очередь — тип 32; сумка — тип 26.
     /// У отмены в поле количества едет рецепт позиции — сверка против сдвига очереди.
+    /// C-013 (протокол 29): + ячейка сумки 1 (у <see cref="CraftOp.MakeInto"/> — куда изготовить, у прочих — 0xFF).
     /// </summary>
     public struct CraftRequestMessage
     {
-        public const int Bytes = 1 + 1 + 1 + 2;
+        public const int Bytes = 1 + 1 + 1 + 2 + 1;
 
         public CraftOp Op;
 
@@ -32,6 +37,9 @@ namespace Orpheus.Net.Protocol
         /// очередь могла сдвинуться, пока заявка шла; не совпал — отказ «нет позиции»).</summary>
         public ushort Count;
 
+        /// <summary>C-013: ячейка сумки 0…39 для <see cref="CraftOp.MakeInto"/>; 0xFF — любая (и у прочих операций).</summary>
+        public byte Cell;
+
         public int Write(Span<byte> dest)
         {
             var w = new BitWriter(dest);
@@ -39,16 +47,18 @@ namespace Orpheus.Net.Protocol
             w.WriteByte((byte)Op);
             w.WriteByte(Arg);
             w.WriteUInt16(Count);
+            w.WriteByte(Op == CraftOp.MakeInto ? Cell : (byte)0xFF);
             return w.BytesWritten;
         }
 
         public static CraftRequestMessage Read(ReadOnlySpan<byte> src)
         {
             var r = Codec.Begin(src, MessageType.CraftRequest);
-            var m = new CraftRequestMessage { Op = (CraftOp)r.ReadByte(), Arg = r.ReadByte(), Count = r.ReadUInt16() };
+            var m = new CraftRequestMessage { Op = (CraftOp)r.ReadByte(), Arg = r.ReadByte(), Count = r.ReadUInt16(), Cell = r.ReadByte() };
             r.ExpectEnd();
-            if (m.Op < CraftOp.Make || m.Op > CraftOp.Cancel
-                || (m.Op == CraftOp.Cancel && (m.Arg >= CraftQueue.MaxEntries || !RecipeTable.Exists(m.Count))))
+            if (m.Op < CraftOp.Make || m.Op > CraftOp.MakeInto
+                || (m.Op == CraftOp.Cancel && (m.Arg >= CraftQueue.MaxEntries || !RecipeTable.Exists(m.Count)))
+                || (m.Cell != 0xFF && (m.Op != CraftOp.MakeInto || m.Cell >= Inventory.Cells)))
             {
                 throw new ProtocolException($"Заявка изготовления: операция {(byte)m.Op}, аргумент {m.Arg}.");
             }
@@ -56,7 +66,7 @@ namespace Orpheus.Net.Protocol
             return m;
         }
 
-        public override string ToString() => $"изготовление: {Op} {Arg} × {Count}";
+        public override string ToString() => Op == CraftOp.MakeInto ? $"изготовление: {Op} {Arg} × {Count} в ячейку {Cell}" : $"изготовление: {Op} {Arg} × {Count}";
     }
 
     /// <summary>
@@ -87,7 +97,7 @@ namespace Orpheus.Net.Protocol
             var r = Codec.Begin(src, MessageType.CraftReply);
             var m = new CraftReplyMessage { Op = (CraftOp)r.ReadByte(), Arg = r.ReadByte(), Reply = (CraftReply)r.ReadByte() };
             r.ExpectEnd();
-            if (m.Op < CraftOp.Make || m.Op > CraftOp.Cancel || m.Reply > CraftReply.NoEntity)
+            if (m.Op < CraftOp.Make || m.Op > CraftOp.MakeInto || m.Reply > CraftReply.NoRoom)
             {
                 throw new ProtocolException($"Ответ изготовления: операция {(byte)m.Op}, ответ {(byte)m.Reply}.");
             }

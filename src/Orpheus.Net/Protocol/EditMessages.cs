@@ -112,9 +112,10 @@ namespace Orpheus.Net.Protocol
             }
 
             m.Op = (TileOp)op;
-            if (m.Op == TileOp.Place && m.Cell >= Orpheus.Core.Sim.Inventory.Slots)
+            if (m.Op == TileOp.Place && m.Cell >= Orpheus.Core.Sim.Inventory.Cells)
             {
-                throw new ProtocolException($"Запрос правки: ячейка {m.Cell} вне быстрой панели.");
+                // C-013 (протокол 29): любая ячейка сумки 0…39 — постройка «на курсоре», взятая из окна сумки (было: 0…7 панели).
+                throw new ProtocolException($"Запрос правки: ячейка {m.Cell} вне сумки.");
             }
 
             if (m.From.X >= shape.Width || m.From.Y >= shape.Height || m.To.X >= shape.Width || m.To.Y >= shape.Height)

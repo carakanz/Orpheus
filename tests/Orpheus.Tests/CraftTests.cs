@@ -769,20 +769,20 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_Net_GoldenBytes_CraftRequest_Reply_State()
         {
-            Assert.Equal(28, NetModule.ProtocolVersion); // E2-16: 28
+            Assert.Equal(29, NetModule.ProtocolVersion); // C-013: 29; E2-16: 28
             var buf = new byte[64];
 
             int n = new CraftRequestMessage { Op = CraftOp.Make, Arg = RecipeTable.CopperPickaxe, Count = 0x0102 }.Write(buf);
             Assert.Equal(CraftRequestMessage.Bytes, n);
-            Assert.Equal("1E-01-0A-02-01", BitConverter.ToString(buf, 0, n));
+            Assert.Equal("1E-01-0A-02-01-FF", BitConverter.ToString(buf, 0, n));
             CraftRequestMessage req = CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal((CraftOp.Make, RecipeTable.CopperPickaxe, 0x0102), (req.Op, req.Arg, (int)req.Count));
             buf[1] = 0; // нет такой операции
             Assert.Throws<ProtocolException>(() => CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
-            buf[1] = 3;
+            buf[1] = 4; // C-013: 3 — «изготовить в ячейку» (протокол 29), первая несуществующая — 4
             Assert.Throws<ProtocolException>(() => CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
             n = new CraftRequestMessage { Op = CraftOp.Cancel, Arg = 4, Count = RecipeTable.CopperIngot }.Write(buf);
-            Assert.Equal("1E-02-04-09-00", BitConverter.ToString(buf, 0, n)); // отмена: позиция 4, в ней клиент видит рецепт 9
+            Assert.Equal("1E-02-04-09-00-FF", BitConverter.ToString(buf, 0, n)); // отмена: позиция 4, в ней клиент видит рецепт 9
             CraftRequestMessage cancel = CraftRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal((CraftOp.Cancel, 4, (int)RecipeTable.CopperIngot), (cancel.Op, (int)cancel.Arg, (int)cancel.Count));
             buf[2] = 5; // позиции 5 в очереди нет
@@ -798,7 +798,7 @@ namespace Orpheus.Tests
             Assert.Equal(CraftReplyMessage.Bytes, n);
             Assert.Equal("1F-01-09-05", BitConverter.ToString(buf, 0, n));
             Assert.Equal(CraftReply.StationFar, CraftReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Reply);
-            buf[3] = 12; // нет такого ответа
+            buf[3] = 13; // нет такого ответа (C-013: 12 — «некуда»)
             Assert.Throws<ProtocolException>(() => CraftReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             var q = new CraftQueue();

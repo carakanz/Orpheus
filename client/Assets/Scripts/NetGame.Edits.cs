@@ -63,11 +63,29 @@ namespace Orpheus.Client
         /// <summary>Постройка взята «Поставить» из окна изготовления (E2-16).</summary>
         bool FromMenu => _ui != null && _ui.MenuPlace != Items.None;
 
-        /// <summary>Предмет «в руке» для стройки: из меню — он, иначе — ячейка панели.</summary>
-        byte HandItem => FromMenu ? _ui!.MenuPlace : HeldItem;
+        /// <summary>
+        /// C-013 (приёмка Автора 15.11: «установка с инвентаря не работает. Только с панели внизу»): постройка «на курсоре»,
+        /// взятая из окна сумки (<see cref="BagHand.HoldsPlaceable"/>), — ставится щелчком в мир из своей ячейки.
+        /// </summary>
+        bool FromCursor => _ui != null && !FromMenu && _ui.Hand.HoldsPlaceable;
+
+        /// <summary>Предмет «в руке» для стройки: из меню — он, на курсоре — он, иначе — ячейка панели.</summary>
+        byte HandItem => FromMenu ? _ui!.MenuPlace : FromCursor ? _ui!.Hand.Item : HeldItem;
+
+        /// <summary>Ячейка заявки постановки: на курсоре — ячейка, из которой его взяли (C-013), иначе — выбранная ячейка панели.</summary>
+        int PlaceCell => FromCursor ? _ui!.Hand.From : HeldCell;
 
         /// <summary>Сумка для проверок и линейки: из меню — копия с постройкой в ячейке руки (<see cref="MenuHand.VirtualBag"/>).</summary>
-        Inventory HandBag(NetClient c) => FromMenu ? MenuHand.VirtualBag(c.Inv, HeldCell, _ui!.MenuPlace, _menuAvailable) : c.Inv;
+        Inventory HandBag(NetClient c) => FromMenu ? MenuHand.VirtualBag(c.Inv, HeldCell, _ui!.MenuPlace, _menuAvailable)
+            : FromCursor ? CursorBag(c.Inv) : c.Inv;
+
+        // C-013: на курсоре часть стопки — проверки и линейка считают только её (остальное лежит в ячейке).
+        Inventory CursorBag(in Inventory bag)
+        {
+            Inventory v = bag;
+            v.SetCell(_ui!.Hand.From, _ui.Hand.Item, _ui.Hand.Count);
+            return v;
+        }
 
         /// <summary>Рука, через которую идут заявки: из меню — с флагом меню.</summary>
         BuildHand HandBuild => FromMenu ? _ui!.MenuBuild : _ui!.Build;
@@ -122,7 +140,7 @@ namespace Orpheus.Client
                     _menuCancelFrame = Time.frameCount;
                 }
 
-                _ui.MenuPlace = Items.None;
+                _ui.Disarm(); // C-013: снять выбор рецепта (и постройку «из меню»)
                 _ui.Ruler.Cancel();
                 _menuSlot = -1;
             }
@@ -281,7 +299,7 @@ namespace Orpheus.Client
             {
                 Keyboard? kb = Keyboard.current;
                 bool diagonal = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
-                ruler.Update(_world, _localPos, hb, HeldCell, !(pr?.Dead ?? false), _cursorTile.Value, _cursorQuad, diagonal);
+                ruler.Update(_world, _localPos, hb, PlaceCell, !(pr?.Dead ?? false), _cursorTile.Value, _cursorQuad, diagonal);
                 s.Dragging = true;
                 s.Plan = ruler;
             }
@@ -291,9 +309,10 @@ namespace Orpheus.Client
             s.Placing = placing;
             s.Check = FromMenu
                 ? MenuHand.Check(_world, _localPos, c.Inv, HeldCell, held, _menuAvailable, !(pr?.Dead ?? false), t, _cursorQuad, turn)
-                : BuildHand.Check(_world, _localPos, hb, HeldCell, !(pr?.Dead ?? false), t, _cursorQuad, turn);
+                : BuildHand.Check(_world, _localPos, hb, PlaceCell, !(pr?.Dead ?? false), t, _cursorQuad, turn);
             s.Rotatable = placing && BuildHand.IsBuildItem(held, out ushort hk) && Turnable(hk);
             s.FromMenu = FromMenu;
+            s.FromCursor = FromCursor;
             s.MenuAvailable = _menuAvailable;
             s.HasGhost = placing || (s.Check.Reply != EditReply.Empty && s.Check.Reply != EditReply.Intact && s.Check.Reply != EditReply.OutOfReach);
             ushort obj = _world.GetObject(t);
@@ -331,12 +350,7 @@ namespace Orpheus.Client
                 case UseKind.Door:
                     c.CloseDoor(t);
                     break;
-                case UseKind.Workbench:
-                    _ui?.OpenCraft(CraftStation.Workbench, _craftState);
-                    break;
-                case UseKind.Campfire:
-                    _ui?.OpenCraft(CraftStation.Campfire, _craftState);
-                    break;
+                // C-013 («F — верстак не нужно»): верстак и костёр F не открывает — ObjectUse их не выдаёт.
                 case UseKind.Chest:
                 case UseKind.Bed:
                     c.RequestUse(t);
@@ -574,7 +588,7 @@ namespace Orpheus.Client
             // E2-12: зажатая ЛКМ ставит на каждой новой ячейке 0,5 × 0,5 под курсором (стена — цепочкой ячеек).
             if (!demolishLeft && (mouse.leftButton.wasPressedThisFrame || (mouse.leftButton.isPressed && (_buildLast != tile || _buildLastQuad != _cursorQuad))))
             {
-                BuildCheck chk = HandBuild.Click(_world!, _localPos, HandBag(c), HeldCell, alive, tile, _cursorQuad, TurnOf(held));
+                BuildCheck chk = HandBuild.Click(_world!, _localPos, HandBag(c), PlaceCell, alive, tile, _cursorQuad, TurnOf(held));
                 _buildLast = tile;
                 _buildLastQuad = _cursorQuad;
                 if (!chk.Ok && mouse.leftButton.wasPressedThisFrame)
@@ -628,7 +642,7 @@ namespace Orpheus.Client
             {
                 Keyboard? kb = Keyboard.current;
                 bool diagonal = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
-                ruler.Update(_world!, _localPos, HandBag(c), HeldCell, alive, tile, _cursorQuad, diagonal);
+                ruler.Update(_world!, _localPos, HandBag(c), PlaceCell, alive, tile, _cursorQuad, diagonal);
                 string? why = null;
                 if (ruler.Need == 0)
                 {
@@ -642,7 +656,7 @@ namespace Orpheus.Client
                     why = EditRules.Describe(EditReply.NoResources);
                 }
 
-                int sent = ruler.Release(HandBuild, _localPos, HandBag(c), HeldCell);
+                int sent = ruler.Release(HandBuild, _localPos, HandBag(c), PlaceCell);
                 Debug.Log($"[build] линейка: заявок {sent}");
                 if (sent == 0 && why != null)
                 {

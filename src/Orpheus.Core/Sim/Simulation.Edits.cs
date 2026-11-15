@@ -231,26 +231,6 @@ namespace Orpheus.Core.Sim
             DropOnTile(tick, tile, ItemTable.OfMaterial(material), n);
         }
 
-        /// <summary>Тайл двери и его соседи (chebyshev ≤ 1) свободны от живых существ — закрытие безопасно.</summary>
-        private bool TileAndNeighborsFree(TileCoord tile)
-        {
-            for (int i = 0; i < _entityCount; i++)
-            {
-                if (!_entities[i].Alive)
-                {
-                    continue;
-                }
-
-                Int2 td = Torus.Delta(_shape, Torus.TileOf(_shape, _entities[i].Mover.Position), tile);
-                if (Math.Max(Math.Abs(td.X), Math.Abs(td.Y)) <= 1)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
         /// <summary>Тайл по чанку и индексу тайла в чанке.</summary>
         private static TileCoord TileOf(ChunkCoord chunk, ushort index) => new TileCoord(
             (chunk.X << Torus.ChunkBits) + (index & (Torus.ChunkSize - 1)),

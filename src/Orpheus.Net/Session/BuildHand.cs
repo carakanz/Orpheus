@@ -286,7 +286,7 @@ namespace Orpheus.Net.Session
         public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self, in Inventory bag, int cell)
         {
             // E2-15: пол — прямоугольник ячеек; линия тайлов без четвертей — тайлы целиком (бот: ряд пола).
-            if ((uint)cell < Inventory.Slots && IsBuildItem(bag.ItemAt(cell), out ushort key) && EditRules.IsFloorKey(key))
+            if ((uint)cell < Inventory.Cells && IsBuildItem(bag.ItemAt(cell), out ushort key) && EditRules.IsFloorKey(key))
             {
                 int ax = to.X < from.X ? 1 : 0; // без карты: по координатам (у шва — линейка с четвертями)
                 int ay = to.Y < from.Y ? 1 : 0;
@@ -302,7 +302,7 @@ namespace Orpheus.Net.Session
         /// </summary>
         public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self, in Inventory bag, int cell, int fromQuad, int toQuad)
         {
-            if ((uint)cell >= Inventory.Slots || !IsBuildItem(bag.ItemAt(cell), out ushort key))
+            if ((uint)cell >= Inventory.Cells || !IsBuildItem(bag.ItemAt(cell), out ushort key)) // C-013: и ячейки сумки
             {
                 return 0;
             }

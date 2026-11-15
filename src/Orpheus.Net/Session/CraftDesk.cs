@@ -26,7 +26,14 @@ namespace Orpheus.Net.Session
         bool RequestCraftCancel(int index, int recipe);
     }
 
-    public sealed partial class NetClient : ICraftRequests, ICraftCancelChecked
+    /// <summary>C-013: заявка «изготовить сразу в ячейку сумки» (выбранный рецепт и щелчок по ячейке).</summary>
+    public interface ICraftIntoRequests
+    {
+        /// <summary>Изготовить рецепт × <paramref name="count"/> в ячейку <paramref name="cell"/> (0xFF — куда влезет).</summary>
+        bool RequestCraftInto(int recipe, int cell, int count = 1);
+    }
+
+    public sealed partial class NetClient : ICraftRequests, ICraftCancelChecked, ICraftIntoRequests
     {
     }
 
@@ -157,6 +164,26 @@ namespace Orpheus.Net.Session
         /// Отмена позиции очереди. <paramref name="queue"/> — очередь, которую видит окно: её рецепт в позиции едет в заявке
         /// для сверки (<see cref="ICraftCancelChecked"/>), чтобы при сдвинувшейся очереди не отменилась соседняя.
         /// </summary>
+        /// <summary>Заявок «изготовить в ячейку» отправлено (C-013).</summary>
+        public int MakeIntoRequests { get; private set; }
+
+        /// <summary>
+        /// C-013: изготовить рецепт строки × <paramref name="count"/> сразу в ячейку сумки <paramref name="cell"/> (0xFF — куда
+        /// влезет). Очередь не нужна (полная очередь не мешает); нельзя по строке (нет станка, материалов, мёртв) или заявитель
+        /// не умеет такую заявку — false, ничего не ушло. Место в ячейке решает сервер (отказ «некуда»).
+        /// </summary>
+        public bool MakeInto(in CraftLine line, int cell, int count = 1)
+        {
+            bool can = line.CanMake || (line.State == CraftReply.QueueFull && line.Affordable > 0);
+            if (!can || count <= 0 || _requests is not ICraftIntoRequests into || !into.RequestCraftInto(line.Recipe, cell, count))
+            {
+                return false;
+            }
+
+            MakeIntoRequests++;
+            return true;
+        }
+
         public bool Cancel(in CraftQueue queue, int index)
         {
             if ((uint)index >= (uint)queue.Count)

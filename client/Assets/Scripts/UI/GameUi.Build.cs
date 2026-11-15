@@ -34,6 +34,9 @@ namespace Orpheus.Client.UI
         public bool Rotatable;
         public bool FromMenu;
         public int MenuAvailable;
+
+        /// <summary>C-013: постройка «на курсоре» из окна сумки (ставится щелчком в мир; «в руке» — сколько на курсоре).</summary>
+        public bool FromCursor;
         public bool Dragging;
         public BuildRuler? Plan;
     }
@@ -123,23 +126,38 @@ namespace Orpheus.Client.UI
         public BuildHand MenuBuild => _menuBuild;
 
         /// <summary>
-        /// Постройка, взятая «Поставить» из окна изготовления (E2-16), — предмет; 0 — нет. Ставит и снимает
-        /// <c>NetGame</c> (Esc / ПКМ — убрать из руки, смена ячейки панели — тоже).
+        /// Постройка «из меню» (E2-16 → C-013): результат выбранного в окне изготовления рецепта, если это постройка, — ставится
+        /// щелчком по земле с изготовлением на месте; 0 — нет. Окно при этом остаётся открытым (C-008: мир доступен).
         /// </summary>
-        public byte MenuPlace { get; set; }
+        public byte MenuPlace => CraftWindow.PlaceableResult(_armed);
 
-        // E2-16: «Поставить» у рецепта постройки — окно закрывается, постройка в руке (призрак под курсором).
-        void PlaceFromMenu(int recipe)
+        /// <summary>C-013: рецепт, выбранный «в руку» (щелчок по значку); 0 — нет.</summary>
+        public int ArmedRecipe => _armed;
+
+        int _armed;
+
+        /// <summary>
+        /// C-013 (слово Автора 15.11: «Если я нажимаю на предмет выделяется»): выбрать рецепт «в руку». Дальше: щелчок по ячейке
+        /// сумки — изготовить туда; постройка — щелчок по земле изготавливает и ставит (E2-16 craft-on-place).
+        /// </summary>
+        void Arm(int recipe)
         {
-            byte item = CraftWindow.PlaceableResult(recipe);
-            if (item == Items.None)
+            if (recipe != _armed)
             {
-                return;
+                _ruler.Cancel();
             }
 
-            MenuPlace = item;
-            _ruler.Cancel();
-            _craft.Visible = false;
+            _armed = RecipeTable.Exists(recipe) ? recipe : 0;
+        }
+
+        /// <summary>Снять выбор рецепта (ПКМ, Esc, закрыли окно, сменили раздел или ячейку панели).</summary>
+        public void Disarm()
+        {
+            if (_armed != 0)
+            {
+                _armed = 0;
+                _ruler.Cancel();
+            }
         }
 
         /// <summary>Переключить «линейка / поштучно» (Tab; до E2-16 — R); режим запоминается на сессию.</summary>
@@ -168,9 +186,9 @@ namespace Orpheus.Client.UI
             _noticeText = UiRoot.Label(_notice.Rt, "Text", 0f, 0f, nw, nh, 22, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _notice.Visible = false;
 
-            // E2-13: подпись режима постановки — над левым краем быстрой панели (справа — подсказка станка).
+            // E2-13: подпись режима постановки — над нижней панелью слева от середины (справа — подсказка станка).
             const float mw = 430f, mh = 34f; // E2-16: + «R — повернуть», «из меню: есть N»
-            _mode = new UiGroup(root, "PlaceMode", new Vector2(0.5f, 0f), new Vector2(-BottomBar.PanelW / 2f, barTop + 6f), new Vector2(mw, mh));
+            _mode = new UiGroup(root, "PlaceMode", new Vector2(0.5f, 0f), new Vector2(-mw + 2f, barTop + 6f), new Vector2(mw, mh));
             UiRoot.Picture(_mode.Rt, "Back", 0f, 0f, mw, mh, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
             _modeText = UiRoot.Label(_mode.Rt, "Text", 0f, 0f, mw, mh, 18, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _mode.Visible = false;
@@ -240,7 +258,7 @@ namespace Orpheus.Client.UI
             string? note = null;
             float integrity = -1f;
             bool bad = false;
-            if ((build.Hammer || build.Placing) && !overUi && !_hand.Holding)
+            if ((build.Hammer || build.Placing) && !overUi && (!_hand.Holding || build.FromCursor)) // C-013: постройка на курсоре — строка у курсора тоже
             {
                 if (build.Dragging && build.Plan != null)
                 {
@@ -252,7 +270,7 @@ namespace Orpheus.Client.UI
                 {
                     BuildCheck c = build.Check;
                     bool repair = c.Action == BuildAction.Repair;
-                    int inHand = build.FromMenu ? build.MenuAvailable : bag.CountIn(selected); // E2-16: из меню — готовые + изготовимые
+                    int inHand = build.FromMenu ? build.MenuAvailable : build.FromCursor ? _hand.Count : bag.CountIn(selected); // E2-16: из меню — готовые + изготовимые
                     string cost = repair ? CostText(c)
                         : build.RulerMode && BuildRuler.KindOf(c.Key) != RulerKind.Single ? UiStrings.RulerHint(BuildRuler.KindOf(c.Key), inHand)
                         : UiStrings.PlaceHint(inHand);
@@ -266,6 +284,13 @@ namespace Orpheus.Client.UI
                     string line = UiStrings.Integrity(build.Integrity, build.MaxIntegrity);
                     note = note == null ? line : line + "   " + note;
                 }
+            }
+
+            if (_armed != 0 && MenuPlace == Items.None && !overUi && !_hand.Holding)
+            {
+                note = UiStrings.ArmedNote(RecipeTable.Get(_armed).Result); // C-013: не-постройку — только в ячейку сумки
+                integrity = -1f;
+                bad = false;
             }
 
             _note.Show(note, integrity, bad, size, input.Pointer);

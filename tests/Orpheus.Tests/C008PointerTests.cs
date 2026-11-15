@@ -25,11 +25,11 @@ namespace Orpheus.Tests
         {
             var p = new UiPointer();
             p.Clear();
-            p.Add(20f, H - 24f - 204f - 24f, 412f, 204f); // сетка сумки
+            p.Add(20f, H - HudLayout.BagTop - 204f, 412f, 204f); // сетка сумки (C-015: сразу под быстрой панелью)
             p.Add(20f, 30f, 48f, 360f);                   // столбик рецептов
             p.Add(76f, 200f, 64f, 64f);                   // выбранный рецепт
             p.Add(20f, 486f, 320f, 36f);                  // значки разделов
-            HudLayout.AddHud(p, W, H, mapOpen: true);     // панель, сферы, мини-карта
+            HudLayout.AddHud(p, W, H, mapOpen: true);     // быстрая панель, сферы и способности, мини-карта
             return p;
         }
 
@@ -55,7 +55,7 @@ namespace Orpheus.Tests
             Assert.Equal(PointerRoute.Ui, p.RouteAt(40f, 1000f, false, false));  // ячейка сумки
             Assert.Equal(PointerRoute.Ui, p.RouteAt(44f, 100f, false, false));   // значок рецепта
             Assert.Equal(PointerRoute.Ui, p.RouteAt(100f, 230f, false, false));  // выбранный рецепт
-            (float sx, float sy) = HudLayout.SlotCenter(W, 0);
+            (float sx, float sy) = HudLayout.SlotCenter(H, 0);
             Assert.Equal(PointerRoute.Ui, p.RouteAt(sx, sy, false, false));      // быстрая панель
             Assert.True(UiPointer.Blocks(p.RouteAt(40f, 1000f, false, false)));
         }
@@ -63,7 +63,7 @@ namespace Orpheus.Tests
         [Fact]
         public void C008_BottomBar_Orbs_Map_AreInterface_ForWheelAndShift()
         {
-            // Проверка C-008 п. 2: при открытой сумке ячейки 0…7 нижней панели — верхний ряд сумки; панель, сферы и
+            // Проверка C-008 п. 2 (C-015: быстрая панель — левый верхний угол): ячейки 0…7 — верхний ряд сумки; панель, сферы и
             // мини-карта — интерфейс (GameUi.OverWindow = курсор над набранными зонами): колесо над ними — не обзор,
             // Shift — не уворот. Раскладка — HudLayout, та же, что у клиента; холст и 1920 × 1080, и 1280 × 720.
             foreach ((float w, float h) in new[] { (1920f, 1080f), (1280f, 720f) })
@@ -72,7 +72,7 @@ namespace Orpheus.Tests
                 HudLayout.AddHud(p, w, h, mapOpen: true);
                 for (int slot = 0; slot < Inventory.Slots; slot++)
                 {
-                    (float x, float y) = HudLayout.SlotCenter(w, slot);
+                    (float x, float y) = HudLayout.SlotCenter(h, slot);
                     Assert.True(p.Over(x, y), $"ячейка {slot} при {w}");
                     Assert.True(p.Over(x - HudLayout.Cell / 2f + 1f, y + HudLayout.Cell / 2f - 1f)); // угол ячейки
                 }
@@ -83,8 +83,8 @@ namespace Orpheus.Tests
                 Assert.True(p.Over(tx, ty));
                 Assert.True(p.Over(w - HudLayout.MapMargin - HudLayout.MapSize / 2f, h - HudLayout.MapMargin - HudLayout.MapSize / 2f));
 
-                // Над панелью между сферами и центр экрана — мир; свёрнутая карта — тоже мир.
-                (float mx, float my) = HudLayout.SlotCenter(w, 3);
+                // Над панелью способностей между сферами и центр экрана — мир; свёрнутая карта — тоже мир.
+                (float mx, float my) = HudLayout.AbilityCenter(w, 1);
                 Assert.False(p.Over(mx, my + HudLayout.Cell * 2f));
                 Assert.False(p.Over(w / 2f, h / 2f));
                 var closed = new UiPointer();

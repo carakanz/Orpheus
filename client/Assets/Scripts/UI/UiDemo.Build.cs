@@ -22,7 +22,7 @@ namespace Orpheus.Client.UI
         bool _chestOpen;
 
         /// <summary>Сцена режима стройки, сундука или дома (E2-5).</summary>
-        public static bool IsBuild(string? mode) => mode == "build" || mode == "build-open" || mode == "chest" || mode == "house" || mode == "thin" || mode == "half" || mode == "turn" || IsRuler(mode);
+        public static bool IsBuild(string? mode) => mode == "build" || mode == "build-open" || mode == "chest" || mode == "house" || mode == "thin" || mode == "half" || mode == "turn" || mode == "cursor-place" || IsRuler(mode);
 
         /// <summary>E2-13: сцены линейки — протягивание стены (<c>ruler-wall</c>) и пола (<c>ruler-floor</c>).</summary>
         public static bool IsRuler(string? mode) => mode == "ruler-wall" || mode == "ruler-floor";
@@ -47,6 +47,16 @@ namespace Orpheus.Client.UI
             {
                 _bag.SetCell(6, Items.StoneWall, 24); // E2-11: стена — предмет в ячейке панели 7
                 _bag.Select(6);
+                if (_mode == "build" && _ui.Ruler.Mode == PlaceMode.Ruler)
+                {
+                    _ui.ToggleRuler(); // C-015: сцена «поштучно» — у быстрой панели значок зигзага
+                }
+            }
+
+            if (_mode == "cursor-place")
+            {
+                // C-013 п. 8: стена — в сумке (ячейка 20, не панель); в руке на панели — кирка. Скрипт берёт стену на курсор.
+                _bag.SetCell(20, Items.StoneWall, 24);
             }
 
             if (_mode == "turn")
@@ -125,6 +135,30 @@ namespace Orpheus.Client.UI
                     {
                         build.Check = ok; // строка у курсора — про зелёный призрак
                     }
+                }
+            }
+            else if (_mode == "cursor-place" && _origin != null && _ghost != null)
+            {
+                // C-013 п. 8: Q — окна открыты; ЛКМ по ячейке 20 — стена на курсоре; курсор над миром — зелёный призрак из
+                // ячейки 20 (не выброс), строка «в руке 24».
+                input.Toggle = _frame == 2;
+                input.LeftDown = _frame == 5;
+                input.LeftHeld = input.LeftDown;
+                if (_frame <= 6)
+                {
+                    input.Pointer = _ui.CellCenter(20);
+                }
+                else
+                {
+                    var good = new TileCoord(me.X + 5, me.Y - 1); // справа от дома сцены, на траве
+                    BuildCheck ok = BuildHand.Check(_world, position, _bag, 20, true, good, 2);
+                    _ghost.Show(_origin, _world.Shape, position, 0, true, good, ok);
+                    _ghost.Show(_origin, _world.Shape, position, 1, false, good, ok);
+                    build.Placing = true;
+                    build.HasGhost = true;
+                    build.Check = ok;
+                    build.FromCursor = true;
+                    input.Pointer = _ui.WorldToCanvas(_origin.ToUnity(EditRules.CenterOf(good)) + new Vector3(0.2f, -0.1f, 0f));
                 }
             }
             else if (_mode == "turn" && _origin != null && _ghost != null)

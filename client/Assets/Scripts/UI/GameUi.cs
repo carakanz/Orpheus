@@ -65,19 +65,19 @@ namespace Orpheus.Client.UI
     }
 
     /// <summary>
-    /// Окно сумки (E2-2 → C-008, как в Terraria): в левом верхнем углу сетка 8 × 4 полупрозрачных ячеек (8…39) без
-    /// подложки-окна, сверху мелкая подпись, снизу одна строка клавиш. Быстрая панель (ячейки 0…7) — внизу экрана между
-    /// сферами, при открытой сумке она и есть верхний ряд сумки (ЛКМ / ПКМ / Shift / Ctrl по ней — те же заявки), поэтому
+    /// Окно сумки (E2-2 → C-008 → C-015, как в Terraria): в левом верхнем углу сразу под быстрой панелью сетка 8 × 4
+    /// полупрозрачных ячеек (8…39) без подложки-окна, под ней одна строка «Сумка (Q)» и клавиши. Быстрая панель (ячейки
+    /// 0…7) — над сеткой (<see cref="HotbarView"/>), при открытой сумке она и есть верхний ряд сумки (ЛКМ / ПКМ / Shift / Ctrl по ней — те же заявки), поэтому
     /// здесь не дублируется (решение C-008 по слову Автора о нижней панели).
     /// </summary>
     public sealed class BagWindow : UiGroup
     {
-        public const float TitleH = 26f, HintH = 24f, Gap = 4f;
+        public const float HintH = 44f, Gap = 4f; // C-015: две строки — справа от сумки теперь сундук
         public static readonly float GridW = UiSlotGrid.WidthOf(Inventory.Slots);
         static readonly int Rows = (Inventory.Cells - Inventory.Slots) / Inventory.Slots;
         public static readonly float GridH = UiSlotGrid.WidthOf(Rows);
         public static readonly float Width = GridW;
-        public static readonly float Height = HintH + Gap + GridH + Gap + TitleH;
+        public static readonly float Height = HintH + Gap + GridH;
         static readonly float GridY = HintH + Gap;
 
         readonly UiSlotGrid _main;
@@ -85,13 +85,12 @@ namespace Orpheus.Client.UI
         bool _dead;
 
         public BagWindow(UiRoot root)
-            : base(root, "Bag", new Vector2(0f, 1f), new Vector2(20f, -20f - Height), new Vector2(Width, Height))
+            : base(root, "Bag", new Vector2(0f, 1f), new Vector2(HudLayout.Margin, -HudLayout.BagTop - Height), new Vector2(Width, Height))
         {
             _main = new UiSlotGrid(Rt, 0f, GridY, Inventory.Slots, Rows, Inventory.Slots, UiCellLook.Glass);
-            UiRoot.Label(Rt, "Title", 2f, Height - TitleH, Width, TitleH, 20, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true, bold: true)
-                .text = UiStrings.BagTitleKeys;
-            _hint = UiRoot.Label(Rt, "Hint", 2f, 0f, Width + 120f, HintH, 18, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true);
-            _hint.text = UiStrings.BagHintShort;
+            _hint = UiRoot.Label(Rt, "Hint", 2f, 0f, Width - 2f, HintH, 18, TextAnchor.UpperLeft, UiStyle.TextLight, outline: true);
+            _hint.horizontalOverflow = HorizontalWrapMode.Wrap; // C-015: не заходит под сундук справа
+            _hint.text = HintText(false);
             Visible = false;
         }
 
@@ -123,9 +122,12 @@ namespace Orpheus.Client.UI
             if (dead != _dead)
             {
                 _dead = dead;
-                _hint.text = dead ? UiStrings.BagDead : UiStrings.BagHintShort;
+                _hint.text = HintText(dead);
             }
         }
+
+        // C-015: подписи над сеткой нет (там быстрая панель) — «Сумка (Q)» идёт началом строки клавиш.
+        static string HintText(bool dead) => UiStrings.BagTitleKeys + "    " + (dead ? UiStrings.BagDead : UiStrings.BagHintShort);
     }
 
     /// <summary>
@@ -139,6 +141,7 @@ namespace Orpheus.Client.UI
     {
         readonly UiRoot _root;
         readonly BottomBar _bar;
+        readonly HotbarView _hotbar;
         readonly BagWindow _bag;
         readonly MiniMapView _map;
         readonly CraftWindow _craft;
@@ -171,11 +174,12 @@ namespace Orpheus.Client.UI
             _hand = new BagHand(requests);
             _desk = new CraftDesk(craft);
 
-            _bar = new BottomBar(_root); // C-008: сферы и быстрая панель внизу по центру
+            _bar = new BottomBar(_root); // C-015: внизу по центру — сферы и способности между ними
+            _hotbar = new HotbarView(_root); // C-015: быстрая панель — левый верхний угол
 
-            // Подсказка «рядом станок» / «F — сундук» — над правым краем панели (E2-4).
+            // Подсказка «рядом станок» / «F — сундук» — над правым краем нижней панели (E2-4).
             const float hintW = 190f, hintH = 34f;
-            _stationHint = new UiGroup(_root, "StationHint", new Vector2(0.5f, 0f), new Vector2(BottomBar.PanelW / 2f - hintW, BarTop + 6f), new Vector2(hintW, hintH));
+            _stationHint = new UiGroup(_root, "StationHint", new Vector2(0.5f, 0f), new Vector2(BottomBar.Width / 2f - hintW, BarTop + 6f), new Vector2(hintW, hintH));
             UiRoot.Picture(_stationHint.Rt, "Back", 0f, 0f, hintW, hintH, UiStyle.Frame(UiStyle.GlassPanel, UiStyle.Gold, thick: 2f, radius: 6f));
             _stationHintText = UiRoot.Label(_stationHint.Rt, "Text", 0f, 0f, hintW, hintH, 20, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _stationHint.Visible = false;
@@ -235,9 +239,9 @@ namespace Orpheus.Client.UI
         /// <summary>Станок, у которого стоит персонаж (подсказка у панели); нет — <see cref="CraftStation.None"/>.</summary>
         public CraftStation NearStation => _near;
 
-        /// <summary>Середина ячейки на холсте: 0…7 — на нижней панели, 8…39 — в сумке (скрипт стенда снимков).</summary>
+        /// <summary>Середина ячейки на холсте: 0…7 — на быстрой панели, 8…39 — в сумке (скрипт стенда снимков).</summary>
         public Vector2 CellCenter(int cell) => cell < Inventory.Slots
-            ? _bar.Origin(_root.Size) + _bar.CellCenter(cell)
+            ? _hotbar.Origin(_root.Size) + _hotbar.CellCenter(cell)
             : _bag.Origin(_root.Size) + _bag.CellCenter(cell);
 
         /// <summary>Середина части окна крафта на холсте (скрипт стенда снимков).</summary>
@@ -332,6 +336,11 @@ namespace Orpheus.Client.UI
                 SetOpen(open);
                 SetCraftOpen(open, craft);
             }
+            else if (input.Escape && _armed != 0)
+            {
+                Disarm(); // C-013: Esc сперва снимает выбранный рецепт, окно остаётся
+                EscapeUsed = true;
+            }
             else if (input.Escape && (BagOpen || CraftOpen || _chest.Visible))
             {
                 CloseChestByUser();
@@ -360,6 +369,7 @@ namespace Orpheus.Client.UI
             Vector2 size = _root.Size, p = input.Pointer;
             _pointer.Clear();
             _bar.AddZones(_pointer, size);
+            _hotbar.AddZones(_pointer, size);
             _bag.AddZones(_pointer, size);
             _chest.AddZones(_pointer, size);
             _craft.AddZones(_pointer, size);
@@ -373,15 +383,15 @@ namespace Orpheus.Client.UI
             int cell = -1, chestButton = -1;
             CraftHit hit = default;
             BottomBar.Part barPart = BottomBar.Part.None;
-            bool overGrid = false;
+            bool overGrid = false, overMode = false;
             OverWindow = false;
             if (input.HasPointer)
             {
-                Vector2 barLocal = _bar.Local(size, p);
-                cell = _bar.CellAt(barLocal);
+                cell = _hotbar.CellAt(_hotbar.Local(size, p));
+                overMode = _hotbar.OverMode(size, p);
                 if (cell < 0)
                 {
-                    barPart = overUi ? _bar.PartAt(barLocal) : BottomBar.Part.None;
+                    barPart = overUi ? _bar.PartAt(_bar.Local(size, p)) : BottomBar.Part.None;
                 }
 
                 if (cell < 0 && _bag.Covers(_bag.Local(size, p)))
@@ -431,10 +441,21 @@ namespace Orpheus.Client.UI
             }
 
             bool held = _hand.Holding;
-            Route = UiPointer.Route(overUi, held, _capture);
+            bool placeable = _hand.HoldsPlaceable; // C-013: постройка на курсоре из сумки — щелчок в мир ставит её
+            bool armedBuilds = MenuPlace != Items.None;
+            Route = UiPointer.Route(overUi, held, _capture, placeable, _armed != 0, armedBuilds);
             if (input.LeftDown)
             {
-                if (cell >= 0 && (BagOpen || cell >= BagHand.ChestBase))
+                if (overMode && !held)
+                {
+                    ToggleRuler(); // C-015: значок у быстрой панели — как Tab
+                }
+                else if (cell >= 0 && cell < Inventory.Cells && _armed != 0 && !held)
+                {
+                    // C-013: выбранный рецепт — сразу в эту ячейку (Shift — 5, Ctrl — сколько влезет).
+                    MakeInto(cell, input.Ctrl ? CraftQueue.MaxLeft : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
+                }
+                else if (cell >= 0 && (BagOpen || cell >= BagHand.ChestBase))
                 {
                     if (input.Ctrl && !held)
                     {
@@ -473,18 +494,19 @@ namespace Orpheus.Client.UI
                     _hand.Outside(); // мимо интерфейса с предметом «в руке курсора» — выбросить (допущение C-008, как в Terraria)
                 }
 
-                if (overUi || held)
+                if (overUi || (held && !placeable))
                 {
                     _capture = true;
                 }
 
-                Route = UiPointer.Route(overUi, held, _capture);
+                held = _hand.Holding;
+                Route = UiPointer.Route(overUi, held, _capture, _hand.HoldsPlaceable, _armed != 0, armedBuilds);
             }
 
-            // E2-16: ПКМ по значку рецепта постройки — «Поставить» (как кнопка в карточке).
-            if (input.RightDown && !held && hit.Part == CraftPart.Cell && CraftOpen)
+            // C-013: ПКМ снимает выбранный рецепт (где бы ни был курсор).
+            if (input.RightDown && !held && _armed != 0)
             {
-                PlaceFromMenu(_craft.RecipeInCell(hit.Index));
+                Disarm();
             }
             else if (input.RightDown && (BagOpen || _chest.Visible))
             {
@@ -503,11 +525,12 @@ namespace Orpheus.Client.UI
             // Показ.
             for (int i = 0; i < Inventory.Slots; i++)
             {
-                _bar.Grid.Set(i, bag.ItemAt(i), _hand.ShownCount(i));
+                _hotbar.Grid.Set(i, bag.ItemAt(i), _hand.ShownCount(i));
             }
 
-            _bar.Grid.Select(selected);
-            _bar.Grid.Hover(cell >= 0 && cell < Inventory.Slots ? cell : -1);
+            _hotbar.Grid.Select(selected);
+            _hotbar.SetMode(_ruler.Mode == PlaceMode.Ruler, overMode);
+            _hotbar.Grid.Hover(cell >= 0 && cell < Inventory.Slots ? cell : -1);
             if (BagOpen)
             {
                 _bag.Show(bag, _hand, cell, dead);
@@ -527,6 +550,7 @@ namespace Orpheus.Client.UI
             if (CraftOpen)
             {
                 _craft.Stock = craft.Stock; // E2-10: «есть» — сумка + сундуки рядом
+                _craft.Armed = _armed;
                 _craft.Show(_lines, bag, craft.Queue, craft.Running, craft.Progress, dead, hit, _message);
             }
 
@@ -553,7 +577,8 @@ namespace Orpheus.Client.UI
             }
             else if (hit.Part == CraftPart.Button && CraftOpen)
             {
-                tip = RecipeTip(_craft.Recipe, bag, craft.Stock) + "\n" + UiStrings.CraftMakeTip;
+                tip = RecipeTip(_craft.Recipe, bag, craft.Stock) + "\n"
+                    + (CraftWindow.PlaceableResult(_craft.Recipe) != Items.None ? UiStrings.CraftPlaceTip : UiStrings.CraftMakeTip);
             }
             else if (hit.Part != CraftPart.None)
             {
@@ -562,6 +587,10 @@ namespace Orpheus.Client.UI
             else if (chestButton >= 0)
             {
                 tip = chestButton == 0 ? UiStrings.ChestTakeAllTip : UiStrings.ChestPutAllTip;
+            }
+            else if (overMode)
+            {
+                tip = UiStrings.PlaceModeTip(_ruler.Mode == PlaceMode.Ruler);
             }
             else if (barPart != BottomBar.Part.None)
             {
@@ -575,7 +604,16 @@ namespace Orpheus.Client.UI
             }
 
             _tip.Show(tip, size, p);
-            _carry.Show(_hand.Item, _hand.Count, p);
+            if (!_hand.Holding && _armed != 0 && (overUi || !armedBuilds))
+            {
+                // C-013: выбранный рецепт «в руке» — значок результата у курсора (у постройки над миром — призрак на земле).
+                ref readonly RecipeDef armed = ref RecipeTable.Get(_armed);
+                _carry.Show(armed.Result, armed.ResultCount, p);
+            }
+            else
+            {
+                _carry.Show(_hand.Item, _hand.Count, p);
+            }
             _bar.Set(health, maxHealth, stamina, maxStamina);
             _map.Frame(craft.World, craft.Position, MapSnapshot, MapSelf);
         }
@@ -594,10 +632,12 @@ namespace Orpheus.Client.UI
             switch (hit.Part)
             {
                 case CraftPart.Section:
+                    Disarm();
                     _craft.SelectSection(hit.Index);
                     _craft.Refresh(_lines);
                     break;
                 case CraftPart.Sub:
+                    Disarm();
                     _craft.SelectSub(hit.Index);
                     _craft.Refresh(_lines);
                     break;
@@ -607,6 +647,7 @@ namespace Orpheus.Client.UI
                     break;
                 case CraftPart.Cell:
                     _craft.SelectCell(hit.Index);
+                    Arm(_craft.Recipe); // C-013: щелчок выделяет рецепт «в руку»
                     break;
                 case CraftPart.ScrollBar:
                     if (hit.Index >= 0)
@@ -616,10 +657,7 @@ namespace Orpheus.Client.UI
 
                     break;
                 case CraftPart.Button:
-                    Make(input.Ctrl ? 0 : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
-                    break;
-                case CraftPart.Place:
-                    PlaceFromMenu(_craft.Recipe); // E2-16: постройка — в руку из окна
+                    Arm(_craft.Recipe); // C-013: кнопок нет — крупный значок тоже только выбирает
                     break;
                 case CraftPart.Queue:
                     if (!dead)
@@ -636,6 +674,7 @@ namespace Orpheus.Client.UI
         {
             if (input.TabStep != 0)
             {
+                Disarm();
                 if (input.Shift)
                 {
                     _craft.SelectSub(_craft.Sub + input.TabStep);
@@ -657,11 +696,14 @@ namespace Orpheus.Client.UI
             if (input.RowStep != 0)
             {
                 _craft.StepRecipe(input.RowStep);
+                Arm(_craft.Recipe); // C-013: PgUp / PgDn — как щелчок по значку
             }
 
             if (input.Make)
             {
-                Make(input.Ctrl ? 0 : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
+                // C-013: Enter — выбранный рецепт в сумку, куда влезет (клавиша для «щелчка по ячейке»).
+                Arm(_craft.Recipe);
+                MakeInto(Simulation.AnyBagCell, input.Ctrl ? CraftQueue.MaxLeft : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
             }
 
             if (input.CancelLast && !dead && craft.Queue.Count > 0)
@@ -670,16 +712,17 @@ namespace Orpheus.Client.UI
             }
         }
 
-        // «Сделать × count» выбранный рецепт; count = 0 — всё, на что хватает. Нельзя — причина строкой под столбиком.
-        void Make(int count, bool dead)
+        // C-013: изготовить выбранный рецепт × count сразу в ячейку сумки cell (0xFF — куда влезет). Нельзя по строке — причина
+        // строкой под столбиком; место в ячейке решает сервер (отказ «некуда» — ответ 31).
+        void MakeInto(int cell, int count, bool dead)
         {
-            CraftLine line = _lines[_craft.Recipe];
-            if (line.Recipe == 0)
+            CraftLine line = _lines[_armed];
+            if (_armed == 0 || line.Recipe == 0)
             {
                 return;
             }
 
-            if (!_desk.Make(line, count > 0 ? count : line.Affordable))
+            if (!_desk.MakeInto(line, cell, count))
             {
                 Say(dead ? UiStrings.CraftDead : UiStrings.CraftState(line.State, RecipeTable.Get(line.Recipe).Station, line.Affordable));
             }
@@ -709,10 +752,11 @@ namespace Orpheus.Client.UI
             }
         }
 
-        // C-008: сумка — левый верхний угол, сундук — под ней, изготовление — левый нижний угол; места постоянные.
+        // C-015: быстрая панель и под ней сумка — левый верхний угол; сундук — справа от сумки (верх сетки вровень с сеткой
+        // сумки, заголовок — на уровне быстрой панели); изготовление — левый нижний угол (не доходит до сумки и сферы).
         void Layout()
         {
-            _chest.Offset = new Vector2(20f, -20f - BagWindow.Height - 14f - ChestWindow.Height);
+            _chest.Offset = new Vector2(HudLayout.ModeX + HudLayout.ModeButton + 16f, -HudLayout.BagTop - ChestWindow.GridHeight); // правее значка режима
         }
 
         void SetOpen(bool open)
@@ -733,6 +777,10 @@ namespace Orpheus.Client.UI
             }
 
             _craft.Visible = open;
+            if (!open)
+            {
+                Disarm(); // C-013: закрыл окно — выбор рецепта снят
+            }
         }
     }
 
@@ -745,7 +793,7 @@ namespace Orpheus.Client.UI
     /// медная кирка (слитков не хватает), подсказка над её значком; <c>inv-weapons</c> — Оружие → Мечи с галочкой «Только
     /// доступные»; <c>inv-buildings</c> — Здания → Дерево с рецептами построек (E2-11), выбрана деревянная стена.
     /// </summary>
-    public sealed partial class UiDemo : IBagRequests, ICraftRequests, IBuildRequests
+    public sealed partial class UiDemo : IBagRequests, ICraftRequests, IBuildRequests, ICraftIntoRequests
     {
         readonly GameUi _ui;
         readonly string _mode;
@@ -831,6 +879,33 @@ namespace Orpheus.Client.UI
             return true;
         }
 
+        // C-013: изготовить сразу в ячейку — тем же расчётом места, что у сервера (CraftRules.RunsThatFit); ингредиенты — из сумки стенда.
+        public bool RequestCraftInto(int recipe, int cell, int count = 1)
+        {
+            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+            int runs = def.Id == 0 ? 0 : CraftRules.RunsThatFit(_bag, def, cell, System.Math.Min(count, CraftRules.Affordable(_bag, def)));
+            if (runs <= 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < def.IngredientCount; i++)
+            {
+                _bag.Remove(def.IngredientItem(i), def.IngredientCountOf(i) * runs);
+            }
+
+            if (cell == Simulation.AnyBagCell)
+            {
+                _bag.Add(def.Result, runs * def.ResultCount);
+            }
+            else
+            {
+                _bag.SetCell(cell, def.Result, _bag.CountIn(cell) + runs * def.ResultCount);
+            }
+
+            return true;
+        }
+
         public void Frame(WorldPos position)
         {
             _frame++;
@@ -871,14 +946,14 @@ namespace Orpheus.Client.UI
         }
 
         // Скрипт окна «сумка + изготовление» (E2-9; верстак рядом). Шаги — (кадр, часть окна, номер, щелчок).
-        // inv: C → Инструменты → Кирки → каменная кирка «Сделать 1» → Материалы → слиток «Сделать всё» → Инструменты
-        // (подраздел запомнен) → медная кирка (слитков не хватает) → курсор над её значком (подсказка).
-        // C-008: галочка «Только доступные» включена по умолчанию — inv сначала снимает её (видна нехватка красным);
-        // крупный значок выбранного (Button): индекс 0 — щелчок, 1 — Shift (5), 2 — Ctrl (всё).
+        // inv: C → Инструменты → Кирки → каменная кирка (выбрана «в руку») → щелчок по ячейке 30 сумки — кирка там → Материалы →
+        // слиток → щелчок по ячейке 31 → Инструменты (подраздел запомнен) → медная кирка выбрана (слитков не хватает) — рамка и
+        // значок у курсора. C-008: галочка «Только доступные» включена по умолчанию — inv сначала снимает её (видна нехватка
+        // красным). C-013: кнопок нет; шаг с частью None — щелчок по ячейке сумки (номер — ячейка).
         static readonly (int Frame, CraftPart Part, int Index)[] InvSteps =
         {
-            (5, CraftPart.Filter, 0), (8, CraftPart.Section, 2), (11, CraftPart.Sub, 0), (14, CraftPart.Cell, 0), (17, CraftPart.Button, 0),
-            (20, CraftPart.Section, 5), (23, CraftPart.Cell, 0), (26, CraftPart.Button, 2),
+            (5, CraftPart.Filter, 0), (8, CraftPart.Section, 2), (11, CraftPart.Sub, 0), (14, CraftPart.Cell, 0), (17, CraftPart.None, 30),
+            (20, CraftPart.Section, 5), (23, CraftPart.Cell, 0), (26, CraftPart.None, 31),
             (29, CraftPart.Section, 2), (32, CraftPart.Cell, 1), (99, CraftPart.Cell, 1),
         };
 
@@ -943,11 +1018,10 @@ namespace Orpheus.Client.UI
 
             var step = steps[k];
             bool last = k == steps.Length - 1;
-            input.Pointer = _ui.CraftPoint(step.Part, step.Index) + (last ? new Vector2(10f, -8f) : Vector2.zero);
+            Vector2 at = step.Part == CraftPart.None ? _ui.CellCenter(step.Index) : _ui.CraftPoint(step.Part, step.Index);
+            input.Pointer = at + (last ? new Vector2(10f, -8f) : Vector2.zero);
             input.LeftDown = !last && f == step.Frame;
             input.LeftHeld = input.LeftDown;
-            input.Shift = input.LeftDown && step.Part == CraftPart.Button && step.Index == 1;
-            input.Ctrl = input.LeftDown && step.Part == CraftPart.Button && step.Index == 2;
         }
     }
 }

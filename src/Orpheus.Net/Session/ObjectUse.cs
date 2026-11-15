@@ -12,10 +12,10 @@ namespace Orpheus.Net.Session
         /// <summary>Открытая дверь — закрыть (1-012; сервер проверяет радиус 1, замок, проём).</summary>
         Door = 1,
 
-        /// <summary>Верстак — окно крафта на вкладке «Верстак» (станок для рецептов ищет сервер).</summary>
+        /// <summary>Верстак — окно крафта (E2-5). C-013: не выдаётся (<see cref="ObjectUse.KindOf"/>) — «F — верстак не нужно».</summary>
         Workbench = 2,
 
-        /// <summary>Костёр — окно крафта на вкладке «Костёр».</summary>
+        /// <summary>Костёр — окно крафта (E2-5). C-013: не выдаётся, как верстак.</summary>
         Campfire = 3,
 
         /// <summary>Сундук — открыть (заявка 33, содержимое — 35).</summary>
@@ -38,8 +38,9 @@ namespace Orpheus.Net.Session
             switch (ObjectId.IdOf(raw))
             {
                 case ObjectId.Door: return UseKind.Door;
-                case ObjectId.Workbench: return UseKind.Workbench;
-                case ObjectId.Campfire: return UseKind.Campfire;
+                // C-013 (слово Автора 15.11: «F — верстак не нужно»): у станков (верстак, костёр) действия F нет — их рецепты
+                // и так доступны в окне изготовления, когда станок рядом (CraftRules.StationCheck, 3 тайла); F по ним не
+                // открывает окно, подсказки «F — верстак» нет, F берёт ближайший другой объект с действием.
                 case ObjectId.Chest: return UseKind.Chest;
                 case ObjectId.Bed: return UseKind.Bed;
                 default: return UseKind.None;

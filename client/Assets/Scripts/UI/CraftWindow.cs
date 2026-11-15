@@ -15,14 +15,11 @@ namespace Orpheus.Client.UI
         Sub,
         Cell,
 
-        /// <summary>C-008: выбранный рецепт крупным значком — щелчок делает (1, Shift — 5, Ctrl — всё).</summary>
+        /// <summary>C-008: выбранный рецепт крупным значком. C-013: только показ и подсказка — кнопок нет (слово Автора 15.11).</summary>
         Button,
         Queue,
         Filter,
         ScrollBar,
-
-        /// <summary>E2-16: «Поставить» у рецепта постройки — взять её в руку прямо из окна (изготовится при постановке).</summary>
-        Place,
     }
 
     /// <summary>
@@ -49,8 +46,9 @@ namespace Orpheus.Client.UI
     /// маленькими значками (Здания, Мебель, Инструменты, Оружие, Броня, Материалы, Еда) и галочка «Только доступные»
     /// (включена по умолчанию, как в Terraria), под ними — подразделы маленькими значками, строка очереди с полосой
     /// прогресса, ниже — вертикальный столбик значков рецептов (прокрутка колесом). Выбранный рецепт — крупным значком
-    /// справа от своей строки, рядом в строку его ингредиенты «есть / нужно» (нехватка — красным); щелчок по крупному
-    /// значку — сделать 1, Shift — 5, Ctrl — всё. Названия — в подсказках при наведении.
+    /// справа от своей строки, рядом в строку его ингредиенты «есть / нужно» (нехватка — красным). C-013 (слово Автора
+    /// 15.11: «кнопку поставить не нужно»): кнопок нет — щелчок по значку рецепта выбирает его «в руку» (рамка), изготовление —
+    /// щелчком по ячейке сумки или (постройка) по земле, это ведёт <see cref="GameUi"/>. Названия — в подсказках при наведении.
     /// <para>Только вид: раскладка, фильтр и число на значке — <see cref="CraftShelf"/>, «можно ли» — строки
     /// <see cref="CraftDesk.LineOf"/>; заявки шлёт <see cref="GameUi"/> через <see cref="CraftDesk"/>. Окно ничего не предсказывает.</para>
     /// </summary>
@@ -74,12 +72,11 @@ namespace Orpheus.Client.UI
         const float IngX = Big + 10f;
         static readonly float TabsW = CraftShelf.Sections.Length * SmallPitch - UiStyle.CellGap;
         static readonly float FilterX = TabsW + 8f;
-        static readonly float PlaceX = IngX + RecipeTable.MaxIngredients * IngStep + 4f; // E2-16: «Поставить» — справа от ингредиентов
-        public static readonly float Width = Mathf.Max(FilterX + Small, CardX + PlaceX + PlaceW);
+        static readonly float CardRight = IngX + RecipeTable.MaxIngredients * IngStep + 4f + 112f; // ширина карточки (место прежней кнопки E2-16 — под подпись)
+        public static readonly float Width = Mathf.Max(FilterX + Small, CardX + CardRight);
 
-        /// <summary>Сколько делает щелчок по крупному значку: без клавиш, с Shift; с Ctrl — «всё, на что хватает».</summary>
+        /// <summary>Сколько изготовить щелчком по ячейке сумки (C-013) и Enter: без клавиш, с Shift; с Ctrl — «всё, что влезет».</summary>
         public static readonly int[] ButtonCounts = { 1, 5 };
-        const float PlaceW = 112f, PlaceH = 30f;
 
         static readonly int MaxSubs = CountMaxSubs();
 
@@ -93,7 +90,6 @@ namespace Orpheus.Client.UI
         readonly UiSlotGrid _tabs, _subs, _col, _queue;
         readonly Text[] _tabLetters, _subLetters;
         readonly UiButton _filter;
-        readonly UiButton _place; // E2-16: «Поставить» в карточке рецепта постройки
         readonly Image _check;
         readonly Text _empty, _message;
         readonly Image _track, _thumb;
@@ -169,8 +165,6 @@ namespace Orpheus.Client.UI
             _bigBack = UiRoot.Picture(_card, "Big", 0f, 0f, Big, Big, _bigPlain);
             _result = new UiItemIcon(_card, 0f, 0f, Big, 52f);
             _name = UiRoot.Label(_card, "Name", 2f, Big + 2f, 420f, 24f, 20, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true, bold: true);
-            _place = new UiButton(_card, PlaceX, Big - IngBox + (IngBox - PlaceH) / 2f, PlaceW, PlaceH, UiStrings.PlaceFromMenu, 16, glass: true);
-            _place.Visible = false;
             _state = UiRoot.Label(_card, "State", 2f, -24f, 420f, 22f, 18, TextAnchor.MiddleLeft, UiStyle.TextWarn, outline: true, bold: true);
             Sprite ingBack = UiStyle.Frame(UiStyle.Glass, UiStyle.GlassEdge, thick: 2f, radius: 6f);
             for (int k = 0; k < _ingredients.Length; k++)
@@ -318,7 +312,7 @@ namespace Orpheus.Client.UI
         public void Scroll(int rows) => _scroll = Mathf.Clamp(_scroll + rows, 0, MaxScroll);
 
         /// <summary>Рецепт в ячейке столбика на экране; пустая ячейка — 0.</summary>
-        /// <summary>E2-16: результат рецепта — постройка (её можно «Поставить» из окна); иначе <see cref="Items.None"/>.</summary>
+        /// <summary>E2-16: результат рецепта — постройка (C-013: выбранный рецепт ставится щелчком по земле); иначе <see cref="Items.None"/>.</summary>
         public static byte PlaceableResult(int recipe) =>
             recipe > 0 && BuildHand.IsBuildItem(RecipeTable.Get(recipe).Result) ? RecipeTable.Get(recipe).Result : Items.None;
 
@@ -372,11 +366,6 @@ namespace Orpheus.Client.UI
             {
                 Rect thumb = ThumbRect();
                 return new CraftHit(CraftPart.ScrollBar, local.y >= thumb.yMax ? 0 : local.y < thumb.yMin ? 1 : -1);
-            }
-
-            if (Recipe > 0 && _place.Contains(local - new Vector2(CardX, _cardY >= 0f ? _cardY : ColY)))
-            {
-                return new CraftHit(CraftPart.Place, 0); // E2-16
             }
 
             if (Recipe > 0 && BigRect.Contains(local))
@@ -446,7 +435,6 @@ namespace Orpheus.Client.UI
             CraftPart.Filter => _filter.Center,
             CraftPart.Cell => _col.CenterOf(index),
             CraftPart.Button => new Vector2(CardX + Big / 2f, (_cardY >= 0f ? _cardY : ColY) + Big / 2f),
-            CraftPart.Place => new Vector2(CardX + PlaceX + PlaceW / 2f, (_cardY >= 0f ? _cardY : ColY) + Big - IngBox / 2f),
             CraftPart.Queue => _queue.CenterOf(index),
             _ => Vector2.zero,
         };
@@ -458,6 +446,12 @@ namespace Orpheus.Client.UI
             float y = ColTop - h - (ColH - h) * (MaxScroll > 0 ? _scroll / (float)MaxScroll : 0f);
             return new Rect(TrackX, y, TrackW, h);
         }
+
+        /// <summary>
+        /// C-013: рецепт, выбранный щелчком («в руке»: щелчок по ячейке сумки — изготовить туда, по земле — постройку
+        /// изготовить и поставить); 0 — нет. Ставит <see cref="GameUi"/>; рамка в столбике и подсветка крупного значка — только у него.
+        /// </summary>
+        public int Armed { get; set; }
 
         /// <summary>E2-10: сводка «сундуки рядом» для «есть» ингредиентов (ставит <see cref="GameUi"/> перед <see cref="Show"/>).</summary>
         public ChestStock? Stock { get; set; }
@@ -528,7 +522,7 @@ namespace Orpheus.Client.UI
                 }
             }
 
-            _col.Select(selCell);
+            _col.Select(Armed == selected ? selCell : -1); // C-013: рамка — только у выбранного «в руку» рецепта
             _col.Hover(hover.Part == CraftPart.Cell ? hover.Index : -1);
 
             // Крупный значок выбранного — справа от своей строки (в пределах столбика).
@@ -611,9 +605,7 @@ namespace Orpheus.Client.UI
                 _state.text = state;
             }
 
-            _bigBack.sprite = !line.CanMake ? _bigOff : hover.Part == CraftPart.Button ? _bigHover : _bigPlain;
-            _place.Visible = PlaceableResult(recipe) != Items.None; // E2-16: у построек — «Поставить»
-            _place.Set(hover.Part == CraftPart.Place, false, !dead);
+            _bigBack.sprite = !line.CanMake ? _bigOff : Armed == recipe ? _bigHover : _bigPlain; // C-013: выбран («в руке») — подсвечен
             _result.Dim(!line.CanMake);
         }
 

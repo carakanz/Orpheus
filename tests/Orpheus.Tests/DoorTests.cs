@@ -8,8 +8,8 @@ using Xunit;
 namespace Orpheus.Tests
 {
     /// <summary>
-    /// Двери (1-012; docs/05, 1.3, docs/02, 2.2): автооткрытие шагом к двери, автозакрытие через 30 тактов
-    /// свободы, F (защёлка переднего фронта) и отказ в проёме, выталкивание врага при закрытии,
+    /// Двери (1-012; docs/05, 1.3, docs/02, 2.2): автооткрытие шагом к двери, автозакрытие через 15 тактов
+    /// свободы хитбокса (C-014), F (защёлка переднего фронта) и отказ в проёме, выталкивание врага при закрытии,
     /// проход врага через открытую и блок закрытой, индекс дверей и его восстановление из мира.
     /// Базовый бег — 51,2 unit/такт (MovementTick.BaseSpeedX10 = 512).
     /// </summary>
@@ -45,7 +45,7 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Автооткрытие и автозакрытие (1-012): бег к двери открывает её, когда персонаж соседний тайл и
-        /// движется к проёму; проход сквозь открытую не блокирует; через 30 тактов свободы тайла и соседей —
+        /// движется к проёму; проход сквозь открытую не блокирует; через 15 тактов свободы хитбокса двери (C-014) —
         /// автозакрытие; шаг обратно открывает снова; F закрывает, замок 30 тактов не даёт открыться от стояния.
         /// </summary>
         [Fact]
@@ -79,7 +79,7 @@ namespace Orpheus.Tests
 
             Assert.True(EntityTile(sim, me).X >= 111, "застряла на проходе");
 
-            // Автозакрытие: игрок остановился вдали (chebyshev ≥ 2) — 30 тактов свободы, и дверь закрыта.
+            // Автозакрытие: игрок остановился — 15 тактов свободы хитбокса, и дверь закрыта.
             sim.SetInput(me, InputFrame.None);
             int closedTick = -1;
             for (int t = 0; t < 80 && closedTick < 0; t++)
@@ -198,19 +198,25 @@ namespace Orpheus.Tests
             Assert.False(IsOpen(sim2, 110, 100), "враг открыл дверь");
         }
 
-        /// <summary>Открытая дверь не закрывается, пока игрок стоит в соседнем тайле (закрываться — «упираться в нос»).</summary>
+        /// <summary>C-014: игрок стоит в соседнем тайле, вне хитбокса двери — дверь закрывается через
+        /// <see cref="Simulation.DoorAutoCloseTicks"/> тактов (раньше соседи держали её открытой).</summary>
         [Fact]
-        public void D12_Stays_Open_While_Player_Neighbor()
+        public void D12_Closes_While_Player_Neighbor_Outside_Hitbox()
         {
             var sim = new Simulation(Flat());
             PlaceDoor(sim, 110, 100, open: true);
-            int me = sim.AddEntity(TileCenter(109, 100)); // соседний тайл, не проём; стоит (ввода нет)
-            for (int t = 0; t < 3 * Simulation.DoorAutoCloseTicks; t++)
+            sim.AddEntity(TileCenter(109, 100)); // соседний тайл, не проём; стоит (ввода нет)
+            int closed = -1;
+            for (int t = 1; t <= 3 * Simulation.DoorAutoCloseTicks && closed < 0; t++)
             {
                 sim.Step();
+                if (!IsOpen(sim, 110, 100))
+                {
+                    closed = t;
+                }
             }
 
-            Assert.True(IsOpen(sim, 110, 100), "закрылась при игроке в соседнем тайле");
+            Assert.True(closed > 0 && closed <= 16, $"закрылась за {closed}");
         }
 
         /// <summary>Индекс дверей: регистрация при постановке, снос снимает (лениво), новая Simulation строит индекс из мира.</summary>
@@ -271,13 +277,16 @@ namespace Orpheus.Tests
             Assert.False(IsOpen(sim, 110, 100), "открылась в продлённом замке");
 
             // F убрали — замок (последнее продление) истекает, шаг к двери открывает её.
+            // C-014: открытая дверь за прошедшим закрывается уже через 15 тактов — проверяем, что открылась.
             sim.SetInput(me, new InputFrame(Input8.North));
-            for (int t = 0; t < Simulation.DoorLockTicks + 10; t++)
+            bool opened = false;
+            for (int t = 0; t < Simulation.DoorLockTicks + 10 && !opened; t++)
             {
                 sim.Step();
+                opened = IsOpen(sim, 110, 100);
             }
 
-            Assert.True(IsOpen(sim, 110, 100), "не открылась шагом после истечения замка");
+            Assert.True(opened, "не открылась шагом после истечения замка");
         }
     }
 }
