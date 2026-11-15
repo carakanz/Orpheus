@@ -252,6 +252,12 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            if (BuildCells.IsCellBuilding(m.Obj))
+            {
+                PlaceCells(p, s, pos, m); // E2-12: стена, забор, дверь — ячейки 0,5 × 0,5 (NetServer.Cells.cs)
+                return;
+            }
+
             EditReply first = EditReply.Accepted;
             int queued = 0;
             for (int i = 0; i < n; i++)
@@ -419,7 +425,9 @@ namespace Orpheus.Net.Session
 
                 if (reply == EditReply.Accepted)
                 {
-                    s!.PendingMask[k] |= 1u << (ev.Tag & ((1 << TagLineBits) - 1));
+                    // E2-12: правка тайла стены — несколько ячеек линии подряд (число − 1 — в битах TagCountShift).
+                    int count = ((ev.Tag >> TagCountShift) & 3) + 1;
+                    s!.PendingMask[k] |= ((1u << count) - 1) << (ev.Tag & ((1 << TagLineBits) - 1));
                 }
                 else if (s!.PendingFirst[k] == EditReply.Accepted)
                 {

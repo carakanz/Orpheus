@@ -175,6 +175,7 @@ namespace Orpheus.Core.Sim
         {
             TileCoord tile = TileOf(chunk, edit.Index);
             bool blocks = EditRules.BlocksCreature(edit.Obj);
+            byte cells = BuildCells.MaskOf(edit.Obj, edit.HasRecord, edit.Record); // E2-12: стена — только её ячейки
             EditResult result = EditResult.Applied;
             for (int i = 0; i < _entityCount; i++)
             {
@@ -184,7 +185,7 @@ namespace Orpheus.Core.Sim
                 }
 
                 WorldPos p = _entities[i].Mover.Position;
-                if (blocks && EditRules.Overlaps(_shape, p, tile))
+                if (blocks && Collision.CircleOverlapsCells(_shape, p, tile, cells))
                 {
                     return EditResult.Occupied;
                 }
@@ -377,7 +378,7 @@ namespace Orpheus.Core.Sim
 
                     // Возврат оплаченного (1-011): «занято существом»/«враг»/«занято» после пачки — сумка целая
                     // (`05` 1.4: «его ресурсы не списаны»).
-                    if (_costPaid[i] == 2 && result != EditResult.Applied)
+                    if (_costPaid[i] == CostPaidRepair && result != EditResult.Applied)
                     {
                         RefundRepair(i, req); // E2-5: починка оплачена, но не применилась
                     }
@@ -396,7 +397,7 @@ namespace Orpheus.Core.Sim
                         // обломки ранней расчистки молотом — ничего.
                         if (_preHasBuild[i] && !_preBuild[i].IsDebris)
                         {
-                            GiveBuildRefund(tick, TileOf(chunk, _edits[i].Edit.Index), _preObj[i], _preFloor[i]);
+                            GiveBuildRefund(tick, TileOf(chunk, _edits[i].Edit.Index), _preObj[i], _preFloor[i], BuildCells.MaskOf(_preObj[i], true, _preBuild[i]));
                         }
                     }
                 }

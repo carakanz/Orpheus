@@ -608,7 +608,8 @@ namespace Orpheus.Save
             var coords = new List<ChunkCoord>();
             var revisions = new List<uint>();
             var blobs = new List<byte[]>();
-            var copies = new List<byte[]>();
+            var copies = new List<byte[]?>();
+            int legacyWalls = 0; // E2-12: стен, заборов, дверей старых форматов, переведённых в ячейки
             var check = new Chunk();
             int total = shape.ChunksX * shape.ChunksY;
             r = new RecordReader(file.Section(SaveSections.Chunks));
@@ -677,10 +678,11 @@ namespace Orpheus.Save
 
                 byte[] blob = Chunk.Decompress(data);
                 check.ReadBlob(blob); // проверка блока до того, как трогать мир
+                bool converted = file.Header.FormatVersion < 10 && LegacyWalls.Convert(blob, ref legacyWalls); // E2-12
                 coords.Add(c);
                 revisions.Add(revision);
                 blobs.Add(blob);
-                copies.Add(data);
+                copies.Add(converted ? null : data);
             }
 
             // СУЩЕСТВА.
@@ -768,6 +770,10 @@ namespace Orpheus.Save
             // Остаток старых сумок (формат 4–6 → 7, E2-1): кучами на землю, без срока исчезновения — ничего не теряется.
             nextPileId = Math.Max(nextPileId, piles.Count > 0 ? piles[piles.Count - 1].Id + 1 : 1);
             string[] notes = legacy.ToPiles(piles, ref nextPileId, file.Header.WorldTick);
+            if (legacyWalls > 0)
+            {
+                notes = LegacyWalls.AddNote(notes, legacyWalls, file.Header.FormatVersion);
+            }
 
             return new LoadedWorldState(
                 file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count, characters.ToArray(),

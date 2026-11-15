@@ -14,6 +14,27 @@ namespace Orpheus.Core.Sim
         /// <summary>Ячейка заявки постановки «любая с этим предметом» (правки без ячейки: тесты, внутренние вызовы).</summary>
         public const byte AnyCell = 0xFF;
 
+        // _costPaid: 1…4 — снято предметов-построек за постановку (E2-12: по предмету на ячейку стены); это — починка (E2-5).
+        private const byte CostPaidRepair = 0x80;
+
+        /// <summary>
+        /// Сколько предметов стоит правка-постановка (E2-12): стена и забор — по одному на добавленную ячейку
+        /// (ячеек в новой маске минус ячеек того же вида до пачки), дверь и прочее — один.
+        /// </summary>
+        private int PlacementUnits(int i)
+        {
+            TileEdit edit = _edits[i].Edit;
+            if (!BuildCells.IsCellBuilding(edit.Obj) || ObjectId.IdOf(edit.Obj) == ObjectId.Door)
+            {
+                return 1;
+            }
+
+            byte after = BuildCells.MaskOf(edit.Obj, edit.HasRecord, edit.Record);
+            byte before = _preObj[i] == edit.Obj ? BuildCells.MaskOf(_preObj[i], _preHasBuild[i], _preBuild[i]) : (byte)0;
+            int n = BuildCells.Count((byte)(after & ~before));
+            return n < 1 ? 1 : n;
+        }
+
         /// <summary>
         /// Постройка правки-постановки: ключ — id объекта; для пола — ключ <b>построенного</b> пола в слое пола
         /// (природные полы 1…7 с постройками не путаются: снос и копание ничего не стоят).
@@ -42,9 +63,10 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
+            int units = PlacementUnits(i);
             int slot = SlotOf(e.Requester);
             int cell = slot < 0 ? -1 : CellWith(in _entities[slot].Inv, def.Item, e.Cell);
-            if (cell < 0 || _entities[slot].Inv.TakeFrom(cell, 1) != 1)
+            if (cell < 0 || _entities[slot].Inv.CountIn(cell) < units || _entities[slot].Inv.TakeFrom(cell, units) != units)
             {
                 _preResult[i] = EditResult.NoResources;
                 return;
@@ -55,7 +77,7 @@ namespace Orpheus.Core.Sim
                 e = new EditRequest(e.Chunk, e.Arrival, e.Edit, e.Requester, e.Tag, e.CheckCreatures, e.Repair, (byte)cell);
             }
 
-            _costPaid[i] = 1;
+            _costPaid[i] = (byte)units;
         }
 
         // Ячейка, из которой брать: названная — если в ней этот предмет; «любая» — первая по номеру с ним; иначе −1.
@@ -101,15 +123,17 @@ namespace Orpheus.Core.Sim
 
             ref Inventory inv = ref _entities[slot].Inv;
             int cell = _edits[i].Cell;
-            if (cell < Inventory.Cells && (inv.CountIn(cell) == 0 || (inv.ItemAt(cell) == def.Item && inv.CountIn(cell) < ItemTable.MaxStackOf(def.Item))))
+            int units = _costPaid[i];
+            if (cell < Inventory.Cells && (inv.CountIn(cell) == 0 || (inv.ItemAt(cell) == def.Item && inv.CountIn(cell) + units <= ItemTable.MaxStackOf(def.Item))))
             {
-                inv.SetCell(cell, def.Item, inv.CountIn(cell) + 1);
+                inv.SetCell(cell, def.Item, inv.CountIn(cell) + units);
                 return;
             }
 
-            if (inv.Add(def.Item, 1) == 0)
+            int added = inv.Add(def.Item, units);
+            if (added < units)
             {
-                SpawnPile(Tick, def.Item, 1, _entities[slot].Mover.Position, DropPickupDelayTicks);
+                SpawnPile(Tick, def.Item, units - added, _entities[slot].Mover.Position, DropPickupDelayTicks);
             }
         }
 
@@ -117,15 +141,17 @@ namespace Orpheus.Core.Sim
         /// Возврат при сносе (E2-11, как в Terraria): один предмет-постройка кучей на тайл постройки (подбирает любой, кто
         /// подойдёт), а не материалы. Обломки (разрушили враги, снос под ударом) сюда не попадают — ничего (<c>05</c> 1.3).
         /// </summary>
-        private void GiveBuildRefund(long tick, TileCoord tile, ushort preObj, byte preFloor)
+        private void GiveBuildRefund(long tick, TileCoord tile, ushort preObj, byte preFloor, byte preCells)
         {
+            // E2-12: стена и забор — по предмету на ячейку (старая стена в 1 тайл — 4 ячейки), дверь — один.
+            int units = BuildCells.IsCellBuilding(preObj) && ObjectId.IdOf(preObj) != ObjectId.Door ? BuildCells.Count(preCells) : 1;
             ushort key = preObj != ObjectId.Empty ? preObj : BuildDefs.FloorKey(preFloor); // постройка — id объекта; снос пола — ключ пола (E2-5)
             if ((preObj == ObjectId.Empty && !FloorId.IsBuilt(preFloor)) || !BuildDefs.TryGet(key, out BuildDef def))
             {
                 return;
             }
 
-            DropOnTile(tick, tile, def.Item, 1);
+            DropOnTile(tick, tile, def.Item, units);
         }
     }
 }

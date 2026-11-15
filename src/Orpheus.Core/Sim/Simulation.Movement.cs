@@ -12,7 +12,7 @@ namespace Orpheus.Core.Sim
     /// <summary>
     /// P-002: partial Simulation - per-file code motion, no behavior change.
     /// </summary>
-    public sealed partial class Simulation
+    public sealed partial class Simulation : ITileCells
     {
         /// <summary>Целочисленный √ (метод по разрядам; детерминирован, без float).</summary>
         private static int ISqrt(long n)
@@ -171,6 +171,35 @@ namespace Orpheus.Core.Sim
             }
 
             return !ObjectId.IsPassable(obj, record.Flags);
+        }
+
+        /// <summary>
+        /// Твёрдые ячейки тайла 0,5 × 0,5 (E2-12, <see cref="ITileCells"/>): у стены, забора, закрытой двери — маска записи
+        /// (<see cref="BuildCells.MaskOf"/>), у остального твёрдого (пол, природные, верстак…) — весь тайл. Спрашивается
+        /// только о тайле, который <see cref="IsBlocked"/> назвал твёрдым: столкновения сервера, предсказания и ботов.
+        /// </summary>
+        public byte SolidCells(MapShape map, TileCoord tile)
+        {
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
+            if (chunk == null)
+            {
+                return BuildCells.Full;
+            }
+
+            int index = Chunk.IndexOf(tile.X, tile.Y);
+            if (!FloorId.IsPassable(chunk.GetFloor(index)))
+            {
+                return BuildCells.Full;
+            }
+
+            ushort obj = chunk.GetObject(index);
+            if (!BuildCells.IsCellBuilding(obj))
+            {
+                return BuildCells.Full;
+            }
+
+            bool has = chunk.TryGetBuild(index, out BuildRecord record);
+            return BuildCells.MaskOf(obj, has, record);
         }
     }
 }

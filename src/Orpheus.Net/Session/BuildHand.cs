@@ -8,8 +8,11 @@ namespace Orpheus.Net.Session
     /// <summary>Куда уходят заявки стройки (E2-5): клиент сети (<see cref="NetClient"/>) или показ без сервера.</summary>
     public interface IBuildRequests
     {
-        /// <summary>Поставить линию от тайла до тайла предметом из ячейки панели (с предсказанием, как у клиента сети); номер запроса, 0 — не ушло.</summary>
-        ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell);
+        /// <summary>
+        /// Поставить линию от тайла до тайла предметом из ячейки панели (с предсказанием, как у клиента сети); номер запроса, 0 — не ушло.
+        /// <paramref name="quad"/> (E2-12) — четверти начала (биты 0–1) и конца (2–3): стена, забор, дверь ставятся ячейками 0,5 × 0,5.
+        /// </summary>
+        ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad);
 
         /// <summary>Починить постройку на тайле; номер запроса, 0 — не ушло.</summary>
         ushort Repair(TileCoord tile);
@@ -48,8 +51,12 @@ namespace Orpheus.Net.Session
         public readonly Material Material1, Material2;
         public readonly int Count1, Count2;
 
-        public BuildCheck(BuildAction action, EditReply reply, ushort key, Material m1, int c1, Material m2, int c2)
+        /// <summary>Ячейки 0,5 × 0,5 тайла, которые займёт постановка (E2-12, <see cref="BuildCells.Bit"/>); 0 — весь тайл.</summary>
+        public readonly byte Cells;
+
+        public BuildCheck(BuildAction action, EditReply reply, ushort key, Material m1, int c1, Material m2, int c2, byte cells = 0)
         {
+            Cells = cells;
             Action = action;
             Reply = reply;
             Key = key;
@@ -105,7 +112,15 @@ namespace Orpheus.Net.Session
         /// себя; ячейка пуста — «нет ресурсов»). В руке молот — починка повреждённой постройки (<see cref="EditRules.CheckRepair"/>,
         /// цена по сумке); целая или пусто — <see cref="EditReply.Intact"/> / <see cref="EditReply.Empty"/>. Иначе — «нельзя».
         /// </summary>
-        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile)
+        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile) =>
+            Check(world, self, bag, cell, alive, tile, 0);
+
+        /// <summary>
+        /// Как <see cref="Check(WorldModel, WorldPos, in Inventory, int, bool, TileCoord)"/>, с ячейкой 0,5 × 0,5 под курсором
+        /// (<paramref name="quad"/>: бит 0 — восточная половина, бит 1 — южная; E2-12): стена и забор — эта ячейка, дверь — пара
+        /// ячеек тайла вдоль стены (<see cref="BuildCells.DoorMaskFor"/>); проверка — <see cref="BuildCells.CheckPlace"/>.
+        /// </summary>
+        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad)
         {
             byte held = bag.ItemAt(cell);
             if (IsHammer(held))
@@ -126,8 +141,24 @@ namespace Orpheus.Net.Session
             }
 
             BuildDefs.TryGet(key, out BuildDef def);
-            EditReply reply = EditRules.CheckPlaceTile(world, self, tile, key);
-            if (reply == EditReply.Accepted && EditRules.BlocksCreature(key) && !EditRules.IsFloorKey(key) && EditRules.Overlaps(world.Shape, self, tile))
+            byte cells = 0;
+            EditReply reply;
+            if (BuildCells.IsCellBuilding(key))
+            {
+                byte want = ObjectId.IdOf(key) == ObjectId.Door ? BuildCells.DoorMaskFor(world, tile, quad & 3) : BuildCells.Bit(quad & 1, (quad >> 1) & 1);
+                reply = BuildCells.CheckPlace(world, self, tile, key, want, out _, out cells);
+                cells = reply == EditReply.Accepted ? cells : want;
+                if (reply == EditReply.Accepted && Orpheus.Core.Movement.Collision.CircleOverlapsCells(world.Shape, self, Torus.Wrap(world.Shape, tile), cells))
+                {
+                    reply = EditReply.Occupied; // ячейка — не на себя (`05` 1.3)
+                }
+            }
+            else
+            {
+                reply = EditRules.CheckPlaceTile(world, self, tile, key);
+            }
+
+            if (reply == EditReply.Accepted && !BuildCells.IsCellBuilding(key) && EditRules.BlocksCreature(key) && !EditRules.IsFloorKey(key) && EditRules.Overlaps(world.Shape, self, tile))
             {
                 reply = EditReply.Occupied; // непроходимое — не на себя (`05` 1.3); чужих существ проверит сервер
             }
@@ -137,16 +168,20 @@ namespace Orpheus.Net.Session
                 reply = EditReply.NoResources;
             }
 
-            return new BuildCheck(BuildAction.Place, alive ? reply : EditReply.Dead, key, def.Material1, def.Count1, def.Material2, def.Count2);
+            return new BuildCheck(BuildAction.Place, alive ? reply : EditReply.Dead, key, def.Material1, def.Count1, def.Material2, def.Count2, cells);
         }
 
         /// <summary>
         /// ЛКМ по тайлу предметом ячейки <paramref name="cell"/>: проверка <see cref="Check"/>; можно — заявка (постановка с
         /// предсказанием или починка), иначе заявки нет. Возвращает проверку (причину покажет призрак / строка у курсора).
         /// </summary>
-        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile)
+        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile) =>
+            Click(world, self, bag, cell, alive, tile, 0);
+
+        /// <summary>ЛКМ по ячейке 0,5 × 0,5 (<paramref name="quad"/> — четверть в тайле, E2-12); см. <see cref="Check(WorldModel, WorldPos, in Inventory, int, bool, TileCoord, int)"/>.</summary>
+        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad)
         {
-            BuildCheck c = Check(world, self, bag, cell, alive, tile);
+            BuildCheck c = Check(world, self, bag, cell, alive, tile, quad);
             if (!c.Ok)
             {
                 return c;
@@ -163,7 +198,7 @@ namespace Orpheus.Net.Session
             }
             else
             {
-                Sent(_requests.Place(tile, tile, c.Key, self, (byte)cell));
+                Sent(_requests.Place(tile, tile, c.Key, self, (byte)cell, (byte)((quad & 3) | ((quad & 3) << 2))));
             }
 
             return c;
@@ -174,14 +209,21 @@ namespace Orpheus.Net.Session
         /// тайлам решает сервер (`05` 1.4: линия до 32 тайлов, по предмету на тайл; где предметы кончились — «нет ресурсов»).
         /// В ячейке не постройка — 0. Возвращает номер запроса; 0 — не ушло.
         /// </summary>
-        public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self, in Inventory bag, int cell)
+        public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self, in Inventory bag, int cell) =>
+            PlaceLine(from, to, self, bag, cell, 0, 0);
+
+        /// <summary>
+        /// Линия с четвертями (E2-12): стена и забор — ячейки от ячейки <paramref name="fromQuad"/> тайла <paramref name="from"/>
+        /// до ячейки <paramref name="toQuad"/> тайла <paramref name="to"/> (до 32 ячеек, по предмету на ячейку).
+        /// </summary>
+        public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self, in Inventory bag, int cell, int fromQuad, int toQuad)
         {
             if ((uint)cell >= Inventory.Slots || !IsBuildItem(bag.ItemAt(cell), out ushort key))
             {
                 return 0;
             }
 
-            return Sent(_requests.Place(from, to, key, self, (byte)cell));
+            return Sent(_requests.Place(from, to, key, self, (byte)cell, (byte)((fromQuad & 3) | ((toQuad & 3) << 2))));
         }
 
         private ushort Sent(ushort id)

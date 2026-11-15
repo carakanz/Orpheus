@@ -38,6 +38,9 @@ namespace Orpheus.Net.Session
             public byte Item;
             public byte Cell;
             public ushort InvVersion;
+
+            // Предметов снято за эту запись (E2-12: тайл стены — по предмету на ячейку); 0 — один (прежние записи).
+            public byte Count;
         }
 
         private readonly System.Collections.Generic.List<SpendEntry> _spends = new System.Collections.Generic.List<SpendEntry>();
@@ -126,8 +129,20 @@ namespace Orpheus.Net.Session
         /// из ячейки на тайл: где предметы кончились — предсказание останавливается, сервер ответит «нет ресурсов».
         /// Возвращает номер запроса; линия длиннее 32, ячейка вне панели или не в игре — 0.
         /// </summary>
-        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell)
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell) => Place(from, to, obj, self, cell, 0);
+
+        /// <summary>
+        /// «Поставить» с четвертями (E2-12, протокол 26): <paramref name="quad"/> — биты 0–1 ячейка 0,5 × 0,5 в тайле начала,
+        /// биты 2–3 — в тайле конца (<see cref="TileRequestMessage.Quad"/>). Стена, забор, дверь — ячейками
+        /// (<see cref="PlaceCells"/>), остальное — как <see cref="Place(TileCoord, TileCoord, ushort, WorldPos, byte)"/>.
+        /// </summary>
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad)
         {
+            if (BuildCells.IsCellBuilding(obj))
+            {
+                return PlaceCells(from, to, obj, self, cell, (byte)(quad & 15));
+            }
+
             if (State != NetClientState.InGame || World == null || cell >= Inventory.Slots)
             {
                 return 0;
@@ -307,13 +322,14 @@ namespace Orpheus.Net.Session
                 }
 
                 var inv = Inv;
+                int units = e.Count == 0 ? 1 : e.Count;
                 if (inv.CountIn(e.Cell) == 0 || inv.ItemAt(e.Cell) == e.Item)
                 {
-                    inv.SetCell(e.Cell, e.Item, inv.CountIn(e.Cell) + 1);
+                    inv.SetCell(e.Cell, e.Item, inv.CountIn(e.Cell) + units);
                 }
                 else
                 {
-                    inv.Add(e.Item, 1);
+                    inv.Add(e.Item, units);
                 }
 
                 Inv = inv;
