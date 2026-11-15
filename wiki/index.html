@@ -69,6 +69,8 @@ ul.plain{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 .review button.on.warn{background:var(--warn);color:var(--bg);border-color:var(--warn)}
 .review button.on.bad{background:var(--bad);color:var(--bg);border-color:var(--bad)}
 .review button:disabled{opacity:.5;cursor:not-allowed}
+.review button.mic{margin-left:auto}
+.review button.mic.on{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 .review textarea{width:100%;min-height:72px;font:14px var(--f-body);padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);resize:vertical}
 .saved{font-size:12px;color:var(--muted);min-height:1em}
 .tablewrap{overflow:auto;max-height:78vh;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
@@ -149,7 +151,7 @@ async function loadNotes(){
   const note=document.getElementById('dbnote');
   try{ const r=await fetch('api/notes',{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
     const data=await r.json(); const busy=document.activeElement&&document.activeElement.tagName==='TEXTAREA';
-    for(const[k,v]of Object.entries(data)){ if(!(busy&&document.activeElement.id==='c-'+k)) S.reviews[k]=v; }
+    for(const[k,v]of Object.entries(data)){ if(!(busy&&document.activeElement.id==='c-'+k)&&S.dictating!==k) S.reviews[k]=v; }
     note.hidden=true; S.canWrite=true; loadedOnce=true; refreshReviews(); renderProgress();
   }catch(e){ note.hidden=false; S.canWrite=loadedOnce; note.textContent='Сервер отметок не отвечает ('+e.message+'). Читать можно; отметки сохранятся, когда сервер вернётся. Запуск: python wiki/server.py'; refreshReviews(); }
 }
@@ -165,18 +167,43 @@ function saveReview(k,patch,meta){
     .catch(e=>mark(k,'не сохранено ('+e.message+')'));
 }
 function mark(k,t){ document.querySelectorAll('[data-saved="'+k+'"]').forEach(el=>el.textContent=t); }
+/* ---------- голосовой ввод комментария (Web Speech API; нужен HTTPS или localhost) ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
+let dict=null; // {k, rec, ta, mic, base, meta, stopping}
+function stopDictation(){ if(!dict) return; dict.stopping=true; try{ dict.rec.stop(); }catch(e){} }
+function finishDictation(){ if(!dict) return; const d=dict; dict=null; S.dictating=null;
+  d.mic.classList.remove('on'); d.mic.setAttribute('aria-pressed','false'); d.mic.textContent='🎤 Диктовать';
+  d.ta.value=d.base; if(d.base!==d.orig) saveReview(d.k,{comment:d.base},d.meta); }
+function toggleDictation(k,ta,mic,meta){
+  if(dict&&dict.k===k){ stopDictation(); return; }
+  if(dict) stopDictation();
+  const rec=new SR(); rec.lang='ru-RU'; rec.continuous=true; rec.interimResults=true;
+  const base=ta.value&&!/\s$/.test(ta.value)?ta.value+' ':ta.value;
+  dict={k,rec,ta,mic,base,meta,orig:ta.value,stopping:false}; S.dictating=k;
+  mic.classList.add('on'); mic.setAttribute('aria-pressed','true'); mic.textContent='■ Стоп'; mark(k,'слушаю…');
+  rec.onresult=ev=>{ if(!dict||dict.rec!==rec) return; let interim='';
+    for(let i=ev.resultIndex;i<ev.results.length;i++){ const r=ev.results[i]; const s=r[0].transcript;
+      if(r.isFinal){ dict.base+=s.trim()+' '; saveReview(k,{comment:dict.base.trimEnd()},meta); } else interim+=s; }
+    ta.value=dict.base+interim; };
+  rec.onerror=ev=>{ if(!dict||dict.rec!==rec) return; if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){ mark(k,'нет доступа к микрофону — разрешите его в браузере'); dict.stopping=true; }
+    else if(ev.error==='no-speech'){ /* тишина — продолжаем */ } else mark(k,'диктовка: '+ev.error); };
+  rec.onend=()=>{ if(!dict||dict.rec!==rec) return; if(dict.stopping){ dict.base=dict.base.trimEnd(); finishDictation(); return; }
+    try{ rec.start(); }catch(e){ dict.base=dict.base.trimEnd(); finishDictation(); } }; // браузер сам обрывает длинную сессию — продолжаем
+  try{ rec.start(); }catch(e){ dict=null; S.dictating=null; mic.classList.remove('on'); mic.textContent='🎤 Диктовать'; mark(k,'диктовка не запустилась'); }
+}
 function reviewBox(kind,id,title){
   const k=key(kind,id); const box=$('div',{class:'review','data-review':k});
   const mk=(st,label,cls)=>$('button',{type:'button','data-st':st,class:cls,onclick:()=>saveReview(k,{status:(S.reviews[k]||{}).status===st?'':st},{kind,title})},label);
   const ta=$('textarea',{id:'c-'+k,placeholder:'Комментарий: что поменять, добавить, убрать…'});
   let t=null; ta.addEventListener('input',()=>{ clearTimeout(t); mark(k,'…'); t=setTimeout(()=>saveReview(k,{comment:ta.value},{kind,title}),900); });
-  box.append($('h3',{},'Решение Автора'),$('div',{class:'row'},mk('accepted','Принято','ok'),mk('changes','Нужна правка','warn'),mk('rejected','Убрать','bad')),ta,$('div',{class:'saved','data-saved':k}));
+  const mic=SR?$('button',{type:'button',class:'mic','data-mic':k,title:'Диктовать комментарий голосом (нажмите ещё раз — стоп)','aria-pressed':'false',onclick:()=>toggleDictation(k,ta,mic,{kind,title})},'🎤 Диктовать'):null;
+  box.append($('h3',{},'Решение Автора'),$('div',{class:'row'},mk('accepted','Принято','ok'),mk('changes','Нужна правка','warn'),mk('rejected','Убрать','bad'),mic),ta,$('div',{class:'saved','data-saved':k}));
   fillReview(box); return box;
 }
 function fillReview(box){
   const k=box.dataset.review; const r=S.reviews[k]||{};
   box.querySelectorAll('button[data-st]').forEach(b=>{ b.classList.toggle('on',r.status===b.dataset.st); b.disabled=!S.canWrite; });
-  const ta=box.querySelector('textarea'); if(document.activeElement!==ta) ta.value=r.comment||''; ta.disabled=!S.canWrite;
+  const ta=box.querySelector('textarea'); if(document.activeElement!==ta&&S.dictating!==k) ta.value=r.comment||''; ta.disabled=!S.canWrite;
   const s=box.querySelector('.saved'); if(r.updatedAt&&(!s.textContent||s.textContent==='сохранено')) s.textContent='отмечено '+new Date(r.updatedAt).toLocaleString('ru-RU');
 }
 function refreshReviews(){ document.querySelectorAll('.review').forEach(fillReview); document.querySelectorAll('[data-dot]').forEach(d=>{ d.className='st '+((S.reviews[d.dataset.dot]||{}).status||''); }); }
@@ -286,7 +313,7 @@ function renderTabs(){ const t=document.getElementById('tabs'); t.replaceChildre
   $('button',{type:'button','aria-pressed':String(S.view==='map'),onclick:()=>{S.view='map';history.replaceState(null,'','#map');render();}},'Карта'),
   Object.entries(KINDS).map(([k,v])=>$('button',{type:'button','aria-pressed':String(S.view===k),onclick:()=>{S.view=k;history.replaceState(null,'','#'+k);render();}},v.tab,$('span',{class:'n'},L(k).length))),
   $('button',{type:'button','aria-pressed':String(S.view==='notes'),onclick:()=>{S.view='notes';history.replaceState(null,'','#notes');render();}},'Расхождения')].flat()); }
-function render(){ if(!S.cat) return; renderTabs(); const m=document.getElementById('main'); m.replaceChildren(S.view==='map'?viewMap():S.view==='notes'?viewNotes():listView(S.view)); refreshReviews(); renderProgress(); }
+function render(){ if(!S.cat) return; if(dict){ dict.stopping=true; const d=dict; try{ d.rec.stop(); }catch(e){} d.base=d.base.trimEnd(); finishDictation(); } renderTabs(); const m=document.getElementById('main'); m.replaceChildren(S.view==='map'?viewMap():S.view==='notes'?viewNotes():listView(S.view)); refreshReviews(); renderProgress(); }
 const q=document.getElementById('q'), res=document.getElementById('results');
 q.addEventListener('input',()=>{ const n=norm(q.value); if(n.length<2){ res.hidden=true; return; } const out=[];
   for(const[k,v]of Object.entries(KINDS)) for(const o of L(k)){ const hay=norm(o.name+' '+(o.aliases||[]).join(' ')); const deep=norm(txt(o.description)+' '+txt(o.use)); const sc=hay.startsWith(n)?0:hay.includes(n)?1:deep.includes(n)?2:-1; if(sc>=0) out.push([sc,k,o]); }
