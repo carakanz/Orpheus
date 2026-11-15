@@ -29,19 +29,14 @@ namespace Orpheus.Net.Session
         private ushort _digObj;
         private byte _lastSlot; // ячейка быстрой панели последнего отправленного кадра (предмет в руках для предсказания)
 
-        // Траты и возвраты предсказаний (1-011): постановка — списание по бюджету линии; снос — возврат по рецепту.
-        // Отказ сервера по тайлу (нет бита в маске) — снятое предсказание обратно, если сводка сумки с тех пор не приходила.
+        // Траты предсказаний постановки (E2-11): по предмету-постройке из ячейки панели на тайл линии. Отказ сервера по тайлу
+        // (нет бита в маске) — предмет обратно в ячейку, если сводка сумки с тех пор не приходила (иначе в ней уже правда).
         private struct SpendEntry
         {
             public ushort Request;
             public byte LineIndex;
-            public Material Material1;
-            public Material Material2;
-            public int Count1;
-            public int Count2;
-
-            /// <summary>Предсказано списание (постановка): отказ — добавить. Иначе предсказан возврат: отказ — снять.</summary>
-            public bool WasSpend;
+            public byte Item;
+            public byte Cell;
             public ushort InvVersion;
         }
 
@@ -125,15 +120,15 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
-        /// «Поставить»: линия от <paramref name="from"/> до <paramref name="to"/> (до 32 тайлов), объект <paramref name="obj"/>
-        /// (пол-ключи 8…10 — построенный пол). Тайлы, которые по своему миру и позиции <paramref name="self"/> проходят проверку,
-        /// предсказываются сразу, стоимость списывается с локальной сумки по бюджету линии (1-011, <c>05</c> 1.4): где сумка
-        /// кончилась — предсказание останавливается, сервер ответит на эти тайлы «нет ресурсов». Возвращает номер запроса;
-        /// линия длиннее 32 или не в игре — 0.
+        /// «Поставить» (E2-11): линия от <paramref name="from"/> до <paramref name="to"/> (до 32 тайлов), постройка
+        /// <paramref name="obj"/> (ключ <see cref="BuildDefs"/>; пол — ключ пола) предметом из ячейки панели <paramref name="cell"/>.
+        /// Тайлы, которые по своему миру и позиции <paramref name="self"/> проходят проверку, предсказываются сразу, по предмету
+        /// из ячейки на тайл: где предметы кончились — предсказание останавливается, сервер ответит «нет ресурсов».
+        /// Возвращает номер запроса; линия длиннее 32, ячейка вне панели или не в игре — 0.
         /// </summary>
-        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self)
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell)
         {
-            if (State != NetClientState.InGame || World == null)
+            if (State != NetClientState.InGame || World == null || cell >= Inventory.Slots)
             {
                 return 0;
             }
@@ -146,7 +141,7 @@ namespace Orpheus.Net.Session
 
             ushort id = NextRequest();
             bool floorKey = EditRules.IsFloorKey(obj);
-            BuildDefs.TryGet(obj, out BuildDef def); // IsPlaceable ⇒ def; смета и предсказание сходятся по таблице
+            bool free = !BuildDefs.TryGet(obj, out BuildDef def); // ковёр, шипы — вне таблицы: без предмета (как у сервера)
             var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
             for (int i = 0; i < n; i++)
             {
@@ -156,9 +151,9 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                if (!inv.Spend(def.Material1, def.Count1, def.Material2, def.Count2))
+                if (!free && (inv.ItemAt(cell) != def.Item || inv.TakeFrom(cell, 1) != 1))
                 {
-                    break; // «ресурсы кончились посреди линии» (`05` 1.4): остаток линии не предсказываем
+                    break; // «предметы кончились посреди линии» (`05` 1.4): остаток линии не предсказываем
                 }
 
                 byte floor = World.World.GetFloor(t);
@@ -168,32 +163,27 @@ namespace Orpheus.Net.Session
                     : new TileEdit(0, floor, obj, rec);
                 if (!World.Predict(id, i, t, edit))
                 {
-                    inv.Add(def.Material1, def.Count1); // чанка нет — предсказания нет, трата отменяется
-                    if (def.Count2 > 0)
+                    if (!free)
                     {
-                        inv.Add(def.Material2, def.Count2);
+                        inv.SetCell(cell, def.Item, inv.CountIn(cell) + 1); // чанка нет — предсказания нет, предмет на место
                     }
 
                     continue;
                 }
 
-                _spends.Add(new SpendEntry
+                if (free)
                 {
-                    Request = id,
-                    LineIndex = (byte)i,
-                    Material1 = def.Material1,
-                    Material2 = def.Material2,
-                    Count1 = def.Count1,
-                    Count2 = def.Count2,
-                    WasSpend = true,
-                    InvVersion = InvVersion,
-                });
+                    continue;
+                }
+
+                _spends.Add(new SpendEntry { Request = id, LineIndex = (byte)i, Item = def.Item, Cell = cell, InvVersion = InvVersion });
             }
 
             Inv = inv;
             SendRequest(new TileRequestMessage
             {
                 RequestId = id, Op = TileOp.Place, Frame = _input.LastFrame + 1, From = Torus.Wrap(World.Shape, from), To = Torus.Wrap(World.Shape, to), Obj = obj,
+                Cell = cell,
             });
             return id;
         }
@@ -317,21 +307,13 @@ namespace Orpheus.Net.Session
                 }
 
                 var inv = Inv;
-                if (e.WasSpend)
+                if (inv.CountIn(e.Cell) == 0 || inv.ItemAt(e.Cell) == e.Item)
                 {
-                    inv.Add(e.Material1, e.Count1);
-                    if (e.Count2 > 0)
-                    {
-                        inv.Add(e.Material2, e.Count2);
-                    }
+                    inv.SetCell(e.Cell, e.Item, inv.CountIn(e.Cell) + 1);
                 }
                 else
                 {
-                    inv.Spend(e.Material1, e.Count1);
-                    if (e.Count2 > 0)
-                    {
-                        inv.Spend(e.Material2, e.Count2);
-                    }
+                    inv.Add(e.Item, 1);
                 }
 
                 Inv = inv;

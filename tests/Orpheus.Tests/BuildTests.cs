@@ -87,35 +87,88 @@ namespace Orpheus.Tests
 
         private static ushort Obj(Simulation sim, TileCoord t) => ObjectId.IdOf(sim.World.GetObject(t));
 
-        /// <summary>Поставить постройку молотом (выбор в ленте → ЛКМ) и дождаться ответа.</summary>
+        /// <summary>Ячейка панели, куда тесты кладут предмет-постройку «в руку» (в стартовом наборе пуста).</summary>
+        private const int HandCell = 7;
+
+        /// <summary>
+        /// Поставить постройку (E2-11): предмет-постройка — в ячейку <see cref="HandCell"/> (из сумки; нет предмета — «сделан» из
+        /// материалов сумки по цене <see cref="BuildDefs"/>, как рецептом; нет и материалов — ячейка пуста), ЛКМ этой ячейкой
+        /// через <see cref="BuildHand"/> и дождаться ответа. Рецепты по-настоящему — тесты <c>E211_*</c>.
+        /// </summary>
         private static BuildCheck Build(EditTests.EditRig rig, NetClient c, BuildHand hand, ushort key, TileCoord t)
         {
-            Assert.True(hand.Select(key));
-            BuildCheck chk = hand.Click(c.World!.World, Spot, c.Inv, c.HeldItem, true, t);
+            byte item = BuildDefs.ItemOf(key);
+            Inventory inv = rig.Sim.GetEntity(c.EntityId).Inv;
+            if (inv.ItemAt(HandCell) != item)
+            {
+                if (inv.ItemAt(HandCell) != Items.None)
+                {
+                    byte was = inv.ItemAt(HandCell);
+                    int n = inv.CountIn(HandCell);
+                    inv.SetCell(HandCell, Items.None, 0);
+                    Assert.Equal(n, inv.Add(was, n)); // прежнее содержимое руки — в сумку
+                }
+
+                int from = -1;
+                for (int k = Inventory.Cells - 1; k >= 0; k--)
+                {
+                    from = k != HandCell && inv.ItemAt(k) == item ? k : from;
+                }
+
+                if (from >= 0)
+                {
+                    Assert.True(inv.Move(from, HandCell));
+                }
+                else if (BuildDefs.TryGet(key, out BuildDef def) && BuildDefs.Affordable(def, inv)
+                    && inv.Spend(def.Material1, def.Count1, def.Material2, def.Count2))
+                {
+                    inv.SetCell(HandCell, item, 1);
+                }
+
+                Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
+                rig.Run(3);
+            }
+
+            BuildCheck chk = hand.Click(c.World!.World, Spot, c.Inv, HandCell, true, t);
             rig.Run(4);
             return chk;
         }
 
-        // ---------- Лента и постановка ----------
+        // ---------- Постройки — предметы (E2-11) ----------
+
+        /// <summary>Набор: по <paramref name="n"/> предметов каждой постройки ленты (в сумку).</summary>
+        private static (byte, int)[] EveryBuildItem(int n)
+        {
+            var list = new List<(byte, int)>();
+            foreach (ushort key in BuildDefs.Palette)
+            {
+                list.Add((BuildDefs.ItemOf(key), n));
+            }
+
+            return list.ToArray();
+        }
 
         /// <summary>
-        /// Каждая постройка ленты ставится через <see cref="BuildHand"/> (как ЛКМ игрока): предсказание сразу в мире клиента,
-        /// сервер принимает, материалы списаны ровно по смете; лента — данными <see cref="BuildDefs.Palette"/>.
+        /// E2-11 (<c>BRIEF</c> 11e (3): «взять стену из инвентаря и нажать, куда»): каждая постройка ставится предметом из руки
+        /// через <see cref="BuildHand"/>: предсказание сразу, сервер принимает, стопка в руке −1 (у сервера и у клиента),
+        /// материалы сумки не тронуты; молот не нужен.
         /// </summary>
         [Fact]
-        public void E25_Palette_EveryBuild_PlacedThroughBuildHand_CostSpent()
+        public void E211_EveryBuild_PlacedFromItemInHand_StackMinusOne_MaterialsUntouched()
         {
             Assert.Equal(12, BuildDefs.Palette.Length);
-            Assert.Equal(ObjectId.Chest, BuildDefs.Palette[10]);
-            Assert.Equal(ObjectId.Bed, BuildDefs.Palette[11]);
             using var rig = new EditTests.EditRig(World(), _ => Spot);
-            NetClient c = Start(rig, Kit((Items.Wood, 99), (Items.Stone, 60), (Items.Fiber, 10), (Items.Resin, 3)));
+            NetClient c = Start(rig, Kit(EveryBuildItem(2)));
+            rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, HandCell); // в руке — ячейка с постройкой, не молот
+            rig.Run(2);
             var hand = new BuildHand(c);
-            int wood = c.Inv.Count(Items.Wood), stone = c.Inv.Count(Items.Stone), fiber = c.Inv.Count(Items.Fiber), resin = c.Inv.Count(Items.Resin);
-            int needWood = 0, needStone = 0, needFiber = 0, needResin = 0;
+            int wood = Total(rig.Sim, Items.Wood), stone = Total(rig.Sim, Items.Stone), torch0 = Total(rig.Sim, Items.Torch);
             for (int k = 0; k < BuildDefs.Palette.Length; k++)
             {
                 ushort key = BuildDefs.Palette[k];
+                byte item = BuildDefs.ItemOf(key);
+                Assert.True(BuildHand.IsBuildItem(item));
+                Assert.Equal(ItemCategory.Building, ItemTable.Get(item).Category);
                 var t = key == BuildDefs.PlatformKey ? new TileCoord(306, 199) : new TileCoord(295 + k, 197);
                 BuildCheck chk = Build(rig, c, hand, key, t);
                 Assert.True(chk.Ok, $"постройка {key}: {chk.Reason}");
@@ -131,96 +184,93 @@ namespace Orpheus.Tests
                     Assert.Equal(key, ObjectId.IdOf(c.World!.World.GetObject(t)));
                 }
 
-                BuildDefs.TryGet(key, out BuildDef def);
-                foreach ((Material m, int n) in new[] { (def.Material1, def.Count1), (def.Material2, def.Count2) })
-                {
-                    switch (m)
-                    {
-                        case Material.Wood: needWood += n; break;
-                        case Material.Stone: needStone += n; break;
-                        case Material.Fiber: needFiber += n; break;
-                        case Material.Resin: needResin += n; break;
-                    }
-                }
+                int left = item == Items.Torch ? 3 + 2 - 1 : 1; // факелы: 3 стартовых в ячейке 5 + 2 из набора
+                Assert.True(left == rig.Sim.GetEntity(c.EntityId).Inv.Count(item), $"{key}: {rig.Sim.GetEntity(c.EntityId).Inv} ждали {left}");
+                Assert.True(left == c.Inv.Count(item), $"клиент {key}: {c.Inv} ждали {left}; сервер {rig.Sim.GetEntity(c.EntityId).Inv}");
             }
 
-            SimEntity e = rig.Sim.GetEntity(c.EntityId);
-            Assert.Equal(wood - needWood, e.Inv.Count(Items.Wood));
-            Assert.Equal(stone - needStone, e.Inv.Count(Items.Stone));
-            Assert.Equal(fiber - needFiber, e.Inv.Count(Items.Fiber));
-            Assert.Equal(resin - needResin, e.Inv.Count(Items.Resin));
-            Assert.Equal(e.Inv, c.Inv);
+            Assert.Equal(wood, Total(rig.Sim, Items.Wood));
+            Assert.Equal(stone, Total(rig.Sim, Items.Stone));
+            Assert.Equal(torch0 - 1, Total(rig.Sim, Items.Torch));
+            Assert.Equal(rig.Sim.GetEntity(c.EntityId).Inv, c.Inv);
             Assert.Equal(12, hand.PlaceRequests);
             Assert.Equal(0, rig.Server.EditsRefused);
-
-            // Лента листается по кругу (Q / E); подпись «есть / нужно» — по сумке.
-            hand.Select(BuildDefs.WoodFloorKey);
-            hand.Step(-1);
-            Assert.Equal(ObjectId.Bed, hand.Key);
-            hand.Step(1);
-            Assert.Equal(BuildDefs.WoodFloorKey, hand.Key);
-            (Material mat, int have, int need) = BuildHand.CostLine(ObjectId.Bed, 1, c.Inv);
-            Assert.Equal((Material.Fiber, fiber - needFiber, 5), (mat, have, need));
         }
 
         /// <summary>
-        /// «Нельзя» с причиной — той же функцией ядра, что у сервера: без молота, мёртвый, далеко, дерево, на себя,
-        /// нет ресурсов, настил на суше, пол на воде; ЛКМ по красному заявку не шлёт; сервер отвечает той же причиной.
+        /// Нет предмета — постройки нет (E2-11): пустая рука, инструмент в руке, чужая постройка в ячейке заявки — рука заявку не
+        /// шлёт, сервер отвечает «нет ресурсов», мир и сумка не меняются (материалы есть — не важно). Остальные «нельзя» с
+        /// причиной — той же функцией ядра, что у сервера: мёртвый, далеко, дерево, на себя, настил на суше, пол на воде.
         /// </summary>
         [Fact]
-        public void E25_Refusals_WithReason_SameAsServer()
+        public void E211_NoItem_NoBuild_Refusals_SameAsServer()
         {
             WorldModel w = World();
             Inventory bag = Kit((Items.Wood, 20), (Items.Stone, 20));
-            BuildCheck Check(TileCoord t, ushort key, Inventory? b = null, bool alive = true) =>
-                BuildHand.Check(w, Spot, b ?? bag, (b ?? bag).Held, alive, t, key);
+            bag.SetCell(HandCell, Items.StoneWall, 3);
+            bag.SetCell(6, Items.WoodFloor, 3);
+            BuildCheck Check(TileCoord t, int cell = HandCell, bool alive = true) => BuildHand.Check(w, Spot, bag, cell, alive, t);
 
             var free = new TileCoord(302, 200);
-            Assert.True(Check(free, ObjectId.StoneWall).Ok);
-            Inventory noHammer = bag;
-            noHammer.Select(0);
-            Assert.Equal(EditReply.ToolRequired, Check(free, ObjectId.StoneWall, noHammer).Reply);
-            Assert.Equal(EditReply.Dead, Check(free, ObjectId.StoneWall, alive: false).Reply);
-            Assert.Equal(EditReply.OutOfReach, Check(new TileCoord(307, 200), ObjectId.StoneWall).Reply);
-            Assert.Equal(EditReply.DigFirst, Check(new TileCoord(296, 203), ObjectId.StoneWall).Reply);
-            Assert.Equal(EditReply.Occupied, Check(new TileCoord(300, 200), ObjectId.StoneWall).Reply);
-            Assert.True(Check(new TileCoord(300, 200), BuildDefs.WoodFloorKey).Ok); // пол — под себя можно
-            Assert.Equal(EditReply.NoResources, Check(free, ObjectId.Bed).Reply); // волокна нет
-            Assert.Equal(EditReply.NotAllowed, Check(free, BuildDefs.PlatformKey).Reply);
-            Assert.Equal(EditReply.NeedPlatform, Check(new TileCoord(306, 199), BuildDefs.WoodFloorKey).Reply);
-            Assert.Equal("нет ресурсов", Check(free, ObjectId.Bed).Reason);
+            Assert.True(Check(free).Ok);
+            Assert.Equal(ObjectId.StoneWall, Check(free).Key);
+            Assert.Equal(EditReply.NotAllowed, Check(free, 0).Reply); // кирка в руке
+            Assert.Equal(BuildAction.Repair, Check(free, 2).Action); // молот — не ставит: только снос и починка
+            Assert.False(Check(free, 2).Ok);
+            Assert.Equal(EditReply.Dead, Check(free, alive: false).Reply);
+            Assert.Equal(EditReply.OutOfReach, Check(new TileCoord(307, 200)).Reply);
+            Assert.Equal(EditReply.DigFirst, Check(new TileCoord(296, 203)).Reply);
+            Assert.Equal(EditReply.Occupied, Check(new TileCoord(300, 200)).Reply);
+            Assert.True(Check(new TileCoord(300, 200), 6).Ok); // пол — под себя можно
+            Assert.Equal(EditReply.NeedPlatform, Check(new TileCoord(306, 199), 6).Reply);
 
             using var rig = new EditTests.EditRig(w, _ => Spot);
-            NetClient c = Start(rig, bag);
+            NetClient c = Start(rig, Kit((Items.Wood, 20), (Items.Stone, 20), (Items.WoodWall, 2)));
             var hand = new BuildHand(c);
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
-            BuildCheck red = Build(rig, c, hand, ObjectId.Bed, free);
-            Assert.Equal(EditReply.NoResources, red.Reply);
+            BuildCheck red = hand.Click(c.World!.World, Spot, c.Inv, HandCell, true, free); // ячейка пуста
+            Assert.Equal(EditReply.NotAllowed, red.Reply);
             Assert.Equal(0, hand.PlaceRequests);
+            Assert.Equal(0, hand.PlaceLine(free, free, Spot, c.Inv, HandCell));
             Assert.Empty(replies);
+            Inventory before = rig.Sim.GetEntity(c.EntityId).Inv;
 
-            // Минуя руку — сервер говорит то же.
-            c.Place(free, free, ObjectId.Bed, Spot);
+            // Минуя руку — сервер говорит «нет ресурсов»: в ячейке пусто; в ячейке деревянная стена, а просят каменную.
+            c.Place(free, free, ObjectId.StoneWall, Spot, HandCell);
             rig.Run(4);
             Assert.Equal(EditReply.NoResources, Assert.Single(replies).Reply);
+            int wallCell = -1;
+            for (int k = 0; k < Inventory.Cells; k++)
+            {
+                wallCell = c.Inv.ItemAt(k) == Items.WoodWall ? k : wallCell;
+            }
+
+            Assert.True(c.RequestBagMove(wallCell, HandCell));
+            rig.Run(4);
+            before = rig.Sim.GetEntity(c.EntityId).Inv;
+            c.Place(free, free, ObjectId.StoneWall, Spot, HandCell);
+            rig.Run(4);
+            Assert.Equal(EditReply.NoResources, replies[^1].Reply);
             Assert.Equal(ObjectId.Empty, Obj(rig.Sim, free));
+            Assert.Equal(before, rig.Sim.GetEntity(c.EntityId).Inv);
         }
 
-        // ---------- Снос и починка ----------
-
-        /// <summary>Снос молотом (ПКМ — копание молотом): постройка исчезает, материалы — кучей на её тайле, масса та же.</summary>
+        /// <summary>
+        /// Снос молотом (E2-11, как в Terraria): постройка исчезает, на её тайле — ровно один предмет-постройка (не материалы),
+        /// подобран; масса та же.
+        /// </summary>
         [Fact]
-        public void E25_Remove_WithHammer_ReturnsMaterialsAsPile()
+        public void E211_Remove_WithHammer_ReturnsExactlyOneItem()
         {
             using var rig = new EditTests.EditRig(World(), _ => Spot);
-            NetClient c = Start(rig, Kit((Items.Wood, 30), (Items.Fiber, 10)));
+            NetClient c = Start(rig, Kit((Items.Bed, 1), (Items.Wood, 30), (Items.Fiber, 10)));
             var hand = new BuildHand(c);
             int wood = Total(rig.Sim, Items.Wood), fiber = Total(rig.Sim, Items.Fiber);
             var t = new TileCoord(301, 200); // снос — копанием: досягаемость молота — соседний тайл
             Assert.True(Build(rig, c, hand, ObjectId.Bed, t).Ok);
             Assert.Equal(ObjectId.Bed, Obj(rig.Sim, t));
-            Assert.Equal(wood, Total(rig.Sim, Items.Wood) + 10);
+            Assert.Equal(0, Total(rig.Sim, Items.Bed));
 
             Assert.Equal(EditReply.Accepted, EditRules.CheckDig(c.World!.World, Spot, t, c.DigTimes, Items.Hammer));
             rig.InputOf = _ => DigHammer;
@@ -230,9 +280,225 @@ namespace Orpheus.Tests
             c.StopDig();
             rig.Run(4);
             Assert.Equal(ObjectId.Empty, Obj(rig.Sim, t));
-            Assert.Equal(wood, Total(rig.Sim, Items.Wood));
-            Assert.Equal(fiber, Total(rig.Sim, Items.Fiber)); // возврат упал кучей рядом и подобран (соседний тайл)
+            Assert.Equal(1, Total(rig.Sim, Items.Bed)); // ровно один
+            Assert.Equal(1, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Bed)); // упал рядом и подобран
+            Assert.Equal(wood, Total(rig.Sim, Items.Wood)); // материалы не возвращаются
+            Assert.Equal(fiber, Total(rig.Sim, Items.Fiber));
         }
+
+        /// <summary>
+        /// Сохранение массы при отказе сервера (E2-11): клиент ставит стену под второго игрока (предсказал, снял предмет у себя),
+        /// сервер снял предмет в такте и отказал «занято существом» — предмет вернулся в ту же ячейку и у сервера, и у клиента.
+        /// Линия зажатой ЛКМ из 5 тайлов при 3 стенах в руке — 3 встали, остальные «нет ресурсов», ячейка пуста.
+        /// </summary>
+        [Fact]
+        public void E211_ServerRefusal_ItemNotLost_LineStopsWhenHandEmpty()
+        {
+            using var rig = new EditTests.EditRig(World(), n => n == 0 ? Spot : Center(302, 200));
+            NetClient c = Start(rig, Kit((Items.StoneWall, 1)));
+            NetClient other = rig.Join();
+            rig.Run(5);
+            var hand = new BuildHand(c);
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            int walls = Total(rig.Sim, Items.StoneWall);
+            var under = new TileCoord(302, 200);
+            BuildCheck chk = Build(rig, c, hand, ObjectId.StoneWall, under); // своя проверка чужих существ не видит — заявка ушла
+            Assert.True(chk.Ok);
+            Assert.Equal(EditReply.Occupied, replies[^1].Reply);
+            Assert.Equal(ObjectId.Empty, Obj(rig.Sim, under));
+            Assert.Equal(walls, Total(rig.Sim, Items.StoneWall));
+            Assert.Equal(1, rig.Sim.GetEntity(c.EntityId).Inv.CountIn(HandCell));
+            Assert.Equal(1, c.Inv.CountIn(HandCell));
+
+            Inventory inv = rig.Sim.GetEntity(c.EntityId).Inv;
+            inv.SetCell(HandCell, Items.StoneWall, 3);
+            Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
+            rig.Run(3);
+            replies.Clear();
+            Assert.NotEqual(0, hand.PlaceLine(new TileCoord(297, 197), new TileCoord(301, 197), Spot, c.Inv, HandCell));
+            rig.Run(4);
+            TileReplyMessage r = Assert.Single(replies);
+            Assert.Equal(0x7u, r.Mask);
+            Assert.Equal(EditReply.NoResources, r.FirstRefusal);
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountIn(HandCell));
+            Assert.Equal(0, c.Inv.CountIn(HandCell));
+            Assert.Equal(ObjectId.Empty, Obj(rig.Sim, new TileCoord(300, 197)));
+        }
+
+        /// <summary>
+        /// Замечание 1 проверки (П): сервер сверяет предмет в ячейке заявки <b>до</b> очереди такта (<c>NetServer.OnPlace</c>).
+        /// В ячейке чужая постройка или пусто, тайл вне досягаемости — ответ сразу «нет ресурсов», а не «далеко» (проверка тайлов
+        /// и очередь такта до этой заявки не дошли); в ячейке нужная постройка — тот же тайл даёт «далеко». Мир и сумка не меняются.
+        /// </summary>
+        [Fact]
+        public void E211_Server_ChecksItemInCell_BeforeQueue()
+        {
+            using var rig = new EditTests.EditRig(World(), _ => Spot);
+            NetClient c = Start(rig, Kit());
+            Inventory inv = rig.Sim.GetEntity(c.EntityId).Inv;
+            inv.SetCell(HandCell, Items.WoodWall, 3);
+            inv.SetCell(6, Items.StoneWall, 3);
+            Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
+            rig.Run(3);
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            var far = new TileCoord(308, 200); // 8 тайлов по оси — вне радиуса постановки (6)
+            long refused = rig.Server.EditsRefused;
+
+            c.Place(far, far, ObjectId.StoneWall, Spot, HandCell); // в ячейке деревянная стена
+            rig.Run(3);
+            Assert.Equal(EditReply.NoResources, Assert.Single(replies).Reply);
+            Assert.Equal(0u, replies[0].Mask);
+            c.Place(far, far, ObjectId.StoneWall, Spot, 5); // в ячейке факелы
+            c.Place(far, far, ObjectId.StoneWall, Spot, 4); // в ячейке лук
+            rig.Run(3);
+            Assert.Equal(new[] { EditReply.NoResources, EditReply.NoResources, EditReply.NoResources }, replies.ConvertAll(r => r.Reply).ToArray());
+
+            c.Place(far, far, ObjectId.StoneWall, Spot, 6); // нужная постройка — сервер дошёл до тайлов
+            rig.Run(3);
+            Assert.Equal(EditReply.OutOfReach, replies[^1].Reply);
+            Assert.Equal(ObjectId.Empty, Obj(rig.Sim, far));
+            Assert.Equal(inv, rig.Sim.GetEntity(c.EntityId).Inv);
+            Assert.True(rig.Server.EditsRefused >= refused);
+        }
+
+        /// <summary>
+        /// Замечание 2 проверки (П): запасные ветки возврата предмета при отказе после списания (<see cref="Simulation.ReturnBuildItem"/>,
+        /// им пользуется возврат такта). Ячейка заявки пуста или с тем же предметом — в неё; занята другим предметом — в сумку
+        /// (доукладка); сумка полна — кучей у ног. Масса во всех случаях +1 ровно.
+        /// </summary>
+        [Fact]
+        public void E211_Refund_CellTaken_ToBag_BagFull_PileAtFeet()
+        {
+            var sim = new Simulation(World());
+            int id = sim.AddEntity(Spot);
+            Inventory inv = Inventory.StartingKit();
+            inv.SetCell(HandCell, Items.StoneWall, 2);
+            Assert.True(sim.SetInventory(id, inv));
+
+            Assert.True(sim.ReturnBuildItem(id, HandCell, Items.StoneWall)); // тот же предмет — в ячейку
+            Assert.Equal(3, sim.GetEntity(id).Inv.CountIn(HandCell));
+
+            Assert.True(sim.ReturnBuildItem(id, 0, Items.StoneWall)); // ячейка 0 занята киркой — в сумку
+            Assert.Equal(Items.StonePickaxe, sim.GetEntity(id).Inv.ItemAt(0));
+            Assert.Equal(4, sim.GetEntity(id).Inv.Count(Items.StoneWall));
+            Assert.Equal(4, Total(sim, Items.StoneWall));
+
+            // Сумка полна: все ячейки заняты чужим — куча у ног, ровно один предмет.
+            inv = sim.GetEntity(id).Inv;
+            for (int k = 0; k < Inventory.Cells; k++)
+            {
+                if (inv.ItemAt(k) == Items.None)
+                {
+                    inv.SetCell(k, Items.Stone, 99);
+                }
+            }
+
+            Assert.True(sim.SetInventory(id, inv));
+            int stone = Total(sim, Items.Stone);
+            Assert.True(sim.ReturnBuildItem(id, 0, Items.Bed));
+            Assert.Equal(0, sim.GetEntity(id).Inv.Count(Items.Bed));
+            GroundPile pile = Assert.Single(sim.Piles.ToArray());
+            Assert.Equal((Items.Bed, 1), (pile.Item, pile.Count));
+            Int2 d = Torus.Delta(sim.Shape, sim.GetEntity(id).Mover.Position, pile.Position);
+            Assert.True(Math.Abs(d.X) <= 2 * U && Math.Abs(d.Y) <= 2 * U, $"куча не у ног: {d.X}, {d.Y}");
+            Assert.Equal(1, Total(sim, Items.Bed));
+            Assert.Equal(stone, Total(sim, Items.Stone));
+            Assert.False(sim.ReturnBuildItem(id + 1000, 0, Items.Bed)); // персонажа нет
+        }
+
+        /// <summary>
+        /// Каждая строка <see cref="BuildDefs"/> — предмет и ровно один рецепт (E2-11): выход 1, ингредиенты — прежняя цена
+        /// постановки (в <c>06</c> 6.9 стена — 2 древесины, «4 из 1» нет); руками, костёр — у верстака (<c>06</c> 3.3);
+        /// рецепт лежит в окне в «Здания» (по материалу) или «Мебель» (по типу).
+        /// </summary>
+        [Fact]
+        public void E211_EveryBuildDef_HasItem_Recipe_PriceEqualsBuildCost_Shelf()
+        {
+            foreach (ushort key in BuildDefs.Palette)
+            {
+                Assert.True(BuildDefs.TryGet(key, out BuildDef def));
+                byte item = def.Item;
+                Assert.True(ItemTable.Exists(item), $"постройка {key}: нет предмета");
+                Assert.True(BuildDefs.TryKeyOf(item, out ushort back));
+                Assert.Equal(key, back);
+                int found = 0;
+                for (int r = 1; r < RecipeTable.Count; r++)
+                {
+                    RecipeDef rec = RecipeTable.Get(r);
+                    if (rec.Result != item)
+                    {
+                        continue;
+                    }
+
+                    found++;
+                    Assert.Equal(1, rec.ResultCount);
+                    Assert.Equal(key == ObjectId.Campfire ? CraftStation.Workbench : CraftStation.None, rec.Station);
+                    Assert.Equal(ItemTable.OfMaterial(def.Material1), rec.In1);
+                    Assert.Equal(def.Count1, rec.N1);
+                    Assert.Equal(def.Count2 > 0 ? def.Count2 : 0, rec.N2);
+                    if (def.Count2 > 0)
+                    {
+                        Assert.Equal(ItemTable.OfMaterial(def.Material2), rec.In2);
+                    }
+
+                    (int section, _) = CraftShelf.Place(r);
+                    Assert.True(section >= 0, $"рецепт {r} не в окне");
+                    string sec = CraftShelf.Sections[section].Key;
+                    Assert.True(sec == "buildings" || sec == "furniture", $"рецепт {r}: раздел {sec}");
+                }
+
+                Assert.True(found == 1, $"постройка {key}: рецептов {found}");
+            }
+
+            Assert.Equal(ItemTable.StackMaterial, ItemTable.MaxStackOf(Items.StoneWall));
+            Assert.Equal(ItemTable.StackFurniture, ItemTable.MaxStackOf(Items.Bed));
+            Assert.Equal(Inventory.StartingKit(), Kit2()); // стартовый набор не менялся (`06` 0: построек в нём нет)
+
+            static Inventory Kit2()
+            {
+                var k = new Inventory();
+                k.SetCell(0, Items.StonePickaxe, 1);
+                k.SetCell(1, Items.StoneAxe, 1);
+                k.SetCell(2, Items.Hammer, 1);
+                k.SetCell(3, Items.WoodenSword, 1);
+                k.SetCell(4, Items.SimpleBow, 1);
+                k.SetCell(5, Items.Torch, 3);
+                k.SetCell(Inventory.Slots, Items.Arrows, 50);
+                return k;
+            }
+        }
+
+        /// <summary>
+        /// Весь путь игрока по сети (E2-11): 4 камня → «каменная стена × 2» руками (заявка изготовления) → стены в сумке →
+        /// перетащить в ячейку панели → ЛКМ — стена стоит, в руке 1.
+        /// </summary>
+        [Fact]
+        public void E211_Craft_Walls_MoveToHotbar_Place()
+        {
+            using var rig = new EditTests.EditRig(World(), _ => Spot);
+            NetClient c = Start(rig, Kit((Items.Stone, 4)));
+            var hand = new BuildHand(c);
+            Assert.True(c.RequestCraft(RecipeTable.StoneWall, 2));
+            rig.Run(2 * RecipeTable.DefaultTicks + 10);
+            Assert.Equal(2, c.Inv.Count(Items.StoneWall));
+            Assert.Equal(0, c.Inv.Count(Items.Stone));
+            Assert.Equal(-1, BuildHand.SlotWith(c.Inv, Items.StoneWall)); // сделанное легло в сумку, не на панель
+            Assert.True(BuildHand.StockMove(c.Inv, Items.StoneWall, out int from, out int to));
+            Assert.True(c.RequestBagMove(from, to));
+            rig.Run(4);
+            int cell = BuildHand.SlotWith(c.Inv, Items.StoneWall);
+            Assert.True(cell >= 0);
+            var t = new TileCoord(302, 201);
+            Assert.True(hand.Click(c.World!.World, Spot, c.Inv, cell, true, t).Ok);
+            rig.Run(4);
+            Assert.Equal(ObjectId.StoneWall, Obj(rig.Sim, t));
+            Assert.Equal(1, rig.Sim.GetEntity(c.EntityId).Inv.CountIn(cell));
+            Assert.Equal(1, c.Inv.CountIn(cell));
+        }
+
+        // ---------- Снос и починка ----------
 
         /// <summary>
         /// Починка (`05` 1.3): ЛКМ молотом по повреждённой постройке; под ударом — «под ударом»; цена ⌈количество × недостающая
@@ -254,14 +520,14 @@ namespace Orpheus.Tests
             rig.Run(3);
             Assert.True(rig.Sim.World.TryGetBuild(t, out BuildRecord rec));
             Assert.Equal(150, rec.Integrity);
-            BuildCheck chk = hand.Click(c.World!.World, Spot, c.Inv, c.HeldItem, true, t);
+            BuildCheck chk = hand.Click(c.World!.World, Spot, c.Inv, 2, true, t);
             Assert.Equal((BuildAction.Repair, EditReply.UnderAttack), (chk.Action, chk.Reply));
             Assert.Equal(0, hand.RepairRequests);
 
             rig.Run(BuildDefs.DamageFlagTicks + 5);
-            chk = BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, hand.Key);
+            chk = BuildHand.Check(c.World!.World, Spot, c.Inv, 2, true, t);
             Assert.Equal((BuildAction.Repair, EditReply.Accepted, Material.Stone, 1), (chk.Action, chk.Reply, chk.Material1, chk.Count1));
-            chk = hand.Click(c.World!.World, Spot, c.Inv, c.HeldItem, true, t);
+            chk = hand.Click(c.World!.World, Spot, c.Inv, 2, true, t);
             Assert.True(chk.Ok);
             rig.Run(BuildDefs.RepairFrames / 2 + 4); // C-005: починка идёт 0,5 с
             Assert.Equal(EditReply.Accepted, replies[^1].Reply);
@@ -270,7 +536,7 @@ namespace Orpheus.Tests
             Assert.True(c.World!.World.TryGetBuild(t, out rec));
             Assert.Equal(300, rec.Integrity); // патч чанка дошёл до клиента
             Assert.Equal(0, c.Inv.Count(Items.Stone));
-            Assert.Equal(EditReply.Busy, BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, ObjectId.StoneWall).Reply); // цела — ЛКМ «ставит», занято
+            Assert.Equal(EditReply.Intact, BuildHand.Check(c.World!.World, Spot, c.Inv, 2, true, t).Reply); // цела — молот не чинит (E2-11: и не ставит)
 
             // Целая — сервер отвечает «цело»; камня нет — «нет ресурсов» (и у руки, и у сервера).
             c.Repair(t);
@@ -278,7 +544,7 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Intact, replies[^1].Reply);
             Assert.True(rig.Sim.DamageBuilding(t, 30));
             rig.Run(BuildDefs.DamageFlagTicks + 5);
-            Assert.Equal(EditReply.NoResources, BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, hand.Key).Reply);
+            Assert.Equal(EditReply.NoResources, BuildHand.Check(c.World!.World, Spot, c.Inv, 2, true, t).Reply);
             c.Repair(t);
             rig.Run(4);
             Assert.Equal(EditReply.NoResources, replies[^1].Reply);
@@ -315,17 +581,17 @@ namespace Orpheus.Tests
             // Удар; через 2 с — «под ударом»; второй удар на 2 с; через 1,2 с после него (3,2 с после первого) — всё ещё нельзя.
             Assert.True(rig.Sim.DamageBuilding(t, 150));
             rig.Run(60);
-            Assert.Equal(EditReply.UnderAttack, BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, hand.Key).Reply);
+            Assert.Equal(EditReply.UnderAttack, BuildHand.Check(c.World!.World, Spot, c.Inv, 2, true, t).Reply);
             c.Repair(t);
             rig.Run(3);
             Assert.Equal(EditReply.UnderAttack, replies[^1].Reply);
             Assert.True(rig.Sim.DamageBuilding(t, 10));
             rig.Run(36);
-            Assert.Equal(EditReply.UnderAttack, BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, hand.Key).Reply);
+            Assert.Equal(EditReply.UnderAttack, BuildHand.Check(c.World!.World, Spot, c.Inv, 2, true, t).Reply);
             rig.Run(60);
             Assert.True(rig.Sim.World.TryGetBuild(t, out BuildRecord rec));
             Assert.True(rec.IsDamagedRecent); // «урон последние 10 с» (снос — в обломки) ещё стоит, чинить уже можно
-            BuildCheck chk = BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, hand.Key);
+            BuildCheck chk = BuildHand.Check(c.World!.World, Spot, c.Inv, 2, true, t);
             Assert.Equal((BuildAction.Repair, EditReply.Accepted, 2), (chk.Action, chk.Reply, chk.Count1)); // прочность 140: ⌈2 × 160 / 300⌉ = 2
 
             // Починка: 0,5 с ничего не меняется, потом — полная прочность и списание.
@@ -346,7 +612,7 @@ namespace Orpheus.Tests
             // Стена на краю радиуса: починку начали и ушли на тайл западнее — «прервано», ничего не изменилось.
             Assert.True(rig.Sim.DamageBuilding(edge, 100));
             rig.Run(BuildDefs.RepairBlockTicks + 3);
-            Assert.True(BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, edge, hand.Key).Ok);
+            Assert.True(BuildHand.Check(c.World!.World, Spot, c.Inv, 2, true, edge).Ok);
             replied = replies.Count;
             c.Repair(edge);
             rig.InputOf = _ => new InputFrame(Input8.West, 0, 0, 2);
@@ -559,7 +825,7 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Снос сундука с содержимым — содержимое кучами на его тайле (кучи не исчезают) плюс возврат материалов сундука;
+        /// Снос сундука с содержимым — содержимое кучами на его тайле (кучи не исчезают) плюс сам сундук предметом (E2-11);
         /// у открывших сундук — «закрыт»; разрушение уроном — тоже кучами. Масса сохраняется.
         /// </summary>
         [Fact]
@@ -577,7 +843,7 @@ namespace Orpheus.Tests
             content.SetCell(29, Items.Arrows, 300);
             Assert.True(rig.Sim.SetChest(t, content));
             Assert.True(rig.Sim.SetChest(t2, content));
-            int ore = Total(rig.Sim, Items.CopperOre), wood = Total(rig.Sim, Items.Wood);
+            int ore = Total(rig.Sim, Items.CopperOre), wood = Total(rig.Sim, Items.Wood), chests = Total(rig.Sim, Items.Chest);
             Assert.True(c.RequestUse(t));
             rig.Run(3);
             Assert.True(c.ChestOpen);
@@ -594,15 +860,17 @@ namespace Orpheus.Tests
             Assert.False(rig.Sim.TryGetChest(t, out _));
             Assert.Equal(1, rig.Sim.ChestCount);
             Assert.Equal(ore, Total(rig.Sim, Items.CopperOre));
-            Assert.Equal(wood + 8, Total(rig.Sim, Items.Wood)); // + возврат самого сундука
+            Assert.Equal(wood, Total(rig.Sim, Items.Wood));
+            Assert.Equal(chests + 1, Total(rig.Sim, Items.Chest)); // E2-11: + сам сундук предметом
 
-            // Разрушение уроном: обломки, содержимое кучами, сундук материалов не возвращает.
+            // Разрушение уроном: обломки, содержимое кучами, сундук себя не возвращает.
             Assert.True(rig.Sim.DamageBuilding(t2, 1000));
             rig.Run(3);
             Assert.Equal(ObjectId.Empty, Obj(rig.Sim, t2));
             Assert.Equal(0, rig.Sim.ChestCount);
             Assert.Equal(ore, Total(rig.Sim, Items.CopperOre));
             Assert.Equal(50 + 600, Total(rig.Sim, Items.Arrows)); // 50 — стартовый набор, по 300 в сундуках
+            Assert.Equal(chests + 1, Total(rig.Sim, Items.Chest));
             Assert.Contains(rig.Sim.Piles.ToArray(), p => p.Item == Items.Arrows && p.ExpireTick == Simulation.PileNeverExpires); // россыпь сундука не исчезает
         }
 
@@ -934,7 +1202,8 @@ namespace Orpheus.Tests
         /// — до E2-5, где ключ пола в заявке совпадал с id пола; генератор — <c>Golden/format8_build.make.cs.txt</c>: игрок
         /// по сети ставит молотом по три деревянных и каменных пола, настила на воде, деревянных и каменных стены; по одной
         /// стене каждого вида — на половине прочности). После чтения постройки те же (хэш, слой пола, объект, запись постройки),
-        /// снос каждой возвращает материалы по прочности: пол — 1, целая стена — 2, стена на половине — 1.
+        /// снос каждой возвращает (E2-11) ровно один предмет-постройку — и целой, и стены на половине прочности: старые миры
+        /// читаются, их постройки сносятся в предметы.
         /// </summary>
         [Fact]
         public void C005_Save_Format8_RealFile_Floors_Walls_Refund()
@@ -951,11 +1220,11 @@ namespace Orpheus.Tests
             var cases = new List<(TileCoord Tile, byte Floor, ushort Obj, byte Natural, int Integrity, byte Item, int Refund)>();
             for (int i = 0; i < 3; i++)
             {
-                cases.Add((new TileCoord(130 + i, 128), FloorId.WoodFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.Wood, 1));
-                cases.Add((new TileCoord(130 + i, 130), FloorId.StoneFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.Stone, 1));
-                cases.Add((new TileCoord(130 + i, 125), FloorId.Platform, ObjectId.Empty, FloorId.Water, BuildRecord.MaxIntegrity, Items.Wood, 1));
-                cases.Add((new TileCoord(125, 127 + i), FloorId.Grass, ObjectId.WoodWall, FloorId.Grass, i == 2 ? 60 : 120, Items.Wood, i == 2 ? 1 : 2));
-                cases.Add((new TileCoord(123, 127 + i), FloorId.Grass, ObjectId.StoneWall, FloorId.Grass, i == 2 ? 150 : 300, Items.Stone, i == 2 ? 1 : 2));
+                cases.Add((new TileCoord(130 + i, 128), FloorId.WoodFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.WoodFloor, 1));
+                cases.Add((new TileCoord(130 + i, 130), FloorId.StoneFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.StoneFloor, 1));
+                cases.Add((new TileCoord(130 + i, 125), FloorId.Platform, ObjectId.Empty, FloorId.Water, BuildRecord.MaxIntegrity, Items.Platform, 1));
+                cases.Add((new TileCoord(125, 127 + i), FloorId.Grass, ObjectId.WoodWall, FloorId.Grass, i == 2 ? 60 : 120, Items.WoodWall, 1));
+                cases.Add((new TileCoord(123, 127 + i), FloorId.Grass, ObjectId.StoneWall, FloorId.Grass, i == 2 ? 150 : 300, Items.StoneWall, 1));
             }
 
             foreach (var k in cases)
@@ -987,7 +1256,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Net_GoldenBytes_Use_Reply_Chest_Repair()
         {
-            Assert.Equal(24, NetModule.ProtocolVersion);
+            Assert.Equal(25, NetModule.ProtocolVersion);
             var buf = new byte[256];
             int n = new UseRequestMessage { Op = UseOp.Use, Tile = new TileCoord(0x0102, 0x0304) }.Write(buf);
             Assert.Equal(UseRequestMessage.Bytes, n);
@@ -1052,7 +1321,7 @@ namespace Orpheus.Tests
             Assert.True(c.RequestUse(t));
             rig.Run(3);
             Assert.Equal(EditReply.Dead, uses[^1].Reply);
-            Assert.Equal(EditReply.Dead, BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, false, new TileCoord(303, 200), ObjectId.WoodWall).Reply);
+            Assert.Equal(EditReply.Dead, BuildHand.Check(c.World!.World, Spot, c.Inv, 2, false, new TileCoord(303, 200)).Reply);
         }
     }
 }

@@ -37,6 +37,18 @@ namespace Orpheus.Client.UI
             ["copper_bow"] = "Медный лук",
             ["meat"] = "Мясо",
             ["roast_meat"] = "Жареное мясо",
+            // E2-11: постройки — предметы.
+            ["wood_floor"] = "Пол деревянный",
+            ["stone_floor"] = "Пол каменный",
+            ["platform"] = "Настил",
+            ["wood_wall"] = "Стена деревянная",
+            ["stone_wall"] = "Стена каменная",
+            ["wood_fence"] = "Забор",
+            ["door"] = "Дверь",
+            ["campfire"] = "Костёр",
+            ["workbench"] = "Верстак",
+            ["chest"] = "Сундук",
+            ["bed"] = "Кровать",
         };
 
         // ---------- окно крафта (E2-4) ----------
@@ -212,13 +224,15 @@ namespace Orpheus.Client.UI
         /// <summary>Название постройки по ключу (лента, призрак).</summary>
         public static string BuildName(ushort key) => BuildNames.TryGetValue(key, out string? n) ? n : key.ToString();
 
-        public const string BuildKeys = "Q / E — выбор      ЛКМ — поставить, починить      ПКМ — снести";
         public const string BuildDead = "Вы погибли: строить — после возрождения";
 
         /// <summary>Строка у курсора: «Сундук — нельзя: занято» / «Починить: 1 камень».</summary>
         public static string GhostNote(bool repair, bool ok, string reason, ushort key, string cost) =>
             repair ? (ok ? $"Починить: {cost}" : $"Починить нельзя: {reason}")
             : ok ? $"{BuildName(key)}: {cost}" : $"{BuildName(key)} — нельзя: {reason}";
+
+        /// <summary>Подсказка у призрака постановки (E2-11): что жать и сколько в руке.</summary>
+        public static string PlaceHint(int inHand) => $"ЛКМ — поставить, зажать — подряд (в руке {inHand})";
 
         /// <summary>Прочность постройки под курсором.</summary>
         public static string Integrity(int cur, int max) => $"Прочность {cur} / {max}";

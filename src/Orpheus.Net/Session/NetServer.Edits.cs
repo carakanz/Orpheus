@@ -229,10 +229,20 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            // Молот в руках обязателен и для постановки (1-011, `05` 1.3 — «нужен молот» строка отказа).
-            if (Items.DigToolOf(held) != ToolKind.Hammer)
+            // E2-11: постройки — предметы. Молот не нужен: в ячейке панели заявки должен лежать предмет этой постройки
+            // (по предмету на тайл снимает такт — Simulation.PayPlacement; кончились посреди линии — «нет ресурсов»).
+            // Бесплатные объекты вне таблицы построек (ковёр, шипы — smoke и отладка) предмета не имеют: как до E2-11 — молотом.
+            int slot = _sim.SlotOf(p.EntityId);
+            byte item = BuildDefs.ItemOf(m.Obj);
+            if (item == Items.None && Items.DigToolOf(held) != ToolKind.Hammer)
             {
                 Reply(p, m.RequestId, EditReply.ToolRequired, EditReply.ToolRequired, 0);
+                return;
+            }
+
+            if (item != Items.None && (slot < 0 || _sim.Entities[slot].Inv.ItemAt(m.Cell) != item))
+            {
+                Reply(p, m.RequestId, EditReply.NoResources, EditReply.NoResources, 0);
                 return;
             }
 
@@ -261,7 +271,7 @@ namespace Orpheus.Net.Session
                     0, floor, 0);
                 if (check == EditReply.Accepted &&
                     !_sim.RequestPlayerEdit(t, floorKey ? BuildDefs.FloorOf(m.Obj) : floor, floorKey ? ObjectId.Empty : m.Obj,
-                        true, rec, p.EntityId, tag))
+                        true, rec, p.EntityId, tag, m.Cell))
                 {
                     check = QueueRefusal(p.EntityId); // очередь такта полна или персонаж мёртв (C-004)
                 }

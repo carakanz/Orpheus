@@ -37,7 +37,7 @@ namespace Orpheus.Net.Session
         /// <summary>Разделы по порядку вкладок и их подразделы. Пустой подраздел — нормально (рецепты появятся позже).</summary>
         public static readonly ShelfSection[] Sections =
         {
-            new ShelfSection("buildings", "wood", "stone", "copper"),            // по материалам; постройки-предметы — E2-11
+            new ShelfSection("buildings", "wood", "stone", "copper"),            // по материалам (E2-11); медных построек пока нет
             new ShelfSection("furniture", "stations", "storage", "sleep", "light", "misc"), // по типу
             new ShelfSection("tools", "picks", "axes", "hammers"),
             new ShelfSection("weapons", "swords", "bows", "ammo"),
@@ -63,7 +63,18 @@ namespace Orpheus.Net.Session
             ("copper_ingot", "materials", ""),
             ("rope", "materials", ""),
             ("roast_meat", "food", ""),
-            // Постройки-предметы (стены, полы, двери, верстак, костёр, сундук, кровать) — строки сюда в шаге 2.11.
+            // Постройки-предметы (E2-11): «Здания» — по материалу, «Мебель» — по типу.
+            ("wood_floor", "buildings", "wood"),
+            ("platform", "buildings", "wood"),
+            ("wood_wall", "buildings", "wood"),
+            ("wood_fence", "buildings", "wood"),
+            ("door", "buildings", "wood"),
+            ("stone_floor", "buildings", "stone"),
+            ("stone_wall", "buildings", "stone"),
+            ("workbench", "furniture", "stations"),
+            ("campfire", "furniture", "stations"),
+            ("chest", "furniture", "storage"),
+            ("bed", "furniture", "sleep"),
         };
 
         private static readonly int[][][] Shelves = Build(out PlaceOf);

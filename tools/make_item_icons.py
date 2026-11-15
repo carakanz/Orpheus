@@ -474,12 +474,55 @@ TILES = {
 }
 
 
+# E2-11: постройки — предметы. Значок предмета-постройки 64 x 64 — её плитка или картинка объекта, уменьшенная в рамку:
+# плитка (пол, стена, забор, дверь) — «стопкой» из двух со сдвигом (предмет, а не тайл мира), объект — по высоте.
+def from_tile(draw, stack: bool = True) -> Image.Image:
+    img, d = canvas()
+    tile = draw()
+    side = 44 * S
+    small = tile.resize((side, side), Image.LANCZOS)
+    if stack:
+        d.rounded_rectangle([14 * S, 6 * S, 14 * S + side, 6 * S + side], radius=3 * S, fill=(0, 0, 0, 0), outline=OUT, width=W)
+        img.alpha_composite(small, (14 * S, 6 * S))
+        d.rectangle([14 * S, 6 * S, 14 * S + side, 6 * S + side], outline=OUT, width=W)
+    x, y = (6 * S, 14 * S) if stack else (10 * S, 10 * S)
+    img.alpha_composite(small, (x, y))
+    d.rectangle([x, y, x + side, y + side], outline=OUT, width=W)
+    return img
+
+
+def from_obj(draw) -> Image.Image:
+    img, _ = canvas()
+    obj = draw()
+    h = 60 * S
+    w = int(obj.width * h / obj.height)
+    small = obj.resize((w, h), Image.LANCZOS)
+    img.alpha_composite(small, ((64 * S - w) // 2, 2 * S))
+    return img
+
+
+BUILD_NOTE = "значок предмета-постройки «{0}» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
+BUILD_ICONS = {
+    "wood_floor": (lambda: from_tile(floor_wood), BUILD_NOTE.format("пол деревянный")),
+    "stone_floor": (lambda: from_tile(floor_stone), BUILD_NOTE.format("пол каменный")),
+    "platform": (lambda: from_tile(floor_platform), BUILD_NOTE.format("настил")),
+    "wood_wall": (lambda: from_tile(wall_wood), BUILD_NOTE.format("стена деревянная")),
+    "stone_wall": (lambda: from_tile(wall_stone), BUILD_NOTE.format("стена каменная")),
+    "wood_fence": (lambda: from_tile(fence), BUILD_NOTE.format("забор")),
+    "door": (lambda: from_tile(lambda: door(False), stack=False), BUILD_NOTE.format("дверь")),
+    "campfire": (lambda: from_obj(campfire), BUILD_NOTE.format("костёр")),
+    "workbench": (lambda: from_obj(workbench), BUILD_NOTE.format("верстак")),
+    "chest": (lambda: from_obj(chest), BUILD_NOTE.format("сундук")),
+    "bed": (lambda: from_obj(bed), BUILD_NOTE.format("кровать")),
+}
+
+
 def main() -> None:
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     with MANIFEST.open(encoding="utf-8", newline="") as f:
         rows = list(csv.reader(f))
     known = {r[0] for r in rows if r}
-    for key, (draw, notes) in ICONS.items():
+    for key, (draw, notes) in {**ICONS, **BUILD_ICONS}.items():
         img = draw().resize((64, 64), Image.LANCZOS)
         ImageDraw.Draw(img).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))  # пурпурный уголок заглушки
         rel = f"client/Assets/Art/_TEMP/TEMP_item_{key}.png"

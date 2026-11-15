@@ -36,8 +36,8 @@ namespace Orpheus.Net.Protocol
     /// </summary>
     public struct TileRequestMessage
     {
-        /// <summary>Тип 1 + номер 2 + операция 1 + кадр 4 + начало x, y 2 + 2 + конец x, y 2 + 2 + объект 2.</summary>
-        public const int Bytes = 18;
+        /// <summary>Тип 1 + номер 2 + операция 1 + кадр 4 + начало x, y 2 + 2 + конец x, y 2 + 2 + объект 2 + ячейка 1 (протокол 25).</summary>
+        public const int Bytes = 19;
 
         public ushort RequestId;
 
@@ -47,6 +47,12 @@ namespace Orpheus.Net.Protocol
         public TileCoord From;
         public TileCoord To;
         public ushort Obj;
+
+        /// <summary>
+        /// Постановка (E2-11, протокол 25): ячейка быстрой панели (0…7), из которой берётся предмет-постройка, — по предмету
+        /// на тайл линии. Остальные операции — 0 (не читается).
+        /// </summary>
+        public byte Cell;
 
         public int Write(Span<byte> dest)
         {
@@ -60,6 +66,7 @@ namespace Orpheus.Net.Protocol
             w.WriteUInt16((ushort)To.X);
             w.WriteUInt16((ushort)To.Y);
             w.WriteUInt16(Obj);
+            w.WriteByte(Cell);
             return w.BytesWritten;
         }
 
@@ -73,6 +80,7 @@ namespace Orpheus.Net.Protocol
             m.From = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.To = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.Obj = r.ReadUInt16();
+            m.Cell = r.ReadByte();
             r.ExpectEnd();
             if (op < (byte)TileOp.DigStart || op > (byte)TileOp.Repair)
             {
@@ -80,6 +88,11 @@ namespace Orpheus.Net.Protocol
             }
 
             m.Op = (TileOp)op;
+            if (m.Op == TileOp.Place && m.Cell >= Orpheus.Core.Sim.Inventory.Slots)
+            {
+                throw new ProtocolException($"Запрос правки: ячейка {m.Cell} вне быстрой панели.");
+            }
+
             if (m.From.X >= shape.Width || m.From.Y >= shape.Height || m.To.X >= shape.Width || m.To.Y >= shape.Height)
             {
                 throw new ProtocolException($"Запрос правки: тайл {m.From}–{m.To} вне карты {shape.Width}×{shape.Height}.");
@@ -88,7 +101,7 @@ namespace Orpheus.Net.Protocol
             return m;
         }
 
-        public override string ToString() => $"запрос {RequestId}: {Op} с кадра {Frame} {From}–{To} obj {Obj}";
+        public override string ToString() => $"запрос {RequestId}: {Op} с кадра {Frame} {From}–{To} obj {Obj} ячейка {Cell}";
     }
 
     /// <summary>

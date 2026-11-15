@@ -95,6 +95,9 @@ namespace Orpheus.Core.Sim
         /// <summary>Стопка еды (<c>06</c> 1.3: еда 30).</summary>
         public const ushort StackFood = 30;
 
+        /// <summary>Стопка предмета-мебели: дверь, станок, сундук, кровать (E2-11, допущение: в <c>06</c> 5.3 нет; 10 — как «предметы вызова»).</summary>
+        public const ushort StackFurniture = 10;
+
         private static readonly ItemDef[] Rows =
         {
             new ItemDef(Items.None, "none", 0, ItemCategory.None, lengthUnits: Reach.HandsUnits), // руки копают то, что разрешено таблицей (1-010)
@@ -119,6 +122,19 @@ namespace Orpheus.Core.Sim
             new ItemDef(Items.CopperBow, "copper_bow", StackGear, ItemCategory.Weapon, Items.KindRanged),
             new ItemDef(Items.Meat, "meat", StackMaterial, ItemCategory.Material),
             new ItemDef(Items.RoastMeat, "roast_meat", StackFood, ItemCategory.Consumable),
+            // E2-11: постройки — предметы (ставятся из руки, BuildDef.Item). Стопки: стены, полы, забор — 99 (как ресурс, `06` 5.3);
+            // дверь, станки, сундук, кровать — 10 (в `06` 5.3 стопки мебели нет; ближайшая — «предметы вызова» 10, допущение E2-11).
+            new ItemDef(Items.WoodFloor, "wood_floor", StackMaterial, ItemCategory.Building),
+            new ItemDef(Items.StoneFloor, "stone_floor", StackMaterial, ItemCategory.Building),
+            new ItemDef(Items.Platform, "platform", StackMaterial, ItemCategory.Building),
+            new ItemDef(Items.WoodWall, "wood_wall", StackMaterial, ItemCategory.Building),
+            new ItemDef(Items.StoneWall, "stone_wall", StackMaterial, ItemCategory.Building),
+            new ItemDef(Items.WoodFence, "wood_fence", StackMaterial, ItemCategory.Building),
+            new ItemDef(Items.Door, "door", StackFurniture, ItemCategory.Building),
+            new ItemDef(Items.Campfire, "campfire", StackFurniture, ItemCategory.Building),
+            new ItemDef(Items.Workbench, "workbench", StackFurniture, ItemCategory.Building),
+            new ItemDef(Items.Chest, "chest", StackFurniture, ItemCategory.Building),
+            new ItemDef(Items.Bed, "bed", StackFurniture, ItemCategory.Building),
             // Новые строки — сюда, в конец; id = место в таблице.
         };
 

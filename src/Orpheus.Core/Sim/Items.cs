@@ -73,6 +73,42 @@ namespace Orpheus.Core.Sim
         /// <summary>Жареное мясо (еда среза, <c>06</c> 6.3; стопка 30). Съесть — этап 3.</summary>
         public const byte RoastMeat = 20;
 
+        // E2-11: постройки — предметы (`BRIEF` 11e (3), как в Terraria): делаются рецептом, ставятся из руки.
+        // Ключ постройки ↔ предмет — BuildDef.Item (BuildDefs). Факел — прежний Torch (6).
+
+        /// <summary>Деревянный пол (предмет-постройка, E2-11).</summary>
+        public const byte WoodFloor = 21;
+
+        /// <summary>Каменный пол.</summary>
+        public const byte StoneFloor = 22;
+
+        /// <summary>Настил (над водой).</summary>
+        public const byte Platform = 23;
+
+        /// <summary>Деревянная стена.</summary>
+        public const byte WoodWall = 24;
+
+        /// <summary>Каменная стена.</summary>
+        public const byte StoneWall = 25;
+
+        /// <summary>Деревянный забор.</summary>
+        public const byte WoodFence = 26;
+
+        /// <summary>Дверь.</summary>
+        public const byte Door = 27;
+
+        /// <summary>Костёр.</summary>
+        public const byte Campfire = 28;
+
+        /// <summary>Верстак I.</summary>
+        public const byte Workbench = 29;
+
+        /// <summary>Сундук.</summary>
+        public const byte Chest = 30;
+
+        /// <summary>Кровать.</summary>
+        public const byte Bed = 31;
+
         /// <summary>Размер таблицы (id 0…<see cref="Count"/>−1) — строк в <see cref="ItemTable"/>.</summary>
         public static int Count => ItemTable.Count;
 

@@ -43,8 +43,6 @@ namespace Orpheus.Client.UI
         public bool Ctrl;
         public bool CancelLast;
 
-        /// <summary>Q / E — листать ленту построек (E2-5): −1 / +1.</summary>
-        public int BuildStep;
     }
 
     /// <summary>
@@ -285,7 +283,6 @@ namespace Orpheus.Client.UI
                 input.Make = kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame;
                 input.CancelLast = kb.deleteKey.wasPressedThisFrame;
                 input.Filter = kb.insertKey.wasPressedThisFrame;
-                input.BuildStep = (kb.eKey.wasPressedThisFrame ? 1 : 0) - (kb.qKey.wasPressedThisFrame ? 1 : 0); // E2-5
             }
 
             return input;
@@ -479,10 +476,10 @@ namespace Orpheus.Client.UI
                 _stationHintText.text = useHint.Length > 0 ? useHint : UiStrings.StationHint(_near);
                 _nearShown = _near;
                 Vector2 off = _stationHint.Offset;
-                _stationHint.Offset = new Vector2(off.x, _buildBar.Visible ? _hintLow + BuildBar.Height + 4f : _hintLow);
+                _stationHint.Offset = new Vector2(off.x, _hintLow);
             }
 
-            ShowBuild(input, bag, dead, build, overUi, size);
+            ShowBuild(input, bag, selected, build, overUi, size);
 
             byte under = cell >= 0 && !_hand.Holding ? _hand.ItemAt(cell) : Items.None;
             string? tip = under != Items.None ? UiStrings.ItemTip(under, _hand.CountIn(cell)) : null;
@@ -683,7 +680,7 @@ namespace Orpheus.Client.UI
     /// <c>craft-hint</c> — окна закрыты, у панели подсказка «C — верстак». E2-9: <c>inv</c> (и прежние <c>craft</c>,
     /// <c>craft+bag</c>) — окно «сумка + изготовление» у верстака: Инструменты → Кирки, в очереди кирка и слитки, выбрана
     /// медная кирка (слитков не хватает), подсказка над её значком; <c>inv-weapons</c> — Оружие → Мечи с галочкой «Только
-    /// доступные»; <c>inv-buildings</c> — Здания → Дерево (до шага 2.11 пусто).
+    /// доступные»; <c>inv-buildings</c> — Здания → Дерево с рецептами построек (E2-11), выбрана деревянная стена.
     /// </summary>
     public sealed partial class UiDemo : IBagRequests, ICraftRequests, IBuildRequests
     {
@@ -826,10 +823,10 @@ namespace Orpheus.Client.UI
             (5, CraftPart.Section, 3), (8, CraftPart.Sub, 0), (11, CraftPart.Filter, 0), (14, CraftPart.Cell, 0), (99, CraftPart.Cell, 0),
         };
 
-        // inv-buildings: Tab → Здания (подраздел «Дерево»; рецептов построек до шага 2.11 нет).
+        // inv-buildings: Tab → Здания → Дерево → деревянная стена (E2-11: постройки — предметы с рецептами).
         static readonly (int Frame, CraftPart Part, int Index)[] BuildingSteps =
         {
-            (5, CraftPart.Section, 0), (99, CraftPart.Section, 0),
+            (5, CraftPart.Section, 0), (8, CraftPart.Sub, 0), (11, CraftPart.Cell, 2), (99, CraftPart.Cell, 2),
         };
 
         // craft-chest (E2-10): C → Инструменты → Кирки → медная кирка: слитков в сумке 5, ещё 12 в сундуке рядом.

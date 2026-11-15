@@ -8,8 +8,8 @@ namespace Orpheus.Net.Session
     /// <summary>Куда уходят заявки стройки (E2-5): клиент сети (<see cref="NetClient"/>) или показ без сервера.</summary>
     public interface IBuildRequests
     {
-        /// <summary>Поставить линию от тайла до тайла (с предсказанием, как у клиента сети); номер запроса, 0 — не ушло.</summary>
-        ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self);
+        /// <summary>Поставить линию от тайла до тайла предметом из ячейки панели (с предсказанием, как у клиента сети); номер запроса, 0 — не ушло.</summary>
+        ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell);
 
         /// <summary>Починить постройку на тайле; номер запроса, 0 — не ушло.</summary>
         ushort Repair(TileCoord tile);
@@ -67,11 +67,12 @@ namespace Orpheus.Net.Session
     }
 
     /// <summary>
-    /// «Молот» режима стройки (E2-5, шаг 2.5): общий путь для игрока (лента построек, призрак, ЛКМ) и для ботов / тестов —
-    /// как <see cref="BagHand"/> у сумки и <see cref="CraftDesk"/> у крафта. Правил игры здесь нет: «можно / нельзя с
-    /// причиной» считают функции ядра, которыми проверяет и сервер (<see cref="EditRules.CheckPlaceTile"/>,
-    /// <see cref="EditRules.CheckRepair"/>, <see cref="BuildDefs.Affordable"/>); решает всё равно сервер. Постановка
-    /// предсказывается клиентом сети (<see cref="NetClient.Place"/>), починка — нет.
+    /// «Рука строителя» (E2-5 → E2-11): общий путь для игрока (предмет-постройка в руке, призрак, ЛКМ; молот — починка) и для
+    /// ботов / тестов — как <see cref="BagHand"/> у сумки и <see cref="CraftDesk"/> у крафта. Правил игры здесь нет: «можно /
+    /// нельзя с причиной» считают функции ядра, которыми проверяет и сервер (<see cref="EditRules.CheckPlaceTile"/>,
+    /// <see cref="EditRules.CheckRepair"/>); решает всё равно сервер. С E2-11 постройка ставится предметом из ячейки панели
+    /// (стена в руке — ставит стену, снимая один предмет); ленты построек у молота нет — молот только сносит и чинит.
+    /// Постановка предсказывается клиентом сети (<see cref="NetClient.Place"/>), починка — нет.
     /// </summary>
     public sealed class BuildHand
     {
@@ -82,12 +83,6 @@ namespace Orpheus.Net.Session
             _requests = requests;
         }
 
-        /// <summary>Номер выбранной постройки в ленте (<see cref="BuildDefs.Palette"/>).</summary>
-        public int Selected { get; private set; }
-
-        /// <summary>Ключ выбранной постройки.</summary>
-        public ushort Key => BuildDefs.Palette[Selected];
-
         /// <summary>Номер последнего отправленного запроса (постановка или починка); 0 — ещё не было.</summary>
         public ushort LastRequest { get; private set; }
 
@@ -95,46 +90,39 @@ namespace Orpheus.Net.Session
         public int PlaceRequests { get; private set; }
         public int RepairRequests { get; private set; }
 
-        /// <summary>Листать ленту (Q / E): шаг по кругу.</summary>
-        public void Step(int step)
-        {
-            int n = BuildDefs.Palette.Length;
-            Selected = ((Selected + step) % n + n) % n;
-        }
-
-        /// <summary>Выбрать постройку по ключу; в ленте нет — false.</summary>
-        public bool Select(ushort key)
-        {
-            int i = BuildDefs.Palette.IndexOf(key);
-            if (i < 0)
-            {
-                return false;
-            }
-
-            Selected = i;
-            return true;
-        }
-
-        /// <summary>Молот в руках (режим стройки открыт).</summary>
+        /// <summary>Молот в руках: снос (ПКМ / ЛКМ по постройке) и починка.</summary>
         public static bool IsHammer(byte item) => Items.DigToolOf(item) == ToolKind.Hammer;
 
+        /// <summary>Предмет — постройка (E2-11): в руке ставится; ключ постройки — <paramref name="key"/>.</summary>
+        public static bool IsBuildItem(byte item, out ushort key) => BuildDefs.TryKeyOf(item, out key);
+
+        /// <summary>Предмет — постройка.</summary>
+        public static bool IsBuildItem(byte item) => BuildDefs.TryKeyOf(item, out _);
+
         /// <summary>
-        /// Что сделает ЛКМ по тайлу и можно ли (данные клиента: свой мир, место, сумка, предмет в руках по своим кадрам,
-        /// жив ли). На тайле повреждённая постройка — починка (<see cref="EditRules.CheckRepair"/>, цена по сумке); иначе
-        /// постановка выбранного (<see cref="EditRules.CheckPlaceTile"/>; непроходимое — не на себя; цена по сумке).
+        /// Что сделает ЛКМ по тайлу и можно ли (данные клиента: свой мир, место, сумка, ячейка панели в руке, жив ли).
+        /// В руке предмет-постройка — постановка его постройки (<see cref="EditRules.CheckPlaceTile"/>; непроходимое — не на
+        /// себя; ячейка пуста — «нет ресурсов»). В руке молот — починка повреждённой постройки (<see cref="EditRules.CheckRepair"/>,
+        /// цена по сумке); целая или пусто — <see cref="EditReply.Intact"/> / <see cref="EditReply.Empty"/>. Иначе — «нельзя».
         /// </summary>
-        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, byte held, bool alive, TileCoord tile, ushort key)
+        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile)
         {
-            EditReply repair = EditRules.CheckRepair(world, self, tile, out BuildDef rdef, out int r1, out int r2);
-            if (repair != EditReply.Empty && repair != EditReply.Intact && repair != EditReply.OutOfReach)
+            byte held = bag.ItemAt(cell);
+            if (IsHammer(held))
             {
+                EditReply repair = EditRules.CheckRepair(world, self, tile, out BuildDef rdef, out int r1, out int r2);
                 if (repair == EditReply.Accepted && !EditRules.RepairAffordable(rdef, r1, r2, bag))
                 {
                     repair = EditReply.NoResources;
                 }
 
-                return new BuildCheck(BuildAction.Repair, Gate(repair, alive, held), world.GetObject(Torus.Wrap(world.Shape, tile)),
+                return new BuildCheck(BuildAction.Repair, alive ? repair : EditReply.Dead, world.GetObject(Torus.Wrap(world.Shape, tile)),
                     rdef.Material1, r1, rdef.Material2, r2);
+            }
+
+            if (!IsBuildItem(held, out ushort key))
+            {
+                return new BuildCheck(BuildAction.Place, alive ? EditReply.NotAllowed : EditReply.Dead, 0, default, 0, default, 0);
             }
 
             BuildDefs.TryGet(key, out BuildDef def);
@@ -144,25 +132,21 @@ namespace Orpheus.Net.Session
                 reply = EditReply.Occupied; // непроходимое — не на себя (`05` 1.3); чужих существ проверит сервер
             }
 
-            if (reply == EditReply.Accepted && !BuildDefs.Affordable(def, bag))
+            if (reply == EditReply.Accepted && bag.CountIn(cell) <= 0)
             {
                 reply = EditReply.NoResources;
             }
 
-            return new BuildCheck(BuildAction.Place, Gate(reply, alive, held), key, def.Material1, def.Count1, def.Material2, def.Count2);
+            return new BuildCheck(BuildAction.Place, alive ? reply : EditReply.Dead, key, def.Material1, def.Count1, def.Material2, def.Count2);
         }
 
-        // Общие отказы раньше остальных: мёртвый не строит, без молота — «нужен молот».
-        private static EditReply Gate(EditReply reply, bool alive, byte held) =>
-            !alive ? EditReply.Dead : !IsHammer(held) ? EditReply.ToolRequired : reply;
-
         /// <summary>
-        /// ЛКМ по тайлу: проверка <see cref="Check"/>; можно — заявка (постановка с предсказанием или починка), иначе заявки
-        /// нет. Возвращает проверку (причину покажет призрак / строка у курсора).
+        /// ЛКМ по тайлу предметом ячейки <paramref name="cell"/>: проверка <see cref="Check"/>; можно — заявка (постановка с
+        /// предсказанием или починка), иначе заявки нет. Возвращает проверку (причину покажет призрак / строка у курсора).
         /// </summary>
-        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, byte held, bool alive, TileCoord tile)
+        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile)
         {
-            BuildCheck c = Check(world, self, bag, held, alive, tile, Key);
+            BuildCheck c = Check(world, self, bag, cell, alive, tile);
             if (!c.Ok)
             {
                 return c;
@@ -179,24 +163,29 @@ namespace Orpheus.Net.Session
             }
             else
             {
-                ushort id = _requests.Place(tile, tile, c.Key, self);
-                if (id != 0)
-                {
-                    PlaceRequests++;
-                    LastRequest = id;
-                }
+                Sent(_requests.Place(tile, tile, c.Key, self, (byte)cell));
             }
 
             return c;
         }
 
         /// <summary>
-        /// Линия одной постройки (ведение с зажатой ЛКМ, ряд пола у бота): заявка уходит целиком — по тайлам решает сервер
-        /// (`05` 1.4: линия до 32 тайлов, где ресурсы кончились — «нет ресурсов»). Возвращает номер запроса; 0 — не ушло.
+        /// Линия предметом ячейки <paramref name="cell"/> (ведение с зажатой ЛКМ, ряд пола у бота): заявка уходит целиком — по
+        /// тайлам решает сервер (`05` 1.4: линия до 32 тайлов, по предмету на тайл; где предметы кончились — «нет ресурсов»).
+        /// В ячейке не постройка — 0. Возвращает номер запроса; 0 — не ушло.
         /// </summary>
-        public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self)
+        public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self, in Inventory bag, int cell)
         {
-            ushort id = _requests.Place(from, to, Key, self);
+            if ((uint)cell >= Inventory.Slots || !IsBuildItem(bag.ItemAt(cell), out ushort key))
+            {
+                return 0;
+            }
+
+            return Sent(_requests.Place(from, to, key, self, (byte)cell));
+        }
+
+        private ushort Sent(ushort id)
+        {
             if (id != 0)
             {
                 PlaceRequests++;
@@ -206,18 +195,51 @@ namespace Orpheus.Net.Session
             return id;
         }
 
-        /// <summary>Сколько материала № <paramref name="i"/> (0 или 1) постройки есть в сумке и сколько нужно — подпись ленты.</summary>
-        public static (Material Material, int Have, int Need) CostLine(ushort key, int i, in Inventory bag)
+        /// <summary>Ячейка панели с предметом <paramref name="item"/> (первая по номеру); нет — −1.</summary>
+        public static int SlotWith(in Inventory bag, byte item)
         {
-            BuildDefs.TryGet(key, out BuildDef def);
-            if (i == 1 && def.Material2 == def.Material1)
+            for (int s = 0; s < Inventory.Slots; s++)
             {
-                return (def.Material2, 0, 0); // смета одним материалом (настил над глубиной) — одна строка
+                if (item != Items.None && bag.ItemAt(s) == item)
+                {
+                    return s;
+                }
             }
 
-            Material m = i == 0 ? def.Material1 : def.Material2;
-            int need = i == 0 ? def.Count1 + (def.Material2 == def.Material1 ? def.Count2 : 0) : def.Count2;
-            return (m, need > 0 ? bag.CountAt(m) : 0, need);
+            return -1;
+        }
+
+        /// <summary>
+        /// Как взять предмет в руку (бот, «взять стену из инвентаря»): ячейка сумки <paramref name="from"/> с предметом и ячейка
+        /// панели <paramref name="to"/> — пустая, иначе последняя, где не инструмент и не оружие (обмен местами). Уже на панели
+        /// или предмета нет — false.
+        /// </summary>
+        public static bool StockMove(in Inventory bag, byte item, out int from, out int to)
+        {
+            from = -1;
+            to = -1;
+            if (item == Items.None || SlotWith(bag, item) >= 0)
+            {
+                return false;
+            }
+
+            for (int c = Inventory.Slots; c < Inventory.Cells && from < 0; c++)
+            {
+                from = bag.ItemAt(c) == item ? c : -1;
+            }
+
+            for (int s = Inventory.Slots - 1; s >= 0 && to < 0; s--)
+            {
+                to = bag.ItemAt(s) == Items.None ? s : -1;
+            }
+
+            for (int s = Inventory.Slots - 1; s >= 0 && to < 0; s--)
+            {
+                ItemCategory cat = ItemTable.Get(bag.ItemAt(s)).Category;
+                to = cat != ItemCategory.Tool && cat != ItemCategory.Weapon ? s : -1;
+            }
+
+            return from >= 0 && to >= 0;
         }
     }
 }

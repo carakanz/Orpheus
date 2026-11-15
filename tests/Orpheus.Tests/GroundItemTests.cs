@@ -52,7 +52,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_ItemTable_Categories_Stacks_MaterialsAreItems()
         {
-            Assert.Equal(21, ItemTable.Count); // 14 — E2-1; + 7 — E2-3 (слиток, верёвка, медные топор / меч / лук, мясо, жареное мясо)
+            Assert.Equal(32, ItemTable.Count); // 14 — E2-1; + 7 — E2-3 (слиток, верёвка, медные топор / меч / лук, мясо, жареное мясо); + 11 — E2-11 (постройки)
             for (int id = 1; id < ItemTable.Count; id++)
             {
                 ItemDef d = ItemTable.Get((byte)id);
@@ -636,8 +636,8 @@ namespace Orpheus.Tests
         // ---------- Стройка от ячеек ----------
 
         /// <summary>
-        /// Стоимость постройки снимается из нескольких стопок; не хватает — «нет ресурсов», сумка цела. Снос возвращает
-        /// материалы кучей на тайл постройки (а не в сумку); подошёл — подобрал.
+        /// E2-11: постановка снимает предмет-постройку из ячейки (заявка без ячейки — первая с ним); нет предмета (материалы
+        /// есть) — «нет ресурсов», сумка цела. Снос возвращает предмет кучей на тайл постройки (а не в сумку); подошёл — подобрал.
         /// </summary>
         [Fact]
         public void E21_Build_CostFromSeveralStacks_RefundDropsOnGround()
@@ -645,24 +645,22 @@ namespace Orpheus.Tests
             Simulation sim = SimWithPlayer(out int id, 300, 200);
             SetBag(sim, id, b =>
             {
-                b.Inv.SetCell(12, Items.Stone, 1);
-                b.Inv.SetCell(25, Items.Stone, 1);
-                b.Inv.SetCell(26, Items.Wood, 5);
+                b.Inv.SetCell(12, Items.StoneWall, 1);
+                b.Inv.SetCell(26, Items.Wood, 10);
             });
             var wall = new TileCoord(304, 200);
             var door = new TileCoord(304, 202);
             Assert.True(BuildDefs.TryGet(ObjectId.StoneWall, out BuildDef wallDef));
             var whole = new BuildRecord(1, wallDef.MaxIntegrity, 0, FloorId.Grass, 0); // целая стена: возврат — рецепт целиком
             sim.RequestPlayerEdit(wall, FloorId.Grass, ObjectId.StoneWall, true, whole, id, 1);
-            sim.RequestPlayerEdit(door, FloorId.Grass, ObjectId.Door, true, BuildRecord.OfPlayer(1, FloorId.Grass), id, 2); // 6 дерева, есть 5
+            sim.RequestPlayerEdit(door, FloorId.Grass, ObjectId.Door, true, BuildRecord.OfPlayer(1, FloorId.Grass), id, 2); // двери-предмета нет (дерево есть)
             sim.Step();
             Assert.Equal(ObjectId.StoneWall, sim.World.GetObject(wall));
             Assert.Equal(ObjectId.Empty, sim.World.GetObject(door));
             Inventory inv = sim.GetEntity(id).Inv;
-            Assert.Equal(0, inv.Count(Items.Stone));
+            Assert.Equal(0, inv.Count(Items.StoneWall));
             Assert.Equal(Items.None, inv.ItemAt(12));
-            Assert.Equal(Items.None, inv.ItemAt(25));
-            Assert.Equal(5, inv.Count(Items.Wood));
+            Assert.Equal(10, inv.Count(Items.Wood));
             bool noResources = false;
             foreach (SimEvent e in sim.Events)
             {
@@ -671,15 +669,15 @@ namespace Orpheus.Tests
 
             Assert.True(noResources);
 
-            // Снос: 2 камня — кучей на тайле стены.
+            // Снос: одна стена-предмет — кучей на тайле стены.
             sim.RequestPlayerEdit(wall, FloorId.Grass, ObjectId.Empty, false, default, id, 3);
             sim.Step();
             Assert.Equal(ObjectId.Empty, sim.World.GetObject(wall));
             GroundPile p = Assert.Single(sim.Piles.ToArray());
-            Assert.Equal(Items.Stone, p.Item);
-            Assert.Equal(2, p.Count);
+            Assert.Equal(Items.StoneWall, p.Item);
+            Assert.Equal(1, p.Count);
             Assert.Equal(wall, Torus.TileOf(sim.Shape, p.Position));
-            Assert.Equal(0, sim.GetEntity(id).Inv.Count(Items.Stone));
+            Assert.Equal(0, sim.GetEntity(id).Inv.Count(Items.StoneWall));
 
             for (int t = 0; t < 90 && sim.Piles.Length > 0; t++)
             {
@@ -687,7 +685,7 @@ namespace Orpheus.Tests
                 sim.Step();
             }
 
-            Assert.Equal(2, sim.GetEntity(id).Inv.Count(Items.Stone));
+            Assert.Equal(1, sim.GetEntity(id).Inv.Count(Items.StoneWall));
         }
 
         // ---------- Детерминизм и хэш ----------
@@ -1130,7 +1128,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_Net_GoldenBytes_Piles_PileGone_BagRequest()
         {
-            Assert.Equal(24, NetModule.ProtocolVersion); // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
+            Assert.Equal(25, NetModule.ProtocolVersion); // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
 
             var buf = new byte[PilesMessage.MaxBytes];
             var piles = new[]

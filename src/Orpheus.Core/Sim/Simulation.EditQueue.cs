@@ -71,8 +71,12 @@ namespace Orpheus.Core.Sim
             /// <summary>Починка (E2-5): цена — по недостающей доле прочности (<c>PreRepair</c>), не цена постановки.</summary>
             public readonly bool Repair;
 
-            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit, int requester, int tag, bool checkCreatures, bool repair = false)
+            /// <summary>Ячейка сумки, из которой постановка берёт предмет-постройку (E2-11); <see cref="AnyCell"/> — любая с таким предметом.</summary>
+            public readonly byte Cell;
+
+            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit, int requester, int tag, bool checkCreatures, bool repair = false, byte cell = AnyCell)
             {
+                Cell = cell;
                 Repair = repair;
                 Chunk = chunk;
                 Arrival = arrival;
