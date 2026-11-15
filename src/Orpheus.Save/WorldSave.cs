@@ -209,8 +209,35 @@ namespace Orpheus.Save
             return new WorldSaveData(
                 name ?? string.Empty, world.Seed, world.Shape, world.GeneratorVersion, (byte[])baseSha256.Clone(),
                 sim.Tick, sim.NextEntityId, coords, revisions, compressed, raw, sim.Entities.ToArray(),
-                characters != null ? (CharacterRecord[])characters.Clone() : Array.Empty<CharacterRecord>(),
+                LiveCharacters(sim, characters),
                 sim.WorldTime, sim.Piles.ToArray(), sim.NextPileId, sim.ChestTiles.ToArray(), sim.ChestContents.ToArray());
+        }
+
+        /// <summary>
+        /// Копия записей персонажей на этот такт (C-005): у персонажа в мире сумка берётся из живой сущности
+        /// в момент снимка, а не из записи. Запись сумки в мире обновляет рассылка снимков (<c>NetServer.SendSnapshots</c>)
+        /// — раз в такт и не обязательно до сохранения; старая сумка (ещё с ингредиентами) рядом со свежей очередью
+        /// изготовления сущности дала бы при загрузке двойной возврат (<c>CharacterRoster.Restore</c>). Так сохранение
+        /// не зависит от порядка шагов цикла сервера.
+        /// </summary>
+        private static CharacterRecord[] LiveCharacters(Simulation sim, CharacterRecord[]? characters)
+        {
+            if (characters == null)
+            {
+                return Array.Empty<CharacterRecord>();
+            }
+
+            var copy = (CharacterRecord[])characters.Clone();
+            for (int i = 0; i < copy.Length; i++)
+            {
+                int slot = copy[i].EntityId > 0 ? sim.SlotOf(copy[i].EntityId) : -1;
+                if (slot >= 0 && sim.Entities[slot].IsCharacter)
+                {
+                    copy[i].Inv = sim.Entities[slot].Inv; // кровать персонажа в мире пишется у сущности (EntityField.BedX)
+                }
+            }
+
+            return copy;
         }
 
         /// <summary>

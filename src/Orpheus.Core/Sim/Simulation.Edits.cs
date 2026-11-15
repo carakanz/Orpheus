@@ -14,7 +14,7 @@ namespace Orpheus.Core.Sim
     /// </summary>
     public sealed partial class Simulation
     {
-        private void AddExpire(long endTick, ChunkCoord chunk, ushort index, bool debris)
+        private void AddExpire(long endTick, ChunkCoord chunk, ushort index, bool debris, BuildFlags clear = BuildFlags.DamagedRecent)
         {
             if (_expireCount == _expire.Length)
             {
@@ -37,7 +37,7 @@ namespace Orpheus.Core.Sim
                 _expire[oldest] = _expire[--_expireCount];
             }
 
-            _expire[_expireCount++] = new ExpireEntry { EndTick = endTick, Chunk = chunk, Index = index, Debris = debris };
+            _expire[_expireCount++] = new ExpireEntry { EndTick = endTick, Chunk = chunk, Index = index, Debris = debris, Clear = debris ? BuildFlags.None : clear };
         }
 
         /// <summary>Истечения такта (1-011): правки снятия — в очередь этого же такта; очередь полна — проба в следующем.</summary>
@@ -61,15 +61,62 @@ namespace Orpheus.Core.Sim
                         // Обломки кончились: тайл остаётся как есть (пол природный), запись снимается правкой без записи.
                         applied = RequestEdit(tile, _world.GetFloor(tile), ObjectId.Empty);
                     }
-                    else if (!e.Debris && rec.IsDamagedRecent)
+                    else if (!e.Debris)
                     {
-                        applied = RequestEdit(tile, _world.GetFloor(tile), _world.GetObject(tile), rec.WithoutFlags(BuildFlags.DamagedRecent));
+                        // C-005: два флага урона (10 с и 3 с) — одна правка на тайл в такт: снимаем всё, что истекло у тайла,
+                        // одной записью, а другие истёкшие записи тайла убираем — иначе две правки из одной старой записи
+                        // вернули бы друг другу снятый флаг.
+                        BuildFlags clear = ExpiredFlags(i, tick) & (BuildFlags)rec.Flags;
+                        applied = clear == BuildFlags.None
+                            || RequestEdit(tile, _world.GetFloor(tile), _world.GetObject(tile), rec.WithoutFlags(clear));
+                        if (applied)
+                        {
+                            DropExpiredFlagsAfter(i, tick);
+                        }
                     }
                 }
 
                 if (applied)
                 {
                     _expire[i--] = _expire[--_expireCount]; // снято; хвост на место
+                }
+            }
+        }
+
+        /// <summary>
+        /// Флаги урона тайла записи истечения № <paramref name="i"/>, которые пора снять: «урон последние 10 с» — если у тайла
+        /// есть наступившее истечение этого флага (как до C-005); «чинить нельзя» — если есть наступившее и нет ненаступившего
+        /// (C-005: 3 с отсчитываются от последнего урона, а не от первого).
+        /// </summary>
+        private BuildFlags ExpiredFlags(int i, long tick)
+        {
+            bool damage = false, repairDue = false, repairLater = false;
+            for (int j = 0; j < _expireCount; j++)
+            {
+                ExpireEntry o = _expire[j];
+                if (o.Debris || o.Index != _expire[i].Index || o.Chunk != _expire[i].Chunk)
+                {
+                    continue;
+                }
+
+                bool due = o.EndTick <= tick;
+                damage |= due && o.Clear == BuildFlags.DamagedRecent;
+                repairDue |= due && o.Clear == BuildFlags.RepairBlocked;
+                repairLater |= !due && o.Clear == BuildFlags.RepairBlocked;
+            }
+
+            return (damage ? BuildFlags.DamagedRecent : BuildFlags.None) | (repairDue && !repairLater ? BuildFlags.RepairBlocked : BuildFlags.None);
+        }
+
+        /// <summary>Убрать наступившие истечения флагов урона того же тайла после № <paramref name="i"/> — их сняла правка № i.</summary>
+        private void DropExpiredFlagsAfter(int i, long tick)
+        {
+            for (int j = _expireCount - 1; j > i; j--)
+            {
+                ExpireEntry o = _expire[j];
+                if (!o.Debris && o.EndTick <= tick && o.Index == _expire[i].Index && o.Chunk == _expire[i].Chunk)
+                {
+                    _expire[j] = _expire[--_expireCount];
                 }
             }
         }
@@ -96,7 +143,7 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Урон постройки (1-011, <c>05</c> 1.3 — осадные враги, взрывы; оружие игроков — нет): прочность −<paramref name="raw"/>;
-        /// флаг «урон последние 10 с» на 10 с; 0 прочности → обломки на 10 с без дропа. Полы «не бьют» (<c>05</c> 1.3).
+        /// флаг «урон последние 10 с» на 10 с и «чинить нельзя» на 3 с (C-005); 0 прочности → обломки на 10 с без дропа. Полы «не бьют» (<c>05</c> 1.3).
         /// Правка — через очередь такта (одна пачка на чанк, 3.7). Применится в ближайшем такте — true.
         /// </summary>
         public bool DamageBuilding(TileCoord tile, int raw)
@@ -129,13 +176,14 @@ namespace Orpheus.Core.Sim
                 return true;
             }
 
-            BuildRecord damaged = rec.WithIntegrity((ushort)left).WithFlags(BuildFlags.DamagedRecent);
+            BuildRecord damaged = rec.WithIntegrity((ushort)left).WithFlags(BuildFlags.DamagedRecent | BuildFlags.RepairBlocked);
             if (!Enqueue(t, _world.GetFloor(t), obj, true, damaged, 0, 0, false))
             {
                 return false;
             }
 
             AddExpire(Tick + BuildDefs.DamageFlagTicks, chunk, index, debris: false);
+            AddExpire(Tick + BuildDefs.RepairBlockTicks, chunk, index, debris: false, BuildFlags.RepairBlocked); // C-005: чинить — через 3 с
             return true;
         }
 

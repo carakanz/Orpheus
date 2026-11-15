@@ -71,6 +71,9 @@ namespace Orpheus.Core.World
         /// <summary>Постройка получала урон последние 10 с (снос таких оставляет обломки, `05`, 1.3).</summary>
         public readonly bool IsDamagedRecent => (Flags & (byte)BuildFlags.DamagedRecent) != 0;
 
+        /// <summary>Постройка получала урон последние 3 с — чинить нельзя (`05` 1.3 «Починка», C-005).</summary>
+        public readonly bool IsRepairBlocked => (Flags & (byte)BuildFlags.RepairBlocked) != 0;
+
         /// <summary>Копия записи с добавленными битами (свои сохраняются).</summary>
         public readonly BuildRecord WithFlags(BuildFlags add) =>
             new BuildRecord(Owner, Integrity, (byte)(Flags | (byte)add), NaturalFloor, DebrisEndTick);
@@ -165,5 +168,11 @@ namespace Orpheus.Core.World
 
         /// <summary>Постройка получала урон последние 10 с: снос такого тайла оставляет обломки (`05`, 1.3; снимается по истечении).</summary>
         DamagedRecent = 16,
+
+        /// <summary>
+        /// Постройка получала урон последние 3 с: чинить нельзя (`05` 1.3 «Починка», C-005; снимается через 3 с после
+        /// последнего урона). До C-005 починку запрещал <see cref="DamagedRecent"/> (10 с).
+        /// </summary>
+        RepairBlocked = 32,
     }
 }

@@ -430,8 +430,11 @@ namespace Orpheus.Core.Sim
             public ChunkCoord Chunk;
             public ushort Index;
 
-            /// <summary>Снимаем обломки (иначе — флаг «урон последние 10 с»).</summary>
+            /// <summary>Снимаем обломки (иначе — флаги <see cref="Clear"/>).</summary>
             public bool Debris;
+
+            /// <summary>Какие флаги урона снять (не обломки): «урон последние 10 с» или «последние 3 с — чинить нельзя» (C-005).</summary>
+            public BuildFlags Clear;
         }
 
 
