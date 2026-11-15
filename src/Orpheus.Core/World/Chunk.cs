@@ -626,6 +626,7 @@ namespace Orpheus.Core.World
         /// <summary>
         /// Расширить старый блок чанка (записи по <see cref="BuildRecord.LegacySizeBytes"/> = 8 байт: сохранения форматов 1–10,
         /// снимок мира версии 2) до нынешнего (9 байт, E2-15): байт слоёв записи — 0 (пол — весь тайл, мебель без сдвига).
+        /// Блок уже нового размера возвращается как есть: размер однозначен по числу записей (11·n против 10·n).
         /// </summary>
         public static byte[] WidenLegacyBlob(ReadOnlySpan<byte> old)
         {
@@ -637,6 +638,11 @@ namespace Orpheus.Core.World
 
             int count = Bytes.ReadUInt16(old, LayerBytes);
             int expected = MinBlobBytes + oldEntry * count;
+            if (count > 0 && old.Length == MinBlobBytes + BuildEntryBytes * count)
+            {
+                return old.ToArray(); // уже новый (размер блока однозначен по числу записей: тестовые файлы со старым номером)
+            }
+
             if (old.Length != expected)
             {
                 throw new InvalidDataException($"Старый блок чанка: на {count} записей нужно {expected} байт, есть {old.Length}.");

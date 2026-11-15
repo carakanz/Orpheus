@@ -35,11 +35,11 @@ namespace Orpheus.Net.Session
         public const string Name = "build_room";
 
         /// <summary>
-        /// Добыть до перехода к стройке: 34 камня (E2-12: 17 рецептов по 2 камня = 34 ячейки тонкой стены) и 26 древесины
-        /// (9 полов + дверь 6 + 11 припас).
+        /// Добыть до перехода к стройке: 34 камня (E2-12: 17 рецептов по 2 камня = 34 ячейки тонкой стены) и 42 древесины
+        /// (E2-15: пол 5 × 5 под стенами — 25 рецептов по 4 ячейки + дверь 6 + 11 припас).
         /// </summary>
         public const int TargetStone = 34;
-        public const int TargetWood = 26;
+        public const int TargetWood = 42;
 
         /// <summary>Сторона комнаты (тайлов): периметр стен, внутри пол 3 × 3.</summary>
         public const int RoomSize = 5;
@@ -62,7 +62,7 @@ namespace Orpheus.Net.Session
         /// <summary>Этапы: добыча → расчистка площадки → изготовление построек (E2-11) → пол → стены → дверь → вход → закрытие → рассвет.</summary>
         public enum Phase
         {
-            Gather, Clear, Craft, Floor, Walls, Door, Enter, Close, WaitDawn, Done, Fail
+            Gather, Clear, Craft, Floor, Walls, Door, Furnish, Enter, Close, WaitDawn, Done, Fail
         }
 
         private readonly MapShape _shape;
@@ -232,7 +232,7 @@ namespace Orpheus.Net.Session
             if (Ticks > MaxTicks)
             {
                 Stage = Phase.Fail;
-                FailReason = $"лимит {MaxTicks} тиков: этап {Stage}, полов {FloorsPlaced}/9, стен {WallsPlaced}/15, дверь {(DoorPlaced ? "поставлена" : "нет")}";
+                FailReason = $"лимит {MaxTicks} тиков: этап {Stage}, полов {FloorsPlaced}/{FloorTiles}, стен {WallsPlaced}/15, дверь {(DoorPlaced ? "поставлена" : "нет")}";
                 return InputFrame.None;
             }
 
@@ -305,6 +305,7 @@ namespace Orpheus.Net.Session
                 Phase.Floor => Floor(client, world, pos),
                 Phase.Walls => Walls(client, world, pos),
                 Phase.Door => Door(client, world, pos),
+                Phase.Furnish => Furnish(client, world, pos),
                 Phase.Enter => Enter(client, world, pos),
                 Phase.Close => Close(client, world, pos),
                 Phase.WaitDawn => WaitDawn(client, pos, nowUs),
@@ -516,8 +517,14 @@ namespace Orpheus.Net.Session
 
         // ------------------------------------------------------------------ изготовление построек (E2-11)
 
-        /// <summary>Сколько предметов-построек нужно комнате: пол 3 × 3, стены периметра без двери, дверь.</summary>
-        public const int NeedFloors = (RoomSize - 2) * (RoomSize - 2);
+        /// <summary>
+        /// Сколько предметов-построек нужно комнате: пол 5 × 5 — под стенами тоже (E2-15: пол — нижний слой, предмет на ячейку
+        /// 0,5, 4 на тайл), стены периметра без двери, дверь.
+        /// </summary>
+        public const int NeedFloors = 4 * RoomSize * RoomSize;
+
+        /// <summary>Тайлов пола: вся площадка 5 × 5 (E2-15: стены ставятся поверх пола).</summary>
+        public const int FloorTiles = RoomSize * RoomSize;
         /// <summary>
         /// Стен-ячеек на периметр (E2-12): тонкая стена — внешние половины тайлов периметра, по 2 ячейки на тайл стороны
         /// и 3 на угол; тайл двери — дверь (пара ячеек снизу).
@@ -584,7 +591,7 @@ namespace Orpheus.Net.Session
         private InputFrame Floor(NetClient client, ClientWorld world, WorldPos pos)
         {
             CountFloors(world);
-            if (FloorsPlaced >= 9)
+            if (FloorsPlaced >= FloorTiles)
             {
                 Stage = Phase.Walls;
                 return InputFrame.None;
@@ -607,10 +614,11 @@ namespace Orpheus.Net.Session
                 return HammerFrame(client); // ряд только что отвергнут
             }
 
+            // E2-15: ряд пола — вся ширина площадки (под будущими стенами тоже), заявка — прямоугольник ячеек ряда тайлов.
             int h = RoomSize / 2;
-            int y = _center.Y - h + 1 + _floorRow % 3;
-            var from = Torus.Wrap(_shape, new TileCoord(_center.X - h + 1, y));
-            var to = Torus.Wrap(_shape, new TileCoord(_center.X + h - 1, y));
+            int y = _center.Y - h + _floorRow % RoomSize;
+            var from = Torus.Wrap(_shape, new TileCoord(_center.X - h, y));
+            var to = Torus.Wrap(_shape, new TileCoord(_center.X + h, y));
             if (!PlaceArmed(BuildDefs.WoodFloorKey, from))
             {
                 return HammerFrame(client);
@@ -636,11 +644,12 @@ namespace Orpheus.Net.Session
         private void CountFloors(ClientWorld world)
         {
             int h = RoomSize / 2, n = 0;
-            for (int dy = -h + 1; dy <= h - 1; dy++)
+            for (int dy = -h; dy <= h; dy++)
             {
-                for (int dx = -h + 1; dx <= h - 1; dx++)
+                for (int dx = -h; dx <= h; dx++)
                 {
-                    if (world.World.GetFloor(Torus.Wrap(_shape, new TileCoord(_center.X + dx, _center.Y + dy))) == FloorId.WoodFloor)
+                    var t = Torus.Wrap(_shape, new TileCoord(_center.X + dx, _center.Y + dy));
+                    if (world.World.GetFloor(t) == FloorId.WoodFloor && BuildLayers.FloorCellsAt(world.World, t) == BuildCells.Full)
                     {
                         n++;
                     }
@@ -774,12 +783,56 @@ namespace Orpheus.Net.Session
 
         // ------------------------------------------------------------------ дверь, вход, закрытие
 
+        /// <summary>Факел у стены поставлен (E2-15: мебель с шагом 0,5 — в свободной половине тайла стены).</summary>
+        public bool TorchPlaced { get; private set; }
+
+        /// <summary>Тайл и четверть СЗ ячейки факела у западной стены: восточная половина тайла стены и западная — соседнего.</summary>
+        public TileCoord TorchTile => Torus.Wrap(_shape, new TileCoord(_center.X - RoomSize / 2, _center.Y));
+
+        private int _furnishFrom = -1;
+
+        /// <summary>
+        /// E2-15: факел (стартовый набор) у западной стены изнутри — со сдвигом на полтайла: СЗ ячейка — восточная половина тайла
+        /// стены (стена стоит в западной), якорь — соседний тайл. Факела нет или не встал за 3 с — дальше без него (комната и
+        /// ночь важнее).
+        /// </summary>
+        private InputFrame Furnish(NetClient client, ClientWorld world, WorldPos pos)
+        {
+            if (_furnishFrom < 0)
+            {
+                _furnishFrom = _frame;
+            }
+
+            TileCoord anchor = Torus.Wrap(_shape, new TileCoord(TorchTile.X + 1, TorchTile.Y));
+            if (ObjectId.IdOf(world.World.GetObject(anchor)) == ObjectId.Torch)
+            {
+                TorchPlaced = true;
+            }
+
+            if (TorchPlaced || client.Inv.Count(Items.Torch) == 0 || _frame - _furnishFrom > 180)
+            {
+                Stage = Phase.Enter;
+                return InputFrame.None;
+            }
+
+            if (InPlaceReach(pos, TorchTile) && PlaceArmed(ObjectId.Torch, TorchTile) && !_reqObj.ContainsValue(ObjectId.Torch))
+            {
+                ushort id = ClickBuild(client, world, pos, ObjectId.Torch, TorchTile, 1);
+                if (id != 0)
+                {
+                    _reqObj[id] = ObjectId.Torch;
+                }
+            }
+
+            return HammerFrame(client);
+        }
+
         private InputFrame Door(NetClient client, ClientWorld world, WorldPos pos)
         {
             TileCoord door = DoorTile;
             if (world.World.GetObject(door) == ObjectId.Door)
             {
-                Stage = Phase.Enter;
+                Stage = Phase.Furnish;
                 return InputFrame.None;
             }
 
@@ -1090,6 +1143,7 @@ namespace Orpheus.Net.Session
                 Phase.Floor => Items.WoodFloor,
                 Phase.Walls => Items.StoneWall,
                 Phase.Door => Items.Door,
+                Phase.Furnish => Items.Torch,
                 _ => Items.None,
             };
             int hand = BuildHand.SlotWith(client.Inv, item);

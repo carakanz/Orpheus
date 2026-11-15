@@ -128,7 +128,8 @@ namespace Orpheus.Net.Session
         /// из ячейки на тайл: где предметы кончились — предсказание останавливается, сервер ответит «нет ресурсов».
         /// Возвращает номер запроса; линия длиннее 32, ячейка вне панели или не в игре — 0.
         /// </summary>
-        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell) => Place(from, to, obj, self, cell, 0);
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell) =>
+            Place(from, to, obj, self, cell, EditRules.IsFloorKey(obj) && World != null ? BuildCells.WholeTilesQuad(World.Shape, from, to) : (byte)0); // E2-15: пол — тайлы целиком
 
         /// <summary>
         /// «Поставить» с четвертями (E2-12, протокол 26): <paramref name="quad"/> — биты 0–1 ячейка 0,5 × 0,5 в тайле начала,

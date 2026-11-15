@@ -132,12 +132,14 @@ namespace Orpheus.Tests
         [Fact]
         public void E213_FloorRect_WxH_TakesExactly()
         {
-            using var r = new Rig(Flat(), 300, 200, Items.WoodFloor, 20);
-            r.Drag(new TileCoord(302, 199), 0, new TileCoord(299, 201), 0); // 4 × 3, к западу и к югу от A
+            // E2-15: прямоугольник — ячейками 0,5: от СВ ячейки тайла 302 до ЮЗ ячейки 299 — тайлы 4 × 3 целиком (8 × 6 ячеек),
+            // предмет на ячейку; полоса в ряд тайлов — одна заявка.
+            using var r = new Rig(Flat(), 300, 200, Items.WoodFloor, 60);
+            r.Drag(new TileCoord(302, 199), 1, new TileCoord(299, 201), 2); // к западу и к югу от A
             Assert.Equal(RulerKind.Rect, r.Ruler.Kind);
-            Assert.Equal(4, r.Ruler.Width);
-            Assert.Equal(3, r.Ruler.Height);
-            Assert.Equal(12, r.Ruler.Need);
+            Assert.Equal(8, r.Ruler.Width);
+            Assert.Equal(6, r.Ruler.Height);
+            Assert.Equal(48, r.Ruler.Need);
             Assert.Equal(3, r.Release());
             for (int y = 198; y <= 202; y++)
             {
@@ -150,7 +152,7 @@ namespace Orpheus.Tests
                 }
             }
 
-            Assert.Equal(20 - 12, r.Bag);
+            Assert.Equal(60 - 48, r.Bag);
         }
 
         [Fact]
@@ -187,11 +189,11 @@ namespace Orpheus.Tests
             Assert.Equal(30 - 14, r.Bag);
 
             var inv = r.Edit.Sim.GetEntity(r.C.EntityId).Inv;
-            inv.SetCell(Slot, Items.WoodFloor, 10);
+            inv.SetCell(Slot, Items.WoodFloor, 40);
             Assert.True(r.Edit.Sim.SetInventory(r.C.EntityId, inv));
             r.Edit.Run(3);
-            r.Drag(new TileCoord(1022, 198), 0, new TileCoord(1, 199), 0); // 4 × 2 через шов
-            Assert.Equal(8, r.Ruler.Need);
+            r.Drag(new TileCoord(1022, 198), 0, new TileCoord(1, 199), 3); // 4 × 2 тайла через шов = 8 × 4 ячейки (E2-15)
+            Assert.Equal(32, r.Ruler.Need);
             r.Release();
             foreach (int x in new[] { 1022, 1023, 0, 1 })
             {
@@ -199,7 +201,7 @@ namespace Orpheus.Tests
                 Assert.Equal(FloorId.WoodFloor, r.Edit.Sim.World.GetFloor(new TileCoord(x, 199)));
             }
 
-            Assert.Equal(2, r.Bag);
+            Assert.Equal(40 - 32, r.Bag);
         }
 
         [Fact]

@@ -222,7 +222,7 @@ namespace Orpheus.Net.Session
 
         private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m, byte held)
         {
-            if (!EditRules.IsPlaceable(m.Obj))
+            if (EditRules.Line(_sim.Shape, m.From, m.To, _line) < 0 || !EditRules.IsPlaceable(m.Obj))
             {
                 Reply(p, m.RequestId, EditReply.NotAllowed, EditReply.NotAllowed, 0);
                 return;

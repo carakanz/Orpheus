@@ -34,10 +34,11 @@ namespace Orpheus.Core.World
     /// <list type="bullet">
     /// <item>стена, забор — линия ячеек 0,5 (<see cref="BuildCells.Line"/>, до 32), ячейки тайла — одна правка; дверь — пара
     /// ячеек тайла начала (<see cref="BuildCells.DoorMaskFor"/>);</item>
-    /// <item>деревянный и каменный пол — линия ячеек так же (<see cref="BuildLayers.CheckFloor"/>, нижний слой — верх тайла не
-    /// меняется); настил — линия тайлов целиком;</item>
-    /// <item>мебель (<see cref="BuildLayers.IsFurniture"/>) — одна, СЗ ячейка — ячейка начала (шаг 0,5;
-    /// <see cref="BuildLayers.CheckFurniture"/>): правка тайла-якоря со сдвигом;</item>
+    /// <item>деревянный и каменный пол — прямоугольник ячеек от ячейки начала до ячейки конца (до 64 ячеек и 32 тайлов;
+    /// <see cref="BuildLayers.CheckFloor"/>, нижний слой — верх тайла не меняется), бит ответа — на тайл; настил — линия тайлов
+    /// целиком;</item>
+    /// <item>мебель (<see cref="BuildLayers.IsFurniture"/>) — линия тайлов (обычно один), СЗ ячейка в каждом — с четвертью
+    /// начала (шаг 0,5; <see cref="BuildLayers.CheckFurniture"/>): правка тайла-якоря со сдвигом;</item>
     /// <item>прочее (ковёр, шипы) — линия тайлов (<see cref="EditRules.CheckPlaceTile"/>).</item>
     /// </list>
     /// Запись нового верха кладётся поверх пола (<see cref="BuildLayers.TopRecord"/>).
@@ -61,25 +62,37 @@ namespace Orpheus.Core.World
             bool floorKey = EditRules.IsFloorKey(obj);
             if (BuildLayers.IsFurniture(obj))
             {
-                TileCoord cell = BuildCells.CellOf(Torus.Wrap(map, from), quad & 3);
-                ref PlannedEdit e = ref dest[0];
-                e = default;
-                e.Check = BuildLayers.CheckFurniture(world, center, obj, cell, out TileCoord anchor, out int dx, out int dy);
-                e.Tile = e.Check == EditReply.Accepted ? anchor : BuildCells.TileOfCell(cell);
-                e.Count = 1;
-                e.Units = 1;
-                if (e.Check == EditReply.Accepted)
+                // Мебель: линия тайлов (обычно один), в каждом — СЗ ячейка с той же четвертью начала (шаг 0,5).
+                Span<TileCoord> tilesLine = stackalloc TileCoord[EditRules.MaxLineTiles];
+                int nf = EditRules.Line(map, from, to, tilesLine);
+                for (int i = 0; i < nf; i++)
                 {
-                    e.Floor = world.GetFloor(anchor);
-                    e.Obj = obj;
-                    e.Record = BuildLayers.TopRecord(world, anchor, owner, integrity, 0).WithOffset(dx, dy);
+                    TileCoord cell = BuildCells.CellOf(tilesLine[i], quad & 3);
+                    ref PlannedEdit e = ref dest[i];
+                    e = default;
+                    e.Check = BuildLayers.CheckFurniture(world, center, obj, cell, out TileCoord anchor, out int dx, out int dy);
+                    e.Tile = e.Check == EditReply.Accepted ? anchor : tilesLine[i];
+                    e.First = (byte)i;
+                    e.Count = 1;
+                    e.Units = 1;
+                    if (e.Check == EditReply.Accepted)
+                    {
+                        e.Floor = world.GetFloor(anchor);
+                        e.Obj = obj;
+                        e.Record = BuildLayers.TopRecord(world, anchor, owner, integrity, 0).WithOffset(dx, dy);
+                    }
                 }
 
-                return 1;
+                return nf;
+            }
+
+            if (floorKey && obj != BuildDefs.PlatformKey)
+            {
+                return PlanFloor(world, center, obj, from, to, quad, owner, integrity, dest);
             }
 
             bool cellWall = BuildCells.IsCellBuilding(obj);
-            if (cellWall || (floorKey && obj != BuildDefs.PlatformKey))
+            if (cellWall)
             {
                 Span<CellGroup> groups = stackalloc CellGroup[EditRules.MaxLineTiles];
                 int n;
@@ -103,29 +116,14 @@ namespace Orpheus.Core.World
                     e.Tile = t;
                     e.First = g.First;
                     e.Count = g.Count;
-                    byte mask, add;
-                    if (floorKey)
+                    e.Check = BuildCells.CheckPlace(world, center, t, obj, g.Mask, out byte mask, out byte add);
+                    if (e.Check == EditReply.Accepted)
                     {
-                        e.Check = BuildLayers.CheckFloor(world, center, t, obj, g.Mask, out mask, out add);
-                        e.FloorOnly = true;
-                        if (e.Check == EditReply.Accepted)
-                        {
-                            e.Floor = BuildDefs.FloorOf(obj);
-                            e.Obj = world.GetObject(t);
-                            e.Record = BuildLayers.FloorRecord(world, t, owner, integrity, mask);
-                        }
-                    }
-                    else
-                    {
-                        e.Check = BuildCells.CheckPlace(world, center, t, obj, g.Mask, out mask, out add);
-                        if (e.Check == EditReply.Accepted)
-                        {
-                            e.Floor = world.GetFloor(t);
-                            e.Obj = obj;
-                            e.Record = world.GetObject(t) == obj && world.TryGetBuild(t, out BuildRecord old)
-                                ? old.WithCells(mask)
-                                : BuildLayers.TopRecord(world, t, owner, integrity, mask);
-                        }
+                        e.Floor = world.GetFloor(t);
+                        e.Obj = obj;
+                        e.Record = world.GetObject(t) == obj && world.TryGetBuild(t, out BuildRecord old)
+                            ? old.WithCells(mask)
+                            : BuildLayers.TopRecord(world, t, owner, integrity, mask);
                     }
 
                     e.Units = (byte)(door ? 1 : Math.Max(1, BuildCells.Count(add)));
@@ -169,6 +167,79 @@ namespace Orpheus.Core.World
             }
 
             return count;
+        }
+
+        /// <summary>Пол — прямоугольник ячеек не больше (E2-15): ряд тайлов 16 × 2 ячейки.</summary>
+        public const int MaxFloorCells = 64;
+
+        // Пол (деревянный, каменный): прямоугольник ячеек от ячейки начала до ячейки конца (углы включены), ячейки тайла —
+        // одна правка; правки — в порядке первого появления тайла (ряды от A, в ряду — от A); бит ответа — номер правки.
+        private static int PlanFloor(WorldModel world, WorldPos center, ushort obj, TileCoord from, TileCoord to, int quad, ushort owner, ushort integrity, Span<PlannedEdit> dest)
+        {
+            MapShape map = world.Shape;
+            MapShape cells = BuildCells.CellShape(map);
+            TileCoord a = Torus.Wrap(cells, BuildCells.CellOf(from, quad & 3));
+            TileCoord b = Torus.Wrap(cells, BuildCells.CellOf(to, (quad >> 2) & 3));
+            Int2 d = Torus.Delta(cells, a, b);
+            int w = Math.Abs(d.X) + 1;
+            int h = Math.Abs(d.Y) + 1;
+            if (w * h > MaxFloorCells)
+            {
+                return -1;
+            }
+
+            int sx = d.X < 0 ? -1 : 1;
+            int sy = d.Y < 0 ? -1 : 1;
+            Span<TileCoord> tiles = stackalloc TileCoord[EditRules.MaxLineTiles];
+            Span<byte> masks = stackalloc byte[EditRules.MaxLineTiles];
+            int n = 0;
+            for (int j = 0; j < h; j++)
+            {
+                for (int i = 0; i < w; i++)
+                {
+                    TileCoord c = Torus.Wrap(cells, new TileCoord(a.X + sx * i, a.Y + sy * j));
+                    TileCoord t = BuildCells.TileOfCell(c);
+                    int k = 0;
+                    while (k < n && tiles[k] != t)
+                    {
+                        k++;
+                    }
+
+                    if (k == n)
+                    {
+                        if (n == tiles.Length)
+                        {
+                            return -1; // тайлов больше, чем бит ответа
+                        }
+
+                        tiles[n] = t;
+                        masks[n++] = 0;
+                    }
+
+                    masks[k] |= BuildCells.BitOfCell(c);
+                }
+            }
+
+            for (int k = 0; k < n; k++)
+            {
+                TileCoord t = tiles[k];
+                ref PlannedEdit e = ref dest[k];
+                e = default;
+                e.Tile = t;
+                e.First = (byte)k;
+                e.Count = 1;
+                e.FloorOnly = true;
+                e.Check = BuildLayers.CheckFloor(world, center, t, obj, masks[k], out byte mask, out byte add);
+                e.Units = (byte)Math.Max(1, BuildCells.Count(add));
+                if (e.Check == EditReply.Accepted)
+                {
+                    e.Floor = BuildDefs.FloorOf(obj);
+                    e.Obj = world.GetObject(t);
+                    e.Record = BuildLayers.FloorRecord(world, t, owner, integrity, mask);
+                }
+            }
+
+            return n;
         }
     }
 }

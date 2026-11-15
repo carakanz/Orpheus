@@ -54,8 +54,23 @@ namespace Orpheus.Net.Session
         /// <summary>Ячейки 0,5 × 0,5 тайла, которые займёт постановка (E2-12, <see cref="BuildCells.Bit"/>); 0 — весь тайл.</summary>
         public readonly byte Cells;
 
+        /// <summary>
+        /// Мебель (E2-15): тайл-якорь и сдвиг в ячейках 0,5 от его СЗ ячейки — где встанет (призрак со сдвигом). Прочее —
+        /// тайл щелчка, сдвиг 0.
+        /// </summary>
+        public readonly TileCoord Anchor;
+        public readonly int OffsetX, OffsetY;
+
         public BuildCheck(BuildAction action, EditReply reply, ushort key, Material m1, int c1, Material m2, int c2, byte cells = 0)
+            : this(action, reply, key, m1, c1, m2, c2, cells, default, 0, 0)
         {
+        }
+
+        public BuildCheck(BuildAction action, EditReply reply, ushort key, Material m1, int c1, Material m2, int c2, byte cells, TileCoord anchor, int dx, int dy)
+        {
+            Anchor = anchor;
+            OffsetX = dx;
+            OffsetY = dy;
             Cells = cells;
             Action = action;
             Reply = reply;
@@ -140,25 +155,57 @@ namespace Orpheus.Net.Session
                 return new BuildCheck(BuildAction.Place, alive ? EditReply.NotAllowed : EditReply.Dead, 0, default, 0, default, 0);
             }
 
+            // E2-15: тот же план, что у сервера и предсказания (BuildPlanner): стена, забор, пол — ячейка под курсором, дверь —
+            // пара ячеек, мебель — СЗ ячейка под курсором (шаг 0,5), прочее — тайл.
             BuildDefs.TryGet(key, out BuildDef def);
+            Span<PlannedEdit> plan = stackalloc PlannedEdit[EditRules.MaxLineTiles];
+            int q = quad & 3;
+            int n = BuildPlanner.Plan(world, self, key, tile, tile, q | (q << 2), 0, plan);
+            EditReply reply = n > 0 ? plan[0].Check : EditReply.NotAllowed;
+            TileCoord anchor = n > 0 ? plan[0].Tile : Torus.Wrap(world.Shape, tile);
+            int dx = 0, dy = 0;
             byte cells = 0;
-            EditReply reply;
-            if (BuildCells.IsCellBuilding(key))
+            if (BuildLayers.IsFurniture(key))
             {
-                byte want = ObjectId.IdOf(key) == ObjectId.Door ? BuildCells.DoorMaskFor(world, tile, quad & 3) : BuildCells.Bit(quad & 1, (quad >> 1) & 1);
-                reply = BuildCells.CheckPlace(world, self, tile, key, want, out _, out cells);
-                cells = reply == EditReply.Accepted ? cells : want;
-                if (reply == EditReply.Accepted && Orpheus.Core.Movement.Collision.CircleOverlapsCells(world.Shape, self, Torus.Wrap(world.Shape, tile), cells))
+                if (reply == EditReply.Accepted)
+                {
+                    dx = plan[0].Record.OffsetX;
+                    dy = plan[0].Record.OffsetY;
+                }
+                else
+                {
+                    TileCoord c = BuildCells.CellOf(Torus.Wrap(world.Shape, tile), q); // отказ: призрак там, где просили
+                    anchor = BuildCells.TileOfCell(c);
+                    dx = c.X & 1;
+                    dy = c.Y & 1;
+                }
+
+                cells = BuildLayers.FootMask(dx, dy, 0, 0);
+                if (reply == EditReply.Accepted && EditRules.BlocksCreature(key))
+                {
+                    Span<TileCoord> tiles = stackalloc TileCoord[4];
+                    Span<byte> masks = stackalloc byte[4];
+                    int parts = BuildLayers.Footprint(world.Shape, anchor, plan[0].Record, tiles, masks);
+                    for (int k = 0; k < parts; k++)
+                    {
+                        if (Orpheus.Core.Movement.Collision.CircleOverlapsCells(world.Shape, self, tiles[k], masks[k]))
+                        {
+                            reply = EditReply.Occupied; // непроходимое — не на себя (`05` 1.3); чужих существ проверит сервер
+                        }
+                    }
+                }
+            }
+            else if (BuildCells.IsCellBuilding(key) || (EditRules.IsFloorKey(key) && key != BuildDefs.PlatformKey))
+            {
+                byte want = ObjectId.IdOf(key) == ObjectId.Door ? BuildCells.DoorMaskFor(world, tile, q) : BuildCells.Bit(q & 1, (q >> 1) & 1);
+                cells = reply == EditReply.Accepted ? AddedCells(world, key, anchor, plan[0]) : want;
+                if (reply == EditReply.Accepted && BuildCells.IsCellBuilding(key)
+                    && Orpheus.Core.Movement.Collision.CircleOverlapsCells(world.Shape, self, anchor, cells))
                 {
                     reply = EditReply.Occupied; // ячейка — не на себя (`05` 1.3)
                 }
             }
-            else
-            {
-                reply = EditRules.CheckPlaceTile(world, self, tile, key);
-            }
-
-            if (reply == EditReply.Accepted && !BuildCells.IsCellBuilding(key) && EditRules.BlocksCreature(key) && !EditRules.IsFloorKey(key) && EditRules.Overlaps(world.Shape, self, tile))
+            else if (reply == EditReply.Accepted && EditRules.BlocksCreature(key) && !EditRules.IsFloorKey(key) && EditRules.Overlaps(world.Shape, self, tile))
             {
                 reply = EditReply.Occupied; // непроходимое — не на себя (`05` 1.3); чужих существ проверит сервер
             }
@@ -168,7 +215,19 @@ namespace Orpheus.Net.Session
                 reply = EditReply.NoResources;
             }
 
-            return new BuildCheck(BuildAction.Place, alive ? reply : EditReply.Dead, key, def.Material1, def.Count1, def.Material2, def.Count2, cells);
+            return new BuildCheck(BuildAction.Place, alive ? reply : EditReply.Dead, key, def.Material1, def.Count1, def.Material2, def.Count2, cells, anchor, dx, dy);
+        }
+
+        // Ячейки, которые добавит правка плана: стена/забор/дверь — новые ячейки верха, пол — новые ячейки пола.
+        private static byte AddedCells(WorldModel world, ushort key, TileCoord tile, in PlannedEdit e)
+        {
+            if (EditRules.IsFloorKey(key))
+            {
+                return (byte)(BuildLayers.FloorCellsOf(e.Floor, true, e.Record) & ~BuildLayers.FloorCellsAt(world, tile) & BuildCells.Full);
+            }
+
+            byte before = world.GetObject(tile) == key ? BuildCells.MaskAt(world, tile) : (byte)0;
+            return (byte)(BuildCells.MaskOf(key, true, e.Record) & ~before & BuildCells.Full);
         }
 
         /// <summary>
@@ -209,8 +268,18 @@ namespace Orpheus.Net.Session
         /// тайлам решает сервер (`05` 1.4: линия до 32 тайлов, по предмету на тайл; где предметы кончились — «нет ресурсов»).
         /// В ячейке не постройка — 0. Возвращает номер запроса; 0 — не ушло.
         /// </summary>
-        public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self, in Inventory bag, int cell) =>
-            PlaceLine(from, to, self, bag, cell, 0, 0);
+        public ushort PlaceLine(TileCoord from, TileCoord to, WorldPos self, in Inventory bag, int cell)
+        {
+            // E2-15: пол — прямоугольник ячеек; линия тайлов без четвертей — тайлы целиком (бот: ряд пола).
+            if ((uint)cell < Inventory.Slots && IsBuildItem(bag.ItemAt(cell), out ushort key) && EditRules.IsFloorKey(key))
+            {
+                int ax = to.X < from.X ? 1 : 0; // без карты: по координатам (у шва — линейка с четвертями)
+                int ay = to.Y < from.Y ? 1 : 0;
+                return PlaceLine(from, to, self, bag, cell, ax | (ay << 1), (ax ^ 1) | ((ay ^ 1) << 1));
+            }
+
+            return PlaceLine(from, to, self, bag, cell, 0, 0);
+        }
 
         /// <summary>
         /// Линия с четвертями (E2-12): стена и забор — ячейки от ячейки <paramref name="fromQuad"/> тайла <paramref name="from"/>

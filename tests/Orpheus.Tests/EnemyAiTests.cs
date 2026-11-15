@@ -409,7 +409,7 @@ namespace Orpheus.Tests
             live.Run(300, 1);
 
             byte[] save = WorldSave.Build(WorldSave.Capture(live.Sim, live.BaseSha, "ИИ"), 6, 0);
-            Assert.Equal(10u, SaveContainer.Read(save).Header.FormatVersion); // нынешний формат (10 с E2-12)
+            Assert.Equal(11u, SaveContainer.Read(save).Header.FormatVersion); // E2-15: 11 // нынешний формат (10 с E2-12)
 
             Simulation loaded = SaveFixtures.Load(live.BaseBytes, save);
             Assert.Equal(live.Sim.Tick, loaded.Tick);

@@ -128,6 +128,18 @@ namespace Orpheus.Core.World
         /// <summary>Четверти ячейки одним числом (бит 0 — qx, бит 1 — qy) — поле запроса правки.</summary>
         public static int QuadOf(TileCoord cell) => (cell.X & 1) | ((cell.Y & 1) << 1);
 
+        /// <summary>
+        /// Четверти заявки «тайлы целиком» от <paramref name="from"/> до <paramref name="to"/> (E2-15: пол прямоугольником
+        /// ячеек): начало — угол тайла начала, конец — противоположный угол тайла конца (по направлению по тору).
+        /// </summary>
+        public static byte WholeTilesQuad(in MapShape map, TileCoord from, TileCoord to)
+        {
+            Int2 d = Torus.Delta(map, Torus.Wrap(map, from), Torus.Wrap(map, to));
+            int ax = d.X < 0 ? 1 : 0;
+            int ay = d.Y < 0 ? 1 : 0;
+            return (byte)((ax | (ay << 1)) | (((ax ^ 1) | ((ay ^ 1) << 1)) << 2));
+        }
+
         /// <summary>Ячейка по тайлу и четвертям одним числом (<see cref="QuadOf"/>).</summary>
         public static TileCoord CellOf(TileCoord tile, int quad) => CellOf(tile, quad & 1, (quad >> 1) & 1);
 

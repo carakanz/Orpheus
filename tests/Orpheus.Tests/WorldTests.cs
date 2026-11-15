@@ -79,7 +79,7 @@ namespace Orpheus.Tests
             Assert.Equal(3072, Chunk.LayerBytes);
             Assert.Equal(3072, new Chunk().Layers.Length);
             Assert.Equal(3, Chunk.LayerBytes / Chunk.TileCount);
-            Assert.Equal(8, BuildRecord.SizeBytes);
+            Assert.Equal(9, BuildRecord.SizeBytes); // E2-15: + байт слоёв (8 — до формата 11)
 
             var world = new WorldModel(MapShape.World(4096));
             Assert.Equal(128 * 128, world.TotalChunks);
@@ -260,7 +260,7 @@ namespace Orpheus.Tests
             int perTileRecord = withRecord - TilePatch.HeaderBytes - TilePatch.CountBytes;
             _out.WriteLine($"правка тайла: {perTilePlain} байт без записи, {perTileRecord} с записью; пачка из одной правки — {plain} / {withRecord} байт");
             Assert.Equal(5, perTilePlain);
-            Assert.Equal(13, perTileRecord);
+            Assert.Equal(14, perTileRecord); // E2-15: запись 9 байт
             Assert.Equal(11, TilePatch.HeaderBytes + TilePatch.CountBytes);
         }
 
