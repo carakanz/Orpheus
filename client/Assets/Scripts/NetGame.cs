@@ -707,7 +707,7 @@ namespace Orpheus.Client
                     GameObject go = GetEntity(id);
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
-                    _anim?.Remote(id, go.transform);
+                    _anim?.Remote(id, go.transform, snap.Entities[i]); // E2-7: предмет в руке и удар мечом чужих — из снимка
                 }
             }
 
