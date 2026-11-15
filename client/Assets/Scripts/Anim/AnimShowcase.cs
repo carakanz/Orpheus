@@ -330,7 +330,7 @@ namespace Orpheus.Client.Anim
             _digger.Root.position = DiggerPos;
             if (ToolDig(_digger, ActionKind.Chop, ChopFrames, _t, dt, Vector2.right))
             {
-                NetAnimation.Emit(_sparks, _tree, Vector2.left, ObjectId.Tree);
+                NetAnimation.Emit(_sparks, _tree, Vector2.left, ImpactLook.Wood);
                 LifeFx.HitTile(_treeTile, Vector2.right);
             }
 
@@ -338,7 +338,7 @@ namespace Orpheus.Client.Anim
             _miner.Root.position = MinerPos;
             if (ToolDig(_miner, ActionKind.Mine, MineFrames, _t + 0.2f, dt, Vector2.right))
             {
-                NetAnimation.Emit(_sparks, _rock, Vector2.left, _rockReal ? _g.World.GetObject(_rockTile) : ObjectId.Rock);
+                NetAnimation.Emit(_sparks, _rock, Vector2.left, ImpactLook.Stone);
             }
 
             // E2-7: стройка — жест к месту постановки (вправо-вниз) раз в 1,1 с.

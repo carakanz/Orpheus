@@ -307,5 +307,121 @@ namespace Orpheus.Tests
 
             Assert.Equal(5, pokes); // 1,5 с по 0,3 с — как в K-001
         }
+            /// <summary>
+        /// Связка «счёт кадров копания → поза» как в <c>NetAnimation.Frame</c>: кадры рисования шагом <paramref name="dt"/>, счёт
+        /// ядра растёт раз в 1/60 с; при счёте = <paramref name="frames"/> предсказание снимает объект (в мире — пусто).
+        /// Возвращает удары: (счёт в прошлом кадре, счёт в кадре удара, вид отклика, снят ли объект в этот кадр).
+        /// </summary>
+        /// <summary>
+        /// Счёт кадров ввода к мигу <paramref name=time/>: кадр k отправляется в k/60 с, нечётные — с опозданием 0,8 кадра
+        /// (ввод шлётся по своему такту, кадры рисования его не ждут) — между счётами бывает больше кадра.
+        /// </summary>
+        static int CountAt(double time, int frames)
+        {
+            int n = 0;
+            for (int k = 1; k <= frames; k++)
+            {
+                if (k / 60.0 + (k % 2 == 1 ? 0.8 / 60 : 0) <= time + 1e-9)
+                {
+                    n = k;
+                }
+            }
+
+            return n;
+        }
+
+        static System.Collections.Generic.List<(int Prev, int Progress, ImpactLook Look, bool Removed)> RunTracked(float dt, int frames, ushort obj)
+        {
+            var track = new DigTrack();
+            var anim = new ProceduralAnimator();
+            var hits = new System.Collections.Generic.List<(int, int, ImpactLook, bool)>();
+            int prev = 0;
+            double time = 0;
+            int n = (int)Math.Ceiling((frames / 60.0 + 0.3) / dt);
+            for (int i = 0; i < n; i++)
+            {
+                time += dt;
+                int progress = CountAt(time, frames);
+                bool removed = progress >= frames;
+                ushort now = removed ? Orpheus.Core.World.ObjectId.Empty : obj;
+                float sec = track.Update(5, 7, now, progress, frames, removed, (float)dt, out _);
+                Pose p = anim.Step((float)dt, new ActorInput
+                {
+                    Digging = true, DigDirX = 1f, Action = ActionKind.Chop, ActionSec = sec, ActionFrames = frames, Held = HeldLook.Axe,
+                });
+                if (p.DigPokeNow)
+                {
+                    hits.Add((prev, progress, track.Look, removed));
+                }
+
+                prev = progress;
+            }
+
+            return hits;
+        }
+
+        [Theory]
+        [InlineData(1f / 30f)]
+        [InlineData(1f / 60f)]
+        [InlineData(1f / 144f)]
+        [InlineData(1f / 240f)]
+        public void E27_OneSwingDig_OnTree_GivesTreeImpact_InRemovalFrame(float dt)
+        {
+            // Копание в один замах (0,3 с): единственный удар — в кадр снятия объекта предсказанием, отклик — дерева, не пыли.
+            var hits = RunTracked(dt, 18, Orpheus.Core.World.ObjectId.Tree);
+            Assert.Single(hits);
+            Assert.Equal(18, hits[0].Progress);
+            Assert.True(hits[0].Prev < 18);
+            Assert.True(hits[0].Removed);
+            Assert.Equal(ImpactLook.Wood, hits[0].Look);
+        }
+
+        [Theory]
+        [InlineData(1f / 60f)]
+        [InlineData(1f / 144f)]
+        [InlineData(1f / 240f)]
+        public void E27_EveryImpact_NotBeforeCoreCount_LastInRemovalFrame(float dt)
+        {
+            const int frames = 75; // три замаха по 25 кадров
+            var hits = RunTracked(dt, frames, Orpheus.Core.World.ObjectId.Rock);
+            Assert.Equal(3, hits.Count);
+            // Удар — в первый кадр рисования, где счёт ядра дошёл до конца замаха (25, 50, 75), не раньше.
+            for (int i = 0; i < 3; i++)
+            {
+                int boundary = 25 * (i + 1);
+                Assert.True(hits[i].Prev < boundary && hits[i].Progress >= boundary, $"удар {i}: счёт {hits[i].Prev}→{hits[i].Progress}, граница {boundary}");
+            }
+
+            Assert.Equal(75, hits[2].Progress);
+            Assert.True(hits[2].Removed);
+            Assert.All(hits, h => Assert.Equal(ImpactLook.Stone, h.Look));
+        }
+
+        [Fact]
+        public void E27_ClockSec_SubFrameNeverCrossesBeatBeforeCount()
+        {
+            // Счёт 29 из 30, доля кадра — целый кадр и больше: удара ещё нет; счёт 30 — удар.
+            float before = DigTrack.ClockSec(29, 1f / 60f, 30);
+            Assert.Equal(0, ActionAnim.ImpactsBetween(0f, before, 30));
+            Assert.True(before > 28f / 60f); // поза всё равно идёт вперёд
+            Assert.Equal(1, ActionAnim.ImpactsBetween(before, DigTrack.ClockSec(30, 0f, 30), 30));
+            Assert.Equal(ImpactLook.Wood, DigTrack.LookOf(Orpheus.Core.World.ObjectId.Tree));
+            Assert.Equal(ImpactLook.Stone, DigTrack.LookOf(Orpheus.Core.World.ObjectId.Ore));
+            Assert.Equal(ImpactLook.Dust, DigTrack.LookOf(Orpheus.Core.World.ObjectId.Empty));
+        }
+
+        [Fact]
+        public void E27_DigTrack_RemembersObject_ResetsOnNewTile()
+        {
+            var t = new DigTrack();
+            t.Update(1, 1, Orpheus.Core.World.ObjectId.Tree, 0, 30, false, 0.01f, out bool started);
+            Assert.True(started);
+            t.Update(1, 1, Orpheus.Core.World.ObjectId.Empty, 30, 30, true, 0.01f, out started);
+            Assert.False(started);
+            Assert.Equal(ImpactLook.Wood, t.Look); // объект снят предсказанием — помним дерево
+            t.Update(2, 1, Orpheus.Core.World.ObjectId.Rock, 0, 30, false, 0.01f, out started);
+            Assert.True(started);
+            Assert.Equal(ImpactLook.Stone, t.Look);
+        }
     }
 }

@@ -47,10 +47,7 @@ namespace Orpheus.Client.Anim
 
         // E2-7: такт копания своего — по счёту кадров ядра (NetClient.DigProgress) и доле кадра с последнего счёта.
         const float FrameSec = 1f / ActionAnim.FramesPerSecond;
-        int _digProgSeen = -1;
-        float _digSub;
-        TileCoord _digTileSeen;
-        bool _digSeen;
+        readonly DigTrack _dig = new DigTrack(); // объект тайла с начала копания и часы удара по счёту кадров
         long _requestsSeen = -1;
 
         // E2-7: удар мечом чужих — фаза из снимка (Melee), доля — своим таймером от смены фазы.
@@ -60,6 +57,7 @@ namespace Orpheus.Client.Anim
         {
             public byte Phase;
             public byte Index;
+            public int SeenFrame; // кадр Unity, в котором сущность была в снимке
             public float Age;
         }
 
@@ -138,6 +136,7 @@ namespace Orpheus.Client.Anim
                 m.Age += dt;
             }
 
+            m.SeenFrame = Time.frameCount;
             _remoteMelee[id] = m;
             if (phase == MeleeAction.PhaseIdle)
             {
@@ -152,6 +151,30 @@ namespace Orpheus.Client.Anim
             s.SwingDirX = rig.Animator.FacingRight ? 1f : -1f;
             s.SwingDirY = 0f;
         }
+
+        readonly List<int> _gone = new List<int>();
+
+        /// <summary>E2-7: сущность ушла из снимка (не появлялась больше 60 кадров) — её фаза удара забывается.</summary>
+        void ForgetGoneMelee()
+        {
+            int now = Time.frameCount;
+            _gone.Clear();
+            foreach (KeyValuePair<int, RemoteMelee> kv in _remoteMelee)
+            {
+                if (now - kv.Value.SeenFrame > 60) // больше секунды без снимка с ней — ушла из обзора
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _remoteMelee.Remove(_gone[i]);
+            }
+        }
+
+        /// <summary>Фаз удара чужих в памяти (для проверки очистки).</summary>
+        public int RemoteMeleeTracked => _remoteMelee.Count;
 
         /// <summary>
         /// E2-7: кучу подобрали (сообщение «кучи нет» с поднявшим): свой (<paramref name="self"/>) или чужой
@@ -249,33 +272,18 @@ namespace Orpheus.Client.Anim
                 s.DigDirX = d.x;
                 s.DigDirY = d.y;
                 s.DigPeriod = ProceduralAnimator.DigPeriodFor(_client.DigFrames);
-                digObj = _world.GetObject(t);
-                dust = DustOf(digObj);
-
-                // E2-7: такт удара — по кадрам копания ядра (DigProgress из DigFrames): последний удар — в кадр, когда объект
-                // снят. Между счётами — доля кадра по времени (не больше кадра), чтобы замах шёл плавно при любой частоте кадров.
-                int prog = _client.DigProgress;
-                digStarted = !_digSeen || t.X != _digTileSeen.X || t.Y != _digTileSeen.Y || prog < _digProgSeen;
-                if (digStarted || prog != _digProgSeen)
-                {
-                    _digSub = 0f;
-                    _digProgSeen = prog;
-                }
-                else
-                {
-                    _digSub = Mathf.Min(_digSub + dt, FrameSec);
-                }
-
-                _digSeen = true;
-                _digTileSeen = t;
+                // E2-7: такт удара — по кадрам копания ядра (DigProgress из DigFrames): удар — в кадр, когда счёт дошёл до конца
+                // замаха, последний — в кадр снятия объекта (DigTrack.ClockSec; между счётами — доля кадра, но не за границу).
+                // Объект тайла — запомненный в начале копания: к последнему удару предсказание его уже сняло.
+                s.ActionSec = _dig.Update(t.X, t.Y, _world.GetObject(t), _client.DigProgress, _client.DigFrames, _client.DigPredicted, dt,
+                    out digStarted);
+                dust = DustOf(_dig.Object);
                 s.Action = ActionAnim.DigActionOf(held);
                 s.ActionFrames = _client.DigFrames;
-                s.ActionSec = prog * FrameSec + (_client.DigPredicted ? 0f : _digSub);
             }
             else
             {
-                _digSeen = false;
-                _digProgSeen = -1;
+                _dig.Stop();
             }
 
             // E2-7: постановка постройки — запрос правки ушёл с постройкой в руке (не начало копания): жест к курсору.
@@ -296,7 +304,8 @@ namespace Orpheus.Client.Anim
             {
                 if (s.Action == ActionKind.Chop || s.Action == ActionKind.Mine || s.Action == ActionKind.Hammer)
                 {
-                    EmitImpact(digAt, new Vector2(-s.DigDirX, -s.DigDirY), digObj);
+                    // Вид отклика — по запомненному объекту (дерево/камень), даже если его уже сняло предсказание.
+                    Emit(_sparks, digAt, new Vector2(-s.DigDirX, -s.DigDirY), _dig.Look);
                     ImpactsShown++;
                 }
                 else
@@ -304,9 +313,11 @@ namespace Orpheus.Client.Anim
                     EmitDust(digAt, new Vector2(-s.DigDirX, -s.DigDirY), dust);
                 }
 
-                if (_client.Digging)
+                // E1-11: удар по дереву — встряска и листья. На последнем ударе дерева уже нет (предсказание сняло его в этот же
+                // кадр): облачко листьев срубленного даёт WorldView.Fill → LifeFx.TreeGone по тому же изменению тайла — не дублируем.
+                if (_client.Digging && _world.GetObject(_client.DigTile) != ObjectId.Empty)
                 {
-                    LifeFx.HitTile(_client.DigTile, new Vector2(s.DigDirX, s.DigDirY)); // E1-11: удар по дереву — встряска и листья
+                    LifeFx.HitTile(_client.DigTile, new Vector2(s.DigDirX, s.DigDirY));
                 }
             }
 
@@ -340,6 +351,7 @@ namespace Orpheus.Client.Anim
             }
 
             _swings.Expire(nowUs);
+            ForgetGoneMelee();
             _sparks.Update(dt);
         }
 
@@ -401,23 +413,17 @@ namespace Orpheus.Client.Anim
         /// E2-7: отклик удара инструментом по тайлу. Дерево — щепки (листья и встряску даёт <c>LifeFx.HitTile</c>); камень,
         /// руда, стена — искры (короткие, тормозят) и крошка камня (падает); пустой тайл — пыль. Общий пул <see cref="Sparks"/>.
         /// </summary>
-        void EmitImpact(Vector3 tileCenter, Vector2 towardPlayer, ushort obj)
-        {
-            Emit(_sparks, tileCenter, towardPlayer, obj);
-        }
-
-        /// <summary>Отклик удара (общий для сети и показа <see cref="AnimShowcase"/>).</summary>
-        public static void Emit(Sparks sparks, Vector3 tileCenter, Vector2 towardPlayer, ushort obj)
+        public static void Emit(Sparks sparks, Vector3 tileCenter, Vector2 towardPlayer, ImpactLook look)
         {
             Vector2 at = (Vector2)tileCenter + towardPlayer * 0.42f;
-            if (obj == ObjectId.Empty)
+            if (look == ImpactLook.Dust)
             {
                 sparks.Emit(at, towardPlayer + Vector2.up * 0.8f, AnimParams.DigDust, AnimParams.DigDustSpeed, AnimParams.DigDustLife, 55f, true,
                     AnimParams.DustLight);
                 return;
             }
 
-            if (ObjectId.IdOf(obj) == ObjectId.Tree)
+            if (look == ImpactLook.Wood)
             {
                 sparks.Emit(at + Vector2.up * 0.25f, towardPlayer + Vector2.up * 1.1f, AnimParams.WoodChips, AnimParams.DigDustSpeed * 1.2f,
                     AnimParams.DigDustLife, 50f, true, AnimParams.DustWood, AnimParams.DustWood, AnimParams.DustLight);
