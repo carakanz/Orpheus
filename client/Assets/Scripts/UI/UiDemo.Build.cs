@@ -22,7 +22,7 @@ namespace Orpheus.Client.UI
         bool _chestOpen;
 
         /// <summary>Сцена режима стройки, сундука или дома (E2-5).</summary>
-        public static bool IsBuild(string? mode) => mode == "build" || mode == "build-open" || mode == "chest" || mode == "house" || mode == "thin" || mode == "half" || IsRuler(mode);
+        public static bool IsBuild(string? mode) => mode == "build" || mode == "build-open" || mode == "chest" || mode == "house" || mode == "thin" || mode == "half" || mode == "turn" || IsRuler(mode);
 
         /// <summary>E2-13: сцены линейки — протягивание стены (<c>ruler-wall</c>) и пола (<c>ruler-floor</c>).</summary>
         public static bool IsRuler(string? mode) => mode == "ruler-wall" || mode == "ruler-floor";
@@ -47,6 +47,13 @@ namespace Orpheus.Client.UI
             {
                 _bag.SetCell(6, Items.StoneWall, 24); // E2-11: стена — предмет в ячейке панели 7
                 _bag.Select(6);
+            }
+
+            if (_mode == "turn")
+            {
+                // E2-16: кровати в сумке нет, материалы есть — «из меню» она изготовится при постановке.
+                _bag.SetCell(10, Items.Wood, 20);
+                _bag.SetCell(11, Items.Fiber, 5);
             }
 
             if (IsRuler(_mode))
@@ -119,6 +126,22 @@ namespace Orpheus.Client.UI
                         build.Check = ok; // строка у курсора — про зелёный призрак
                     }
                 }
+            }
+            else if (_mode == "turn" && _origin != null && _ghost != null)
+            {
+                // E2-16: призрак кровати «из меню» с поворотом 90° (лёжа поперёк) — зелёный; подпись «R — повернуть, есть N».
+                var at = new TileCoord(me.X - 2, me.Y + 2);
+                int avail = MenuHand.Available(_world, position, _bag, null, Items.Bed);
+                BuildCheck menu = MenuHand.Check(_world, position, _bag, 6, Items.Bed, avail, true, at, 0, 1);
+                _ghost.Show(_origin, _world.Shape, position, 0, true, at, menu);
+                _ghost.Show(_origin, _world.Shape, position, 1, false, at, menu); // второго призрака в сцене нет
+                build.Placing = true;
+                build.HasGhost = true;
+                build.Check = menu;
+                build.Rotatable = true;
+                build.FromMenu = true;
+                build.MenuAvailable = avail;
+                input.Pointer = _ui.WorldToCanvas(_origin.ToUnity(EditRules.CenterOf(new TileCoord(at.X + 1, at.Y))) + new Vector3(0.2f, -0.1f, 0f));
             }
             else if (IsRuler(_mode))
             {

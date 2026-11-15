@@ -328,7 +328,7 @@ namespace Orpheus.Core.Sim
                     h.Add(builds[k]);
                     h.Add(r.Owner);
                     h.Add(r.Integrity);
-                    h.Add(r.Flags);
+                    h.Add((byte)(r.Flags & ~(byte)BuildFlags.Wide)); // E2-16: «многоклеточная» выводится из объекта — хэш старых миров прежний
                     h.Add(r.FloorCells); // E2-12: пол + маска ячеек (без тонких стен — прежний пол)
                     h.Add(r.DebrisEndTick);
                     if (r.Layout != 0)

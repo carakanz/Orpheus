@@ -17,6 +17,12 @@ namespace Orpheus.Net.Session
 
         private ushort PlacePlan(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad)
         {
+            bool menu = (quad & TileRequestMessage.MenuFlag) != 0; // E2-16: из меню — сумку (и изготовление) не предсказываем
+            if (menu)
+            {
+                cell = 0;
+            }
+
             if (State != NetClientState.InGame || World == null || cell >= Inventory.Slots)
             {
                 return 0;
@@ -30,7 +36,7 @@ namespace Orpheus.Net.Session
             }
 
             ushort id = NextRequest();
-            bool free = !BuildDefs.TryGet(obj, out BuildDef def); // ковёр, шипы — вне таблицы: без предмета (как у сервера)
+            bool free = !BuildDefs.TryGet(obj, out BuildDef def) || menu; // ковёр, шипы — вне таблицы: без предмета (как у сервера)
             var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
             for (int i = 0; i < n; i++)
             {

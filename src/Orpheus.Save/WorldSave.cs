@@ -683,6 +683,7 @@ namespace Orpheus.Save
                     blob = Chunk.WidenLegacyBlob(blob);
                 }
 
+                widened |= file.Header.FormatVersion < 12 && LegacyWalls.WidenFurniture(blob); // E2-16: кровать, верстак — многоклеточные
                 check.ReadBlob(blob); // проверка блока до того, как трогать мир
                 bool converted = (file.Header.FormatVersion < 10 && LegacyWalls.Convert(blob, ref legacyWalls)) || widened; // E2-12
                 coords.Add(c);

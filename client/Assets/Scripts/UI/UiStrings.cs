@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using Orpheus.Core.Sim;
+using Orpheus.Core.World;
 using Orpheus.Net.Session;
 
 namespace Orpheus.Client.UI
@@ -256,7 +257,15 @@ namespace Orpheus.Client.UI
         };
 
         /// <summary>Название постройки по ключу (лента, призрак).</summary>
-        public static string BuildName(ushort key) => BuildNames.TryGetValue(key, out string? n) ? n : key.ToString();
+        public static string BuildName(ushort key)
+        {
+            if (key > ObjectId.IdMask && !ObjectId.IsPart(key))
+            {
+                key = ObjectId.IdOf(key); // E2-16: повёрнутая постройка — то же имя
+            }
+
+            return BuildNames.TryGetValue(key, out string? n) ? n : key.ToString();
+        }
 
         public const string BuildDead = "Вы погибли: строить — после возрождения";
 
@@ -269,7 +278,15 @@ namespace Orpheus.Client.UI
         public static string PlaceHint(int inHand) => $"ЛКМ — поставить, зажать — подряд (в руке {inHand})";
 
         /// <summary>E2-13: подпись режима постановки у панели.</summary>
-        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (R — поштучно)" : "Поштучно   (R — линейка)";
+        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (Tab — поштучно)" : "Поштучно   (Tab — линейка)"; // E2-16: R — поворот
+
+        /// <summary>Подпись режима с поворотом и «из меню» (E2-16): «R — повернуть», «Esc / ПКМ — убрать».</summary>
+        public static string PlaceModeLabel(bool ruler, bool rotatable, bool menu, int available) =>
+            (rotatable ? "R — поворот   " : string.Empty)
+            + (menu ? $"из меню: {available}  (Esc — убрать)" : PlaceModeLabel(ruler));
+
+        /// <summary>Кнопка в карточке рецепта постройки (E2-16).</summary>
+        public const string PlaceFromMenu = "Поставить";
 
         /// <summary>E2-13: подсказка у призрака в режиме линейки.</summary>
         public static string RulerHint(Orpheus.Net.Session.RulerKind kind, int inHand) =>

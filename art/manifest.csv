@@ -66,11 +66,11 @@ client/Assets/Art/_TEMP/TEMP_item_copper_sword.png,placeholder,К,значок �
 client/Assets/Art/_TEMP/TEMP_item_copper_bow.png,placeholder,К,значок предмета «медный лук» 64x64 (E2-4); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_meat.png,placeholder,К,значок предмета «мясо» 64x64 (E2-4); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_roast_meat.png,placeholder,К,значок предмета «жареное мясо» 64x64 (E2-4); скрипт tools/make_item_icons.py
-client/Assets/Art/_TEMP/TEMP_obj_workbench.png,placeholder,К,"объект «верстак» 128x160, 3/4 с высотой (верх 1:1, высота x0,5), опора — низ по центру (E2-17); скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_workbench.png,placeholder,К,"объект «верстак» 2 x 2 тайла 256x320 (E2-16), 3/4 с высотой (верх 1:1, высота x0,5), рабочий край к зрителю (0°), опора — низ по центру; скрипт tools/make_furniture.py"
 client/Assets/Art/_TEMP/TEMP_obj_campfire.png,placeholder,К,"объект «костёр» 128x160, кольцо камней с гранями, поленья, пламя слоями, опора — низ по центру (E2-17); скрипт tools/make_furniture.py"
 client/Assets/Art/_TEMP/TEMP_obj_torch.png,placeholder,К,"объект «факел на земле» 128x160, каменное основание, древко, чаша, пламя, опора — низ по центру (E2-17); скрипт tools/make_furniture.py"
 client/Assets/Art/_TEMP/TEMP_obj_chest.png,placeholder,К,"объект «сундук» 128x160, 3/4 с высотой (верх 1:1, высота x0,5), опора — низ по центру (E2-17); скрипт tools/make_furniture.py"
-client/Assets/Art/_TEMP/TEMP_obj_bed.png,placeholder,К,"объект «кровать» 128x160 (в ядре 1 x 1), 3/4 с высотой, изголовье к северу, опора — низ по центру (E2-17); скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_bed.png,placeholder,К,"объект «кровать» 1 x 2 тайла 128x304 (E2-16), 3/4 с высотой, изголовье к северу (поворот 0°), опора — низ по центру; скрипт tools/make_furniture.py"
 client/Assets/Art/_TEMP/TEMP_floor_wood.png,placeholder,К,"пол «деревянный» 128x128 (доски), плитка встык, без уголка (E2-5, исключение E1-9: решётка уголков на всём полу); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_floor_stone.png,placeholder,К,"пол «каменный» 128x128 (плиты), плитка встык, без уголка (E2-5, исключение E1-9); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_floor_platform.png,placeholder,К,"пол «настил над водой» 128x128, плитка встык, без уголка (E2-5, исключение E1-9); скрипт tools/make_item_icons.py"
@@ -90,3 +90,9 @@ client/Assets/Art/_TEMP/TEMP_item_campfire.png,placeholder,К,"значок пр
 client/Assets/Art/_TEMP/TEMP_item_workbench.png,placeholder,К,"значок предмета-постройки «верстак» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_item_chest.png,placeholder,К,"значок предмета-постройки «сундук» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_item_bed.png,placeholder,К,"значок предмета-постройки «кровать» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_obj_bed_s.png,placeholder,К,"объект «кровать» 1 x 2, поворот 180° — изголовье к зрителю, 128x304 (E2-16); скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_bed_e.png,placeholder,К,"объект «кровать» 2 x 1, поворот 90° — изголовье на восток (270° — зеркально), 256x168 (E2-16); скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_workbench_n.png,placeholder,К,"объект «верстак» 2 x 2, поворот 180° — рабочий край от зрителя, 256x320 (E2-16); скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_workbench_e.png,placeholder,К,"объект «верстак» 2 x 2, поворот 90° — рабочий край к востоку (270° — зеркально), 256x320 (E2-16); скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_chest_n.png,placeholder,К,"объект «сундук», поворот 180° — замок от зрителя, 128x160 (E2-16); скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_chest_e.png,placeholder,К,"объект «сундук», поворот 90° — замок к востоку (270° — зеркально), 128x160 (E2-16); скрипт tools/make_furniture.py"

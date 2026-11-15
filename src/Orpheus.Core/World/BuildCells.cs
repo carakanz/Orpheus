@@ -183,7 +183,14 @@ namespace Orpheus.Core.World
         /// стоят соседи; соседи на обеих или ни на одной — половина курсора); только сверху или снизу — вертикальная (лево или
         /// право так же); соседей нет — горизонтальная на половине курсора.
         /// </summary>
-        public static byte DoorMaskFor(WorldModel world, TileCoord tile, int quad)
+        public static byte DoorMaskFor(WorldModel world, TileCoord tile, int quad) => DoorMaskFor(world, tile, quad, 0);
+
+        /// <summary>
+        /// Как <see cref="DoorMaskFor(WorldModel, TileCoord, int)"/>, но без соседей ориентацию задаёт поворот (E2-16, R):
+        /// 0° и 180° — горизонтальная пара (дверь в стене вдоль X), 90° и 270° — вертикальная. Соседние стены главнее поворота:
+        /// дверь в проёме ориентируется сама.
+        /// </summary>
+        public static byte DoorMaskFor(WorldModel world, TileCoord tile, int quad, int rotation)
         {
             MapShape map = world.Shape;
             int qx = quad & 1;
@@ -196,6 +203,11 @@ namespace Orpheus.Core.World
             {
                 bool west = vW && !vE ? true : vE && !vW ? false : qx == 0;
                 return west ? DoorWest : DoorEast;
+            }
+
+            if (!(hN || hS) && (rotation & 1) != 0)
+            {
+                return qx == 0 ? DoorWest : DoorEast; // соседей нет, поворот 90°/270° — вертикальная пара
             }
 
             bool north = hN && !hS ? true : hS && !hN ? false : qy == 0;
@@ -249,7 +261,7 @@ namespace Orpheus.Core.World
             if (here != obj || !world.TryGetBuild(t, out BuildRecord rec) || rec.IsDebris)
             {
                 // E2-15: тайл-якорь мебели со сдвигом, просимые ячейки свободны — причина понятная («мешает мебель»).
-                bool anchorFree = here != obj && BuildLayers.IsFurniture(here) && world.TryGetBuild(t, out BuildRecord fr) && fr.HasOffset
+                bool anchorFree = here != obj && BuildLayers.IsFurniture(here) && world.TryGetBuild(t, out BuildRecord fr) && BuildLayers.Spreads(here, true, fr)
                     && (BuildLayers.TopCellsAt(world, t) & want) == 0;
                 return anchorFree ? EditReply.FurnitureInTile : EditReply.Busy;
             }

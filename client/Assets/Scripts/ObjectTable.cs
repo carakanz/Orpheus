@@ -90,6 +90,14 @@ namespace Orpheus.Client
         internal int[] DecoSprites = new int[0];
         internal int TopSprite = -1, FaceSprite = -1, WhiteSprite = -1;
 
+        /// <summary>
+        /// Картинки по повороту объекта 0°, 90°, 180°, 270° (E2-16: кровать, верстак, сундук; пусто — без поворота) и зеркало
+        /// по повороту (270° — картинка 90° зеркально). Нет картинки поворота — обычный вид.
+        /// </summary>
+        public string[] Turns = new string[0];
+        public bool[] TurnFlip = new bool[0];
+        internal int[] TurnSprites = new int[0];
+
         // Заполняет ObjectTable при сборке: номера картинок листа и суммарный вес.
         internal int[] Sprites = new int[0];
         internal float[] Weights = new float[0];
@@ -106,6 +114,9 @@ namespace Orpheus.Client
     public static class ObjectTable
     {
         static ObjectVariant V(string sprite, float weight = 1f) => new ObjectVariant(sprite, weight);
+
+        // E2-16: 270° — картинка «боком» (90°) зеркально.
+        static readonly bool[] Mirror270 = { false, false, false, true };
 
         public static readonly ObjectLook[] Looks =
         {
@@ -174,6 +185,7 @@ namespace Orpheus.Client
             new ObjectLook
             {
                 Id = ObjectId.Workbench, Variants = new[] { V("obj_workbench") },
+                Turns = new[] { "obj_workbench", "obj_workbench_e", "obj_workbench_n", "obj_workbench_e" }, TurnFlip = Mirror270, // E2-16: 2 × 2
                 Shadow = 0.45f,
             },
             new ObjectLook
@@ -184,11 +196,13 @@ namespace Orpheus.Client
             new ObjectLook
             {
                 Id = ObjectId.Chest, Variants = new[] { V("obj_chest") },
+                Turns = new[] { "obj_chest", "obj_chest_e", "obj_chest_n", "obj_chest_e" }, TurnFlip = Mirror270, // E2-16
                 Shadow = 0.45f,
             },
             new ObjectLook
             {
                 Id = ObjectId.Bed, Variants = new[] { V("obj_bed") },
+                Turns = new[] { "obj_bed", "obj_bed_e", "obj_bed_s", "obj_bed_e" }, TurnFlip = Mirror270, // E2-16: 1 × 2
                 Shadow = 0.35f,
             },
         };
@@ -211,6 +225,14 @@ namespace Orpheus.Client
                     if (seen.Add(v.Sprite))
                     {
                         yield return v.Sprite;
+                    }
+                }
+
+                foreach (string t in look.Turns)
+                {
+                    if (seen.Add(t))
+                    {
+                        yield return t;
                     }
                 }
 
@@ -251,6 +273,12 @@ namespace Orpheus.Client
                 }
 
                 look.Sprites = sprites.ToArray();
+                look.TurnSprites = new int[look.Turns.Length];
+                for (int t = 0; t < look.Turns.Length; t++)
+                {
+                    look.TurnSprites[t] = ObjectAtlas.Find(look.Turns[t]); // E2-16: −1 — обычный вид
+                }
+
                 look.Weights = weights.ToArray();
                 look.TotalWeight = total;
                 if (look.Block)
@@ -353,6 +381,19 @@ namespace Orpheus.Client
             public bool Flip;
             public float Scale;
             public float Dx, Dy; // смещение опоры, тайлов (Y вверх)
+        }
+
+        /// <summary>Место и вид объекта с поворотом (E2-16): картинка поворота и зеркало, если они есть у вида.</summary>
+        public static Placement Place(ObjectLook look, int tx, int ty, int rotation)
+        {
+            Placement p = Place(look, tx, ty);
+            if (rotation < look.TurnSprites.Length && look.TurnSprites[rotation] >= 0)
+            {
+                p.Sprite = look.TurnSprites[rotation];
+                p.Flip = rotation < look.TurnFlip.Length && look.TurnFlip[rotation];
+            }
+
+            return p;
         }
 
         public static Placement Place(ObjectLook look, int tx, int ty)

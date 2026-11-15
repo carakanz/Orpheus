@@ -20,6 +20,9 @@ namespace Orpheus.Client.UI
         Queue,
         Filter,
         ScrollBar,
+
+        /// <summary>E2-16: «Поставить» у рецепта постройки — взять её в руку прямо из окна (изготовится при постановке).</summary>
+        Place,
     }
 
     /// <summary>
@@ -71,10 +74,12 @@ namespace Orpheus.Client.UI
         const float IngX = Big + 10f;
         static readonly float TabsW = CraftShelf.Sections.Length * SmallPitch - UiStyle.CellGap;
         static readonly float FilterX = TabsW + 8f;
-        public static readonly float Width = Mathf.Max(FilterX + Small, CardX + IngX + RecipeTable.MaxIngredients * IngStep);
+        static readonly float PlaceX = IngX + RecipeTable.MaxIngredients * IngStep + 4f; // E2-16: «Поставить» — справа от ингредиентов
+        public static readonly float Width = Mathf.Max(FilterX + Small, CardX + PlaceX + PlaceW);
 
         /// <summary>Сколько делает щелчок по крупному значку: без клавиш, с Shift; с Ctrl — «всё, на что хватает».</summary>
         public static readonly int[] ButtonCounts = { 1, 5 };
+        const float PlaceW = 112f, PlaceH = 30f;
 
         static readonly int MaxSubs = CountMaxSubs();
 
@@ -88,6 +93,7 @@ namespace Orpheus.Client.UI
         readonly UiSlotGrid _tabs, _subs, _col, _queue;
         readonly Text[] _tabLetters, _subLetters;
         readonly UiButton _filter;
+        readonly UiButton _place; // E2-16: «Поставить» в карточке рецепта постройки
         readonly Image _check;
         readonly Text _empty, _message;
         readonly Image _track, _thumb;
@@ -163,6 +169,8 @@ namespace Orpheus.Client.UI
             _bigBack = UiRoot.Picture(_card, "Big", 0f, 0f, Big, Big, _bigPlain);
             _result = new UiItemIcon(_card, 0f, 0f, Big, 52f);
             _name = UiRoot.Label(_card, "Name", 2f, Big + 2f, 420f, 24f, 20, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true, bold: true);
+            _place = new UiButton(_card, PlaceX, Big - IngBox + (IngBox - PlaceH) / 2f, PlaceW, PlaceH, UiStrings.PlaceFromMenu, 16, glass: true);
+            _place.Visible = false;
             _state = UiRoot.Label(_card, "State", 2f, -24f, 420f, 22f, 18, TextAnchor.MiddleLeft, UiStyle.TextWarn, outline: true, bold: true);
             Sprite ingBack = UiStyle.Frame(UiStyle.Glass, UiStyle.GlassEdge, thick: 2f, radius: 6f);
             for (int k = 0; k < _ingredients.Length; k++)
@@ -310,6 +318,10 @@ namespace Orpheus.Client.UI
         public void Scroll(int rows) => _scroll = Mathf.Clamp(_scroll + rows, 0, MaxScroll);
 
         /// <summary>Рецепт в ячейке столбика на экране; пустая ячейка — 0.</summary>
+        /// <summary>E2-16: результат рецепта — постройка (её можно «Поставить» из окна); иначе <see cref="Items.None"/>.</summary>
+        public static byte PlaceableResult(int recipe) =>
+            recipe > 0 && BuildHand.IsBuildItem(RecipeTable.Get(recipe).Result) ? RecipeTable.Get(recipe).Result : Items.None;
+
         public int RecipeInCell(int cell)
         {
             int i = _scroll * GridColumns + cell;
@@ -360,6 +372,11 @@ namespace Orpheus.Client.UI
             {
                 Rect thumb = ThumbRect();
                 return new CraftHit(CraftPart.ScrollBar, local.y >= thumb.yMax ? 0 : local.y < thumb.yMin ? 1 : -1);
+            }
+
+            if (Recipe > 0 && _place.Contains(local - new Vector2(CardX, _cardY >= 0f ? _cardY : ColY)))
+            {
+                return new CraftHit(CraftPart.Place, 0); // E2-16
             }
 
             if (Recipe > 0 && BigRect.Contains(local))
@@ -429,6 +446,7 @@ namespace Orpheus.Client.UI
             CraftPart.Filter => _filter.Center,
             CraftPart.Cell => _col.CenterOf(index),
             CraftPart.Button => new Vector2(CardX + Big / 2f, (_cardY >= 0f ? _cardY : ColY) + Big / 2f),
+            CraftPart.Place => new Vector2(CardX + PlaceX + PlaceW / 2f, (_cardY >= 0f ? _cardY : ColY) + Big - IngBox / 2f),
             CraftPart.Queue => _queue.CenterOf(index),
             _ => Vector2.zero,
         };
@@ -594,6 +612,8 @@ namespace Orpheus.Client.UI
             }
 
             _bigBack.sprite = !line.CanMake ? _bigOff : hover.Part == CraftPart.Button ? _bigHover : _bigPlain;
+            _place.Visible = PlaceableResult(recipe) != Items.None; // E2-16: у построек — «Поставить»
+            _place.Set(hover.Part == CraftPart.Place, false, !dead);
             _result.Dim(!line.CanMake);
         }
 

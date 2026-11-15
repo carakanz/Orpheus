@@ -12,8 +12,96 @@ namespace Orpheus.Core.World
     /// </summary>
     public static class BuildLayers
     {
-        /// <summary>Сторона мебели в ячейках 0,5 (E2-15: вся мебель — 1 × 1 тайл; размеры по id и поворот — E2-16).</summary>
+        /// <summary>Сторона мебели 1 × 1 тайл в ячейках 0,5 (E2-15); многоклеточная — <see cref="SizeOf"/> (E2-16).</summary>
         public const int FurnitureCells = 2;
+
+        /// <summary>Наибольшая сторона мебели в ячейках (E2-16: верстак 2 × 2 тайла = 4 × 4 ячейки).</summary>
+        public const int MaxFurnitureCells = 4;
+
+        /// <summary>Тайлов, которые задевает мебель (сторона до 4 ячеек со сдвигом на полтайла — до 3 × 3 тайлов).</summary>
+        public const int MaxFootTiles = 9;
+
+        /// <summary>
+        /// Размер мебели в ячейках 0,5 по id и повороту объекта (E2-16, <c>docs/05</c> 1.3): кровать 1 × 2 тайла (поворот 0 —
+        /// изголовьем на север, вдоль Y), верстак 2 × 2, прочее 1 × 1. Поворот 90° и 270° меняет стороны местами.
+        /// </summary>
+        public static void SizeOf(ushort obj, out int w, out int h)
+        {
+            switch (ObjectId.IdOf(obj))
+            {
+                case ObjectId.Bed:
+                    w = 2;
+                    h = 4;
+                    break;
+                case ObjectId.Workbench:
+                    w = 4;
+                    h = 4;
+                    break;
+                default:
+                    w = FurnitureCells;
+                    h = FurnitureCells;
+                    return;
+            }
+
+            if ((ObjectId.RotationOf(obj) & 1) != 0)
+            {
+                (w, h) = (h, w);
+            }
+        }
+
+        /// <summary>Мебель больше тайла (E2-16): её ячейки выходят за тайл-якорь и без сдвига (<see cref="BuildFlags.Wide"/>).</summary>
+        public static bool IsWide(ushort obj)
+        {
+            if (!IsFurniture(obj))
+            {
+                return false;
+            }
+
+            SizeOf(obj, out int w, out int h);
+            return w > FurnitureCells || h > FurnitureCells;
+        }
+
+        /// <summary>
+        /// Поворачивается R (E2-16): кровать, верстак, сундук — поворот в битах 10–11 объекта (<see cref="ObjectId.RotationOf"/>).
+        /// Факел и костёр круглые — без поворота; дверь — ориентация парой ячеек (<see cref="BuildCells.DoorMaskFor"/>), поворот
+        /// в объекте мира не хранится (только в заявке).
+        /// </summary>
+        public static bool IsRotatable(ushort obj)
+        {
+            if (ObjectId.IsPart(obj))
+            {
+                return false;
+            }
+
+            switch (ObjectId.IdOf(obj))
+            {
+                case ObjectId.Bed:
+                case ObjectId.Workbench:
+                case ObjectId.Chest:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// Ключ постройки с поворотом <paramref name="rotation"/> (0…3 = 0°, 90°, 180°, 270°) для заявки: поворачиваемой мебели и
+        /// двери — в биты 10–11, прочему (стены, пол, факел…) — без поворота.
+        /// </summary>
+        public static ushort Turned(ushort key, int rotation)
+        {
+            if (key > ObjectId.IdMask || ObjectId.IsPart(key))
+            {
+                return key;
+            }
+
+            bool turns = IsRotatable(key) || key == ObjectId.Door;
+            return turns ? ObjectId.MakeAnchor(key, (byte)(rotation & ObjectId.RotationMask)) : key;
+        }
+
+        /// <summary>Мебель записи выходит за свой тайл: со сдвигом или больше тайла (E2-16).</summary>
+        public static bool Spreads(ushort obj, bool hasRecord, in BuildRecord rec) =>
+            hasRecord && IsFurniture(obj) && (rec.HasOffset || IsWide(obj));
 
         /// <summary>Мебель: ставится с шагом 0,5 и занимает 2 × 2 ячейки (E2-15).</summary>
         public static bool IsFurniture(ushort obj)
@@ -42,10 +130,13 @@ namespace Orpheus.Core.World
         /// Ячейки тайла, сдвинутого на (<paramref name="tx"/>, <paramref name="ty"/>) тайлов от якоря, которые занимает мебель
         /// 2 × 2 со сдвигом (<paramref name="dx"/>, <paramref name="dy"/>) ячеек от СЗ ячейки якоря.
         /// </summary>
-        public static byte FootMask(int dx, int dy, int tx, int ty)
+        public static byte FootMask(int dx, int dy, int tx, int ty) => FootMask(FurnitureCells, FurnitureCells, dx, dy, tx, ty);
+
+        /// <summary>Как <see cref="FootMask(int, int, int, int)"/> для мебели <paramref name="w"/> × <paramref name="h"/> ячеек (E2-16).</summary>
+        public static byte FootMask(int w, int h, int dx, int dy, int tx, int ty)
         {
             byte mask = 0;
-            for (int ky = 0; ky < FurnitureCells; ky++)
+            for (int ky = 0; ky < h; ky++)
             {
                 int y = dy + ky - 2 * ty;
                 if ((uint)y > 1)
@@ -53,7 +144,7 @@ namespace Orpheus.Core.World
                     continue;
                 }
 
-                for (int kx = 0; kx < FurnitureCells; kx++)
+                for (int kx = 0; kx < w; kx++)
                 {
                     int x = dx + kx - 2 * tx;
                     if ((uint)x <= 1)
@@ -82,20 +173,31 @@ namespace Orpheus.Core.World
                 return BuildCells.MaskOf(obj, hasRecord, rec);
             }
 
-            return hasRecord && rec.HasOffset && IsFurniture(obj) ? FootMask(rec.OffsetX, rec.OffsetY, 0, 0) : BuildCells.Full;
+            return Spreads(obj, hasRecord, rec) ? FootMask(obj, rec, 0, 0) : BuildCells.Full;
         }
 
-        /// <summary>Тайлы (до 4) и ячейки в них мебели якоря <paramref name="anchor"/> со сдвигом записи. Возвращает число тайлов.</summary>
-        public static int Footprint(in MapShape map, TileCoord anchor, in BuildRecord rec, Span<TileCoord> tiles, Span<byte> masks)
+        /// <summary>Ячейки тайла (<paramref name="tx"/>, <paramref name="ty"/>) от якоря, занятые мебелью <paramref name="obj"/> записи <paramref name="rec"/>.</summary>
+        public static byte FootMask(ushort obj, in BuildRecord rec, int tx, int ty)
         {
+            SizeOf(obj, out int w, out int h);
+            return FootMask(w, h, rec.OffsetX, rec.OffsetY, tx, ty);
+        }
+
+        /// <summary>
+        /// Тайлы (до <see cref="MaxFootTiles"/>) и ячейки в них мебели <paramref name="obj"/> якоря <paramref name="anchor"/> со
+        /// сдвигом записи (E2-16: размер по id и повороту). Возвращает число тайлов.
+        /// </summary>
+        public static int Footprint(in MapShape map, TileCoord anchor, ushort obj, in BuildRecord rec, Span<TileCoord> tiles, Span<byte> masks)
+        {
+            SizeOf(obj, out int w, out int h);
             int dx = rec.OffsetX;
             int dy = rec.OffsetY;
             int n = 0;
-            for (int ty = -1; ty <= 1; ty++)
+            for (int ty = -1; ty <= 2; ty++)
             {
-                for (int tx = -1; tx <= 1; tx++)
+                for (int tx = -1; tx <= 2; tx++)
                 {
-                    byte m = FootMask(dx, dy, tx, ty);
+                    byte m = FootMask(w, h, dx, dy, tx, ty);
                     if (m == 0)
                     {
                         continue;
@@ -114,34 +216,50 @@ namespace Orpheus.Core.World
         /// СЗ ячейка мебели 2 × 2 под точкой <paramref name="p"/> (курсор, E2-15): центр мебели — ближний к точке узел сетки 0,5,
         /// СЗ ячейка — на одну ячейку к северо-западу от узла (координаты ячеек, свёрнуты в карту ячеек).
         /// </summary>
-        public static TileCoord FurnitureCellAt(in MapShape map, WorldPos p)
+        public static TileCoord FurnitureCellAt(in MapShape map, WorldPos p) => FurnitureCellAt(map, p, ObjectId.Chest);
+
+        /// <summary>СЗ ячейка мебели <paramref name="obj"/> (размер по повороту, E2-16) центром у ближнего к точке узла сетки 0,5.</summary>
+        public static TileCoord FurnitureCellAt(in MapShape map, WorldPos p, ushort obj)
         {
+            SizeOf(obj, out int sw, out int sh);
             WorldPos w = Torus.Wrap(map, p);
-            int cx = (w.X + BuildCells.CellUnits / 2) / BuildCells.CellUnits - 1;
-            int cy = (w.Y + BuildCells.CellUnits / 2) / BuildCells.CellUnits - 1;
+            int cx = (w.X + BuildCells.CellUnits / 2) / BuildCells.CellUnits - sw / 2;
+            int cy = (w.Y + BuildCells.CellUnits / 2) / BuildCells.CellUnits - sh / 2;
             MapShape cells = BuildCells.CellShape(map);
             if (!cells.Wraps)
             {
-                cx = Math.Max(0, Math.Min(cells.Width - FurnitureCells, cx));
-                cy = Math.Max(0, Math.Min(cells.Height - FurnitureCells, cy));
+                cx = Math.Max(0, Math.Min(cells.Width - sw, cx));
+                cy = Math.Max(0, Math.Min(cells.Height - sh, cy));
             }
 
             return Torus.Wrap(cells, new TileCoord(cx, cy));
         }
 
-        /// <summary>Центр мебели (или верха без сдвига — центр тайла) в единицах мира: центр якоря + сдвиг × 0,5 тайла.</summary>
-        public static WorldPos CenterOf(TileCoord anchor, bool hasRecord, in BuildRecord rec)
+        /// <summary>
+        /// Центр мебели (или верха без сдвига — центр тайла) в единицах мира: СЗ ячейка якоря + сдвиг + половина размера
+        /// (E2-16: у многоклеточной — центр всего предмета).
+        /// </summary>
+        public static WorldPos CenterOf(TileCoord anchor, ushort obj, bool hasRecord, in BuildRecord rec)
         {
             WorldPos c = EditRules.CenterOf(anchor);
-            return hasRecord && rec.HasOffset ? new WorldPos(c.X + rec.OffsetX * BuildCells.CellUnits, c.Y + rec.OffsetY * BuildCells.CellUnits) : c;
+            if (!Spreads(obj, hasRecord, rec))
+            {
+                return c;
+            }
+
+            SizeOf(obj, out int w, out int h);
+            return new WorldPos(c.X + (2 * rec.OffsetX + w - 2) * BuildCells.CellUnits / 2, c.Y + (2 * rec.OffsetY + h - 2) * BuildCells.CellUnits / 2);
         }
 
-        /// <summary>Центр верха тайла мира (мебель — со сдвигом).</summary>
+        /// <summary>Центр верха тайла мира (мебель — со сдвигом и размером).</summary>
         public static WorldPos CenterAt(WorldModel world, TileCoord anchor)
         {
             bool has = world.TryGetBuild(anchor, out BuildRecord rec);
-            return Torus.Wrap(world.Shape, CenterOf(anchor, has && IsFurniture(world.GetObject(anchor)), rec));
+            return Torus.Wrap(world.Shape, CenterOf(anchor, world.GetObject(anchor), has, rec));
         }
+
+        // Якорь мебели — в тайлах на −2…+1 от тайла, в который она свешивается (сторона до 4 ячеек, сдвиг −1…+1; E2-16).
+        private const int ReachLo = -2, ReachHi = 1;
 
         // ---------- Свес мебели из соседей ----------
 
@@ -160,14 +278,14 @@ namespace Orpheus.Core.World
 
             int lx = tile.X & (Torus.ChunkSize - 1);
             int ly = tile.Y & (Torus.ChunkSize - 1);
-            if (lx > 0 && lx < Torus.ChunkSize - 1 && ly > 0 && ly < Torus.ChunkSize - 1)
+            if (lx >= -ReachLo && lx < Torus.ChunkSize - ReachHi && ly >= -ReachLo && ly < Torus.ChunkSize - ReachHi)
             {
                 return false;
             }
 
-            for (int oy = -1; oy <= 1; oy++)
+            for (int oy = ReachLo; oy <= ReachHi; oy++)
             {
-                for (int ox = -1; ox <= 1; ox++)
+                for (int ox = ReachLo; ox <= ReachHi; ox++)
                 {
                     if ((ox == 0 && oy == 0) || !InMap(map, tile.X + ox, tile.Y + oy))
                     {
@@ -198,9 +316,9 @@ namespace Orpheus.Core.World
 
             MapShape map = world.Shape;
             byte mask = 0;
-            for (int oy = -1; oy <= 1; oy++)
+            for (int oy = ReachLo; oy <= ReachHi; oy++)
             {
-                for (int ox = -1; ox <= 1; ox++)
+                for (int ox = ReachLo; ox <= ReachHi; ox++)
                 {
                     if ((ox == 0 && oy == 0) || !InMap(map, tile.X + ox, tile.Y + oy))
                     {
@@ -209,12 +327,12 @@ namespace Orpheus.Core.World
 
                     var n = Torus.Wrap(map, new TileCoord(tile.X + ox, tile.Y + oy));
                     ushort obj = world.GetObject(n);
-                    if (!IsFurniture(obj) || (solidOnly && ObjectId.IsPassable(obj)) || !world.TryGetBuild(n, out BuildRecord rec) || !rec.HasOffset)
+                    if (!IsFurniture(obj) || (solidOnly && ObjectId.IsPassable(obj)) || !world.TryGetBuild(n, out BuildRecord rec) || !Spreads(obj, true, rec))
                     {
                         continue;
                     }
 
-                    mask |= FootMask(rec.OffsetX, rec.OffsetY, -ox, -oy);
+                    mask |= FootMask(obj, rec, -ox, -oy);
                 }
             }
 
@@ -252,9 +370,9 @@ namespace Orpheus.Core.World
                 return false;
             }
 
-            for (int oy = -1; oy <= 1; oy++)
+            for (int oy = ReachLo; oy <= ReachHi; oy++)
             {
-                for (int ox = -1; ox <= 1; ox++)
+                for (int ox = ReachLo; ox <= ReachHi; ox++)
                 {
                     if ((ox == 0 && oy == 0) || !InMap(map, tile.X + ox, tile.Y + oy))
                     {
@@ -263,8 +381,8 @@ namespace Orpheus.Core.World
 
                     var n = Torus.Wrap(map, new TileCoord(tile.X + ox, tile.Y + oy));
                     ushort obj = world.GetObject(n);
-                    if (IsFurniture(obj) && world.TryGetBuild(n, out BuildRecord r) && r.HasOffset
-                        && (FootMask(r.OffsetX, r.OffsetY, -ox, -oy) & bit) != 0)
+                    if (IsFurniture(obj) && world.TryGetBuild(n, out BuildRecord r) && Spreads(obj, true, r)
+                        && (FootMask(obj, r, -ox, -oy) & bit) != 0)
                     {
                         anchor = n;
                         return true;
@@ -451,18 +569,19 @@ namespace Orpheus.Core.World
 
             MapShape map = world.Shape;
             MapShape cells = BuildCells.CellShape(map);
-            if (!InMap(cells, cell.X, cell.Y) || !InMap(cells, cell.X + 1, cell.Y + 1))
+            SizeOf(obj, out int sw, out int sh);
+            if (!InMap(cells, cell.X, cell.Y) || !InMap(cells, cell.X + sw - 1, cell.Y + sh - 1))
             {
                 return EditReply.NotAllowed;
             }
 
             TileCoord c = Torus.Wrap(cells, cell);
-            Span<TileCoord> tiles = stackalloc TileCoord[4];
-            Span<byte> masks = stackalloc byte[4];
+            Span<TileCoord> tiles = stackalloc TileCoord[MaxFootTiles];
+            Span<byte> masks = stackalloc byte[MaxFootTiles];
             int n = 0;
-            for (int ky = 0; ky < FurnitureCells; ky++)
+            for (int ky = 0; ky < sh; ky++)
             {
-                for (int kx = 0; kx < FurnitureCells; kx++)
+                for (int kx = 0; kx < sw; kx++)
                 {
                     TileCoord cc = Torus.Wrap(cells, new TileCoord(c.X + kx, c.Y + ky));
                     TileCoord t = BuildCells.TileOfCell(cc);
@@ -516,7 +635,10 @@ namespace Orpheus.Core.World
                     busy = EditReply.Busy;
                 }
 
-                if (free < 0 && here == ObjectId.Empty)
+                // Якорь — задетый тайл с пустым слотом, чья СЗ ячейка не дальше ячейки от СЗ ячейки мебели (сдвиг в записи −1…+1;
+                // E2-16: у многоклеточной якорь — один из тайлов её СЗ угла 2 × 2 ячейки).
+                Int2 da = Torus.Delta(cells, BuildCells.CellOf(t, 0, 0), c);
+                if (free < 0 && here == ObjectId.Empty && da.X >= -1 && da.X <= 1 && da.Y >= -1 && da.Y <= 1)
                 {
                     free = k;
                 }

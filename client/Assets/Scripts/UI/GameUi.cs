@@ -481,7 +481,12 @@ namespace Orpheus.Client.UI
                 Route = UiPointer.Route(overUi, held, _capture);
             }
 
-            if (input.RightDown && (BagOpen || _chest.Visible))
+            // E2-16: ПКМ по значку рецепта постройки — «Поставить» (как кнопка в карточке).
+            if (input.RightDown && !held && hit.Part == CraftPart.Cell && CraftOpen)
+            {
+                PlaceFromMenu(_craft.RecipeInCell(hit.Index));
+            }
+            else if (input.RightDown && (BagOpen || _chest.Visible))
             {
                 if (cell >= 0)
                 {
@@ -612,6 +617,9 @@ namespace Orpheus.Client.UI
                     break;
                 case CraftPart.Button:
                     Make(input.Ctrl ? 0 : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
+                    break;
+                case CraftPart.Place:
+                    PlaceFromMenu(_craft.Recipe); // E2-16: постройка — в руку из окна
                     break;
                 case CraftPart.Queue:
                     if (!dead)

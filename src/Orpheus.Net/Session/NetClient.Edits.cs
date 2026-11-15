@@ -137,7 +137,7 @@ namespace Orpheus.Net.Session
         /// (<see cref="PlaceCells"/>), остальное — как <see cref="Place(TileCoord, TileCoord, ushort, WorldPos, byte)"/>.
         /// </summary>
         public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad) =>
-            PlacePlan(from, to, obj, self, cell, (byte)(quad & 15)); // E2-15: план заявки — общий с сервером (NetClient.Cells.cs)
+            PlacePlan(from, to, obj, self, cell, (byte)(quad & 31)); // E2-16: бит 4 — из меню изготовления // E2-15: план заявки — общий с сервером (NetClient.Cells.cs)
 
         /// <summary>
         /// F (1-012, протокол 19): закрыть дверь на тайле <paramref name="tile"/>. Предсказание — record-only

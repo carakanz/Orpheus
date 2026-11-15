@@ -135,7 +135,15 @@ namespace Orpheus.Net.Session
         /// (<paramref name="quad"/>: бит 0 — восточная половина, бит 1 — южная; E2-12): стена и забор — эта ячейка, дверь — пара
         /// ячеек тайла вдоль стены (<see cref="BuildCells.DoorMaskFor"/>); проверка — <see cref="BuildCells.CheckPlace"/>.
         /// </summary>
-        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad)
+        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad) =>
+            Check(world, self, bag, cell, alive, tile, quad, 0);
+
+        /// <summary>
+        /// Как <see cref="Check(WorldModel, WorldPos, in Inventory, int, bool, TileCoord, int)"/> с поворотом <paramref name="rotation"/>
+        /// (0…3, R; E2-16): мебель — размер и ячейки по повороту (<see cref="BuildLayers.SizeOf"/>), дверь без соседних стен —
+        /// ориентация пары. <see cref="BuildCheck.Key"/> — ключ с поворотом (его же шлёт <see cref="Click(WorldModel, WorldPos, in Inventory, int, bool, TileCoord, int, int)"/>).
+        /// </summary>
+        public static BuildCheck Check(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad, int rotation)
         {
             byte held = bag.ItemAt(cell);
             if (IsHammer(held))
@@ -157,6 +165,8 @@ namespace Orpheus.Net.Session
 
             // E2-15: тот же план, что у сервера и предсказания (BuildPlanner): стена, забор, пол — ячейка под курсором, дверь —
             // пара ячеек, мебель — СЗ ячейка под курсором (шаг 0,5), прочее — тайл.
+            ushort plain = key;
+            key = BuildLayers.Turned(key, rotation);
             BuildDefs.TryGet(key, out BuildDef def);
             Span<PlannedEdit> plan = stackalloc PlannedEdit[EditRules.MaxLineTiles];
             int q = quad & 3;
@@ -180,12 +190,13 @@ namespace Orpheus.Net.Session
                     dy = c.Y & 1;
                 }
 
-                cells = BuildLayers.FootMask(dx, dy, 0, 0);
+                BuildLayers.SizeOf(key, out int fw, out int fh);
+                cells = BuildLayers.FootMask(fw, fh, dx, dy, 0, 0);
                 if (reply == EditReply.Accepted && EditRules.BlocksCreature(key))
                 {
-                    Span<TileCoord> tiles = stackalloc TileCoord[4];
-                    Span<byte> masks = stackalloc byte[4];
-                    int parts = BuildLayers.Footprint(world.Shape, anchor, plan[0].Record, tiles, masks);
+                    Span<TileCoord> tiles = stackalloc TileCoord[BuildLayers.MaxFootTiles];
+                    Span<byte> masks = stackalloc byte[BuildLayers.MaxFootTiles];
+                    int parts = BuildLayers.Footprint(world.Shape, anchor, key, plan[0].Record, tiles, masks);
                     for (int k = 0; k < parts; k++)
                     {
                         if (Orpheus.Core.Movement.Collision.CircleOverlapsCells(world.Shape, self, tiles[k], masks[k]))
@@ -195,11 +206,11 @@ namespace Orpheus.Net.Session
                     }
                 }
             }
-            else if (BuildCells.IsCellBuilding(key) || (EditRules.IsFloorKey(key) && key != BuildDefs.PlatformKey))
+            else if (BuildCells.IsCellBuilding(plain) || (EditRules.IsFloorKey(plain) && plain != BuildDefs.PlatformKey))
             {
-                byte want = ObjectId.IdOf(key) == ObjectId.Door ? BuildCells.DoorMaskFor(world, tile, q) : BuildCells.Bit(q & 1, (q >> 1) & 1);
-                cells = reply == EditReply.Accepted ? AddedCells(world, key, anchor, plan[0]) : want;
-                if (reply == EditReply.Accepted && BuildCells.IsCellBuilding(key)
+                byte want = plain == ObjectId.Door ? BuildCells.DoorMaskFor(world, tile, q, rotation) : BuildCells.Bit(q & 1, (q >> 1) & 1);
+                cells = reply == EditReply.Accepted ? AddedCells(world, plain, anchor, plan[0]) : want;
+                if (reply == EditReply.Accepted && BuildCells.IsCellBuilding(plain)
                     && Orpheus.Core.Movement.Collision.CircleOverlapsCells(world.Shape, self, anchor, cells))
                 {
                     reply = EditReply.Occupied; // ячейка — не на себя (`05` 1.3)
@@ -238,9 +249,13 @@ namespace Orpheus.Net.Session
             Click(world, self, bag, cell, alive, tile, 0);
 
         /// <summary>ЛКМ по ячейке 0,5 × 0,5 (<paramref name="quad"/> — четверть в тайле, E2-12); см. <see cref="Check(WorldModel, WorldPos, in Inventory, int, bool, TileCoord, int)"/>.</summary>
-        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad)
+        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad) =>
+            Click(world, self, bag, cell, alive, tile, quad, 0);
+
+        /// <summary>Как <see cref="Click(WorldModel, WorldPos, in Inventory, int, bool, TileCoord, int)"/> с поворотом (E2-16, R).</summary>
+        public BuildCheck Click(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad, int rotation)
         {
-            BuildCheck c = Check(world, self, bag, cell, alive, tile, quad);
+            BuildCheck c = Check(world, self, bag, cell, alive, tile, quad, rotation);
             if (!c.Ok)
             {
                 return c;

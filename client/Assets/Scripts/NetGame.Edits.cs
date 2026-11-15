@@ -52,6 +52,82 @@ namespace Orpheus.Client
         /// </summary>
         byte HeldItemAt(byte slot) => _bag.SlotAt(slot);
 
+        // ---------- E2-16: поворот (R) и постановка из меню изготовления ----------
+
+        // Поворот последней постановки каждого предмета (0…3): «поворот запоминается для следующей постановки того же предмета».
+        readonly Dictionary<byte, int> _turns = new Dictionary<byte, int>();
+        int _menuSlot = -1;        // ячейка панели, при которой взяли «из меню» (сменили ячейку — убрать)
+        int _menuAvailable;        // «есть» для меню: готовые в сумке + изготовимые (пересчёт каждый кадр)
+        int _menuCancelFrame = -1; // кадр, в котором Esc убрал постройку из меню (паузу этот Esc не ставит)
+
+        /// <summary>Постройка взята «Поставить» из окна изготовления (E2-16).</summary>
+        bool FromMenu => _ui != null && _ui.MenuPlace != Items.None;
+
+        /// <summary>Предмет «в руке» для стройки: из меню — он, иначе — ячейка панели.</summary>
+        byte HandItem => FromMenu ? _ui!.MenuPlace : HeldItem;
+
+        /// <summary>Сумка для проверок и линейки: из меню — копия с постройкой в ячейке руки (<see cref="MenuHand.VirtualBag"/>).</summary>
+        Inventory HandBag(NetClient c) => FromMenu ? MenuHand.VirtualBag(c.Inv, HeldCell, _ui!.MenuPlace, _menuAvailable) : c.Inv;
+
+        /// <summary>Рука, через которую идут заявки: из меню — с флагом меню.</summary>
+        BuildHand HandBuild => FromMenu ? _ui!.MenuBuild : _ui!.Build;
+
+        /// <summary>Поворот предмета в руке (0 — не поворачивается или ещё не крутили).</summary>
+        int TurnOf(byte item) => BuildHand.IsBuildItem(item, out ushort key) && Turnable(key) && _turns.TryGetValue(item, out int r) ? r : 0;
+
+        static bool Turnable(ushort key) => BuildLayers.IsRotatable(key) || key == ObjectId.Door;
+
+        /// <summary>Ключ постройки в руке с её поворотом.</summary>
+        ushort HandKey(byte item) => BuildHand.IsBuildItem(item, out ushort key) ? BuildLayers.Turned(key, TurnOf(item)) : (ushort)0;
+
+        // Кадр стройки: R — повернуть (как в Factorio; Shift+R — обратно), Tab — «линейка / поштучно» (до E2-16 — R),
+        // Esc / ПКМ — убрать постройку из меню, смена ячейки панели — тоже.
+        void TurnAndMenuKeys(byte item)
+        {
+            Keyboard? kb = Keyboard.current;
+            if (kb == null || _ui == null)
+            {
+                return;
+            }
+
+            if (kb.rKey.wasPressedThisFrame && BuildHand.IsBuildItem(item, out ushort key) && Turnable(key))
+            {
+                _turns[item] = (TurnOf(item) + (kb.leftShiftKey.isPressed ? 3 : 1)) & 3;
+                Debug.Log($"[build] поворот {item}: {_turns[item] * 90}°");
+            }
+
+            if (kb.tabKey.wasPressedThisFrame && !BuildHand.IsHammer(item))
+            {
+                PlaceMode mode = _ui.ToggleRuler(); // E2-13 → E2-16: Tab
+                Debug.Log($"[build] режим постановки: {mode}");
+            }
+
+            if (!FromMenu)
+            {
+                _menuSlot = -1;
+                return;
+            }
+
+            if (_menuSlot < 0)
+            {
+                _menuSlot = HeldCell;
+            }
+
+            bool rmb = Mouse.current?.rightButton.wasPressedThisFrame == true && !_ui.Ruler.Dragging;
+            bool esc = kb.escapeKey.wasPressedThisFrame && !_ui.Ruler.Dragging;
+            if (esc || rmb || HeldCell != _menuSlot)
+            {
+                if (esc)
+                {
+                    _menuCancelFrame = Time.frameCount;
+                }
+
+                _ui.MenuPlace = Items.None;
+                _ui.Ruler.Cancel();
+                _menuSlot = -1;
+            }
+        }
+
         /// <summary>
         /// Кадр интерфейса (E2-2): быстрая панель, окно сумки (Tab), полосы. Показывает сумку сервера и состояние
         /// своего персонажа; заявки на сумку уходят через <see cref="BagHand"/> в <see cref="NetClient"/> (сообщение 29).
@@ -130,7 +206,7 @@ namespace Orpheus.Client
         int _rulerCancelFrame = -1; // E2-13: кадр, в котором Esc отменил протягивание (паузу этот Esc не ставит)
 
         /// <summary>Esc этого кадра занят линейкой: идёт протягивание или его только что отменили.</summary>
-        bool RulerTookEscape => (_ui?.Ruler.Dragging ?? false) || _rulerCancelFrame == Time.frameCount;
+        bool RulerTookEscape => (_ui?.Ruler.Dragging ?? false) || _rulerCancelFrame == Time.frameCount || _menuCancelFrame == Time.frameCount || FromMenu;
 
         /// <summary>Тайл под курсором мыши (нет мыши или мира — null).</summary>
         TileCoord? CursorTile()
@@ -145,11 +221,12 @@ namespace Orpheus.Client
             Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
             WorldPos p = Torus.Wrap(_map, _origin.FromUnity(v));
             TileCoord cell = BuildCells.CellAt(_map, p);
-            byte held = HeldItem;
+            byte held = HandItem;
             if (BuildHand.IsBuildItem(held, out ushort key) && BuildLayers.IsFurniture(key))
             {
-                // E2-15: мебель 2 × 2 ячейки с шагом 0,5 — центром к ближнему узлу сетки 0,5 под курсором; тайл и четверть — её СЗ ячейка.
-                cell = BuildLayers.FurnitureCellAt(_map, p);
+                // E2-15: мебель с шагом 0,5 — центром к ближнему узлу сетки 0,5 под курсором; тайл и четверть — её СЗ ячейка.
+                // E2-16: размер — по повороту (кровать 1 × 2, верстак 2 × 2).
+                cell = BuildLayers.FurnitureCellAt(_map, p, HandKey(held));
                 _cursorQuad = BuildCells.QuadOf(cell);
                 return BuildCells.TileOfCell(cell);
             }
@@ -178,7 +255,14 @@ namespace Orpheus.Client
             }
 
             s.Use = ObjectUse.Find(_world, _localPos, _cursorTile, out _, out UseKind kind) ? kind : UseKind.None;
-            byte held = HeldItem;
+            byte held = HandItem;
+            if (FromMenu)
+            {
+                _menuAvailable = MenuHand.Available(_world, _localPos, c.Inv, c.NearbyStock, held); // E2-16: готовые + изготовимые
+            }
+
+            Inventory hb = HandBag(c);
+            int turn = TurnOf(held);
             bool hammer = BuildHand.IsHammer(held), placing = BuildHand.IsBuildItem(held);
             BuildRuler ruler = _ui.Ruler;
             if (ruler.Dragging && (held != ruler.AnchorItem || BuildRuler.KindOfItem(held) == RulerKind.Single || ruler.Mode != PlaceMode.Ruler))
@@ -197,7 +281,7 @@ namespace Orpheus.Client
             {
                 Keyboard? kb = Keyboard.current;
                 bool diagonal = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
-                ruler.Update(_world, _localPos, c.Inv, HeldCell, !(pr?.Dead ?? false), _cursorTile.Value, _cursorQuad, diagonal);
+                ruler.Update(_world, _localPos, hb, HeldCell, !(pr?.Dead ?? false), _cursorTile.Value, _cursorQuad, diagonal);
                 s.Dragging = true;
                 s.Plan = ruler;
             }
@@ -205,7 +289,12 @@ namespace Orpheus.Client
             TileCoord t = _cursorTile.Value;
             s.Hammer = hammer;
             s.Placing = placing;
-            s.Check = BuildHand.Check(_world, _localPos, c.Inv, HeldCell, !(pr?.Dead ?? false), t, _cursorQuad);
+            s.Check = FromMenu
+                ? MenuHand.Check(_world, _localPos, c.Inv, HeldCell, held, _menuAvailable, !(pr?.Dead ?? false), t, _cursorQuad, turn)
+                : BuildHand.Check(_world, _localPos, hb, HeldCell, !(pr?.Dead ?? false), t, _cursorQuad, turn);
+            s.Rotatable = placing && BuildHand.IsBuildItem(held, out ushort hk) && Turnable(hk);
+            s.FromMenu = FromMenu;
+            s.MenuAvailable = _menuAvailable;
             s.HasGhost = placing || (s.Check.Reply != EditReply.Empty && s.Check.Reply != EditReply.Intact && s.Check.Reply != EditReply.OutOfReach);
             ushort obj = _world.GetObject(t);
             if (obj != ObjectId.Empty && _world.TryGetBuild(t, out BuildRecord rec) && !rec.IsDebris && BuildDefs.TryGet(obj, out BuildDef def))
@@ -420,7 +509,8 @@ namespace Orpheus.Client
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
-            byte held = HeldItem;
+            TurnAndMenuKeys(HandItem); // E2-16: R — поворот, Tab — линейка, Esc / ПКМ — убрать постройку из меню
+            byte held = HandItem;      // E2-16: постройка из меню — как в руке
             if ((BuildHand.IsHammer(held) || BuildHand.IsBuildItem(held)) && _ui != null && _world != null)
             {
                 return HammerEdits(c, mouse, tile, held, now);
@@ -455,12 +545,6 @@ namespace Orpheus.Client
         {
             bool alive = !(_pred?.Dead ?? false);
             bool hammer = BuildHand.IsHammer(held);
-            if (!hammer && Keyboard.current?.rKey.wasPressedThisFrame == true)
-            {
-                PlaceMode mode = _ui!.ToggleRuler(); // E2-13: R — «линейка / поштучно», режим на сессию
-                Debug.Log($"[build] режим постановки: {mode}");
-            }
-
             if (!hammer && _ui!.Ruler.Mode == PlaceMode.Ruler && BuildRuler.KindOfItem(held) != RulerKind.Single)
             {
                 RulerEdits(c, mouse, tile, alive, now);
@@ -475,10 +559,22 @@ namespace Orpheus.Client
                 demolishLeft = rc.Reply == EditReply.Intact; // целая постройка: ЛКМ молотом — снос
             }
 
+            if (FromMenu && _menuAvailable <= 0)
+            {
+                if (mouse.leftButton.wasPressedThisFrame)
+                {
+                    _lastRefusal = EditRules.Describe(EditReply.NoResources); // E2-16: ни готовых, ни материалов — заявку не шлём
+                    _lastRefusalUntilUs = now + FlashUs;
+                }
+
+                c.StopDig();
+                return c.Digging ? InputButtons.Dig : (ushort)0;
+            }
+
             // E2-12: зажатая ЛКМ ставит на каждой новой ячейке 0,5 × 0,5 под курсором (стена — цепочкой ячеек).
             if (!demolishLeft && (mouse.leftButton.wasPressedThisFrame || (mouse.leftButton.isPressed && (_buildLast != tile || _buildLastQuad != _cursorQuad))))
             {
-                BuildCheck chk = _ui!.Build.Click(_world!, _localPos, c.Inv, HeldCell, alive, tile, _cursorQuad);
+                BuildCheck chk = HandBuild.Click(_world!, _localPos, HandBag(c), HeldCell, alive, tile, _cursorQuad, TurnOf(held));
                 _buildLast = tile;
                 _buildLastQuad = _cursorQuad;
                 if (!chk.Ok && mouse.leftButton.wasPressedThisFrame)
@@ -525,14 +621,14 @@ namespace Orpheus.Client
 
             if (!ruler.Dragging && mouse.leftButton.wasPressedThisFrame)
             {
-                ruler.Begin(tile, _cursorQuad, HeldItem);
+                ruler.Begin(tile, _cursorQuad, HandItem);
             }
 
             if (ruler.Dragging && !mouse.leftButton.isPressed)
             {
                 Keyboard? kb = Keyboard.current;
                 bool diagonal = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
-                ruler.Update(_world!, _localPos, c.Inv, HeldCell, alive, tile, _cursorQuad, diagonal);
+                ruler.Update(_world!, _localPos, HandBag(c), HeldCell, alive, tile, _cursorQuad, diagonal);
                 string? why = null;
                 if (ruler.Need == 0)
                 {
@@ -546,7 +642,7 @@ namespace Orpheus.Client
                     why = EditRules.Describe(EditReply.NoResources);
                 }
 
-                int sent = ruler.Release(_ui.Build, _localPos, c.Inv, HeldCell);
+                int sent = ruler.Release(HandBuild, _localPos, HandBag(c), HeldCell);
                 Debug.Log($"[build] линейка: заявок {sent}");
                 if (sent == 0 && why != null)
                 {

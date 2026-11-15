@@ -114,13 +114,19 @@ namespace Orpheus.Client
             return tile;
         }
 
-        /// <summary>Мебель со сдвигом на полтайла (запись тайла-якоря): опора в узле чанка сдвигается на сдвиг × 0,5 (Y Unity вверх).</summary>
+        /// <summary>
+        /// Мебель со сдвигом на полтайла и многоклеточная (запись тайла-якоря, E2-15 / E2-16): опора (низ по центру — передняя
+        /// кромка) сдвигается к середине предмета по X и к его южному краю по Y (Y Unity вверх). 1 × 1 без сдвига — как было.
+        /// </summary>
         public static void ShiftFurniture(Chunk chunk, int index, ref float x, ref float y)
         {
-            if (BuildLayers.IsFurniture(chunk.GetObject(index)) && chunk.TryGetBuild(index, out BuildRecord rec) && rec.HasOffset)
+            ushort obj = chunk.GetObject(index);
+            bool has = chunk.TryGetBuild(index, out BuildRecord rec);
+            if (BuildLayers.Spreads(obj, has, rec) || BuildLayers.IsWide(obj)) // без записи (сцены PaintDemo) — без сдвига, по размеру
             {
-                x += rec.OffsetX * 0.5f;
-                y -= rec.OffsetY * 0.5f;
+                BuildLayers.SizeOf(obj, out int w, out int h);
+                x += (2 * rec.OffsetX + w - 2) * 0.25f;
+                y -= (rec.OffsetY + h) * 0.5f - 1f;
             }
         }
     }

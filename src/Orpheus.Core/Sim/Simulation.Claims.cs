@@ -35,8 +35,8 @@ namespace Orpheus.Core.Sim
             ushort obj = edit.Obj;
             ushort pre = _preObj[i];
             TileCoord tile = TileOf(_edits[i].Chunk, edit.Index);
-            Span<TileCoord> tiles = stackalloc TileCoord[4];
-            Span<byte> masks = stackalloc byte[4];
+            Span<TileCoord> tiles = stackalloc TileCoord[BuildLayers.MaxFootTiles];
+            Span<byte> masks = stackalloc byte[BuildLayers.MaxFootTiles];
             int n = 1;
             tiles[0] = tile;
             if (BuildCells.IsCellBuilding(obj))
@@ -49,9 +49,9 @@ namespace Orpheus.Core.Sim
             {
                 return true; // верх тот же (починка, урон, пол под мебель): ячейки не меняются
             }
-            else if (BuildLayers.IsFurniture(obj) && edit.HasRecord && edit.Record.HasOffset)
+            else if (BuildLayers.Spreads(obj, edit.HasRecord, edit.Record))
             {
-                n = BuildLayers.Footprint(_shape, tile, edit.Record, tiles, masks);
+                n = BuildLayers.Footprint(_shape, tile, obj, edit.Record, tiles, masks);
             }
             else
             {

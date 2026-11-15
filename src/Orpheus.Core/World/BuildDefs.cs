@@ -168,6 +168,11 @@ namespace Orpheus.Core.World
         /// <summary>Описание постройки по ключу (id объекта или ключ пола <see cref="FloorKey"/>); вне таблицы — false.</summary>
         public static bool TryGet(ushort key, out BuildDef def)
         {
+            if (key > ObjectId.IdMask && !ObjectId.IsPart(key))
+            {
+                key = ObjectId.IdOf(key); // E2-16: повёрнутый объект (биты 10–11) — та же постройка
+            }
+
             if (key <= MaxKey && Table[key].Count1 > 0)
             {
                 def = Table[key];
