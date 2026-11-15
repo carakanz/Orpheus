@@ -282,16 +282,11 @@ namespace Orpheus.Client.Anim
         /// <summary>Угол руки с мечом по фазе удара (<see cref="SwingPhase"/>): замах вверх, удар вниз, отход к «несёт».</summary>
         public static float SwordDeg(SwingPhase phase, float q) => SwordDeg(phase, q, 0f);
 
-        /// <summary>
-        /// C-012: то же с прицелом <paramref name="aimDeg"/> (<see cref="AimDeg"/>: 0 — вперёд, +90 — север, −90 — юг). Вид сверху:
-        /// плоскость экрана — плоскость земли, поэтому взмах «сверху вниз» у персонажа, смотрящего вбок, — это дуга по земле от
-        /// северной кромки сектора удара к южной. Ось клинка — угол руки + 45° (значок по диагонали); удар идёт так, чтобы клинок
-        /// прошёл дугу прицел ±60° (<c>SwordStrike.HalfArcSteps</c>): от <see cref="SwordTopDeg"/> + прицел к <see cref="SwordHitDeg"/> + прицел.
-        /// </summary>
+        /// <summary>C-012: то же с прицелом <paramref name="aimDeg"/> без геометрии руки (предмет не меч — оценка по углу руки).</summary>
         public static float SwordDeg(SwingPhase phase, float q, float aimDeg)
         {
             q = q < 0f ? 0f : q > 1f ? 1f : q;
-            float top = Math.Min(SwordTopDeg + aimDeg, SwordTopMaxDeg);
+            float top = Math.Min(SwordTopDeg + aimDeg, 150f);
             float hit = SwordHitDeg + aimDeg;
             switch (phase)
             {
@@ -306,21 +301,128 @@ namespace Orpheus.Client.Anim
             return CarryToolDeg;
         }
 
-        /// <summary>C-012: верх замаха при прицеле на север — не дальше этого угла (иначе меч уходит за спину вниз).</summary>
-        public const float SwordTopMaxDeg = 150f;
+        /// <summary>
+        /// C-012: угол руки с мечом так, чтобы кончик клинка (как его рисует <c>ActorRig</c>, <see cref="HeldPoint"/>) шёл по дуге
+        /// зоны удара ядра. Вид сверху: плоскость экрана — плоскость земли, поэтому взмах «сверху вниз» у персонажа, смотрящего
+        /// вбок, — дуга по земле. Кончик от точки ядра: верх замаха — прицел + <see cref="SwordTipTopDeg"/>, удар — от него до
+        /// прицел − <see cref="SwordTipEndDeg"/> (кромка сектора 120° с запасом), отход — к «несёт». <paramref name="aimDeg"/> —
+        /// <see cref="AimDeg"/> (по взгляду: 0 — вперёд, +90 — север, −90 — юг).
+        /// </summary>
+        public static float SwordHandDeg(in Pose p, SwingPhase phase, float q, float aimDeg)
+        {
+            q = q < 0f ? 0f : q > 1f ? 1f : q;
+            float top = Math.Min(aimDeg + SwordTipTopDeg, SwordTipTopMaxDeg);
+            float end = aimDeg - SwordTipEndDeg;
+            switch (phase)
+            {
+                case SwingPhase.Windup:
+                    return Lerp(CarryToolDeg, SolveSwordHand(p, top), 1f - (1f - q) * (1f - q));
+                case SwingPhase.Strike:
+                    return SolveSwordHand(p, Lerp(top, end, Math.Min(1f, q * 1.6f)));
+                case SwingPhase.Recover:
+                    return Lerp(SolveSwordHand(p, end), CarryToolDeg, Smooth(q));
+            }
 
-        /// <summary>Ось клинка на значке относительно угла руки, градусов (рукоять внизу слева, остриё вверху справа).</summary>
-        public const float BladeAxisDeg = 45f;
+            return CarryToolDeg;
+        }
 
         /// <summary>
-        /// C-012: где кончик меча в миг удара от центра существа (точки ядра), тайлов, по оси прицела: выпад тела + кисть + клинок
-        /// (<see cref="AnimParams.SwordScale"/>). Должен примерно совпадать с досягаемостью удара ядра (1,4 т).
+        /// C-012: выпад тела при ударе мечом, тайлов. Кисть выше точки ядра на 0,22 т: удар на юг без добавки не доставал до обода
+        /// зоны удара (кончик ≈ 0,9 т при 1,4), на север — перелетал. Выпад длиннее к югу (к зрителю), короче к северу.
         /// </summary>
-        public static float SwordTipReach()
+        public static float SwordLunge(float dirY) => SwordLungeBase - SwordLungeSouth * Math.Min(0f, dirY) - SwordLungeNorth * Math.Max(0f, dirY);
+
+        public const float SwordLungeBase = 0.22f;
+        public const float SwordLungeSouth = 0.55f;
+        public const float SwordLungeNorth = 0.1f;
+
+        /// <summary>Кончик меча в верху замаха — на столько градусов за прицелом (над плечом назад).</summary>
+        public const float SwordTipTopDeg = 115f;
+
+        /// <summary>Верх замаха при прицеле на север — не дальше (иначе меч уходит за спину вниз).</summary>
+        public const float SwordTipTopMaxDeg = 175f;
+
+        /// <summary>Конец удара: кончик на столько градусов по другую сторону прицела (дуга ядра ±60° с запасом 5°).</summary>
+        public const float SwordTipEndDeg = 65f;
+
+        /// <summary>Угол руки, при котором кончик меча от точки ядра смотрит на <paramref name="tipDeg"/> (по взгляду), три шага уточнения.</summary>
+        public static float SolveSwordHand(in Pose pose, float tipDeg)
         {
-            float grip = (float)Math.Sqrt(2.0) * (AnimParams.BladeTipXY + (AnimParams.GripX + AnimParams.GripY) / 2f);
-            return AnimParams.StrikeLunge + AnimParams.HandX + grip * AnimParams.SwordScale;
+            Pose p = pose;
+            bool right = p.FlipX != AnimParams.SpriteFacesRight;
+            float hand = tipDeg - 64f; // остриё от кисти — ≈ 64° к оси руки
+            for (int i = 0; i < 4; i++)
+            {
+                p.HandDeg = hand;
+                HeldPoint(p, HeldLook.Sword, SwordTipX, SwordTipY, out float x, out float y);
+                float now = (float)(Math.Atan2(y, right ? x : -x) * 180.0 / Math.PI);
+                float d = tipDeg - now;
+                d -= 360f * (float)Math.Floor((d + 180f) / 360f);
+                hand += d;
+            }
+
+            return hand;
         }
+
+        /// <summary>
+        /// Кончик клинка на значке меча, тайлов от опоры значка при масштабе 1: `TEMP_item_wooden_sword.png` 64 × 64, 128 px на
+        /// тайл, опора — низ по центру (импорт), остриё — пиксель (53, 56) снизу слева. Тест сверяет размер и импорт с файлами.
+        /// </summary>
+        public const float SwordTipX = (53.5f - 32f) / 128f;
+        public const float SwordTipY = 56.5f / 128f;
+
+        /// <summary>Масштаб значка в руке (C-012: меч — свой, под досягаемость удара ядра). Тот же, что рисует <c>ActorRig</c>.</summary>
+        public static float HeldScale(HeldLook look) =>
+            look == HeldLook.Sword ? AnimParams.SwordScale : IsGripped(look) ? AnimParams.ToolScale : AnimParams.ItemScale;
+
+        /// <summary>Сдвиг значка от кисти (в осях кисти, до масштаба): инструмент — за рукоять, прочее — в ладони.</summary>
+        public static void IconLocal(HeldLook look, out float x, out float y)
+        {
+            bool grip = IsGripped(look);
+            x = grip ? AnimParams.GripX : 0f;
+            y = grip ? AnimParams.GripY : AnimParams.PalmY;
+        }
+
+        /// <summary>
+        /// Кисть в осях спрайта для взгляда вправо (C-010: при замахе за голову кисть поднимается к макушке). Тот же расчёт рисует
+        /// <c>ActorRig.ApplyHand</c> (там x зеркалится по взгляду).
+        /// </summary>
+        public static void HandLocal(in Pose p, out float x, out float y)
+        {
+            float u = (p.HandDeg - AnimParams.OverheadLiftFromDeg) / (AnimParams.OverheadLiftFullDeg - AnimParams.OverheadLiftFromDeg);
+            u = u < 0f ? 0f : u > 1f ? 1f : u;
+            float lift = AnimParams.OverheadLiftY * u * u * (3f - 2f * u);
+            x = AnimParams.HandX + p.HandReachX;
+            y = AnimParams.HandY + p.HandReachY + lift;
+        }
+
+        /// <summary>
+        /// Точка значка в руке (<paramref name="lx"/>, <paramref name="ly"/> — от опоры значка, тайлов при масштабе 1) относительно корня
+        /// существа (точки ядра), экранные оси: та же цепочка, что в Unity у <c>ActorRig</c> — корень → спрайт (опора
+        /// <see cref="SpriteFootY"/> + сдвиг позы, поворот, масштаб) → кисть (поворот, масштаб с зеркалом) → значок.
+        /// </summary>
+        public static void HeldPoint(in Pose p, HeldLook look, float lx, float ly, out float x, out float y)
+        {
+            bool right = p.FlipX != AnimParams.SpriteFacesRight;
+            float sign = right ? 1f : -1f;
+            float k = HeldScale(look);
+            IconLocal(look, out float ix, out float iy);
+            // значок → кисть: сдвиг значка, потом масштаб кисти (k·sign, k) и поворот HandDeg·sign
+            float hx = (ix + lx) * k * sign, hy = (iy + ly) * k;
+            double a = p.HandDeg * sign * Math.PI / 180.0;
+            float rx = (float)(hx * Math.Cos(a) - hy * Math.Sin(a)), ry = (float)(hx * Math.Sin(a) + hy * Math.Cos(a));
+            HandLocal(p, out float hlx, out float hly);
+            float sx = hlx * sign + rx, sy = hly + ry;
+            // кисть → спрайт: масштаб и поворот спрайта, сдвиг опоры и позы
+            sx *= p.ScaleX;
+            sy *= p.ScaleY;
+            double b = p.RotationDeg * Math.PI / 180.0;
+            x = (float)(sx * Math.Cos(b) - sy * Math.Sin(b)) + p.OffsetX;
+            y = (float)(sx * Math.Sin(b) + sy * Math.Cos(b)) + SpriteFootY + p.OffsetY;
+        }
+
+        /// <summary>Опора спрайта существа ниже точки ядра, тайлов (<c>ActorFactory.SpriteFootY</c>, сцена <c>ProjectSetup</c>).</summary>
+        public const float SpriteFootY = -0.4f;
 
         /// <summary>
         /// Жест стройки в доле <paramref name="u"/> (0…1): рука тянется к цели (угол цели <paramref name="aimDeg"/> от

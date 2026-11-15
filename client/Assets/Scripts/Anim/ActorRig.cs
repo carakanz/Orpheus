@@ -96,8 +96,8 @@ namespace Orpheus.Client.Anim
 
             _handSr!.sprite = PileView.SpriteFor(item);
             _handSr.enabled = _handSr.sprite != null;
-            bool grip = ActionAnim.IsGripped(_look);
-            _handIcon!.localPosition = grip ? new Vector3(AnimParams.GripX, AnimParams.GripY, 0f) : new Vector3(0f, AnimParams.PalmY, 0f);
+            ActionAnim.IconLocal(_look, out float ix, out float iy); // C-012: те же числа, что в ActionAnim.HeldPoint (тесты)
+            _handIcon!.localPosition = new Vector3(ix, iy, 0f);
         }
 
         void ApplyHand(in Pose p, int order)
@@ -109,13 +109,11 @@ namespace Orpheus.Client.Anim
 
             bool right = p.FlipX != AnimParams.SpriteFacesRight;
             float sign = right ? 1f : -1f;
-            float k = _look == HeldLook.Sword ? AnimParams.SwordScale // C-012: клинок до досягаемости удара ядра
-                : ActionAnim.IsGripped(_look) ? AnimParams.ToolScale : AnimParams.ItemScale;
-            // C-010: занесённый за голову предмет рисуется позади тела — без подъёма кисти он целиком прятался за спрайтом
-            // (на лентах E2-7 замаха топора, кирки и меча не было видно). Кисть плавно поднимается к макушке вместе с углом.
-            float lift = AnimParams.OverheadLiftY * Mathf.SmoothStep(0f, 1f,
-                Mathf.InverseLerp(AnimParams.OverheadLiftFromDeg, AnimParams.OverheadLiftFullDeg, p.HandDeg));
-            _hand.localPosition = new Vector3((AnimParams.HandX + p.HandReachX) * sign, AnimParams.HandY + p.HandReachY + lift, 0f);
+            float k = ActionAnim.HeldScale(_look); // C-012: меч — свой масштаб под досягаемость удара ядра
+            // C-010: занесённый за голову предмет рисуется позади тела — кисть плавно поднимается к макушке вместе с углом
+            // (ActionAnim.HandLocal — тот же расчёт, что проверяют тесты).
+            ActionAnim.HandLocal(p, out float hx, out float hy);
+            _hand.localPosition = new Vector3(hx * sign, hy, 0f);
             // Поворот после зеркала: зеркальный значок поворачивается в обратную сторону (M = T·R·S).
             _hand.localRotation = Quaternion.Euler(0f, 0f, p.HandDeg * sign);
             _hand.localScale = new Vector3(k * sign, k, 1f);

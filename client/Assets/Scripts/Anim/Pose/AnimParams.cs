@@ -167,13 +167,10 @@ namespace Orpheus.Client.Anim
 
         /// <summary>
         /// C-012 (слово Автора: «радиус удара должен примерно совпадать с радиусом анимации»): меч крупнее прочих инструментов —
-        /// значок ≈ 1 т, клинок от кисти ≈ 0,87 т; с кистью (0,2 т) и выпадом (0,32 т) кончик в миг удара на ≈ 1,4 т от центра —
-        /// как досягаемость удара ядра (<c>Reach.SwordStrikeUnits</c> = 358 unit). Проверка — <c>ActionAnimTests.C012_*</c>.
+        /// кончик в миг удара на ≈ 1,4 т от точки ядра, как досягаемость удара ядра (<c>Reach.SwordStrikeUnits</c> = 358 unit).
+        /// Считается по тому, что рисует <c>ActorRig</c> (<c>ActionAnim.HeldPoint</c>), тест — <c>AimMathTests.C012_SwordTip_*</c>.
         /// </summary>
-        public const float SwordScale = 1.95f;
-
-        /// <summary>Кончик клинка от центра значка при масштабе 1, тайлов по каждой оси (значок 0,5 т, клинок по диагонали).</summary>
-        public const float BladeTipXY = 0.22f;
+        public const float SwordScale = 1.65f;
         public const float ItemScale = 0.8f;
 
         /// <summary>Центр значка инструмента от хвата (рукоять внизу слева значка), долей… тайла при масштабе 1.</summary>

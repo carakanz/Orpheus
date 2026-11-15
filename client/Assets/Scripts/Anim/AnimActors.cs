@@ -7,7 +7,7 @@ namespace Orpheus.Client.Anim
     public static class ActorFactory
     {
         /// <summary>Опора спрайта ниже центра существа (как у героя в сцене, <c>ProjectSetup</c>).</summary>
-        public const float SpriteFootY = -0.4f;
+        public const float SpriteFootY = ActionAnim.SpriteFootY;
 
         /// <summary>Враги-болванки и манекен — тот же спрайт, тёплый красный оттенок (своих ассетов врагов в клиенте пока нет).</summary>
         public static readonly Color EnemyTint = new Color(1f, 0.55f, 0.45f);
