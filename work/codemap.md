@@ -130,6 +130,11 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Save/LegacyWalls.cs (счёт старых стен, формат < 10). Client: ThinWallLook.cs · WorldView.RefreshSeams · BuildGhost.CellBox · PaintDemo.ThinHouse (--ui-demo thin) · NetGame.Edits _cursorQuad.
 - tests/HalfWallTests.cs; Golden/format9_walls.*.
 
+## Путь врагов на решётке 0,5 (E2-12b)
+- Pathing/PathFinder.cs: SnapToLattice · TileCenter · Find (TileCoord / WorldPos) · AStar · GoalEnclosed (предел — центры тайлов) · NearestOutside · Neighbors (полушаги + целые шаги из центра) · TileNeighbors (быстрый шаг по тайлам вдали от тонких) · IsCenter · IsNode · NearThin · PointCost (4 ячейки вокруг точки) · TileIndex (кэш тайлов окна). PathBuffer.Points (WorldPos), End (тайл), EndPoint. IPathTerrain.CellsOf; SimulationPathTerrain.CellsOf = Simulation.SolidCells. PathRequest/Enqueue — WorldPos.
+- Sim/Simulation.Steer.cs: ChaseGoal (точка решётки у цели) · BlockedGoalMoved · EnqueueChasePath · FollowPath (проход MeleeRogue.PathPointPass2) · SteerTo / Closer (подруливание у косяка). Simulation.Enemies.cs Chase: «упёрся» — переспрос при уходе цели и после «застрял».
+- tests/HalfPathTests.cs (проёмы, дома, «замкнута», косяк, случаи Автора), tests/ForestChaseTests.cs (лес генератора v7), PathTests.D02_S9_2_Big_Bench1024_ThinHouses….
+
 ## Интерфейс (E2-2) - client/Assets/Scripts/UI
 - UiRoot.cs: `UiRoot` (холст перед камерой, Fit, FromScreen, Node/Picture/Label), `UiGroup` (привязка, Contains/Local).
 - UiStyle.cs: цвета, `Frame` (рамка с 9 срезами кодом), `Font`.
