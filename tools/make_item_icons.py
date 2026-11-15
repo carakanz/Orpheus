@@ -501,6 +501,8 @@ def from_obj(draw) -> Image.Image:
     return img
 
 
+FURNITURE_KEYS = {"workbench", "chest", "bed", "campfire", "torch"}  # E2-17: TEMP_obj_* — tools/make_furniture.py
+
 BUILD_NOTE = "значок предмета-постройки «{0}» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
 BUILD_ICONS = {
     "wood_floor": (lambda: from_tile(floor_wood), BUILD_NOTE.format("пол деревянный")),
@@ -531,6 +533,8 @@ def main() -> None:
             rows.append([rel, "placeholder", "К", notes])
         print(rel)
     for key, (draw, notes) in OBJECTS.items():
+        if key in FURNITURE_KEYS:
+            continue  # E2-17: картинки мебели «с высотой» делает tools/make_furniture.py; здесь — только значки из старых рисунков
         img = draw().resize((OBJ_W, OBJ_H), Image.LANCZOS)
         ImageDraw.Draw(img).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))  # пурпурный уголок заглушки
         rel = f"client/Assets/Art/_TEMP/TEMP_obj_{key}.png"
