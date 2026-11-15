@@ -126,7 +126,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Movement/Collision.cs: ITileCells · SolidCellsOf · CircleOverlapsCells · AxisPush/OverlapsTile по квадратам ячеек. Simulation.Movement.cs: SolidCells. Simulation.Combat.cs: StrikeCellSolid. Simulation.BuildItems.cs: PlacementUnits · CostPaidRepair.
 - E2-13 линейка: Net/Session/BuildRuler.cs — PlaceMode (Ruler по умолчанию / Single) · RulerKind (Line стена/забор, Rect пол/настил, Single прочее) · RulerSpot · BuildRuler: KindOf/KindOfItem · Begin · Update (план: PlanLine — ось по большему смещению, Shift — Брезенхэм, отрезки по 32 ячейки; PlanRect — ряды тайлов) · Release (пачка BuildHand.PlaceLine, хвост обрезан по «есть» — LastOk) · AddRun (единая развёртка в отрезки, стык — по границе тайла) · RectOnCells (E2-15) · AnchorItem · Cancel · Toggle. Клиент: NetGame.Edits.cs RulerEdits / RulerTookEscape, NetGame.cs RulerMayTakeShift / _shiftDodgeHold (Shift ждёт ЛКМ 6 кадров), BuildState (план при протягивании), GameUi.Build.cs (Ruler, ToggleRuler, SessionMode, подпись _mode), BuildGhost.ShowPlan/HidePlan, UiDemo.Build.cs (ruler-wall|ruler-floor). Тесты RulerTests (E213_*).
 - Net: NetServer.Cells.cs (PlaceCells, TagCountShift) · NetClient.Cells.cs (PlaceCells) · TileRequestMessage.Quad · BuildHand Check/Click(quad), PlaceLine(fromQuad, toQuad), BuildCheck.Cells. BuildRoomBot: WallCellsOf · WallDone · PlaceWallCells.
-- Save/LegacyWalls.cs (счёт старых стен, формат < 10). Client: ThinWallLook.cs · WorldView.RefreshSeams · BuildGhost.CellBox · PaintDemo.ThinHouse (--ui-demo thin) · NetGame.Edits _cursorQuad.
+- Save/LegacyWalls.cs (счёт старых стен, формат < 10). Client: (ThinWallLook.cs удалён в E2-17) · WorldView.RefreshSeams · BuildGhost.CellBox · PaintDemo.ThinHouse (--ui-demo thin) · NetGame.Edits _cursorQuad.
 - tests/HalfWallTests.cs; Golden/format9_walls.*.
 
 ## Интерфейс (E2-2) - client/Assets/Scripts/UI
@@ -151,3 +151,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 
 ## Генератор - src/Orpheus.WorldGen
 - DepositStage.cs (E2-6): Run :~120 (сетка ячеек 32, выбор вида) · Place :~205 (тайлы пятна) · DepositStats.Of / MaskOf (числа приёмки). Штамп меди — HearthStage.StampCopper.
+
+## Высота построек (E2-17) - client/Assets/Scripts
+- ObjectMesh.Walls.cs (partial ObjectMesh): WallHeight · FenceShare · Looks (камень/дерево) · ReadCells/ReadNear/CellKind (ячейки тайла и 4 соседей) · CellKey · Cells (тайл в меше строки) · WallCell · Fence · Door/Slab · HullShadow · CellShadows. ObjectMesh.cs: Item.Cell, Collect (постройки-ячеек → CellLook), BuildRow/BuildShadows.
+- WorldView.cs: ChunkNode.CellKeys · Fill (ключ → строка грязная) · RefreshSeams (строки соседних чанков) · ObjectTile (стены → null). ObjectAtlas.ClearMarks (уголок заглушки). PaintDemo.Home / IsHomeMode, ClientArgs --home-demo, GameBoot. tools/make_furniture.py (мебель 3/4).

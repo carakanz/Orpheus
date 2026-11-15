@@ -179,8 +179,6 @@ namespace Orpheus.Client
 
         static float CellHash(int x, int y, uint seed) => GroundAtlas.Hash(x & 0xFFFF, y & 0xFFFF, seed);
 
-        static Color32 Lerp(Color32 a, Color32 b, float t) => Color32.Lerp(a, b, t);
-
         // Прямоугольник с вертикальным переходом цвета: низ — bottom, верх — top.
         void SolidV(float x0, float y0, float x1, float y1, in ObjectAtlas.Entry white, Color32 bottom, Color32 top)
         {

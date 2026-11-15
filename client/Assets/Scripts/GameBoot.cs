@@ -193,7 +193,7 @@ namespace Orpheus.Client
             {
                 // E2-17: дом «с высотой» для снимков — постройки вокруг персонажа, персонаж в нужном месте сцены.
                 TileCoord at = Torus.TileOf(Map, Player.Position);
-                PaintDemo.Home(World, Map, at.X, at.Y, Args.HomeDemo);
+                PaintDemo.Home(World, Map, at.X, at.Y, Args.HomeDemo!);
                 View.Clear();
                 View.UpdateWindow(Player.Position);
             }
