@@ -15,10 +15,10 @@ namespace Orpheus.Tests
     {
         private const float H = 1080f;
 
-        // Окно изготовления клиента (CraftWindow: 20, 20; 434 × 548) и сетка сумки 8 × 4 с её строкой клавиш (24 + 4).
+        // Окно изготовления клиента (CraftWindow: 20, 20; 434 × 548) и сетка сумки 8 × 4 с её строками клавиш (44 + 4).
         private const float CraftX = 20f, CraftY = 20f, CraftW = 434f, CraftH = 548f;
         private const float BagGridH = 4f * (HudLayout.Cell + HudLayout.Gap) - HudLayout.Gap;
-        private const float BagHintH = 28f;
+        private const float BagHintH = 48f;
 
         private readonly struct Box
         {
@@ -98,6 +98,10 @@ namespace Orpheus.Tests
                 Assert.True(p.Over(ax, ay), $"способность {k}");
                 Assert.True(ay < 100f, "способности — внизу");
                 Assert.True(ax > HudLayout.OrbCenter(w, false).X && ax < HudLayout.OrbCenter(w, true).X, "способности — между сферами");
+
+                // Рамка целиком видна: не заходит под круги сфер (по горизонтали — между их краями).
+                Assert.True(ax - HudLayout.Cell / 2f >= HudLayout.OrbCenter(w, false).X + HudLayout.Orb / 2f, $"способность {k} под сферой здоровья");
+                Assert.True(ax + HudLayout.Cell / 2f <= HudLayout.OrbCenter(w, true).X - HudLayout.Orb / 2f, $"способность {k} под сферой выносливости");
             }
 
             // Значок режима «линейка / поштучно» — справа от панели, по середине её высоты; интерфейс, щелчок попадает в него.

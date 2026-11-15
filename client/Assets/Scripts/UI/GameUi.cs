@@ -72,7 +72,7 @@ namespace Orpheus.Client.UI
     /// </summary>
     public sealed class BagWindow : UiGroup
     {
-        public const float HintH = 24f, Gap = 4f;
+        public const float HintH = 44f, Gap = 4f; // C-015: две строки — справа от сумки теперь сундук
         public static readonly float GridW = UiSlotGrid.WidthOf(Inventory.Slots);
         static readonly int Rows = (Inventory.Cells - Inventory.Slots) / Inventory.Slots;
         public static readonly float GridH = UiSlotGrid.WidthOf(Rows);
@@ -88,7 +88,8 @@ namespace Orpheus.Client.UI
             : base(root, "Bag", new Vector2(0f, 1f), new Vector2(HudLayout.Margin, -HudLayout.BagTop - Height), new Vector2(Width, Height))
         {
             _main = new UiSlotGrid(Rt, 0f, GridY, Inventory.Slots, Rows, Inventory.Slots, UiCellLook.Glass);
-            _hint = UiRoot.Label(Rt, "Hint", 2f, 0f, Width + 160f, HintH, 18, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true);
+            _hint = UiRoot.Label(Rt, "Hint", 2f, 0f, Width - 2f, HintH, 18, TextAnchor.UpperLeft, UiStyle.TextLight, outline: true);
+            _hint.horizontalOverflow = HorizontalWrapMode.Wrap; // C-015: не заходит под сундук справа
             _hint.text = HintText(false);
             Visible = false;
         }

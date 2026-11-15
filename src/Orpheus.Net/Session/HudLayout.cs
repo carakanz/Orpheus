@@ -42,7 +42,7 @@ namespace Orpheus.Net.Session
         /// <summary>Рамки способностей: две активные и через зазор 12 — пассивная.</summary>
         public const float PassiveGap = 12f;
         public const float AbilitiesW = 3f * Cell + 2f * Gap + PassiveGap;
-        public const float PanelW = Pad + AbilitiesW + Pad;
+        public const float PanelW = Overlap + Pad + AbilitiesW + Pad + Overlap; // концы панели уходят под сферы
         public const float PanelH = Cell + 2f * Pad;
         public const float PanelY = 10f;
         public const float PanelX = Orb - Overlap;
@@ -66,7 +66,7 @@ namespace Orpheus.Net.Session
         public static float MapY(float canvasH) => canvasH - MapMargin - MapSize;
 
         /// <summary>Левый край рамки способности <paramref name="k"/> (0, 1 — активные, 2 — пассивная) в координатах группы панели.</summary>
-        public static float AbilityX(int k) => PanelX + Pad + k * (Cell + Gap) + (k == 2 ? PassiveGap : 0f);
+        public static float AbilityX(int k) => PanelX + Overlap + Pad + k * (Cell + Gap) + (k == 2 ? PassiveGap : 0f);
 
         /// <summary>Прямоугольники нижней панели в координатах группы: панель способностей и две сферы.</summary>
         public static void BarZones(UiPointer p, float ox, float oy)
