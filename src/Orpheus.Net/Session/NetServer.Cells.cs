@@ -44,7 +44,8 @@ namespace Orpheus.Net.Session
 
                 int tag = (m.RequestId << TagLineBits) | e.First | ((e.Count - 1) << TagCountShift);
                 if (check == EditReply.Accepted
-                    && !_sim.RequestPlayerEdit(e.Tile, e.Floor, e.Obj, true, e.Record, p.EntityId, tag, cell, e.FloorOnly))
+                    && !_sim.RequestPlayerEdit(e.Tile, e.Floor, e.Obj, true, e.Record, p.EntityId, tag, cell, e.FloorOnly,
+                        e.Moves, e.MoveTile, e.MoveObj, e.MoveRecord)) // C-011: перенос якоря мебели — вместе со стеной
                 {
                     check = QueueRefusal(p.EntityId); // очередь такта полна или персонаж мёртв (C-004)
                 }

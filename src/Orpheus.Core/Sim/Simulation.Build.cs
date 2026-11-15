@@ -106,7 +106,12 @@ namespace Orpheus.Core.Sim
             }
 
             TileCoord t = Torus.Wrap(_shape, tile);
-            if (!EditRules.InUseRadius(_shape, _entities[slot].Mover.Position, t))
+            if (ObjectId.IdOf(_world.GetObject(t)) != ObjectId.Bed && BuildLayers.TryFurnitureAt(_world, t, out TileCoord anchor))
+            {
+                t = anchor; // C-011: F по хвосту кровати — точка у её якоря
+            }
+
+            if (!BuildLayers.InUseReach(_world, _entities[slot].Mover.Position, t))
             {
                 return EditReply.OutOfReach;
             }
@@ -147,6 +152,13 @@ namespace Orpheus.Core.Sim
             }
 
             Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_shape, e.Bed));
+            if (chunk != null && ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(e.Bed.X, e.Bed.Y))) != ObjectId.Bed
+                && BuildLayers.TryFurnitureAt(_world, e.Bed, out TileCoord moved) && ObjectId.IdOf(_world.GetObject(moved)) == ObjectId.Bed)
+            {
+                e.Bed = moved; // C-011: кровать перенесла якорь (стена в её тайл) — точка идёт за ней
+                chunk = _world.FindChunk(Torus.ChunkOf(_shape, e.Bed));
+            }
+
             if (chunk != null && ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(e.Bed.X, e.Bed.Y))) != ObjectId.Bed)
             {
                 e.HasBed = false;
@@ -265,7 +277,7 @@ namespace Orpheus.Core.Sim
         private void ApplyChestOp(long tick, int slot, in BagRequest r)
         {
             TileCoord t = r.Chest;
-            if (ObjectId.IdOf(_world.GetObject(t)) != ObjectId.Chest || !EditRules.InUseRadius(_shape, _entities[slot].Mover.Position, t))
+            if (ObjectId.IdOf(_world.GetObject(t)) != ObjectId.Chest || !BuildLayers.InUseReach(_world, _entities[slot].Mover.Position, t))
             {
                 return; // сундук снесли или персонаж отошёл — заявка не исполняется
             }
@@ -359,6 +371,20 @@ namespace Orpheus.Core.Sim
                     SpawnPile(tick, chest.ItemAt(c), chest.CountIn(c), center, LootPickupDelayTicks, true);
                 }
             }
+        }
+
+        /// <summary>Сундук перенёс якорь (C-011): содержимое переходит к новому тайлу без изменений.</summary>
+        private void MoveChest(TileCoord from, TileCoord to)
+        {
+            int ci = IndexOfChest(from);
+            if (ci < 0)
+            {
+                return;
+            }
+
+            Inventory chest = _chests[ci];
+            RemoveChestAt(ci);
+            StoreChest(to, chest);
         }
 
         private static long ChestKey(TileCoord t) => ((long)t.Y << 32) | (uint)t.X;

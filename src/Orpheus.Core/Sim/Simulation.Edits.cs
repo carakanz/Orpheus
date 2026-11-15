@@ -271,8 +271,22 @@ namespace Orpheus.Core.Sim
         /// Правка игрока (см. выше); <paramref name="floorOnly"/> — правка слоя пола (E2-15: пол под стоящую стену, мебель,
         /// существо): существа и враги ей не мешают, хотя объект тайла (прежний верх) непроходим.
         /// </summary>
-        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, byte cell, bool floorOnly)
+        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, byte cell, bool floorOnly) =>
+            RequestPlayerEdit(tile, floor, obj, hasRecord, record, requester, tag, cell, floorOnly, false, default, 0, default);
+
+        /// <summary>
+        /// Правка игрока с переносом якоря мебели (C-011, <see cref="PlannedEdit.Moves"/>): стена в тайл-якорь
+        /// <paramref name="tile"/> и мебель <paramref name="moveObj"/> с записью <paramref name="moveRecord"/> на тайле
+        /// <paramref name="moveTile"/> того же чанка — обе правки применяются вместе или ни одна. Другой чанк — false.
+        /// </summary>
+        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, byte cell, bool floorOnly,
+            bool moves, TileCoord moveTile, ushort moveObj, BuildRecord moveRecord)
         {
+            if (moves && Torus.ChunkOf(_shape, Torus.Wrap(_shape, tile)) != Torus.ChunkOf(_shape, Torus.Wrap(_shape, moveTile)))
+            {
+                return false;
+            }
+
             // Мёртвый не строит и не копает (C-004): запрос от сущности-трупа (5 с до возрождения) — отказ.
             // Раньше убитый строитель достраивал стены и ставил дверь с места гибели (D08_3_1, такты 1292–1336).
             // Процесс мира (requester 0 — автозакрытие двери) сущностью не является и проходит.
@@ -284,8 +298,21 @@ namespace Orpheus.Core.Sim
 
             // Дверь с записью (1-012) — правка состояния (F/автозакрытие/автооткрытие): существо на тайле или
             // враг рядом не повод отказывать, выталкиванием занимается BeginDoorClose; иначе F у врага ломался бы.
-            return Enqueue(tile, floor, obj, hasRecord, record, requester, tag,
-                !floorOnly && EditRules.NeedsClearance(obj) && !(obj == ObjectId.Door && hasRecord), cell: cell);
+            if (!Enqueue(tile, floor, obj, hasRecord, record, requester, tag,
+                !floorOnly && EditRules.NeedsClearance(obj) && !(obj == ObjectId.Door && hasRecord), cell: cell))
+            {
+                return false;
+            }
+
+            if (moves)
+            {
+                TileCoord m = Torus.Wrap(_shape, moveTile);
+                ref EditRequest e = ref _edits[_editCount - 1];
+                e = new EditRequest(e.Chunk, e.Arrival, e.Edit, e.Requester, e.Tag, e.CheckCreatures, e.Repair, e.Cell,
+                    new TileEdit((ushort)Chunk.IndexOf(m.X, m.Y), _world.GetFloor(m), moveObj, moveRecord));
+            }
+
+            return true;
         }
 
         private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, bool checkCreatures, bool repair = false, byte cell = AnyCell)
@@ -340,6 +367,7 @@ namespace Orpheus.Core.Sim
             }
 
             SortByChunkThenArrival(n);
+            AlignPrePass(n); // C-011: состояние pre-pass — по местам после сортировки (было по порядку прихода)
             int start = 0;
             while (start < n)
             {
@@ -359,10 +387,19 @@ namespace Orpheus.Core.Sim
                     EditResult pre = _preResult[i] != EditResult.Applied
                         ? _preResult[i]
                         : _edits[i].CheckCreatures ? CheckCreatures(chunk, _edits[i].Edit) : EditResult.Applied;
+                    if (pre == EditResult.Applied && _edits[i].HasMove && !MoveFits(i, take))
+                    {
+                        pre = EditResult.Busy; // C-011: перенос якоря не применится целиком — ни стены, ни переноса
+                    }
+
                     if (pre == EditResult.Applied && take < _batch.Length)
                     {
                         _batchOf[i] = take;
                         _batch[take++] = _edits[i].Edit;
+                        if (_edits[i].HasMove)
+                        {
+                            _batch[take++] = _edits[i].MoveEdit; // сразу следом: тайл нового якоря в пачке свободен (MoveFits)
+                        }
                     }
                     else
                     {
@@ -386,8 +423,18 @@ namespace Orpheus.Core.Sim
                         AddDoor(TileOf(chunk, _edits[i].Edit.Index));
                     }
 
+                    // C-011: перенос якоря мебели — правка нового якоря (без заказчика: в пачку клиентам), сундук — содержимое за ним.
+                    if (result == EditResult.Applied && _edits[i].HasMove)
+                    {
+                        AddEvent(new SimEvent(SimEventKind.TileEdit, tick, chunk, _edits[i].MoveEdit.Index, _results[_batchOf[i] + 1], revision, 0, 0));
+                        if (ObjectId.IdOf(_preObj[i]) == ObjectId.Chest)
+                        {
+                            MoveChest(TileOf(chunk, _edits[i].Edit.Index), TileOf(chunk, _edits[i].MoveEdit.Index));
+                        }
+                    }
+
                     // Сундук (E2-5): снесён или разрушен — содержимое кучами на его тайл (и от правок мира, без заказчика).
-                    if (result == EditResult.Applied && ObjectId.IdOf(_preObj[i]) == ObjectId.Chest && _edits[i].Edit.Obj != _preObj[i])
+                    else if (result == EditResult.Applied && ObjectId.IdOf(_preObj[i]) == ObjectId.Chest && _edits[i].Edit.Obj != _preObj[i])
                     {
                         SpillChest(tick, TileOf(chunk, _edits[i].Edit.Index));
                     }
@@ -435,6 +482,82 @@ namespace Orpheus.Core.Sim
             }
 
             _editCount = 0;
+        }
+
+        /// <summary>
+        /// Перенос якоря правки № <paramref name="i"/> (C-011) войдёт в пачку целиком: в пачке есть место на две правки, ни тайл
+        /// якоря, ни тайл нового якоря ещё не заняты правками пачки, мебель до пачки — та, что переносится, а слот нового якоря пуст.
+        /// Иначе стена встала бы без переноса (мебель пропала) или перенос без стены (мебель удвоилась).
+        /// </summary>
+        private bool MoveFits(int i, int take)
+        {
+            if (take + 2 > _batch.Length)
+            {
+                return false;
+            }
+
+            ushort a = _edits[i].Edit.Index, b = _edits[i].MoveEdit.Index;
+            for (int k = 0; k < take; k++)
+            {
+                if (_batch[k].Index == a || _batch[k].Index == b)
+                {
+                    return false;
+                }
+            }
+
+            Chunk? c = _world.FindChunk(_edits[i].Chunk);
+            return c != null && _preObj[i] == _edits[i].MoveEdit.Obj && c.GetObject(b) == ObjectId.Empty;
+        }
+
+        // Массивы pre-pass, переставленные под порядок после сортировки (C-011): индекс до сортировки — EditRequest.Arrival.
+        private ushort[]? _alignObj;
+        private byte[]? _alignFloor;
+        private BuildRecord[]? _alignBuild;
+        private bool[]? _alignHas;
+        private EditResult[]? _alignResult;
+        private byte[]? _alignPaid;
+
+        /// <summary>
+        /// Pre-pass пишет состояние правки по её месту прихода, а пачки идут по местам после сортировки по чанку: при правках
+        /// в нескольких чанках в одном такте отказ, оплата и «что стояло» одной правки доставались другой (C-011: найдено при
+        /// переносе якоря). Переставить массивы pre-pass по <see cref="EditRequest.Arrival"/>.
+        /// </summary>
+        private void AlignPrePass(int n)
+        {
+            bool same = true;
+            for (int i = 0; i < n && same; i++)
+            {
+                same = _edits[i].Arrival == i;
+            }
+
+            if (same)
+            {
+                return;
+            }
+
+            int len = _edits.Length;
+            _alignObj ??= new ushort[len];
+            _alignFloor ??= new byte[len];
+            _alignBuild ??= new BuildRecord[len];
+            _alignHas ??= new bool[len];
+            _alignResult ??= new EditResult[len];
+            _alignPaid ??= new byte[len];
+            Array.Copy(_preObj, _alignObj, n);
+            Array.Copy(_preFloor, _alignFloor, n);
+            Array.Copy(_preBuild, _alignBuild, n);
+            Array.Copy(_preHasBuild, _alignHas, n);
+            Array.Copy(_preResult, _alignResult, n);
+            Array.Copy(_costPaid, _alignPaid, n);
+            for (int i = 0; i < n; i++)
+            {
+                int a = _edits[i].Arrival;
+                _preObj[i] = _alignObj[a];
+                _preFloor[i] = _alignFloor[a];
+                _preBuild[i] = _alignBuild[a];
+                _preHasBuild[i] = _alignHas[a];
+                _preResult[i] = _alignResult[a];
+                _costPaid[i] = _alignPaid[a];
+            }
         }
 
         /// <summary>

@@ -127,7 +127,7 @@ namespace Orpheus.Tests
 
         // ------------------------------------------------ 3. «мешает мебель»
 
-        /// <summary>Стена в свободную половину тайла-якоря сдвинутой мебели — «мешает мебель», а не общее «занято».</summary>
+        /// <summary>Стена в свободную половину тайла-якоря сдвинутой мебели — перенос якоря (C-011; до него — «мешает мебель»), ячейка самой мебели — «занято».</summary>
         [Fact]
         public void E215_Wall_In_Free_Half_Of_Furniture_Anchor_Reason()
         {
@@ -137,7 +137,10 @@ namespace Orpheus.Tests
             var plan = new PlannedEdit[EditRules.MaxLineTiles];
             WorldPos self = sim.GetEntity(me).Mover.Position;
             BuildPlanner.Plan(sim.World, self, ObjectId.StoneWall, new TileCoord(102, 100), new TileCoord(102, 100), 0, (ushort)me, plan);
-            Assert.Equal(EditReply.FurnitureInTile, plan[0].Check); // СЗ ячейка якоря свободна, но в тайле мебель
+            // C-011 [док]: свободная ячейка тайла-якоря — сундук переносит якорь (раньше «мешает мебель»); причина осталась для
+            // случаев, где перенос невозможен (C011TailTests.C011_Wall_Into_Anchor_Refused_When_Move_Impossible).
+            Assert.Equal(EditReply.Accepted, plan[0].Check);
+            Assert.True(plan[0].Moves);
             Assert.Equal("мешает мебель — ставьте её после стен", EditRules.Describe(EditReply.FurnitureInTile));
             BuildPlanner.Plan(sim.World, self, ObjectId.StoneWall, new TileCoord(102, 100), new TileCoord(102, 100), 3 | (3 << 2), (ushort)me, plan);
             Assert.Equal(EditReply.Busy, plan[0].Check); // ячейка самого сундука — просто «занято»

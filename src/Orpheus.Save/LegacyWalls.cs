@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Orpheus.Core.World;
 
 namespace Orpheus.Save
@@ -58,6 +59,35 @@ namespace Orpheus.Save
             }
 
             return changed;
+        }
+
+        /// <summary>
+        /// Проверка флага <see cref="BuildFlags.Wide"/> при чтении (C-011, решение — <c>work/modules/building.md</c>): флаг хранится
+        /// в записи (по нему чанк считает свесы — <see cref="Chunk.OffsetCount"/>), но хэш состояния его не видит; значит, он обязан
+        /// совпадать с предметом (<see cref="BuildLayers.IsWide"/>). Несовпадение — испорченный файл: без флага хвост кровати или
+        /// верстака стал бы невидим соседям, с лишним флагом — лишние проверки свеса. Вызывать после <see cref="WidenFurniture"/>.
+        /// </summary>
+        public static void CheckWide(byte[] blob, int chunkNumber)
+        {
+            int at = Chunk.LayerBytes;
+            int n = blob[at] | (blob[at + 1] << 8);
+            at += Chunk.BuildCountBytes;
+            for (int i = 0; i < n; i++, at += Chunk.BuildEntryBytes)
+            {
+                int index = blob[at] | (blob[at + 1] << 8);
+                if (index >= Chunk.TileCount)
+                {
+                    continue; // индекс проверит Chunk.ReadBlob
+                }
+
+                ushort obj = (ushort)(blob[Chunk.ObjectLowOffset + index] | (blob[Chunk.ObjectHighOffset + index] << 8));
+                bool flag = (blob[at + 2 + 4] & (byte)BuildFlags.Wide) != 0; // байт флагов записи (BuildRecord.Write: dest[4])
+                if (flag != BuildLayers.IsWide(obj))
+                {
+                    throw new InvalidDataException(
+                        $"Чанк № {chunkNumber}, тайл #{index}: флаг «многоклеточная» {(flag ? "есть" : "нет")}, а объект {ObjectId.IdOf(obj)} (поворот {ObjectId.RotationOf(obj)}) {(BuildLayers.IsWide(obj) ? "многоклеточный" : "в один тайл")}.");
+                }
+            }
         }
 
         /// <summary>Строка в журнал загрузки (<c>LoadedWorldState.Notes</c>).</summary>

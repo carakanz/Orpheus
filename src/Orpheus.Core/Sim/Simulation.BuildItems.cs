@@ -101,7 +101,7 @@ namespace Orpheus.Core.Sim
 
             if (cell != e.Cell)
             {
-                e = new EditRequest(e.Chunk, e.Arrival, e.Edit, e.Requester, e.Tag, e.CheckCreatures, e.Repair, (byte)cell);
+                e = e.With(e.Edit, (byte)cell); // C-011: перенос якоря мебели сохраняется
             }
 
             _costPaid[i] = (byte)units;

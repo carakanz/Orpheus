@@ -239,8 +239,7 @@ namespace Orpheus.Core.Sim
                     {
                         EditRequest p = _edits[j];
                         BuildRecord merged = p.Edit.Record.WithIntegrity((ushort)healed);
-                        _edits[j] = new EditRequest(p.Chunk, p.Arrival, new TileEdit(p.Edit.Index, p.Edit.Floor, p.Edit.Obj, merged),
-                            p.Requester, p.Tag, p.CheckCreatures, p.Repair, p.Cell);
+                        _edits[j] = p.With(new TileEdit(p.Edit.Index, p.Edit.Floor, p.Edit.Obj, merged), p.Cell);
                     }
                     else if (!Enqueue(t, _world.GetFloor(t), obj, true, rec.WithIntegrity((ushort)healed), 0, 0, false))
                     {
