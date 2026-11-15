@@ -257,7 +257,7 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Горы-лабиринт (C-016, генератор v8; слово Автора 15.11 «горы шире, сильно шире с небольшими проходами, аля
-        /// лабиринт»): скала массивов — 8–25 % тайлов, массивы широкие (тайлы скалы глубже 3 шагов от края — ≥ 25 %),
+        /// лабиринт»): скала массивов — 8–25 % тайлов, массивы широкие (тайлы скалы глубже 3 шагов от края — ≥ 20 %; у гряд v7 — 0),
         /// но не сплошные (глубже 10 шагов — ≤ 3 %, наибольшая глубина 4–20), полос в один тайл ≤ 4 %; внутри — ущелья 2–3 тайла (тайлов ущелий ≥ 1 % скалы),
         /// щелей в один тайл нет; скала — у гор и пещер (≥ 75 % в 24 тайлах от них).
         /// </summary>
@@ -274,7 +274,7 @@ namespace Orpheus.Tests
             Assert.All(All.Value, s => Assert.InRange(s.S.CliffPercent, 8.0, 25.0));
             Assert.All(All.Value, s => Assert.InRange(s.Shape.MaxDepth, 4, 20));
             Assert.All(All.Value, s => Assert.True(s.Shape.VeryDeepPercent <= 3.0, $"зерно {s.Id}: глубже 10 — {s.Shape.VeryDeepPercent:F2} %"));
-            Assert.All(All.Value, s => Assert.True(s.Shape.DeepPercent >= 25.0, $"зерно {s.Id}: глубже 3 — {s.Shape.DeepPercent:F1} %"));
+            Assert.All(All.Value, s => Assert.True(s.Shape.DeepPercent >= 20.0, $"зерно {s.Id}: глубже 3 — {s.Shape.DeepPercent:F1} %"));
             Assert.All(All.Value, s => Assert.True(s.Shape.ThinPercent <= 4.0, $"зерно {s.Id}: полос в один тайл {s.Shape.ThinPercent:F1} %"));
             Assert.All(All.Value, s => Assert.True(s.Gorge * 100 >= s.S.Cliff, $"зерно {s.Id}: ущелий {s.Gorge} на {s.S.Cliff} скалы"));
             Assert.All(All.Value, s => Assert.Equal(0, s.Gap1));

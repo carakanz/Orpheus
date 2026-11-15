@@ -104,7 +104,7 @@ namespace Orpheus.WorldGen
 
         /// <summary>Доля открытых границ между глыбами (ущелье), ‰: пара вдоль хребта района / поперёк; доля глыб-долин, ‰.</summary>
         public const int OpenAlong = 380;
-        public const int OpenAcross = 920;
+        public const int OpenAcross = 970;
         public const int FieldRidgeDir = 10;
         public static readonly int[] CellsRidgeDir = { 256, 128 };
 
@@ -272,7 +272,7 @@ namespace Orpheus.WorldGen
                         }
 
                         int v = (((a * (4 - fx)) + (b * fx)) * (4 - fy) + (((c * (4 - fx)) + (d * fx)) * fy)) >> 4;
-                        v += ((wobble.Sample(x, y) - (LatticeNoise.One >> 1)) * MazeWobbleQ8) >> 16;
+                        v += Math.Min(0, ((wobble.Sample(x, y) - (LatticeNoise.One >> 1)) * MazeWobbleQ8) >> 15); // дрожание только подъедает скалу: ущелье не смыкается
                         if (v >= 0)
                         {
                             long dx = IntMath.Wrap(x - half, w);
@@ -367,12 +367,13 @@ namespace Orpheus.WorldGen
                 dirOf[k] = (int)(((long)Math.Clamp((v - 16384) * 2, 0, LatticeNoise.One - 1) * 16) >> 16);
             }
 
-            // Доля открытых границ пары, ‰: вдоль хребта OpenAlong, поперёк OpenAcross, между — по cos² угла.
+            // Доля открытых границ пары, ‰: вдоль хребта OpenAlong, поперёк OpenAcross, между — по cos⁴ угла.
             int OpenChance(int lo, long lx, long ly, long len)
             {
                 long dot = ((lx * CosQ8[dirOf[lo]]) + (ly * SinQ8[dirOf[lo]])) >> 8;
                 long a2 = (dot * dot * 1000) / (len * len); // cos² × 1000
-                return (int)(OpenAcross + ((OpenAlong - OpenAcross) * a2 / 1000));
+                long a4 = a2 * a2 / 1000;                    // cos⁴: сливаются только пары почти вдоль хребта
+                return (int)(OpenAcross + ((OpenAlong - OpenAcross) * a4 / 1000));
             }
 
             int span = m * 256;
