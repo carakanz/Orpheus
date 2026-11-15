@@ -38,8 +38,27 @@ nav.tabs button{font:600 14px var(--f-body);border:1px solid var(--line);backgro
 nav.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 nav.tabs .n{font:12px var(--f-mono);opacity:.7;margin-left:4px}
 button:focus-visible,textarea:focus-visible,a:focus-visible,input:focus-visible,tr:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.atlas,.split{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:start}
-@media (max-width:900px){.atlas,.split{grid-template-columns:minmax(0,1fr)}}
+.split,.atlas{display:grid;gap:14px;align-items:start}
+.split{grid-template-columns:minmax(150px,210px) minmax(0,1fr)}
+.split.has-side{grid-template-columns:minmax(150px,200px) minmax(0,1fr) minmax(0,1fr)}
+.atlas{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.atlas.has-side{grid-template-columns:minmax(0,.8fr) minmax(0,1fr) minmax(0,1fr)}
+.col{position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto;min-width:0;border-radius:6px;overscroll-behavior:contain}
+#side[hidden]{display:none}
+.sidebar{display:flex;gap:6px;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2;background:var(--bg);padding-bottom:6px}
+.sidebar button{font:600 13px var(--f-body);padding:4px 10px;border-radius:4px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.sidebar .x{font-size:16px;line-height:1;padding:3px 10px}
+.scrim{display:none}
+@media (max-width:1099px){
+  .split.has-side{grid-template-columns:minmax(140px,190px) minmax(0,1fr)}
+  .atlas.has-side{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  #side{position:fixed;top:0;right:0;bottom:0;width:min(560px,94vw);max-height:none;z-index:30;border-radius:0;background:var(--bg);box-shadow:-10px 0 30px rgba(0,0,0,.35);
+    padding:max(10px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 12px 12px}
+  .scrim{display:block;position:fixed;inset:0;z-index:29;background:rgba(0,0,0,.35)}
+  .scrim[hidden]{display:none}
+}
+@media (max-width:860px){ .atlas,.atlas.has-side{grid-template-columns:minmax(0,1fr)} .atlas .col{position:static;max-height:none} }
+@media (max-width:520px){ .split,.split.has-side{grid-template-columns:minmax(0,1fr)} .split .col{position:static;max-height:none} .split .left{max-height:40vh;overflow:auto} }
 .mapbox{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .mapbox canvas{width:100%;height:auto;display:block;border-radius:3px;cursor:pointer}
 .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px}
@@ -87,10 +106,9 @@ td.name{font-weight:700}
 .filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .left{display:flex;flex-direction:column;gap:8px;min-width:0}
 .tablewrap{position:relative}
-@media (min-width:901px){
-  .pane{position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto;border-radius:6px}
-  .tablewrap{max-height:calc(100vh - 120px)}
-}
+.left .tablewrap{max-height:none;overflow:visible;border:0}
+.left{background:var(--panel);border:1px solid var(--line);padding:8px}
+.left table td{padding:6px 6px} .left td.name{font-weight:600}
 .review .nextrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
 .review button.next{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 kbd{font:11px var(--f-mono);border:1px solid var(--line);border-radius:3px;padding:0 4px;background:var(--bg);color:var(--ink)}
@@ -113,6 +131,7 @@ kbd{font:11px var(--f-mono);border:1px solid var(--line);border-radius:3px;paddi
   <div class="banner" id="dbnote" hidden></div>
   <nav class="tabs" id="tabs"></nav>
   <main id="main"></main>
+  <div class="scrim" id="scrim" hidden></div>
 </div>
 
 <script>
@@ -141,7 +160,16 @@ function find(kind,name){ if(name==null) return null; const n=norm(typeof name==
 function findAny(name,order){ for(const k of order){ const o=find(k,name); if(o) return [k,o]; } return null; }
 const nm=x=>typeof x==='object'&&x?(x.name||x.id):x;
 
-function link(kind,o,label){ return $('a',{class:'chip',href:'#'+key(kind,o.id),onclick:ev=>{ev.preventDefault();go(kind,o.id);}},label||o.name); }
+function link(kind,o,label){ return $('a',{class:'chip',href:'#'+key(kind,o.id),onclick:ev=>{ev.preventDefault(); if(ev.currentTarget.closest('#pane,#side')) openSide(kind,o.id); else go(kind,o.id);}},label||o.name); }
+function endDictation(){ if(!dict) return; dict.stopping=true; const d=dict; try{ d.rec.stop(); }catch(e){} d.base=d.base.trimEnd(); finishDictation(); }
+function openSide(kind,id){ endDictation(); S.side={kind,id}; renderSide(); const sd=document.getElementById('side'); if(sd) sd.scrollTop=0; }
+function closeSide(){ endDictation(); S.side=null; renderSide(); }
+function sideEl(){ return $('div',{class:'col',id:'side',hidden:true}); }
+function renderSide(){ const sd=document.getElementById('side'), sc=document.getElementById('scrim'); if(!sd){ if(sc) sc.hidden=true; return; } const box=sd.parentElement;
+  if(!S.side){ sd.hidden=true; sd.replaceChildren(); box.classList.remove('has-side'); if(sc) sc.hidden=true; return; }
+  const {kind,id}=S.side;
+  sd.replaceChildren($('div',{class:'sidebar'},$('button',{type:'button',title:'Открыть эту страницу в середине',onclick:()=>{ S.side=null; go(kind,id); }},'← В середину'),$('button',{type:'button',class:'x',title:'Закрыть (Esc)','aria-label':'Закрыть',onclick:closeSide},'×')),page(kind,id));
+  sd.hidden=false; box.classList.add('has-side'); if(sc) sc.hidden=false; refreshReviews(); }
 function chipsTo(list,order,extra){ list=Array.isArray(list)?list:(list?[list]:[]); if(!list.length) return null;
   return $('div',{class:'chips'},list.map(x=>{ const n=nm(x); const cnt=typeof x==='object'&&x&&x.count!=null?' ×'+x.count:''; const hit=findAny(n,order); return hit?link(hit[0],hit[1],n+cnt):$('span',{class:'chip static'},n+cnt); })); }
 
@@ -288,7 +316,7 @@ function viewMap(){
     (()=>{ const off=L('biome').filter(b=>S.cat.layout&&S.cat.layout.grid&&!S.cat.layout.grid.some(r=>r.includes(b.id))); return off.length?$('div',{class:'sec'},$('h4',{},'Нет на карте (поздние акты, особые места)'),$('div',{class:'chips'},off.map(b=>link('biome',b)))):null; })());
   const sel=S.sel&&S.sel.kind==='biome'?S.sel:{kind:'biome',id:(L('biome')[0]||{}).id};
   S.list={kind:'biome',ids:L('biome').map(b=>b.id)}; S.mapCanvas=canvas;
-  setTimeout(()=>drawMap(canvas)); return $('div',{class:'atlas'},box,$('div',{class:'pane',id:'pane'},page('biome',sel.id)));
+  setTimeout(()=>drawMap(canvas)); box.classList.add('col'); return $('div',{class:'atlas'},box,$('div',{class:'pane col',id:'pane'},page('biome',sel.id)),sideEl());
 }
 
 /* ---------- разделы-списки ---------- */
@@ -309,39 +337,39 @@ function listView(kind){
   const short=v=>{ const s=txt(v); return s.length>110?s.slice(0,107)+'…':s; };
   const filters=vals.length>1?$('div',{class:'filters'},'Показать:',$('button',{type:'button','aria-pressed':String(fv==null),onclick:()=>{S.filter[kind]=null;render();}},'все'),vals.map(v=>$('button',{type:'button','aria-pressed':String(String(fv)===String(v)),onclick:()=>{S.filter[kind]=v;render();}},ff==='act'?'акт '+v:v))):null;
   S.list={kind,ids:items.map(o=>o.id)};
-  const rows=items.map(o=>$('tr',{class:'clickable'+(o.id===sel?' cur':''),'data-id':o.id,tabindex:'0',onclick:()=>go(kind,o.id),onkeydown:e=>{if(e.key==='Enter')go(kind,o.id);}},$('td',{},dot(kind,o.id)),$('td',{class:'name'},o.name,o.proposal?$('span',{class:'tag prop',style:'margin-left:6px'},'пред.'):null),COLS[kind].map(([,f])=>$('td',{},short(f(o))))));
-  const tbl=$('div',{class:'tablewrap'},$('table',{},$('thead',{},$('tr',{},$('th',{},''),$('th',{},'Название'),COLS[kind].map(([h])=>$('th',{},h)))),$('tbody',{},rows)));
-  return $('div',{class:'split'},$('div',{class:'left'},filters,tbl),$('div',{class:'pane',id:'pane'},sel?page(kind,sel):$('p',{class:'note'},'Пусто.')));
+  const rows=items.map(o=>$('tr',{class:'clickable'+(o.id===sel?' cur':''),'data-id':o.id,tabindex:'0',onclick:()=>go(kind,o.id),onkeydown:e=>{if(e.key==='Enter')go(kind,o.id);}},$('td',{},dot(kind,o.id)),$('td',{class:'name'},o.name,o.proposal?$('span',{class:'tag prop',style:'margin-left:6px'},'пред.'):null),null));
+  const tbl=$('div',{class:'tablewrap'},$('table',{},$('tbody',{},rows)));
+  return $('div',{class:'split'},$('div',{class:'left col'},filters,tbl),$('div',{class:'pane col',id:'pane'},sel?page(kind,sel):$('p',{class:'note'},'Пусто.')),sideEl());
 }
 function viewNotes(){ const n=S.cat.notes||{}; return $('div',{class:'card'},$('h2',{},'Расхождения и пробелы'),$('p',{class:'note',style:'margin:0'},'Где docs, генератор и код расходятся или где в docs ничего нет.'),Object.entries(n).map(([k,v])=>sec(k,$('ul',{class:'plain'},(Array.isArray(v)?v:[v]).map(x=>$('li',{},txt(x)))))),reviewBox('notes','all','Расхождения')); }
 
 /* ---------- навигация и поиск ---------- */
 function go(kind,id){ S.sel={kind,id}; const h='#'+key(kind,id); if(location.hash!==h) history.replaceState(null,'',h);
   const view=(kind==='biome'&&S.view==='map')?'map':kind; const pane=document.getElementById('pane');
-  if(view===S.view&&pane){ // тот же раздел: меняем только страницу справа, список и окно не трогаем
-    if(dict) render(); else { pane.replaceChildren(page(kind,id)); pane.scrollTop=0; }
+  if(view===S.view&&pane){ // тот же раздел: меняем только страницу в середине, список и окно не трогаем
+    endDictation(); S.side=null; renderSide(); pane.replaceChildren(page(kind,id)); pane.scrollTop=0;
     document.querySelectorAll('tr[data-id]').forEach(tr=>tr.classList.toggle('cur',tr.dataset.id===id));
     if(view==='map'&&S.mapCanvas) drawMap(S.mapCanvas);
     refreshReviews(); keepRowVisible(id);
-    if(!window.matchMedia('(min-width:901px)').matches){ const r=pane.getBoundingClientRect(); if(r.top<0||r.top>window.innerHeight*0.6) pane.scrollIntoView({block:'start'}); }
+    if(window.matchMedia('(max-width:520px)').matches){ const r=pane.getBoundingClientRect(); if(r.top<0||r.top>window.innerHeight*0.6) pane.scrollIntoView({block:'start'}); }
     return; }
-  S.view=view; render(); document.getElementById('main').scrollIntoView({block:'start'}); }
-function keepRowVisible(id){ const tr=document.querySelector('tr[data-id="'+CSS.escape(id)+'"]'); if(!tr) return; const tw=tr.closest('.tablewrap'); if(!tw) return;
-  const top=tr.offsetTop+(tr.closest('table').offsetTop||0), head=(tw.querySelector('thead')||{offsetHeight:0}).offsetHeight;
+  S.side=null; S.view=view; render(); document.getElementById('main').scrollIntoView({block:'start'}); }
+function keepRowVisible(id){ const tr=document.querySelector('tr[data-id="'+CSS.escape(id)+'"]'); if(!tr) return; const tw=tr.closest('.col'); if(!tw) return;
+  const top=tr.getBoundingClientRect().top-tw.getBoundingClientRect().top+tw.scrollTop, head=0;
   if(top<tw.scrollTop+head) tw.scrollTop=top-head-4; else if(top+tr.offsetHeight>tw.scrollTop+tw.clientHeight) tw.scrollTop=top-tw.clientHeight/3; }
 function nextUnreviewed(dir){ const l=S.list; if(!l||!l.ids.length) return; const n=l.ids.length; let i=Math.max(0,l.ids.indexOf(S.sel&&S.sel.kind===l.kind?S.sel.id:null));
   if(dir<0){ go(l.kind,l.ids[(i-1+n)%n]); return; }
   for(let s=1;s<=n;s++){ const id=l.ids[(i+s)%n]; if(!(S.reviews[key(l.kind,id)]||{}).status){ go(l.kind,id); return; } }
   mark(key(l.kind,l.ids[i]),'в этом списке всё отмечено'); }
 document.addEventListener('keydown',e=>{ if(e.ctrlKey||e.metaKey||e.altKey) return; const t=e.target; if(t&&(t.tagName==='TEXTAREA'||t.tagName==='INPUT'||t.isContentEditable)) return;
-  const k=e.key; if(k==='j'||k==='J'||k==='о'||k==='О'||k==='ArrowDown'){ e.preventDefault(); nextUnreviewed(1); } else if(k==='k'||k==='K'||k==='л'||k==='Л'||k==='ArrowUp'){ e.preventDefault(); nextUnreviewed(-1); } });
+  const k=e.key; if(k==='Escape'&&S.side){ closeSide(); return; } if(k==='j'||k==='J'||k==='о'||k==='О'||k==='ArrowDown'){ e.preventDefault(); nextUnreviewed(1); } else if(k==='k'||k==='K'||k==='л'||k==='Л'||k==='ArrowUp'){ e.preventDefault(); nextUnreviewed(-1); } });
 function fromHash(){ const h=location.hash.slice(1); if(!h||!S.cat) return; if(h==='map'||h==='notes'){ S.view=h; return; } if(KINDS[h]){ S.view=h; return; }
   for(const k of Object.keys(KINDS)){ const o=L(k).find(x=>key(k,x.id)===h); if(o){ S.sel={kind:k,id:o.id}; S.view=k==='biome'?'map':k; return; } } }
 function renderTabs(){ const t=document.getElementById('tabs'); t.replaceChildren(...[
   $('button',{type:'button','aria-pressed':String(S.view==='map'),onclick:()=>{S.view='map';history.replaceState(null,'','#map');render();}},'Карта'),
   Object.entries(KINDS).map(([k,v])=>$('button',{type:'button','aria-pressed':String(S.view===k),onclick:()=>{S.view=k;history.replaceState(null,'','#'+k);render();}},v.tab,$('span',{class:'n'},L(k).length))),
   $('button',{type:'button','aria-pressed':String(S.view==='notes'),onclick:()=>{S.view='notes';history.replaceState(null,'','#notes');render();}},'Расхождения')].flat()); }
-function render(){ if(!S.cat) return; if(dict){ dict.stopping=true; const d=dict; try{ d.rec.stop(); }catch(e){} d.base=d.base.trimEnd(); finishDictation(); } renderTabs(); const m=document.getElementById('main'); const y=window.scrollY, tw=m.querySelector('.tablewrap'), ty=tw?tw.scrollTop:0, same=m.dataset.view===S.view; m.dataset.view=S.view; m.replaceChildren(S.view==='map'?viewMap():S.view==='notes'?viewNotes():listView(S.view)); if(same){ const t2=m.querySelector('.tablewrap'); if(t2) t2.scrollTop=ty; window.scrollTo(0,y); } refreshReviews(); renderProgress(); }
+function render(){ if(!S.cat) return; endDictation(); renderTabs(); const m=document.getElementById('main'); const y=window.scrollY, tw=m.querySelector('.left.col'), ty=tw?tw.scrollTop:0, same=m.dataset.view===S.view; m.dataset.view=S.view; m.replaceChildren(S.view==='map'?viewMap():S.view==='notes'?viewNotes():listView(S.view)); if(same){ const t2=m.querySelector('.left.col'); if(t2) t2.scrollTop=ty; window.scrollTo(0,y); } else S.side=null; renderSide(); refreshReviews(); renderProgress(); }
 const q=document.getElementById('q'), res=document.getElementById('results');
 q.addEventListener('input',()=>{ const n=norm(q.value); if(n.length<2){ res.hidden=true; return; } const out=[];
   for(const[k,v]of Object.entries(KINDS)) for(const o of L(k)){ const hay=norm(o.name+' '+(o.aliases||[]).join(' ')); const deep=norm(txt(o.description)+' '+txt(o.use)); const sc=hay.startsWith(n)?0:hay.includes(n)?1:deep.includes(n)?2:-1; if(sc>=0) out.push([sc,k,o]); }
@@ -349,6 +377,7 @@ q.addEventListener('input',()=>{ const n=norm(q.value); if(n.length<2){ res.hidd
   if(!out.length) res.replaceChildren($('a',{href:'#',onclick:e=>e.preventDefault()},$('span',{},'Ничего не найдено'))); res.hidden=false; });
 q.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=res.querySelector('a'); if(a) a.click(); } if(e.key==='Escape'){ res.hidden=true; } });
 document.addEventListener('click',e=>{ if(!e.target.closest('.searchrow')) res.hidden=true; });
+document.getElementById('scrim').addEventListener('click',closeSide);
 window.addEventListener('hashchange',()=>{ fromHash(); render(); });
 fetch('catalog.json').then(r=>r.json()).then(c=>{ S.cat=c; buildIndex(); fromHash(); render(); initDb(); }).catch(e=>{ document.getElementById('main').textContent='Не загрузился catalog.json: '+e.message; });
 </script>
