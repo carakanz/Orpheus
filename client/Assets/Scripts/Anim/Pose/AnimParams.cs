@@ -170,7 +170,7 @@ namespace Orpheus.Client.Anim
         /// кончик в миг удара на ≈ 1,4 т от точки ядра, как досягаемость удара ядра (<c>Reach.SwordStrikeUnits</c> = 358 unit).
         /// Считается по тому, что рисует <c>ActorRig</c> (<c>ActionAnim.HeldPoint</c>), тест — <c>AimMathTests.C012_SwordTip_*</c>.
         /// </summary>
-        public const float SwordScale = 1.65f;
+        public const float SwordScale = 2.1f;
         public const float ItemScale = 0.8f;
 
         /// <summary>Центр значка инструмента от хвата (рукоять внизу слева значка), долей… тайла при масштабе 1.</summary>

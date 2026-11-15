@@ -350,7 +350,7 @@ namespace Orpheus.Client.Anim
         {
             Pose p = pose;
             bool right = p.FlipX != AnimParams.SpriteFacesRight;
-            float hand = tipDeg - 64f; // остриё от кисти — ≈ 64° к оси руки
+            float hand = tipDeg - 47f; // остриё от рукояти — ≈ 47° к оси руки
             for (int i = 0; i < 4; i++)
             {
                 p.HandDeg = hand;
@@ -371,6 +371,10 @@ namespace Orpheus.Client.Anim
         public const float SwordTipX = (53.5f - 32f) / 128f;
         public const float SwordTipY = 56.5f / 128f;
 
+        /// <summary>Середина рукояти меча на значке (пиксель 13, 13), тайлов от опоры значка при масштабе 1.</summary>
+        public const float SwordGripX = (13.5f - 32f) / 128f;
+        public const float SwordGripY = 13.5f / 128f;
+
         /// <summary>Масштаб значка в руке (C-012: меч — свой, под досягаемость удара ядра). Тот же, что рисует <c>ActorRig</c>.</summary>
         public static float HeldScale(HeldLook look) =>
             look == HeldLook.Sword ? AnimParams.SwordScale : IsGripped(look) ? AnimParams.ToolScale : AnimParams.ItemScale;
@@ -378,6 +382,15 @@ namespace Orpheus.Client.Anim
         /// <summary>Сдвиг значка от кисти (в осях кисти, до масштаба): инструмент — за рукоять, прочее — в ладони.</summary>
         public static void IconLocal(HeldLook look, out float x, out float y)
         {
+            if (look == HeldLook.Sword)
+            {
+                // C-012: кисть — на рукояти меча (пиксель 13, 13 значка), а не в стороне от неё: при крупном мече и руке, опущенной
+                // в конце удара, общий сдвиг GripX/GripY (под опору в центре значка) отрывал меч от кисти на 0,4 т.
+                x = -SwordGripX;
+                y = -SwordGripY;
+                return;
+            }
+
             bool grip = IsGripped(look);
             x = grip ? AnimParams.GripX : 0f;
             y = grip ? AnimParams.GripY : AnimParams.PalmY;

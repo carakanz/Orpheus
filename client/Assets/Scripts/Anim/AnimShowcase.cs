@@ -404,7 +404,9 @@ namespace Orpheus.Client.Anim
                 {
                     Held = _aimFencers[i].Held, Swing = fp, SwingProgress = fq, SwingDirX = d.x, SwingDirY = d.y,
                 }));
-                _aimSectors[i].Show(AimFencerPos(i), d, reach, halfArc, 0f, 0f, 1f);
+                // Вершина — точка ядра (корень), а не ступни: SectorView сам опускает сектор на SectorGroundY — здесь это снято,
+                // чтобы контур был ровно зоной ядра, с которой сверяется кончик меча.
+                _aimSectors[i].Show(AimFencerPos(i) - new Vector3(0f, AnimParams.SectorGroundY, 0f), d, reach, halfArc, 0f, 0f, 1f);
             }
         }
 
@@ -526,7 +528,7 @@ namespace Orpheus.Client.Anim
 
                     // C-012: взмах к прицелу в 4 стороны с контуром зоны удара ядра (замах, середина удара, конец удара, отход).
                     new Shot { Name = "C-012_sword_aim", Focus = () => AimHub + new Vector3(1.8f, -1.8f, 0f), Ortho = 4.6f,
-                        Times = new[] { 15.20f, 15.42f, 15.47f, 15.70f }, CropW = 900, CropH = 900 },
+                        Times = new[] { 16.70f, 16.92f, 16.97f, 17.20f }, CropW = 900, CropH = 900 }, // после E2-7_sword (15,70), цикл 1,5 с
                 };
 
                 foreach (Shot s in shots)
@@ -581,6 +583,7 @@ namespace Orpheus.Client.Anim
             }
 
             strip.SetPixels(fill);
+            _focus = s.Focus(); // C-012: камера — на своё действие, даже если время кадра уже прошло (иначе снимался прошлый кадр)
             for (int i = 0; i < s.Times.Length; i++)
             {
                 // Камера — на действие уже в кадре до снимка.
