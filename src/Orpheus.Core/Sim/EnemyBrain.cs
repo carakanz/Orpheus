@@ -253,7 +253,10 @@ namespace Orpheus.Core.Sim
         public const int StuckTicks = 60;
 
         /// <summary>Продвижение, обнуляющее таймер «упёрся»: смещение ≥ 48 единиц (~0,2 тайла) от контрольной точки.</summary>
-        public const long ProgressMove2 = 48L * 48L;
+        public const long ProgressMove2 = (long)ProgressStep * ProgressStep;
+
+        /// <summary>Шаг продвижения, 48 единиц (~0,2 тайла); в эпизоде «упёрся» — на столько ближе к цели (C-009).</summary>
+        public const int ProgressStep = 48;
     }
 
     /// <summary>

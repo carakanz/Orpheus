@@ -26,25 +26,26 @@ namespace Orpheus.Core.Sim
             ref EnemyBrain b = ref e.Brain;
             e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
 
+            // Сдача (1-013, 9.3): 20 с эпизода «упёрся» без приближения к цели — цель в игнор на 30 с, враг в Ожидание. C-009: и из
+            // погони — враг, которого толкотня раскачивает у косяка, двигается (таймер «застрял» не доходит до Blocked), но не ближе.
+            if (b.BlockedSince != 0 && tick - b.BlockedSince >= MeleeRogue.BlockedGiveUpTicks)
+            {
+                e.Input = InputFrame.None;
+                b.IgnoreTargetId = b.TargetId;
+                b.IgnoreUntil = tick + MeleeRogue.IgnoreTargetTicks;
+                b.TargetId = EnemyBrain.NoTarget;
+                b.State = EnemyState.Idle;
+                b.StateTicks = 0;
+                b.PathStamp = 0;
+                b.BlockedSince = 0;
+                b.EnclosedRev = 0;
+                return;
+            }
+
             if (b.State == EnemyState.Blocked)
             {
-                // «Упёрся» (1-013, 9.3): стоит у преграды; пересчёт — сразу при правке мира (ревизия сдвинулась);
-                // через 20 с цель уходит в игнор на 30 с, враг — в Ожидание (не застревает).
+                // «Упёрся» (1-013, 9.3): стоит у преграды; пересчёт — сразу при правке мира (ревизия сдвинулась).
                 e.Input = InputFrame.None;
-                long blockedFor = tick - b.BlockedSince;
-                if (b.BlockedSince != 0 && blockedFor >= MeleeRogue.BlockedGiveUpTicks)
-                {
-                    b.IgnoreTargetId = b.TargetId;
-                    b.IgnoreUntil = tick + MeleeRogue.IgnoreTargetTicks;
-                    b.TargetId = EnemyBrain.NoTarget;
-                    b.State = EnemyState.Idle;
-                    b.StateTicks = 0;
-                    b.PathStamp = 0;
-                    b.BlockedSince = 0;
-                    b.EnclosedRev = 0;
-                    return;
-                }
-
                 bool decide = (tick + e.Id) % AiDecisionTicks == 0;
                 if ((b.EnclosedRev != 0 && _editRev + 1 != b.EnclosedRev) || (decide && BlockedGoalMoved(ref b, target.Mover.Position)))
                 {
@@ -86,16 +87,21 @@ namespace Orpheus.Core.Sim
             }
             else if (Torus.Dist2(_shape, e.Mover.Position, new WorldPos(b.ProgressX, b.ProgressY)) >= MeleeRogue.ProgressMove2)
             {
-                // Продвинулись — контрольная точка за текущей позицией, таймер «упёрся» сброшен. E2-12b: и эпизод «упёрся»
-                // (BlockedSince) закрыт — если последний поиск не «замкнута» (тогда идёт к краю у стены, а не к цели).
-                if (_pathBuf[slot].Status != PathStatus.Enclosed)
-                {
-                    b.BlockedSince = 0;
-                }
-
+                // Сдвинулись от контрольной точки — таймер «застрял» сброшен. Вне эпизода «упёрся» точка переезжает за врагом.
+                // В эпизоде (C-009) точка — ближайшее к цели место эпизода: переезжает и закрывает эпизод (BlockedSince) только
+                // приближение к цели; смещение вбок/назад (толкотня, раскачка у косяка, обход) — нет, иначе раскачиваемый враг
+                // не сдавался никогда. Последний поиск «замкнута» — эпизод не закрывается (идёт к краю у стены, не к цели).
                 b.ProgressTick = (int)tick;
-                b.ProgressX = e.Mover.Position.X;
-                b.ProgressY = e.Mover.Position.Y;
+                if (b.BlockedSince == 0 || CloserToTarget(e.Mover.Position, new WorldPos(b.ProgressX, b.ProgressY), target.Mover.Position))
+                {
+                    if (_pathBuf[slot].Status != PathStatus.Enclosed)
+                    {
+                        b.BlockedSince = 0;
+                    }
+
+                    b.ProgressX = e.Mover.Position.X;
+                    b.ProgressY = e.Mover.Position.Y;
+                }
             }
             else if (b.ProgressTick != 0 && tick - b.ProgressTick >= MeleeRogue.StuckTicks)
             {

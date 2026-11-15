@@ -385,38 +385,7 @@ namespace Orpheus.Tests
         [InlineData(true, 3)]
         public void E212b_DiagonalApproach_ToDoor_NoJambStuck(bool thin, int dy)
         {
-            var sim = new Simulation(Flat(1226));
-            int ch = sim.AddEntity(At(30.5, 30.5));
-            var plan = new Plan();
-            for (int ty = 20; ty <= 40; ty++)
-            {
-                for (int tx = 20; tx <= 40; tx++)
-                {
-                    bool edge = tx == 20 || tx == 40 || ty == 20 || ty == 40;
-                    if (!edge || (tx == 20 && ty == 30))
-                    {
-                        continue;
-                    }
-
-                    if (thin)
-                    {
-                        // Внешние половины: кольцо ячеек [40, 81].
-                        if (ty == 20) { plan.Cell(2 * tx, 40); plan.Cell(2 * tx + 1, 40); }
-                        if (ty == 40) { plan.Cell(2 * tx, 81); plan.Cell(2 * tx + 1, 81); }
-                        if (tx == 20) { plan.Cell(40, 2 * ty); plan.Cell(40, 2 * ty + 1); }
-                        if (tx == 40) { plan.Cell(81, 2 * ty); plan.Cell(81, 2 * ty + 1); }
-                    }
-                    else
-                    {
-                        for (int k = 0; k < 4; k++)
-                        {
-                            plan.Cell(2 * tx + (k & 1), 2 * ty + (k >> 1));
-                        }
-                    }
-                }
-            }
-
-            plan.Apply(sim);
+            var sim = DoorRoom(thin, 1226, out _);
             int rogue = sim.AddMeleeRogue(At(16.5, 30.5 + dy));
             int entered = -1;
             for (int i = 0; i < 600 && entered < 0; i++)
@@ -482,6 +451,289 @@ namespace Orpheus.Tests
                 sim.AddMeleeRogue(At(21.2, 17.4)),
             };
             AssertAllReach(sim, ch, rogues, 450);
+        }
+
+        // ------------------------------------------------ C-009: вторая линия погони (переспрос, сдача, подруливание)
+
+        /// <summary>Комната 21 × 21 (тайлы 20…40, целые тайлы или тонкие стены на внешних половинах), открытый проём на западе
+        /// (тайл 20, 30); игрок в центре.</summary>
+        private static Simulation DoorRoom(bool thin, ulong seed, out int ch)
+        {
+            var sim = new Simulation(Flat(seed));
+            ch = sim.AddEntity(At(30.5, 30.5));
+            var plan = new Plan();
+            for (int ty = 20; ty <= 40; ty++)
+            {
+                for (int tx = 20; tx <= 40; tx++)
+                {
+                    bool edge = tx == 20 || tx == 40 || ty == 20 || ty == 40;
+                    if (!edge || (tx == 20 && ty == 30))
+                    {
+                        continue;
+                    }
+
+                    if (thin)
+                    {
+                        // Внешние половины: кольцо ячеек [40, 81].
+                        if (ty == 20) { plan.Cell(2 * tx, 40); plan.Cell(2 * tx + 1, 40); }
+                        if (ty == 40) { plan.Cell(2 * tx, 81); plan.Cell(2 * tx + 1, 81); }
+                        if (tx == 20) { plan.Cell(40, 2 * ty); plan.Cell(40, 2 * ty + 1); }
+                        if (tx == 40) { plan.Cell(81, 2 * ty); plan.Cell(81, 2 * ty + 1); }
+                    }
+                    else
+                    {
+                        for (int k = 0; k < 4; k++)
+                        {
+                            plan.Cell(2 * tx + (k & 1), 2 * ty + (k >> 1));
+                        }
+                    }
+                }
+            }
+
+            plan.Apply(sim);
+            return sim;
+        }
+
+        /// <summary>
+        /// C-009 (замечание 1 проверки E2-12b): «застрял» — переспрос на ближайшем решении, а не кэш до правки мира. Подруливание
+        /// выключено (флаг только для тестов) — упор в стену ничем, кроме переспроса, не снимается. Враг идёт по пути в проём
+        /// комнаты; толкотня (в тесте — перенос) сбивает его за косяк внутрь: следующая точка старого пути — снаружи прямо на
+        /// запад, ход упирается в стену. За ≤ 180 тактов — новый поиск, враг продвинулся к игроку; затем бьёт его.
+        /// Мутация «застрял — кэш до правки мира» — стоит до сдачи (600 тактов).
+        /// </summary>
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void C009_StuckWithoutSteer_Repaths_ReachesTarget(bool thin)
+        {
+            var sim = DoorRoom(thin, 1231, out int ch);
+            sim.SteerOffForTests = true;
+            int rogue = sim.AddMeleeRogue(At(17.5, 30.5));
+            // Погоня по пути: враг на линии проёма, фаза переспроса «путь старый» (150 тактов) — далеко (не спасает сама).
+            int guard = 0;
+            while (!(sim.GetEntity(rogue).Brain.State == EnemyState.Chase && sim.GetEntity(rogue).Brain.PathStamp != 0 &&
+                     sim.GetEntity(rogue).Brain.StateTicks % MeleeRogue.RepathTicks == 12))
+            {
+                sim.Step();
+                Assert.True(++guard < 400, "враг не начал погоню");
+            }
+
+            Assert.True(sim.GetEntity(rogue).Mover.Position.X < 20 * U, "враг уже в проёме");
+            // Внутрь, к западной стене южнее проёма (y 30,9: круг задевает ряд 31 — стена): точка пути — снаружи на западе.
+            sim.PlaceForTests(rogue, At(21.42, 30.9));
+            long searches0 = sim.PathSearches;
+            int repath = -1, blocked = -1, attack = -1;
+            for (int i = 1; i <= 600 && attack < 0; i++)
+            {
+                sim.Step();
+                EnemyBrain b = sim.GetEntity(rogue).Brain;
+                if (blocked < 0 && b.State == EnemyState.Blocked)
+                {
+                    blocked = i;
+                }
+
+                if (repath < 0 && blocked >= 0 && sim.PathSearches > searches0 && b.State == EnemyState.Chase)
+                {
+                    repath = i;
+                }
+
+                if (b.State == EnemyState.Attack)
+                {
+                    attack = i;
+                }
+
+                if (i == 180)
+                {
+                    _out.WriteLine($"такт 180: {sim.GetEntity(rogue).Mover.Position}, {b.State}, поисков {sim.PathSearches - searches0}");
+                    Assert.True(sim.GetEntity(rogue).Mover.Position.X >= 23 * U || attack >= 0,
+                        $"за 180 тактов не продвинулся: {sim.GetEntity(rogue).Mover.Position}, {b.State}");
+                }
+            }
+
+            _out.WriteLine($"тонкая {thin}: упёрся на {blocked}, переспросил на {repath}, бьёт на {attack}");
+            Assert.True(blocked > 0, "враг не упёрся — сценарий не проверяет переспрос");
+            Assert.True(repath > 0 && repath <= 180, $"переспрос на такте {repath}");
+            Assert.True(attack > 0 && attack <= 300, $"не дошёл до игрока: {attack}");
+        }
+
+        /// <summary>
+        /// C-009 (замечание 2): «замкнута» + цель ушла (<c>BlockedGoalMoved</c>). Игрок в доме без входа — враг «упёрся» с кэшем.
+        /// Игрок ходит по дому 3 тайла — поисков не больше одного на тайл смещения (+1). Затем без правки мира оказывается снаружи
+        /// за домом (перенос) — враг переспрашивает, обходит дом и бьёт до сдачи. Мутация «BlockedGoalMoved = false» — стоит.
+        /// </summary>
+        [Fact]
+        public void C009_GoalLeavesEnclosure_EnemyRepathsAndFollows()
+        {
+            var sim = new Simulation(Flat(1232));
+            Ring(41, 41, 58, 58).Apply(sim); // стена на внутренних половинах, внутри x, y 21…29
+            int ch = sim.AddEntity(At(23.0, 25.0));
+            int rogue = sim.AddMeleeRogue(At(15.5, 25.5));
+            int chSlot = sim.SlotOf(ch);
+            int guard = 0;
+            while (!(sim.GetEntity(rogue).Brain.State == EnemyState.Blocked && sim.GetEntity(rogue).Brain.EnclosedRev != 0))
+            {
+                sim.Step();
+                Assert.True(++guard < 300, $"враг не «упёрся» у замкнутого дома: {sim.GetEntity(rogue).Brain.State}");
+            }
+
+            // По дому на восток 3 тайла.
+            long s0 = sim.PathSearches;
+            WorldPos p0 = sim.GetEntity(ch).Mover.Position;
+            sim.SetInputAt(chSlot, new InputFrame(new Input8(1, 0)));
+            while (sim.GetEntity(ch).Mover.Position.X < p0.X + 3 * U)
+            {
+                sim.Step();
+                Assert.True(++guard < 600, "игрок не дошёл");
+            }
+
+            sim.SetInputAt(chSlot, InputFrame.None);
+            for (int i = 0; i < 6; i++)
+            {
+                sim.Step();
+            }
+
+            long inside = sim.PathSearches - s0;
+            _out.WriteLine($"по дому 3 тайла: поисков {inside}, враг {sim.GetEntity(rogue).Brain.State}");
+            Assert.True(inside >= 1 && inside <= 4, $"поисков при ходьбе по дому {inside}");
+            Assert.Equal(EnemyState.Blocked, sim.GetEntity(rogue).Brain.State);
+
+            // Снаружи за домом (восток), без правки мира.
+            sim.PlaceForTests(ch, At(33.5, 25.5));
+            int attack = -1;
+            for (int i = 1; i <= 450 && attack < 0; i++)
+            {
+                sim.Step();
+                if (sim.GetEntity(rogue).Brain.State == EnemyState.Attack)
+                {
+                    attack = i;
+                }
+            }
+
+            EnemyBrain b = sim.GetEntity(rogue).Brain;
+            _out.WriteLine($"игрок снаружи: враг бьёт на такте {attack}, {sim.GetEntity(rogue).Mover.Position}, {b.State}, игнор {b.IgnoreTargetId}");
+            Assert.True(attack > 0, $"враг не пошёл за вышедшим игроком: {b.State}, игнор {b.IgnoreTargetId}");
+        }
+
+        /// <summary>
+        /// C-009 (замечание 5): раскачка у косяка. Подруливание выключено — враг, подходящий к проёму наискосок, упирается в косяк
+        /// (целые стены); переспрос пути не помогает. Толкотня раскачивает его: каждые 40 тактов отбрасывает на 0,4 тайла назад,
+        /// враг возвращается к косяку — смещение ≥ 0,19 тайла, но не ближе к цели. Должен сдаться через 20 с эпизода (+ запас),
+        /// а не крутиться вечно (до C-009 любое смещение закрывало эпизод «упёрся»).
+        /// </summary>
+        [Fact]
+        public void C009_RockedAtJamb_GivesUpIn20s()
+        {
+            var sim = DoorRoom(false, 1226, out int ch);
+            sim.SteerOffForTests = true;
+            int rogue = sim.AddMeleeRogue(At(16.5, 27.5));
+            int guard = 0;
+            while (sim.GetEntity(rogue).Brain.BlockedSince == 0)
+            {
+                sim.Step();
+                Assert.True(++guard < 900, $"враг не упёрся: {sim.GetEntity(rogue).Mover.Position}, {sim.GetEntity(rogue).Brain.State}");
+            }
+
+            long since = sim.GetEntity(rogue).Brain.BlockedSince;
+            long gaveUp = -1;
+            for (int i = 1; i <= 1500 && gaveUp < 0; i++)
+            {
+                if (i % 40 == 0)
+                {
+                    WorldPos p = sim.GetEntity(rogue).Mover.Position;
+                    sim.PlaceForTests(rogue, new WorldPos(p.X - 2 * U / 5, p.Y));
+                }
+
+                sim.Step();
+                if (sim.GetEntity(rogue).Brain.IgnoreTargetId == ch)
+                {
+                    gaveUp = sim.Tick;
+                }
+            }
+
+            _out.WriteLine($"эпизод с {since}, сдался на {gaveUp}, {sim.GetEntity(rogue).Mover.Position}");
+            Assert.True(gaveUp > 0, $"раскачиваемый враг не сдался за 50 с: {sim.GetEntity(rogue).Brain.State}");
+            Assert.True(gaveUp - since <= MeleeRogue.BlockedGiveUpTicks + 60, $"сдался через {gaveUp - since} тактов");
+            Assert.Equal(100, sim.GetEntity(ch).Health);
+        }
+
+        /// <summary>
+        /// C-009 (замечание 4): подруливание у диагонали. Мутация «у диагонали не подруливать» выжила у проверяющего — она
+        /// эквивалентна: столкновения раздельные по осям (сначала X, потом Y) и не откатывают за старт, так что диагональный
+        /// шаг не приближает, только если оба его осевых сдвига нулевые, — тогда и чисто осевые шаги стоят. Ветка удалена;
+        /// тест держит это свойство (случайные постройки ячейками и целыми тайлами, точки дальше прохода 1/4 тайла): если
+        /// столкновения изменятся и ось начнёт помогать — красный, ветку надо вернуть. И прямой ход подруливание спасает.
+        /// </summary>
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void C009_Steer_DiagonalBlocked_AxesBlockedToo(bool fullTiles)
+        {
+            var rnd = new Random(fullTiles ? 92 : 91);
+            long samples = 0, diagFail = 0, axisHelps = 0, straightFail = 0, straightHelped = 0;
+            for (int w = 0; w < (fullTiles ? 60 : 24); w++)
+            {
+                var sim = new Simulation(Flat((ulong)(2100 + w)));
+                var plan = new Plan();
+                for (int cy = 80; cy < 100; cy += fullTiles ? 2 : 1)
+                {
+                    for (int cx = 80; cx < 100; cx += fullTiles ? 2 : 1)
+                    {
+                        if (rnd.Next(100) < (fullTiles ? 30 : 22))
+                        {
+                            plan.Cell(cx, cy);
+                            if (fullTiles)
+                            {
+                                plan.Cell(cx + 1, cy);
+                                plan.Cell(cx, cy + 1);
+                                plan.Cell(cx + 1, cy + 1);
+                            }
+                        }
+                    }
+                }
+
+                plan.Apply(sim);
+                for (int k = 0; k < 25000; k++)
+                {
+                    var at = new WorldPos(41 * U + rnd.Next(8 * U), 41 * U + rnd.Next(8 * U));
+                    if (sim.TouchesSolidForTests(at))
+                    {
+                        continue;
+                    }
+
+                    var node = new WorldPos(at.X + rnd.Next(-U, U + 1), at.Y + rnd.Next(-U, U + 1));
+                    Int2 d = Torus.Delta(sim.Shape, at, node);
+                    Input8 q = Input8.FromStick(d.X, d.Y);
+                    if (!q.IsMoving || d.LengthSquared <= MeleeRogue.PathPointPass2)
+                    {
+                        continue; // ближе прохода точки FollowPath к ней не ведёт
+                    }
+
+                    samples++;
+                    bool C(Input8 dir) => sim.Closer(at, MeleeRogue.ChaseSpeedX10, dir, node, d.LengthSquared);
+                    if (C(q))
+                    {
+                        continue;
+                    }
+
+                    if (q.IsDiagonal)
+                    {
+                        diagFail++;
+                        axisHelps += C(new Input8(q.DX, 0)) || C(new Input8(0, q.DY)) ? 1 : 0;
+                    }
+                    else
+                    {
+                        straightFail++;
+                        Input8 s = sim.SteerTo(at, MeleeRogue.ChaseSpeedX10, node);
+                        straightHelped += s != q && C(s) ? 1 : 0;
+                    }
+                }
+            }
+
+            _out.WriteLine($"целые тайлы {fullTiles}: выборка {samples}; диагональ упёрлась {diagFail}, ось помогла бы {axisHelps}; " +
+                $"прямой упёрся {straightFail}, подруливание спасло {straightHelped}");
+            Assert.True(diagFail >= 50, $"мало упоров диагонали ({diagFail}) — выборка не проверяет свойство");
+            Assert.Equal(0, axisHelps);
+            Assert.True(straightHelped * 2 >= straightFail, $"подруливание прямого спасло {straightHelped} из {straightFail}");
         }
 
         private void AssertAllReach(Simulation sim, int ch, int[] rogues, int ticks)
