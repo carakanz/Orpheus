@@ -353,5 +353,109 @@ namespace Orpheus.Tests
             Assert.Equal(Items.Fiber, c.Inv.ItemAt(26));
             Assert.Equal(2, desk.MakeIntoRequests);
         }
+        // ------------------------------------------------ п. 8: постановка с курсора из сумки
+
+        /// <summary>
+        /// П. 8 (приёмка Автора 15.11: «установка с инвентаря не работает. Только с панели внизу»): постройка, взятая из окна
+        /// сумки (ячейка 20, вне панели 0…7) на курсор, — щелчок в мир идёт в мир (<see cref="PointerRoute.World"/>), а не
+        /// выбрасывает; не-постройка на курсоре и постройка из сундука — по-прежнему «выбросить».
+        /// </summary>
+        [Fact]
+        public void C013_Cursor_Building_Routes_To_World_Not_Drop()
+        {
+            Assert.Equal(PointerRoute.World, UiPointer.Route(overUi: false, holding: true, captured: false, placeable: true));
+            Assert.Equal(PointerRoute.Drop, UiPointer.Route(false, true, false, placeable: false));
+            Assert.Equal(PointerRoute.Ui, UiPointer.Route(true, true, false, placeable: true));
+            Assert.Equal(PointerRoute.Ui, UiPointer.Route(false, true, true, placeable: true));
+            Assert.Equal(PointerRoute.Idle, UiPointer.Route(false, false, false, false, armed: true, armedBuilds: false));
+            Assert.Equal(PointerRoute.World, UiPointer.Route(false, false, false, false, armed: true, armedBuilds: true));
+            Assert.True(UiPointer.Blocks(PointerRoute.Idle));
+            Assert.False(UiPointer.Blocks(UiPointer.Route(false, true, false, placeable: true)));
+
+            var hand = new BagHand(new NoBag());
+            var bag = new Inventory();
+            bag.SetCell(20, Items.StoneWall, 10);
+            bag.SetCell(21, Items.Stone, 10);
+            hand.Sync(bag, false);
+            Assert.Equal(BagClick.Taken, hand.Left(20));
+            Assert.True(hand.HoldsPlaceable);
+            hand.Cancel();
+            Assert.Equal(BagClick.Taken, hand.Left(21));
+            Assert.False(hand.HoldsPlaceable); // камень — не постройка
+        }
+
+        /// <summary>
+        /// На курсоре часть стопки (ПКМ — 2 из 10): сервер снял предмет из её ячейки — в руке остаётся остаток (1), а не
+        /// прежнее число; снял последний из руки — рука пуста (дальше ставить с курсора нечем).
+        /// </summary>
+        [Fact]
+        public void C013_Cursor_Hand_Count_Follows_Spent_Items()
+        {
+            var hand = new BagHand(new NoBag());
+            var bag = new Inventory();
+            bag.SetCell(20, Items.WoodWall, 10);
+            hand.Sync(bag, false);
+            Assert.Equal(BagClick.Taken, hand.Right(20));
+            Assert.Equal(BagClick.Taken, hand.Right(20));
+            Assert.Equal(2, hand.Count);
+            bag.SetCell(20, Items.WoodWall, 9);
+            hand.Sync(bag, false);
+            Assert.Equal(1, hand.Count);
+            Assert.Equal(8, hand.ShownCount(20));
+            bag.SetCell(20, Items.WoodWall, 8);
+            hand.Sync(bag, false);
+            Assert.False(hand.Holding);
+        }
+
+        /// <summary>
+        /// По сети: постройка из ячейки сумки 20 (не панели) — заявка постановки с ячейкой 20 проходит протокол (29: 0…39) и
+        /// сервер, кровать стоит, из ячейки 20 снят один предмет; линия стен из ячейки 25 — тоже. Ячейка 40 — ошибка протокола.
+        /// </summary>
+        [Fact]
+        public void C013_Net_Place_From_Bag_Cell_Not_Hotbar()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            WorldPos spot = At(300, 200);
+            using var rig = new EditTests.EditRig(world, _ => spot);
+            NetClient c = rig.Join();
+            rig.Run(10);
+            Inventory bag = Inventory.StartingKit();
+            bag.SetCell(20, Items.Bed, 3);
+            bag.SetCell(25, Items.StoneWall, 10);
+            Assert.True(rig.Sim.SetInventory(c.EntityId, bag));
+            rig.Run(4);
+            Assert.NotEqual(Items.Bed, c.Inv.SlotAt(c.Inv.Selected)); // в руке (панель) — не кровать
+
+            var build = new BuildHand(c);
+            var t = new TileCoord(302, 200);
+            BuildCheck chk = build.Click(c.World!.World, spot, c.Inv, 20, true, t, 0, 0);
+            Assert.True(chk.Ok, chk.Reason);
+            rig.Run(6);
+            Assert.Equal(ObjectId.Bed, ObjectId.IdOf(rig.Sim.World.GetObject(t)));
+            Assert.Equal(2, rig.Sim.GetEntity(c.EntityId).Inv.CountIn(20));
+            Assert.Equal(2, c.Inv.CountIn(20));
+
+            Assert.True(build.PlaceLine(new TileCoord(298, 197), new TileCoord(298, 197), spot, c.Inv, 25, 0, 1) != 0);
+            rig.Run(6);
+            Assert.Equal(ObjectId.StoneWall, ObjectId.IdOf(rig.Sim.World.GetObject(new TileCoord(298, 197))));
+            Assert.True(rig.Sim.GetEntity(c.EntityId).Inv.CountIn(25) < 10);
+
+            var buf = new byte[32];
+            var map = MapShape.World(1024);
+            int n = new TileRequestMessage { RequestId = 1, Op = TileOp.Place, From = t, To = t, Obj = ObjectId.Bed, Cell = 39 }.Write(buf);
+            Assert.Equal(39, TileRequestMessage.Read(buf.AsSpan(0, n), map).Cell);
+            buf[18] = 40;
+            byte[] bad = (byte[])buf.Clone();
+            Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(bad.AsSpan(0, n), map));
+        }
+
+        private sealed class NoBag : IBagRequests
+        {
+            public bool RequestBagMove(int from, int to) => true;
+
+            public bool RequestBagSplit(int from, int to, int count) => true;
+
+            public bool RequestBagDrop(int cell, int count = 0) => true;
+        }
     }
 }

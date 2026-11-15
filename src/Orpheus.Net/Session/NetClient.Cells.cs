@@ -23,7 +23,7 @@ namespace Orpheus.Net.Session
                 cell = 0;
             }
 
-            if (State != NetClientState.InGame || World == null || cell >= Inventory.Slots)
+            if (State != NetClientState.InGame || World == null || cell >= Inventory.Cells) // C-013: любая ячейка сумки (постройка на курсоре)
             {
                 return 0;
             }

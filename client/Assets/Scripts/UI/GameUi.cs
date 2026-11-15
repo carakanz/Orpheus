@@ -332,6 +332,11 @@ namespace Orpheus.Client.UI
                 SetOpen(open);
                 SetCraftOpen(open, craft);
             }
+            else if (input.Escape && _armed != 0)
+            {
+                Disarm(); // C-013: Esc сперва снимает выбранный рецепт, окно остаётся
+                EscapeUsed = true;
+            }
             else if (input.Escape && (BagOpen || CraftOpen || _chest.Visible))
             {
                 CloseChestByUser();
@@ -431,10 +436,17 @@ namespace Orpheus.Client.UI
             }
 
             bool held = _hand.Holding;
-            Route = UiPointer.Route(overUi, held, _capture);
+            bool placeable = _hand.HoldsPlaceable; // C-013: постройка на курсоре из сумки — щелчок в мир ставит её
+            bool armedBuilds = MenuPlace != Items.None;
+            Route = UiPointer.Route(overUi, held, _capture, placeable, _armed != 0, armedBuilds);
             if (input.LeftDown)
             {
-                if (cell >= 0 && (BagOpen || cell >= BagHand.ChestBase))
+                if (cell >= 0 && cell < Inventory.Cells && _armed != 0 && !held)
+                {
+                    // C-013: выбранный рецепт — сразу в эту ячейку (Shift — 5, Ctrl — сколько влезет).
+                    MakeInto(cell, input.Ctrl ? CraftQueue.MaxLeft : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
+                }
+                else if (cell >= 0 && (BagOpen || cell >= BagHand.ChestBase))
                 {
                     if (input.Ctrl && !held)
                     {
@@ -473,18 +485,19 @@ namespace Orpheus.Client.UI
                     _hand.Outside(); // мимо интерфейса с предметом «в руке курсора» — выбросить (допущение C-008, как в Terraria)
                 }
 
-                if (overUi || held)
+                if (overUi || (held && !placeable))
                 {
                     _capture = true;
                 }
 
-                Route = UiPointer.Route(overUi, held, _capture);
+                held = _hand.Holding;
+                Route = UiPointer.Route(overUi, held, _capture, _hand.HoldsPlaceable, _armed != 0, armedBuilds);
             }
 
-            // E2-16: ПКМ по значку рецепта постройки — «Поставить» (как кнопка в карточке).
-            if (input.RightDown && !held && hit.Part == CraftPart.Cell && CraftOpen)
+            // C-013: ПКМ снимает выбранный рецепт (где бы ни был курсор).
+            if (input.RightDown && !held && _armed != 0)
             {
-                PlaceFromMenu(_craft.RecipeInCell(hit.Index));
+                Disarm();
             }
             else if (input.RightDown && (BagOpen || _chest.Visible))
             {
@@ -527,6 +540,7 @@ namespace Orpheus.Client.UI
             if (CraftOpen)
             {
                 _craft.Stock = craft.Stock; // E2-10: «есть» — сумка + сундуки рядом
+                _craft.Armed = _armed;
                 _craft.Show(_lines, bag, craft.Queue, craft.Running, craft.Progress, dead, hit, _message);
             }
 
@@ -553,7 +567,8 @@ namespace Orpheus.Client.UI
             }
             else if (hit.Part == CraftPart.Button && CraftOpen)
             {
-                tip = RecipeTip(_craft.Recipe, bag, craft.Stock) + "\n" + UiStrings.CraftMakeTip;
+                tip = RecipeTip(_craft.Recipe, bag, craft.Stock) + "\n"
+                    + (CraftWindow.PlaceableResult(_craft.Recipe) != Items.None ? UiStrings.CraftPlaceTip : UiStrings.CraftMakeTip);
             }
             else if (hit.Part != CraftPart.None)
             {
@@ -575,7 +590,16 @@ namespace Orpheus.Client.UI
             }
 
             _tip.Show(tip, size, p);
-            _carry.Show(_hand.Item, _hand.Count, p);
+            if (!_hand.Holding && _armed != 0 && (overUi || !armedBuilds))
+            {
+                // C-013: выбранный рецепт «в руке» — значок результата у курсора (у постройки над миром — призрак на земле).
+                ref readonly RecipeDef armed = ref RecipeTable.Get(_armed);
+                _carry.Show(armed.Result, armed.ResultCount, p);
+            }
+            else
+            {
+                _carry.Show(_hand.Item, _hand.Count, p);
+            }
             _bar.Set(health, maxHealth, stamina, maxStamina);
             _map.Frame(craft.World, craft.Position, MapSnapshot, MapSelf);
         }
@@ -594,10 +618,12 @@ namespace Orpheus.Client.UI
             switch (hit.Part)
             {
                 case CraftPart.Section:
+                    Disarm();
                     _craft.SelectSection(hit.Index);
                     _craft.Refresh(_lines);
                     break;
                 case CraftPart.Sub:
+                    Disarm();
                     _craft.SelectSub(hit.Index);
                     _craft.Refresh(_lines);
                     break;
@@ -607,6 +633,7 @@ namespace Orpheus.Client.UI
                     break;
                 case CraftPart.Cell:
                     _craft.SelectCell(hit.Index);
+                    Arm(_craft.Recipe); // C-013: щелчок выделяет рецепт «в руку»
                     break;
                 case CraftPart.ScrollBar:
                     if (hit.Index >= 0)
@@ -616,10 +643,7 @@ namespace Orpheus.Client.UI
 
                     break;
                 case CraftPart.Button:
-                    Make(input.Ctrl ? 0 : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
-                    break;
-                case CraftPart.Place:
-                    PlaceFromMenu(_craft.Recipe); // E2-16: постройка — в руку из окна
+                    Arm(_craft.Recipe); // C-013: кнопок нет — крупный значок тоже только выбирает
                     break;
                 case CraftPart.Queue:
                     if (!dead)
@@ -636,6 +660,7 @@ namespace Orpheus.Client.UI
         {
             if (input.TabStep != 0)
             {
+                Disarm();
                 if (input.Shift)
                 {
                     _craft.SelectSub(_craft.Sub + input.TabStep);
@@ -657,11 +682,14 @@ namespace Orpheus.Client.UI
             if (input.RowStep != 0)
             {
                 _craft.StepRecipe(input.RowStep);
+                Arm(_craft.Recipe); // C-013: PgUp / PgDn — как щелчок по значку
             }
 
             if (input.Make)
             {
-                Make(input.Ctrl ? 0 : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
+                // C-013: Enter — выбранный рецепт в сумку, куда влезет (клавиша для «щелчка по ячейке»).
+                Arm(_craft.Recipe);
+                MakeInto(Simulation.AnyBagCell, input.Ctrl ? CraftQueue.MaxLeft : input.Shift ? CraftWindow.ButtonCounts[1] : CraftWindow.ButtonCounts[0], dead);
             }
 
             if (input.CancelLast && !dead && craft.Queue.Count > 0)
@@ -670,16 +698,17 @@ namespace Orpheus.Client.UI
             }
         }
 
-        // «Сделать × count» выбранный рецепт; count = 0 — всё, на что хватает. Нельзя — причина строкой под столбиком.
-        void Make(int count, bool dead)
+        // C-013: изготовить выбранный рецепт × count сразу в ячейку сумки cell (0xFF — куда влезет). Нельзя по строке — причина
+        // строкой под столбиком; место в ячейке решает сервер (отказ «некуда» — ответ 31).
+        void MakeInto(int cell, int count, bool dead)
         {
-            CraftLine line = _lines[_craft.Recipe];
-            if (line.Recipe == 0)
+            CraftLine line = _lines[_armed];
+            if (_armed == 0 || line.Recipe == 0)
             {
                 return;
             }
 
-            if (!_desk.Make(line, count > 0 ? count : line.Affordable))
+            if (!_desk.MakeInto(line, cell, count))
             {
                 Say(dead ? UiStrings.CraftDead : UiStrings.CraftState(line.State, RecipeTable.Get(line.Recipe).Station, line.Affordable));
             }
@@ -733,6 +762,10 @@ namespace Orpheus.Client.UI
             }
 
             _craft.Visible = open;
+            if (!open)
+            {
+                Disarm(); // C-013: закрыл окно — выбор рецепта снят
+            }
         }
     }
 
@@ -745,7 +778,7 @@ namespace Orpheus.Client.UI
     /// медная кирка (слитков не хватает), подсказка над её значком; <c>inv-weapons</c> — Оружие → Мечи с галочкой «Только
     /// доступные»; <c>inv-buildings</c> — Здания → Дерево с рецептами построек (E2-11), выбрана деревянная стена.
     /// </summary>
-    public sealed partial class UiDemo : IBagRequests, ICraftRequests, IBuildRequests
+    public sealed partial class UiDemo : IBagRequests, ICraftRequests, IBuildRequests, ICraftIntoRequests
     {
         readonly GameUi _ui;
         readonly string _mode;
@@ -831,6 +864,33 @@ namespace Orpheus.Client.UI
             return true;
         }
 
+        // C-013: изготовить сразу в ячейку — тем же расчётом места, что у сервера (CraftRules.RunsThatFit); ингредиенты — из сумки стенда.
+        public bool RequestCraftInto(int recipe, int cell, int count = 1)
+        {
+            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+            int runs = def.Id == 0 ? 0 : CraftRules.RunsThatFit(_bag, def, cell, System.Math.Min(count, CraftRules.Affordable(_bag, def)));
+            if (runs <= 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < def.IngredientCount; i++)
+            {
+                _bag.Remove(def.IngredientItem(i), def.IngredientCountOf(i) * runs);
+            }
+
+            if (cell == Simulation.AnyBagCell)
+            {
+                _bag.Add(def.Result, runs * def.ResultCount);
+            }
+            else
+            {
+                _bag.SetCell(cell, def.Result, _bag.CountIn(cell) + runs * def.ResultCount);
+            }
+
+            return true;
+        }
+
         public void Frame(WorldPos position)
         {
             _frame++;
@@ -871,14 +931,14 @@ namespace Orpheus.Client.UI
         }
 
         // Скрипт окна «сумка + изготовление» (E2-9; верстак рядом). Шаги — (кадр, часть окна, номер, щелчок).
-        // inv: C → Инструменты → Кирки → каменная кирка «Сделать 1» → Материалы → слиток «Сделать всё» → Инструменты
-        // (подраздел запомнен) → медная кирка (слитков не хватает) → курсор над её значком (подсказка).
-        // C-008: галочка «Только доступные» включена по умолчанию — inv сначала снимает её (видна нехватка красным);
-        // крупный значок выбранного (Button): индекс 0 — щелчок, 1 — Shift (5), 2 — Ctrl (всё).
+        // inv: C → Инструменты → Кирки → каменная кирка (выбрана «в руку») → щелчок по ячейке 30 сумки — кирка там → Материалы →
+        // слиток → щелчок по ячейке 31 → Инструменты (подраздел запомнен) → медная кирка выбрана (слитков не хватает) — рамка и
+        // значок у курсора. C-008: галочка «Только доступные» включена по умолчанию — inv сначала снимает её (видна нехватка
+        // красным). C-013: кнопок нет; шаг с частью None — щелчок по ячейке сумки (номер — ячейка).
         static readonly (int Frame, CraftPart Part, int Index)[] InvSteps =
         {
-            (5, CraftPart.Filter, 0), (8, CraftPart.Section, 2), (11, CraftPart.Sub, 0), (14, CraftPart.Cell, 0), (17, CraftPart.Button, 0),
-            (20, CraftPart.Section, 5), (23, CraftPart.Cell, 0), (26, CraftPart.Button, 2),
+            (5, CraftPart.Filter, 0), (8, CraftPart.Section, 2), (11, CraftPart.Sub, 0), (14, CraftPart.Cell, 0), (17, CraftPart.None, 30),
+            (20, CraftPart.Section, 5), (23, CraftPart.Cell, 0), (26, CraftPart.None, 31),
             (29, CraftPart.Section, 2), (32, CraftPart.Cell, 1), (99, CraftPart.Cell, 1),
         };
 
@@ -943,11 +1003,10 @@ namespace Orpheus.Client.UI
 
             var step = steps[k];
             bool last = k == steps.Length - 1;
-            input.Pointer = _ui.CraftPoint(step.Part, step.Index) + (last ? new Vector2(10f, -8f) : Vector2.zero);
+            Vector2 at = step.Part == CraftPart.None ? _ui.CellCenter(step.Index) : _ui.CraftPoint(step.Part, step.Index);
+            input.Pointer = at + (last ? new Vector2(10f, -8f) : Vector2.zero);
             input.LeftDown = !last && f == step.Frame;
             input.LeftHeld = input.LeftDown;
-            input.Shift = input.LeftDown && step.Part == CraftPart.Button && step.Index == 1;
-            input.Ctrl = input.LeftDown && step.Part == CraftPart.Button && step.Index == 2;
         }
     }
 }

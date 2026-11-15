@@ -1050,7 +1050,7 @@ namespace Orpheus.Tests
             Assert.Equal(0x0A0B0C0Du, back.Frame);
             Assert.Equal(3, back.Cell); // протокол 25 (E2-11): ячейка панели, из которой берётся предмет-постройка
             byte[] badCell = (byte[])rb.Clone();
-            badCell[18] = 8; // ячейка вне быстрой панели (0…7)
+            badCell[18] = 40; // ячейка вне сумки (C-013, протокол 29: 0…39; было — вне панели 0…7)
             Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(badCell, map));
             Assert.Equal(0x0E, back.Quad);
             byte[] badQuad = (byte[])rb.Clone();

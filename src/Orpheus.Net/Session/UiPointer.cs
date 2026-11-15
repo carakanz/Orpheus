@@ -13,6 +13,12 @@ namespace Orpheus.Net.Session
 
         /// <summary>Мимо интерфейса с предметом «в руке курсора» — выбросить его (как в Terraria; допущение C-008).</summary>
         Drop,
+
+        /// <summary>
+        /// C-013: в окне изготовления выбран рецепт не-постройки (инструмент, оружие) — щелчок в мир ничего не делает (не копает,
+        /// не бьёт); изготовить — щелчком по ячейке сумки.
+        /// </summary>
+        Idle,
     }
 
     /// <summary>Прямоугольник интерфейса в единицах холста (левый нижний угол, ширина, высота).</summary>
@@ -70,6 +76,18 @@ namespace Orpheus.Net.Session
         /// </summary>
         public static PointerRoute Route(bool overUi, bool holding, bool captured) =>
             overUi || captured ? PointerRoute.Ui : holding ? PointerRoute.Drop : PointerRoute.World;
+
+        /// <summary>
+        /// C-013: то же с постройкой на курсоре и выбранным рецептом. Постройка из сумки «в руке курсора»
+        /// (<paramref name="placeable"/>, <see cref="BagHand.HoldsPlaceable"/>) — щелчок в мир ставит её, а не выбрасывает
+        /// (приёмка Автора 15.11: «установка с инвентаря не работает»). Выбран рецепт (<paramref name="armed"/>): постройка — мир
+        /// (изготовить и поставить, <paramref name="armedBuilds"/>), иное — <see cref="PointerRoute.Idle"/>.
+        /// </summary>
+        public static PointerRoute Route(bool overUi, bool holding, bool captured, bool placeable, bool armed = false, bool armedBuilds = false) =>
+            overUi || captured ? PointerRoute.Ui
+            : holding ? (placeable ? PointerRoute.World : PointerRoute.Drop)
+            : armed ? (armedBuilds ? PointerRoute.World : PointerRoute.Idle)
+            : PointerRoute.World;
 
         /// <summary><see cref="Route(bool, bool, bool)"/> для точки холста по набранным прямоугольникам.</summary>
         public PointerRoute RouteAt(float x, float y, bool holding, bool captured) => Route(Over(x, y), holding, captured);
