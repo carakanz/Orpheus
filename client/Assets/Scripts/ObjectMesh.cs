@@ -118,6 +118,7 @@ namespace Orpheus.Client
                     it.Place = ObjectTable.Place(look, corner.X + lx, corner.Y + ly);
                     it.X = lx + 0.5f + it.Place.Dx;
                     it.Y = -ly - 1f + ObjectTable.BaseLift + it.Place.Dy;
+                    FloorCellsLook.ShiftFurniture(chunk, index, ref it.X, ref it.Y); // E2-15: мебель со сдвигом на полтайла
                 }
 
                 int at = n++;

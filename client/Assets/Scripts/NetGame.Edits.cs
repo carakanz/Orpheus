@@ -112,6 +112,7 @@ namespace Orpheus.Client
             else if ((build.Hammer || build.Placing) && build.HasGhost && !_ui.PointerBlocked && _cursorTile.HasValue)
             {
                 _ghost!.HidePlan();
+                _ghost!.SetWorld(_world);
                 _ghost!.Show(_origin!, _map, _localPos, 0, true, _cursorTile.Value, build.Check);
             }
             else
@@ -143,7 +144,22 @@ namespace Orpheus.Client
             Vector3 screen = mouse.position.ReadValue();
             Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
             WorldPos p = Torus.Wrap(_map, _origin.FromUnity(v));
-            _cursorQuad = BuildCells.QuadOf(BuildCells.CellAt(_map, p));
+            TileCoord cell = BuildCells.CellAt(_map, p);
+            byte held = HeldItem;
+            if (BuildHand.IsBuildItem(held, out ushort key) && BuildLayers.IsFurniture(key))
+            {
+                // E2-15: мебель 2 × 2 ячейки с шагом 0,5 — центром к ближнему узлу сетки 0,5 под курсором; тайл и четверть — её СЗ ячейка.
+                cell = BuildLayers.FurnitureCellAt(_map, p);
+                _cursorQuad = BuildCells.QuadOf(cell);
+                return BuildCells.TileOfCell(cell);
+            }
+
+            _cursorQuad = BuildCells.QuadOf(cell);
+            if (!BuildHand.IsBuildItem(held) && _world != null && BuildLayers.TryTopOfCell(_world, cell, out TileCoord top))
+            {
+                return top; // E2-15: молот, F — по постройке под курсором; мебель соседа со сдвигом — её тайл-якорь
+            }
+
             return Torus.TileOf(_map, p);
         }
 

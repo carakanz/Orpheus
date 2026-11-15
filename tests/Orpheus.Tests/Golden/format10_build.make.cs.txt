@@ -1,0 +1,67 @@
+using System;
+using System.IO;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
+using Orpheus.Net.Session;
+using Orpheus.Save;
+using Xunit;
+
+namespace Orpheus.Tests
+{
+    /// <summary>
+    /// Разовый генератор файла формата 10 для теста E2-15 (запускается на коде main f1dca83 — до двух слоёв): плоский мир 256²,
+    /// зерно 1; игрок по сети ставит предметами из руки ряд деревянного и каменного пола (по 3 тайла), стену в полтайла (западные
+    /// половины 3 тайлов), сундук, верстак и факел; одна стена повреждена. Запуск: копия main (git archive) + этот файл как .cs,
+    /// <c>V10_OUT=папка dotnet test --filter Make_Format10_Build_File</c>.
+    /// </summary>
+    public class MakeV10Build
+    {
+        [Fact]
+        public void Make_Format10_Build_File()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(256), 1);
+            byte[] baseBytes = WorldSnapshot.WriteBase(world);
+            using var rig = new EditTests.EditRig(world, _ => EditTests.TileCenter(128, 128));
+            NetClient c = rig.Join();
+            rig.Run(5);
+            var inv = rig.Sim.GetEntity(c.EntityId).Inv;
+            inv.SetCell(2, Items.WoodFloor, 3);
+            inv.SetCell(3, Items.StoneFloor, 3);
+            inv.SetCell(4, Items.StoneWall, 6);
+            inv.SetCell(5, Items.Chest, 1);
+            inv.SetCell(6, Items.Workbench, 1);
+            inv.SetCell(7, Items.Torch, 1);
+            Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
+            rig.Run(3);
+
+            WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
+            c.Place(new TileCoord(130, 126), new TileCoord(132, 126), BuildDefs.WoodFloorKey, self, 2);
+            rig.Run(4);
+            c.Place(new TileCoord(130, 130), new TileCoord(132, 130), BuildDefs.StoneFloorKey, self, 3);
+            rig.Run(4);
+            c.Place(new TileCoord(124, 127), new TileCoord(124, 129), ObjectId.StoneWall, self, 4, 0 | (2 << 2)); // западные половины
+            rig.Run(4);
+            c.Place(new TileCoord(126, 132), new TileCoord(126, 132), ObjectId.Chest, self, 5);
+            rig.Run(4);
+            c.Place(new TileCoord(129, 132), new TileCoord(129, 132), ObjectId.Workbench, self, 6);
+            rig.Run(4);
+            c.Place(new TileCoord(132, 132), new TileCoord(132, 132), ObjectId.Torch, self, 7);
+            rig.Run(4);
+            Assert.True(rig.Sim.DamageBuilding(new TileCoord(124, 129), 150)); // 300 → 150
+            rig.Run(400);
+
+            var chars = new[]
+            {
+                new CharacterRecord { IsHost = true, Name = "Орфей", EntityId = c.EntityId, Inv = rig.Sim.GetEntity(c.EntityId).Inv },
+            };
+
+            byte[] save = WorldSave.Build(WorldSave.Capture(rig.Sim, WorldSnapshot.StoredHash(baseBytes), "формат10-постройки", chars), 5, 0);
+            Assert.Equal(10u, SaveContainer.Read(save).Header.FormatVersion);
+            string dir = Environment.GetEnvironmentVariable("V10_OUT")!;
+            File.WriteAllBytes(Path.Combine(dir, "format10_build.save"), save);
+            File.WriteAllBytes(Path.Combine(dir, "format10_build.base"), baseBytes);
+            File.WriteAllText(Path.Combine(dir, "format10_build.hash.txt"), StateHash.Compute(rig.Sim).Total.ToString("x16"));
+        }
+    }
+}

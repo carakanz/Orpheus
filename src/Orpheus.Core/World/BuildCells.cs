@@ -128,6 +128,18 @@ namespace Orpheus.Core.World
         /// <summary>Четверти ячейки одним числом (бит 0 — qx, бит 1 — qy) — поле запроса правки.</summary>
         public static int QuadOf(TileCoord cell) => (cell.X & 1) | ((cell.Y & 1) << 1);
 
+        /// <summary>
+        /// Четверти заявки «тайлы целиком» от <paramref name="from"/> до <paramref name="to"/> (E2-15: пол прямоугольником
+        /// ячеек): начало — угол тайла начала, конец — противоположный угол тайла конца (по направлению по тору).
+        /// </summary>
+        public static byte WholeTilesQuad(in MapShape map, TileCoord from, TileCoord to)
+        {
+            Int2 d = Torus.Delta(map, Torus.Wrap(map, from), Torus.Wrap(map, to));
+            int ax = d.X < 0 ? 1 : 0;
+            int ay = d.Y < 0 ? 1 : 0;
+            return (byte)((ax | (ay << 1)) | (((ax ^ 1) | ((ay ^ 1) << 1)) << 2));
+        }
+
         /// <summary>Ячейка по тайлу и четвертям одним числом (<see cref="QuadOf"/>).</summary>
         public static TileCoord CellOf(TileCoord tile, int quad) => CellOf(tile, quad & 1, (quad >> 1) & 1);
 
@@ -205,6 +217,11 @@ namespace Orpheus.Core.World
             if (here == ObjectId.Empty || ObjectId.IdOf(obj) == ObjectId.Door)
             {
                 EditReply r = EditRules.CheckPlaceTile(world, center, t, obj);
+                if (r == EditReply.Accepted && (want & BuildLayers.OverhangAt(world, t, solidOnly: false)) != 0)
+                {
+                    r = EditReply.Busy; // E2-15: в эти ячейки свешивается мебель соседнего тайла
+                }
+
                 if (r == EditReply.Accepted)
                 {
                     mask = want;
@@ -231,14 +248,17 @@ namespace Orpheus.Core.World
 
             if (here != obj || !world.TryGetBuild(t, out BuildRecord rec) || rec.IsDebris)
             {
-                return EditReply.Busy;
+                // E2-15: тайл-якорь мебели со сдвигом, просимые ячейки свободны — причина понятная («мешает мебель»).
+                bool anchorFree = here != obj && BuildLayers.IsFurniture(here) && world.TryGetBuild(t, out BuildRecord fr) && fr.HasOffset
+                    && (BuildLayers.TopCellsAt(world, t) & want) == 0;
+                return anchorFree ? EditReply.FurnitureInTile : EditReply.Busy;
             }
 
             byte before = MaskOf(here, true, rec);
             add = (byte)(want & ~before & Full);
-            if (add == 0)
+            if (add == 0 || (add & BuildLayers.OverhangAt(world, t, solidOnly: false)) != 0)
             {
-                return EditReply.Busy;
+                return EditReply.Busy; // E2-15: заняты — свои ячейки или свес мебели соседа
             }
 
             mask = (byte)(before | add);

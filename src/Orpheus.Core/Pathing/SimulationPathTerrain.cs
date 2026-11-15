@@ -70,7 +70,8 @@ namespace Orpheus.Core.Pathing
                 return true;
             }
 
-            if (chunk.GetObject(index) == ObjectId.Empty)
+            // E2-15: пустой тайл может занять свес мебели соседа — быстрый ответ, только если сдвигов рядом нет.
+            if (chunk.GetObject(index) == ObjectId.Empty && !BuildLayers.MayOverhang(_sim.World, tile))
             {
                 return false;
             }

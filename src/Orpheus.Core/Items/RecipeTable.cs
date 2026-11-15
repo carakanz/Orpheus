@@ -134,9 +134,10 @@ namespace Orpheus.Core.Sim
             new RecipeDef(RoastMeat, Items.RoastMeat, 1, CraftStation.Campfire, DefaultTicks, Items.Meat, 1),
             // Постройки (E2-11; `06` 3.3: «руки — … верстак I и постройки»; костёр — у верстака I, «В-I» `05`). Выход — 1 штука:
             // в `06` 6.9 стена — 2 древесины на тайл, «4 из 1 бревна» в документах нет.
-            new RecipeDef(WoodFloor, Items.WoodFloor, 1, Hands, DefaultTicks, Items.Wood, 1),
-            new RecipeDef(StoneFloor, Items.StoneFloor, 1, Hands, DefaultTicks, Items.Stone, 1),
-            new RecipeDef(Platform, Items.Platform, 1, Hands, DefaultTicks, Items.Wood, 1),
+            // E2-15: пол и настил — ячейки 0,5 × 0,5, тайл — 4 ячейки: выход 4, цена тайла прежняя.
+            new RecipeDef(WoodFloor, Items.WoodFloor, 4, Hands, DefaultTicks, Items.Wood, 1),
+            new RecipeDef(StoneFloor, Items.StoneFloor, 4, Hands, DefaultTicks, Items.Stone, 1),
+            new RecipeDef(Platform, Items.Platform, 4, Hands, DefaultTicks, Items.Wood, 1),
             // E2-12: стена и забор — ячейки 0,5 × 0,5, погонный тайл стены — 2 ячейки: выход 2, цена тайла прежняя.
             new RecipeDef(WoodWall, Items.WoodWall, 2, Hands, DefaultTicks, Items.Wood, 2),
             new RecipeDef(StoneWall, Items.StoneWall, 2, Hands, DefaultTicks, Items.Stone, 2),

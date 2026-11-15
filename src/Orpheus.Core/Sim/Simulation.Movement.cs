@@ -137,73 +137,62 @@ namespace Orpheus.Core.Sim
         /// <summary>
         /// Тайл мешает ходить (docs/05, 1.3): пол непроходим (лава, неизвестный) или объект непроходим;
         /// у «части» многотайлового объекта свойства — у якоря; дверь — по флагу записи постройки.
+        /// E2-15: есть хоть одна твёрдая ячейка (<see cref="SolidCells"/>) — в том числе свес мебели соседнего тайла.
         /// Несозданный чанк — пусто, проходим.
         /// </summary>
         public bool IsBlocked(MapShape map, TileCoord tile)
         {
             Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
-            if (chunk == null)
-            {
-                return false;
-            }
-
-            int index = Chunk.IndexOf(tile.X, tile.Y);
-            if (!FloorId.IsPassable(chunk.GetFloor(index)))
-            {
-                return true;
-            }
-
-            ushort obj = chunk.GetObject(index);
-            if (obj == ObjectId.Empty)
-            {
-                return false;
-            }
-
-            BuildRecord record;
-            if (ObjectId.IsPart(obj))
-            {
-                TileCoord anchor = _world.AnchorOf(tile);
-                obj = _world.GetObject(anchor);
-                if (!_world.TryGetBuild(anchor, out record))
-                {
-                    record = default;
-                }
-            }
-            else if (!chunk.TryGetBuild(index, out record))
-            {
-                record = default;
-            }
-
-            return !ObjectId.IsPassable(obj, record.Flags);
+            return chunk != null && SolidCellsIn(chunk, map, tile) != 0;
         }
 
         /// <summary>
-        /// Твёрдые ячейки тайла 0,5 × 0,5 (E2-12, <see cref="ITileCells"/>): у стены, забора, закрытой двери — маска записи
-        /// (<see cref="BuildCells.MaskOf"/>), у остального твёрдого (пол, природные, верстак…) — весь тайл. Спрашивается
-        /// только о тайле, который <see cref="IsBlocked"/> назвал твёрдым: столкновения сервера, предсказания и ботов.
+        /// Твёрдые ячейки тайла 0,5 × 0,5 (E2-12, <see cref="ITileCells"/>): непроходимый пол — весь тайл; непроходимый объект —
+        /// его ячейки (<see cref="BuildLayers.OwnCells"/>: стена, забор, закрытая дверь — маска записи, мебель со сдвигом — свои
+        /// ячейки в тайле, прочее — весь тайл); плюс ячейки непроходимой мебели соседей, свешивающейся в тайл (E2-15).
+        /// Проходимый тайл — 0. Столкновения сервера, предсказания, ботов и путь врагов.
         /// </summary>
         public byte SolidCells(MapShape map, TileCoord tile)
         {
             Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
-            if (chunk == null)
-            {
-                return BuildCells.Full;
-            }
+            return chunk == null ? BuildCells.Full : SolidCellsIn(chunk, map, tile);
+        }
 
+        private byte SolidCellsIn(Chunk chunk, in MapShape map, TileCoord tile)
+        {
             int index = Chunk.IndexOf(tile.X, tile.Y);
             if (!FloorId.IsPassable(chunk.GetFloor(index)))
             {
                 return BuildCells.Full;
             }
 
+            byte cells = 0;
             ushort obj = chunk.GetObject(index);
-            if (!BuildCells.IsCellBuilding(obj))
+            if (obj != ObjectId.Empty)
             {
-                return BuildCells.Full;
+                if (ObjectId.IsPart(obj))
+                {
+                    TileCoord anchor = _world.AnchorOf(tile);
+                    ushort a = _world.GetObject(anchor);
+                    _world.TryGetBuild(anchor, out BuildRecord ar);
+                    cells = ObjectId.IsPassable(a, ar.Flags) ? (byte)0 : BuildCells.Full;
+                }
+                else
+                {
+                    bool has = chunk.TryGetBuild(index, out BuildRecord record);
+                    if (!ObjectId.IsPassable(obj, record.Flags))
+                    {
+                        cells = BuildLayers.OwnCells(obj, has, record);
+                    }
+                }
             }
 
-            bool has = chunk.TryGetBuild(index, out BuildRecord record);
-            return BuildCells.MaskOf(obj, has, record);
+            if (cells == BuildCells.Full)
+            {
+                return cells;
+            }
+
+            return (byte)(cells | BuildLayers.OverhangAt(_world, Torus.Wrap(map, tile), solidOnly: true));
         }
 
         /// <summary>

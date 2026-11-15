@@ -124,11 +124,11 @@ namespace Orpheus.Client
                     byte floor;
                     if (ch != null)
                     {
-                        floor = ch.GetFloor(Chunk.IndexOf(tx, ty)); // IndexOf берёт младшие 5 бит: −1 → 31, 32 → 0
+                        floor = FloorCellsLook.GroundFloor(ch, Chunk.IndexOf(tx, ty)); // IndexOf берёт младшие 5 бит: −1 → 31, 32 → 0; E2-15: под полом частью тайла — природный
                     }
                     else if (own != null)
                     {
-                        floor = own.GetFloor(Chunk.IndexOf(Mathf.Clamp(tx, 0, Size - 1), Mathf.Clamp(ty, 0, Size - 1)));
+                        floor = FloorCellsLook.GroundFloor(own, Chunk.IndexOf(Mathf.Clamp(tx, 0, Size - 1), Mathf.Clamp(ty, 0, Size - 1)));
                     }
                     else
                     {

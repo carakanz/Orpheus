@@ -203,7 +203,7 @@ namespace Orpheus.Client
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence] [--day-tick 0…35999]";
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence] [--day-tick 0…35999]";
 
         static bool TryParseWalk(string? text, ClientArgs a)
         {
@@ -482,7 +482,7 @@ namespace Orpheus.Client
                         i++;
                         if (!UI.UiDemo.IsMode(next))
                         {
-                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, ruler-wall или ruler-floor, дано '{next}'";
+                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, half, ruler-wall или ruler-floor, дано '{next}'";
                         }
                         else
                         {

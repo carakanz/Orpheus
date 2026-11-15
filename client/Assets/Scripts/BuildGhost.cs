@@ -33,6 +33,10 @@ namespace Orpheus.Client
         readonly SpriteRenderer[] _grid;
         readonly System.Collections.Generic.List<SpriteRenderer> _plan = new System.Collections.Generic.List<SpriteRenderer>();
         static Sprite? _white;
+        WorldModel? _world;
+
+        /// <summary>Мир клиента (E2-15): центр мебели со сдвигом у рамки починки.</summary>
+        public void SetWorld(WorldModel? world) => _world = world;
 
         public BuildGhost(Transform parent)
         {
@@ -96,8 +100,20 @@ namespace Orpheus.Client
             Vector3 c = origin.ToUnity(EditRules.CenterOf(Torus.Wrap(map, tile)));
             bool repair = check.Action == BuildAction.Repair;
             Color col = repair ? (check.Ok ? Fix : Bad) : check.Ok ? Ok : Bad;
-            // E2-12: стена, забор, дверь — ячейки 0,5 × 0,5: призрак — прямоугольник ячеек (BuildCheck.Cells) без картинки тайла.
-            bool cells = !repair && check.Cells != 0 && check.Cells != BuildCells.Full;
+            // E2-15: мебель — тайл со сдвигом на полтайла (якорь и сдвиг — из BuildCheck, план ядра); при починке — её центр.
+            bool furniture = BuildLayers.IsFurniture(check.Key);
+            if (furniture && !repair)
+            {
+                WorldPos a = EditRules.CenterOf(Torus.Wrap(map, check.Anchor));
+                c = origin.ToUnity(new WorldPos(a.X + check.OffsetX * BuildCells.CellUnits, a.Y + check.OffsetY * BuildCells.CellUnits));
+            }
+            else if (repair && _world != null)
+            {
+                c = origin.ToUnity(BuildLayers.CenterAt(_world, Torus.Wrap(map, tile)));
+            }
+
+            // E2-12: стена, забор, дверь, E2-15: пол — ячейки 0,5 × 0,5: призрак — прямоугольник ячеек (BuildCheck.Cells) без картинки тайла.
+            bool cells = !repair && !furniture && check.Cells != 0 && check.Cells != BuildCells.Full;
             float w = 1f, h = 1f;
             if (cells)
             {

@@ -74,6 +74,12 @@ namespace Orpheus.Core.World
 
         /// <summary>«пауза» (E2-5): действие с объектом во время паузы мира.</summary>
         Paused = 18,
+
+        /// <summary>
+        /// «мешает мебель» (E2-15, протокол 27): свободная половина тайла, где стоит мебель со сдвигом на полтайла (её тайл-якорь),
+        /// — стену туда не поставить (один объект на тайл); мебель ставят после стен.
+        /// </summary>
+        FurnitureInTile = 19,
     }
 
     /// <summary>
@@ -124,6 +130,7 @@ namespace Orpheus.Core.World
                 case EditReply.Intact: return "цело";
                 case EditReply.UnderAttack: return "под ударом";
                 case EditReply.Paused: return "пауза";
+                case EditReply.FurnitureInTile: return "мешает мебель — ставьте её после стен";
                 default: return "нельзя";
             }
         }
@@ -329,6 +336,18 @@ namespace Orpheus.Core.World
                 return EditReply.NotAllowed;
             }
 
+            if (IsFloorKey(obj))
+            {
+                // E2-15: пол — нижний слой, весь тайл (свободные ячейки тайла; по ячейкам — BuildLayers.CheckFloor).
+                return BuildLayers.CheckFloor(world, center, tile, obj, BuildCells.Full, out _, out _);
+            }
+
+            if (BuildLayers.IsFurniture(obj))
+            {
+                // E2-15: мебель без сдвига — СЗ ячейка тайла (со сдвигом — BuildLayers.CheckFurniture).
+                return BuildLayers.CheckFurniture(world, center, obj, BuildCells.CellOf(Torus.Wrap(world.Shape, tile), 0, 0), out _, out _, out _);
+            }
+
             if (!InPlaceRadius(world.Shape, center, tile))
             {
                 return EditReply.OutOfReach;
@@ -348,32 +367,22 @@ namespace Orpheus.Core.World
             }
 
             byte floor = world.GetFloor(t);
-            if (IsFloorKey(obj))
-            {
-                if (world.TryGetBuild(t, out _))
-                {
-                    return EditReply.Busy; // под полом уже готовый построенный пол (запись без обломков)
-                }
-
-                bool liquid = floor == FloorId.Water || floor == FloorId.Lava;
-                if (obj == BuildDefs.PlatformKey)
-                {
-                    return liquid ? EditReply.Accepted : EditReply.NotAllowed; // настил — только над жидкостью (`05` 1.3)
-                }
-
-                return liquid ? EditReply.NeedPlatform : FloorId.IsSolid(floor) ? EditReply.Accepted : EditReply.NotAllowed;
-            }
-
             if (floor == FloorId.Water || floor == FloorId.Lava)
             {
                 return EditReply.NeedPlatform;
+            }
+
+            // E2-15: в тайл свешивается мебель соседа — целым тайлом не встать (стена и забор по ячейкам — BuildCells.CheckPlace).
+            if (!BuildCells.IsCellBuilding(obj) && BuildLayers.OverhangAt(world, t, solidOnly: false) != 0)
+            {
+                return EditReply.Busy;
             }
 
             return EditReply.Accepted;
         }
 
         /// <summary>Наибольший код ответа (проверка сообщений сети).</summary>
-        public const EditReply MaxReply = EditReply.Paused;
+        public const EditReply MaxReply = EditReply.FurnitureInTile;
 
         /// <summary>Объекты с действием (F) — в этом радиусе от тайла персонажа по оси максимума: 3 тайла (E2-5).</summary>
         public const int UseRadiusTiles = 3;

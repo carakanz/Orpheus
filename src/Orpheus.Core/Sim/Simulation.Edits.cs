@@ -58,8 +58,11 @@ namespace Orpheus.Core.Sim
                 {
                     if (e.Debris && rec.IsDebris)
                     {
-                        // Обломки кончились: тайл остаётся как есть (пол природный), запись снимается правкой без записи.
-                        applied = RequestEdit(tile, _world.GetFloor(tile), ObjectId.Empty);
+                        // Обломки кончились: тайл остаётся как есть, запись снимается правкой без записи; под обломками
+                        // построенный пол (E2-15) — остаётся запись «только пол».
+                        applied = BuildLayers.AfterDebris(_world, tile, rec, out BuildRecord floorOnly)
+                            ? RequestEdit(tile, _world.GetFloor(tile), ObjectId.Empty, floorOnly)
+                            : RequestEdit(tile, _world.GetFloor(tile), ObjectId.Empty);
                     }
                     else if (!e.Debris)
                     {
@@ -146,8 +149,9 @@ namespace Orpheus.Core.Sim
             int left = rec.Integrity - raw;
             if (left <= 0)
             {
-                var debris = new BuildRecord(rec.Owner, 0, (byte)BuildFlags.Debris, rec.NaturalFloor, (ushort)(Tick + BuildDefs.DebrisTicks));
-                if (!Enqueue(t, rec.NaturalFloor, ObjectId.Empty, true, debris, 0, 0, false))
+                // E2-15: обломки — верх; пол под постройкой остаётся (байт пола тайла и маска пола записи).
+                BuildRecord debris = BuildLayers.DebrisOf(rec, (ushort)(Tick + BuildDefs.DebrisTicks));
+                if (!Enqueue(t, _world.GetFloor(t), ObjectId.Empty, true, debris, 0, 0, false))
                 {
                     return false;
                 }
@@ -175,7 +179,17 @@ namespace Orpheus.Core.Sim
         {
             TileCoord tile = TileOf(chunk, edit.Index);
             bool blocks = EditRules.BlocksCreature(edit.Obj);
-            byte cells = BuildCells.MaskOf(edit.Obj, edit.HasRecord, edit.Record); // E2-12: стена — только её ячейки
+            // E2-12: стена — только её ячейки; E2-15: мебель со сдвигом — её ячейки в задетых тайлах (до 4).
+            Span<TileCoord> tiles = stackalloc TileCoord[4];
+            Span<byte> masks = stackalloc byte[4];
+            int parts = 1;
+            tiles[0] = tile;
+            masks[0] = BuildLayers.OwnCells(edit.Obj, edit.HasRecord, edit.Record);
+            if (edit.HasRecord && edit.Record.HasOffset && BuildLayers.IsFurniture(edit.Obj))
+            {
+                parts = BuildLayers.Footprint(_shape, tile, edit.Record, tiles, masks);
+            }
+
             EditResult result = EditResult.Applied;
             for (int i = 0; i < _entityCount; i++)
             {
@@ -185,9 +199,12 @@ namespace Orpheus.Core.Sim
                 }
 
                 WorldPos p = _entities[i].Mover.Position;
-                if (blocks && Collision.CircleOverlapsCells(_shape, p, tile, cells))
+                for (int k = 0; blocks && k < parts; k++)
                 {
-                    return EditResult.Occupied;
+                    if (Collision.CircleOverlapsCells(_shape, p, tiles[k], masks[k]))
+                    {
+                        return EditResult.Occupied;
+                    }
                 }
 
                 if (_entities[i].Kind == SimEntity.KindEnemy && EditRules.EnemyTooClose(_shape, p, tile))
@@ -250,7 +267,14 @@ namespace Orpheus.Core.Sim
         /// такте, оказался бы в стене и вышел бы сквозь стену в 1 тайл (backlog [стройка], П по 0-004).
         /// Запросивший мёртв — false (C-004).
         /// </summary>
-        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, byte cell = AnyCell)
+        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, byte cell = AnyCell) =>
+            RequestPlayerEdit(tile, floor, obj, hasRecord, record, requester, tag, cell, floorOnly: false);
+
+        /// <summary>
+        /// Правка игрока (см. выше); <paramref name="floorOnly"/> — правка слоя пола (E2-15: пол под стоящую стену, мебель,
+        /// существо): существа и враги ей не мешают, хотя объект тайла (прежний верх) непроходим.
+        /// </summary>
+        public bool RequestPlayerEdit(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, byte cell, bool floorOnly)
         {
             // Мёртвый не строит и не копает (C-004): запрос от сущности-трупа (5 с до возрождения) — отказ.
             // Раньше убитый строитель достраивал стены и ставил дверь с места гибели (D08_3_1, такты 1292–1336).
@@ -264,7 +288,7 @@ namespace Orpheus.Core.Sim
             // Дверь с записью (1-012) — правка состояния (F/автозакрытие/автооткрытие): существо на тайле или
             // враг рядом не повод отказывать, выталкиванием занимается BeginDoorClose; иначе F у врага ломался бы.
             return Enqueue(tile, floor, obj, hasRecord, record, requester, tag,
-                EditRules.NeedsClearance(obj) && !(obj == ObjectId.Door && hasRecord), cell: cell);
+                !floorOnly && EditRules.NeedsClearance(obj) && !(obj == ObjectId.Door && hasRecord), cell: cell);
         }
 
         private bool Enqueue(TileCoord tile, byte floor, ushort obj, bool hasRecord, BuildRecord record, int requester, int tag, bool checkCreatures, bool repair = false, byte cell = AnyCell)
@@ -312,6 +336,7 @@ namespace Orpheus.Core.Sim
             // Pre-pass по порядку прихода (до сортировки по чанкам, 1-011): состояние тайла до пачки, списание
             // стоимости постановки (сумка: атомарно на тайл; не хватает — «нет ресурсов», правка в пачку не идёт),
             // снос постройки, получавшей урон последние 10 с, — правка подменяется обломочной (`05` 1.3).
+            ClearClaims(); // E2-15: ячейки верха, занятые постановками этого такта (Simulation.Claims.cs)
             for (int i = 0; i < n; i++)
             {
                 PreEdit(tick, i);
@@ -395,9 +420,10 @@ namespace Orpheus.Core.Sim
 
                         // Снос постройки (E2-11): один предмет-постройка кучей на тайл (как в Terraria), а не материалы;
                         // обломки ранней расчистки молотом — ничего.
+                        // E2-15: снос по слоям — верх (пол остаётся) или пол тайла; постановка пола в тайл без верха — не снос.
                         if (_preHasBuild[i] && !_preBuild[i].IsDebris)
                         {
-                            GiveBuildRefund(tick, TileOf(chunk, _edits[i].Edit.Index), _preObj[i], _preFloor[i], BuildCells.MaskOf(_preObj[i], true, _preBuild[i]));
+                            GiveBuildRefund(tick, TileOf(chunk, _edits[i].Edit.Index), i);
                         }
                     }
                 }
@@ -437,10 +463,10 @@ namespace Orpheus.Core.Sim
 
             // Снос постройки, получавшей урон последние 10 с → обломки на 10 с: правка подменяется здесь,
             // второй ApplyEdits в такт невозможен (ревизия +2 сломала бы патч-цепочку клиента).
-            if (_preHasBuild[i] && _preBuild[i].IsDamagedRecent && e.Edit.Obj == ObjectId.Empty)
+            if (_preHasBuild[i] && _preBuild[i].IsDamagedRecent && e.Edit.Obj == ObjectId.Empty && _preObj[i] != ObjectId.Empty)
             {
                 BuildRecord rec = _preBuild[i];
-                var debris = new BuildRecord(rec.Owner, 0, (byte)BuildFlags.Debris, rec.NaturalFloor, (ushort)(tick + BuildDefs.DebrisTicks));
+                BuildRecord debris = BuildLayers.DebrisOf(rec, (ushort)(tick + BuildDefs.DebrisTicks)); // E2-15: пол остаётся
                 e = new EditRequest(e.Chunk, e.Arrival, new TileEdit(index, _preFloor[i], ObjectId.Empty, debris),
                     e.Requester, e.Tag, e.CheckCreatures);
                 _preHasBuild[i] = false; // снос в обломки — без возврата (`05` 1.3); запись «получав урон» больше не считается сносимой
@@ -458,6 +484,12 @@ namespace Orpheus.Core.Sim
             // стоимость не списывается и не возвращается (постановка двери молотом идёт с пустого тайла).
             if (e.Edit.Obj == ObjectId.Door && e.Edit.HasRecord && _preObj[i] == ObjectId.Door)
             {
+                return;
+            }
+
+            if (!ClaimCells(i))
+            {
+                _preResult[i] = EditResult.Busy; // E2-15: ячейки уже заняты постановкой этого такта (свес мебели — тоже); предмет не снят
                 return;
             }
 

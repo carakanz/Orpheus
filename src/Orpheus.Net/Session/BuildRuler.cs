@@ -59,13 +59,16 @@ namespace Orpheus.Net.Session
         /// <summary>Длина линии стен не больше (ячеек 0,5): два отрезка заявки.</summary>
         public const int MaxLineCells = 2 * EditRules.MaxLineTiles;
 
-        /// <summary>Сторона прямоугольника пола не больше (тайлов): ряд — одна заявка, рядов не больше ждущих линий сервера.</summary>
-        public const int MaxRectSide = 16;
+        /// <summary>
+        /// Сторона прямоугольника пола не больше (ячеек 0,5 — E2-15; 16 тайлов): полоса в ряд тайлов — одна заявка (до 2 × 32
+        /// ячеек), полос с «можно» в радиусе 6 — не больше 13 &lt; ждущих линий сервера.
+        /// </summary>
+        public const int MaxRectSide = 32;
 
         private const int MaxSegments = 2 * MaxRectSide;
 
-        /// <summary>Прямоугольник пола — по ячейкам 0,5 (false — по тайлам; E2-15: сетка 0,5 для всех построек).</summary>
-        public const bool RectOnCells = false;
+        /// <summary>Прямоугольник пола — по ячейкам 0,5 (E2-15: сетка 0,5 для всех построек; заявка — прямоугольник ячеек).</summary>
+        public const bool RectOnCells = true;
 
         private readonly RulerSpot[] _spots = new RulerSpot[MaxRectSide * MaxRectSide];
         private readonly TileCoord[] _segFrom = new TileCoord[MaxSegments];
@@ -95,11 +98,11 @@ namespace Orpheus.Net.Session
         public int Count { get; private set; }
         public ReadOnlySpan<RulerSpot> Spots => new ReadOnlySpan<RulerSpot>(_spots, 0, Count);
 
-        /// <summary>Ставится клеток (можно по проверке; предмет на клетку) и предметов в руке.</summary>
+        /// <summary>Ставится клеток (можно по проверке; предмет на клетку) и предметов этой постройки (рука + сумка, E2-15).</summary>
         public int Need { get; private set; }
         public int Have { get; private set; }
 
-        /// <summary>Линия: длина в ячейках 0,5 (метры = ÷ 2). Прямоугольник: ширина и высота в тайлах.</summary>
+        /// <summary>Линия: длина в ячейках 0,5 (метры = ÷ 2). Прямоугольник: ширина и высота в ячейках 0,5 (E2-15; метры = ÷ 2).</summary>
         public int LengthCells { get; private set; }
         public int Width { get; private set; }
         public int Height { get; private set; }
@@ -149,7 +152,7 @@ namespace Orpheus.Net.Session
         /// <summary>
         /// План от начала до тайла / ячейки курсора <paramref name="tile"/> / <paramref name="quad"/> предметом ячейки
         /// <paramref name="cell"/> (данные клиента: свой мир, место, сумка). Клетки — по порядку от A; каждая проверена
-        /// <see cref="BuildHand.Check"/>; «нужно» — можно, «есть» — предметов в ячейке; можно, но сверх «есть» — <see cref="RulerSpot.Short"/>.
+        /// <see cref="BuildHand.Check"/>; «нужно» — можно, «есть» — предметов этой постройки в руке и сумке; можно, но сверх «есть» — <see cref="RulerSpot.Short"/>.
         /// </summary>
         public void Update(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad, bool diagonal)
         {
@@ -160,7 +163,7 @@ namespace Orpheus.Net.Session
             Width = 0;
             Height = 0;
             Kind = KindOfItem(bag.ItemAt(cell));
-            Have = BuildHand.IsBuildItem(bag.ItemAt(cell)) ? bag.CountIn(cell) : 0;
+            Have = BuildHand.IsBuildItem(bag.ItemAt(cell)) ? bag.Count(bag.ItemAt(cell)) : 0; // E2-15: недостающее к руке берётся из сумки
             MapShape map = world.Shape;
             if (Kind == RulerKind.Line)
             {
@@ -178,7 +181,24 @@ namespace Orpheus.Net.Session
             for (int s = 0; s < Segments; s++)
             {
                 _segOk[s] = 0;
-                if (Kind == RulerKind.Line || (Kind == RulerKind.Rect && RectOnCells))
+                if (Kind == RulerKind.Rect && RectOnCells)
+                {
+                    // E2-15: полоса пола — прямоугольник ячеек (заявка — прямоугольник), клетки — ряды от угла начала.
+                    TileCoord a = BuildCells.CellOf(_segFrom[s], _segFromQuad[s]);
+                    TileCoord b = BuildCells.CellOf(_segTo[s], _segToQuad[s]);
+                    MapShape cells = BuildCells.CellShape(map);
+                    Int2 d = Torus.Delta(cells, Torus.Wrap(cells, a), Torus.Wrap(cells, b));
+                    int sx = d.X < 0 ? -1 : 1, sy = d.Y < 0 ? -1 : 1;
+                    for (int j = 0; j <= Math.Abs(d.Y); j++)
+                    {
+                        for (int i = 0; i <= Math.Abs(d.X); i++)
+                        {
+                            TileCoord c = Torus.Wrap(cells, new TileCoord(a.X + sx * i, a.Y + sy * j));
+                            AddSpot(world, self, bag, cell, alive, BuildCells.TileOfCell(c), BuildCells.QuadOf(c), s);
+                        }
+                    }
+                }
+                else if (Kind == RulerKind.Line)
                 {
                     TileCoord a = BuildCells.CellOf(_segFrom[s], _segFromQuad[s]);
                     TileCoord b = BuildCells.CellOf(_segTo[s], _segToQuad[s]);
@@ -223,7 +243,14 @@ namespace Orpheus.Net.Session
                 if (placed + ok > Have)
                 {
                     ok = Have - placed;
-                    LastOk(s, ok, out to, out toQuad);
+                    if (Kind == RulerKind.Rect && RectOnCells)
+                    {
+                        ok = LastColumn(s, ok, out to, out toQuad); // E2-15: полоса укорачивается по столбцам ячеек
+                    }
+                    else
+                    {
+                        LastOk(s, ok, out to, out toQuad);
+                    }
                 }
 
                 if (hand.PlaceLine(_segFrom[s], to, self, bag, cell, _segFromQuad[s], toQuad) != 0)
@@ -236,6 +263,67 @@ namespace Orpheus.Net.Session
             LastSent = sent;
             Cancel();
             return sent;
+        }
+
+        // Полоса пола seg (прямоугольник ячеек): самый дальний от начала столбец, до которого «можно» не больше k (хотя бы первый);
+        // конец — ячейка этого столбца в последнем ряду полосы. Возвращает число «можно» в укороченной полосе.
+        private int LastColumn(int seg, int k, out TileCoord tile, out int quad)
+        {
+            tile = _segTo[seg];
+            quad = _segToQuad[seg];
+            int first = -1;
+            for (int i = 0; i < Count; i++)
+            {
+                if (_spotSeg[i] == seg)
+                {
+                    first = i;
+                    break;
+                }
+            }
+
+            if (first < 0)
+            {
+                return 0;
+            }
+
+            // Ширина полосы — до смены ряда (ряды идут подряд, в ряду — столбцы от начала).
+            int total = 0;
+            for (int i = first; i < Count && _spotSeg[i] == seg; i++)
+            {
+                total++;
+            }
+
+            int width = 0;
+            int y0 = BuildCells.CellOf(_spots[first].Tile, _spotQuad[first]).Y;
+            for (int i = first; i < first + total && BuildCells.CellOf(_spots[i].Tile, _spotQuad[i]).Y == y0; i++)
+            {
+                width++;
+            }
+
+            int rows = width == 0 ? 0 : total / width;
+            int best = 0, bestCol = 0, sum = 0;
+            for (int col = 0; col < width; col++)
+            {
+                for (int r = 0; r < rows; r++)
+                {
+                    sum += _spots[first + r * width + col].Ok ? 1 : 0;
+                }
+
+                if (sum <= k || col == 0)
+                {
+                    best = sum;
+                    bestCol = col;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            int last = first + (rows - 1) * width + bestCol;
+            tile = _spots[last].Tile;
+            quad = _spotQuad[last];
+            return best;
         }
 
         // Клетка отрезка seg, на которой набирается k-я «можно».
@@ -305,23 +393,57 @@ namespace Orpheus.Net.Session
             AddRun(map, true, a, dx, dy);
         }
 
-        // Пол: прямоугольник A–B (стороны до MaxRectSide), ряды от ряда A, в ряду — от столбца A. Сетка — RectOnCells
-        // (E2-15 переведёт пол на ячейки 0,5 этим флагом: развёртка рядов — та же AddRun).
+        // Пол: прямоугольник ячеек A–B (стороны до MaxRectSide), E2-15: полосы по рядам тайлов (ряды ячеек одного ряда тайлов —
+        // одна заявка-прямоугольник, ячейки тайла — одна правка сервера), в полосе — отрезки до 32 ячеек со стыком на границе
+        // тайлов; полосы — от ряда A, отрезки — от столбца A.
         private void PlanRect(in MapShape map, TileCoord tile, int quad)
         {
-            bool onCells = RectOnCells;
-            MapShape grid = onCells ? BuildCells.CellShape(map) : map;
-            TileCoord a = onCells ? Torus.Wrap(grid, BuildCells.CellOf(AnchorTile, AnchorQuad)) : Torus.Wrap(map, AnchorTile);
-            TileCoord b = onCells ? Torus.Wrap(grid, BuildCells.CellOf(tile, quad)) : Torus.Wrap(map, tile);
+            MapShape grid = BuildCells.CellShape(map);
+            TileCoord a = Torus.Wrap(grid, BuildCells.CellOf(AnchorTile, AnchorQuad));
+            TileCoord b = Torus.Wrap(grid, BuildCells.CellOf(tile, quad));
             Int2 d = Torus.Delta(grid, a, b);
             int dx = Math.Max(-(MaxRectSide - 1), Math.Min(MaxRectSide - 1, d.X));
             int dy = Math.Max(-(MaxRectSide - 1), Math.Min(MaxRectSide - 1, d.Y));
             Width = Math.Abs(dx) + 1;
             Height = Math.Abs(dy) + 1;
             int sy = dy < 0 ? -1 : 1;
-            for (int j = 0; j < Height; j++)
+            int j = 0;
+            while (j < Height)
             {
-                AddRun(map, onCells, new TileCoord(a.X, a.Y + sy * j), dx, 0);
+                int j1 = j;
+                while (j1 + 1 < Height && TileRow(grid, a.Y + sy * (j1 + 1)) == TileRow(grid, a.Y + sy * j))
+                {
+                    j1++;
+                }
+
+                AddBand(map, new TileCoord(a.X, a.Y + sy * j), dx, sy * (j1 - j));
+                j = j1 + 1;
+            }
+        }
+
+        private static int TileRow(in MapShape cells, int y) => Torus.Wrap(cells, new TileCoord(0, y)).Y >> 1;
+
+        private static int TileCol(in MapShape cells, int x) => Torus.Wrap(cells, new TileCoord(x, 0)).X >> 1;
+
+        // Полоса пола: ряд ячеек от a на dx, высотой |dy| + 1 ряд — отрезки до 32 столбцов, стык — на границе тайлов.
+        private void AddBand(in MapShape map, TileCoord a, int dx, int dy)
+        {
+            MapShape grid = BuildCells.CellShape(map);
+            int n = Math.Abs(dx) + 1;
+            int sx = dx < 0 ? -1 : 1;
+            int i0 = 0;
+            while (i0 < n)
+            {
+                int i1 = Math.Min(i0 + EditRules.MaxLineTiles - 1, n - 1);
+                while (i1 > i0 && i1 < n - 1 && TileCol(grid, a.X + sx * i1) == TileCol(grid, a.X + sx * (i1 + 1)))
+                {
+                    i1--;
+                }
+
+                TileCoord p0 = Torus.Wrap(grid, new TileCoord(a.X + sx * i0, a.Y));
+                TileCoord p1 = Torus.Wrap(grid, new TileCoord(a.X + sx * i1, a.Y + dy));
+                AddSegment(BuildCells.TileOfCell(p0), BuildCells.QuadOf(p0), BuildCells.TileOfCell(p1), BuildCells.QuadOf(p1));
+                i0 = i1 + 1;
             }
         }
 

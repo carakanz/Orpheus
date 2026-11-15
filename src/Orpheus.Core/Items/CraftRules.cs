@@ -90,8 +90,7 @@ namespace Orpheus.Core.Sim
                         continue;
                     }
 
-                    WorldPos corner = Torus.CornerOf(t);
-                    var mid = new WorldPos(corner.X + Torus.SubTilesPerTile / 2, corner.Y + Torus.SubTilesPerTile / 2);
+                    WorldPos mid = BuildLayers.CenterAt(world, t); // E2-15: центр предмета (мебель со сдвигом на полтайла)
                     long d2 = Torus.Dist2(shape, pos, mid);
                     if (d2 < best)
                     {
@@ -138,8 +137,7 @@ namespace Orpheus.Core.Sim
                     }
 
                     seen = true;
-                    WorldPos c = Torus.CornerOf(t);
-                    var mid = new WorldPos(c.X + Torus.SubTilesPerTile / 2, c.Y + Torus.SubTilesPerTile / 2);
+                    WorldPos mid = BuildLayers.CenterAt(world, t); // E2-15: центр предмета
                     if (Torus.Dist2(shape, pos, mid) <= r2)
                     {
                         return CraftReply.Accepted;

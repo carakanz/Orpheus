@@ -118,7 +118,7 @@ namespace Orpheus.Tests
 
         private static string Diag(BuildRoomBot bot, long ticks) =>
             $"этап {bot.Stage}, тиков {ticks}, добыча {bot.GatherTicks} (камня {bot.StoneAtGatherEnd}, древесины {bot.WoodAtGatherEnd}, " +
-            $"скал {bot.RocksDug}, деревьев {bot.TreesChopped}), полов {bot.FloorsPlaced}/9, стен {bot.WallsPlaced}/15, " +
+            $"скал {bot.RocksDug}, деревьев {bot.TreesChopped}), полов {bot.FloorsPlaced}/{BuildRoomBot.FloorTiles}, стен {bot.WallsPlaced}/15, " +
             $"дверь поставлена {bot.DoorPlaced}, закрыта {bot.DoorClosed}, отказов правки {bot.Refused} [{bot.RefusalsText}], смертей {bot.Deaths}" +
             (bot.FailReason != null ? $", отказ: {bot.FailReason}" : string.Empty);
 
@@ -140,7 +140,7 @@ namespace Orpheus.Tests
             BuildRoomBot bot = BuildRig(rig, client);
 
             Assert.True(DriveToClosedDoor(rig, bot, 14000), Diag(bot, rig.Ticks));
-            Assert.Equal(9, bot.FloorsPlaced);
+            Assert.Equal(BuildRoomBot.FloorTiles, bot.FloorsPlaced); // E2-15: пол 5 × 5 под стенами
             Assert.Equal(15, bot.WallsPlaced);
             Assert.Equal(100, Hp(sim, client.EntityId));
             Assert.Equal(0, bot.Deaths);

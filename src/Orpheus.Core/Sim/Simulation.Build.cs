@@ -154,7 +154,7 @@ namespace Orpheus.Core.Sim
                 return _respawnCenter;
             }
 
-            return FreeGroundNear(EditRules.CenterOf(e.Bed));
+            return FreeGroundNear(BuildLayers.CenterAt(_world, e.Bed)); // E2-15: от центра кровати
         }
 
         // ---------- Сундуки (`05` 1.3, `06` 5.3: 30 ячеек) ----------

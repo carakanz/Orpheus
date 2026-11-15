@@ -1083,9 +1083,11 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Debris, back18.Reply);
             Assert.Equal(EditReply.NoResources, back18.FirstRefusal);
             byte[] badReply = (byte[])eb.Clone();
-            badReply[3] = 19; // 15 — «ты мёртв» (E2-1, протокол 21); 16–18 — «цело», «под ударом», «пауза» (E2-5, протокол 23)
+            badReply[3] = 19; // E2-15 (протокол 27): 19 — «мешает мебель», допустим
+            Assert.Equal(EditReply.FurnitureInTile, TileReplyMessage.Read(badReply).Reply);
+            badReply[3] = 20; // 15 — «ты мёртв» (E2-1, протокол 21); 16–18 — «цело», «под ударом», «пауза» (E2-5, протокол 23); 19 — E2-15
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badReply));
-            Assert.Equal(26, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1), 22 — крафт: заявка 30, ответ 31, очередь 32 (E2-3), 23 — починка, действие 33–35, сундук (E2-5), 24 — сундуки рядом 36 (E2-10), 25 — ячейка панели в запросе постановки (E2-11), 26 — четверти в запросе постановки (E2-12)
+            Assert.Equal(27, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1), 22 — крафт: заявка 30, ответ 31, очередь 32 (E2-3), 23 — починка, действие 33–35, сундук (E2-5), 24 — сундуки рядом 36 (E2-10), 25 — ячейка панели в запросе постановки (E2-11), 26 — четверти в запросе постановки (E2-12), 27 — запись постройки 9 байт (E2-15)
         }
 
         // ---------- Строительство (1-011): палитра данными, полы, снос, обломки ----------
@@ -1190,7 +1192,7 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(5);
-            GiveItems(rig, c, Items.WoodFloor, 10); // E2-11: пол — предмет
+            GiveItems(rig, c, Items.WoodFloor, 16); // E2-11: пол — предмет; E2-15: предмет на ячейку 0,5, тайл — 4
             rig.InputOf = _ => HammerHold;
             rig.Run(3);
 
@@ -1204,8 +1206,8 @@ namespace Orpheus.Tests
                 Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(t));
             }
 
-            Assert.Equal(7, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodFloor)); // 3 предмета сняты (E2-11)
-            Assert.Equal(7, c.Inv.Count(Items.WoodFloor));
+            Assert.Equal(4, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodFloor)); // 3 тайла × 4 ячейки сняты (E2-11, E2-15)
+            Assert.Equal(4, c.Inv.Count(Items.WoodFloor));
             Assert.True(rig.Sim.World.TryGetBuild(new TileCoord(302, 200), out BuildRecord rec));
             Assert.Equal(FloorId.Grass, rec.NaturalFloor);
 
@@ -1218,7 +1220,7 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.Equal(FloorId.Grass, rig.Sim.World.GetFloor(new TileCoord(301, 200))); // природный из записи
             Assert.False(rig.Sim.World.TryGetBuild(new TileCoord(301, 200), out _));
-            Assert.Equal(8, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodFloor)); // снос возвращает один предмет-пол (E2-11)
+            Assert.Equal(8, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodFloor)); // снос возвращает предмет на ячейку пола: 4 (E2-11, E2-15)
             Assert.Equal(8, c.Inv.Count(Items.WoodFloor));
             Assert.Equal(FloorId.WoodFloor, rig.Sim.World.GetFloor(new TileCoord(302, 200))); // соседний пол не тронут
         }
