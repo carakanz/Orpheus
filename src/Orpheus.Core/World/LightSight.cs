@@ -122,6 +122,40 @@ namespace Orpheus.Core.World
             return n;
         }
 
+        /// <summary>
+        /// Сколько четвертей тайла от точки (<paramref name="x4"/>, <paramref name="y4"/>) мира (в чанке <paramref name="chunk"/>)
+        /// по направлению (<paramref name="dx4"/>, <paramref name="dy4"/>) до первой ячейки, не пропускающей свет; не больше
+        /// <paramref name="max4"/>. Тень от огня не длиннее — за стену не попадает (C-017).
+        /// </summary>
+        public int FreeRun4(ChunkCoord chunk, int x4, int y4, int dx4, int dy4, int max4)
+        {
+            Entry e = EntryOf(chunk);
+            int len = ISqrt(dx4 * dx4 + dy4 * dy4);
+            if (!e.AnyWall || e.Cells == null || len == 0 || max4 <= 0)
+            {
+                return max4;
+            }
+
+            MapShape map = _world.Shape;
+            int px = Mod(x4 - e.Corner.X * 4, map.Wraps ? map.Width * 4 : int.MaxValue);
+            int py = Mod(y4 - e.Corner.Y * 4, map.Wraps ? map.Height * 4 : int.MaxValue);
+            for (int k = 1; k <= max4; k++)
+            {
+                int qx = px + dx4 * k / len, qy = py + dy4 * k / len;
+                if ((uint)qx >= Side * 2 || (uint)qy >= Side * 2)
+                {
+                    return max4;
+                }
+
+                if ((e.Cells[(qy >> 1) * Side + (qx >> 1)] & CellWindow.LightWall) != 0)
+                {
+                    return k - 1;
+                }
+            }
+
+            return max4;
+        }
+
         private Entry EntryOf(ChunkCoord chunk)
         {
             ChunkCoord c = Torus.Wrap(_world.Shape, chunk);

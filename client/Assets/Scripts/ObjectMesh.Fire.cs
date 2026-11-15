@@ -118,6 +118,19 @@ namespace Orpheus.Client
                         u /= dist;
                         var side = new Vector2(u.y, -u.x); // «ширина» картинки — поперёк луча
                         float len = Mathf.Min(FireLenMax, FireLenNear + FireLenPerTile * dist) * k;
+                        // За стену тень не заходит: длина — до первой ячейки, не пропускающей свет, по лучу от опоры.
+                        int want4 = Mathf.CeilToInt(h1 * len * 4f);
+                        int run4 = sight.FreeRun4(c, x4, y4, l.Dx4, l.Dy4, want4);
+                        if (run4 < want4)
+                        {
+                            if (run4 <= 0)
+                            {
+                                continue;
+                            }
+
+                            len *= run4 / (float)want4;
+                        }
+
                         var a = new Vector2(it.X, it.Y);
                         var c32 = new Color32(0, 0, 0, (byte)Mathf.Min(255, l.X1024 * FireAlpha / DayClock.LightScale));
                         Quad(a + side * x0 + u * (h0 * len), a + side * x1 + u * (h0 * len),

@@ -244,6 +244,21 @@ namespace Orpheus.Tests
             Assert.Equal(RoomIndex.LitRoom, Label(w, 103, 103)); // а комната с факелом — по-прежнему комната
         }
 
+        /// <summary>Тень от огня не длиннее пути до стены: от середины тайла 102 на запад до ячейки стены 200 — 8 четвертей.</summary>
+        [Fact]
+        public void L03_FreeRun_Stops_At_Wall()
+        {
+            var sim = new Simulation(Flat());
+            Room(sim, 100, 100, 106, 105);
+            Assert.True(sim.RequestEdit(new TileCoord(104, 104), FloorId.Grass, ObjectId.Torch));
+            sim.Step();
+            WorldModel w = sim.World;
+            ChunkCoord c = Torus.ChunkOf(w.Shape, new TileCoord(102, 103));
+            Assert.Equal(8, w.Sight.FreeRun4(c, 102 * 4 + 2, 103 * 4 + 2, -4, 0, 40));
+            Assert.Equal(40, w.Sight.FreeRun4(c, 102 * 4 + 2, 103 * 4 + 2, 0, 0, 40));
+            Assert.Equal(6, w.Sight.FreeRun4(c, 102 * 4 + 2, 103 * 4 + 2, 1, 0, 6)); // до стены дальше — сколько просили
+        }
+
         [Fact]
         public void L02_Strongest_Orders_And_Directions()
         {

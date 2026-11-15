@@ -34,6 +34,9 @@ namespace Orpheus.Client
         readonly LightSight.Lit[] _lit = new LightSight.Lit[2];
         Mesh? _mesh;
         float _width;
+        WorldModel? _world;
+        ChunkCoord _chunk;
+        int _x4, _y4;
 
         /// <summary>Повесить тень на существо (потомок корня, слой теней).</summary>
         public static void Attach(Transform actor, float width)
@@ -149,11 +152,16 @@ namespace Orpheus.Client
             int lit = 0;
             WorldModel? world = WorldFx.World;
             FloatingOrigin? origin = WorldFx.Origin;
+            _world = null;
             if (world != null && origin != null)
             {
                 WorldPos feet = origin.FromUnity(t.position);
                 TileCoord tile = Torus.TileOf(world.Shape, feet);
-                lit = world.Sight.Strongest(Torus.ChunkOf(world.Shape, tile), feet.X >> (Torus.SubTileBits - 2), feet.Y >> (Torus.SubTileBits - 2), _lit);
+                _world = world;
+                _chunk = Torus.ChunkOf(world.Shape, tile);
+                _x4 = feet.X >> (Torus.SubTileBits - 2);
+                _y4 = feet.Y >> (Torus.SubTileBits - 2);
+                lit = world.Sight.Strongest(_chunk, _x4, _y4, _lit);
             }
 
             bool changed = false;
@@ -171,6 +179,12 @@ namespace Orpheus.Client
                         u /= dist;
                         var side = new Vector2(u.y, -u.x) * (FireWidth * 0.5f);
                         float len = Mathf.Min(FireLenMax, FireLenNear + FireLenPerTile * dist) * Height;
+                        if (_world != null)
+                        {
+                            int want4 = Mathf.CeilToInt(len * 4f);
+                            len *= _world.Sight.FreeRun4(_chunk, _x4, _y4, _lit[j].Dx4, _lit[j].Dy4, want4) / (float)want4;
+                        }
+
                         Vector2 foot = -u * 0.12f;
                         a = foot - side;
                         b = foot + side;
