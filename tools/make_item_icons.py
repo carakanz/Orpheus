@@ -645,20 +645,26 @@ def main() -> None:
     with MANIFEST.open(encoding="utf-8", newline="") as f:
         rows = list(csv.reader(f))
     known = {r[0] for r in rows if r}
+    # A-005: значки из набора Мака (стиль Б) скрипт не перерисовывает — их делает tools/art_icon_set.py
+    mac_b = {r[0] for r in rows if r and len(r) > 3 and "стиль Б (A-005" in r[3]}
     if "--c008" in sys.argv:
         # C-008: только значки построек по силуэту (остальные картинки не трогать); строки манифеста — новое описание.
         notes_of = {f"client/Assets/Art/_TEMP/TEMP_item_{k}.png": n for k, (_, n) in BUILD_ICONS_C008.items()}
         for key, (draw, notes) in BUILD_ICONS_C008.items():
+            if f"client/Assets/Art/_TEMP/TEMP_item_{key}.png" in mac_b:
+                continue
             img = draw().resize((64, 64), Image.LANCZOS)
             ImageDraw.Draw(img).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))  # пурпурный уголок заглушки
             rel = f"client/Assets/Art/_TEMP/TEMP_item_{key}.png"
             img.save(ROOT / rel, optimize=False)
             print(rel)
-        rows = [[r[0], r[1], r[2], notes_of[r[0]]] if r and r[0] in notes_of else r for r in rows]
+        rows = [[r[0], r[1], r[2], notes_of[r[0]]] if r and r[0] in notes_of and r[0] not in mac_b else r for r in rows]
         with MANIFEST.open("w", encoding="utf-8", newline="") as f:
             csv.writer(f, lineterminator=chr(10)).writerows(rows)
         return
     for key, (draw, notes) in {**ICONS, **BUILD_ICONS}.items():
+        if f"client/Assets/Art/_TEMP/TEMP_item_{key}.png" in mac_b:
+            continue
         img = draw().resize((64, 64), Image.LANCZOS)
         ImageDraw.Draw(img).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))  # пурпурный уголок заглушки
         rel = f"client/Assets/Art/_TEMP/TEMP_item_{key}.png"

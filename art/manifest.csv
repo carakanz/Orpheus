@@ -45,8 +45,8 @@ client/Assets/Art/_TEMP/TEMP_cliff_inner_ne.png,placeholder,А,"обрыв: вн
 client/Assets/Art/_TEMP/TEMP_cliff_end_w.png,placeholder,А,"обрыв: торец: стенка сходит на нет к западу, 512x512 (4x4 тайла), земля прозрачная (E1-9); собран скриптом tools/art_stage1_build.py из TEMP_cliff_face и TEMP_ground_rocky; полоса лица — Мак (Z-Image base), вырезка и шов обработкой"
 client/Assets/Art/_TEMP/TEMP_cliff_end_e.png,placeholder,А,"обрыв: торец: стенка сходит на нет к востоку, 512x512 (4x4 тайла), земля прозрачная (E1-9); собран скриптом tools/art_stage1_build.py из TEMP_cliff_face и TEMP_ground_rocky; полоса лица — Мак (Z-Image base), вырезка и шов обработкой"
 client/Assets/Art/_TEMP/TEMP_cliff_top.png,placeholder,А,"обрыв: середина площадки 512x512 (4x4 тайла), та же текстура, что верх сегментов (E1-9); из TEMP_ground_rocky, чуть светлее"
-client/Assets/Art/_TEMP/TEMP_item_wood.png,placeholder,К,"значок предмета «древесина» на земле 64x64, контур и плоский цвет (E2-1); скрипт tools/make_item_icons.py"
-client/Assets/Art/_TEMP/TEMP_item_stone.png,placeholder,К,значок предмета «камень» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_wood.png,placeholder,А,"значок предмета «древесина» 64x64; Мак, стиль Б (A-005: Z-Image base, набор art/style/sets/a005.json, ключ wood_b); 128 px — art/style/icons_b/wood_128.png; финальный — после приёмки Автора; скрипт tools/art_icon_set.py"
+client/Assets/Art/_TEMP/TEMP_item_stone.png,placeholder,А,"значок предмета «камень» 64x64; Мак, стиль Б (A-005: Z-Image base, набор art/style/sets/a005.json, ключ stone_b); 128 px — art/style/icons_b/stone_128.png; финальный — после приёмки Автора; скрипт tools/art_icon_set.py"
 client/Assets/Art/_TEMP/TEMP_item_copper_ore.png,placeholder,К,значок предмета «медная руда» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_fiber.png,placeholder,К,значок предмета «волокно» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_resin.png,placeholder,К,значок предмета «смола» на земле 64x64 (E2-1); скрипт tools/make_item_icons.py
@@ -57,9 +57,9 @@ client/Assets/Art/_TEMP/TEMP_item_hammer.png,placeholder,К,значок пре�
 client/Assets/Art/_TEMP/TEMP_item_wooden_sword.png,placeholder,К,значок предмета «деревянный меч» 64x64 (E2-2); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_simple_bow.png,placeholder,К,значок предмета «простой лук» 64x64 (E2-2); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_torch.png,placeholder,К,значок предмета «факел» 64x64 (E2-2); скрипт tools/make_item_icons.py
-client/Assets/Art/_TEMP/TEMP_item_copper_pickaxe.png,placeholder,К,значок предмета «медная кирка» 64x64 (E2-2); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_copper_pickaxe.png,placeholder,А,"значок предмета «медная кирка» 64x64; Мак, стиль Б (A-005: Z-Image base, набор art/style/sets/a005.json, ключ copper_pickaxe_b); 128 px — art/style/icons_b/copper_pickaxe_128.png; финальный — после приёмки Автора; скрипт tools/art_icon_set.py"
 client/Assets/Art/_TEMP/TEMP_item_arrows.png,placeholder,К,значок предмета «стрелы» 64x64 (E2-2); скрипт tools/make_item_icons.py
-client/Assets/Art/_TEMP/TEMP_item_copper_ingot.png,placeholder,К,значок предмета «медный слиток» 64x64 (E2-4); скрипт tools/make_item_icons.py
+client/Assets/Art/_TEMP/TEMP_item_copper_ingot.png,placeholder,А,"значок предмета «медный слиток» 64x64; Мак, стиль Б (A-005: Z-Image base, набор art/style/sets/a005.json, ключ copper_ingot_b); 128 px — art/style/icons_b/copper_ingot_128.png; финальный — после приёмки Автора; скрипт tools/art_icon_set.py"
 client/Assets/Art/_TEMP/TEMP_item_rope.png,placeholder,К,значок предмета «верёвка» 64x64 (E2-4); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_copper_axe.png,placeholder,К,значок предмета «медный топор» 64x64 (E2-4); скрипт tools/make_item_icons.py
 client/Assets/Art/_TEMP/TEMP_item_copper_sword.png,placeholder,К,значок предмета «медный меч» 64x64 (E2-4); скрипт tools/make_item_icons.py
@@ -83,10 +83,10 @@ client/Assets/Art/_TEMP/TEMP_item_wood_floor.png,placeholder,К,"значок п
 client/Assets/Art/_TEMP/TEMP_item_stone_floor.png,placeholder,К,"значок предмета-постройки «пол каменный» 64x64 по силуэту (плоская плитка ромбом), контур и плоский цвет (C-008, было E2-11); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_item_platform.png,placeholder,К,"значок предмета-постройки «настил» 64x64 по силуэту (доски на сваях над водой), контур и плоский цвет (C-008, было E2-11); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_item_wood_wall.png,placeholder,К,"значок предмета-постройки «стена деревянная» 64x64 по силуэту (кусок стены в 3/4), контур и плоский цвет (C-008, было E2-11); скрипт tools/make_item_icons.py"
-client/Assets/Art/_TEMP/TEMP_item_stone_wall.png,placeholder,К,"значок предмета-постройки «стена каменная» 64x64 по силуэту (кусок стены в 3/4), контур и плоский цвет (C-008, было E2-11); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_item_stone_wall.png,placeholder,А,"значок предмета «стена каменная» 64x64; Мак, стиль Б (A-005: Z-Image base, набор art/style/sets/a005.json, ключ stone_wall_b); 128 px — art/style/icons_b/stone_wall_128.png; финальный — после приёмки Автора; скрипт tools/art_icon_set.py"
 client/Assets/Art/_TEMP/TEMP_item_wood_fence.png,placeholder,К,"значок предмета-постройки «забор» 64x64 по силуэту (столбики и перекладины), контур и плоский цвет (C-008, было E2-11); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_item_door.png,placeholder,К,"значок предмета-постройки «дверь» 64x64 по силуэту (полотно в раме с ручкой), контур и плоский цвет (C-008, было E2-11); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_item_campfire.png,placeholder,К,"значок предмета-постройки «костёр» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
-client/Assets/Art/_TEMP/TEMP_item_workbench.png,placeholder,К,"значок предмета-постройки «верстак» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
+client/Assets/Art/_TEMP/TEMP_item_workbench.png,placeholder,А,"значок предмета «верстак» 64x64; Мак, стиль Б (A-005: Z-Image base, набор art/style/sets/a005.json, ключ workbench_b); 128 px — art/style/icons_b/workbench_128.png; финальный — после приёмки Автора; скрипт tools/art_icon_set.py"
 client/Assets/Art/_TEMP/TEMP_item_chest.png,placeholder,К,"значок предмета-постройки «сундук» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
 client/Assets/Art/_TEMP/TEMP_item_bed.png,placeholder,К,"значок предмета-постройки «кровать» 64x64 из её плитки / картинки, контур и плоский цвет (E2-11); скрипт tools/make_item_icons.py"
