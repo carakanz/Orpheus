@@ -54,8 +54,10 @@ CHOICE = {
     # выбор из двух вариантов (15.11): у первого — плашка, два обуха, нет тетивы и т. п. (карточка, «Набор 15.11»)
     "stone_floor": "s_stone_floor_2", "door": "s_door_2", "stone_axe": "s_stone_axe_2", "copper_axe": "s_copper_axe_2",
     # перезаказ с поправкой (_r)
-    "platform": "s_platform_r", "wood_wall": "s_wood_wall_r", "hammer": "s_hammer_r", "copper_ore": "s_copper_ore_r",
+    "platform": "s_platform_r", "wood_wall": "s_wood_wall_r", "copper_ore": "s_copper_ore_r",
 }
+# Не удались все попытки — остаётся прежняя заглушка скрипта (молот: 2 варианта и перезаказ — на плашке / голова отдельно).
+KEEP = {"hammer"}
 
 
 def source(item: str, raw: Path, praw: Path) -> Path:
@@ -101,6 +103,9 @@ def install(raw: Path, praw: Path) -> None:
         rows = list(csv.reader(f))
     notes = {}
     for item in LABEL:
+        if item in KEEP:
+            print(f"{item}: прежняя заглушка (KEEP)")
+            continue
         src = source(item, raw, praw)
         if not src.exists():
             print(f"{item}: нет {src} — пропуск")
@@ -125,7 +130,7 @@ def install(raw: Path, praw: Path) -> None:
 def sheet() -> None:
     per_row = 7
     colw, rowh, left = 132, 104, 170
-    W = left + per_row * colw + 20
+    W = left + per_row * colw + 60
     top = 70
     H_list = top + len(SECTIONS) * rowh + 20
     grass_rows = [(name, items) for name, items in SECTIONS]
@@ -143,10 +148,11 @@ def sheet() -> None:
             d.rectangle((x + 30, y + 2, x + 30 + 68, y + 2 + 68), outline=(170, 130, 80))
             if p.exists():
                 img.alpha_composite(Image.open(p).convert("RGBA"), (x + 32, y + 4))
-            else:
-                d.text((x + 36, y + 26), "нет", fill=(170, 40, 30), font=probe.font(16))
+            else:   # нет значка Мака — прежняя заглушка скрипта с пометкой
+                img.alpha_composite(probe.current_icon(k), (x + 32, y + 4))
+                label += " (заглушка)"
             tw = d.textlength(label, font=probe.font(14))
-            d.text((x + 64 - tw / 2, y + 76), label, fill=(70, 45, 30), font=probe.font(14))
+            d.text((x + 64 - tw / 2, y + 76), label, fill=(170, 40, 30) if not p.exists() else (70, 45, 30), font=probe.font(14))
     gy = H_list
     img.alpha_composite(probe.grass(W, H_grass), (0, gy))
     img.alpha_composite(Image.new("RGBA", (W, 44), (16, 12, 10, 170)), (0, gy))
@@ -158,7 +164,8 @@ def sheet() -> None:
         d.text((20, y + 12), name, fill=(245, 235, 215), font=probe.font(17))
         for i, (k, _) in enumerate(items):
             p = ICONS / f"{k}_128.png"
-            ic = probe.fit_from(Image.open(p).convert("RGBA"), probe.ICON) if p.exists() else None
+            ic = (probe.fit_from(Image.open(p).convert("RGBA"), probe.ICON) if p.exists()
+                  else probe.current_icon(k).resize((probe.ICON, probe.ICON), Image.LANCZOS))
             img.alpha_composite(probe.cell_with(ic), (left + i * (probe.CELL + 6), y))
     SHEET.parent.mkdir(parents=True, exist_ok=True)
     img.convert("RGB").save(SHEET, optimize=True)
