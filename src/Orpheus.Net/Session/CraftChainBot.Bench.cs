@@ -18,7 +18,32 @@ namespace Orpheus.Net.Session
 
         private InputFrame PlaceBench(NetClient client, ClientWorld world, WorldPos pos)
         {
-            InputFrame hammer = HammerFrame(client);
+            // E2-11: верстак — предмет. Нет его — сделать руками (10 древесины + 6 камня); в сумке — переложить на панель
+            // (общий BuildHand.StockMove); на панели — взять в руку и поставить им.
+            int benchSlot = BuildHand.SlotWith(client.Inv, Items.Workbench);
+            if (benchSlot < 0 && _placeReq == 0)
+            {
+                if (client.Inv.Count(Items.Workbench) == 0)
+                {
+                    int before = CraftRequests;
+                    InputFrame f = Craft(client, world, pos, RecipeTable.Workbench, 1);
+                    if (CraftRequests > before)
+                    {
+                        _benchOrderFrame = _frame;
+                    }
+
+                    return f;
+                }
+
+                if (_frame - _moveFrame > 30 && BuildHand.StockMove(client.Inv, Items.Workbench, out int from, out int to) && client.RequestBagMove(from, to))
+                {
+                    _moveFrame = _frame;
+                }
+
+                return Stand();
+            }
+
+            InputFrame hammer = new InputFrame(Input8.None, 0, 0, (byte)Math.Max(0, benchSlot));
             if (_placeReq != 0)
             {
                 if (_frame - _placeFrame > 180)
@@ -45,7 +70,7 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                // «Взвод»: сервер проверяет молот по кадру ввода, пришедшему после запроса, — сначала несколько кадров с молотом.
+                // «Взвод»: несколько кадров с верстаком в руке до заявки (рука сервера догоняет кадры ввода).
                 if (!_armed || _armTile.X != t.X || _armTile.Y != t.Y)
                 {
                     _armed = true;
@@ -59,7 +84,7 @@ namespace Orpheus.Net.Session
                     return hammer;
                 }
 
-                ushort id = client.Place(t, t, ObjectId.Workbench, pos);
+                ushort id = benchSlot < 0 ? (ushort)0 : client.Place(t, t, ObjectId.Workbench, pos, (byte)benchSlot);
                 if (id != 0)
                 {
                     _placeReq = id;
@@ -72,21 +97,6 @@ namespace Orpheus.Net.Session
 
             _benchRefused.Clear(); // все места вокруг перебрали — заново (мир мог измениться)
             return hammer;
-        }
-
-        private static InputFrame HammerFrame(NetClient client)
-        {
-            byte slot = 0;
-            for (byte s = 0; s < Inventory.Slots; s++)
-            {
-                if (Items.DigToolOf(client.Inv.SlotAt(s)) == ToolKind.Hammer)
-                {
-                    slot = s;
-                    break;
-                }
-            }
-
-            return new InputFrame(Input8.None, 0, 0, slot);
         }
 
         private InputFrame Craft(NetClient client, ClientWorld world, WorldPos pos, byte recipe, int count)
@@ -114,6 +124,7 @@ namespace Orpheus.Net.Session
         private InputFrame Stand() => new InputFrame(Input8.None, 0, 0, _slot);
 
         private CraftDesk? _desk;
+        private int _benchOrderFrame = -1000; // E2-11: заявка «сделать верстак» ушла — пока предмет не пришёл, этап «верстак»
 
         private InputFrame Equip(NetClient client, in Inventory inv)
         {

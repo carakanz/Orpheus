@@ -426,7 +426,7 @@ namespace Orpheus.Core.World
 
         /// <summary>Хватает ли в сумке на починку с такой ценой.</summary>
         public static bool RepairAffordable(in BuildDef def, int cost1, int cost2, in Sim.Inventory bag) =>
-            BuildDefs.Affordable(new BuildDef(def.Material1, cost1, def.Material2, cost2, def.MaxIntegrity, false), bag)
+            BuildDefs.Affordable(new BuildDef(def.Material1, cost1, def.Material2, cost2, def.MaxIntegrity, false, def.Item), bag)
             || (cost1 <= 0 && cost2 <= 0);
 
         /// <summary>

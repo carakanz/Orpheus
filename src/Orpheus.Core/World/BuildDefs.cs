@@ -35,8 +35,13 @@ namespace Orpheus.Core.World
         /// <summary>Пол: ставится в слой пола, объект на тайле остаётся пустым.</summary>
         public readonly bool IsFloor;
 
-        public BuildDef(Material material1, int count1, Material material2, int count2, ushort maxIntegrity, bool isFloor)
+        /// <summary>Предмет-постройка (E2-11, <see cref="Items.WoodWall"/>…): постановка снимает один такой предмет из руки,
+        /// снос возвращает один; материалы выше — цена рецепта (<see cref="RecipeTable"/>) и цена починки.</summary>
+        public readonly byte Item;
+
+        public BuildDef(Material material1, int count1, Material material2, int count2, ushort maxIntegrity, bool isFloor, byte item)
         {
+            Item = item;
             Material1 = material1;
             Count1 = count1;
             Material2 = material2;
@@ -80,28 +85,28 @@ namespace Orpheus.Core.World
         static BuildDefs()
         {
             // Акт I (`05` 1.3, цены из `00` 5.2): пол 1, стена 2 / 120 и 2 / 300, забор 1 / 45, дверь 6 / 90, факел 1 + 1 смола / 10.
-            Table[ObjectId.Torch] = new BuildDef(Material.Wood, 1, Material.Resin, 1, 10, false);
-            Table[ObjectId.WoodWall] = new BuildDef(Material.Wood, 2, Material.Wood, 0, 120, false);
-            Table[ObjectId.StoneWall] = new BuildDef(Material.Stone, 2, Material.Stone, 0, 300, false);
-            Table[ObjectId.WoodFence] = new BuildDef(Material.Wood, 1, Material.Wood, 0, 45, false);
-            Table[ObjectId.Door] = new BuildDef(Material.Wood, 6, Material.Wood, 0, 90, false);
+            Table[ObjectId.Torch] = new BuildDef(Material.Wood, 1, Material.Resin, 1, 10, false, Items.Torch);
+            Table[ObjectId.WoodWall] = new BuildDef(Material.Wood, 2, Material.Wood, 0, 120, false, Items.WoodWall);
+            Table[ObjectId.StoneWall] = new BuildDef(Material.Stone, 2, Material.Stone, 0, 300, false, Items.StoneWall);
+            Table[ObjectId.WoodFence] = new BuildDef(Material.Wood, 1, Material.Wood, 0, 45, false, Items.WoodFence);
+            Table[ObjectId.Door] = new BuildDef(Material.Wood, 6, Material.Wood, 0, 90, false, Items.Door);
 
             // Костёр (`05` 101, `06` 339: 8 камня + 4 древесины, прочность 60; свет 4 / 8 — `01` 6, 1-014).
-            Table[ObjectId.Campfire] = new BuildDef(Material.Stone, 8, Material.Wood, 4, 60, false);
+            Table[ObjectId.Campfire] = new BuildDef(Material.Stone, 8, Material.Wood, 4, 60, false, Items.Campfire);
 
             // Верстак I (E2-3; `06` 3.3: 10 древесины + 6 камня, руками, прочность 100; ставится молотом — `06` 3.7 п. 1).
             // В документе 2 × 2; пока 1 × 1 — многотайловой постановки в ядре нет (допущение E2-3).
-            Table[ObjectId.Workbench] = new BuildDef(Material.Wood, 10, Material.Stone, 6, 100, false);
+            Table[ObjectId.Workbench] = new BuildDef(Material.Wood, 10, Material.Stone, 6, 100, false, Items.Workbench);
 
             // Сундук и кровать (E2-5; `05` 1.3: сундук 8 древесины / 100, кровать 10 древесины + 5 волокна / 40).
             // Кровать в документе 1 × 2; пока 1 × 1 — многотайловой постановки в ядре нет (допущение E2-5, как у верстака).
-            Table[ObjectId.Chest] = new BuildDef(Material.Wood, 8, Material.Wood, 0, 100, false);
-            Table[ObjectId.Bed] = new BuildDef(Material.Wood, 10, Material.Fiber, 5, 40, false);
+            Table[ObjectId.Chest] = new BuildDef(Material.Wood, 8, Material.Wood, 0, 100, false, Items.Chest);
+            Table[ObjectId.Bed] = new BuildDef(Material.Wood, 10, Material.Fiber, 5, 40, false, Items.Bed);
 
             // Полы: «не бьют» — прочность полная, снос возвращает рецепт целиком; над глубиной настил 2 — за генератором (`01` 5, `[док]`).
-            Floors[FloorId.WoodFloor] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
-            Floors[FloorId.StoneFloor] = new BuildDef(Material.Stone, 1, Material.Stone, 0, BuildRecord.MaxIntegrity, true);
-            Floors[FloorId.Platform] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true);
+            Floors[FloorId.WoodFloor] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true, Items.WoodFloor);
+            Floors[FloorId.StoneFloor] = new BuildDef(Material.Stone, 1, Material.Stone, 0, BuildRecord.MaxIntegrity, true, Items.StoneFloor);
+            Floors[FloorId.Platform] = new BuildDef(Material.Wood, 1, Material.Wood, 0, BuildRecord.MaxIntegrity, true, Items.Platform);
         }
 
         private static readonly ushort[] PaletteKeys =
@@ -116,6 +121,31 @@ namespace Orpheus.Core.World
         /// дверь, свет, станки, хранение, мебель. Калитки отдельной нет: калитка — дверь в заборе (`05` 3.3).
         /// </summary>
         public static ReadOnlySpan<ushort> Palette => PaletteKeys;
+
+        /// <summary>Предмет-постройка по ключу (E2-11); не постройка — <see cref="Items.None"/>.</summary>
+        public static byte ItemOf(ushort key) => TryGet(key, out BuildDef def) ? def.Item : Items.None;
+
+        /// <summary>
+        /// Ключ постройки по предмету в руке (E2-11): стена — <see cref="ObjectId.WoodWall"/>, пол — ключ пола; не постройка — false.
+        /// Перебор ленты (12 строк) — без словаря и рефлексии (IL2CPP).
+        /// </summary>
+        public static bool TryKeyOf(byte item, out ushort key)
+        {
+            if (item != Items.None)
+            {
+                foreach (ushort k in PaletteKeys)
+                {
+                    if (ItemOf(k) == item)
+                    {
+                        key = k;
+                        return true;
+                    }
+                }
+            }
+
+            key = 0;
+            return false;
+        }
 
         /// <summary>Хватает ли в сумке материалов на постройку (та же смета, что списывает такт).</summary>
         public static bool Affordable(in BuildDef def, in Inventory bag)

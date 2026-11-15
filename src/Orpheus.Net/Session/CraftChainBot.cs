@@ -296,9 +296,9 @@ namespace Orpheus.Net.Session
                 return inv.Count(Items.CopperIngot) >= NeedIngots ? Stage.Pickaxe : Stage.Smelt;
             }
 
-            if (_placeReq != 0)
+            if (_placeReq != 0 || inv.Count(Items.Workbench) > 0 || _frame - _benchOrderFrame < 300)
             {
-                return Stage.Bench; // постановка в пути: стоимость уже предсказана и снята с локальной сумки
+                return Stage.Bench; // постановка в пути, верстак-предмет в сумке или делается (E2-11): материалы уже сняты
             }
 
             if (inv.Count(Items.Wood) < NeedWood || inv.Count(Items.Stone) < NeedStone)

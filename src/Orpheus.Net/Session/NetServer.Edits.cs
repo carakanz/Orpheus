@@ -110,7 +110,7 @@ namespace Orpheus.Net.Session
             byte held = _sim.Entities[slot].Inv.Held; // предмет в руках такта запроса (1-011: молот обязателен и для постановки)
             if (m.Op == TileOp.Place)
             {
-                OnPlace(p, s, pos, m, held);
+                OnPlace(p, s, pos, m);
                 return;
             }
 
@@ -220,7 +220,7 @@ namespace Orpheus.Net.Session
             return FloorId.IsBuilt(floor) ? floor : FloorId.WoodFloor;
         }
 
-        private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m, byte held)
+        private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m)
         {
             int n = EditRules.Line(_sim.Shape, m.From, m.To, _line);
             if (n < 0 || !EditRules.IsPlaceable(m.Obj))
@@ -229,10 +229,12 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            // Молот в руках обязателен и для постановки (1-011, `05` 1.3 — «нужен молот» строка отказа).
-            if (Items.DigToolOf(held) != ToolKind.Hammer)
+            // E2-11: постройки — предметы. Молот не нужен: в ячейке панели заявки должен лежать предмет этой постройки
+            // (по предмету на тайл снимает такт — Simulation.PayPlacement; кончились посреди линии — «нет ресурсов»).
+            int slot = _sim.SlotOf(p.EntityId);
+            if (slot < 0 || BuildDefs.ItemOf(m.Obj) == Items.None || _sim.Entities[slot].Inv.ItemAt(m.Cell) != BuildDefs.ItemOf(m.Obj))
             {
-                Reply(p, m.RequestId, EditReply.ToolRequired, EditReply.ToolRequired, 0);
+                Reply(p, m.RequestId, EditReply.NoResources, EditReply.NoResources, 0);
                 return;
             }
 
@@ -261,7 +263,7 @@ namespace Orpheus.Net.Session
                     0, floor, 0);
                 if (check == EditReply.Accepted &&
                     !_sim.RequestPlayerEdit(t, floorKey ? BuildDefs.FloorOf(m.Obj) : floor, floorKey ? ObjectId.Empty : m.Obj,
-                        true, rec, p.EntityId, tag))
+                        true, rec, p.EntityId, tag, m.Cell))
                 {
                     check = QueueRefusal(p.EntityId); // очередь такта полна или персонаж мёртв (C-004)
                 }

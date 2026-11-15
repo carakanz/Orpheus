@@ -58,7 +58,7 @@ namespace Orpheus.Net.Session
         /// <summary>Этапы: добыча → расчистка площадки → пол → стены → дверь → вход → закрытие → рассвет.</summary>
         public enum Phase
         {
-            Gather, Clear, Floor, Walls, Door, Enter, Close, WaitDawn, Done, Fail
+            Gather, Clear, Craft, Floor, Walls, Door, Enter, Close, WaitDawn, Done, Fail
         }
 
         private readonly MapShape _shape;
@@ -298,6 +298,7 @@ namespace Orpheus.Net.Session
             {
                 Phase.Gather => Gather(client, world, pos),
                 Phase.Clear => Clear(client, world, pos),
+                Phase.Craft => CraftItems(client, world, pos),
                 Phase.Floor => Floor(client, world, pos),
                 Phase.Walls => Walls(client, world, pos),
                 Phase.Door => Door(client, world, pos),
@@ -483,7 +484,7 @@ namespace Orpheus.Net.Session
             TileCoord? blocker = FindNaturalOnSite(world);
             if (blocker == null)
             {
-                Stage = Phase.Floor;
+                Stage = Phase.Craft; // E2-11: сначала сделать постройки-предметы рецептами, потом ставить
                 return InputFrame.None;
             }
 
@@ -508,6 +509,65 @@ namespace Orpheus.Net.Session
             }
 
             return null;
+        }
+
+        // ------------------------------------------------------------------ изготовление построек (E2-11)
+
+        /// <summary>Сколько предметов-построек нужно комнате: пол 3 × 3, стены периметра без двери, дверь.</summary>
+        public const int NeedFloors = (RoomSize - 2) * (RoomSize - 2);
+        public const int NeedWalls = 4 * RoomSize - 5;
+        public const int NeedDoors = 1;
+
+        private CraftDesk? _desk;
+        private int _craftFrame = -1000;
+
+        /// <summary>Заявок изготовления построек отправлено (E2-11).</summary>
+        public int CraftRequests { get; private set; }
+
+        /// <summary>Кадров заняло изготовление построек.</summary>
+        public int CraftTicks { get; private set; }
+
+        /// <summary>
+        /// E2-11: постройки — предметы. Бот делает пол, стены и дверь руками (рецепты <see cref="RecipeTable"/>, тот же путь, что
+        /// у окна изготовления, — <see cref="CraftDesk"/>), пока в сумке нет полного набора, потом ставит их из руки.
+        /// </summary>
+        private InputFrame CraftItems(NetClient client, ClientWorld world, WorldPos pos)
+        {
+            int floors = client.Inv.Count(Items.WoodFloor), walls = client.Inv.Count(Items.StoneWall), doors = client.Inv.Count(Items.Door);
+            if (floors >= NeedFloors && walls >= NeedWalls && doors >= NeedDoors)
+            {
+                CraftTicks = Ticks - GatherTicks;
+                Stage = Phase.Floor;
+                return InputFrame.None;
+            }
+
+            InputFrame? fight = ThreatFrame(client, pos);
+            if (fight != null)
+            {
+                return fight.Value;
+            }
+
+            // Очередь пуста и ответа давно нет — следующая заявка (первая или повтор после отказа).
+            _desk ??= new CraftDesk(client);
+            if (client.Craft.IsEmpty && _frame - _craftFrame > 45)
+            {
+                (byte recipe, int count) = walls < NeedWalls ? (RecipeTable.StoneWall, NeedWalls - walls)
+                    : floors < NeedFloors ? (RecipeTable.WoodFloor, NeedFloors - floors)
+                    : (RecipeTable.Door, NeedDoors - doors);
+                CraftLine line = CraftDesk.LineOf(recipe, client.Inv, client.Craft, world.World, pos, stock: client.NearbyStock);
+                if (_desk.Make(line, count))
+                {
+                    _craftFrame = _frame;
+                    CraftRequests++;
+                }
+                else if (_frame - _craftFrame > 900)
+                {
+                    Stage = Phase.Fail;
+                    FailReason = $"изготовление: рецепт {recipe} × {count} — {line.State} (камень {client.Inv.Count(Items.Stone)}, древесина {client.Inv.Count(Items.Wood)})";
+                }
+            }
+
+            return HammerFrame(client);
         }
 
         // ------------------------------------------------------------------ пол
@@ -547,10 +607,14 @@ namespace Orpheus.Net.Session
                 return HammerFrame(client);
             }
 
-            // E2-5: тот же путь, что у игрока, — «молот» BuildHand (ряд пола — линией, как ведение с зажатой ЛКМ).
-            BuildHand build = Build(client);
-            build.Select(BuildDefs.WoodFloorKey);
-            ushort id = build.PlaceLine(from, to, pos);
+            // E2-11: тот же путь, что у игрока, — BuildHand, пол из руки (ряд пола — линией, как ведение с зажатой ЛКМ).
+            int floorSlot = BuildHand.SlotWith(client.Inv, Items.WoodFloor);
+            if (floorSlot < 0)
+            {
+                return HammerFrame(client); // пол ещё не на панели — HandSlot переложит
+            }
+
+            ushort id = Build(client).PlaceLine(from, to, pos, client.Inv, floorSlot);
             if (id != 0)
             {
                 _reqObj[id] = BuildDefs.WoodFloorKey;
@@ -1006,8 +1070,41 @@ namespace Orpheus.Net.Session
             return byte.MaxValue;
         }
 
-        /// <summary>Ячейка сумки с молотом (постановка требует молот в руках кадра, 1-011); нет — 0.</summary>
-        private static byte HammerSlot(NetClient client)
+        /// <summary>
+        /// Ячейка панели «в руке» в фазах стройки (E2-11): предмет-постройка этапа (пол, стена, дверь). Его нет на панели, а в
+        /// сумке есть — заявка «переложить на панель» (раз в 30 кадров, общий <see cref="BuildHand.StockMove"/>); пока — молот.
+        /// </summary>
+        private byte HammerSlot(NetClient client)
+        {
+            byte item = Stage switch
+            {
+                Phase.Floor => Items.WoodFloor,
+                Phase.Walls => Items.StoneWall,
+                Phase.Door => Items.Door,
+                _ => Items.None,
+            };
+            int hand = BuildHand.SlotWith(client.Inv, item);
+            if (hand >= 0)
+            {
+                return (byte)hand;
+            }
+
+            if (item != Items.None && _frame - _stockFrame > 30 && BuildHand.StockMove(client.Inv, item, out int from, out int to)
+                && client.RequestBagMove(from, to))
+            {
+                _stockFrame = _frame;
+                StockMoves++;
+            }
+
+            return ToolHammerSlot(client);
+        }
+
+        private int _stockFrame = -1000;
+
+        /// <summary>Заявок «переложить постройку на панель» (E2-11).</summary>
+        public int StockMoves { get; private set; }
+
+        private static byte ToolHammerSlot(NetClient client)
         {
             for (byte s = 0; s < Inventory.Slots; s++)
             {
@@ -1055,9 +1152,14 @@ namespace Orpheus.Net.Session
         private ushort ClickBuild(NetClient client, ClientWorld world, WorldPos pos, ushort key, TileCoord t)
         {
             BuildHand build = Build(client);
-            build.Select(key);
+            int slot = BuildHand.SlotWith(client.Inv, BuildDefs.ItemOf(key));
+            if (slot < 0)
+            {
+                return 0; // предмет ещё не на панели (HandSlot переложит) — не отказ
+            }
+
             int before = build.PlaceRequests;
-            BuildCheck chk = build.Click(world.World, pos, client.Inv, client.HeldItem, true, t);
+            BuildCheck chk = build.Click(world.World, pos, client.Inv, slot, true, t);
             if (chk.Ok && build.PlaceRequests > before)
             {
                 return build.LastRequest;
@@ -1086,18 +1188,9 @@ namespace Orpheus.Net.Session
         /// Кадр постановки: молот в руках (1-011, <c>`05` 1.3</c> — сервер требует молот и для постановки,
         /// отказ «нужен молот»).
         /// </summary>
-        private static InputFrame HammerFrame(NetClient client)
+        private InputFrame HammerFrame(NetClient client)
         {
-            byte slot = 0;
-            for (byte s = 0; s < Inventory.Slots; s++)
-            {
-                if (Items.DigToolOf(client.Inv.SlotAt(s)) == ToolKind.Hammer)
-                {
-                    slot = s;
-                    break;
-                }
-            }
-
+            byte slot = HammerSlot(client);
             return new InputFrame(Input8.None, 0, 0, slot);
         }
     }

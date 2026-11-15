@@ -70,7 +70,7 @@ namespace Orpheus.Core.Sim
     /// <summary>
     /// Таблица рецептов вертикального среза (E2-3, шаг 2.3; <c>06</c> раздел 10 «Рецепты среза», 1.5, 2.3, 3.3, 4.4, 6):
     /// одна строка — один рецепт, веток по номеру в коде нет. Время — 0,5 с на рецепт (<c>06</c> 3.3) = 15 тактов.
-    /// <para>Верстак I и костёр — не рецепты, а постройки молотом (<see cref="BuildDefs"/>; <c>06</c> 3.7 п. 1).</para>
+    /// <para>С E2-11 каждая постройка <see cref="BuildDefs"/> — предмет и рецепт (строки 15…25, факел — 4); цена рецепта = цена в <see cref="BuildDefs"/> (тест).</para>
     /// <para>Добавлять строки — только в конец, номера подряд; строка стоит на месте своего номера (проверка в конструкторе).</para>
     /// </summary>
     public static class RecipeTable
@@ -96,6 +96,19 @@ namespace Orpheus.Core.Sim
         public const byte CopperBow = 13;
         public const byte RoastMeat = 14;
 
+        // E2-11: постройки — предметы. Цена — прежняя цена постановки (`06` 6.9, `05` 1.3): одна постановка = один предмет.
+        public const byte WoodFloor = 15;
+        public const byte StoneFloor = 16;
+        public const byte Platform = 17;
+        public const byte WoodWall = 18;
+        public const byte StoneWall = 19;
+        public const byte WoodFence = 20;
+        public const byte Door = 21;
+        public const byte Campfire = 22;
+        public const byte Workbench = 23;
+        public const byte Chest = 24;
+        public const byte Bed = 25;
+
         private const CraftStation Hands = CraftStation.None;
         private const CraftStation Bench = CraftStation.Workbench;
 
@@ -119,6 +132,19 @@ namespace Orpheus.Core.Sim
             new RecipeDef(CopperBow, Items.CopperBow, 1, Bench, DefaultTicks, Items.Wood, 10, Items.CopperIngot, 4, Items.Rope, 3),
             // Костёр (`06` 6.3).
             new RecipeDef(RoastMeat, Items.RoastMeat, 1, CraftStation.Campfire, DefaultTicks, Items.Meat, 1),
+            // Постройки (E2-11; `06` 3.3: «руки — … верстак I и постройки»; костёр — у верстака I, «В-I» `05`). Выход — 1 штука:
+            // в `06` 6.9 стена — 2 древесины на тайл, «4 из 1 бревна» в документах нет.
+            new RecipeDef(WoodFloor, Items.WoodFloor, 1, Hands, DefaultTicks, Items.Wood, 1),
+            new RecipeDef(StoneFloor, Items.StoneFloor, 1, Hands, DefaultTicks, Items.Stone, 1),
+            new RecipeDef(Platform, Items.Platform, 1, Hands, DefaultTicks, Items.Wood, 1),
+            new RecipeDef(WoodWall, Items.WoodWall, 1, Hands, DefaultTicks, Items.Wood, 2),
+            new RecipeDef(StoneWall, Items.StoneWall, 1, Hands, DefaultTicks, Items.Stone, 2),
+            new RecipeDef(WoodFence, Items.WoodFence, 1, Hands, DefaultTicks, Items.Wood, 1),
+            new RecipeDef(Door, Items.Door, 1, Hands, DefaultTicks, Items.Wood, 6),
+            new RecipeDef(Campfire, Items.Campfire, 1, Bench, DefaultTicks, Items.Stone, 8, Items.Wood, 4),
+            new RecipeDef(Workbench, Items.Workbench, 1, Hands, DefaultTicks, Items.Wood, 10, Items.Stone, 6),
+            new RecipeDef(Chest, Items.Chest, 1, Hands, DefaultTicks, Items.Wood, 8),
+            new RecipeDef(Bed, Items.Bed, 1, Hands, DefaultTicks, Items.Wood, 10, Items.Fiber, 5),
             // Новые строки — сюда, в конец; номер = место в таблице.
         };
 
