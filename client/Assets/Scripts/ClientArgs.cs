@@ -167,6 +167,12 @@ namespace Orpheus.Client
         /// </summary>
         public string? HomeDemo;
 
+        /// <summary>
+        /// C-018, только для снимков без сервера: пруд и кусты вокруг персонажа (<see cref="global::Orpheus.Client.PaintDemo.Wade"/>);
+        /// слово — <c>water</c> (персонаж в воде), <c>bush</c> (в кустах), <c>enemy</c> (враг-болванка в воде).
+        /// </summary>
+        public string? WadeDemo;
+
         /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
         public bool PaintForest;
 
@@ -499,6 +505,18 @@ namespace Orpheus.Client
                         else
                         {
                             a.HomeDemo = next;
+                        }
+
+                        break;
+                    case "--wade-demo":
+                        i++;
+                        if (!global::Orpheus.Client.PaintDemo.IsWadeMode(next))
+                        {
+                            a.Error = $"--wade-demo: нужно water, bush или enemy, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.WadeDemo = next;
                         }
 
                         break;
