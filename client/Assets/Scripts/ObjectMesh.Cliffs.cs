@@ -245,7 +245,8 @@ namespace Orpheus.Client
             const float o = 0.08f; // контур, тайлов
             if (lowS)
             {
-                Line(fsw, fse, t.S <= TierEps ? o * 1.2f : o * 0.7f, white, CliffLine); // подошва / основание уступа
+                if (t.S <= TierEps) Line(fsw, fse, o * 1.2f, white, CliffLine); // подошва
+                else Line(fsw, fse, o * 0.45f, white, CliffSeam);               // основание уступа — мягче, не «полки»
                 Line(tsw, tse, o * 0.4f, white, Lerp(top, CliffHi, 0.55f));         // кромка уступа
                 if (lowW || t.W > h + TierEps || Mathf.Abs(t.SW - t.S) > TierEps) Line(fsw, tsw, o * 0.8f, white, CliffLine);
                 if (lowE || t.E > h + TierEps || Mathf.Abs(t.SE - t.S) > TierEps) Line(fse, tse, o * 0.8f, white, CliffLine);
@@ -256,26 +257,26 @@ namespace Orpheus.Client
                 // Гребень: светлая полоса под тёмным силуэтом.
                 Vector2 dn = new Vector2(0f, -0.09f);
                 Line(tnw + dn, tne + dn, o * 0.8f, white, Lerp(top, CliffHi, 0.6f));
-                Line(tnw, tne, o, white, CliffLine);
+                Line(tnw, tne, t.N <= TierEps ? o : o * 0.5f, white, t.N <= TierEps ? CliffLine : CliffSeam); // внутренний уступ — мягче
             }
 
             if (lowW)
             {
-                Line(wsw, wnw, t.W <= TierEps ? o : o * 0.6f, white, CliffLine);
-                Line(tsw, tnw, o * 0.5f, white, CliffHi);
+                if (t.W <= TierEps) Line(wsw, wnw, o, white, CliffLine); // у земли — контур; уступ сбоку — без линий
+                Line(tsw, tnw, o * (t.W <= TierEps ? 0.5f : 0.3f), white, Lerp(top, CliffHi, 0.6f));
                 if (lowN) Line(wnw, tnw, o, white, CliffLine);
             }
 
             if (lowE)
             {
-                Line(ese, ene, t.E <= TierEps ? o : o * 0.6f, white, CliffLine);
-                Line(tse, tne, o * 0.6f, white, CliffLine);
+                if (t.E <= TierEps) Line(ese, ene, o, white, CliffLine);
+                Line(tse, tne, o * (t.E <= TierEps ? 0.6f : 0.35f), white, t.E <= TierEps ? CliffLine : CliffSeam);
                 if (lowN) Line(ene, tne, o, white, CliffLine);
             }
         }
 
         // Снег — на верхнем ярусе массива, если ярусов не меньше 4 (широкий массив).
-        static int SnowLevel(ObjectLook look) => look.Levels >= 4 ? look.Levels : int.MaxValue;
+        static int SnowLevel(ObjectLook look) => look.Snow && look.Levels >= 4 ? look.Levels : int.MaxValue;
 
         // uv1 квадратов блока: опора — нижний край тайла, «высокий» (в круге своего персонажа полупрозрачен), не качается.
         static Vector4 BlockInfo(in Item it) => new Vector4(it.X, it.Y, 1f, 0f);

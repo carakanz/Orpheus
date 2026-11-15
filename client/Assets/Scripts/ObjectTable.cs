@@ -79,6 +79,9 @@ namespace Orpheus.Client
         /// <summary>Обрыв (C-016): растения на уступах массива — картинки, доля внутренних тайлов, оттенок.</summary>
         public string[] Plants = new string[0];
         public float PlantTop;
+
+        /// <summary>Обрыв (C-016): пятна снега на верхнем ярусе широкого массива.</summary>
+        public bool Snow;
         public Color32 PlantTint = new Color32(255, 255, 255, 255);
         internal int[] PlantSprites = new int[0];
         public float DecoTop, DecoEdge, DecoFoot;

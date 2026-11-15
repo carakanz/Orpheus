@@ -174,8 +174,8 @@ namespace Orpheus.WorldGen
                     {
                         kind = DepositKind.Granite;
                     }
-                    else if (rollRocks < (CliffNear(t, px, py) ? RocksByCliff : RocksMeadow)
-                             && (CliffNear(t, px, py) || TileRules.For(t.Biome[(py * w) + px]).Biome == Biome.Meadow))
+                    else if (rollRocks < RocksMeadow && !CliffNear(t, px, py)
+                             && TileRules.For(t.Biome[(py * w) + px]).Biome == Biome.Meadow) // C-016 (v8): у скалы россыпей нет — ущелья не заваливаются
                     {
                         kind = DepositKind.Rocks;
                     }
