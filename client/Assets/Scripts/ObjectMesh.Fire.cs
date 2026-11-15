@@ -27,6 +27,9 @@ namespace Orpheus.Client
         /// <summary>Слабее этого вклада (из 1024) тень огня не строится.</summary>
         const int FireMinX1024 = 80;
 
+        /// <summary>Непрозрачность тени огня при полном вкладе (из 255; больше 255 — полный цвет раньше полного вклада).</summary>
+        public const int FireAlpha = 380;
+
         readonly LightSight.Lit[] _lit = new LightSight.Lit[FireShadowsPerObject];
 
         // Расширить рамку меша теней: шейдер сдвигает верх по солнцу на несколько тайлов (длинная вечерняя тень горы),
@@ -116,7 +119,7 @@ namespace Orpheus.Client
                         var side = new Vector2(u.y, -u.x); // «ширина» картинки — поперёк луча
                         float len = Mathf.Min(FireLenMax, FireLenNear + FireLenPerTile * dist) * k;
                         var a = new Vector2(it.X, it.Y);
-                        var c32 = new Color32(0, 0, 0, (byte)Mathf.Min(255, l.X1024 * 255 / DayClock.LightScale));
+                        var c32 = new Color32(0, 0, 0, (byte)Mathf.Min(255, l.X1024 * FireAlpha / DayClock.LightScale));
                         Quad(a + side * x0 + u * (h0 * len), a + side * x1 + u * (h0 * len),
                             a + side * x0 + u * (h1 * len), a + side * x1 + u * (h1 * len), e, it.Place.Flip, c32);
                         Sun4(0f, 0f, FireChannel);

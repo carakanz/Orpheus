@@ -259,6 +259,14 @@ namespace Orpheus.Tests
             Assert.Equal(1024, top[0].X1024); // костёр в 3 тайлах — полный
             Assert.True(top[0].Dx4 < 0);      // от костра (восток) к точке — на запад
             Assert.True(top[1].Dx4 > 0);      // от факела — на восток
+
+            // Факел к югу от точки — направление «от источника» на север (Y мира вниз: Dy4 < 0).
+            Assert.True(sim.RequestEdit(new TileCoord(600, 605), FloorId.Grass, ObjectId.Torch));
+            sim.Step();
+            n = w.Sight.Strongest(Torus.ChunkOf(w.Shape, new TileCoord(600, 601)), 600 * 4 + 2, 601 * 4 + 2, top);
+            Assert.Equal(1, n);
+            Assert.Equal(0, top[0].Dx4);
+            Assert.Equal(-16, top[0].Dy4);
         }
     }
 }

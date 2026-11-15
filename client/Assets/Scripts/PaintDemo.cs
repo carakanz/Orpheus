@@ -399,7 +399,7 @@ namespace Orpheus.Client
 
         /// <summary>Слово <c>--home-demo</c> (E2-17) — где персонаж относительно дома.</summary>
         public static bool IsHomeMode(string? mode) =>
-            mode == "overview" || mode == "south" || mode == "north" || mode == "behind" || mode == "door" || mode == "camp" || mode == "fence" || mode == "torches" || mode == "room";
+            mode == "overview" || mode == "south" || mode == "north" || mode == "behind" || mode == "door" || mode == "camp" || mode == "fence" || mode == "torches" || mode == "room" || mode == "wall";
 
         /// <summary>
         /// Дом «с высотой» для снимков E2-17 (<c>--home-demo</c>): каменные стены 0,5 по внешним половинам контура 11 × 7
@@ -421,7 +421,8 @@ namespace Orpheus.Client
                 case "door": hx = cx - 1; hy = cy - 3; break;
                 case "camp": hx = cx - 3; hy = cy - 6; break;
                 case "fence": hx = cx - 8; hy = cy - 5; break;
-                case "room": hx = cx; hy = cy + 1; break; // C-017: персонаж в комнате между двумя факелами у южной стены
+                case "room": hx = cx; hy = cy; break; // C-017: персонаж посреди комнаты, два факела у южной стены
+                case "wall": hx = cx + 2; hy = cy; break; // C-017: у восточной стены — факел и валун, тень валуна к стене
                 default: hx = cx + 2; hy = cy - 6; break;
             }
 
@@ -484,7 +485,13 @@ namespace Orpheus.Client
                 Cells(world, map, x1 + 5, y, ObjectId.WoodFence, BuildCells.DoorEast, false);
             }
 
-            if (mode == "torches" || mode == "room")
+            if (mode == "wall")
+            {
+                Light(world, map, x1 - 3, hy, ObjectId.Torch);
+                Light(world, map, x1 - 1, hy, ObjectId.Rock);
+            }
+
+            if (mode == "torches" || mode == "room" || mode == "wall")
             {
                 // C-017: дерево и куст вплотную к стенам снаружи (утром и вечером их солнечная тень смотрит в дом), сундук у факелов.
                 Light(world, map, x1 + 1, hy - 2, ObjectId.Tree);

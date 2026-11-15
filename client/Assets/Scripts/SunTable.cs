@@ -20,11 +20,11 @@ namespace Orpheus.Client
         static readonly (float At, float Az, float Len, float K)[] Keys =
         {
             (DayClock.DawnStartTick, 180f, 2.6f, 0f),                         // солнце на горизонте — тени ещё нет
-            (DayClock.TicksPerDay, 172f, 2.0f, 1f),                            // утро (начало дня)
-            (DayClock.TicksPerDay + 3600f, 150f, 1.2f, 1f),
+            (DayClock.TicksPerDay, 172f, 1.8f, 1f),                            // утро (начало дня)
+            (DayClock.TicksPerDay + 3600f, 150f, 1.1f, 1f),
             (DayClock.TicksPerDay + DayClock.DuskStartTick * 0.5f, 90f, 0.42f, 1f), // полдень — коротко на север
-            (DayClock.TicksPerDay + DayClock.DuskStartTick - 3600f, 30f, 1.2f, 1f),
-            (DayClock.TicksPerDay + DayClock.DuskStartTick, 8f, 2.0f, 0.8f),   // начало сумерек — длинно на восток, бледнее
+            (DayClock.TicksPerDay + DayClock.DuskStartTick - 3600f, 30f, 1.1f, 1f),
+            (DayClock.TicksPerDay + DayClock.DuskStartTick, 8f, 1.8f, 0.8f),   // начало сумерек — длинно на восток, бледнее
             (DayClock.TicksPerDay + DayClock.NightStartTick, 0f, 2.6f, 0f),     // ночь — солнечной тени нет
         };
 

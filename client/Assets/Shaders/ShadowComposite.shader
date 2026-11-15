@@ -9,7 +9,7 @@ Shader "Orpheus/ShadowComposite"
     Properties
     {
         _Color ("Shadow color (a = strength)", Color) = (0.05, 0.07, 0.16, 0.42)
-        _Fire ("Fire shadow strength", Range(0, 1)) = 0.55
+        _Fire ("Fire shadow strength", Range(0, 1)) = 0.6
     }
 
     HLSLINCLUDE

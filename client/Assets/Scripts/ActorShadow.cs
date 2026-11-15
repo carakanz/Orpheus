@@ -176,7 +176,7 @@ namespace Orpheus.Client
                         b = foot + side;
                         c = foot + u * len - side;
                         d = foot + u * len + side;
-                        alpha = (byte)Mathf.Min(255, _lit[j].X1024 * 255 / DayClock.LightScale);
+                        alpha = (byte)Mathf.Min(255, _lit[j].X1024 * ObjectMesh.FireAlpha / DayClock.LightScale);
                     }
                 }
 
