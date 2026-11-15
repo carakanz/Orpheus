@@ -248,7 +248,10 @@ namespace Orpheus.Core.World
 
             if (here != obj || !world.TryGetBuild(t, out BuildRecord rec) || rec.IsDebris)
             {
-                return EditReply.Busy;
+                // E2-15: тайл-якорь мебели со сдвигом, просимые ячейки свободны — причина понятная («мешает мебель»).
+                bool anchorFree = here != obj && BuildLayers.IsFurniture(here) && world.TryGetBuild(t, out BuildRecord fr) && fr.HasOffset
+                    && (BuildLayers.TopCellsAt(world, t) & want) == 0;
+                return anchorFree ? EditReply.FurnitureInTile : EditReply.Busy;
             }
 
             byte before = MaskOf(here, true, rec);

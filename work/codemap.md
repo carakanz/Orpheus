@@ -164,3 +164,4 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 ## Высота построек (E2-17) - client/Assets/Scripts
 - ObjectMesh.Walls.cs (partial ObjectMesh): WallHeight · FenceShare · Looks (камень/дерево) · ReadCells/ReadNear/CellKind (ячейки тайла и 4 соседей) · CellKey · Cells (тайл в меше строки) · WallCell · Fence · Door/Slab · HullShadow · CellShadows. ObjectMesh.cs: Item.Cell, Collect (постройки-ячеек → CellLook), BuildRow/BuildShadows.
 - WorldView.cs: ChunkNode.CellKeys · Fill (ключ → строка грязная) · RefreshSeams (строки соседних чанков) · ObjectTile (стены → null). ObjectAtlas.ClearMarks (уголок заглушки). PaintDemo.Home / IsHomeMode, ClientArgs --home-demo, GameBoot. tools/make_furniture.py (мебель 3/4).
+- E2-15 (П): Sim/Simulation.Claims.cs (ClearClaims · ClaimCells · ClaimedAt · AddClaim; вызов в PreEdit перед PayPlacement) · EditReply.FurnitureInTile (19) · tests E215ReviewTests, Golden/format10_build.*.

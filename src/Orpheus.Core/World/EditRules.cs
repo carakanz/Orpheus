@@ -74,6 +74,12 @@ namespace Orpheus.Core.World
 
         /// <summary>«пауза» (E2-5): действие с объектом во время паузы мира.</summary>
         Paused = 18,
+
+        /// <summary>
+        /// «мешает мебель» (E2-15, протокол 27): свободная половина тайла, где стоит мебель со сдвигом на полтайла (её тайл-якорь),
+        /// — стену туда не поставить (один объект на тайл); мебель ставят после стен.
+        /// </summary>
+        FurnitureInTile = 19,
     }
 
     /// <summary>
@@ -124,6 +130,7 @@ namespace Orpheus.Core.World
                 case EditReply.Intact: return "цело";
                 case EditReply.UnderAttack: return "под ударом";
                 case EditReply.Paused: return "пауза";
+                case EditReply.FurnitureInTile: return "мешает мебель — ставьте её после стен";
                 default: return "нельзя";
             }
         }
@@ -375,7 +382,7 @@ namespace Orpheus.Core.World
         }
 
         /// <summary>Наибольший код ответа (проверка сообщений сети).</summary>
-        public const EditReply MaxReply = EditReply.Paused;
+        public const EditReply MaxReply = EditReply.FurnitureInTile;
 
         /// <summary>Объекты с действием (F) — в этом радиусе от тайла персонажа по оси максимума: 3 тайла (E2-5).</summary>
         public const int UseRadiusTiles = 3;

@@ -1285,7 +1285,9 @@ namespace Orpheus.Tests
             n = new UseReplyMessage { Tile = new TileCoord(5, 6), Obj = ObjectId.Bed, Reply = EditReply.Paused }.Write(buf);
             Assert.Equal("22-05-00-06-00-0A-00-12", BitConverter.ToString(buf, 0, n));
             Assert.Equal(EditReply.Paused, UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Reply);
-            buf[7] = 19;
+            buf[7] = 19; // E2-15 (протокол 27): 19 — «мешает мебель», допустим
+            Assert.Equal(EditReply.FurnitureInTile, UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Reply);
+            buf[7] = 20;
             Assert.Throws<ProtocolException>(() => UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             var cells = new Inventory();

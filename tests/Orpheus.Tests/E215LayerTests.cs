@@ -270,9 +270,9 @@ namespace Orpheus.Tests
             Assert.Equal(103 * U + U / 2 + Collision.RadiusUnits, p.X);
 
             // В ячейки сундука не встать ни стене, ни второму сундуку. Свободная восточная половина тайла-якоря — тоже не для стены
-            // (один объект на тайл; риск записки), а у соседнего тайла 104 — можно.
+            // (один объект на тайл; риск записки) — с причиной «мешает мебель»; у соседнего тайла 104 — можно.
             Assert.Equal(EditReply.Busy, Check(sim, me, ObjectId.StoneWall, anchor, 0));
-            Assert.Equal(EditReply.Busy, Check(sim, me, ObjectId.StoneWall, anchor, 1));
+            Assert.Equal(EditReply.FurnitureInTile, Check(sim, me, ObjectId.StoneWall, anchor, 1));
             Assert.Equal(EditReply.Accepted, Check(sim, me, ObjectId.StoneWall, new TileCoord(104, 100), 0));
             Assert.Equal(EditReply.Busy, Check(sim, me, ObjectId.Chest, anchor, 0));
             Assert.Equal(EditReply.Accepted, Check(sim, me, ObjectId.Chest, anchor, 1)); // сдвиг +1: якорь — свой, свободный 104
@@ -415,11 +415,11 @@ namespace Orpheus.Tests
         // ------------------------------------------------ старые миры и байты
 
         /// <summary>
-        /// Блок чанка старого формата (записи по 8 байт) расширяется: пол — весь тайл, мебель без сдвига, хэш состояния — тот же,
-        /// что у мира, где байт слоёв 0.
+        /// Блок чанка старого формата (записи по 8 байт) расширяется: пол — весь тайл, мебель без сдвига (хэш старого мира —
+        /// настоящие файлы форматов 8, 9 и 10).
         /// </summary>
         [Fact]
-        public void E215_Old_Blob_Widened_Floor_Full_Furniture_Aligned_SameHash()
+        public void E215_Old_Blob_Widened_Floor_Full_Furniture_Aligned()
         {
             var chunk = new Chunk();
             chunk.SetBaseTile(5, FloorId.WoodFloor, ObjectId.Empty);
