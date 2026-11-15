@@ -1,0 +1,184 @@
+{
+ "set": "a005",
+ "about": "A-005, проба стиля значков (15.11): форма как Factorio, цвет как Terraria; варианты A (без контура), B (тонкий контур), C (живописнее, блик). Заказ — tools/art_stage1.py --set a005, обработка — tools/art_icon_probe.py. Фон — зелёный «хромакей» для вырезания.",
+ "style": "highly detailed game inventory icon, almost photographic precise rendering, precise accurate shapes with true realistic proportions like Factorio item icons, instantly readable silhouette, clear readable material texture, rich saturated vivid fantasy colors like Terraria, realistic volume and soft shading, one key light from the upper left, no outline, no line art, clean digital painting",
+ "styles": {
+  "a": "highly detailed game inventory icon, almost photographic precise rendering, precise accurate shapes with true realistic proportions like Factorio item icons, instantly readable silhouette, clear readable material texture, rich saturated vivid fantasy colors like Terraria, realistic volume and soft shading, one key light from the upper left, no outline, no line art, clean digital painting",
+  "b": "highly detailed game inventory icon, almost photographic precise rendering, precise accurate shapes with true realistic proportions like Factorio item icons, instantly readable silhouette, clear readable material texture, rich saturated vivid fantasy colors like Terraria, realistic volume and soft shading, one key light from the upper left, a thin crisp dark brown outline of even weight around the outer silhouette only, clean digital painting",
+  "c": "detailed painterly game inventory icon, hand-painted brushwork, precise accurate shapes with true realistic proportions like Factorio item icons, instantly readable silhouette, clear readable material texture, rich saturated vivid fantasy colors like Terraria, extra saturated jewel-like colors, strong key light from the upper left, bright specular highlights on the lit edges and a soft warm glowing rim light, gentle color bounce in the shadows"
+ },
+ "camera": {
+  "icon_a": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
+  "icon_b": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
+  "icon_c": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame"
+ },
+ "negative": {
+  "icon_a": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, outline, line art, ink lines, cel shading, flat colors",
+  "icon_b": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, cel shading, flat colors",
+  "icon_c": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, dull colors, desaturated"
+ },
+ "subjects": [
+  {
+   "key": "wood_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5101,
+   "prompt": "a single short chopped log of wood lying horizontally, rough dark brown bark with deep grooves, the cut end turned toward the viewer shows pale golden wood with clear growth rings, one small broken branch stub",
+   "style": "a"
+  },
+  {
+   "key": "stone_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5102,
+   "prompt": "a single rough chunk of grey stone, an angular block with sharp chipped facets and fractured edges, cool blue-grey rock with light top faces, a few small cracks and speckles",
+   "style": "a"
+  },
+  {
+   "key": "copper_ingot_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5103,
+   "prompt": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "style": "a"
+  },
+  {
+   "key": "copper_pickaxe_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5104,
+   "prompt": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "style": "a"
+  },
+  {
+   "key": "stone_wall_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5105,
+   "prompt": "a single building block item: a cube-shaped section of a stone brick wall, neat rectangular grey cut stone bricks with mortar lines, visible top face and front face",
+   "style": "a"
+  },
+  {
+   "key": "workbench_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5106,
+   "prompt": "a sturdy wooden workbench crafting table, a thick plank tabletop on four square legs, a small iron vise on the front edge, a hammer and a hand saw lying on the top, warm brown wood",
+   "style": "a"
+  },
+  {
+   "key": "wood_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5101,
+   "prompt": "a single short chopped log of wood lying horizontally, rough dark brown bark with deep grooves, the cut end turned toward the viewer shows pale golden wood with clear growth rings, one small broken branch stub",
+   "style": "b"
+  },
+  {
+   "key": "stone_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5102,
+   "prompt": "a single rough chunk of grey stone, an angular block with sharp chipped facets and fractured edges, cool blue-grey rock with light top faces, a few small cracks and speckles",
+   "style": "b"
+  },
+  {
+   "key": "copper_ingot_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5103,
+   "prompt": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "style": "b"
+  },
+  {
+   "key": "copper_pickaxe_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5104,
+   "prompt": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "style": "b"
+  },
+  {
+   "key": "stone_wall_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5105,
+   "prompt": "a single building block item: a cube-shaped section of a stone brick wall, neat rectangular grey cut stone bricks with mortar lines, visible top face and front face",
+   "style": "b"
+  },
+  {
+   "key": "workbench_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5106,
+   "prompt": "a sturdy wooden workbench crafting table, a thick plank tabletop on four square legs, a small iron vise on the front edge, a hammer and a hand saw lying on the top, warm brown wood",
+   "style": "b"
+  },
+  {
+   "key": "wood_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5101,
+   "prompt": "a single short chopped log of wood lying horizontally, rough dark brown bark with deep grooves, the cut end turned toward the viewer shows pale golden wood with clear growth rings, one small broken branch stub",
+   "style": "c"
+  },
+  {
+   "key": "stone_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5102,
+   "prompt": "a single rough chunk of grey stone, an angular block with sharp chipped facets and fractured edges, cool blue-grey rock with light top faces, a few small cracks and speckles",
+   "style": "c"
+  },
+  {
+   "key": "copper_ingot_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5103,
+   "prompt": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "style": "c"
+  },
+  {
+   "key": "copper_pickaxe_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5104,
+   "prompt": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "style": "c"
+  },
+  {
+   "key": "stone_wall_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5105,
+   "prompt": "a single building block item: a cube-shaped section of a stone brick wall, neat rectangular grey cut stone bricks with mortar lines, visible top face and front face",
+   "style": "c"
+  },
+  {
+   "key": "workbench_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5106,
+   "prompt": "a sturdy wooden workbench crafting table, a thick plank tabletop on four square legs, a small iron vise on the front edge, a hammer and a hand saw lying on the top, warm brown wood",
+   "style": "c"
+  }
+ ]
+}
