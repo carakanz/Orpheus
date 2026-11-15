@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Атлас Орфея</title>
+<style>
+/* Layout: мини-вики — шапка с поиском и разделами; карта-тор как вход в биомы; в разделах список слева и страница справа; на каждой странице — решение Автора */
+:root{
+  --bg:#efe9dc; --panel:#f8f4ea; --ink:#2b2620; --muted:#6d6457; --line:#d4cab6;
+  --accent:#8a3b1e; --ok:#2f6b3a; --warn:#9a6a10; --bad:#9b2c2c; --chip:#e4dccb;
+  --f-display:"Cormorant SC","Palatino Linotype",Palatino,Georgia,serif; --f-body:"PT Sans","Segoe UI",system-ui,sans-serif; --f-mono:"PT Mono",Consolas,ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17140f; --panel:#211d17; --ink:#ece4d4; --muted:#a59a87; --line:#3a3328;
+  --accent:#e08a5a; --ok:#7cc48a; --warn:#e2b453; --bad:#ec7f7f; --chip:#2e281f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17140f; --panel:#211d17; --ink:#ece4d4; --muted:#a59a87; --line:#3a3328;
+  --accent:#e08a5a; --ok:#7cc48a; --warn:#e2b453; --bad:#ec7f7f; --chip:#2e281f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 20px}
+h1{font:700 2.1rem/1.1 var(--f-display);margin:0;letter-spacing:.02em}
+h2{font:700 1.55rem/1.2 var(--f-display);margin:0;text-wrap:balance}
+h3{font:700 1.1rem/1.3 var(--f-display);margin:0;letter-spacing:.03em}
+.sub{color:var(--muted);margin:0;max-width:70ch}
+.progress{font:13px var(--f-mono);color:var(--muted)}
+.searchrow{position:relative;flex:1 1 280px;max-width:420px}
+.searchrow input{width:100%;font:15px var(--f-body);padding:8px 12px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink)}
+.results{position:absolute;z-index:5;left:0;right:0;top:calc(100% + 4px);background:var(--panel);border:1px solid var(--line);border-radius:4px;max-height:60vh;overflow:auto;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.results a{display:flex;justify-content:space-between;gap:10px;padding:6px 12px;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
+.results a:hover,.results a:focus{background:var(--chip)}
+.results small{color:var(--muted)}
+nav.tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line);padding-bottom:8px}
+nav.tabs button{font:600 14px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 14px;border-radius:4px;cursor:pointer}
+nav.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+nav.tabs .n{font:12px var(--f-mono);opacity:.7;margin-left:4px}
+button:focus-visible,textarea:focus-visible,a:focus-visible,input:focus-visible,tr:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.atlas,.split{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.atlas,.split{grid-template-columns:minmax(0,1fr)}}
+.mapbox{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mapbox canvas{width:100%;height:auto;display:block;border-radius:3px;cursor:pointer}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px}
+.legend button{display:flex;align-items:center;gap:6px;background:none;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:2px 0}
+.sw{width:12px;height:12px;border-radius:2px;flex:none;border:1px solid rgba(0,0,0,.25)}
+.note{font-size:13px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.crumb{font:12px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:5px 14px;margin:0}
+.kv dt{color:var(--muted);font-size:13px;padding-top:1px}
+.kv dd{margin:0;overflow-wrap:anywhere}
+@media (max-width:480px){.kv{grid-template-columns:minmax(0,1fr)} .kv dt{padding-top:6px}}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{font-size:13px;background:var(--chip);border:1px solid var(--line);border-radius:3px;padding:1px 8px;color:var(--ink);cursor:pointer;text-decoration:none}
+.chip.static{cursor:default;opacity:.8}
+.chip b{font-weight:700;font-family:var(--f-mono)}
+.tag{font:11px var(--f-mono);text-transform:uppercase;letter-spacing:.06em;border:1px solid currentColor;border-radius:3px;padding:0 5px;white-space:nowrap}
+.tag.prop{color:var(--warn)} .tag.impl{color:var(--ok)} .tag.no{color:var(--muted)}
+.sec{display:flex;flex-direction:column;gap:6px}
+.sec h4{margin:0;font:700 12px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+ul.plain{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
+.phase{border-left:3px solid var(--line);padding-left:10px;display:flex;flex-direction:column;gap:2px}
+.review{border-top:1px dashed var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.review .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.review button{font:600 13px var(--f-body);padding:5px 12px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.review button.on.ok{background:var(--ok);color:var(--bg);border-color:var(--ok)}
+.review button.on.warn{background:var(--warn);color:var(--bg);border-color:var(--warn)}
+.review button.on.bad{background:var(--bad);color:var(--bg);border-color:var(--bad)}
+.review button:disabled{opacity:.5;cursor:not-allowed}
+.review textarea{width:100%;min-height:72px;font:14px var(--f-body);padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);resize:vertical}
+.saved{font-size:12px;color:var(--muted);min-height:1em}
+.tablewrap{overflow:auto;max-height:78vh;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{font:700 12px var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--panel);position:sticky;top:0;z-index:1}
+tr.clickable{cursor:pointer} tr.clickable:hover td{background:var(--chip)} tr.cur td{background:var(--chip)}
+td.name{font-weight:700}
+.st{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid var(--muted);vertical-align:middle;flex:none}
+.st.accepted{background:var(--ok);border-color:var(--ok)} .st.changes{background:var(--warn);border-color:var(--warn)} .st.rejected{background:var(--bad);border-color:var(--bad)}
+.banner{font-size:13px;padding:8px 12px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--muted)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.filters button{font:13px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:3px;padding:2px 8px;cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.left{display:flex;flex-direction:column;gap:8px;min-width:0}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Атлас Орфея</h1>
+      <p class="sub">Мини-вики по биомам, врагам, боссам, рудам и предметам: данные из docs и генератора v8. На каждой странице отметьте «принято», «нужна правка» или «убрать» и допишите комментарий. Жёлтая метка «предложение» стоит там, где в docs ничего нет и вариант придумали мы.</p>
+    </div>
+    <div class="searchrow">
+      <input id="q" type="search" placeholder="Поиск: волк, медь, Цербер…" autocomplete="off" aria-label="Поиск по вики">
+      <div class="results" id="results" hidden></div>
+    </div>
+  </header>
+  <div class="progress" id="progress">загрузка…</div>
+  <div class="banner" id="dbnote" hidden></div>
+  <nav class="tabs" id="tabs"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
+const S={cat:null,reviews:{},db:null,canWrite:true,view:'map',sel:null,filter:{}};
+const $=(t,a={},...kids)=>{const e=document.createElement(t);for(const[k,v]of Object.entries(a)){if(v==null||v===false)continue;if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else e.setAttribute(k,v===true?'':v)}for(const c of kids.flat(3)){if(c==null||c===false||c==='')continue;e.append(c.nodeType?c:document.createTextNode(String(c)))}return e};
+const txt=v=>v==null?'':Array.isArray(v)?v.map(x=>typeof x==='object'&&x?(x.name?x.name+(x.count!=null?' ×'+x.count:''):Object.values(x).join(' — ')):x).join('; '):typeof v==='object'?Object.entries(v).map(([k,x])=>k+': '+(typeof x==='object'?txt(x):x)).join('; '):String(v);
+const norm=s=>String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[«»"()]/g,'').replace(/\s+/g,' ').trim();
+const key=(kind,id)=>kind+'-'+String(id).replace(/[^A-Za-z0-9_-]/g,'_');
+
+/* разделы вики */
+const KINDS={
+  biome:{list:'biomes',tab:'Биомы',one:'Биом'},
+  enemy:{list:'enemies',tab:'Враги',one:'Враг'},
+  boss:{list:'bosses',tab:'Боссы',one:'Босс'},
+  arch:{list:'archetypes',tab:'Архетипы врагов',one:'Архетип'},
+  ore:{list:'ores',tab:'Руды и ресурсы',one:'Ресурс'},
+  item:{list:'items',tab:'Предметы',one:'Предмет'},
+};
+const L=k=>(S.cat&&S.cat[KINDS[k].list])||[];
+
+/* поиск сущности по имени — для перекрёстных ссылок */
+const idx={};
+function buildIndex(){ for(const k of Object.keys(KINDS)){ idx[k]=new Map(); for(const o of L(k)){ idx[k].set(norm(o.name),o); idx[k].set(norm(o.id),o); for(const a of (o.aliases||[])) idx[k].set(norm(a),o); } } }
+function find(kind,name){ if(name==null) return null; const n=norm(typeof name==='object'?(name.name||name.id):name); if(!n) return null; const m=idx[kind]; if(!m) return null; if(m.has(n)) return m.get(n);
+  let best=null,bl=0; for(const[k,o]of m){ if(k.length>=3&&k.length>bl&&(n.startsWith(k+' ')||n===k||(n.length>=4&&k.startsWith(n)))){ best=o; bl=k.length; } } return best; }
+function findAny(name,order){ for(const k of order){ const o=find(k,name); if(o) return [k,o]; } return null; }
+const nm=x=>typeof x==='object'&&x?(x.name||x.id):x;
+
+function link(kind,o,label){ return $('a',{class:'chip',href:'#'+key(kind,o.id),onclick:ev=>{ev.preventDefault();go(kind,o.id);}},label||o.name); }
+function chipsTo(list,order,extra){ list=Array.isArray(list)?list:(list?[list]:[]); if(!list.length) return null;
+  return $('div',{class:'chips'},list.map(x=>{ const n=nm(x); const cnt=typeof x==='object'&&x&&x.count!=null?' ×'+x.count:''; const hit=findAny(n,order); return hit?link(hit[0],hit[1],n+cnt):$('span',{class:'chip static'},n+cnt); })); }
+
+/* обратные связи */
+function enemiesOf(b){ const r=new Map(); for(const e of L('enemy')) if((e.biomes||[]).some(x=>find('biome',x)===b)) r.set(e.id,e); for(const x of (b.enemies||[])){ const e=find('enemy',x); if(e) r.set(e.id,e);} return [...r.values()]; }
+function bossesOf(b){ return L('boss').filter(x=>(x.biomes||[]).some(y=>find('biome',y)===b)||norm(x.where).includes(norm(b.name))); }
+function oresOf(b){ const r=new Map(); for(const o of L('ore')) if((o.biomes||[]).some(x=>find('biome',x)===b)) r.set(o.id,o); for(const x of (b.resources||[])){ const o=find('ore',x); if(o) r.set(o.id,o);} return [...r.values()]; }
+function usedIn(o){ return L('item').filter(it=>(it.recipe||[]).some(r=>{ const n=nm(r); return find('ore',n)===o||find('item',n)===o; })); }
+function minedBy(o){ return L('item').filter(it=>{ const m=it.mines; if(!m) return false; const arr=Array.isArray(m)?m:[m]; const w=norm(o.name).split(' ')[0]; const stem=w.slice(0,Math.max(3,w.length-3)); return arr.some(x=>{ const t=norm(txt(x)); return t.includes(norm(o.name))||t.includes(stem); }); }); }
+function droppedBy(it){ const n=norm(it.name); return [...L('enemy').map(e=>['enemy',e]),...L('boss').map(b=>['boss',b])].filter(([k,e])=>norm(txt(k==='boss'?e.rewards:e.drops)).includes(n)); }
+
+/* ---------- отметки Автора: сервер wiki/server.py, /api/notes ---------- */
+let loadedOnce=false;
+async function loadNotes(){
+  const note=document.getElementById('dbnote');
+  try{ const r=await fetch('api/notes',{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
+    const data=await r.json(); const busy=document.activeElement&&document.activeElement.tagName==='TEXTAREA';
+    for(const[k,v]of Object.entries(data)){ if(!(busy&&document.activeElement.id==='c-'+k)) S.reviews[k]=v; }
+    note.hidden=true; S.canWrite=true; loadedOnce=true; refreshReviews(); renderProgress();
+  }catch(e){ note.hidden=false; S.canWrite=loadedOnce; note.textContent='Сервер отметок не отвечает ('+e.message+'). Читать можно; отметки сохранятся, когда сервер вернётся. Запуск: python wiki/server.py'; refreshReviews(); }
+}
+function initDb(){ loadNotes(); setInterval(loadNotes,30000); }
+const chain={};
+function saveReview(k,patch,meta){
+  const cur=Object.assign({},S.reviews[k]||{},patch,{title:meta.title,kind:meta.kind,updatedAt:new Date().toISOString()});
+  S.reviews[k]=cur; refreshReviews(); renderProgress(); mark(k,'сохраняю…');
+  const body=JSON.stringify(Object.assign({id:k},patch,{title:meta.title,kind:meta.kind}));
+  chain[k]=(chain[k]||Promise.resolve()).then(()=>fetch('api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body}))
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(saved=>{ S.reviews[k]=saved; mark(k,'сохранено'); })
+    .catch(e=>mark(k,'не сохранено ('+e.message+')'));
+}
+function mark(k,t){ document.querySelectorAll('[data-saved="'+k+'"]').forEach(el=>el.textContent=t); }
+function reviewBox(kind,id,title){
+  const k=key(kind,id); const box=$('div',{class:'review','data-review':k});
+  const mk=(st,label,cls)=>$('button',{type:'button','data-st':st,class:cls,onclick:()=>saveReview(k,{status:(S.reviews[k]||{}).status===st?'':st},{kind,title})},label);
+  const ta=$('textarea',{id:'c-'+k,placeholder:'Комментарий: что поменять, добавить, убрать…'});
+  let t=null; ta.addEventListener('input',()=>{ clearTimeout(t); mark(k,'…'); t=setTimeout(()=>saveReview(k,{comment:ta.value},{kind,title}),900); });
+  box.append($('h3',{},'Решение Автора'),$('div',{class:'row'},mk('accepted','Принято','ok'),mk('changes','Нужна правка','warn'),mk('rejected','Убрать','bad')),ta,$('div',{class:'saved','data-saved':k}));
+  fillReview(box); return box;
+}
+function fillReview(box){
+  const k=box.dataset.review; const r=S.reviews[k]||{};
+  box.querySelectorAll('button[data-st]').forEach(b=>{ b.classList.toggle('on',r.status===b.dataset.st); b.disabled=!S.canWrite; });
+  const ta=box.querySelector('textarea'); if(document.activeElement!==ta) ta.value=r.comment||''; ta.disabled=!S.canWrite;
+  const s=box.querySelector('.saved'); if(r.updatedAt&&(!s.textContent||s.textContent==='сохранено')) s.textContent='отмечено '+new Date(r.updatedAt).toLocaleString('ru-RU');
+}
+function refreshReviews(){ document.querySelectorAll('.review').forEach(fillReview); document.querySelectorAll('[data-dot]').forEach(d=>{ d.className='st '+((S.reviews[d.dataset.dot]||{}).status||''); }); }
+const dot=(kind,id)=>$('span',{class:'st','data-dot':key(kind,id),title:'отметка Автора'});
+function allKeys(){ const a=[]; for(const k of Object.keys(KINDS)) for(const o of L(k)) a.push(key(k,o.id)); return a; }
+function renderProgress(){ if(!S.cat) return; const all=allKeys(); const c={accepted:0,changes:0,rejected:0}; for(const k of all){ const s=(S.reviews[k]||{}).status; if(c[s]!=null) c[s]++; }
+  document.getElementById('progress').textContent='Отмечено '+(c.accepted+c.changes+c.rejected)+' из '+all.length+' · принято '+c.accepted+' · правка '+c.changes+' · убрать '+c.rejected; }
+
+/* ---------- куски страниц ---------- */
+function flags(o){ const impl=o.implemented===true||o.inGenerator===true, not=o.implemented===false||o.inGenerator===false;
+  return $('span',{class:'chips'}, o.proposal?$('span',{class:'tag prop',title:'в docs нет — предложение'},'предложение'):null, impl?$('span',{class:'tag impl'},'есть в игре'):not?$('span',{class:'tag no'},'пока нет в игре'):null); }
+function kv(pairs){ const dl=$('dl',{class:'kv'}); for(const[k,v]of pairs){ if(v==null||v===''||(Array.isArray(v)&&!v.length)||(typeof v==='object'&&!v.nodeType&&!Array.isArray(v)&&!Object.keys(v).length)) continue; dl.append($('dt',{},k),$('dd',{},v.nodeType?v:txt(v))); } return dl.children.length?dl:null; }
+function sec(title,body){ if(!body||(Array.isArray(body)&&!body.length)) return null; return $('div',{class:'sec'},$('h3',{},title),body); }
+function proposals(o){ const p=o.proposals||(o.proposedFields?['Предложено (нет в docs): '+txt(o.proposedFields)]:null); if(!p||!p.length) return null; return sec('Предложения (в docs нет)',$('ul',{class:'plain'},p.map(x=>$('li',{},txt(x))))); }
+function head(kind,o){ return $('div',{},$('div',{class:'crumb'},KINDS[kind].one),$('h2',{},o.name),flags(o)); }
+
+const PAGES={
+  biome(b){ const ens=enemiesOf(b), groups={};
+    for(const e of ens){ const g=(e.act?'Акт '+e.act:'Акт ?')+(e.tier!=null?' · ярус '+e.tier:'')+(e.kind&&e.kind!=='обычный'?' · '+e.kind:''); (groups[g]=groups[g]||[]).push(e); }
+    const ores=oresOf(b), bosses=bossesOf(b);
+    return [head('biome',b),$('p',{style:'margin:0'},txt(b.description)),
+      kv([['Акт',b.act],['Где генерится',b.placement],['Условия',b.conditions],['Местность',b.terrain],['Опасность',b.danger],['Особенности',b.features],['Источник',b.source]]),
+      sec('Враги по ярусам',ens.length?Object.keys(groups).sort().map(g=>$('div',{class:'sec'},$('h4',{},g),$('div',{class:'chips'},groups[g].map(e=>link('enemy',e,e.name+(e.when?' · '+String(e.when).split(' (')[0]:'')))))):$('p',{class:'note',style:'margin:0'},'В docs враги для этого биома не названы.')),
+      sec('Боссы и логова',bosses.length?$('div',{class:'chips'},bosses.map(x=>link('boss',x))):null),
+      sec('Руды и ресурсы',ores.length?$('div',{class:'chips'},ores.map(o=>link('ore',o))):chipsTo(b.resources,['ore','item'])),
+      proposals(b)]; },
+  enemy(e){ const a=find('arch',e.archetype);
+    return [head('enemy',e),$('p',{style:'margin:0'},txt(e.description)),
+      kv([['Тип',e.kind],['Архетип',a?link('arch',a):e.archetype],['Акт',e.act],['Ярус',e.tier],['Когда',e.when],['Поведение',e.behaviour],['Особенности',e.special],['Здоровье / удар',e.hpDamage],['Источник',e.source]]),
+      sec('Где встречается',chipsTo(e.biomes,['biome'])),sec('Добыча',chipsTo(e.drops,['item','ore'])),proposals(e)]; },
+  boss(b){ return [head('boss',b),$('p',{style:'margin:0'},txt(b.description)),
+      kv([['Вид',b.kind],['Акт',b.act],['Где',b.where],['Как вызвать / встретить',b.summon],['Здоровье',b.hp],['Особые правила',b.mechanics],['Источник',b.source]]),
+      sec('Биомы',chipsTo(b.biomes,['biome'])),
+      sec('Фазы',(b.phases||[]).length?(b.phases||[]).map(p=>$('div',{class:'phase'},$('b',{},(p.name||'Фаза')+(p.hpFrom!=null?' · с '+p.hpFrom:'')),p.behaviour?$('span',{},p.behaviour):null,p.attacks?$('span',{class:'note'},'Атаки: '+txt(p.attacks)):null,p.howToRead?$('span',{class:'note'},'Как читается: '+txt(p.howToRead)):null)):null),
+      sec('Атаки',b.attacks&&!(b.phases||[]).length?$('ul',{class:'plain'},(Array.isArray(b.attacks)?b.attacks:[b.attacks]).map(x=>$('li',{},txt(x)))):null),
+      sec('Награда',b.rewards?$('div',{class:'sec'},$('p',{style:'margin:0'},txt(b.rewards)),chipsTo((Array.isArray(b.rewards)?b.rewards:[]).filter(x=>find('item',nm(x))),['item'])):null),
+      proposals(b)]; },
+  arch(a){ const ens=L('enemy').filter(e=>find('arch',e.archetype)===a); const skip=['id','name','description','behaviour','howToRead','counter','source','proposal'];
+    return [head('arch',a),a.description?$('p',{style:'margin:0'},txt(a.description)):null,
+      kv([['Поведение',a.behaviour],['Как читается замах',a.howToRead],['Как побеждать',a.counter],...Object.entries(a).filter(([k])=>!skip.includes(k)),['Источник',a.source]]),
+      sec('Враги этого архетипа',ens.length?$('div',{class:'chips'},ens.map(e=>link('enemy',e))):null)]; },
+  ore(o){ const used=usedIn(o), tools=minedBy(o);
+    return [head('ore',o),kv([['Вид',o.kind],['Акт',o.act],['Ярус',o.tier],['Как встречается',o.placement],['Добыча',o.mining],['Особенности',o.special],['Источник',o.source]]),
+      sec('Где встречается',chipsTo(o.biomes,['biome'])),sec('Чем копать',tools.length?$('div',{class:'chips'},tools.map(t=>link('item',t))):null),
+      sec('Во что идёт',used.length?$('div',{class:'chips'},used.map(t=>link('item',t))):(o.uses?$('p',{style:'margin:0'},txt(o.uses)):null)),proposals(o)]; },
+  item(it){ const used=usedIn(it), drops=droppedBy(it);
+    return [head('item',it),it.use?$('p',{style:'margin:0'},txt(it.use)):null,
+      kv([['Категория',it.category],['Акт',it.act],['Ярус',it.tier],['Верстак',(()=>{const st=find('item',it.station);return st?link('item',st):it.station;})()],['Характеристики',it.stats],['Копает',it.mines],['Где ещё взять',it.source],['Источник',it.ref]]),
+      sec('Рецепт',chipsTo(it.recipe,['ore','item'])),sec('Выпадает из',drops.length?$('div',{class:'chips'},drops.map(([k,e])=>link(k,e))):null),
+      sec('Используется в',used.length?$('div',{class:'chips'},used.map(t=>link('item',t))):null),proposals(it)]; },
+};
+function page(kind,id){ const o=L(kind).find(x=>x.id===id); if(!o) return $('div',{class:'card'},$('p',{class:'note'},'Страница не найдена.'));
+  return $('div',{class:'card'},PAGES[kind](o),reviewBox(kind,o.id,KINDS[kind].one+': '+o.name)); }
+
+/* ---------- карта ---------- */
+function drawMap(canvas){
+  const lay=S.cat.layout||{}, g=lay.grid; if(!g||!g.length) return;
+  const H=g.length,W=g[0].length,c=Math.max(10,Math.floor(760/W));
+  canvas.width=W*c; canvas.height=H*c; const ctx=canvas.getContext('2d');
+  const byId=Object.fromEntries(L('biome').map(b=>[b.id,b])); const sel=S.sel&&S.sel.kind==='biome'?S.sel.id:null;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){ const b=byId[g[y][x]]; ctx.fillStyle=(b&&b.mapColor)||'#888'; ctx.fillRect(x*c,y*c,c,c); if(sel&&g[y][x]!==sel){ ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(x*c,y*c,c,c);} }
+  if(sel){ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); for(let y=0;y<H;y++)for(let x=0;x<W;x++){ if(g[y][x]!==sel) continue; const n=(dx,dy)=>{const yy=y+dy,xx=x+dx; return yy>=0&&yy<H&&xx>=0&&xx<W&&g[yy][xx]===sel;};
+    if(!n(0,-1)){ctx.moveTo(x*c,y*c);ctx.lineTo(x*c+c,y*c);} if(!n(0,1)){ctx.moveTo(x*c,y*c+c);ctx.lineTo(x*c+c,y*c+c);} if(!n(-1,0)){ctx.moveTo(x*c,y*c);ctx.lineTo(x*c,y*c+c);} if(!n(1,0)){ctx.moveTo(x*c+c,y*c);ctx.lineTo(x*c+c,y*c+c);} } ctx.stroke(); }
+  if(lay.hearth){ const[hx,hy]=lay.hearth; ctx.fillStyle='#fff7d6'; ctx.strokeStyle='#2b2620'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc((hx+.5)*c,(hy+.5)*c,c*.55,0,7); ctx.fill(); ctx.stroke(); ctx.fillStyle='#c0461b'; ctx.beginPath(); ctx.arc((hx+.5)*c,(hy+.5)*c,c*.25,0,7); ctx.fill(); }
+  const at=ev=>{ const r=canvas.getBoundingClientRect(); const x=Math.floor((ev.clientX-r.left)/r.width*W),y=Math.floor((ev.clientY-r.top)/r.height*H); return byId[g[y]&&g[y][x]]; };
+  canvas.onclick=ev=>{ const b=at(ev); if(b) go('biome',b.id); };
+  canvas.onmousemove=ev=>{ const b=at(ev); canvas.title=b?b.name:''; };
+}
+function viewMap(){
+  const canvas=$('canvas',{'aria-label':'Условная карта мира, нажмите на биом'});
+  const box=$('div',{class:'mapbox'},$('h3',{},'Условная карта мира'),canvas,
+    $('div',{class:'legend'},L('biome').filter(b=>!S.cat.layout||!S.cat.layout.grid||S.cat.layout.grid.some(r=>r.includes(b.id))).map(b=>$('button',{type:'button',onclick:()=>go('biome',b.id)},$('span',{class:'sw',style:'background:'+(b.mapColor||'#888')}),b.name,dot('biome',b.id)))),
+    $('p',{class:'note',style:'margin:0'},txt(S.cat.layout&&S.cat.layout.description)),
+    (()=>{ const off=L('biome').filter(b=>S.cat.layout&&S.cat.layout.grid&&!S.cat.layout.grid.some(r=>r.includes(b.id))); return off.length?$('div',{class:'sec'},$('h4',{},'Нет на карте (поздние акты, особые места)'),$('div',{class:'chips'},off.map(b=>link('biome',b)))):null; })());
+  const sel=S.sel&&S.sel.kind==='biome'?S.sel:{kind:'biome',id:(L('biome')[0]||{}).id};
+  setTimeout(()=>drawMap(canvas)); return $('div',{class:'atlas'},box,page('biome',sel.id));
+}
+
+/* ---------- разделы-списки ---------- */
+const COLS={
+  biome:[['Акт',o=>o.act],['Где',o=>o.placement]],
+  enemy:[['Тип',o=>o.kind],['Акт',o=>o.act],['Биомы',o=>o.biomes]],
+  boss:[['Вид',o=>o.kind],['Акт',o=>o.act],['Где',o=>o.where]],
+  arch:[['Поведение',o=>o.behaviour]],
+  ore:[['Вид',o=>o.kind],['Ярус',o=>o.tier],['Где',o=>o.biomes]],
+  item:[['Категория',o=>o.category],['Ярус',o=>o.tier],['Рецепт',o=>o.recipe]],
+};
+const FILTER={enemy:'act',boss:'act',item:'category',ore:'kind',biome:'act'};
+function listView(kind){
+  let items=L(kind); const ff=FILTER[kind]; const fv=S.filter[kind];
+  const vals=ff?[...new Set(items.map(o=>o[ff]).filter(v=>v!=null))].sort():[];
+  if(fv!=null) items=items.filter(o=>String(o[ff])===String(fv));
+  const sel=S.sel&&S.sel.kind===kind&&L(kind).some(o=>o.id===S.sel.id)?S.sel.id:(items[0]||{}).id;
+  const short=v=>{ const s=txt(v); return s.length>110?s.slice(0,107)+'…':s; };
+  const filters=vals.length>1?$('div',{class:'filters'},'Показать:',$('button',{type:'button','aria-pressed':String(fv==null),onclick:()=>{S.filter[kind]=null;render();}},'все'),vals.map(v=>$('button',{type:'button','aria-pressed':String(String(fv)===String(v)),onclick:()=>{S.filter[kind]=v;render();}},ff==='act'?'акт '+v:v))):null;
+  const rows=items.map(o=>$('tr',{class:'clickable'+(o.id===sel?' cur':''),tabindex:'0',onclick:()=>go(kind,o.id),onkeydown:e=>{if(e.key==='Enter')go(kind,o.id);}},$('td',{},dot(kind,o.id)),$('td',{class:'name'},o.name,o.proposal?$('span',{class:'tag prop',style:'margin-left:6px'},'пред.'):null),COLS[kind].map(([,f])=>$('td',{},short(f(o))))));
+  const tbl=$('div',{class:'tablewrap'},$('table',{},$('thead',{},$('tr',{},$('th',{},''),$('th',{},'Название'),COLS[kind].map(([h])=>$('th',{},h)))),$('tbody',{},rows)));
+  return $('div',{class:'split'},$('div',{class:'left'},filters,tbl),sel?page(kind,sel):$('p',{class:'note'},'Пусто.'));
+}
+function viewNotes(){ const n=S.cat.notes||{}; return $('div',{class:'card'},$('h2',{},'Расхождения и пробелы'),$('p',{class:'note',style:'margin:0'},'Где docs, генератор и код расходятся или где в docs ничего нет.'),Object.entries(n).map(([k,v])=>sec(k,$('ul',{class:'plain'},(Array.isArray(v)?v:[v]).map(x=>$('li',{},txt(x)))))),reviewBox('notes','all','Расхождения')); }
+
+/* ---------- навигация и поиск ---------- */
+function go(kind,id){ S.sel={kind,id}; const h='#'+key(kind,id); if(location.hash!==h) history.replaceState(null,'',h); S.view=(kind==='biome'&&S.view==='map')?'map':kind; render(); document.getElementById('main').scrollIntoView({block:'start'}); }
+function fromHash(){ const h=location.hash.slice(1); if(!h||!S.cat) return; if(h==='map'||h==='notes'){ S.view=h; return; } if(KINDS[h]){ S.view=h; return; }
+  for(const k of Object.keys(KINDS)){ const o=L(k).find(x=>key(k,x.id)===h); if(o){ S.sel={kind:k,id:o.id}; S.view=k==='biome'?'map':k; return; } } }
+function renderTabs(){ const t=document.getElementById('tabs'); t.replaceChildren(...[
+  $('button',{type:'button','aria-pressed':String(S.view==='map'),onclick:()=>{S.view='map';history.replaceState(null,'','#map');render();}},'Карта'),
+  Object.entries(KINDS).map(([k,v])=>$('button',{type:'button','aria-pressed':String(S.view===k),onclick:()=>{S.view=k;history.replaceState(null,'','#'+k);render();}},v.tab,$('span',{class:'n'},L(k).length))),
+  $('button',{type:'button','aria-pressed':String(S.view==='notes'),onclick:()=>{S.view='notes';history.replaceState(null,'','#notes');render();}},'Расхождения')].flat()); }
+function render(){ if(!S.cat) return; renderTabs(); const m=document.getElementById('main'); m.replaceChildren(S.view==='map'?viewMap():S.view==='notes'?viewNotes():listView(S.view)); refreshReviews(); renderProgress(); }
+const q=document.getElementById('q'), res=document.getElementById('results');
+q.addEventListener('input',()=>{ const n=norm(q.value); if(n.length<2){ res.hidden=true; return; } const out=[];
+  for(const[k,v]of Object.entries(KINDS)) for(const o of L(k)){ const hay=norm(o.name+' '+(o.aliases||[]).join(' ')); const deep=norm(txt(o.description)+' '+txt(o.use)); const sc=hay.startsWith(n)?0:hay.includes(n)?1:deep.includes(n)?2:-1; if(sc>=0) out.push([sc,k,o]); }
+  out.sort((a,b)=>a[0]-b[0]); res.replaceChildren(...out.slice(0,30).map(([,k,o])=>$('a',{href:'#'+key(k,o.id),onclick:e=>{e.preventDefault();res.hidden=true;q.value='';go(k,o.id);}},$('span',{},o.name),$('small',{},KINDS[k].one))));
+  if(!out.length) res.replaceChildren($('a',{href:'#',onclick:e=>e.preventDefault()},$('span',{},'Ничего не найдено'))); res.hidden=false; });
+q.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const a=res.querySelector('a'); if(a) a.click(); } if(e.key==='Escape'){ res.hidden=true; } });
+document.addEventListener('click',e=>{ if(!e.target.closest('.searchrow')) res.hidden=true; });
+window.addEventListener('hashchange',()=>{ fromHash(); render(); });
+fetch('catalog.json').then(r=>r.json()).then(c=>{ S.cat=c; buildIndex(); fromHash(); render(); initDb(); }).catch(e=>{ document.getElementById('main').textContent='Не загрузился catalog.json: '+e.message; });
+</script>
+</body>
+</html>
