@@ -77,6 +77,15 @@ namespace Orpheus.Save
         /// <summary>Сундуки с содержимым (формат 9, E2-5): тайлы по возрастанию (Y, X) и содержимое в том же порядке.</summary>
         public TileCoord[] ChestTiles { get; }
         public Inventory[] Chests { get; }
+
+        /// <summary>Восстановление повреждённых построек (формат 13, E2-14) — по порядку списка симуляции.</summary>
+        public BuildHeal[] Heals { get; internal set; } = Array.Empty<BuildHeal>();
+
+        /// <summary>Повреждённые постройки старого мира ещё не найдены (E2-14: пересохранение до первого такта).</summary>
+        public bool HealScan { get; internal set; }
+
+        /// <summary>Очередь истечений обломков и флагов урона (формат 13, E2-14) — по порядку.</summary>
+        public BuildExpiry[] Expiries { get; internal set; } = Array.Empty<BuildExpiry>();
     }
 
     /// <summary>Загруженное из сохранения состояние такта (мир уже положен в <see cref="WorldModel"/>).</summary>
@@ -138,6 +147,15 @@ namespace Orpheus.Save
         public TileCoord[] ChestTiles { get; }
         public Inventory[] Chests { get; }
 
+        /// <summary>Восстановление повреждённых построек (формат 13, E2-14); у старых файлов — пусто (симуляция найдёт их сама).</summary>
+        public BuildHeal[] Heals { get; internal set; } = Array.Empty<BuildHeal>();
+
+        /// <summary>Повреждённые постройки ищутся первым тактом (E2-14): старый формат или поле МИР 12.</summary>
+        public bool HealScan { get; internal set; }
+
+        /// <summary>Очередь истечений обломков и флагов урона (формат 13, E2-14); у старых файлов — пусто (поиск первым тактом).</summary>
+        public BuildExpiry[] Expiries { get; internal set; } = Array.Empty<BuildExpiry>();
+
         /// <summary>Версия формата прочитанного файла.</summary>
         public uint FormatVersion { get; }
 
@@ -155,6 +173,8 @@ namespace Orpheus.Save
             sim.Restore(Tick, Entities, NextEntityId, WorldTime);
             sim.RestorePiles(Piles, NextPileId); // E2-1: кучи на земле (формат 7; у старых файлов — пусто)
             sim.RestoreChests(ChestTiles, Chests); // E2-5: сундуки (формат 9; у старых файлов — пусто)
+            sim.RestoreExpiries(Expiries); // E2-14: обломки и флаги урона снимутся в срок и после загрузки
+            sim.RestoreHeals(Heals, scanWorld: HealScan); // E2-14: старый файл — повреждённые найдутся первым тактом
         }
     }
 
@@ -210,7 +230,12 @@ namespace Orpheus.Save
                 name ?? string.Empty, world.Seed, world.Shape, world.GeneratorVersion, (byte[])baseSha256.Clone(),
                 sim.Tick, sim.NextEntityId, coords, revisions, compressed, raw, sim.Entities.ToArray(),
                 LiveCharacters(sim, characters),
-                sim.WorldTime, sim.Piles.ToArray(), sim.NextPileId, sim.ChestTiles.ToArray(), sim.ChestContents.ToArray());
+                sim.WorldTime, sim.Piles.ToArray(), sim.NextPileId, sim.ChestTiles.ToArray(), sim.ChestContents.ToArray())
+            {
+                Heals = sim.Heals.ToArray(), // E2-14
+                HealScan = sim.HealScanPending,
+                Expiries = sim.CopyExpiries(),
+            };
         }
 
         /// <summary>
@@ -266,6 +291,11 @@ namespace Orpheus.Save
             if (replaces != 0)
             {
                 w.WriteUInt(SaveSections.WorldField.Replaces, replaces);
+            }
+
+            if (d.HealScan)
+            {
+                w.WriteBool(SaveSections.WorldField.HealScan, true); // E2-14: старый мир пересохранён до первого такта
             }
 
             if (d.NextPileId > 1)
@@ -463,6 +493,40 @@ namespace Orpheus.Save
                 e.EndRecord(mark);
             }
 
+            // Восстановление построек (формат 13, E2-14) — после сундуков, по порядку списка симуляции.
+            for (int i = 0; i < d.Heals.Length; i++)
+            {
+                BuildHeal h = d.Heals[i];
+                int mark = e.BeginRecord(SaveSections.CreaturesField.Heal);
+                e.WriteUInt(SaveSections.HealField.X, (ulong)h.Tile.X);
+                e.WriteUInt(SaveSections.HealField.Y, (ulong)h.Tile.Y);
+                e.WriteInt(SaveSections.HealField.Hit, h.Hit);
+                e.WriteInt(SaveSections.HealField.Last, h.Last);
+                e.WriteInt(SaveSections.HealField.Due, h.Due);
+                e.WriteUInt(SaveSections.HealField.Acc, (ulong)h.Acc);
+                e.EndRecord(mark);
+            }
+
+            // Очередь истечений (формат 13, E2-14) — после восстановления, по порядку очереди.
+            for (int i = 0; i < d.Expiries.Length; i++)
+            {
+                BuildExpiry x = d.Expiries[i];
+                int mark = e.BeginRecord(SaveSections.CreaturesField.Expire);
+                e.WriteUInt(SaveSections.ExpireField.X, (ulong)x.Tile.X);
+                e.WriteUInt(SaveSections.ExpireField.Y, (ulong)x.Tile.Y);
+                e.WriteInt(SaveSections.ExpireField.End, x.EndTick);
+                if (x.Debris)
+                {
+                    e.WriteBool(SaveSections.ExpireField.Debris, true);
+                }
+                else
+                {
+                    e.WriteUInt(SaveSections.ExpireField.Clear, (ulong)x.Clear);
+                }
+
+                e.EndRecord(mark);
+            }
+
             var header = new SaveHeader(SaveModule.FormatVersion, SaveModule.BuildVersion, number, d.Tick, dateUnixMs);
             var sections = new List<SaveSection>
             {
@@ -549,6 +613,7 @@ namespace Orpheus.Save
             int nextId = 1;
             int nextPileId = 1;
             int worldTime = 0;
+            bool healScan = file.Header.FormatVersion < 13; // E2-14: в старых файлах списка восстановления нет
             var r = new RecordReader(file.Section(SaveSections.World));
             while (r.Next())
             {
@@ -580,6 +645,9 @@ namespace Orpheus.Save
                         break;
                     case SaveSections.WorldField.NextPileId:
                         nextPileId = r.UIntAsInt();
+                        break;
+                    case SaveSections.WorldField.HealScan:
+                        healScan |= r.Bool();
                         break;
                     case SaveSections.WorldField.WorldTime:
                     {
@@ -697,6 +765,9 @@ namespace Orpheus.Save
             var piles = new List<GroundPile>();
             var chestTiles = new List<TileCoord>();
             var chests = new List<Inventory>();
+            var heals = new List<BuildHeal>();
+            var healTiles = new HashSet<TileCoord>();
+            var expiries = new List<BuildExpiry>();
             var overflow = new int[ItemTable.Count];
             var legacy = new LegacyOverflow();
             r = new RecordReader(file.Section(SaveSections.Creatures));
@@ -724,6 +795,24 @@ namespace Orpheus.Save
 
                     chestTiles.Add(tile);
                     chests.Add(content);
+                    continue;
+                }
+
+                if (r.Field == SaveSections.CreaturesField.Heal)
+                {
+                    BuildHeal h = ReadHeal(r.Record(), shape); // E2-14, формат 13
+                    if (!healTiles.Add(h.Tile))
+                    {
+                        throw new InvalidDataException($"Восстановление: тайл {h.Tile} дважды.");
+                    }
+
+                    heals.Add(h);
+                    continue;
+                }
+
+                if (r.Field == SaveSections.CreaturesField.Expire)
+                {
+                    expiries.Add(ReadExpire(r.Record(), shape)); // E2-14, формат 13
                     continue;
                 }
 
@@ -784,7 +873,87 @@ namespace Orpheus.Save
 
             return new LoadedWorldState(
                 file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count, characters.ToArray(),
-                file.Header.FormatVersion, worldTime, piles.ToArray(), nextPileId, notes, chestTiles.ToArray(), chests.ToArray());
+                file.Header.FormatVersion, worldTime, piles.ToArray(), nextPileId, notes, chestTiles.ToArray(), chests.ToArray())
+            {
+                Heals = heals.ToArray(),
+                HealScan = healScan,
+                Expiries = expiries.ToArray(),
+            };
+        }
+
+        /// <summary>Восстановление постройки (E2-14, формат 13): тайл на карте, такты, остаток накопителя в [0; 3000).</summary>
+        private static BuildHeal ReadHeal(RecordReader r, MapShape shape)
+        {
+            int x = -1, y = -1, acc = 0;
+            long hit = 0, last = 0, due = 0;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.HealField.X:
+                        x = r.UIntAsInt();
+                        break;
+                    case SaveSections.HealField.Y:
+                        y = r.UIntAsInt();
+                        break;
+                    case SaveSections.HealField.Hit:
+                        hit = r.Int();
+                        break;
+                    case SaveSections.HealField.Last:
+                        last = r.Int();
+                        break;
+                    case SaveSections.HealField.Due:
+                        due = r.Int();
+                        break;
+                    case SaveSections.HealField.Acc:
+                        acc = r.UIntAsInt(BuildDefs.HealDenominator - 1);
+                        break;
+                }
+            }
+
+            if ((uint)x >= (uint)shape.Width || (uint)y >= (uint)shape.Height || hit < 0 || hit > last || last >= due)
+            {
+                throw new InvalidDataException($"Восстановление ({x}, {y}): вне карты {shape} или такты {hit} / {last} → {due}.");
+            }
+
+            return new BuildHeal(new TileCoord(x, y), hit, last, due, acc);
+        }
+
+        /// <summary>Истечение (E2-14, формат 13): тайл на карте; обломки или один флаг урона (16 / 32).</summary>
+        private static BuildExpiry ReadExpire(RecordReader r, MapShape shape)
+        {
+            int x = -1, y = -1, clear = 0;
+            long end = -1;
+            bool debris = false;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.ExpireField.X:
+                        x = r.UIntAsInt();
+                        break;
+                    case SaveSections.ExpireField.Y:
+                        y = r.UIntAsInt();
+                        break;
+                    case SaveSections.ExpireField.End:
+                        end = r.Int();
+                        break;
+                    case SaveSections.ExpireField.Debris:
+                        debris = r.Bool();
+                        break;
+                    case SaveSections.ExpireField.Clear:
+                        clear = r.UIntAsInt(255);
+                        break;
+                }
+            }
+
+            bool flagOk = debris ? clear == 0 : clear == (int)BuildFlags.DamagedRecent || clear == (int)BuildFlags.RepairBlocked;
+            if ((uint)x >= (uint)shape.Width || (uint)y >= (uint)shape.Height || end < 0 || !flagOk)
+            {
+                throw new InvalidDataException($"Истечение ({x}, {y}): вне карты {shape}, такт {end} или флаг {clear}.");
+            }
+
+            return new BuildExpiry(new TileCoord(x, y), end, debris, (BuildFlags)clear);
         }
 
         private static long ChestOrder(TileCoord t) => ((long)t.Y << 32) | (uint)t.X;

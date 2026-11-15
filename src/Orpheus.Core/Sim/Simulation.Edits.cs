@@ -125,9 +125,9 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Урон постройки (1-011, <c>05</c> 1.3 — осадные враги, взрывы; оружие игроков — нет): прочность −<paramref name="raw"/>;
-        /// флаг «урон последние 10 с» на 10 с и «чинить нельзя» на 3 с (C-005); 0 прочности → обломки на 10 с без дропа. Полы «не бьют» (<c>05</c> 1.3).
-        /// Правка — через очередь такта (одна пачка на чанк, 3.7). Применится в ближайшем такте — true.
+        /// Урон постройки (1-011, <c>05</c> 1.3 — осадные враги, взрывы; оружие игроков — нет): прочность (с набранным восстановлением,
+        /// E2-14) −<paramref name="raw"/>; флаг «урон последние 10 с» на 10 с и «чинить нельзя» на 3 с (C-005), восстановление — через 3 с;
+        /// 0 → обломки на 10 с без дропа. Полы «не бьют». Правка — очередью такта (пачка на чанк, 3.7). Применится в ближайшем такте — true.
         /// </summary>
         public bool DamageBuilding(TileCoord tile, int raw)
         {
@@ -135,18 +135,14 @@ namespace Orpheus.Core.Sim
             ChunkCoord chunk = Torus.ChunkOf(_shape, t);
             Chunk? chunkData = _world.FindChunk(chunk);
             ushort index = (ushort)Chunk.IndexOf(t.X, t.Y);
-            if (raw <= 0 || chunkData is null || !chunkData.TryGetBuild(index, out BuildRecord rec) || rec.IsDebris)
+            ushort obj = _world.GetObject(t);
+            // Построенный пол не бьют (`05` 1.3: obj — Empty) — и не восстанавливают: прочности у пола нет (E2-14).
+            if (raw <= 0 || chunkData is null || !chunkData.TryGetBuild(index, out BuildRecord rec) || rec.IsDebris || obj == ObjectId.Empty)
             {
                 return false;
             }
 
-            ushort obj = _world.GetObject(t);
-            if (obj == ObjectId.Empty)
-            {
-                return false; // построенный пол не бьют (`05` 1.3)
-            }
-
-            int left = rec.Integrity - raw;
+            int left = HealedIntegrity(t, obj, rec, out int acc) - raw; // E2-14: набранное с последней записи не теряется
             if (left <= 0)
             {
                 // E2-15: обломки — верх; пол под постройкой остаётся (байт пола тайла и маска пола записи).
@@ -168,6 +164,7 @@ namespace Orpheus.Core.Sim
 
             AddExpire(Tick + BuildDefs.DamageFlagTicks, chunk, index, debris: false);
             AddExpire(Tick + BuildDefs.RepairBlockTicks, chunk, index, debris: false, BuildFlags.RepairBlocked); // C-005: чинить — через 3 с
+            NoteDamage(t, left, obj, acc); // E2-14: восстанавливаться — тоже через 3 с после последнего урона
             return true;
         }
 

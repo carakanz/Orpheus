@@ -115,6 +115,26 @@ namespace Orpheus.Core.Sim
                 r = new StateHashResult(r.Tick, hc.Value, r.World);
             }
 
+            if (sim.Heals.Length > 0)
+            {
+                // Восстановление построек (E2-14) входит в состояние: тайл, урон, такт записи в мир, следующая запись, остаток
+                // накопителя — по порядку списка (он задаёт, кто пишет первым при пределе правок такта). Списка нет — хэш прежний.
+                var hh = new Hasher64(r.Total);
+                ReadOnlySpan<BuildHeal> heals = sim.Heals;
+                hh.Add(heals.Length);
+                for (int i = 0; i < heals.Length; i++)
+                {
+                    hh.Add(heals[i].Tile.X);
+                    hh.Add(heals[i].Tile.Y);
+                    hh.Add(heals[i].Hit);
+                    hh.Add(heals[i].Last);
+                    hh.Add(heals[i].Due);
+                    hh.Add(heals[i].Acc);
+                }
+
+                r = new StateHashResult(r.Tick, hh.Value, r.World);
+            }
+
             if (sim.NextPileId == 1)
             {
                 return r; // куч не было ни разу — хэш тот же, что до E2-1 (эталоны сценариев без добычи не меняются)
