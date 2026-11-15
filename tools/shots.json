@@ -132,6 +132,15 @@
     { "name": "C-018_bush", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--wade-demo", "bush"] },
     { "name": "C-018_enemy", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--wade-demo", "enemy"] },
     { "name": "C-018_walk_water", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--wade-demo", "water", "--shot-walk", "e:8:0.25:0.3", "--shot-crop", "640x400"] },
-    { "name": "C-018_walk_bush", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--wade-demo", "bush", "--shot-walk", "e:8:0.15:0.1", "--shot-crop", "640x400"] }
+    { "name": "C-018_walk_bush", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--wade-demo", "bush", "--shot-walk", "e:8:0.15:0.1", "--shot-crop", "640x400"] },
+    { "name": "C-016_maze_96", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 96 },
+    { "name": "C-016_maze_64", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 64 },
+    { "name": "C-016_maze_40", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 40 },
+    { "name": "C-016_maze_24", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
+    { "name": "C-016_maze_night", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 64, "time": "night" },
+    { "name": "C-016_west_96", "seed": "0xE50007", "size": 1024, "tile": [250, 450], "width": 96 },
+    { "name": "C-016_west_64", "seed": "0xE50007", "size": 1024, "tile": [250, 450], "width": 64 },
+    { "name": "C-016_front_24", "seed": "0xE50007", "size": 1024, "tile": [771, 482], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
+    { "name": "C-016_behind_24", "seed": "0xE50007", "size": 1024, "tile": [773, 485], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] }
   ]
 }

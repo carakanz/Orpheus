@@ -27,6 +27,9 @@ namespace Orpheus.WorldGen
         /// <summary>Пометка <see cref="Marks"/>: проход в линии обрыва — объектов нет, пол — земля.</summary>
         public const byte MarkClear = 2;
 
+        /// <summary>Пометка <see cref="Marks"/> (C-016, v8): тайл в 2 от скалы массива — объектов и залежей нет, пол прежний (ущелья не заваливаются).</summary>
+        public const byte MarkGorge = 4;
+
         /// <summary>Рельеф: высота и уровни 0…3 (E1-2).</summary>
         public ReliefMap Relief { get; }
 

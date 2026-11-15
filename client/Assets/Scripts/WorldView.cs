@@ -465,6 +465,7 @@ namespace Orpheus.Client
         // Меши строк, где сменился объект или пол под ним, и меш теней чанка — в том же вызове, что и правка.
         void BuildObjects(ChunkNode node, Chunk? chunk, bool all)
         {
+            _objects.InvalidateBlocks(); // C-016: ярусы массива — по скале этого чанка и соседей на сейчас
             bool any = false;
             for (int ly = 0; ly < Size; ly++)
             {
@@ -502,8 +503,8 @@ namespace Orpheus.Client
             node.Rows[ly]!.enabled = n > 0 && ObjectAtlas.Material != null && !WorldFx.Off("norows");
         }
 
-        // Пришёл чанк-сосед (dx, dy от near): строки near с блоками у общего края собрать заново — контур и лицо
-        // обрыва зависят от тайлов за краем.
+        // Пришёл чанк-сосед (dx, dy от near): строки near с блоками у общего края собрать заново — контур, лицо и ярус
+        // обрыва зависят от тайлов за краем (ярус — до ObjectMesh.BlockReach тайлов); тень блока — по ярусу.
         void RebuildEdgeBlocks(ChunkNode near, int dx, int dy)
         {
             Chunk? chunk = _world.FindChunk(near.Coord);
@@ -512,7 +513,9 @@ namespace Orpheus.Client
                 return;
             }
 
-            int from = dy > 0 ? Size - 1 : 0, to = dy < 0 ? 0 : Size - 1;
+            _objects.InvalidateBlocks();
+            const int reach = ObjectMesh.BlockReach;
+            int from = dy > 0 ? Size - reach : 0, to = dy < 0 ? reach - 1 : Size - 1;
             bool any = false;
             for (int ly = from; ly <= to; ly++)
             {
@@ -521,7 +524,7 @@ namespace Orpheus.Client
                     continue;
                 }
 
-                if (dx != 0 && !ObjectTable.IsBlock(near.Objs[Chunk.IndexOf(dx > 0 ? Size - 1 : 0, ly)]))
+                if (dx != 0 && !BlockNearEdge(near, ly, dx, reach))
                 {
                     continue; // у бокового края в этой строке блока нет
                 }
@@ -532,9 +535,25 @@ namespace Orpheus.Client
 
             if (any)
             {
+                int shadows = _objects.BuildShadows(chunk, near.Coord, near.Shadows);
+                near.ShadowRenderer.enabled = shadows > 0 && ObjectAtlas.ShadowMaterial != null;
                 near.OrderedY = float.NaN;
                 ApplyRowOrders(near);
             }
+        }
+
+        // В строке ly чанка есть блок не дальше reach тайлов от бокового края (dx > 0 — восточного).
+        static bool BlockNearEdge(ChunkNode node, int ly, int dx, int reach)
+        {
+            for (int k = 0; k < reach; k++)
+            {
+                if (ObjectTable.IsBlock(node.Objs[Chunk.IndexOf(dx > 0 ? Size - 1 - k : k, ly)]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         static bool RowHasObjects(Chunk chunk, int ly)

@@ -111,11 +111,21 @@ namespace Orpheus.WorldGen
                 }
             }
 
+            // C-016 (v8): компонента у залежи (выемка жилы в скальном массиве) присоединяется всегда.
+            var ore = new bool[comps];
+            for (int i = 0; i < n; i++)
+            {
+                if (label[i] >= 0 && OreNear(t, i, w, mask, shift))
+                {
+                    ore[label[i]] = true;
+                }
+            }
+
             var want = new bool[comps];
             bool any = false;
             for (int c = 0; c < comps; c++)
             {
-                want[c] = c != main && (open[c] || size[c] >= MinJoinSize);
+                want[c] = c != main && (open[c] || size[c] >= MinJoinSize || ore[c]);
                 any |= want[c];
             }
 
@@ -355,6 +365,24 @@ namespace Orpheus.WorldGen
         /// Компоненты проходимых тайлов (4 стороны, тор): label[i] — номер компоненты или −1 у преграды. Номера — по первому
         /// тайлу в порядке индекса.
         /// </summary>
+        private static bool OreNear(TileWorld t, int i, int w, int mask, int shift)
+        {
+            int x = i & mask, y = i >> shift;
+            ushort o = ObjectId.Ore, g = ObjectId.Granite;
+            for (int k = 0; k < 4; k++)
+            {
+                int vx = k == 0 ? (x + 1) & mask : k == 1 ? (x - 1) & mask : x;
+                int vy = k == 2 ? (y + 1) & mask : k == 3 ? (y - 1) & mask : y;
+                ushort v = t.Objects[(vy << shift) | vx];
+                if (v == o || v == g)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public static int[] Label(TileWorld t, out int count)
         {
             int w = t.WorldSize;

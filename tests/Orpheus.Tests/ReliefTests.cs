@@ -38,6 +38,16 @@ namespace Orpheus.Tests
             public int ToWater;
             public CliffShapeStats Shape = null!;
             public double NearRocky;
+
+            // C-016 (v8): достижимость ключевых мест без копания — залежь меди и дерево леса с соседом-тайлом, куда дошли.
+            public long Ore, OreReached, Granite, GraniteReached, ForestTrees, ForestTreesReached;
+
+            // Объектов (деревья, кусты, валуны, залежи) в 2 тайлах от скалы — должно быть 0 (MarkGorge).
+            public long ObjectsByRock;
+            public string ObjectsByRockKinds = "";
+
+            // Щелей в один тайл между скалами (обрыв с двух противоположных сторон) и тайлов ущелий 2–3 тайла.
+            public long Gap1, Gorge;
         }
 
         private static readonly Lazy<Seed[]> All = new Lazy<Seed[]>(
@@ -47,14 +57,17 @@ namespace Orpheus.Tests
         {
             TileWorld t = GeneratorV1.BuildTiles(MapShape.World(W), (ulong)seed);
             var r = new Seed { Id = seed, S = TileWorldStats.Of(t) };
-            Walk(t, r);
+            bool[] reached = Walk(t, r);
             r.Shape = CliffShapeStats.Of(t);
             r.NearRocky = CliffsNearRocky(t);
+            KeyPlaces(t, reached, r);
+            Gorges(t, r);
+            ObjectsByRock(t, r);
             return r;
         }
 
         // Путь пешком от Очага (4 стороны, без копания): шагов до ближайшего тайла леса, гор и до берега (сосед воды).
-        private static void Walk(TileWorld t, Seed r)
+        private static bool[] Walk(TileWorld t, Seed r)
         {
             int n = W * W;
             var dist = new int[n];
@@ -95,6 +108,143 @@ namespace Orpheus.Tests
                         dist[v] = d + 1;
                         queue[qt++] = v;
                     }
+                }
+            }
+
+            var reached = new bool[n];
+            for (int i = 0; i < n; i++)
+            {
+                reached[i] = dist[i] >= 0;
+            }
+
+            return reached;
+        }
+
+        // Залежь меди и дерево леса «достижимы», если до них можно докопаться: рядом (4 стороны) тайл, куда дошли от Очага,
+        // или такой же объект, до которого докопались (обход по объектам того же вида — пятно и роща целиком).
+        private static void KeyPlaces(TileWorld t, bool[] reached, Seed r)
+        {
+            int n = W * W;
+            var got = new bool[n];
+            var queue = new int[n];
+            int qt = 0;
+            bool[] graniteCore = DepositStats.MaskOf(t, DepositKind.Granite); // ядра гранита; валуны пещер в карманах — не в счёт
+            bool Key(int i) => t.Objects[i] == ObjectId.Ore || (t.Objects[i] == ObjectId.Granite && graniteCore[i])
+                || (t.Objects[i] == ObjectId.Tree && t.Biome[i] == Biome.Forest);
+            int Next(int i, int k) => ((((i / W) + (k == 2 ? 1 : k == 3 ? -1 : 0)) & (W - 1)) * W) + (((i % W) + (k == 0 ? 1 : k == 1 ? -1 : 0)) & (W - 1));
+            for (int i = 0; i < n; i++)
+            {
+                if (!Key(i))
+                {
+                    continue;
+                }
+
+                for (int k = 0; k < 4; k++)
+                {
+                    if (reached[Next(i, k)])
+                    {
+                        got[i] = true;
+                        queue[qt++] = i;
+                        break;
+                    }
+                }
+            }
+
+            for (int qh = 0; qh < qt; qh++)
+            {
+                int u = queue[qh];
+                for (int k = 0; k < 4; k++)
+                {
+                    int v = Next(u, k);
+                    if (!got[v] && t.Objects[v] == t.Objects[u] && Key(v))
+                    {
+                        got[v] = true;
+                        queue[qt++] = v;
+                    }
+                }
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                if (t.Objects[i] == ObjectId.Ore)
+                {
+                    r.Ore++;
+                    r.OreReached += got[i] ? 1 : 0;
+                }
+                else if (t.Objects[i] == ObjectId.Granite && graniteCore[i])
+                {
+                    r.Granite++;
+                    r.GraniteReached += got[i] ? 1 : 0;
+                }
+                else if (Key(i))
+                {
+                    r.ForestTrees++;
+                    r.ForestTreesReached += got[i] ? 1 : 0;
+                }
+            }
+        }
+
+        // Объект (не скала, не пусто) в 2 тайлах от скалы — ущелья и проходы должны быть чистыми (C-016, MarkGorge).
+        private static void ObjectsByRock(TileWorld t, Seed r)
+        {
+            var kinds = new Dictionary<ushort, int>();
+            for (int y = 0; y < W; y++)
+            {
+                for (int x = 0; x < W; x++)
+                {
+                    ushort o = t.Objects[(y * W) + x];
+                    if (o == ObjectId.Empty || o == ObjectId.Cliff)
+                    {
+                        continue;
+                    }
+
+                    bool near = false;
+                    for (int k = 0; k < 25 && !near; k++)
+                    {
+                        near = t.Objects[(((y + (k / 5) - 2) & (W - 1)) * W) + ((x + (k % 5) - 2) & (W - 1))] == ObjectId.Cliff;
+                    }
+
+                    if (near)
+                    {
+                        r.ObjectsByRock++;
+                        kinds[o] = kinds.TryGetValue(o, out int c) ? c + 1 : 1;
+                    }
+                }
+            }
+
+            r.ObjectsByRockKinds = string.Join(", ", kinds.OrderBy(k => k.Key).Select(k => $"{k.Key}×{k.Value}"));
+        }
+
+        // Проходимый тайл между скалами по оси: щель в 1 тайл (скала вплотную с двух сторон) и ущелье (скала с двух сторон в ≤ 3 тайлах).
+        private static void Gorges(TileWorld t, Seed r)
+        {
+            bool Cliff(int x, int y) => t.Objects[((y & (W - 1)) * W) + (x & (W - 1))] == ObjectId.Cliff;
+            int Reach(int x, int y, int dx, int dy)
+            {
+                for (int d = 1; d <= 3; d++)
+                {
+                    if (Cliff(x + (dx * d), y + (dy * d)))
+                    {
+                        return d;
+                    }
+                }
+
+                return 99;
+            }
+
+            for (int y = 0; y < W; y++)
+            {
+                for (int x = 0; x < W; x++)
+                {
+                    if (!ConnectStage.Passable(t.Floor[(y * W) + x], t.Objects[(y * W) + x]))
+                    {
+                        continue;
+                    }
+
+                    int ew = Reach(x, y, 1, 0) + Reach(x, y, -1, 0);
+                    int ns = Reach(x, y, 0, 1) + Reach(x, y, 0, -1);
+                    r.Gap1 += ew == 2 || ns == 2 ? 1 : 0;
+                    r.Gorge += ew <= 4 || ns <= 4 ? 1 : 0;
                 }
             }
         }
@@ -149,45 +299,106 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Обрывы (E1-6b) — 0,6–2,5 % тайлов, и это гряды-полосы, а не стенки и не пятна: полос толщиной в тайл ≤ 6 %,
-        /// глубже 5 шагов от края нет (толщина до ~4 тайлов и осыпи). Проходы: гряда без прохода не длиннее 80 шагов,
-        /// обрубков короче 12 нет.
+        /// Горы-лабиринт (C-016, генератор v8; слово Автора 15.11 «горы шире, сильно шире с небольшими проходами, аля
+        /// лабиринт»): скала массивов — 8–25 % тайлов, массивы широкие (тайлы скалы глубже 3 шагов от края — ≥ 20 %; у гряд v7 — 0),
+        /// но не сплошные (глубже 10 шагов — ≤ 3 %, наибольшая глубина 4–20), полос в один тайл ≤ 4 %; внутри — ущелья 2–3 тайла (тайлов ущелий ≥ 1 % скалы),
+        /// щелей в один тайл нет; скала — у гор и пещер (≥ 75 % в 24 тайлах от них).
         /// </summary>
         [Fact]
-        public void E16b_30Seeds_Cliffs_Bands_WithGaps()
+        public void C016_30Seeds_Mountains_WideMasses_MazeOfGorges()
         {
             foreach (Seed s in All.Value)
             {
-                _out.WriteLine($"зерно {s.Id}: обрывы {s.S.CliffPercent:F2} %, гряд {s.Shape.Pieces}, длина {s.Shape.Shortest}…{s.Shape.Longest}, " +
-                               $"глубина {s.Shape.MaxDepth}, в один тайл {s.Shape.ThinPercent:F1} %");
+                _out.WriteLine($"зерно {s.Id}: скала {s.S.CliffPercent:F2} %, массивов {s.Shape.Pieces}, глубина до {s.Shape.MaxDepth}, " +
+                               $"глубже 3 — {s.Shape.DeepPercent:F1} %, глубже 10 — {s.Shape.VeryDeepPercent:F2} %, в один тайл {s.Shape.ThinPercent:F1} %, ущелий {s.Gorge}, щелей в тайл {s.Gap1}, " +
+                               $"у гор {100 * s.NearRocky:F1} %");
             }
 
-            Assert.All(All.Value, s => Assert.InRange(s.S.CliffPercent, 0.6, 2.5));
-            Assert.All(All.Value, s => Assert.True(s.Shape.ThinPercent <= 6.0, $"зерно {s.Id}: полос в один тайл {s.Shape.ThinPercent:F1} %"));
-            Assert.All(All.Value, s => Assert.InRange(s.Shape.MaxDepth, 2, 5));
-            Assert.All(All.Value, s => Assert.True(s.Shape.Longest <= 80, $"зерно {s.Id}: гряда {s.Shape.Longest} шагов без прохода"));
-            Assert.All(All.Value, s => Assert.True(s.Shape.Shortest >= CliffStage.MinRunTiles, $"зерно {s.Id}: обрубок {s.Shape.Shortest}"));
-            Assert.All(All.Value, s => Assert.InRange(s.Shape.Pieces, 20, 160));
+            Assert.All(All.Value, s => Assert.InRange(s.S.CliffPercent, 8.0, 25.0));
+            Assert.All(All.Value, s => Assert.InRange(s.Shape.MaxDepth, 4, 20));
+            Assert.All(All.Value, s => Assert.True(s.Shape.VeryDeepPercent <= 3.0, $"зерно {s.Id}: глубже 10 — {s.Shape.VeryDeepPercent:F2} %"));
+            Assert.All(All.Value, s => Assert.True(s.Shape.DeepPercent >= 20.0, $"зерно {s.Id}: глубже 3 — {s.Shape.DeepPercent:F1} %"));
+            Assert.All(All.Value, s => Assert.True(s.Shape.ThinPercent <= 4.0, $"зерно {s.Id}: полос в один тайл {s.Shape.ThinPercent:F1} %"));
+            Assert.All(All.Value, s => Assert.True(s.Gorge * 100 >= s.S.Cliff, $"зерно {s.Id}: ущелий {s.Gorge} на {s.S.Cliff} скалы"));
+            Assert.All(All.Value, s => Assert.Equal(0, s.Gap1));
+            Assert.All(All.Value, s => Assert.True(s.NearRocky >= 0.75, $"зерно {s.Id}: у гор {100 * s.NearRocky:F1} %"));
         }
 
         /// <summary>
-        /// Линия гряды извилистая и одна (E1-6b): прямых отрезков края длиннее 8 тайлов — ≤ 10 % края, длиннее 40 нет;
-        /// «коридоров» между двумя линиями в 10–16 тайлах друг от друга — ≤ 6 % от числа тайлов обрыва (у генератора E1-2
-        /// с вложенными линиями уровней — десятки процентов); ≥ 75 % тайлов обрыва — в 24 тайлах от гор или пещер (остальное — плато на лугу и в лесу).
+        /// Связность при горах-лабиринте (C-016): от Очага без копания достижимы ≥ 98 % проходимых тайлов, ≥ 97 % залежей
+        /// меди и гранита (докопаться от тайла, куда дошли: пятно целиком) и ≥ 97 % деревьев леса; до леса, гор и воды — проверка
+        /// <see cref="E12_30Seeds_EveryRegionWithin1080TilesOfStart"/>.
         /// </summary>
         [Fact]
-        public void E16b_30Seeds_Cliffs_Winding_NotNested_AroundMountains()
+        public void C016_30Seeds_KeyPlacesReachable_WithoutDigging()
         {
             foreach (Seed s in All.Value)
             {
-                _out.WriteLine($"зерно {s.Id}: прямой край до {s.Shape.LongestStraight}, длиннее 8 — {s.Shape.StraightOver8Percent:F2} %, " +
-                               $"коридоры {s.Shape.NearParallelPercent:F2} %, у гор {100 * s.NearRocky:F1} %");
+                _out.WriteLine($"зерно {s.Id}: достижимо {100 * s.S.Reach:F2} %, медь {s.OreReached}/{s.Ore}, гранит {s.GraniteReached}/{s.Granite}, " +
+                               $"деревья леса {s.ForestTreesReached}/{s.ForestTrees}");
             }
 
-            Assert.All(All.Value, s => Assert.True(s.Shape.StraightOver8Percent <= 10.0, $"зерно {s.Id}: прямых {s.Shape.StraightOver8Percent:F2} %"));
-            Assert.All(All.Value, s => Assert.True(s.Shape.LongestStraight <= 40, $"зерно {s.Id}: прямой край {s.Shape.LongestStraight}"));
-            Assert.All(All.Value, s => Assert.True(s.Shape.NearParallelPercent <= 6.0, $"зерно {s.Id}: коридоры {s.Shape.NearParallelPercent:F2} %"));
-            Assert.All(All.Value, s => Assert.True(s.NearRocky >= 0.75, $"зерно {s.Id}: у гор {100 * s.NearRocky:F1} %"));
+            Assert.All(All.Value, s => Assert.True(s.S.Reach >= 0.98, $"зерно {s.Id}: достижимо {100 * s.S.Reach:F2} %"));
+            Assert.All(All.Value, s => Assert.True(s.GraniteReached * 100 >= s.Granite * 97, $"зерно {s.Id}: гранит {s.GraniteReached}/{s.Granite}"));
+            Assert.All(All.Value, s => Assert.True(s.OreReached * 100 >= s.Ore * 97, $"зерно {s.Id}: медь {s.OreReached}/{s.Ore}"));
+            Assert.All(All.Value, s => Assert.True(s.ForestTreesReached * 100 >= s.ForestTrees * 97, $"зерно {s.Id}: деревья {s.ForestTreesReached}/{s.ForestTrees}"));
+        }
+
+        /// <summary>
+        /// Ущелья и проходы между массивами чистые (C-016): в 2 тайлах от скалы нет деревьев, кустов, валунов и залежей
+        /// (выемки жил — скала убрана, полоса пересчитана по оставшейся скале).
+        /// </summary>
+        [Fact]
+        public void C016_30Seeds_Gorges_FreeOfTreesRocksDeposits()
+        {
+            foreach (Seed s in All.Value)
+            {
+                _out.WriteLine($"зерно {s.Id}: объектов в 2 тайлах от скалы {s.ObjectsByRock} ({s.ObjectsByRockKinds})");
+            }
+
+            Assert.All(All.Value, s => Assert.Equal(0, s.ObjectsByRock));
+        }
+
+        /// <summary>
+        /// Выемка с медью в скальном массиве (C-016): карман меньше <see cref="ConnectStage.MinJoinSize"/> тайлов в горах
+        /// этап 12 обычно не присоединяет, но карман у залежи — присоединяет всегда (проход прорублен, жила цела).
+        /// </summary>
+        [Fact]
+        public void C016_Connect_JoinsCopperHollowInsideRock()
+        {
+            MacroWorld macro = MacroGenerator.Generate(W, 6, BiomeSet.Slice);
+            Array.Fill(macro.Map.Biome, Biome.Meadow);
+            var t = new TileWorld(macro);
+            HearthStage.RunMacro(macro);
+            TileStage.Run(t);
+            Array.Fill(t.Objects, ObjectId.Empty);
+            Array.Fill(t.Floor, FloorId.Grass);
+            Array.Fill(t.Biome, Biome.Meadow);
+            const int x0 = 200, y0 = 200, size = 30;
+            for (int y = y0; y < y0 + size; y++)
+            {
+                for (int x = x0; x < x0 + size; x++)
+                {
+                    int i = (y * W) + x;
+                    t.Biome[i] = Biome.Mountain;
+                    t.Floor[i] = FloorId.Stone;
+                    bool hollow = x >= x0 + 12 && x < x0 + 17 && y >= y0 + 12 && y < y0 + 17; // 5 × 5
+                    t.Objects[i] = hollow ? ObjectId.Empty : ObjectId.Cliff;
+                }
+            }
+
+            int ore = ((y0 + 14) * W) + x0 + 14;
+            t.Objects[ore] = ObjectId.Ore;
+            int inHollow = ((y0 + 12) * W) + x0 + 12;
+            int hearth = ((W / 2) * W) + (W / 2);
+            int[] before = ConnectStage.Label(t, out _);
+            Assert.NotEqual(before[hearth], before[inHollow]);
+            ConnectStage.Run(t);
+            int[] after = ConnectStage.Label(t, out _);
+            Assert.Equal(after[hearth], after[inHollow]);
+            Assert.Equal(ObjectId.Ore, t.Objects[ore]);
+            Assert.Equal(ObjectId.Empty, t.Objects[inHollow]);
+            Assert.True(t.ComponentsJoined >= 1);
         }
 
         /// <summary>От Очага без копания достижимы ≥ 90 % всех проходимых тайлов мира (вода и обрывы не режут мир на части).</summary>

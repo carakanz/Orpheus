@@ -174,8 +174,8 @@ namespace Orpheus.WorldGen
                     {
                         kind = DepositKind.Granite;
                     }
-                    else if (rollRocks < (CliffNear(t, px, py) ? RocksByCliff : RocksMeadow)
-                             && (CliffNear(t, px, py) || TileRules.For(t.Biome[(py * w) + px]).Biome == Biome.Meadow))
+                    else if (rollRocks < RocksMeadow && !CliffNear(t, px, py)
+                             && TileRules.For(t.Biome[(py * w) + px]).Biome == Biome.Meadow) // C-016 (v8): у скалы россыпей нет — ущелья не заваливаются
                     {
                         kind = DepositKind.Rocks;
                     }
@@ -192,11 +192,70 @@ namespace Orpheus.WorldGen
                     }
 
                     int radius = rMin + (rSpan % (rMax - rMin + 1));
+                    if (kind != DepositKind.Rocks)
+                    {
+                        ClearRock(t, edge, px, py, radius + RockClearMargin); // C-016: жила в массиве — в своей выемке
+                    }
+
                     int placed = Place(t, edge, tileSeed, px, py, radius, kind, forced: false);
                     if (placed > 0)
                     {
                         t.Deposits.Add(new DepositPatch(px, py, radius, kind, placed, stamped: false));
                     }
+                }
+            }
+        }
+
+        /// <summary>C-016 (v8): медь и гранит в скальном массиве лежат в выемке — скала убирается на столько тайлов шире пятна.</summary>
+        public const int RockClearMargin = 2;
+
+        /// <summary>Убрать скалу массива (обрыв) в круге радиуса <paramref name="radius"/> с неровным краем пятна.</summary>
+        public static void ClearRock(TileWorld t, FieldNoise edge, int cx, int cy, int radius)
+        {
+            int w = t.WorldSize;
+            int mask = w - 1;
+            int reach = radius + EdgeJagTiles;
+            for (int oy = -reach; oy <= reach; oy++)
+            {
+                for (int ox = -reach; ox <= reach; ox++)
+                {
+                    int x = (cx + ox) & mask;
+                    int y = (cy + oy) & mask;
+                    int j = (y * w) + x;
+                    if (t.Objects[j] != ObjectId.Cliff)
+                    {
+                        continue;
+                    }
+
+                    int jag = (int)(((long)(edge.Sample(x, y) - (LatticeNoise.One >> 1)) * EdgeJagTiles * 2 * 256) >> 16);
+                    int d256 = (int)IntMath.Isqrt((long)((ox * ox) + (oy * oy)) << 16);
+                    if (d256 < (radius * 256) + jag)
+                    {
+                        t.Objects[j] = ObjectId.Empty;
+                    }
+                }
+            }
+
+            // Пометка «у скалы» в выемке и вокруг — заново по оставшейся скале.
+            for (int oy = -reach - 2; oy <= reach + 2; oy++)
+            {
+                for (int ox = -reach - 2; ox <= reach + 2; ox++)
+                {
+                    int x = (cx + ox) & mask;
+                    int y = (cy + oy) & mask;
+                    int j = (y * w) + x;
+                    if (t.Objects[j] == ObjectId.Cliff)
+                    {
+                        continue;
+                    }
+
+                    bool near = false;
+                    for (int k = 0; k < 25 && !near; k++)
+                    {
+                        near = k != 12 && t.Objects[(((y + (k / 5) - 2) & mask) * w) + ((x + (k % 5) - 2) & mask)] == ObjectId.Cliff;
+                    }
+
+                    t.Marks[j] = near ? (byte)(t.Marks[j] | TileWorld.MarkGorge) : (byte)(t.Marks[j] & ~TileWorld.MarkGorge); // выемка у оставшейся скалы — тоже полоса
                 }
             }
         }
