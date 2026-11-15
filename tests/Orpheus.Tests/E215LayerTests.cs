@@ -156,6 +156,24 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Accepted, Check(sim, me, BuildDefs.WoodFloorKey, t, 0)); // под стеной — можно
         }
 
+        /// <summary>
+        /// Цена тайла больше стопки в руке (тайл пола — 4 предмета): недостающее снимается из сумки; всего меньше цены — тайл
+        /// не ставится, ничего не снято.
+        /// </summary>
+        [Fact]
+        public void E215_Tile_Price_Above_Hand_Stack_Takes_Rest_From_Bag()
+        {
+            var inv = new Inventory();
+            Assert.True(inv.SetCell(3, Items.WoodFloor, 2));
+            Assert.True(inv.SetCell(20, Items.WoodFloor, 1));
+            Assert.Equal(0, inv.TakeFromThenAny(3, Items.WoodFloor, 4)); // всего 3 < 4
+            Assert.Equal(3, inv.Count(Items.WoodFloor));
+            Assert.True(inv.SetCell(21, Items.WoodFloor, 5));
+            Assert.Equal(4, inv.TakeFromThenAny(3, Items.WoodFloor, 4));
+            Assert.Equal(0, inv.CountIn(3)); // рука — первой
+            Assert.Equal(4, inv.Count(Items.WoodFloor));
+        }
+
         // ------------------------------------------------ снос по слоям
 
         /// <summary>

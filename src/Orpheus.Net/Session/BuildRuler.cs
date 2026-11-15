@@ -98,7 +98,7 @@ namespace Orpheus.Net.Session
         public int Count { get; private set; }
         public ReadOnlySpan<RulerSpot> Spots => new ReadOnlySpan<RulerSpot>(_spots, 0, Count);
 
-        /// <summary>Ставится клеток (можно по проверке; предмет на клетку) и предметов в руке.</summary>
+        /// <summary>Ставится клеток (можно по проверке; предмет на клетку) и предметов этой постройки (рука + сумка, E2-15).</summary>
         public int Need { get; private set; }
         public int Have { get; private set; }
 
@@ -152,7 +152,7 @@ namespace Orpheus.Net.Session
         /// <summary>
         /// План от начала до тайла / ячейки курсора <paramref name="tile"/> / <paramref name="quad"/> предметом ячейки
         /// <paramref name="cell"/> (данные клиента: свой мир, место, сумка). Клетки — по порядку от A; каждая проверена
-        /// <see cref="BuildHand.Check"/>; «нужно» — можно, «есть» — предметов в ячейке; можно, но сверх «есть» — <see cref="RulerSpot.Short"/>.
+        /// <see cref="BuildHand.Check"/>; «нужно» — можно, «есть» — предметов этой постройки в руке и сумке; можно, но сверх «есть» — <see cref="RulerSpot.Short"/>.
         /// </summary>
         public void Update(WorldModel world, WorldPos self, in Inventory bag, int cell, bool alive, TileCoord tile, int quad, bool diagonal)
         {
@@ -163,7 +163,7 @@ namespace Orpheus.Net.Session
             Width = 0;
             Height = 0;
             Kind = KindOfItem(bag.ItemAt(cell));
-            Have = BuildHand.IsBuildItem(bag.ItemAt(cell)) ? bag.CountIn(cell) : 0;
+            Have = BuildHand.IsBuildItem(bag.ItemAt(cell)) ? bag.Count(bag.ItemAt(cell)) : 0; // E2-15: недостающее к руке берётся из сумки
             MapShape map = world.Shape;
             if (Kind == RulerKind.Line)
             {
