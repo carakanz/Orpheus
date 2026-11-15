@@ -452,6 +452,9 @@ namespace Orpheus.Tests
             bag.Add(Material.Torch, 9);
             bag.Select(5);
             int entityId = live.Sim.Entities[0].Id;
+            // C-005: сохранение живой сумки берётся из сущности в мире (WorldSave.LiveCharacters) —
+            // задаём сумку сущности равной сумке в реестре, чтобы тест проверял перенос именно этой сумки.
+            Assert.True(live.Sim.SetInventory(entityId, bag));
             var characters = new[]
             {
                 new CharacterRecord { IsHost = true, Name = "Орфей", EntityId = entityId, Inv = bag },

@@ -263,7 +263,7 @@ namespace Orpheus.Tests
             Assert.Equal((BuildAction.Repair, EditReply.Accepted, Material.Stone, 1), (chk.Action, chk.Reply, chk.Material1, chk.Count1));
             chk = hand.Click(c.World!.World, Spot, c.Inv, c.HeldItem, true, t);
             Assert.True(chk.Ok);
-            rig.Run(4);
+            rig.Run(BuildDefs.RepairFrames / 2 + 4); // C-005: починка идёт 0,5 с
             Assert.Equal(EditReply.Accepted, replies[^1].Reply);
             Assert.True(rig.Sim.World.TryGetBuild(t, out rec));
             Assert.Equal(300, rec.Integrity);
@@ -288,6 +288,181 @@ namespace Orpheus.Tests
             Assert.Equal(1, BuildDefs.RepairCostOf(2, 150, 300));
             Assert.Equal(2, BuildDefs.RepairCostOf(2, 1, 300));
             Assert.Equal(0, BuildDefs.RepairCostOf(2, 300, 300));
+        }
+
+        /// <summary>
+        /// C-005 (замечание 3 проверки E2-5), `05` 1.3 и приёмка 1.7 п. 7: стену били 2 с назад — «под ударом» (и у руки,
+        /// и у сервера); повторный удар отсчитывает 3 с заново; через 3 с после последнего удара — можно. Починка идёт 0,5 с:
+        /// раньше ни прочности, ни списания; через 0,5 с — полная прочность и ⌈2 × недостающая доля⌉ камня. Ушёл из радиуса
+        /// во время починки — «прервано», постройка и сумка не тронуты.
+        /// </summary>
+        [Fact]
+        public void C005_Repair_HalfSecond_InterruptedByLeaving_Blocked3sAfterHit()
+        {
+            Assert.Equal(90, BuildDefs.RepairBlockTicks); // 3 с при 30 Гц
+            Assert.Equal(30, BuildDefs.RepairFrames); // 0,5 с кадрами 60 Гц
+            using var rig = new EditTests.EditRig(World(), _ => Spot);
+            NetClient c = Start(rig, Kit((Items.Stone, 8)));
+            var hand = new BuildHand(c);
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            var t = new TileCoord(302, 200);
+            var edge = new TileCoord(306, 200); // на краю радиуса постановки (6 тайлов)
+            Assert.True(Build(rig, c, hand, ObjectId.StoneWall, t).Ok);
+            Assert.True(Build(rig, c, hand, ObjectId.StoneWall, edge).Ok);
+            Assert.Equal(4, c.Inv.Count(Items.Stone));
+
+            // Удар; через 2 с — «под ударом»; второй удар на 2 с; через 1,2 с после него (3,2 с после первого) — всё ещё нельзя.
+            Assert.True(rig.Sim.DamageBuilding(t, 150));
+            rig.Run(60);
+            Assert.Equal(EditReply.UnderAttack, BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, hand.Key).Reply);
+            c.Repair(t);
+            rig.Run(3);
+            Assert.Equal(EditReply.UnderAttack, replies[^1].Reply);
+            Assert.True(rig.Sim.DamageBuilding(t, 10));
+            rig.Run(36);
+            Assert.Equal(EditReply.UnderAttack, BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, hand.Key).Reply);
+            rig.Run(60);
+            Assert.True(rig.Sim.World.TryGetBuild(t, out BuildRecord rec));
+            Assert.True(rec.IsDamagedRecent); // «урон последние 10 с» (снос — в обломки) ещё стоит, чинить уже можно
+            BuildCheck chk = BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, t, hand.Key);
+            Assert.Equal((BuildAction.Repair, EditReply.Accepted, 2), (chk.Action, chk.Reply, chk.Count1)); // прочность 140: ⌈2 × 160 / 300⌉ = 2
+
+            // Починка: 0,5 с ничего не меняется, потом — полная прочность и списание.
+            int replied = replies.Count;
+            c.Repair(t);
+            rig.Run(BuildDefs.RepairFrames / 2 - 3);
+            Assert.Equal(replied, replies.Count);
+            Assert.True(rig.Sim.World.TryGetBuild(t, out rec));
+            Assert.Equal(140, rec.Integrity);
+            Assert.Equal(4, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
+            rig.Run(6);
+            Assert.Equal(EditReply.Accepted, replies[^1].Reply);
+            Assert.True(rig.Sim.World.TryGetBuild(t, out rec));
+            Assert.Equal(300, rec.Integrity);
+            int stone = rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone);
+            Assert.Equal(4 - 2, stone);
+
+            // Стена на краю радиуса: починку начали и ушли на тайл западнее — «прервано», ничего не изменилось.
+            Assert.True(rig.Sim.DamageBuilding(edge, 100));
+            rig.Run(BuildDefs.RepairBlockTicks + 3);
+            Assert.True(BuildHand.Check(c.World!.World, Spot, c.Inv, c.HeldItem, true, edge, hand.Key).Ok);
+            replied = replies.Count;
+            c.Repair(edge);
+            rig.InputOf = _ => new InputFrame(Input8.West, 0, 0, 2);
+            rig.Run(10);
+            rig.InputOf = _ => HammerHold;
+            rig.Run(BuildDefs.RepairFrames);
+            Assert.Equal(replied + 1, replies.Count);
+            Assert.Equal(EditReply.Interrupted, replies[^1].Reply);
+            Assert.True(rig.Sim.World.TryGetBuild(edge, out rec));
+            Assert.Equal(200, rec.Integrity);
+            Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
+        }
+
+        /// <summary>
+        /// C-005: истечения обоих флагов урона в один такт (удар, через 7 с второй удар: 10 с первого и 3 с второго кончаются
+        /// вместе) — одна правка на тайл, оба флага сняты; ни один не «застревает» навсегда. Ядро без сети.
+        /// </summary>
+        [Fact]
+        public void C005_Repair_DamageFlags_ExpireSameTick_BothCleared()
+        {
+            var sim = new Simulation(World(), maxEntities: 4);
+            var t = new TileCoord(310, 210);
+            Assert.True(sim.RequestEdit(t, FloorId.Grass, ObjectId.StoneWall, new BuildRecord(1, 300, 0, FloorId.Grass, 0)));
+            sim.Step();
+            Assert.True(sim.DamageBuilding(t, 10));
+            for (int i = 0; i < BuildDefs.DamageFlagTicks - BuildDefs.RepairBlockTicks; i++)
+            {
+                sim.Step();
+            }
+
+            Assert.True(sim.DamageBuilding(t, 10));
+            for (int i = 0; i < BuildDefs.RepairBlockTicks + 3; i++)
+            {
+                sim.Step();
+                Assert.True(sim.World.TryGetBuild(t, out BuildRecord r));
+                Assert.True(r.IsRepairBlocked == r.IsDamagedRecent, $"такт {sim.Tick}: флаги {r.Flags}"); // уходят вместе
+            }
+
+            Assert.True(sim.World.TryGetBuild(t, out BuildRecord rec));
+            Assert.Equal(280, rec.Integrity);
+            Assert.Equal(0, rec.Flags);
+        }
+
+        /// <summary>
+        /// C-005 (замечание 2 проверки (П)): идущую починку прерывают — новая починка (прежней «прервано» сразу, новая идёт
+        /// своим чередом), молот убран из рук, смерть. На каждую заявку ровно один ответ; прерванная — сразу (не через 0,5 с
+        /// и не отказом «нужен инструмент»), постройка и сумка не тронуты.
+        /// </summary>
+        [Fact]
+        public void C005_Repair_Interrupted_ByNewRepair_HammerAway_Death_OneReplyEach()
+        {
+            using var rig = new EditTests.EditRig(World(), _ => Spot);
+            NetClient c = Start(rig, Kit((Items.Stone, 12)));
+            var hand = new BuildHand(c);
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            var a = new TileCoord(302, 200);
+            var b = new TileCoord(298, 200);
+            Assert.True(Build(rig, c, hand, ObjectId.StoneWall, a).Ok);
+            Assert.True(Build(rig, c, hand, ObjectId.StoneWall, b).Ok);
+            Assert.True(rig.Sim.DamageBuilding(a, 150));
+            Assert.True(rig.Sim.DamageBuilding(b, 150));
+            rig.Run(BuildDefs.RepairBlockTicks + 3);
+            int stone = rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone);
+            replies.Clear();
+
+            int Of(ushort id) => replies.FindAll(r => r.RequestId == id).Count;
+            EditReply ReplyOf(ushort id) => replies.Find(r => r.RequestId == id).Reply;
+            int Integrity(TileCoord t) => rig.Sim.World.TryGetBuild(t, out BuildRecord r) ? r.Integrity : -1;
+
+            // Новая починка вытесняет прежнюю: прежней — «прервано» сразу, новая доходит до конца.
+            ushort first = c.Repair(a);
+            rig.Run(4);
+            Assert.Empty(replies);
+            ushort second = c.Repair(b);
+            rig.Run(3);
+            Assert.Equal(1, Of(first));
+            Assert.Equal(EditReply.Interrupted, ReplyOf(first));
+            Assert.Equal(0, Of(second));
+            rig.Run(BuildDefs.RepairFrames / 2 + 4);
+            Assert.Equal((1, 1, 2), (Of(first), Of(second), replies.Count));
+            Assert.Equal(EditReply.Accepted, ReplyOf(second));
+            Assert.Equal(150, Integrity(a));
+            Assert.Equal(300, Integrity(b));
+            stone -= BuildDefs.RepairCostOf(2, 150, 300); // списано только за вторую
+            Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
+
+            // Молот убран из рук: «прервано» сразу (не «нужен инструмент» через 0,5 с), стена и сумка не тронуты.
+            ushort third = c.Repair(a);
+            rig.Run(3);
+            rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, 0); // в руки — кирка
+            rig.Run(3);
+            Assert.Equal(1, Of(third));
+            Assert.Equal(EditReply.Interrupted, ReplyOf(third));
+            rig.InputOf = _ => HammerHold;
+            rig.Run(BuildDefs.RepairFrames);
+            Assert.Equal(1, Of(third));
+            Assert.Equal(150, Integrity(a));
+            Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
+
+            // Смерть во время починки: «прервано» до возрождения, ровно один ответ; стена и сумка не тронуты.
+            rig.Run(Simulation.InvulnRespawnTicks + 2);
+            ushort fourth = c.Repair(a);
+            rig.Run(3);
+            Assert.Equal(0, Of(fourth));
+            rig.Sim.ApplyStrike(c.EntityId, -1, 1000, rig.Sim.GetEntity(c.EntityId).Mover.Position, knockback: false);
+            Assert.False(rig.Sim.GetEntity(c.EntityId).Alive);
+            rig.Run(3);
+            Assert.False(rig.Sim.GetEntity(c.EntityId).Alive);
+            Assert.Equal(1, Of(fourth));
+            Assert.Equal(EditReply.Interrupted, ReplyOf(fourth));
+            rig.Run(Simulation.RespawnDelayTicks + BuildDefs.RepairFrames);
+            Assert.Equal(1, Of(fourth));
+            Assert.Equal(150, Integrity(a));
+            Assert.Equal(stone, Total(rig.Sim, Items.Stone)); // сумка могла выпасть кучей — масса та же
+            Assert.Equal(4, replies.Count);
         }
 
         // ---------- Сундук ----------
@@ -473,6 +648,107 @@ namespace Orpheus.Tests
             Assert.Equal(12, Total(rig.Sim, Items.CopperIngot));
         }
 
+        /// <summary>Ядро без сети: персонаж в (300, 200) со стартовым набором, сундук на тайле, в сундуке 20 меди (ячейка 0).</summary>
+        private static (Simulation Sim, int Id) ChestCore(TileCoord chest)
+        {
+            var sim = new Simulation(World(), maxEntities: 8);
+            int id = sim.AddEntity(Spot);
+            Assert.True(sim.SetInventory(id, Kit()));
+            Assert.True(sim.RequestEdit(chest, FloorId.Grass, ObjectId.Chest));
+            for (int i = 0; i < Simulation.InvulnRespawnTicks + 2; i++)
+            {
+                sim.Step(); // и неуязвимость появления прошла — убить можно
+            }
+
+            Assert.Equal(ObjectId.Chest, Obj(sim, chest));
+            var content = new Inventory();
+            content.SetCell(0, Items.CopperIngot, 20);
+            Assert.True(sim.SetChest(chest, content));
+            return (sim, id);
+        }
+
+        /// <summary>
+        /// C-005 (замечание 1 проверки E2-5): расстояние до сундука проверяет такт ядра, а не только сервер. Заявка
+        /// <see cref="Simulation.RequestChestOp"/> к сундуку в 4 тайлах в очередь встаёт (проверка — в такте), но такт её не
+        /// исполняет: ни сундук, ни сумка не меняются; та же заявка к сундуку в 3 тайлах — исполняется.
+        /// </summary>
+        [Fact]
+        public void C005_Chest_Core_FarRequester_RefusedInTick()
+        {
+            foreach ((int dx, int dy, bool reach) in new[] { (4, 0, false), (0, -4, false), (4, 4, false), (3, 0, true), (-3, 3, true) })
+            {
+                var t = new TileCoord(300 + dx, 200 + dy);
+                (Simulation sim, int id) = ChestCore(t);
+                Assert.Equal(reach, EditRules.InUseRadius(sim.Shape, sim.GetEntity(id).Mover.Position, t));
+                Inventory bag = sim.GetEntity(id).Inv;
+                Assert.True(sim.TryGetChest(t, out Inventory chest));
+                int to = BagHand.FitTarget(bag, Items.CopperIngot, 0, Inventory.Cells);
+
+                // Взять из сундука (ячейка 40 → свободная ячейка сумки) и положить в сундук (факелы, ячейка 5 → 40 + 7).
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Move, Simulation.ChestCellBase + 0, to, 0));
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Move, 5, Simulation.ChestCellBase + 7, 0));
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Drop, Simulation.ChestCellBase + 0, 0, 0));
+                sim.Step();
+
+                Assert.True(sim.TryGetChest(t, out Inventory after));
+                if (reach)
+                {
+                    Assert.Equal(20, sim.GetEntity(id).Inv.Count(Items.CopperIngot));
+                    Assert.Equal(3, after.Count(Items.Torch));
+                    Assert.Equal(0, after.Count(Items.CopperIngot));
+                }
+                else
+                {
+                    Assert.Equal(chest, after);
+                    Assert.Equal(bag, sim.GetEntity(id).Inv);
+                    Assert.Equal(0, sim.Piles.Length);
+                }
+            }
+        }
+
+        /// <summary>
+        /// C-005 (замечание 1 проверки E2-5): заявитель жив при заявке, убит до такта — такт ядра заявку к сундуку не
+        /// исполняет (в обход сервера: <see cref="Simulation.RequestChestOp"/> напрямую). Сундук в 2 тайлах — по расстоянию
+        /// заявка прошла бы (контроль — тот же сценарий без смерти).
+        /// </summary>
+        [Fact]
+        public void C005_Chest_Core_DeadRequester_RefusedInTick()
+        {
+            foreach (bool kill in new[] { true, false })
+            {
+                var t = new TileCoord(302, 200);
+                (Simulation sim, int id) = ChestCore(t);
+                Assert.True(sim.TryGetChest(t, out Inventory chest));
+                Inventory bag = sim.GetEntity(id).Inv;
+                int to = BagHand.FitTarget(bag, Items.CopperIngot, 0, Inventory.Cells);
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Move, Simulation.ChestCellBase + 0, to, 0));
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Move, 5, Simulation.ChestCellBase + 7, 0));
+                Assert.True(sim.RequestChestOp(id, t, BagOp.Split, 3, Simulation.ChestCellBase + 9, 1)); // меч из сумки в сундук
+                if (kill)
+                {
+                    sim.ApplyStrike(id, -1, 1000, sim.GetEntity(id).Mover.Position, knockback: false);
+                    Assert.False(sim.GetEntity(id).Alive);
+                    Assert.False(sim.RequestChestOp(id, t, BagOp.Move, Simulation.ChestCellBase + 0, to, 0)); // мёртвый — отказ сразу
+                }
+
+                sim.Step();
+                Assert.True(sim.TryGetChest(t, out Inventory after));
+                if (kill)
+                {
+                    Assert.Equal(chest, after);
+                    Assert.Equal(bag, sim.GetEntity(id).Inv);
+                    Assert.Equal(0, sim.Piles.Length);
+                }
+                else
+                {
+                    Assert.Equal(0, after.Count(Items.CopperIngot));
+                    Assert.Equal(3, after.Count(Items.Torch));
+                    Assert.Equal(1, after.Count(Items.WoodenSword));
+                    Assert.Equal(20, sim.GetEntity(id).Inv.Count(Items.CopperIngot));
+                }
+            }
+        }
+
         // ---------- Кровать ----------
 
         /// <summary>
@@ -651,6 +927,58 @@ namespace Orpheus.Tests
             Assert.Equal(StateHash.Compute(sim).Total, StateHash.Compute(re).Total);
             Assert.True(re.TryGetChest(chest, out Inventory back));
             Assert.Equal(content, back);
+        }
+
+        /// <summary>
+        /// C-005 (замечание 2 проверки E2-5): настоящий файл формата 8 с постройками (записан кодом слияния task/E2-3 3846d7a
+        /// — до E2-5, где ключ пола в заявке совпадал с id пола; генератор — <c>Golden/format8_build.make.cs.txt</c>: игрок
+        /// по сети ставит молотом по три деревянных и каменных пола, настила на воде, деревянных и каменных стены; по одной
+        /// стене каждого вида — на половине прочности). После чтения постройки те же (хэш, слой пола, объект, запись постройки),
+        /// снос каждой возвращает материалы по прочности: пол — 1, целая стена — 2, стена на половине — 1.
+        /// </summary>
+        [Fact]
+        public void C005_Save_Format8_RealFile_Floors_Walls_Refund()
+        {
+            byte[] v8 = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format8_build.save"));
+            byte[] baseBytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format8_build.base"));
+            SaveFile f = SaveContainer.Read(v8);
+            Assert.True(f.IsOk, f.Error);
+            Assert.Equal(8u, f.Header.FormatVersion);
+            Simulation sim = SaveFixtures.Load(baseBytes, v8);
+            Assert.Equal("5b86237e5673c26d", StateHash.Compute(sim).Total.ToString("x16")); // хэш, записанный генератором
+
+            int id = sim.Entities[0].Id;
+            var cases = new List<(TileCoord Tile, byte Floor, ushort Obj, byte Natural, int Integrity, byte Item, int Refund)>();
+            for (int i = 0; i < 3; i++)
+            {
+                cases.Add((new TileCoord(130 + i, 128), FloorId.WoodFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.Wood, 1));
+                cases.Add((new TileCoord(130 + i, 130), FloorId.StoneFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.Stone, 1));
+                cases.Add((new TileCoord(130 + i, 125), FloorId.Platform, ObjectId.Empty, FloorId.Water, BuildRecord.MaxIntegrity, Items.Wood, 1));
+                cases.Add((new TileCoord(125, 127 + i), FloorId.Grass, ObjectId.WoodWall, FloorId.Grass, i == 2 ? 60 : 120, Items.Wood, i == 2 ? 1 : 2));
+                cases.Add((new TileCoord(123, 127 + i), FloorId.Grass, ObjectId.StoneWall, FloorId.Grass, i == 2 ? 150 : 300, Items.Stone, i == 2 ? 1 : 2));
+            }
+
+            foreach (var k in cases)
+            {
+                Assert.Equal(k.Floor, sim.World.GetFloor(k.Tile));
+                Assert.Equal(k.Obj, Obj(sim, k.Tile));
+                Assert.True(sim.World.TryGetBuild(k.Tile, out BuildRecord rec), $"нет записи постройки на {k.Tile}");
+                Assert.Equal(k.Natural, rec.NaturalFloor);
+                Assert.True(k.Integrity == rec.Integrity, $"{k.Tile}: прочность {rec.Integrity}, ждали {k.Integrity}");
+            }
+
+            // Снос — та же правка, что ставит сервер, докопав молотом (`NetServer.Edits`: пол — природному из записи).
+            foreach (var k in cases)
+            {
+                int before = Total(sim, k.Item);
+                byte newFloor = k.Obj == ObjectId.Empty ? k.Natural : k.Floor;
+                Assert.True(sim.RequestPlayerEdit(k.Tile, newFloor, ObjectId.Empty, false, default, id, 0));
+                sim.Step();
+                Assert.Equal(k.Natural, sim.World.GetFloor(k.Tile));
+                Assert.Equal(ObjectId.Empty, Obj(sim, k.Tile));
+                Assert.False(sim.World.TryGetBuild(k.Tile, out _));
+                Assert.True(before + k.Refund == Total(sim, k.Item), $"{k.Tile} (пол {k.Floor}, объект {k.Obj}): возврат {Total(sim, k.Item) - before}, ждали {k.Refund}");
+            }
         }
 
         // ---------- Сеть ----------

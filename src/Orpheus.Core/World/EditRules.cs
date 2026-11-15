@@ -387,7 +387,7 @@ namespace Orpheus.Core.World
 
         /// <summary>
         /// Проверка починки (E2-5, `05` 1.3 «Починка»): радиус постановки, на тайле постройка с неполной прочностью,
-        /// не получавшая урон недавно (флаг <see cref="BuildFlags.DamagedRecent"/>). Цена — по каждому материалу рецепта
+        /// не получавшая урон последние 3 с (флаг <see cref="BuildFlags.RepairBlocked"/>, C-005). Цена — по каждому материалу рецепта
         /// ⌈количество × недостающая доля⌉ (<see cref="BuildDefs.RepairCostOf"/>); хватает ли — проверяет вызывающий
         /// (<see cref="RepairAffordable"/>) и такт. Полы не чинятся (их не бьют).
         /// </summary>
@@ -414,7 +414,7 @@ namespace Orpheus.Core.World
                 return EditReply.Intact;
             }
 
-            if (rec.IsDamagedRecent)
+            if (rec.IsRepairBlocked)
             {
                 return EditReply.UnderAttack;
             }
