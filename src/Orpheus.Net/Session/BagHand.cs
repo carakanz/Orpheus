@@ -229,6 +229,54 @@ namespace Orpheus.Net.Session
             return to >= 0 && Send(_requests.RequestBagMove(cell, to)) ? BagClick.Moved : BagClick.None;
         }
 
+        /// <summary>
+        /// C-008: кнопка «Взять всё» у сундука — всё из сундука в сумку пачкой обычных заявок переноса (сообщение 29,
+        /// новых заявок нет). Цели считаются по копиям сумки и сундука с теми же правилами <see cref="Inventory.Move(ref Inventory, int, ref Inventory, int)"/>,
+        /// что у сервера, — заявки пачки не наступают друг на друга. Возвращает число отправленных заявок.
+        /// </summary>
+        public int TakeAll() => MoveAll(fromChest: true);
+
+        /// <summary>C-008: кнопка «Положить всё» — сумка без быстрой панели (ячейки 8…39) в сундук, как в Terraria.</summary>
+        public int PutAll() => MoveAll(fromChest: false);
+
+        private int MoveAll(bool fromChest)
+        {
+            if (!ChestOpen || Dead || Holding)
+            {
+                return 0;
+            }
+
+            Inventory bag = _bag, chest = _chest;
+            int sent = 0;
+            int lo = fromChest ? 0 : Inventory.Slots, hi = fromChest ? Simulation.ChestCells : Inventory.Cells;
+            for (int i = lo; i < hi; i++)
+            {
+                for (int tries = 0; tries < 4; tries++)
+                {
+                    byte item = fromChest ? chest.ItemAt(i) : bag.ItemAt(i);
+                    if (item == Items.None)
+                    {
+                        break;
+                    }
+
+                    int to = fromChest ? FitTarget(bag, item, 0, Inventory.Cells) : FitTarget(chest, item, 0, Simulation.ChestCells);
+                    if (to < 0 || !(fromChest ? Inventory.Move(ref chest, i, ref bag, to) : Inventory.Move(ref bag, i, ref chest, to)))
+                    {
+                        break;
+                    }
+
+                    if (!Send(_requests.RequestBagMove(fromChest ? ChestBase + i : i, fromChest ? to : ChestBase + to)))
+                    {
+                        return sent;
+                    }
+
+                    sent++;
+                }
+            }
+
+            return sent;
+        }
+
         /// <summary>ЛКМ мимо окна с предметом в руке: выбросить на землю.</summary>
         public BagClick Outside()
         {

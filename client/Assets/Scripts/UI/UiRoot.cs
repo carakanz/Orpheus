@@ -149,7 +149,7 @@ namespace Orpheus.Client.UI
             {
                 var o = t.gameObject.AddComponent<Outline>();
                 o.effectColor = UiStyle.Ink;
-                o.effectDistance = new Vector2(1.5f, -1.5f);
+                o.effectDistance = new Vector2(2f, -2f); // C-008: цифры поверх мира — обводка толще
             }
 
             return t;
