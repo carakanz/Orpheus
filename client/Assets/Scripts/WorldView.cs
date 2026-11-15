@@ -688,7 +688,15 @@ namespace Orpheus.Client
                     byte floor = chunk == null ? FloorId.Grass : chunk.GetFloor(index);
                     ushort obj = chunk == null ? ObjectId.Empty : chunk.GetObject(index);
                     byte part = FloorCellsLook.PartialMask(chunk, index, floor); // E2-15: пол частью тайла — четвертями
-                    FloorCellsLook.Sync(node.FloorCells, node.FloorMasks, node.FloorMaskFloors, lx, ly, floor, part);
+                    if (FloorCellsLook.Sync(node.FloorCells, node.FloorMasks, node.FloorMaskFloors, lx, ly, floor, part) && !fresh)
+                    {
+                        // Пол стал частью тайла или целым: земля под ним — другая (природная под частью) — меш земли заново.
+                        if (lx < minX) minX = lx;
+                        if (lx > maxX) maxX = lx;
+                        if (ly < minY) minY = ly;
+                        if (ly > maxY) maxY = ly;
+                    }
+
                     TileBase? floorTile = part != 0 ? null : FloorTile(floor);
                     built |= floorTile != null;
                     _floorBuf[row + lx] = floorTile;

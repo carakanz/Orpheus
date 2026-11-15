@@ -52,12 +52,12 @@ namespace Orpheus.Client
         /// Плитки-четверти тайла (lx, ly) в Tilemap частичных полов: <paramref name="mask"/> — ячейки пола (0 — нет частичного
         /// пола), <paramref name="shown"/> — что стоит сейчас (меняется только разница).
         /// </summary>
-        public static void Sync(Tilemap map, byte[] shown, byte[] shownFloor, int lx, int ly, byte floor, byte mask)
+        public static bool Sync(Tilemap map, byte[] shown, byte[] shownFloor, int lx, int ly, byte floor, byte mask)
         {
             int index = Chunk.IndexOf(lx, ly);
             if (shown[index] == mask && (mask == 0 || shownFloor[index] == floor))
             {
-                return;
+                return false;
             }
 
             for (int q = 0; q < 4; q++)
@@ -69,6 +69,22 @@ namespace Orpheus.Client
 
             shown[index] = mask;
             shownFloor[index] = floor;
+            return true;
+        }
+
+        /// <summary>
+        /// Пол тайла для меша земли: под построенным полом (кроме настила — под ним вода) — природный пол из записи: свободная
+        /// половина у стены — трава, и полоса «земли построенного пола» не выходит за стены; иначе — пол тайла.
+        /// </summary>
+        public static byte GroundFloor(Chunk chunk, int index)
+        {
+            byte floor = chunk.GetFloor(index);
+            if (!FloorId.IsBuilt(floor) || floor == FloorId.Platform || !chunk.TryGetBuild(index, out BuildRecord rec))
+            {
+                return floor;
+            }
+
+            return BuildLayers.NaturalUnder(rec);
         }
 
         /// <summary>Плитка-четверть пола: часть картинки целой плитки (<see cref="BuildLook.TileOf"/>), опора по центру.</summary>
