@@ -121,6 +121,13 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - client: UI/GameUi.Build.cs (UiBuildState.Placing, UiNote, ShowBuild, SyncChestWindow, OpenCraft, Notify) · UI/BuildBar.cs (ChestWindow; лента BuildBar убрана в E2-11) · UI/UiDemo.Build.cs (--ui-demo build|chest|house) · BuildGhost.cs · BuildLook.cs · NetGame.Edits.cs (BuildState, UseObject, HammerEdits) · PaintDemo.House.
 - tests/BuildTests.cs (E25_*); Golden/format8_craft.*.
 
+## Стена в полтайла (E2-12)
+- World/BuildCells.cs: CellGroup · BuildCells (Full, Bit, IsCellBuilding, MaskOf, MaskAt, Count, IsDoorMask, CellShape/CellOf/CellAt/QuadOf, Line — линия ячеек по тайлам, DoorMaskFor, CheckPlace). BuildRecord: FloorCells / NaturalFloor / Cells / WithCells.
+- Movement/Collision.cs: ITileCells · SolidCellsOf · CircleOverlapsCells · AxisPush/OverlapsTile по квадратам ячеек. Simulation.Movement.cs: SolidCells. Simulation.Combat.cs: StrikeCellSolid. Simulation.BuildItems.cs: PlacementUnits · CostPaidRepair.
+- Net: NetServer.Cells.cs (PlaceCells, TagCountShift) · NetClient.Cells.cs (PlaceCells) · TileRequestMessage.Quad · BuildHand Check/Click(quad), PlaceLine(fromQuad, toQuad), BuildCheck.Cells. BuildRoomBot: WallCellsOf · WallDone · PlaceWallCells.
+- Save/LegacyWalls.cs (счёт старых стен, формат < 10). Client: ThinWallLook.cs · WorldView.RefreshSeams · BuildGhost.CellBox · PaintDemo.ThinHouse (--ui-demo thin) · NetGame.Edits _cursorQuad.
+- tests/HalfWallTests.cs; Golden/format9_walls.*.
+
 ## Интерфейс (E2-2) - client/Assets/Scripts/UI
 - UiRoot.cs: `UiRoot` (холст перед камерой, Fit, FromScreen, Node/Picture/Label), `UiGroup` (привязка, Contains/Local).
 - UiStyle.cs: цвета, `Frame` (рамка с 9 срезами кодом), `Font`.
