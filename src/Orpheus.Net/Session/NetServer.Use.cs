@@ -137,7 +137,9 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            ushort obj = _sim.World.GetObject(m.Tile);
+            // C-011: F по любой клетке мебели — заявка идёт к её якорю (хвост кровати, верстака, сдвинутого сундука).
+            TileCoord target = BuildLayers.TryFurnitureAt(_sim.World, m.Tile, out TileCoord anchor) ? anchor : Torus.Wrap(_sim.Shape, m.Tile);
+            ushort obj = _sim.World.GetObject(target);
             int slot = _sim.SlotOf(p.EntityId);
             EditReply reply;
             if (Paused)
@@ -156,7 +158,7 @@ namespace Orpheus.Net.Session
             {
                 reply = EditReply.Dead;
             }
-            else if (!EditRules.InUseRadius(_sim.Shape, _sim.Entities[slot].Mover.Position, m.Tile))
+            else if (!BuildLayers.InUseReach(_sim.World, _sim.Entities[slot].Mover.Position, target))
             {
                 reply = EditReply.OutOfReach;
             }
@@ -166,14 +168,14 @@ namespace Orpheus.Net.Session
                 switch (ObjectId.IdOf(obj))
                 {
                     case ObjectId.Chest:
-                        CloseChest(p, notify: p.ChestOpen && p.ChestTile != m.Tile);
+                        CloseChest(p, notify: p.ChestOpen && p.ChestTile != target);
                         p.ChestOpen = true;
-                        p.ChestTile = m.Tile;
+                        p.ChestTile = target;
                         p.ChestSent = false;
                         reply = EditReply.Accepted;
                         break;
                     case ObjectId.Bed:
-                        reply = _sim.RequestSetBed(p.EntityId, m.Tile);
+                        reply = _sim.RequestSetBed(p.EntityId, target);
                         break;
                     default:
                         reply = EditReply.Empty;
@@ -183,7 +185,7 @@ namespace Orpheus.Net.Session
 
             int len = new UseReplyMessage { Tile = m.Tile, Obj = obj, Reply = reply }.Write(_buf);
             _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
-            if (reply == EditReply.Accepted && p.ChestOpen && p.ChestTile == m.Tile && slot >= 0)
+            if (reply == EditReply.Accepted && p.ChestOpen && p.ChestTile == target && slot >= 0)
             {
                 SendChestTo(p, slot); // открыл — содержимое сразу, не ждать такта
             }
@@ -209,6 +211,28 @@ namespace Orpheus.Net.Session
             }
         }
 
+        /// <summary>
+        /// Переносы якоря мебели такта (C-011, <see cref="Simulation.TakeAnchorMoves"/>): окно открытого сундука — на новый якорь
+        /// (содержимое перенесено тем же тактом; клиент узнает тайл из сообщения 35), точка возрождения персонажа вне мира — тоже.
+        /// </summary>
+        private void FollowAnchorMoves()
+        {
+            foreach ((TileCoord from, TileCoord to) in _sim.TakeAnchorMoves())
+            {
+                for (int i = 0; i < _players.Count; i++)
+                {
+                    Player pl = _players[i];
+                    if (pl.ChestOpen && pl.ChestTile == from)
+                    {
+                        pl.ChestTile = to;
+                        pl.ChestSent = false;
+                    }
+                }
+
+                Characters.MoveBed(from, to);
+            }
+        }
+
         /// <summary>После такта: открытый сундук игрока — закрыть, если его нет, игрок далеко или мёртв; иначе содержимое, если изменилось.</summary>
         private void SendChestTo(Player p, int slot)
         {
@@ -218,7 +242,7 @@ namespace Orpheus.Net.Session
             }
 
             if (slot < 0 || !_sim.Entities[slot].Alive
-                || !EditRules.InUseRadius(_sim.Shape, _sim.Entities[slot].Mover.Position, p.ChestTile)
+                || !BuildLayers.InUseReach(_sim.World, _sim.Entities[slot].Mover.Position, p.ChestTile)
                 || !_sim.TryGetChest(p.ChestTile, out Inventory content))
             {
                 CloseChest(p, notify: true);

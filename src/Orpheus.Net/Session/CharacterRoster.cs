@@ -23,6 +23,20 @@ namespace Orpheus.Net.Session
         /// <summary>Персонаж № <paramref name="index"/> (копия).</summary>
         public CharacterRecord this[int index] => _list[index];
 
+        /// <summary>Кровать перенесла якорь (C-011): точка возрождения персонажей вне мира — на новый тайл.</summary>
+        public void MoveBed(Orpheus.Core.Geometry.TileCoord from, Orpheus.Core.Geometry.TileCoord to)
+        {
+            for (int i = 0; i < _list.Count; i++)
+            {
+                CharacterRecord r = _list[i];
+                if (r.EntityId <= 0 && r.HasBed && r.Bed == from)
+                {
+                    r.Bed = to;
+                    _list[i] = r;
+                }
+            }
+        }
+
         /// <summary>Сейчас в мире (с сущностью).</summary>
         public int InWorld
         {

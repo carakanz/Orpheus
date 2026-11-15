@@ -47,10 +47,23 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>Объект на тайле годится для F отсюда: есть действие, досягаем; дверь — только открытая и не под собой.</summary>
-        public static UseKind At(WorldModel world, WorldPos self, TileCoord tile)
+        public static UseKind At(WorldModel world, WorldPos self, TileCoord tile) => At(world, self, tile, out _);
+
+        /// <summary>
+        /// Как <see cref="At(WorldModel, WorldPos, TileCoord)"/>; C-011: тайл с хвостом мебели (кровать 1 × 2, верстак 2 × 2,
+        /// сундук со сдвигом) — действие её якоря (<see cref="BuildLayers.TryFurnitureAt"/>), досягаемость — до любого её тайла
+        /// (<see cref="BuildLayers.InUseReach"/>, как у сервера). <paramref name="target"/> — тайл для заявки (якорь).
+        /// </summary>
+        public static UseKind At(WorldModel world, WorldPos self, TileCoord tile, out TileCoord target)
         {
             MapShape map = world.Shape;
             TileCoord t = Torus.Wrap(map, tile);
+            if (KindOf(world.GetObject(t)) == UseKind.None && BuildLayers.TryFurnitureAt(world, t, out TileCoord anchor))
+            {
+                t = anchor;
+            }
+
+            target = t;
             UseKind kind = KindOf(world.GetObject(t));
             if (kind == UseKind.None)
             {
@@ -64,7 +77,7 @@ namespace Orpheus.Net.Session
                 return near && world.TryGetBuild(t, out BuildRecord rec) && rec.IsDoorOpen ? UseKind.Door : UseKind.None;
             }
 
-            return EditRules.InUseRadius(map, self, t) ? kind : UseKind.None;
+            return BuildLayers.InUseReach(world, self, t) ? kind : UseKind.None;
         }
 
         /// <summary>
@@ -73,9 +86,8 @@ namespace Orpheus.Net.Session
         /// </summary>
         public static bool Find(WorldModel world, WorldPos self, TileCoord? cursor, out TileCoord tile, out UseKind kind)
         {
-            if (cursor.HasValue && (kind = At(world, self, cursor.Value)) != UseKind.None)
+            if (cursor.HasValue && (kind = At(world, self, cursor.Value, out tile)) != UseKind.None)
             {
-                tile = Torus.Wrap(world.Shape, cursor.Value);
                 return true;
             }
 
@@ -90,17 +102,17 @@ namespace Orpheus.Net.Session
                 for (int dx = -r; dx <= r; dx++)
                 {
                     var t = Torus.Wrap(map, new TileCoord(me.X + dx, me.Y + dy));
-                    UseKind k = At(world, self, t);
+                    UseKind k = At(world, self, t, out TileCoord target);
                     if (k == UseKind.None)
                     {
                         continue;
                     }
 
-                    long d2 = Torus.Dist2(map, self, EditRules.CenterOf(t));
+                    long d2 = Torus.Dist2(map, self, EditRules.CenterOf(t)); // до тайла (хвост ближе якоря — ближе и предмет)
                     if (d2 < best)
                     {
                         best = d2;
-                        tile = t;
+                        tile = target;
                         kind = k;
                     }
                 }

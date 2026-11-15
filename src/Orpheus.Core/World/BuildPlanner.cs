@@ -26,6 +26,16 @@ namespace Orpheus.Core.World
 
         /// <summary>Правка слоя пола: верх тайла не меняется, существа и враги ей не мешают.</summary>
         public bool FloorOnly;
+
+        /// <summary>
+        /// Перенос якоря мебели (C-011): стена в свободные ячейки тайла-якоря — мебель тем же тактом уходит якорем в тайл
+        /// <see cref="MoveTile"/> (тот же чанк) объектом <see cref="MoveObj"/> с записью <see cref="MoveRecord"/>
+        /// (<see cref="BuildLayers.TryReanchor"/>). Обе правки применяются вместе или ни одна (такт).
+        /// </summary>
+        public bool Moves;
+        public TileCoord MoveTile;
+        public ushort MoveObj;
+        public BuildRecord MoveRecord;
     }
 
     /// <summary>
@@ -124,7 +134,21 @@ namespace Orpheus.Core.World
                     e.First = g.First;
                     e.Count = g.Count;
                     e.Check = BuildCells.CheckPlace(world, center, t, obj, g.Mask, out byte mask, out byte add);
-                    if (e.Check == EditReply.Accepted)
+                    if (e.Check == EditReply.FurnitureInTile && !door && BuildLayers.TryReanchor(world, t, out TileCoord moveTo, out BuildRecord moved))
+                    {
+                        // C-011: свободная половина тайла-якоря сдвинутой мебели — мебель переносит якорь в свой другой тайл.
+                        e.Check = EditReply.Accepted;
+                        e.Moves = true;
+                        e.MoveTile = moveTo;
+                        e.MoveObj = world.GetObject(t);
+                        e.MoveRecord = moved;
+                        mask = g.Mask;
+                        add = g.Mask;
+                        e.Floor = world.GetFloor(t);
+                        e.Obj = obj;
+                        e.Record = BuildLayers.TopRecord(world, t, owner, integrity, mask);
+                    }
+                    else if (e.Check == EditReply.Accepted)
                     {
                         e.Floor = world.GetFloor(t);
                         e.Obj = obj;
@@ -134,6 +158,25 @@ namespace Orpheus.Core.World
                     }
 
                     e.Units = (byte)(door ? 1 : Math.Max(1, BuildCells.Count(add)));
+                }
+
+                // C-011: новый якорь не должен быть тайлом другой правки той же заявки (стена через оба тайла) — тогда без переноса.
+                for (int i = 0; i < n; i++)
+                {
+                    if (!dest[i].Moves)
+                    {
+                        continue;
+                    }
+
+                    for (int j = 0; j < n; j++)
+                    {
+                        if (j != i && dest[j].Check == EditReply.Accepted && dest[j].Tile == dest[i].MoveTile)
+                        {
+                            dest[i].Check = EditReply.FurnitureInTile;
+                            dest[i].Moves = false;
+                            break;
+                        }
+                    }
                 }
 
                 return n;

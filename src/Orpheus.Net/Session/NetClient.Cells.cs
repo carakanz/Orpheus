@@ -41,9 +41,9 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < n; i++)
             {
                 PlannedEdit e = _plan[i];
-                if (e.Check != EditReply.Accepted)
+                if (e.Check != EditReply.Accepted || e.Moves)
                 {
-                    continue;
+                    continue; // C-011: перенос якоря мебели (два тайла) не предсказываем — ждём пачку сервера
                 }
 
                 int units = e.Units;

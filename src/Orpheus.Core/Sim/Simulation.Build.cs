@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.World;
 
@@ -106,7 +107,12 @@ namespace Orpheus.Core.Sim
             }
 
             TileCoord t = Torus.Wrap(_shape, tile);
-            if (!EditRules.InUseRadius(_shape, _entities[slot].Mover.Position, t))
+            if (ObjectId.IdOf(_world.GetObject(t)) != ObjectId.Bed && BuildLayers.TryFurnitureAt(_world, t, out TileCoord anchor))
+            {
+                t = anchor; // C-011: F по хвосту кровати — точка у её якоря
+            }
+
+            if (!BuildLayers.InUseReach(_world, _entities[slot].Mover.Position, t))
             {
                 return EditReply.OutOfReach;
             }
@@ -265,7 +271,7 @@ namespace Orpheus.Core.Sim
         private void ApplyChestOp(long tick, int slot, in BagRequest r)
         {
             TileCoord t = r.Chest;
-            if (ObjectId.IdOf(_world.GetObject(t)) != ObjectId.Chest || !EditRules.InUseRadius(_shape, _entities[slot].Mover.Position, t))
+            if (ObjectId.IdOf(_world.GetObject(t)) != ObjectId.Chest || !BuildLayers.InUseReach(_world, _entities[slot].Mover.Position, t))
             {
                 return; // сундук снесли или персонаж отошёл — заявка не исполняется
             }
@@ -359,6 +365,69 @@ namespace Orpheus.Core.Sim
                     SpawnPile(tick, chest.ItemAt(c), chest.CountIn(c), center, LootPickupDelayTicks, true);
                 }
             }
+        }
+
+        // Переносы якоря мебели (C-011), ещё не забранные сервером (TakeAnchorMoves): окна сундуков, кровати персонажей вне мира.
+        private readonly List<(TileCoord From, TileCoord To)> _anchorMoves = new List<(TileCoord From, TileCoord To)>();
+
+        /// <summary>
+        /// Забрать переносы якоря мебели с прошлого вызова (C-011): сервер переводит на новый якорь окна открытых сундуков и
+        /// точки возрождения персонажей вне мира. Точки сущностей в мире такт переводит сам (<c>MoveAnchor</c>).
+        /// </summary>
+        public (TileCoord From, TileCoord To)[] TakeAnchorMoves()
+        {
+            if (_anchorMoves.Count == 0)
+            {
+                return Array.Empty<(TileCoord, TileCoord)>();
+            }
+
+            var all = _anchorMoves.ToArray();
+            _anchorMoves.Clear();
+            return all;
+        }
+
+        /// <summary>
+        /// Мебель перенесла якорь <paramref name="from"/> → <paramref name="to"/> (C-011, такт правок): сундук — содержимое,
+        /// кровать — точки возрождения сущностей сразу (а не поиском по старому тайлу: там может оказаться чужая мебель).
+        /// </summary>
+        private void MoveAnchor(TileCoord from, TileCoord to, ushort obj)
+        {
+            if (ObjectId.IdOf(obj) == ObjectId.Chest)
+            {
+                MoveChest(from, to);
+            }
+
+            if (ObjectId.IdOf(obj) == ObjectId.Bed)
+            {
+                for (int s = 0; s < _entityCount; s++)
+                {
+                    if (_entities[s].HasBed && _entities[s].Bed == from)
+                    {
+                        _entities[s].Bed = to;
+                    }
+                }
+            }
+
+            if (_anchorMoves.Count >= 1024)
+            {
+                _anchorMoves.RemoveAt(0); // сервера нет (тесты такта) — не копить без меры
+            }
+
+            _anchorMoves.Add((from, to));
+        }
+
+        /// <summary>Сундук перенёс якорь (C-011): содержимое переходит к новому тайлу без изменений.</summary>
+        private void MoveChest(TileCoord from, TileCoord to)
+        {
+            int ci = IndexOfChest(from);
+            if (ci < 0)
+            {
+                return;
+            }
+
+            Inventory chest = _chests[ci];
+            RemoveChestAt(ci);
+            StoreChest(to, chest);
         }
 
         private static long ChestKey(TileCoord t) => ((long)t.Y << 32) | (uint)t.X;

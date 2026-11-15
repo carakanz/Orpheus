@@ -393,6 +393,129 @@ namespace Orpheus.Core.World
             return false;
         }
 
+        /// <summary>
+        /// Мебель, занимающая тайл <paramref name="tile"/> (C-011: F и точка возрождения по любой клетке предмета): своя мебель тайла
+        /// или мебель соседа, свешивающаяся в любую его ячейку (хвост кровати, верстака, сдвинутого сундука). Ячейки — по порядку
+        /// СЗ, СВ, ЮЗ, ЮВ; нашлась — якорь в <paramref name="anchor"/>. Нет — false.
+        /// </summary>
+        public static bool TryFurnitureAt(WorldModel world, TileCoord tile, out TileCoord anchor)
+        {
+            TileCoord t = Torus.Wrap(world.Shape, tile);
+            anchor = t;
+            if (IsFurniture(world.GetObject(t)))
+            {
+                return true;
+            }
+
+            if (!MayOverhang(world, t))
+            {
+                return false;
+            }
+
+            for (int q = 0; q < 4; q++)
+            {
+                if (TryTopOfCell(world, BuildCells.CellOf(t, q), out TileCoord a) && IsFurniture(world.GetObject(a)))
+                {
+                    anchor = a;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Мебель якоря <paramref name="anchor"/> в радиусе действия (<see cref="EditRules.InUseRadius"/>, C-011): хотя бы один её
+        /// тайл (якорь или хвост) не дальше 3 тайлов от тайла персонажа. Не мебель — как радиус до тайла.
+        /// </summary>
+        public static bool InUseReach(WorldModel world, WorldPos center, TileCoord anchor)
+        {
+            MapShape map = world.Shape;
+            TileCoord a = Torus.Wrap(map, anchor);
+            if (EditRules.InUseRadius(map, center, a))
+            {
+                return true;
+            }
+
+            ushort obj = world.GetObject(a);
+            if (!world.TryGetBuild(a, out BuildRecord rec) || !Spreads(obj, true, rec))
+            {
+                return false;
+            }
+
+            Span<TileCoord> tiles = stackalloc TileCoord[MaxFootTiles];
+            Span<byte> masks = stackalloc byte[MaxFootTiles];
+            int n = Footprint(map, a, obj, rec, tiles, masks);
+            for (int k = 0; k < n; k++)
+            {
+                if (EditRules.InUseRadius(map, center, tiles[k]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Перенос якоря мебели (C-011): стена или забор в свободные ячейки тайла-якоря <paramref name="anchor"/> сдвинутой
+        /// (многоклеточной) мебели — мебель уходит якорем в другой свой тайл, ячейки предмета не меняются. Новый якорь
+        /// <paramref name="to"/> — тайл предмета со свободным слотом объекта (не обломки) в том же чанке, чья СЗ ячейка не дальше
+        /// ячейки от СЗ ячейки предмета (сдвиг −1…+1), первый по порядку <see cref="Footprint"/>. Повреждённая мебель или с флагами
+        /// урона не переносится (её ведут списки восстановления и истечений по тайлу). <paramref name="record"/> — запись мебели
+        /// на новом месте: владелец, прочность, флаги — прежние, пол — нового тайла, новый сдвиг.
+        /// </summary>
+        public static bool TryReanchor(WorldModel world, TileCoord anchor, out TileCoord to, out BuildRecord record)
+        {
+            to = default;
+            record = default;
+            MapShape map = world.Shape;
+            TileCoord a = Torus.Wrap(map, anchor);
+            ushort obj = world.GetObject(a);
+            if (!world.TryGetBuild(a, out BuildRecord rec) || rec.IsDebris || !Spreads(obj, true, rec)
+                || rec.IsDamagedRecent || rec.IsRepairBlocked
+                || (BuildDefs.TryGet(obj, out BuildDef def) && rec.Integrity < def.MaxIntegrity))
+            {
+                return false;
+            }
+
+            MapShape cells = BuildCells.CellShape(map);
+            TileCoord nw = Torus.Wrap(cells, new TileCoord(BuildCells.CellOf(a, 0, 0).X + rec.OffsetX, BuildCells.CellOf(a, 0, 0).Y + rec.OffsetY));
+            ChunkCoord chunk = Torus.ChunkOf(map, a);
+            Span<TileCoord> tiles = stackalloc TileCoord[MaxFootTiles];
+            Span<byte> masks = stackalloc byte[MaxFootTiles];
+            int n = Footprint(map, a, obj, rec, tiles, masks);
+            for (int k = 0; k < n; k++)
+            {
+                TileCoord t = tiles[k];
+                if (t == a || Torus.ChunkOf(map, t) != chunk || world.GetObject(t) != ObjectId.Empty)
+                {
+                    continue;
+                }
+
+                bool has = world.TryGetBuild(t, out BuildRecord under);
+                if (has && under.IsDebris)
+                {
+                    continue;
+                }
+
+                Int2 d = Torus.Delta(cells, BuildCells.CellOf(t, 0, 0), nw);
+                if (d.X < -1 || d.X > 1 || d.Y < -1 || d.Y > 1)
+                {
+                    continue;
+                }
+
+                BuildRecord top = has
+                    ? BuildRecord.Over(under, rec.Owner, rec.Integrity, 0)
+                    : new BuildRecord(rec.Owner, rec.Integrity, 0, world.GetFloor(t), 0, 0);
+                record = top.WithOffset(d.X, d.Y).WithFlags((BuildFlags)rec.Flags);
+                to = t;
+                return true;
+            }
+
+            return false;
+        }
+
         // ---------- Пол ----------
 
         /// <summary>Ячейки построенного пола тайла: пол не построенный — 0; маска 0 в записи (старые миры) или записи нет — весь тайл.</summary>
