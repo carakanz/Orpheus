@@ -167,23 +167,27 @@ namespace Orpheus.Core.World
 
         /// <summary>
         /// Пара ячеек двери в тайле <paramref name="tile"/> по ячейке под курсором (<paramref name="quad"/>): дверь стоит вдоль
-        /// стены — если слева или справа от тайла на той же половине (верх/низ) есть ячейка стены/забора/двери, пара
-        /// горизонтальная, если сверху или снизу на той же половине (лево/право) — вертикальная; иначе — горизонтальная
-        /// на половине курсора.
+        /// стены. Ячейки стены/забора/двери слева или справа от тайла — пара горизонтальная (верх или низ — та половина, где
+        /// стоят соседи; соседи на обеих или ни на одной — половина курсора); только сверху или снизу — вертикальная (лево или
+        /// право так же); соседей нет — горизонтальная на половине курсора.
         /// </summary>
         public static byte DoorMaskFor(WorldModel world, TileCoord tile, int quad)
         {
             MapShape map = world.Shape;
             int qx = quad & 1;
             int qy = (quad >> 1) & 1;
-            bool horizontal = HasCell(world, map, tile.X - 1, tile.Y, 1, qy) || HasCell(world, map, tile.X + 1, tile.Y, 0, qy);
-            bool vertical = HasCell(world, map, tile.X, tile.Y - 1, qx, 1) || HasCell(world, map, tile.X, tile.Y + 1, qx, 0);
-            if (vertical && !horizontal)
+            bool hN = HasCell(world, map, tile.X - 1, tile.Y, 1, 0) || HasCell(world, map, tile.X + 1, tile.Y, 0, 0);
+            bool hS = HasCell(world, map, tile.X - 1, tile.Y, 1, 1) || HasCell(world, map, tile.X + 1, tile.Y, 0, 1);
+            bool vW = HasCell(world, map, tile.X, tile.Y - 1, 0, 1) || HasCell(world, map, tile.X, tile.Y + 1, 0, 0);
+            bool vE = HasCell(world, map, tile.X, tile.Y - 1, 1, 1) || HasCell(world, map, tile.X, tile.Y + 1, 1, 0);
+            if ((vW || vE) && !(hN || hS))
             {
-                return qx == 0 ? DoorWest : DoorEast;
+                bool west = vW && !vE ? true : vE && !vW ? false : qx == 0;
+                return west ? DoorWest : DoorEast;
             }
 
-            return qy == 0 ? DoorNorth : DoorSouth;
+            bool north = hN && !hS ? true : hS && !hN ? false : qy == 0;
+            return north ? DoorNorth : DoorSouth;
         }
 
         /// <summary>
