@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using Orpheus.Core.Geometry;
-using Orpheus.Core.Sim;
+using Items = Orpheus.Core.Sim.Items;
 using Orpheus.Core.World;
 using UnityEngine;
 
