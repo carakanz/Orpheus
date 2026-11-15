@@ -75,7 +75,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 
 ## Боты - src/Orpheus.Net/Session (клиентские сценарии, 1-026)
 - NetBot.cs :28: маршрутизация сценариев по `--script` :122–157 (dodge/dig_line/build_room/night_camp), driving каждого кадра :201–217.
-- BuildRoomBot.cs :30 (build_room): Next :218 (главный цикл, этапы Phase), OnReply :155 (ответы постановки), Stage :86, метрики GatherTicks/BuildTicks/DamageThroughDoor :95–131 (метрика урона :242); TryDigObstacle :385, PlaceArmed :945. Обходы пина (13.11): WarmupTicks 120, пин Close >45 т → диагональ, Enter >45 т + cheb 1 → F снаружи. Самооборона (13.11): ThreatFrame :795 (меч, слот 3, сектор Reach.SwordStrikeUnits) в Enter :677 / Close :716 / WaitDawn :761; F в Close каждый кадр; AttacksIssued :128. C-004: смерть — `Health == 0`, самооборона до Enter, `Inside` (закрыта только изнутри); трасса попаданий сервера — `tests/Orpheus.Tests/StrikeTrace.cs`.
+- BuildRoomBot.cs :30 (build_room): Next :218 (главный цикл, этапы Phase), OnReply :155 (ответы постановки), Stage :86, метрики GatherTicks/BuildTicks/DamageThroughDoor :95–131 (метрика урона :242); TryDigObstacle :385, PlaceArmed :945. Обходы пина (13.11): WarmupTicks 120, пин Close >45 т → диагональ, Enter >45 т + cheb 1 → F снаружи. Самооборона (13.11): ThreatFrame :795 (меч, слот 3, сектор Reach.SwordStrikeUnits) в Enter :677 / Close :716 / WaitDawn :761; F в Close каждый кадр; AttacksIssued :128. C-004: смерть — `Health == 0`, самооборона до Enter, `Inside` (закрыта только изнутри); трасса попаданий сервера — `tests/Orpheus.Tests/StrikeTrace.cs`. E2-11: CraftItems (этап Craft: стены / полы / дверь через CraftDesk) · HammerSlot (предмет этапа в руке, StockMove).
 - NightCampBot.cs :15 (night_camp): Next :57, TicksToDeath :29, KillerId :32.
 - DigLineBot.cs :23 (dig_line, образец), DodgeBot.cs :25 (dodge).
 
@@ -112,12 +112,13 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 
 ## Стройка, сундук, кровать (E2-5)
 - Sim/Simulation.Build.cs: RequestRepair · IsRepairEdit · PreRepair · RefundRepair · RequestSetBed · SetBed · RespawnPointOf · сундуки: ChestCells (30) · ChestCellBase · ChestTiles/ChestContents · TryGetChest · SetChest · RestoreChests · RequestChestOp · ApplyChestOp · SpillChest · StoreChest.
-- World/BuildDefs.cs: FloorKeyBase / WoodFloorKey… · FloorKey · FloorOf · Palette · Affordable · RepairCostOf · TryGet. World/EditRules.cs: Intact/UnderAttack/Paused (16–18) · MaxReply · UseRadiusTiles · InUseRadius · CheckRepair · RepairAffordable.
+- World/BuildDefs.cs: FloorKeyBase / WoodFloorKey… · FloorKey · FloorOf · Palette · ItemOf · TryKeyOf (E2-11) · Affordable · RepairCostOf · TryGet; BuildDef.Item.
+- Sim/Simulation.BuildItems.cs (E2-11): AnyCell · CostOf · PayPlacement (pre-pass: предмет из ячейки) · CellWith · RefundPlacement · GiveBuildRefund (снос → один предмет). Simulation.EditQueue.cs: EditRequest.Cell. World/EditRules.cs: Intact/UnderAttack/Paused (16–18) · MaxReply · UseRadiusTiles · InUseRadius · CheckRepair · RepairAffordable.
 - Net/Protocol/UseMessages.cs: UseOp · UseRequestMessage (33) · UseReplyMessage (34) · ChestStateMessage (35). EditMessages: TileOp.Repair (5). Messages: BagRequestMessage.MaxCell (70).
 - Net/Session/NetServer.Use.cs: OnRepair · OnUseRequest · OnChestBagRequest · SendChestTo · CloseChest. NetClient.Use.cs: Repair · RequestUse · RequestCloseChest · Chest/ChestOpen/ChestTile · UseReplied · ChestChanged.
-- Net/Session/BuildHand.cs: IBuildRequests · IUseRequests · BuildAction · BuildCheck · BuildHand (Step, Select, Check, Click, PlaceLine, CostLine, LastRequest). ObjectUse.cs: UseKind · KindOf · At · Find (правило F). BagHand: SyncChest · ChestBase · ItemAt/CountIn · FitTarget.
+- Net/Session/BuildHand.cs: IBuildRequests (Place с ячейкой) · IUseRequests · BuildAction · BuildCheck · BuildHand (E2-11: IsHammer, IsBuildItem, Check/Click/PlaceLine по ячейке, SlotWith, StockMove, LastRequest). ObjectUse.cs: UseKind · KindOf · At · Find (правило F). BagHand: SyncChest · ChestBase · ItemAt/CountIn · FitTarget.
 - Save: SaveSections CreaturesField.Chest · ChestField · EntityField.BedX/BedY · CharacterField.BedX/BedY; WorldSave ReadChest. CharacterRecord.HasBed/Bed; CharacterRoster.Park (кровать за ключом).
-- client: UI/GameUi.Build.cs (UiBuildState, UiNote, ShowBuild, SyncChestWindow, OpenCraft, Notify) · UI/BuildBar.cs (BuildBar, ChestWindow) · UI/UiDemo.Build.cs (--ui-demo build|chest|house) · BuildGhost.cs · BuildLook.cs · NetGame.Edits.cs (BuildState, UseObject, HammerEdits) · PaintDemo.House.
+- client: UI/GameUi.Build.cs (UiBuildState.Placing, UiNote, ShowBuild, SyncChestWindow, OpenCraft, Notify) · UI/BuildBar.cs (ChestWindow; лента BuildBar убрана в E2-11) · UI/UiDemo.Build.cs (--ui-demo build|chest|house) · BuildGhost.cs · BuildLook.cs · NetGame.Edits.cs (BuildState, UseObject, HammerEdits) · PaintDemo.House.
 - tests/BuildTests.cs (E25_*); Golden/format8_craft.*.
 
 ## Интерфейс (E2-2) - client/Assets/Scripts/UI
