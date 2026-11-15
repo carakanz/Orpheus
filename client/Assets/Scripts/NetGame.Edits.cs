@@ -163,9 +163,9 @@ namespace Orpheus.Client
             byte held = HeldItem;
             bool hammer = BuildHand.IsHammer(held), placing = BuildHand.IsBuildItem(held);
             BuildRuler ruler = _ui.Ruler;
-            if (!placing && ruler.Dragging)
+            if (ruler.Dragging && (held != ruler.AnchorItem || BuildRuler.KindOfItem(held) == RulerKind.Single || ruler.Mode != PlaceMode.Ruler))
             {
-                ruler.Cancel(); // постройку убрали из руки — протягивание отменено
+                ruler.Cancel(); // сменили предмет в руке (другая постройка, дверь, факел, не постройка) — протягивание отменено
             }
 
             s.Placing = placing;
@@ -388,9 +388,10 @@ namespace Orpheus.Client
             {
                 // E2-2: мышь занята интерфейсом (курсор над окном или панелью, предмет «в руке») — мир на неё не отвечает.
                 c.StopDig();
-                if (_ui.Ruler.Dragging && !mouse.leftButton.isPressed)
+                if (_ui.Ruler.Dragging && (!mouse.leftButton.isPressed || Keyboard.current?.escapeKey.wasPressedThisFrame == true))
                 {
-                    _ui.Ruler.Cancel(); // E2-13: отпустил над интерфейсом — линейка не ставит
+                    _ui.Ruler.Cancel(); // E2-13: отпустил или Esc над интерфейсом — линейка не ставит
+                    _rulerCancelFrame = Time.frameCount;
                 }
 
                 return c.Digging ? InputButtons.Dig : (ushort)0;
@@ -501,7 +502,7 @@ namespace Orpheus.Client
 
             if (!ruler.Dragging && mouse.leftButton.wasPressedThisFrame)
             {
-                ruler.Begin(tile, _cursorQuad);
+                ruler.Begin(tile, _cursorQuad, HeldItem);
             }
 
             if (ruler.Dragging && !mouse.leftButton.isPressed)

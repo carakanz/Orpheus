@@ -284,5 +284,50 @@ namespace Orpheus.Tests
             Assert.Equal(26, WallCells(r, 288, 311, 205));
             Assert.Equal(99 - 8 - 26, r.Bag);
         }
+
+        /// <summary>
+        /// Проверка П E2-13, з. 1: длинная линия (40 ячеек, отрезки по 32) от правой / нижней ячейки тайла — стык отрезков не
+        /// делит тайл (ячейки тайла — одна правка сервера), встаёт ровно «нужно», снимается ровно столько. Обе оси и диагональ.
+        /// </summary>
+        [Theory]
+        [InlineData(1, 0, 1)] // по X от восточной ячейки
+        [InlineData(0, 1, 2)] // по Y от южной ячейки
+        [InlineData(1, 1, 3)] // диагональ от юго-восточной ячейки
+        public void E213_LongLine_FromOddCell_SeamBetweenSegments_NoHole(int sx, int sy, int quad)
+        {
+            using var r = new Rig(Flat(), 300, 200, Items.StoneWall, 99);
+            // A — 10 тайлов от персонажа против направления (по оси без сдвига — ряд на 3 тайла ниже / правее персонажа).
+            var a = new TileCoord(sx == 1 ? 290 : 303, sy == 1 ? 190 : 203);
+            var b = new TileCoord(a.X + sx * 20, a.Y + sy * 20); // 40 ячеек и дальше: обрезка до 64 не нужна
+            r.Drag(a, quad, b, 0, diagonal: sx == 1 && sy == 1); // до первой ячейки тайла B: ровно 40
+            Assert.Equal(40, r.Ruler.LengthCells);
+            Assert.True(r.Ruler.Segments >= 2);
+            int need = r.Ruler.Need;
+            Assert.True(need >= 20, $"нужно {need}");
+
+            // Ни один тайл — не в двух отрезках.
+            var seen = new HashSet<TileCoord>();
+            var spots = r.Ruler.Spots.ToArray();
+            for (int i = 0; i < spots.Length; i++)
+            {
+                if (i > 0 && spots[i].Tile != spots[i - 1].Tile && seen.Contains(spots[i].Tile))
+                {
+                    Assert.Fail($"тайл {spots[i].Tile.X},{spots[i].Tile.Y} встречается дважды");
+                }
+
+                seen.Add(spots[i].Tile);
+            }
+
+            r.Release();
+            int placed = 0;
+            for (int y = 185; y <= 215; y++)
+            {
+                placed += WallCells(r, 285, 315, y);
+            }
+
+            Assert.Equal(need, placed);
+            Assert.Equal(99 - need, r.Bag);
+            Assert.DoesNotContain(r.Replies, m => m.Reply == EditReply.Busy);
+        }
     }
 }

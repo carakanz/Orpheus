@@ -491,7 +491,26 @@ namespace Orpheus.Client
             // 1-002: прицел и ячейка — в каждый кадр ввода (журнал 2.4); в net-smoke кадр скриптованный, без мыши.
             ushort aim = _args.NetSmokeSeconds > 0 ? (ushort)0 : ComputeAim();
             byte slot = _args.NetSmokeSeconds > 0 ? SmokeMeleeSlot(now) : (byte)_slot;
-            if (_args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame() && !ShiftForWindow())
+            bool dodgePress = _args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame() && !ShiftForWindow();
+            if (dodgePress && _args.NetSmokeSeconds == 0 && ShiftOnlyPressed() && RulerMayTakeShift())
+            {
+                _shiftDodgeHold = DodgeWaitFrames; // E2-13: Shift со стеной в руке ждёт ЛКМ (диагональ линейки) до 6 кадров
+                dodgePress = false;
+            }
+
+            if (_shiftDodgeHold > 0)
+            {
+                if (_ui != null && _ui.Ruler.Dragging)
+                {
+                    _shiftDodgeHold = 0; // нажал ЛКМ — Shift ушёл в диагональ линейки, уворота нет
+                }
+                else if (--_shiftDodgeHold == 0)
+                {
+                    dodgePress = true; // ЛКМ не нажали — обычный уворот (позже на 6 кадров)
+                }
+            }
+
+            if (dodgePress)
             {
                 _dodgeWait = DodgeWaitFrames; // 0-034: нажатие ждёт направления до 0,1 с
                 DodgePresses++;
@@ -787,6 +806,23 @@ namespace Orpheus.Client
         /// E2-4: Shift нажат, пока курсор над открытым окном (Shift+ЛКМ — «перекинуть») — в игру уворотом не уходит.
         /// X и кнопка геймпада уворачиваются как раньше.
         /// </summary>
+        int _shiftDodgeHold;
+
+        /// <summary>В этом кадре нажат Shift (а не X): уворот «Shift + направление».</summary>
+        static bool ShiftOnlyPressed()
+        {
+            Keyboard? kb = Keyboard.current;
+            return kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) && !kb.xKey.wasPressedThisFrame;
+        }
+
+        /// <summary>
+        /// E2-13 (проверка П, з. 2): Shift может уйти в диагональ линейки — в руке стена или забор, режим линейки, курсор над
+        /// миром. Тогда уворот по Shift ждёт до <see cref="DodgeWaitFrames"/> кадров: нажал ЛКМ — протягивание без уворота,
+        /// не нажал — уворот. X уворачивает сразу всегда.
+        /// </summary>
+        bool RulerMayTakeShift() =>
+            _ui != null && !_ui.PointerBlocked && _ui.Ruler.Mode == PlaceMode.Ruler && BuildRuler.KindOfItem(HeldItem) == RulerKind.Line;
+
         bool ShiftForWindow()
         {
             Keyboard? kb = Keyboard.current;
