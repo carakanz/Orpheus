@@ -35,7 +35,7 @@ namespace Orpheus.Tests
             BuildRecord rec = BuildRecord.OfPlayer(1, FloorId.Grass).WithCells(mask);
             if (open)
             {
-                rec = rec.WithFlags(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen); // «держать открытой»: иначе закроется сама через 1 с
+                rec = rec.WithFlags(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen); // «держать открытой»: иначе закроется сама через 0,5 с
             }
 
             Assert.True(sim.RequestEdit(new TileCoord(x, y), FloorId.Grass, obj, rec));
