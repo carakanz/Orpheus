@@ -18,8 +18,8 @@ namespace Orpheus.Client.UI
     /// </summary>
     public sealed class MiniMapView : UiGroup
     {
-        public const float Side = 220f, Border = 6f;
-        public static readonly float Size = Side + 2f * Border;
+        public const float Side = HudLayout.MapSide, Border = HudLayout.MapBorder;
+        public const float Size = HudLayout.MapSize;
         const int Pixels = 128;
         const int RowsPerFrame = 32;
         const float RefreshSeconds = 0.3f;
@@ -41,7 +41,7 @@ namespace Orpheus.Client.UI
         TileCoord _center;
 
         public MiniMapView(UiRoot root)
-            : base(root, "MiniMap", new Vector2(1f, 1f), new Vector2(-20f - Size, -20f - Size), new Vector2(Size, Size))
+            : base(root, "MiniMap", new Vector2(1f, 1f), new Vector2(-HudLayout.MapMargin - Size, -HudLayout.MapMargin - Size), new Vector2(Size, Size))
         {
             _body = UiRoot.Node(Rt, "Body", 0f, 0f, Size, Size);
             UiRoot.Picture(_body, "Frame", 0f, 0f, Size, Size, UiStyle.Frame(UiStyle.GlassPanel, UiStyle.Gold, thick: 3f, radius: 8f));
@@ -104,9 +104,10 @@ namespace Orpheus.Client.UI
         /// <summary>C-008: развёрнутая карта — интерфейс (щелчок по ней не копает); свёрнутая — только подпись.</summary>
         public void AddZones(UiPointer p, Vector2 canvas)
         {
-            if (_open)
+            if (_open && Visible)
             {
-                Zone(p, canvas, 0f, 0f, Size, Size);
+                Vector2 o = Origin(canvas);
+                HudLayout.MapZones(p, o.x, o.y);
             }
         }
 

@@ -16,16 +16,17 @@ namespace Orpheus.Client.UI
     /// </summary>
     public sealed class BottomBar : UiGroup
     {
-        public const float Orb = 132f, Overlap = 24f, Pad = 8f, AbilityGap = 16f;
-        public static readonly float HotbarW = UiSlotGrid.WidthOf(Inventory.Slots);
-        public const float AbilitiesW = 3f * UiStyle.CellSize + UiStyle.CellGap + 12f;
-        public static readonly float PanelW = Pad + HotbarW + AbilityGap + AbilitiesW + Pad;
-        public const float PanelH = UiStyle.CellSize + 2f * Pad;
-        public const float PanelY = 10f;
-        public static readonly float PanelX = Orb - Overlap;
-        public static readonly float Width = 2f * (Orb - Overlap) + PanelW;
-        public const float Height = Orb;
-        public const float Bottom = 8f;
+        // Размеры — общие с тестами (HudLayout в Net, C-008 проверка п. 3).
+        public const float Orb = HudLayout.Orb, Overlap = HudLayout.Overlap, Pad = HudLayout.Pad, AbilityGap = HudLayout.AbilityGap;
+        public const float HotbarW = HudLayout.HotbarW;
+        public const float AbilitiesW = HudLayout.AbilitiesW;
+        public const float PanelW = HudLayout.PanelW;
+        public const float PanelH = HudLayout.PanelH;
+        public const float PanelY = HudLayout.PanelY;
+        public const float PanelX = HudLayout.PanelX;
+        public const float Width = HudLayout.BarWidth;
+        public const float Height = HudLayout.BarHeight;
+        public const float Bottom = HudLayout.BarBottom;
 
         /// <summary>Что под курсором кроме ячеек: сферы и рамки способностей (подсказки).</summary>
         public enum Part : byte
@@ -116,9 +117,11 @@ namespace Orpheus.Client.UI
         /// <summary>C-008: панель и сферы — интерфейс; над панелью между сферами — мир.</summary>
         public void AddZones(UiPointer p, Vector2 canvas)
         {
-            Zone(p, canvas, PanelX, PanelY, PanelW, PanelH);
-            Zone(p, canvas, 8f, 8f, Orb - 16f, Orb - 16f);
-            Zone(p, canvas, Width - Orb + 8f, 8f, Orb - 16f, Orb - 16f);
+            if (Visible)
+            {
+                Vector2 o = Origin(canvas);
+                HudLayout.BarZones(p, o.x, o.y);
+            }
         }
 
         /// <summary>Здоровье и выносливость (0…max): уровень «жидкости» в сферах, число здоровья на сфере.</summary>

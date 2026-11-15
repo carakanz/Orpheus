@@ -154,6 +154,9 @@ namespace Orpheus.Client.UI
         CraftStation _near;
         int _nearAge;
         string? _message;
+        string? _chestNote;
+        float _chestNoteUntil;
+        MoveAllStop _moveAllStop;
         float _messageUntil;
 
         /// <summary>Сколько секунд видна строка отказа сервера.</summary>
@@ -300,6 +303,18 @@ namespace Orpheus.Client.UI
             _root.FitToScreen();
             _hand.Sync(bag, dead);
             _hand.SyncChest(build.ChestOpen, build.Chest); // E2-5: ячейки 40…69 — открытый сундук
+            _hand.Pump(Time.unscaledTimeAsDouble); // C-008: «Взять / Положить всё» — пачками по 8 за такт сервера
+            if (_hand.LastStop != _moveAllStop)
+            {
+                _moveAllStop = _hand.LastStop;
+                _chestNote = UiStrings.MoveAllStopped(_moveAllStop);
+                _chestNoteUntil = Time.unscaledTime + MessageSeconds;
+            }
+
+            if (_chestNote != null && Time.unscaledTime > _chestNoteUntil)
+            {
+                _chestNote = null;
+            }
             SyncChestWindow(build, craft);
             EscapeUsed = false;
             SlotClicked = -1;
@@ -388,6 +403,13 @@ namespace Orpheus.Client.UI
                     overGrid = _craft.OverGrid(local);
                     OverWindow = overUi && (hit.Part != CraftPart.None || overGrid);
                 }
+            }
+
+            // C-008 проверка п. 2: любая нарисованная часть (и нижняя панель — верхний ряд сумки, и сферы, и карта) —
+            // интерфейс для правил «колесо над окном — не обзор» и «Shift над окном — не уворот».
+            if (overUi)
+            {
+                OverWindow = true;
             }
 
             if (input.HasPointer && _map.Covers(size, p))
@@ -489,6 +511,7 @@ namespace Orpheus.Client.UI
             if (_chest.Visible)
             {
                 _chest.Show(_hand, cell, chestButton);
+                _chest.Note(_chestNote);
             }
 
             if (_message != null && Time.unscaledTime > _messageUntil)

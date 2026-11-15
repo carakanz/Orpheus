@@ -26,13 +26,14 @@ namespace Orpheus.Client.UI
 
         readonly UiSlotGrid _grid;
         readonly UiButton _take, _put;
+        readonly Text _title;
 
         public ChestWindow(UiRoot root)
             : base(root, "Chest", new Vector2(0f, 1f), new Vector2(20f, -Height - 400f), new Vector2(Width, Height))
         {
             _grid = new UiSlotGrid(Rt, 0f, 0f, Columns, Rows, BagHand.ChestBase, UiCellLook.Chest);
-            UiRoot.Label(Rt, "Title", 2f, GridH + Gap, GridW, TitleH, 20, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true, bold: true)
-                .text = UiStrings.ChestTitleKeys;
+            _title = UiRoot.Label(Rt, "Title", 2f, GridH + Gap, GridW + ButtonGap + ButtonW, TitleH, 20, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true, bold: true);
+            _title.text = UiStrings.ChestTitleKeys;
             _take = new UiButton(Rt, GridW + ButtonGap, GridH - ButtonH, ButtonW, ButtonH, UiStrings.ChestTakeAll, 18, glass: true);
             _put = new UiButton(Rt, GridW + ButtonGap, GridH - 2f * ButtonH - 8f, ButtonW, ButtonH, UiStrings.ChestPutAll, 18, glass: true);
             Visible = false;
@@ -63,6 +64,17 @@ namespace Orpheus.Client.UI
 
         /// <summary>Середина ячейки руки в координатах окна (скрипт стенда снимков).</summary>
         public Vector2 CellCenter(int cell) => _grid.CenterOf(cell - BagHand.ChestBase);
+
+        /// <summary>C-008: короткая причина остановки «Взять / Положить всё» вместо заголовка; null — заголовок.</summary>
+        public void Note(string? text)
+        {
+            string t = text ?? UiStrings.ChestTitleKeys;
+            if (_title.text != t)
+            {
+                _title.text = t;
+                _title.color = text != null ? new Color32(255, 120, 100, 255) : UiStyle.TextLight;
+            }
+        }
 
         /// <summary>Показать сундук через руку (числа без того, что «в руке»), подсветка ячейки и кнопки под курсором.</summary>
         public void Show(BagHand hand, int hover, int button)

@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using Orpheus.Core.Sim;
+using Orpheus.Net.Session;
 
 namespace Orpheus.Client.UI
 {
@@ -23,6 +24,15 @@ namespace Orpheus.Client.UI
         public const string ChestTitleKeys = "Сундук  (F)";
         public const string ChestTakeAll = "Взять всё";
         public const string ChestPutAll = "Положить всё";
+        /// <summary>C-008: почему «Взять / Положить всё» остановился (null — сказать нечего).</summary>
+        public static string? MoveAllStopped(MoveAllStop why) => why switch
+        {
+            MoveAllStop.NoRoom => "Не всё влезло — нет места",
+            MoveAllStop.NotAccepted => "Сервер не принял перенос",
+            MoveAllStop.Dead => "Мёртвый не переносит",
+            _ => null,
+        };
+
         public const string ChestTakeAllTip = "Всё из сундука — в сумку";
         public const string ChestPutAllTip = "Сумка (без быстрой панели) — в сундук";
         public const string CraftTitleKeys = "Изготовление  (C)";

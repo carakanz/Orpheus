@@ -193,7 +193,7 @@ namespace Orpheus.Client.UI
             _chest.Visible = on;
         }
 
-        // Пользователь закрыл окна (Esc, Tab) при открытом сундуке — сундук тоже закрыть и сказать серверу.
+        // Пользователь закрыл окна (Esc, Q, I, C) при открытом сундуке — сундук тоже закрыть и сказать серверу.
         void CloseChestByUser()
         {
             if (_chest.Visible)

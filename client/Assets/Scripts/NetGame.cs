@@ -832,13 +832,12 @@ namespace Orpheus.Client
         void UpdateZoom()
         {
             float scroll = _g.ZoomAxis.ReadValue<float>();
-            if (_ui != null && _ui.OverWindow)
-            {
-                scroll = 0f; // E2-4: колесо над окном сумки или крафта обзор не меняет
-            }
-
             Keyboard? kb = Keyboard.current;
             bool slotWheel = kb != null && (kb.leftAltKey.isPressed || kb.rightAltKey.isPressed);
+            if (_ui != null && _ui.OverWindow && !slotWheel)
+            {
+                scroll = 0f; // E2-4, C-008: колесо над интерфейсом (окна, нижняя панель, сферы, карта) обзор не меняет; Alt+колесо — ячейка, как было
+            }
             if (scroll > 0.01f)
             {
                 if (slotWheel) _slot = (_slot + 1) % InputFrame.MaxSlots;
