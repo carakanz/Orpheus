@@ -757,7 +757,7 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "кучи", chars), 3, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(10u, f.Header.FormatVersion); // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5); сумка и кучи — как в формате 7
+            Assert.Equal(10u, f.Header.FormatVersion); // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5), 10 — ячейки стен (E2-12); сумка и кучи — как в формате 7
             Assert.Equal(10u, SaveModule.FormatVersion);
 
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
@@ -924,7 +924,7 @@ namespace Orpheus.Tests
 
             // Пересохранение: формат 7, сумки и кучи те же, хэш состояния тот же.
             byte[] v7 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), again.Name, again.Characters), 5, 0);
-            Assert.Equal(10u, SaveContainer.Read(v7).Header.FormatVersion); // нынешний формат (9 с E2-5)
+            Assert.Equal(10u, SaveContainer.Read(v7).Header.FormatVersion); // нынешний формат (10 с E2-12)
             LoadedWorldState st7 = WorldSave.Load(SaveContainer.Read(v7), WorldSnapshot.LoadBase(baseBytes), WorldSnapshot.StoredHash(baseBytes));
             Assert.Equal(orpheus, st7.Characters[0].Inv);
             Assert.Equal(eurydice, st7.Characters[1].Inv);

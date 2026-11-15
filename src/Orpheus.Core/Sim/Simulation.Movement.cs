@@ -46,6 +46,7 @@ namespace Orpheus.Core.Sim
         /// Выталкивание (1-007, 8.5 «толкаются»): пары персонаж↔враг-с-мозгом и враг↔враг-с-мозгом, центры
         /// ближе суммы радиусов (204) — разъезжаются по 2 тайла/с (68 единиц/такт на тело) вдоль оси.
         /// Заглушки (0-028) и персонаж↔персонаж не трогает. Порядок по номерам, целочисленно — детерминизм (11.5).
+        /// Сдвиг — с упором в твёрдое (E2-12), сквозь стену толпа не продавливает.
         /// </summary>
         private void StepSeparation()
         {
@@ -88,8 +89,11 @@ namespace Orpheus.Core.Sim
                     int dist = ISqrt(d2);
                     int px = d.X * PushUnitsPerTick / dist;
                     int py = d.Y * PushUnitsPerTick / dist;
-                    a.Mover.Position = Torus.Wrap(_shape, new WorldPos(a.Mover.Position.X - px, a.Mover.Position.Y - py));
-                    b.Mover.Position = Torus.Wrap(_shape, new WorldPos(b.Mover.Position.X + px, b.Mover.Position.Y + py));
+                    // E2-12: выталкивание — тем же шагом с упором в стены (Collision.Move), а не переносом позиции: толпа у
+                    // стены 0,5 вдавливала тело в ячейку стены, и из неё оно выходило на другую сторону (разбойники входили в дом).
+                    // В чистом поле итог тот же, что у прежнего переноса.
+                    a.Mover.Position = Collision.Move(_shape, a.Mover.Position, -px, -py, _solid);
+                    b.Mover.Position = Collision.Move(_shape, b.Mover.Position, px, py, _solid);
                 }
             }
         }
@@ -200,6 +204,40 @@ namespace Orpheus.Core.Sim
 
             bool has = chunk.TryGetBuild(index, out BuildRecord record);
             return BuildCells.MaskOf(obj, has, record);
+        }
+
+        /// <summary>
+        /// Тайл цели погони (E2-12): тайл под целью; если он непроходим (игрок прижат к тонкой стене — стоит в свободных
+        /// ячейках её тайла), — проходимый сосед (8, сначала прямые), ближайший к цели: это сторона стены, где стоит цель.
+        /// Иначе заливка «цель в замкнутой области» не срабатывала (тайл цели — стена), и каждый пересчёт шёл полным A*.
+        /// </summary>
+        private TileCoord ChaseGoal(WorldPos target)
+        {
+            TileCoord t = Torus.Wrap(_shape, Torus.TileOf(_shape, target));
+            if (!IsBlocked(_shape, t))
+            {
+                return t;
+            }
+
+            TileCoord best = t;
+            long bestD = long.MaxValue;
+            for (int k = 0; k < 8; k++)
+            {
+                TileCoord n = Torus.Wrap(_shape, new TileCoord(t.X + PathFinder.NeighborDx[k], t.Y + PathFinder.NeighborDy[k]));
+                if (IsBlocked(_shape, n))
+                {
+                    continue;
+                }
+
+                long d = Torus.Dist2(_shape, target, EditRules.CenterOf(n));
+                if (d < bestD)
+                {
+                    best = n;
+                    bestD = d;
+                }
+            }
+
+            return best;
         }
     }
 }

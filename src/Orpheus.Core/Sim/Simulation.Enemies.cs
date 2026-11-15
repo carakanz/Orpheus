@@ -49,7 +49,7 @@ namespace Orpheus.Core.Sim
                 {
                     // Тайл в окне поменялся (стена снесена, дверь открыта) — пересчёт сразу, без ожидания (9.3).
                     TileCoord start = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
-                    TileCoord bt = Torus.Wrap(_shape, Torus.TileOf(_shape, target.Mover.Position));
+                    TileCoord bt = ChaseGoal(target.Mover.Position);
                     if (_paths.Enqueue(slot, start, bt, PathMode.Walker, tick))
                     {
                         b.PathStamp = (int)tick;
@@ -113,7 +113,7 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
-            TileCoord goal = Torus.Wrap(_shape, Torus.TileOf(_shape, target.Mover.Position));
+            TileCoord goal = ChaseGoal(target.Mover.Position);
             PathBuffer buf = _pathBuf[slot];
 
             // Не дальше 60 тайлов от точки появления (1-013 з.3, 0-028): увязся далеко — цель в игнор, домой (Lost).
@@ -290,7 +290,13 @@ namespace Orpheus.Core.Sim
                 {
                     ref SimEntity target = ref _entities[ts];
                     long dist2 = Torus.Dist2(_shape, e.Mover.Position, target.Mover.Position);
-                    if (dist2 <= MeleeRogue.StrikeRange2)
+                    // В атаку — только при чистой линии удара (E2-12, `02` 9.3): сквозь стену 0,5 игрок у внутренней грани в 1,3 т —
+                    // в зоне удара, но за стеной; стоять «в атаке» у стены нельзя — погоня, «упёрся» и уход через 20 с. Забор прозрачен.
+                    // Враг на непроходимом тайле (дверь закрыли под ним правкой без выталкивания, C-001) стоит, как раньше:
+                    // погоня вывела бы его из двери на сторону цели. Замах всё равно гасит линия удара.
+                    TileCoord own = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
+                    if (dist2 <= MeleeRogue.StrikeRange2 &&
+                        (IsBlocked(_shape, own) || StrikeLineClear(e.Mover.Position, target.Mover.Position, own)))
                     {
                         // В зоне удара (8.1 «бьёт в упор»): стоит; замах ведёт фаза боя по состоянию Attack.
                         e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;

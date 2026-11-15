@@ -179,24 +179,26 @@ namespace Orpheus.Tests
 
         // ------------------------------------------------ правило стен (`02` 9) и путь врагов
 
-        private static void ThinRoom(Simulation sim, int kind, bool doorOpen = false)
+        private static void ThinRoom(Simulation sim, int kind, bool doorOpen = false, int far = 40)
         {
-            // Периметр 21 × 21 (тайлы 20…40): тонкая стена на внешних половинах тайлов, углы — 3 ячейки; дверь на западе (20, 30).
-            for (int y = 20; y <= 40; y++)
+            // Периметр (тайлы 20…far, по умолчанию 21 × 21): тонкая стена на внешних половинах тайлов, углы — 3 ячейки;
+            // дверь на западе (20, 30) или (20, 24) у комнаты меньше 21.
+            int doorY = far >= 30 ? 30 : 24;
+            for (int y = 20; y <= far; y++)
             {
-                for (int x = 20; x <= 40; x++)
+                for (int x = 20; x <= far; x++)
                 {
                     byte mask = 0;
                     mask |= y == 20 ? BuildCells.DoorNorth : (byte)0;
-                    mask |= y == 40 ? BuildCells.DoorSouth : (byte)0;
+                    mask |= y == far ? BuildCells.DoorSouth : (byte)0;
                     mask |= x == 20 ? BuildCells.DoorWest : (byte)0;
-                    mask |= x == 40 ? BuildCells.DoorEast : (byte)0;
+                    mask |= x == far ? BuildCells.DoorEast : (byte)0;
                     if (mask == 0)
                     {
                         continue;
                     }
 
-                    if (kind == 1 && x == 20 && y == 30)
+                    if (kind == 1 && x == 20 && y == doorY)
                     {
                         Cells(sim, x, y, ObjectId.Door, BuildCells.DoorWest, doorOpen);
                     }
@@ -460,6 +462,158 @@ namespace Orpheus.Tests
             }
 
             Assert.Equal(Run(), Run());
+        }
+
+        // ------------------------------------------------ ответы на проверку (П): у тонкой стены враг сдаётся
+
+        /// <summary>
+        /// `02` 9.3, приёмка 9.8 п. 1 на тонкой стене: дом 9 × 9, игрок вплотную к внутренней грани западной стены (центр в
+        /// тайле стены — 0, в свободном тайле рядом — 1, у закрытой двери — 2), за стеной в 1,3 т — пятеро разбойников. Линии
+        /// удара нет — в атаку не входят (`StrikeLineClear`), упираются («цель в замкнутой области»: целью погони берётся
+        /// свободный тайл со стороны игрока, `ChaseGoal`) и через 20 с уходят (игнор цели); урона 0; поисков пути за 800 тактов
+        /// — единицы на врага (кэш «замкнута», без полного A* на каждом пересчёте).
+        /// </summary>
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)] // закрытая дверь в стене, игрок прижат к ней
+        public void E212_PlayerHuggingThinWall_RoguesGiveUp_NoDamage_FewSearches(int hug)
+        {
+            var sim = new Simulation(Flat(1311));
+            int y = hug == 2 ? 24 : 26;
+            // Вплотную к грани x = 20,5 (центр в тайле 20) или в тайле 21; у двери — у самой границы тайла двери, не задевая
+            // его (задел — дверь игроку открывается сама, `05` 2.1): сквозь закрытую дверь игрок до зоны удара не дотягивается.
+            int x = hug == 0 ? 20 * U + Half + R : hug == 1 ? 21 * U + 30 : 21 * U + R + 2;
+            int ch = sim.AddEntity(new WorldPos(x, y * U + U / 2));
+            ThinRoom(sim, 1, far: 28);
+            sim.Step();
+            var rogues = new List<int>();
+            for (int k = 0; k < 5; k++)
+            {
+                rogues.Add(sim.AddMeleeRogue(At(19, y - 4 + 2 * k))); // у самой стены снаружи: игрок в зоне удара (≤ 1,8 т)
+            }
+
+            long searches0 = sim.PathSearches;
+            Steps(sim, 800);
+            Assert.Equal(100, Hp(sim, ch));
+            Assert.True(!sim.World.TryGetBuild(new TileCoord(20, 24), out BuildRecord door) || !door.IsDoorOpen, "дверь закрыта");
+            foreach (int r in rogues)
+            {
+                EnemyBrain b = sim.GetEntity(r).Brain;
+                Assert.True(b.IgnoreTargetId == ch && b.IgnoreUntil > sim.Tick,
+                    $"разбойник #{r}: не ушёл через 20 с (состояние {b.State}, цель {b.TargetId}, игнор {b.IgnoreTargetId}/{b.IgnoreUntil})");
+                Assert.NotEqual(EnemyState.Attack, b.State);
+            }
+
+            Assert.True(sim.PathSearches - searches0 <= 5 * 3, $"поисков пути за 800 тактов: {sim.PathSearches - searches0}");
+        }
+
+        /// <summary>Тонкий забор прозрачен для удара (`02` 9.1): игрок у внутренней грани — разбойник снаружи бьёт.</summary>
+        [Fact]
+        public void E212_PlayerHuggingThinFence_RogueStrikes()
+        {
+            var sim = new Simulation(Flat(1312));
+            int ch = sim.AddEntity(new WorldPos(20 * U + Half + R, 27 * U + U / 2));
+            ThinRoom(sim, 2, far: 28);
+            sim.Step();
+            sim.AddMeleeRogue(At(19, 27)); // у забора снаружи, игрок в зоне удара
+            Steps(sim, 400);
+            Assert.True(Hp(sim, ch) < 100, "сквозь тонкий забор удар проходит");
+        }
+
+        // ------------------------------------------------ предсказание и хэш
+
+        /// <summary>
+        /// Предсказание клиента (`LocalPrediction`) шагает тот же код, что сервер, и видит ячейки: идёт на юг к тонкой стене
+        /// (нижние ячейки ряда 20) и встаёт вплотную к её грани в тайле стены — так же, как сущность сервера. С целыми тайлами
+        /// (обёртка функции «твёрдо?») встало бы на полтайла раньше — правка у каждой стены.
+        /// </summary>
+        [Fact]
+        public void E212_Prediction_SeesCells_SameStopAsServer()
+        {
+            var sim = new Simulation(Flat());
+            for (int x = 15; x <= 25; x++)
+            {
+                Cells(sim, x, 20, ObjectId.StoneWall, BuildCells.DoorSouth);
+            }
+
+            int me = sim.AddEntity(At(20, 18));
+            sim.Step();
+            var pred = new LocalPrediction(sim.Shape, sim.Solid, At(20, 18));
+            var south = new InputFrame(Input8.FromStick(0, 100));
+            for (uint f = 1; f <= 240; f++)
+            {
+                pred.Sent(f, south);
+            }
+
+            Assert.True(sim.SetInput(me, south));
+            Steps(sim, 120);
+            int face = 20 * U + Half;
+            Assert.Equal(face - R, pred.Position.Y);
+            Assert.Equal(sim.GetEntity(me).Mover.Position, pred.Position);
+        }
+
+        /// <summary>Маска ячеек входит в хэш состояния: два мира, отличающиеся только маской стены, — разный хэш; одинаковые — один.</summary>
+        [Fact]
+        public void E212_StateHash_IncludesCellMask()
+        {
+            ulong Hash(byte mask)
+            {
+                var sim = new Simulation(Flat());
+                sim.AddEntity(At(50, 50));
+                Cells(sim, 52, 50, ObjectId.StoneWall, mask);
+                sim.Step();
+                return StateHash.Compute(sim).Total;
+            }
+
+            Assert.Equal(Hash(BuildCells.DoorNorth), Hash(BuildCells.DoorNorth));
+            Assert.NotEqual(Hash(BuildCells.DoorNorth), Hash(BuildCells.DoorSouth));
+            Assert.NotEqual(Hash(BuildCells.DoorNorth), Hash(0));
+        }
+
+        /// <summary>Пол записи постройки — 4 бита (старшие — маска ячеек): все id полов &lt; 16, запись с полом ≥ 16 — ошибка.</summary>
+        [Fact]
+        public void E212_FloorIds_Fit4Bits()
+        {
+            Assert.True(FloorId.MaxKnown <= 15, $"FloorId.MaxKnown = {FloorId.MaxKnown}: пол записи постройки — 4 бита (E2-12)");
+            for (byte f = 0; f <= FloorId.MaxKnown; f++)
+            {
+                var rec = new BuildRecord(1, 100, 0, f, 0, BuildCells.Full);
+                Assert.Equal(f, rec.NaturalFloor);
+                Assert.Equal(BuildCells.Full, rec.Cells);
+            }
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => new BuildRecord(1, 100, 0, 16, 0, BuildCells.Full));
+        }
+
+        /// <summary>
+        /// Толпа у тонкой стены не продавливает её (выталкивание враг↔враг — с упором в стены): большой дом 21 × 21, игрок у
+        /// внутренней грани, пятеро разбойников вплотную снаружи, 800 тактов — ни один центр не за гранью стены, урона 0.
+        /// </summary>
+        [Fact]
+        public void E212_CrowdAtThinWall_NobodyPushedThrough()
+        {
+            var sim = new Simulation(Flat(1313));
+            int ch = sim.AddEntity(new WorldPos(20 * U + Half + R, 27 * U + U / 2));
+            ThinRoom(sim, 0);
+            sim.Step();
+            var rogues = new List<int>();
+            for (int k = 0; k < 5; k++)
+            {
+                rogues.Add(sim.AddMeleeRogue(At(17, 23 + 2 * k)));
+            }
+
+            for (int i = 0; i < 800; i++)
+            {
+                sim.Step();
+                foreach (int r in rogues)
+                {
+                    WorldPos p = sim.GetEntity(r).Mover.Position;
+                    Assert.True(p.X + R <= 20 * U, $"такт {i}: разбойник #{r} продавлен сквозь стену ({p.X}, {p.Y})");
+                }
+            }
+
+            Assert.Equal(100, Hp(sim, ch));
         }
     }
 }

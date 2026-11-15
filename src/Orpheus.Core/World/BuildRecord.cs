@@ -59,9 +59,13 @@ namespace Orpheus.Core.World
 
         /// <summary>Запись с маской ячеек (E2-12): <paramref name="naturalFloor"/> &lt; 16, <paramref name="cells"/> — 4 бита.</summary>
         public BuildRecord(ushort owner, ushort integrity, byte flags, byte naturalFloor, ushort debrisEndTick, byte cells)
-            : this(owner, integrity, flags, (byte)((naturalFloor & 0x0F) | ((cells & 0x0F) << 4)), debrisEndTick)
+            : this(owner, integrity, flags, (byte)((CheckFloor(naturalFloor) & 0x0F) | ((cells & 0x0F) << 4)), debrisEndTick)
         {
         }
+
+        // Пол записи — младшие 4 бита (E2-12): id пола ≥ 16 перепутался бы с маской ячеек — ошибка, а не тихая порча.
+        private static byte CheckFloor(byte floor) =>
+            floor <= 15 ? floor : throw new ArgumentOutOfRangeException(nameof(floor), floor, "Пол записи постройки — 4 бита (E2-12): id пола ≥ 16 — расширить запись.");
 
         /// <summary>Запись мира: владелец 0xFFFF, полная прочность, без обломков.</summary>
         public static BuildRecord World(ushort integrity, byte naturalFloor) =>
