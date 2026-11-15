@@ -168,7 +168,7 @@ function saveReview(k,patch,meta){
 }
 function mark(k,t){ document.querySelectorAll('[data-saved="'+k+'"]').forEach(el=>el.textContent=t); }
 /* ---------- голосовой ввод комментария (Web Speech API; нужен HTTPS или localhost) ---------- */
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
+const SR=window.isSecureContext?(window.SpeechRecognition||window.webkitSpeechRecognition||null):null; // по http браузер микрофон не даст — кнопку не показываем
 let dict=null; // {k, rec, ta, mic, base, meta, stopping}
 function stopDictation(){ if(!dict) return; dict.stopping=true; try{ dict.rec.stop(); }catch(e){} }
 function finishDictation(){ if(!dict) return; const d=dict; dict=null; S.dictating=null;
