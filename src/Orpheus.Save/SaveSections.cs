@@ -74,6 +74,12 @@ namespace Orpheus.Save
 
             /// <summary>Следующий номер кучи на земле (E2-1, формат 7); нет поля — 1 (куч не было). Пишется, только если больше 1.</summary>
             public const int NextPileId = 11;
+
+            /// <summary>
+            /// E2-14 (формат 13): мир из старого файла пересохранён до первого такта — повреждённые постройки ещё не найдены,
+            /// симуляция ищет их первым тактом после загрузки. Пишется только «да».
+            /// </summary>
+            public const int HealScan = 12;
         }
 
         /// <summary>Раздел ЧАНКИ: повторяющееся поле <see cref="Chunk"/> — вложенная запись чанка.</summary>
@@ -106,6 +112,12 @@ namespace Orpheus.Save
             /// <summary>Сундук с содержимым (E2-5, формат 9): запись <see cref="ChestField"/>; по возрастанию (Y, X) тайла.
             /// Пустой сундук записи не имеет.</summary>
             public const int Chest = 3;
+
+            /// <summary>
+            /// Повреждённая постройка, которая восстанавливается (E2-14, формат 13): запись <see cref="HealField"/>; по порядку
+            /// списка симуляции (он задаёт очередь при пределе правок такта). У старых файлов нет — список собирается обходом мира.
+            /// </summary>
+            public const int Heal = 4;
         }
 
         /// <summary>Поля записи сущности (минимально: то, что есть в такте 0-006; уворот — с формата 2, 0-029).</summary>
@@ -388,6 +400,25 @@ namespace Orpheus.Save
             public const int Cells = 3;
         }
 
+        /// <summary>Поля записи восстановления постройки (E2-14, формат 13; <c>BuildHeal</c>).</summary>
+        public static class HealField
+        {
+            public const int X = 1;
+            public const int Y = 2;
+
+            /// <summary>Такт последнего урона.</summary>
+            public const int Hit = 3;
+
+            /// <summary>Такт, по который прибавка уже в мире (до начала — урон + 3 с).</summary>
+            public const int Last = 4;
+
+            /// <summary>Такт следующей записи прибавки в мир.</summary>
+            public const int Due = 5;
+
+            /// <summary>Остаток накопителя, [0; 3000).</summary>
+            public const int Acc = 6;
+        }
+
         /// <summary>Поля записи кучи на земле (E2-1, формат 7).</summary>
         public static class PileField
         {
@@ -424,7 +455,8 @@ namespace Orpheus.Save
             .Field(WorldField.BaseSha256, "SHA-256 снимка генерации")
             .Field(WorldField.NextEntityId, "следующий номер сущности")
             .Field(WorldField.Replaces, "заменяет поколение")
-            .Field(WorldField.WorldTime, "время мира, тактов суток");
+            .Field(WorldField.WorldTime, "время мира, тактов суток")
+            .Field(WorldField.HealScan, "поиск повреждённых построек первым тактом");
 
         private static readonly RecordSchema ChunksSchema = new RecordSchema()
             .Field(ChunksField.Chunk, "чанк", new RecordSchema()
@@ -473,7 +505,14 @@ namespace Orpheus.Save
             .Field(CreaturesField.Chest, "сундук", new RecordSchema()
                 .Field(ChestField.X, "x тайла")
                 .Field(ChestField.Y, "y тайла")
-                .Field(ChestField.Cells, "ячейки"));
+                .Field(ChestField.Cells, "ячейки"))
+            .Field(CreaturesField.Heal, "восстановление постройки", new RecordSchema()
+                .Field(HealField.X, "x тайла")
+                .Field(HealField.Y, "y тайла")
+                .Field(HealField.Hit, "такт урона")
+                .Field(HealField.Last, "в мире по такт")
+                .Field(HealField.Due, "запись на такте")
+                .Field(HealField.Acc, "остаток накопителя"));
 
         private static readonly RecordSchema CharactersSchema = new RecordSchema()
             .Field(CharactersField.Character, "персонаж", new RecordSchema()

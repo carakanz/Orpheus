@@ -1345,9 +1345,9 @@ namespace Orpheus.Tests
             c.Place(a, a, ObjectId.StoneWall, self);
             rig.Run(5);
             rig.Sim.DamageBuilding(a, 150);
-            rig.Run(305); // флаг «урон последние 10 с» истёк, прочность осталась 150
+            rig.Run(305); // флаг «урон последние 10 с» истёк; E2-14: через 3 с восстановление — 7 ступеней по 9 (3 % от 300) за 7 с
             Assert.True(rig.Sim.World.TryGetBuild(a, out BuildRecord rec));
-            Assert.Equal(150, rec.Integrity);
+            Assert.Equal(150 + 7 * 9, rec.Integrity);
             Assert.False(rec.IsDamagedRecent);
 
             replies.Clear();

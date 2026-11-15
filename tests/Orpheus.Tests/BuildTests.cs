@@ -550,7 +550,7 @@ namespace Orpheus.Tests
             rig.Run(4);
             Assert.Equal(EditReply.Intact, replies[^1].Reply);
             Assert.True(rig.Sim.DamageBuilding(t, 30));
-            rig.Run(BuildDefs.DamageFlagTicks + 5);
+            rig.Run(BuildDefs.RepairBlockTicks + 5); // E2-14: позже 30 из 300 восстановились бы сами за 3 с + 3,3 с
             Assert.Equal(EditReply.NoResources, BuildHand.Check(c.World!.World, Spot, c.Inv, 2, true, t).Reply);
             c.Repair(t);
             rig.Run(4);
@@ -629,7 +629,7 @@ namespace Orpheus.Tests
             Assert.Equal(replied + 1, replies.Count);
             Assert.Equal(EditReply.Interrupted, replies[^1].Reply);
             Assert.True(rig.Sim.World.TryGetBuild(edge, out rec));
-            Assert.Equal(200, rec.Integrity);
+            Assert.Equal(200 + 9, rec.Integrity); // починки нет; E2-14: 4,4 с после удара — одна ступень восстановления (3 % от 300)
             Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
         }
 
@@ -659,7 +659,7 @@ namespace Orpheus.Tests
             }
 
             Assert.True(sim.World.TryGetBuild(t, out BuildRecord rec));
-            Assert.Equal(280, rec.Integrity);
+            Assert.Equal(290, rec.Integrity); // E2-14: первый удар восстановился за 7 с до второго; второй ещё ждёт 3 с
             Assert.Equal(0, rec.Flags);
         }
 
@@ -682,6 +682,7 @@ namespace Orpheus.Tests
             Assert.True(Build(rig, c, hand, ObjectId.StoneWall, b).Ok);
             Assert.True(rig.Sim.DamageBuilding(a, 150));
             Assert.True(rig.Sim.DamageBuilding(b, 150));
+            long hitA = rig.Sim.Tick;
             rig.Run(BuildDefs.RepairBlockTicks + 3);
             int stone = rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone);
             replies.Clear();
@@ -689,6 +690,7 @@ namespace Orpheus.Tests
             int Of(ushort id) => replies.FindAll(r => r.RequestId == id).Count;
             EditReply ReplyOf(ushort id) => replies.Find(r => r.RequestId == id).Reply;
             int Integrity(TileCoord t) => rig.Sim.World.TryGetBuild(t, out BuildRecord r) ? r.Integrity : -1;
+            int HealOnlyA() => E214HealTests.HealedAfter(150, 300, rig.Sim.Tick - hitA); // E2-14: без починки стена «a» только восстанавливается
 
             // Новая починка вытесняет прежнюю: прежней — «прервано» сразу, новая доходит до конца.
             ushort first = c.Repair(a);
@@ -702,7 +704,7 @@ namespace Orpheus.Tests
             rig.Run(BuildDefs.RepairFrames / 2 + 4);
             Assert.Equal((1, 1, 2), (Of(first), Of(second), replies.Count));
             Assert.Equal(EditReply.Accepted, ReplyOf(second));
-            Assert.Equal(150, Integrity(a));
+            Assert.Equal(HealOnlyA(), Integrity(a));
             Assert.Equal(300, Integrity(b));
             stone -= BuildDefs.RepairCostOf(2, 150, 300); // списано только за вторую
             Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
@@ -717,7 +719,7 @@ namespace Orpheus.Tests
             rig.InputOf = _ => HammerHold;
             rig.Run(BuildDefs.RepairFrames);
             Assert.Equal(1, Of(third));
-            Assert.Equal(150, Integrity(a));
+            Assert.Equal(HealOnlyA(), Integrity(a));
             Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
 
             // Смерть во время починки: «прервано» до возрождения, ровно один ответ; стена и сумка не тронуты.
@@ -733,7 +735,7 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Interrupted, ReplyOf(fourth));
             rig.Run(Simulation.RespawnDelayTicks + BuildDefs.RepairFrames);
             Assert.Equal(1, Of(fourth));
-            Assert.Equal(150, Integrity(a));
+            Assert.Equal(HealOnlyA(), Integrity(a));
             Assert.Equal(stone, Total(rig.Sim, Items.Stone)); // сумка могла выпасть кучей — масса та же
             Assert.Equal(4, replies.Count);
         }
@@ -1083,7 +1085,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Save_Format9_Chests_Beds_RoundTrip_ServerRestart()
         {
-            Assert.Equal(12u, SaveModule.FormatVersion); // E2-16: 12 (E2-15: 11)
+            Assert.Equal(13u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
             SaveFixtures.LiveWorld live = SaveFixtures.Create(256, 25, bots: 0);
             Simulation sim = live.Sim;
             WorldPos at = Orpheus.Server.ServerRun.SpawnPoint(sim.Shape, 0);
@@ -1114,7 +1116,7 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "сундуки", chars), 2, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(12u, f.Header.FormatVersion); // E2-16: 12 (E2-15: 11)
+            Assert.Equal(13u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(2, st.ChestTiles.Length);
             Assert.Equal(c1, st.ChestTiles[0]); // по (Y, X): c2 южнее (Y больше) — второй
@@ -1197,7 +1199,7 @@ namespace Orpheus.Tests
             int id = st.Entities[0].Id;
             Assert.Equal(EditReply.Accepted, sim.RequestSetBed(id, bed));
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат8", st.Characters), 7, 0);
-            Assert.Equal(12u, SaveContainer.Read(again).Header.FormatVersion); // E2-16: 12 (E2-15: 11)
+            Assert.Equal(13u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
             Simulation re = SaveFixtures.Load(baseBytes, again);
             Assert.Equal(StateHash.Compute(sim).Total, StateHash.Compute(re).Total);
             Assert.True(re.TryGetChest(chest, out Inventory back));
