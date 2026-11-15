@@ -239,5 +239,21 @@ namespace Orpheus.Core.Sim
 
             return best;
         }
+
+        /// <summary>
+        /// Существо стоит «внутри твёрдого» (E2-12): на тайле закрытой двери/ворот (закрыли под ним правкой без выталкивания,
+        /// C-001) или центром в твёрдой ячейке. Свободная половина тайла тонкой стены — не «внутри».
+        /// </summary>
+        private bool InsideSolid(WorldPos p)
+        {
+            TileCoord t = Torus.Wrap(_shape, Torus.TileOf(_shape, p));
+            if (!IsBlocked(_shape, t))
+            {
+                return false;
+            }
+
+            ushort id = ObjectId.IdOf(_world.GetObject(t));
+            return id == ObjectId.Door || id == ObjectId.Gate || StrikeCellSolid(t, p);
+        }
     }
 }

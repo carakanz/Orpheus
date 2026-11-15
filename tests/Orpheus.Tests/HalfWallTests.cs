@@ -615,5 +615,66 @@ namespace Orpheus.Tests
 
             Assert.Equal(100, Hp(sim, ch));
         }
+
+        /// <summary>
+        /// Повторная проверка (П): стена на ВНУТРЕННИХ половинах тайлов (0) и смешанная раскладка (1: запад — внутренние,
+        /// остальное — внешние), дом 9 × 9, игрок у внутренней грани западной стены. Трое разбойников поставлены в свободные
+        /// внешние половины тайлов стены (их тайл «непроходим», но центр — не в твёрдом), двое подходят сами. Атака только при
+        /// чистой линии удара: урона 0, все уходят через 20 с и до конца игнора в атаку сквозь стену не возвращаются.
+        /// </summary>
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        public void E212_InnerHalfWalls_RoguesInFreeHalves_GiveUp_NoAttackThroughWall(int layout)
+        {
+            var sim = new Simulation(Flat(1314));
+            const int far = 28;
+            for (int y = 20; y <= far; y++)
+            {
+                for (int x = 20; x <= far; x++)
+                {
+                    bool inner = layout == 0 || x == 20;
+                    byte m = 0;
+                    m |= y == 20 ? (inner ? BuildCells.DoorSouth : BuildCells.DoorNorth) : (byte)0;
+                    m |= y == far ? (inner ? BuildCells.DoorNorth : BuildCells.DoorSouth) : (byte)0;
+                    m |= x == 20 ? BuildCells.DoorEast : (byte)0; // запад — всегда внутренние (восточные) ячейки
+                    m |= x == far ? (inner ? BuildCells.DoorWest : BuildCells.DoorEast) : (byte)0;
+                    if (m != 0)
+                    {
+                        Cells(sim, x, y, ObjectId.StoneWall, m);
+                    }
+                }
+            }
+
+            int ch = sim.AddEntity(new WorldPos(21 * U + R, 25 * U + U / 2)); // вплотную к внутренней грани x = 21,0
+            sim.Step();
+            var rogues = new List<int>();
+            for (int k = 0; k < 3; k++)
+            {
+                rogues.Add(sim.AddMeleeRogue(new WorldPos(20 * U + Half - R, (23 + 2 * k) * U + U / 2))); // свободная западная половина
+            }
+
+            rogues.Add(sim.AddMeleeRogue(At(17, 24)));
+            rogues.Add(sim.AddMeleeRogue(At(17, 27)));
+            for (int i = 0; i < 1000; i++)
+            {
+                sim.Step();
+                if (i >= 700)
+                {
+                    foreach (int r in rogues)
+                    {
+                        Assert.True(sim.GetEntity(r).Brain.State != EnemyState.Attack, $"такт {i}: разбойник #{r} снова «в атаке» сквозь стену");
+                    }
+                }
+            }
+
+            Assert.Equal(100, Hp(sim, ch));
+            foreach (int r in rogues)
+            {
+                EnemyBrain b = sim.GetEntity(r).Brain;
+                Assert.True(b.IgnoreTargetId == ch && b.IgnoreUntil > sim.Tick,
+                    $"разбойник #{r}: не ушёл через 20 с (состояние {b.State}, цель {b.TargetId}, игнор {b.IgnoreTargetId}/{b.IgnoreUntil})");
+            }
+        }
     }
 }

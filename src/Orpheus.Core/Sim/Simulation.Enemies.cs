@@ -292,11 +292,11 @@ namespace Orpheus.Core.Sim
                     long dist2 = Torus.Dist2(_shape, e.Mover.Position, target.Mover.Position);
                     // В атаку — только при чистой линии удара (E2-12, `02` 9.3): сквозь стену 0,5 игрок у внутренней грани в 1,3 т —
                     // в зоне удара, но за стеной; стоять «в атаке» у стены нельзя — погоня, «упёрся» и уход через 20 с. Забор прозрачен.
-                    // Враг на непроходимом тайле (дверь закрыли под ним правкой без выталкивания, C-001) стоит, как раньше:
-                    // погоня вывела бы его из двери на сторону цели. Замах всё равно гасит линия удара.
+                    // Враг в закрытой двери (закрыли под ним правкой без выталкивания, C-001) или центром в твёрдой ячейке стоит, как
+                    // раньше: погоня вывела бы его из двери на сторону цели. Замах гасит линия удара. Свободная половина тайла стены — нет.
                     TileCoord own = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
                     if (dist2 <= MeleeRogue.StrikeRange2 &&
-                        (IsBlocked(_shape, own) || StrikeLineClear(e.Mover.Position, target.Mover.Position, own)))
+                        (InsideSolid(e.Mover.Position) || StrikeLineClear(e.Mover.Position, target.Mover.Position, own)))
                     {
                         // В зоне удара (8.1 «бьёт в упор»): стоит; замах ведёт фаза боя по состоянию Attack.
                         e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
