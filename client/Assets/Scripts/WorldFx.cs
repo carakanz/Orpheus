@@ -184,6 +184,15 @@ namespace Orpheus.Client
             }
         }
 
+        /// <summary>C-017: замер кадра снимка (<c>ORPH_SHOT_BENCH</c>) — камера теней рисуется каждый кадр, как в игре.</summary>
+        public static void BenchShadows()
+        {
+            if (_ready && _shadowCam != null)
+            {
+                _shadowCam.Render();
+            }
+        }
+
         static void Sync(float aspect, int pixelHeight)
         {
             Camera main = _main!;

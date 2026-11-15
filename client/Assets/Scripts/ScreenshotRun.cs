@@ -230,6 +230,7 @@ namespace Orpheus.Client
             for (int i = -10; i < frames; i++) // 10 кадров прогрева
             {
                 long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+                WorldFx.BenchShadows(); // C-017: и слой теней — его цена входит в кадр
                 cam.Render();
                 RenderTexture.active = rt;
                 px.ReadPixels(new Rect(0, 0, 1, 1), 0, 0);
