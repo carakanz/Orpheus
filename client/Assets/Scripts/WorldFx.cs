@@ -184,6 +184,32 @@ namespace Orpheus.Client
             }
         }
 
+        /// <summary>
+        /// C-017: замер CPU слоя теней на кадр (<c>ORPH_SHOT_BENCH</c>): проверка штампов теней огня всех чанков и тени
+        /// существ (каждый кадр в игре), мс на кадр; и полная пересборка сетки света/комнат <see cref="DayTintView"/> (камера
+        /// перешла линию сетки — раз в 8 тайлов пути), мс.
+        /// </summary>
+        public static string BenchCpu(int frames)
+        {
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            for (int i = 0; i < frames; i++)
+            {
+                _view?.FlushFire(6);
+                ActorShadow.UpdateAll();
+            }
+
+            long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
+            int fills = 20;
+            for (int i = 0; i < fills; i++)
+            {
+                DayTintView.Current?.BenchFill();
+            }
+
+            long t2 = System.Diagnostics.Stopwatch.GetTimestamp();
+            double f = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            return $"тени огня и существ {(t1 - t0) * f / frames:0.000} мс/кадр, сетка света {(t2 - t1) * f / fills:0.00} мс/пересборка";
+        }
+
         /// <summary>C-017: замер кадра снимка (<c>ORPH_SHOT_BENCH</c>) — камера теней рисуется каждый кадр, как в игре.</summary>
         public static void BenchShadows()
         {

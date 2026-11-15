@@ -233,6 +233,13 @@ namespace Orpheus.Client
             Shader.SetGlobalVector(LightSizeId, new Vector4(cols, rows, 1f / cols, 1f / rows));
         }
 
+        /// <summary>C-017: замер — пересобрать сетку под текущей камерой (как при переходе линии сетки).</summary>
+        public void BenchFill()
+        {
+            _stamp = 0;
+            Update(_ticks);
+        }
+
         static readonly int LightGridId = Shader.PropertyToID("_OrphLightGrid");
         static readonly int LightRectId = Shader.PropertyToID("_OrphLightRect");
         static readonly int LightSizeId = Shader.PropertyToID("_OrphLightSize");
@@ -346,20 +353,22 @@ namespace Orpheus.Client
             {
                 // Строка 0 текстуры — низ (v = 0) = низ экрана = наибольшая Y мира.
                 int cy = cy0 + (rows - 1 - r) * step;
+                int ty = _map.Wraps ? Mod(cy >> 1, _map.Height) : Torus.Wrap(_map, new TileCoord(0, cy >> 1)).Y;
+                int ly = ty & (Torus.ChunkSize - 1);
+                int rowCell = ((ly << 1) | (cy & 1)) * n;
                 for (int cIdx = 0; cIdx < cols; cIdx++)
                 {
                     int cx = cx0 + cIdx * step;
-                    TileCoord t = Torus.Wrap(_map, new TileCoord(cx >> 1, cy >> 1));
-                    ChunkCoord cc = Torus.ChunkOf(_map, t);
-                    if (!_fillHave || cc != _fillCc)
+                    int tx = _map.Wraps ? Mod(cx >> 1, _map.Width) : Torus.Wrap(_map, new TileCoord(cx >> 1, 0)).X;
+                    if (!_fillHave || (tx >> Torus.ChunkBits) != _fillCc.X || (ty >> Torus.ChunkBits) != _fillCc.Y)
                     {
-                        FillChunk(cc);
+                        FillChunk(Torus.ChunkOf(_map, new TileCoord(tx, ty)));
                     }
 
-                    int lx = t.X & (Torus.ChunkSize - 1), ly = t.Y & (Torus.ChunkSize - 1);
+                    int lx = tx & (Torus.ChunkSize - 1);
                     byte floor = _fillChunk == null ? FloorId.Grass : _fillChunk.GetFloor(Chunk.IndexOf(lx, ly));
                     int k = DayTint.BiomeKX1024ForFloor(floor);
-                    int cell = ((ly << 1) | (cy & 1)) * n + ((lx << 1) | (cx & 1));
+                    int cell = rowCell + ((lx << 1) | (cx & 1));
                     int s = _fillLight != null ? _fillLight[cell] : 0;
                     byte room = _fillRooms != null && _fillRooms[cell] != RoomIndex.Outside ? (byte)255 : (byte)0;
                     // 1024 → 255 (E1-7: было k >> 2 = 256 → байт 0: открытая земля считалась полной тьмой, день выходил бурым).

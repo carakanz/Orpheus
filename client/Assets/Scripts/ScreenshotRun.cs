@@ -242,6 +242,7 @@ namespace Orpheus.Client
             }
 
             UnityEngine.Object.Destroy(px);
+            Debug.Log($"[shotbench] CPU: {WorldFx.BenchCpu(frames)}");
             System.Array.Sort(ms);
             double sum = 0;
             foreach (double v in ms)
