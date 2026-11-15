@@ -13,7 +13,7 @@ namespace Orpheus.Client.UI
         public const string BagTitle = "Сумка";
         public const string BagHint = "ЛКМ — взять / положить      ПКМ — взять половину\nShift+ЛКМ — перекинуть      ЛКМ мимо окна — выбросить";
         public const string BagDead = "Вы погибли: сумка откроется для действий после возрождения";
-        public const string BagKeys = "Tab / I";
+        public const string BagKeys = "Q / I";
 
         static readonly Dictionary<string, string> ItemNames = new Dictionary<string, string>
         {
@@ -66,7 +66,7 @@ namespace Orpheus.Client.UI
 
         // ---------- окно «сумка + изготовление» (E2-9) ----------
 
-        public const string CraftKeyInv = "Tab · C · Esc";
+        public const string CraftKeyInv = "Q · C · Esc";
         public const string CraftOnlyAvailable = "Только доступные";
         public const string CraftFlat = "Все рецепты раздела";
         public const string CraftEmptySub = "Здесь пока нет рецептов";
