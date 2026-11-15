@@ -198,7 +198,7 @@ namespace Orpheus.Client
                 cam.targetTexture = rt;
                 cam.Render();
                 RenderTexture.active = rt;
-                BenchRender(cam, rt);
+                BenchRender(cam, rt, _g.View);
                 var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
                 tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
                 tex.Apply();
@@ -218,7 +218,7 @@ namespace Orpheus.Client
         /// C-016: замер отрисовки сцены снимка — переменная окружения <c>ORPH_SHOT_BENCH</c> = число кадров: камера рисует
         /// в ту же текстуру столько раз, каждый кадр ждёт видеокарту (чтение точки); в лог — среднее и 1 % худших, мс.
         /// </summary>
-        static void BenchRender(Camera cam, RenderTexture rt)
+        static void BenchRender(Camera cam, RenderTexture rt, WorldView view)
         {
             if (!int.TryParse(System.Environment.GetEnvironmentVariable("ORPH_SHOT_BENCH"), out int frames) || frames <= 0)
             {
@@ -250,7 +250,8 @@ namespace Orpheus.Client
 
             double avg = sum / frames, p99 = ms[System.Math.Min(frames - 1, (int)(frames * 0.99))];
             Debug.Log($"[shotbench] кадров {frames}: средний {avg:0.000} мс ({1000.0 / avg:0} fps), медиана {ms[frames / 2]:0.000} мс, " +
-                      $"1 % худших {p99:0.000} мс ({1000.0 / p99:0} fps), {rt.width}x{rt.height}");
+                      $"1 % худших {p99:0.000} мс ({1000.0 / p99:0} fps), {rt.width}x{rt.height}; объекты чанка при входе — " +
+                      $"{view.FreshObjectTicks * 1e6 / System.Diagnostics.Stopwatch.Frequency / System.Math.Max(view.FreshObjectFills, 1):0} мкс × {view.FreshObjectFills}");
         }
 
         public void AfterFrame()

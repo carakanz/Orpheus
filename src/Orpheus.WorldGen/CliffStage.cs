@@ -306,23 +306,26 @@ namespace Orpheus.WorldGen
         {
             int w = t.WorldSize;
             int mask = w - 1;
+            var row = new bool[cliff.Length]; // скала в 2 по строке
             for (int y = 0; y < w; y++)
             {
+                int r = y * w;
                 for (int x = 0; x < w; x++)
                 {
-                    int i = (y * w) + x;
-                    if (cliff[i])
-                    {
-                        continue;
-                    }
+                    row[r + x] = cliff[r + ((x - 2) & mask)] || cliff[r + ((x - 1) & mask)] || cliff[r + x]
+                        || cliff[r + ((x + 1) & mask)] || cliff[r + ((x + 2) & mask)];
+                }
+            }
 
-                    for (int k = 0; k < 25; k++)
+            for (int y = 0; y < w; y++)
+            {
+                int r = y * w;
+                int u2 = ((y - 2) & mask) * w, u1 = ((y - 1) & mask) * w, d1 = ((y + 1) & mask) * w, d2 = ((y + 2) & mask) * w;
+                for (int x = 0; x < w; x++)
+                {
+                    if (!cliff[r + x] && (row[u2 + x] || row[u1 + x] || row[r + x] || row[d1 + x] || row[d2 + x]))
                     {
-                        if (k != 12 && cliff[(((y + (k / 5) - 2) & mask) * w) + ((x + (k % 5) - 2) & mask)])
-                        {
-                            t.Marks[i] |= TileWorld.MarkGorge;
-                            break;
-                        }
+                        t.Marks[r + x] |= TileWorld.MarkGorge;
                     }
                 }
             }
