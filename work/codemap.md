@@ -97,14 +97,14 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 ## src/Orpheus.Core/Items/ (E2-1; пространство имён Orpheus.Core.Sim)
 - ItemTable.cs: `ItemCategory`, `ItemDef`, `ItemTable` — таблица предметов данными (строки добавлять в конец).
 - GroundPile.cs: `GroundPile` (куча на земле), `BagOp` (операция с ячейками).
-- RecipeTable.cs (E2-3): `CraftStation`, `RecipeDef`, `RecipeTable` — рецепты данными (строки — в конец). CraftQueue.cs: `CraftReply`, `CraftQueue` (очередь изготовления в `SimEntity.Craft`, payload 12 байт). CraftRules.cs: `Affordable`, `StationCheck` — общие для сервера и клиента.
-- Sim/Simulation.Craft.cs (E2-3): CheckCraft · RequestCraft · RequestCraftCancel · RefundCraftQueue · ApplyCraft · ApplyCraftCancel · StepCraft (фаза 5.2 такта, после заявок на сумку).
+- RecipeTable.cs (E2-3): `CraftStation`, `RecipeDef`, `RecipeTable` — рецепты данными (строки — в конец). CraftQueue.cs: `CraftReply`, `CraftQueue` (очередь изготовления в `SimEntity.Craft`, payload 12 байт). CraftRules.cs: `Affordable` (E2-10: и со сводкой `ChestStock`), `StationCheck`, `SourceCenter` (откуда считать сундуки: ближайший станок / персонаж), `ChestRadiusTiles` (6) — общие для сервера и клиента. ChestStock.cs (E2-10): «сундуки рядом» по видам станка.
+- Sim/Simulation.Craft.cs (E2-3): CheckCraft · RequestCraft · RequestCraftCancel · RefundCraftQueue · ApplyCraft · ApplyCraftCancel · StepCraft (фаза 5.2 такта, после заявок на сумку). Sim/Simulation.CraftChests.cs (E2-10): CollectNearChests (порядок снятия) · AffordableNear · TakeIngredients (сумка → сундуки) · FillChestStock.
 
 ## Сеть и клиент предметов (E2-1)
 - NetServer.Items.cs: OnBagRequest · SendPilesTo (разница куч игроку) · TakerOf. NetClient.Items.cs: Piles · RequestBagMove/Split/Drop · OnPiles · OnPileGone.
 - Protocol/Messages.cs: InventoryMessage (ячейки), NetPile, PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
 - BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room).
-- Крафт (E2-3): Protocol/CraftMessages.cs — CraftRequestMessage (30), CraftReplyMessage (31), CraftStateMessage (32). NetServer.Items.cs: OnCraftRequest · SendCraftTo. NetClient.Items.cs: Craft · CraftRunning · CraftProgressAt · RequestCraft · RequestCraftCancel. CraftDesk.cs: `ICraftRequests`, `CraftLine`, `ICraftCancelChecked`, `CraftDesk` (LineOf · Missing · Make · Cancel) — путь окна крафта и ботов.
+- Крафт (E2-3): Protocol/CraftMessages.cs — CraftRequestMessage (30), CraftReplyMessage (31), CraftStateMessage (32), NearbyStockMessage (36, E2-10). NetServer.Items.cs: OnCraftRequest · SendCraftTo · SendStockTo (E2-10, раз в 5 тактов и после своего изготовления). NetClient.Items.cs: Craft · CraftRunning · CraftProgressAt · RequestCraft · RequestCraftCancel. CraftDesk.cs: `ICraftRequests`, `CraftLine`, `ICraftCancelChecked`, `CraftDesk` (LineOf · Missing · Have · InChests · Make · Cancel; E2-10 — со сводкой `NetClient.NearbyStock`) — путь окна крафта и ботов.
 - CraftChainBot*.cs (craft_chain, E2-3): `.cs` — Next / Decide (этапы Stage), OnReply · `.Harvest.cs` — Harvest (ходьба рывками, копание, подбор), Dig, ToolSlotFor · `.Path.cs` — Plan (поиск в ширину, разведка по клеткам), Flood, BuildPath · `.Bench.cs` — PlaceBench, Craft, Equip.
 - CharacterRoster.cs: Restore (загрузка: очередь изготовления → в сумку записи) · Park (уход из мира: очередь → в сумку).
 - client/Assets/Scripts/PileView.cs: значки куч; NetGame.Edits.cs: HookPiles, BagHud (ячейки). tools/make_item_icons.py — заглушки значков.
@@ -124,7 +124,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - UiStyle.cs: цвета, `Frame` (рамка с 9 срезами кодом), `Font`.
 - UiParts.cs: `UiItemIcon` (Set/Dim), `UiSlotGrid` (Set/Select/Hover/Hit), `UiWindow`, `UiButton` (E2-4: кнопка, вкладка, строка), `UiTooltip`, `UiCarry`, `UiBar`.
 - CraftWindow.cs (E2-4): `CraftWindow` (SelectTab/SelectRow, HitTest → `CraftHit`, CenterOf, Show: строки, карточка ShowCard, очередь ShowQueue); раскладка — константы в начале класса.
-- GameUi.cs: `UiInput`, `UiCraftState`, `BagWindow`, `GameUi` (ReadInput, Frame, CraftReplied, CraftClick / CraftKeys / Make, FindStation, Layout, PointerBlocked, OverWindow, EscapeUsed, SlotClicked), `UiDemo` (--ui-demo bag|hotbar|craft|craft+bag|craft-hint; CraftScript).
+- GameUi.cs: `UiInput`, `UiCraftState`, `BagWindow`, `GameUi` (ReadInput, Frame, CraftReplied, CraftClick / CraftKeys / Make, FindStation, Layout, PointerBlocked, OverWindow, EscapeUsed, SlotClicked), `UiDemo` (--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest; CraftScript). E2-10: `UiCraftState.Stock`, `CraftWindow.Stock` — «есть» и пометка «(в сундуке)» в карточке.
 - UiStrings.cs: строки и названия предметов по ключу.
 - src/Orpheus.Net/Session/BagHand.cs: `IBagRequests`, `BagHand` (Sync, Left, Right, Quick, Outside, ShownCount, QuickTarget); тесты `BagHandTests.cs`.
 - NetGame.Edits.cs: UiFrame (перед SendInput), блокировка мыши в UpdateEdits.

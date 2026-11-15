@@ -665,7 +665,7 @@ namespace Orpheus.Client.UI
         }
 
         /// <summary>Сцена с окном крафта (нужен верстак рядом с персонажем).</summary>
-        public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint";
+        public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint" || mode == "craft-chest";
 
         public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode) || IsBuild(mode);
 
@@ -744,7 +744,20 @@ namespace Orpheus.Client.UI
             }
 
             var craft = new UiCraftState { Queue = _queue, Running = !_queue.IsEmpty, Progress = 9, World = _world, Position = position };
+            if (_mode == "craft-chest")
+            {
+                craft.Stock = DemoStock(); // E2-10: «в сундуке рядом» — 12 слитков и 20 древесины у верстака
+            }
+
             _ui.Frame(input, _bag, selected: 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100, craft);
+        }
+
+        static ChestStock DemoStock()
+        {
+            var stock = new ChestStock();
+            stock.Set(CraftStation.Workbench, Items.CopperIngot, 12);
+            stock.Set(CraftStation.Workbench, Items.Wood, 20);
+            return stock;
         }
 
         // Скрипт окна крафта (вкладка «Верстак» открывается сама — верстак рядом): слиток «всё» → стрелы × 2 → выбрана
@@ -755,6 +768,16 @@ namespace Orpheus.Client.UI
             if (_mode == "craft-hint")
             {
                 input.Pointer = new Vector2(40f, 40f); // окно закрыто: у панели подсказка «C — верстак»
+                return;
+            }
+
+            if (_mode == "craft-chest")
+            {
+                // E2-10: окно открыто, выбрана медная кирка — слитков в сумке 5, ещё 12 в сундуке рядом: «есть 17 / 8 (в сундуке)».
+                input.Craft = f == 2;
+                input.Pointer = f < 4 ? new Vector2(40f, 40f) : _ui.CraftPoint(CraftPart.Row, 4);
+                input.LeftDown = f == 5;
+                input.LeftHeld = input.LeftDown;
                 return;
             }
 
