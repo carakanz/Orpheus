@@ -227,7 +227,7 @@ namespace Orpheus.Client.UI
 
         /// <summary>
         /// Курсор над открытым окном (сумка или крафт; E2-4): колесо мыши не меняет обзор, Shift не уходит в игру
-        /// уворотом (Shift+ЛКМ в окне — «перекинуть»).
+        /// уворотом (Shift+ЛКМ в окне — «половину», Ctrl+ЛКМ — «перекинуть»).
         /// </summary>
         public bool OverWindow { get; private set; }
 
@@ -396,9 +396,13 @@ namespace Orpheus.Client.UI
             {
                 if (cell >= 0 && BagOpen)
                 {
-                    if (input.Shift)
+                    if (input.Ctrl && !held)
                     {
-                        _hand.Quick(cell);
+                        _hand.Quick(cell); // Ctrl+ЛКМ — перекинуть (слово Автора 15.11)
+                    }
+                    else if (input.Shift && !held)
+                    {
+                        _hand.Half(cell); // Shift+ЛКМ — взять половину (слово Автора 15.11)
                     }
                     else
                     {

@@ -11,7 +11,7 @@ namespace Orpheus.Client.UI
     public static class UiStrings
     {
         public const string BagTitle = "Сумка";
-        public const string BagHint = "ЛКМ — взять / положить      ПКМ — взять половину\nShift+ЛКМ — перекинуть      ЛКМ мимо окна — выбросить";
+        public const string BagHint = "ЛКМ — взять / положить      ПКМ — взять 1 (ещё ПКМ — ещё 1)\nShift+ЛКМ — половину      Ctrl+ЛКМ — перекинуть      ЛКМ мимо окна — выбросить";
         public const string BagDead = "Вы погибли: сумка откроется для действий после возрождения";
         public const string BagKeys = "Q / I";
 
@@ -256,7 +256,7 @@ namespace Orpheus.Client.UI
         public static string Integrity(int cur, int max) => $"Прочность {cur} / {max}";
 
         public const string ChestTitle = "Сундук";
-        public const string ChestHint = "ЛКМ — взять / положить      ПКМ — половину\nShift+ЛКМ — в сумку / в сундук";
+        public const string ChestHint = "ЛКМ — взять / положить      ПКМ — взять 1      Shift+ЛКМ — половину\nCtrl+ЛКМ — в сумку / в сундук";
         public const string ChestKeys = "F, Esc";
 
         /// <summary>Подсказка над панелью: что сделает F.</summary>

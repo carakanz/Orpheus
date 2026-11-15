@@ -170,7 +170,10 @@ namespace Orpheus.Net.Session
             return Holding ? Put(cell) : Take(cell, CountIn(cell));
         }
 
-        /// <summary>ПКМ по ячейке: пустой рукой — взять половину (с округлением вверх), с предметом — вернуть на место.</summary>
+        /// <summary>
+        /// ПКМ по ячейке (слово Автора 15.11, как в Terraria): пустой рукой — взять 1; по той же ячейке с предметом в руке —
+        /// ещё 1 (пока есть в стопке); по другой ячейке с предметом в руке — вернуть на место.
+        /// </summary>
         public BagClick Right(int cell)
         {
             if ((uint)cell >= CellCount || Dead)
@@ -180,15 +183,37 @@ namespace Orpheus.Net.Session
 
             if (Holding)
             {
+                if (cell == From && Count < CountIn(cell))
+                {
+                    Count++;
+                    return BagClick.Taken;
+                }
+
+                if (cell == From)
+                {
+                    return BagClick.None; // вся стопка уже в руке
+                }
+
                 Cancel();
                 return BagClick.Cancelled;
+            }
+
+            return Take(cell, 1);
+        }
+
+        /// <summary>Shift+ЛКМ по ячейке пустой рукой (слово Автора 15.11): взять половину (с округлением вверх).</summary>
+        public BagClick Half(int cell)
+        {
+            if ((uint)cell >= CellCount || Dead || Holding)
+            {
+                return BagClick.None;
             }
 
             return Take(cell, (CountIn(cell) + 1) / 2);
         }
 
         /// <summary>
-        /// Shift+ЛКМ: быстро перекинуть стопку между быстрой панелью (первые <see cref="Inventory.Slots"/> ячеек) и
+        /// Ctrl+ЛКМ (слово Автора 15.11: было Shift+ЛКМ): быстро перекинуть стопку между быстрой панелью (первые <see cref="Inventory.Slots"/> ячеек) и
         /// остальной сумкой — в стопку того же предмета с местом, иначе в первую пустую ячейку.
         /// </summary>
         public BagClick Quick(int cell)
