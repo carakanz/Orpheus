@@ -86,6 +86,14 @@ td.name{font-weight:700}
 .filters button{font:13px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:3px;padding:2px 8px;cursor:pointer}
 .filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 .left{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tablewrap{position:relative}
+@media (min-width:901px){
+  .pane{position:sticky;top:8px;max-height:calc(100vh - 16px);overflow:auto;border-radius:6px}
+  .tablewrap{max-height:calc(100vh - 120px)}
+}
+.review .nextrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+.review button.next{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+kbd{font:11px var(--f-mono);border:1px solid var(--line);border-radius:3px;padding:0 4px;background:var(--bg);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -197,7 +205,7 @@ function reviewBox(kind,id,title){
   const ta=$('textarea',{id:'c-'+k,placeholder:'Комментарий: что поменять, добавить, убрать…'});
   let t=null; ta.addEventListener('input',()=>{ clearTimeout(t); mark(k,'…'); t=setTimeout(()=>saveReview(k,{comment:ta.value},{kind,title}),900); });
   const mic=SR?$('button',{type:'button',class:'mic','data-mic':k,title:'Диктовать комментарий голосом (нажмите ещё раз — стоп)','aria-pressed':'false',onclick:()=>toggleDictation(k,ta,mic,{kind,title})},'🎤 Диктовать'):null;
-  box.append($('h3',{},'Решение Автора'),$('div',{class:'row'},mk('accepted','Принято','ok'),mk('changes','Нужна правка','warn'),mk('rejected','Убрать','bad'),mic),ta,$('div',{class:'saved','data-saved':k}));
+  box.append($('h3',{},'Решение Автора'),$('div',{class:'row'},mk('accepted','Принято','ok'),mk('changes','Нужна правка','warn'),mk('rejected','Убрать','bad'),mic),ta,$('div',{class:'saved','data-saved':k}),$('div',{class:'nextrow'},$('button',{type:'button',class:'next',onclick:()=>nextUnreviewed(1)},'Следующий без отметки ↓'),$('span',{},'клавиши: ',$('kbd',{},'J'),' или ',$('kbd',{},'↓'),' — следующий без отметки, ',$('kbd',{},'K'),' или ',$('kbd',{},'↑'),' — предыдущий')));
   fillReview(box); return box;
 }
 function fillReview(box){
@@ -279,7 +287,8 @@ function viewMap(){
     $('p',{class:'note',style:'margin:0'},txt(S.cat.layout&&S.cat.layout.description)),
     (()=>{ const off=L('biome').filter(b=>S.cat.layout&&S.cat.layout.grid&&!S.cat.layout.grid.some(r=>r.includes(b.id))); return off.length?$('div',{class:'sec'},$('h4',{},'Нет на карте (поздние акты, особые места)'),$('div',{class:'chips'},off.map(b=>link('biome',b)))):null; })());
   const sel=S.sel&&S.sel.kind==='biome'?S.sel:{kind:'biome',id:(L('biome')[0]||{}).id};
-  setTimeout(()=>drawMap(canvas)); return $('div',{class:'atlas'},box,page('biome',sel.id));
+  S.list={kind:'biome',ids:L('biome').map(b=>b.id)}; S.mapCanvas=canvas;
+  setTimeout(()=>drawMap(canvas)); return $('div',{class:'atlas'},box,$('div',{class:'pane',id:'pane'},page('biome',sel.id)));
 }
 
 /* ---------- разделы-списки ---------- */
@@ -299,21 +308,40 @@ function listView(kind){
   const sel=S.sel&&S.sel.kind===kind&&L(kind).some(o=>o.id===S.sel.id)?S.sel.id:(items[0]||{}).id;
   const short=v=>{ const s=txt(v); return s.length>110?s.slice(0,107)+'…':s; };
   const filters=vals.length>1?$('div',{class:'filters'},'Показать:',$('button',{type:'button','aria-pressed':String(fv==null),onclick:()=>{S.filter[kind]=null;render();}},'все'),vals.map(v=>$('button',{type:'button','aria-pressed':String(String(fv)===String(v)),onclick:()=>{S.filter[kind]=v;render();}},ff==='act'?'акт '+v:v))):null;
-  const rows=items.map(o=>$('tr',{class:'clickable'+(o.id===sel?' cur':''),tabindex:'0',onclick:()=>go(kind,o.id),onkeydown:e=>{if(e.key==='Enter')go(kind,o.id);}},$('td',{},dot(kind,o.id)),$('td',{class:'name'},o.name,o.proposal?$('span',{class:'tag prop',style:'margin-left:6px'},'пред.'):null),COLS[kind].map(([,f])=>$('td',{},short(f(o))))));
+  S.list={kind,ids:items.map(o=>o.id)};
+  const rows=items.map(o=>$('tr',{class:'clickable'+(o.id===sel?' cur':''),'data-id':o.id,tabindex:'0',onclick:()=>go(kind,o.id),onkeydown:e=>{if(e.key==='Enter')go(kind,o.id);}},$('td',{},dot(kind,o.id)),$('td',{class:'name'},o.name,o.proposal?$('span',{class:'tag prop',style:'margin-left:6px'},'пред.'):null),COLS[kind].map(([,f])=>$('td',{},short(f(o))))));
   const tbl=$('div',{class:'tablewrap'},$('table',{},$('thead',{},$('tr',{},$('th',{},''),$('th',{},'Название'),COLS[kind].map(([h])=>$('th',{},h)))),$('tbody',{},rows)));
-  return $('div',{class:'split'},$('div',{class:'left'},filters,tbl),sel?page(kind,sel):$('p',{class:'note'},'Пусто.'));
+  return $('div',{class:'split'},$('div',{class:'left'},filters,tbl),$('div',{class:'pane',id:'pane'},sel?page(kind,sel):$('p',{class:'note'},'Пусто.')));
 }
 function viewNotes(){ const n=S.cat.notes||{}; return $('div',{class:'card'},$('h2',{},'Расхождения и пробелы'),$('p',{class:'note',style:'margin:0'},'Где docs, генератор и код расходятся или где в docs ничего нет.'),Object.entries(n).map(([k,v])=>sec(k,$('ul',{class:'plain'},(Array.isArray(v)?v:[v]).map(x=>$('li',{},txt(x)))))),reviewBox('notes','all','Расхождения')); }
 
 /* ---------- навигация и поиск ---------- */
-function go(kind,id){ S.sel={kind,id}; const h='#'+key(kind,id); if(location.hash!==h) history.replaceState(null,'',h); S.view=(kind==='biome'&&S.view==='map')?'map':kind; render(); document.getElementById('main').scrollIntoView({block:'start'}); }
+function go(kind,id){ S.sel={kind,id}; const h='#'+key(kind,id); if(location.hash!==h) history.replaceState(null,'',h);
+  const view=(kind==='biome'&&S.view==='map')?'map':kind; const pane=document.getElementById('pane');
+  if(view===S.view&&pane){ // тот же раздел: меняем только страницу справа, список и окно не трогаем
+    if(dict) render(); else { pane.replaceChildren(page(kind,id)); pane.scrollTop=0; }
+    document.querySelectorAll('tr[data-id]').forEach(tr=>tr.classList.toggle('cur',tr.dataset.id===id));
+    if(view==='map'&&S.mapCanvas) drawMap(S.mapCanvas);
+    refreshReviews(); keepRowVisible(id);
+    if(!window.matchMedia('(min-width:901px)').matches){ const r=pane.getBoundingClientRect(); if(r.top<0||r.top>window.innerHeight*0.6) pane.scrollIntoView({block:'start'}); }
+    return; }
+  S.view=view; render(); document.getElementById('main').scrollIntoView({block:'start'}); }
+function keepRowVisible(id){ const tr=document.querySelector('tr[data-id="'+CSS.escape(id)+'"]'); if(!tr) return; const tw=tr.closest('.tablewrap'); if(!tw) return;
+  const top=tr.offsetTop+(tr.closest('table').offsetTop||0), head=(tw.querySelector('thead')||{offsetHeight:0}).offsetHeight;
+  if(top<tw.scrollTop+head) tw.scrollTop=top-head-4; else if(top+tr.offsetHeight>tw.scrollTop+tw.clientHeight) tw.scrollTop=top-tw.clientHeight/3; }
+function nextUnreviewed(dir){ const l=S.list; if(!l||!l.ids.length) return; const n=l.ids.length; let i=Math.max(0,l.ids.indexOf(S.sel&&S.sel.kind===l.kind?S.sel.id:null));
+  if(dir<0){ go(l.kind,l.ids[(i-1+n)%n]); return; }
+  for(let s=1;s<=n;s++){ const id=l.ids[(i+s)%n]; if(!(S.reviews[key(l.kind,id)]||{}).status){ go(l.kind,id); return; } }
+  mark(key(l.kind,l.ids[i]),'в этом списке всё отмечено'); }
+document.addEventListener('keydown',e=>{ if(e.ctrlKey||e.metaKey||e.altKey) return; const t=e.target; if(t&&(t.tagName==='TEXTAREA'||t.tagName==='INPUT'||t.isContentEditable)) return;
+  const k=e.key; if(k==='j'||k==='J'||k==='о'||k==='О'||k==='ArrowDown'){ e.preventDefault(); nextUnreviewed(1); } else if(k==='k'||k==='K'||k==='л'||k==='Л'||k==='ArrowUp'){ e.preventDefault(); nextUnreviewed(-1); } });
 function fromHash(){ const h=location.hash.slice(1); if(!h||!S.cat) return; if(h==='map'||h==='notes'){ S.view=h; return; } if(KINDS[h]){ S.view=h; return; }
   for(const k of Object.keys(KINDS)){ const o=L(k).find(x=>key(k,x.id)===h); if(o){ S.sel={kind:k,id:o.id}; S.view=k==='biome'?'map':k; return; } } }
 function renderTabs(){ const t=document.getElementById('tabs'); t.replaceChildren(...[
   $('button',{type:'button','aria-pressed':String(S.view==='map'),onclick:()=>{S.view='map';history.replaceState(null,'','#map');render();}},'Карта'),
   Object.entries(KINDS).map(([k,v])=>$('button',{type:'button','aria-pressed':String(S.view===k),onclick:()=>{S.view=k;history.replaceState(null,'','#'+k);render();}},v.tab,$('span',{class:'n'},L(k).length))),
   $('button',{type:'button','aria-pressed':String(S.view==='notes'),onclick:()=>{S.view='notes';history.replaceState(null,'','#notes');render();}},'Расхождения')].flat()); }
-function render(){ if(!S.cat) return; if(dict){ dict.stopping=true; const d=dict; try{ d.rec.stop(); }catch(e){} d.base=d.base.trimEnd(); finishDictation(); } renderTabs(); const m=document.getElementById('main'); m.replaceChildren(S.view==='map'?viewMap():S.view==='notes'?viewNotes():listView(S.view)); refreshReviews(); renderProgress(); }
+function render(){ if(!S.cat) return; if(dict){ dict.stopping=true; const d=dict; try{ d.rec.stop(); }catch(e){} d.base=d.base.trimEnd(); finishDictation(); } renderTabs(); const m=document.getElementById('main'); const y=window.scrollY, tw=m.querySelector('.tablewrap'), ty=tw?tw.scrollTop:0, same=m.dataset.view===S.view; m.dataset.view=S.view; m.replaceChildren(S.view==='map'?viewMap():S.view==='notes'?viewNotes():listView(S.view)); if(same){ const t2=m.querySelector('.tablewrap'); if(t2) t2.scrollTop=ty; window.scrollTo(0,y); } refreshReviews(); renderProgress(); }
 const q=document.getElementById('q'), res=document.getElementById('results');
 q.addEventListener('input',()=>{ const n=norm(q.value); if(n.length<2){ res.hidden=true; return; } const out=[];
   for(const[k,v]of Object.entries(KINDS)) for(const o of L(k)){ const hay=norm(o.name+' '+(o.aliases||[]).join(' ')); const deep=norm(txt(o.description)+' '+txt(o.use)); const sc=hay.startsWith(n)?0:hay.includes(n)?1:deep.includes(n)?2:-1; if(sc>=0) out.push([sc,k,o]); }
