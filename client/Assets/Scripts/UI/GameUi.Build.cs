@@ -15,6 +15,9 @@ namespace Orpheus.Client.UI
     public struct UiBuildState
     {
         public bool Hammer;
+
+        /// <summary>В руке предмет-постройка (E2-11): призрак постановки.</summary>
+        public bool Placing;
         public bool HasGhost;
         public BuildCheck Check;
         public bool HasIntegrity;
@@ -85,7 +88,6 @@ namespace Orpheus.Client.UI
 
     public sealed partial class GameUi
     {
-        BuildBar _buildBar = null!;
         ChestWindow _chest = null!;
         UiNote _note = null!;
         BuildHand _build = null!;
@@ -94,7 +96,7 @@ namespace Orpheus.Client.UI
         string? _noticeMsg;
         float _noticeUntil;
 
-        /// <summary>«Молот» режима стройки (заявки постановки и починки — тот же класс, что у бота).</summary>
+        /// <summary>«Рука строителя» (заявки постановки и починки — тот же класс, что у бота).</summary>
         public BuildHand Build => _build;
 
         /// <summary>Окно сундука открыто.</summary>
@@ -103,13 +105,9 @@ namespace Orpheus.Client.UI
         /// <summary>Игрок закрыл окно сундука в этом кадре (Esc, Tab) — сказать серверу «закрыть».</summary>
         public bool ChestCloseRequested { get; private set; }
 
-        /// <summary>Лента построек видна (молот в руках, окна закрыты).</summary>
-        public bool BuildBarShown => _buildBar.Visible;
-
         void CreateBuild(UiRoot root, IBuildRequests build, float barTop)
         {
             _build = new BuildHand(build);
-            _buildBar = new BuildBar(root, barTop + 6f);
             _chest = new ChestWindow(root);
             _note = new UiNote(root);
             const float nw = 620f, nh = 40f;
@@ -176,31 +174,21 @@ namespace Orpheus.Client.UI
             }
         }
 
-        // Лента, строка у курсора, подсказка F, сообщение — после ввода окон.
-        void ShowBuild(in UiInput input, in Inventory bag, bool dead, in UiBuildState build, bool overUi, Vector2 size)
+        // Строка у курсора, подсказка F, сообщение — после ввода окон. E2-11: ленты построек у молота нет — постройка
+        // берётся в руку из панели; у курсора — «Стена: ЛКМ — поставить (в руке N)» или причина.
+        void ShowBuild(in UiInput input, in Inventory bag, int selected, in UiBuildState build, bool overUi, Vector2 size)
         {
-            bool bar = build.Hammer && !BagOpen && !CraftOpen && !_chest.Visible;
-            if (bar && input.BuildStep != 0)
-            {
-                _build.Step(input.BuildStep);
-            }
-
-            _buildBar.Visible = bar;
-            if (bar)
-            {
-                _buildBar.Show(_build.Selected, bag, dead);
-            }
-
             string? note = null;
             float integrity = -1f;
             bool bad = false;
-            if (build.Hammer && !overUi && !_hand.Holding)
+            if ((build.Hammer || build.Placing) && !overUi && !_hand.Holding)
             {
                 if (build.HasGhost)
                 {
                     BuildCheck c = build.Check;
-                    string cost = CostText(c);
-                    note = UiStrings.GhostNote(c.Action == BuildAction.Repair, c.Ok, c.Reason, c.Key, cost);
+                    bool repair = c.Action == BuildAction.Repair;
+                    string cost = repair ? CostText(c) : UiStrings.PlaceHint(bag.CountIn(selected));
+                    note = UiStrings.GhostNote(repair, c.Ok, c.Reason, c.Key, cost);
                     bad = !c.Ok;
                 }
 

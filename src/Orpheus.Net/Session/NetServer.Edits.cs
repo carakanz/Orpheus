@@ -110,7 +110,7 @@ namespace Orpheus.Net.Session
             byte held = _sim.Entities[slot].Inv.Held; // предмет в руках такта запроса (1-011: молот обязателен и для постановки)
             if (m.Op == TileOp.Place)
             {
-                OnPlace(p, s, pos, m);
+                OnPlace(p, s, pos, m, held);
                 return;
             }
 
@@ -220,7 +220,7 @@ namespace Orpheus.Net.Session
             return FloorId.IsBuilt(floor) ? floor : FloorId.WoodFloor;
         }
 
-        private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m)
+        private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m, byte held)
         {
             int n = EditRules.Line(_sim.Shape, m.From, m.To, _line);
             if (n < 0 || !EditRules.IsPlaceable(m.Obj))
@@ -231,8 +231,16 @@ namespace Orpheus.Net.Session
 
             // E2-11: постройки — предметы. Молот не нужен: в ячейке панели заявки должен лежать предмет этой постройки
             // (по предмету на тайл снимает такт — Simulation.PayPlacement; кончились посреди линии — «нет ресурсов»).
+            // Бесплатные объекты вне таблицы построек (ковёр, шипы — smoke и отладка) предмета не имеют: как до E2-11 — молотом.
             int slot = _sim.SlotOf(p.EntityId);
-            if (slot < 0 || BuildDefs.ItemOf(m.Obj) == Items.None || _sim.Entities[slot].Inv.ItemAt(m.Cell) != BuildDefs.ItemOf(m.Obj))
+            byte item = BuildDefs.ItemOf(m.Obj);
+            if (item == Items.None && Items.DigToolOf(held) != ToolKind.Hammer)
+            {
+                Reply(p, m.RequestId, EditReply.ToolRequired, EditReply.ToolRequired, 0);
+                return;
+            }
+
+            if (item != Items.None && (slot < 0 || _sim.Entities[slot].Inv.ItemAt(m.Cell) != item))
             {
                 Reply(p, m.RequestId, EditReply.NoResources, EditReply.NoResources, 0);
                 return;

@@ -9,8 +9,8 @@ namespace Orpheus.Client.UI
 {
     /// <summary>
     /// Сцены стенда снимков режима стройки и сундука (E2-5; ключ <c>--ui-demo build|chest|house</c>), без сервера:
-    /// <c>build</c> — молот в руках, лента построек (выбрана каменная стена), сетка, зелёный призрак на свободном тайле и
-    /// красный — на дереве (строка причины у курсора); <c>chest</c> — открыт сундук рядом с персонажем, окна сундука и
+    /// <c>build</c> — каменная стена в руке (E2-11: предмет на панели, ленты у молота нет), сетка, зелёный призрак на
+    /// свободном тайле и красный — на дереве (строка причины у курсора); <c>chest</c> — открыт сундук рядом с персонажем, окна сундука и
     /// сумки, скрипт перекладывает стопки; <c>house</c> — дом (каменные стены, дверь, деревянный пол, верстак, сундук,
     /// кровать, факел), окна закрыты. Мир сцены ставит <see cref="PaintDemo.House"/>.
     /// </summary>
@@ -42,12 +42,13 @@ namespace Orpheus.Client.UI
 
             if (_mode == "build")
             {
-                _bag.Select(2); // молот
+                _bag.SetCell(6, Items.StoneWall, 24); // E2-11: стена — предмет в ячейке панели 7
+                _bag.Select(6);
             }
         }
 
         // Заявки стройки стенда: мир сцены не меняется (снимок — про призрак и ленту).
-        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self) => 1;
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell) => 1;
 
         public ushort Repair(TileCoord tile) => 1;
 
@@ -83,16 +84,14 @@ namespace Orpheus.Client.UI
             TileCoord me = Torus.TileOf(_world!.Shape, position);
             if (_mode == "build")
             {
-                // Каменная стена: лента по кругу с полов — четыре шага E.
-                input.BuildStep = _frame >= 2 && _frame <= 5 ? 1 : 0;
                 var good = new TileCoord(me.X + 3, me.Y - 1);
                 var bad = new TileCoord(me.X - 3, me.Y + 1); // дерево сцены
-                build.Hammer = true;
+                build.Placing = true;
                 build.HasGhost = true;
-                build.Check = BuildHand.Check(_world, position, _bag, _bag.Held, true, bad, _ui.Build.Key);
+                build.Check = BuildHand.Check(_world, position, _bag, _bag.Selected, true, bad);
                 if (_origin != null && _ghost != null)
                 {
-                    BuildCheck ok = BuildHand.Check(_world, position, _bag, _bag.Held, true, good, _ui.Build.Key);
+                    BuildCheck ok = BuildHand.Check(_world, position, _bag, _bag.Selected, true, good);
                     _ghost.Show(_origin, _world.Shape, position, 0, true, good, ok);
                     _ghost.Show(_origin, _world.Shape, position, 1, true, bad, build.Check);
                     // Курсор — над красным призраком: строка причины у курсора.
@@ -113,7 +112,7 @@ namespace Orpheus.Client.UI
 
             build.Chest = _chest;
             build.Use = _chestOpen ? UseKind.None : ObjectUse.Find(_world, position, null, out _, out UseKind use) ? use : UseKind.None;
-            _ui.Frame(input, _bag, selected: _mode == "build" ? 2 : 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100,
+            _ui.Frame(input, _bag, selected: _mode == "build" ? 6 : 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100,
                 new UiCraftState { Queue = _queue, World = _world, Position = position }, build);
         }
     }

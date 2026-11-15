@@ -141,7 +141,7 @@ namespace Orpheus.Net.Session
 
             ushort id = NextRequest();
             bool floorKey = EditRules.IsFloorKey(obj);
-            BuildDefs.TryGet(obj, out BuildDef def); // IsPlaceable ⇒ def; предмет и предсказание сходятся по таблице
+            bool free = !BuildDefs.TryGet(obj, out BuildDef def); // ковёр, шипы — вне таблицы: без предмета (как у сервера)
             var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
             for (int i = 0; i < n; i++)
             {
@@ -151,7 +151,7 @@ namespace Orpheus.Net.Session
                     continue;
                 }
 
-                if (def.Item == Items.None || inv.ItemAt(cell) != def.Item || inv.TakeFrom(cell, 1) != 1)
+                if (!free && (inv.ItemAt(cell) != def.Item || inv.TakeFrom(cell, 1) != 1))
                 {
                     break; // «предметы кончились посреди линии» (`05` 1.4): остаток линии не предсказываем
                 }
@@ -163,7 +163,16 @@ namespace Orpheus.Net.Session
                     : new TileEdit(0, floor, obj, rec);
                 if (!World.Predict(id, i, t, edit))
                 {
-                    inv.SetCell(cell, def.Item, inv.CountIn(cell) + 1); // чанка нет — предсказания нет, предмет на место
+                    if (!free)
+                    {
+                        inv.SetCell(cell, def.Item, inv.CountIn(cell) + 1); // чанка нет — предсказания нет, предмет на место
+                    }
+
+                    continue;
+                }
+
+                if (free)
+                {
                     continue;
                 }
 

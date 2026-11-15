@@ -41,7 +41,10 @@ namespace Orpheus.Client
         void OnInventory(InventoryMessage m) => _bag = m.Bag;
 
         /// <summary>Предмет в руках: ячейка последнего отправленного кадра, содержимое — из зеркала сумки (1-002).</summary>
-        byte HeldItem => _bag.SlotAt(_pred?.SelectedSlot ?? _bag.Selected);
+        byte HeldItem => _bag.SlotAt(HeldCell);
+
+        /// <summary>Ячейка панели в руке (E2-11: из неё заявка постановки берёт предмет-постройку).</summary>
+        int HeldCell => _pred?.SelectedSlot ?? _bag.Selected;
 
         /// <summary>
         /// Предмет в руках в кадре с этой ячейкой: сервер применяет ячейку в том же кадре, что кнопки (1-002),
@@ -99,8 +102,8 @@ namespace Orpheus.Client
                 c.RequestCloseChest(); // E2-5: окно сундука закрыли (Esc, Tab)
             }
 
-            // E2-5: призрак и сетка — пока молот в руках и мышь не над интерфейсом.
-            if (build.Hammer && build.HasGhost && !_ui.PointerBlocked && _cursorTile.HasValue)
+            // E2-5 → E2-11: призрак и сетка — пока в руке постройка (или молот над повреждённой постройкой) и мышь не над интерфейсом.
+            if ((build.Hammer || build.Placing) && build.HasGhost && !_ui.PointerBlocked && _cursorTile.HasValue)
             {
                 _ghost!.Show(_origin!, _map, _localPos, 0, true, _cursorTile.Value, build.Check);
             }
@@ -130,8 +133,9 @@ namespace Orpheus.Client
         }
 
         /// <summary>
-        /// Состояние режима стройки, сундука и F за кадр (E2-5): проверка тайла под курсором — <see cref="BuildHand.Check"/>
-        /// (функции ядра, как у сервера) по своему миру, месту, сумке клиента (с предсказанными тратами) и предмету в руках.
+        /// Состояние стройки, сундука и F за кадр (E2-5 → E2-11): проверка тайла под курсором — <see cref="BuildHand.Check"/>
+        /// (функции ядра, как у сервера) по своему миру, месту, сумке клиента (с предсказанными тратами) и ячейке в руке:
+        /// постройка в руке — призрак постановки; молот — починка повреждённой постройки и прочность.
         /// </summary>
         UI.UiBuildState BuildState(NetClient c, LocalPrediction? pr)
         {
@@ -144,15 +148,17 @@ namespace Orpheus.Client
 
             s.Use = ObjectUse.Find(_world, _localPos, _cursorTile, out _, out UseKind kind) ? kind : UseKind.None;
             byte held = HeldItem;
-            if (!BuildHand.IsHammer(held) || !_cursorTile.HasValue)
+            bool hammer = BuildHand.IsHammer(held), placing = BuildHand.IsBuildItem(held);
+            if (!(hammer || placing) || !_cursorTile.HasValue)
             {
                 return s;
             }
 
             TileCoord t = _cursorTile.Value;
-            s.Hammer = true;
-            s.HasGhost = true;
-            s.Check = BuildHand.Check(_world, _localPos, c.Inv, held, !(pr?.Dead ?? false), t, _ui.Build.Key);
+            s.Hammer = hammer;
+            s.Placing = placing;
+            s.Check = BuildHand.Check(_world, _localPos, c.Inv, HeldCell, !(pr?.Dead ?? false), t);
+            s.HasGhost = placing || (s.Check.Reply != EditReply.Empty && s.Check.Reply != EditReply.Intact && s.Check.Reply != EditReply.OutOfReach);
             ushort obj = _world.GetObject(t);
             if (obj != ObjectId.Empty && _world.TryGetBuild(t, out BuildRecord rec) && !rec.IsDebris && BuildDefs.TryGet(obj, out BuildDef def))
             {
@@ -356,7 +362,7 @@ namespace Orpheus.Client
             }
 
             byte held = HeldItem;
-            if (BuildHand.IsHammer(held) && _ui != null && _world != null)
+            if ((BuildHand.IsHammer(held) || BuildHand.IsBuildItem(held)) && _ui != null && _world != null)
             {
                 return HammerEdits(c, mouse, tile, held, now);
             }
@@ -381,16 +387,25 @@ namespace Orpheus.Client
         }
 
         /// <summary>
-        /// Молот в руках (E2-5, `05` 1.3): ЛКМ — поставить выбранную постройку или починить повреждённую (<see cref="BuildHand.Click"/>;
-        /// зажатая ЛКМ ставит подряд на каждом новом тайле под курсором), ПКМ — снести: копание молотом (досягаемость копания),
-        /// возврат материалов кучей. Нельзя — причина строкой HUD (у курсора её пишет интерфейс).
+        /// Постройка или молот в руке (E2-11, «взять стену из инвентаря и нажать, куда»). Постройка: ЛКМ — поставить её, снимая
+        /// один предмет из ячейки (<see cref="BuildHand.Click"/>; зажатая ЛКМ ставит подряд на каждом новом тайле под курсором).
+        /// Молот: ЛКМ по повреждённой постройке — починить, по целой — снести; ПКМ — снести (копание молотом, досягаемость
+        /// копания; возврат — сам предмет-постройка кучей). Нельзя — причина строкой HUD (у курсора её пишет интерфейс).
         /// </summary>
         ushort HammerEdits(NetClient c, Mouse mouse, TileCoord tile, byte held, long now)
         {
             bool alive = !(_pred?.Dead ?? false);
-            if (mouse.leftButton.wasPressedThisFrame || (mouse.leftButton.isPressed && _buildLast != tile))
+            bool hammer = BuildHand.IsHammer(held);
+            bool demolishLeft = false;
+            if (hammer && mouse.leftButton.isPressed)
             {
-                BuildCheck chk = _ui!.Build.Click(_world!, _localPos, c.Inv, held, alive, tile);
+                BuildCheck rc = BuildHand.Check(_world!, _localPos, c.Inv, HeldCell, alive, tile);
+                demolishLeft = rc.Reply == EditReply.Intact; // целая постройка: ЛКМ молотом — снос
+            }
+
+            if (!demolishLeft && (mouse.leftButton.wasPressedThisFrame || (mouse.leftButton.isPressed && _buildLast != tile)))
+            {
+                BuildCheck chk = _ui!.Build.Click(_world!, _localPos, c.Inv, HeldCell, alive, tile);
                 _buildLast = tile;
                 if (!chk.Ok && mouse.leftButton.wasPressedThisFrame)
                 {
@@ -404,7 +419,7 @@ namespace Orpheus.Client
                 _buildLast = null;
             }
 
-            if (mouse.rightButton.isPressed)
+            if (hammer && (mouse.rightButton.isPressed || demolishLeft))
             {
                 if (!c.Digging && EditRules.CheckDig(_world!, _localPos, tile, c.DigTimes, held) == EditReply.Accepted)
                 {
@@ -516,7 +531,7 @@ namespace Orpheus.Client
             {
                 _smokeEditDone = true;
                 TileCoord own = Torus.TileOf(_map, _localPos);
-                ushort id = c.Place(own, own, ObjectId.Carpet, _localPos);
+                ushort id = c.Place(own, own, ObjectId.Carpet, _localPos, 0); // ковёр — вне таблицы построек, предмета не берёт
                 Debug.Log($"[edit] smoke: ковёр на свой тайл {own.X},{own.Y}, запрос {id}");
             }
 
@@ -556,7 +571,7 @@ namespace Orpheus.Client
 
             _smokeWallTile = t;
             _smokeWallConfirmed0 = c.World!.PredictionsConfirmed;
-            ushort id = c.Place(t, t, ObjectId.Carpet, _localPos);
+            ushort id = c.Place(t, t, ObjectId.Carpet, _localPos, 0);
             bool visible = TilemapShowsCarpet(t);
             Debug.Log($"[edit] smoke (1-022): ковёр на свободный тайл {t.X},{t.Y}, запрос {id}, проба {_smokeWallTry}, " +
                       $"Tilemap в тот же кадр: {(visible ? "да" : "НЕТ")}");
