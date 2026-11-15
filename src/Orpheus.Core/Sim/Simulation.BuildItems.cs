@@ -83,34 +83,43 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Отказ после списания (занято существом, враг рядом, занято в пачке): предмет — обратно в ячейку заявки, если она
-        /// пуста или с тем же предметом и не полна; иначе в сумку с доукладкой; не влез — кучей у ног (не пропадает).
+        /// Отказ после списания (занято существом, враг рядом, занято в пачке): предмет — обратно персонажу
+        /// (<see cref="ReturnBuildItem"/>).
         /// </summary>
         private void RefundPlacement(int i, int requester)
         {
-            int slot = SlotOf(requester);
-            if (!CostOf(_edits[i].Edit, out BuildDef def) || def.Item == Items.None)
+            if (CostOf(_edits[i].Edit, out BuildDef def) && def.Item != Items.None)
             {
-                return;
+                ReturnBuildItem(requester, _edits[i].Cell, def.Item);
             }
+        }
 
-            if (slot < 0)
+        /// <summary>
+        /// Вернуть персонажу один предмет-постройку (отказ после списания, E2-11): в ячейку <paramref name="cell"/>, если она
+        /// пуста или с тем же предметом и не полна; иначе в сумку с доукладкой; не влез — кучей у ног (не пропадает).
+        /// Персонажа нет — false (в такте правки невозможно: заявка идёт от живой сущности).
+        /// </summary>
+        public bool ReturnBuildItem(int entityId, int cell, byte item)
+        {
+            int slot = SlotOf(entityId);
+            if (slot < 0 || !ItemTable.Exists(item))
             {
-                return; // персонажа нет (ушёл в такте) — сумки нет; в такте правки это невозможно: заявка от сущности
+                return false;
             }
 
             ref Inventory inv = ref _entities[slot].Inv;
-            int cell = _edits[i].Cell;
-            if (cell < Inventory.Cells && (inv.CountIn(cell) == 0 || (inv.ItemAt(cell) == def.Item && inv.CountIn(cell) < ItemTable.MaxStackOf(def.Item))))
+            if ((uint)cell < Inventory.Cells && (inv.CountIn(cell) == 0 || (inv.ItemAt(cell) == item && inv.CountIn(cell) < ItemTable.MaxStackOf(item))))
             {
-                inv.SetCell(cell, def.Item, inv.CountIn(cell) + 1);
-                return;
+                inv.SetCell(cell, item, inv.CountIn(cell) + 1);
+                return true;
             }
 
-            if (inv.Add(def.Item, 1) == 0)
+            if (inv.Add(item, 1) == 0)
             {
-                SpawnPile(Tick, def.Item, 1, _entities[slot].Mover.Position, DropPickupDelayTicks);
+                SpawnPile(Tick, item, 1, _entities[slot].Mover.Position, DropPickupDelayTicks);
             }
+
+            return true;
         }
 
         /// <summary>

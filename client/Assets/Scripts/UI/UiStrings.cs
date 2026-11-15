@@ -224,7 +224,6 @@ namespace Orpheus.Client.UI
         /// <summary>Название постройки по ключу (лента, призрак).</summary>
         public static string BuildName(ushort key) => BuildNames.TryGetValue(key, out string? n) ? n : key.ToString();
 
-        public const string BuildKeys = "Постройка в руке: ЛКМ — поставить      Молот: ЛКМ — починить / снести, ПКМ — снести";
         public const string BuildDead = "Вы погибли: строить — после возрождения";
 
         /// <summary>Строка у курсора: «Сундук — нельзя: занято» / «Починить: 1 камень».</summary>
