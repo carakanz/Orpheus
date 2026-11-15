@@ -75,6 +75,12 @@ namespace Orpheus.Client
 
         /// <summary>Камни-украшения гряды (без коллизий): картинки, доля тайлов с камнем на верху (внутри / у края), с осыпью у подошвы.</summary>
         public string[] Deco = new string[0];
+
+        /// <summary>Обрыв (C-016): растения на уступах массива — картинки, доля внутренних тайлов, оттенок.</summary>
+        public string[] Plants = new string[0];
+        public float PlantTop;
+        public Color32 PlantTint = new Color32(255, 255, 255, 255);
+        internal int[] PlantSprites = new int[0];
         public float DecoTop, DecoEdge, DecoFoot;
         public Color32 DecoTint = new Color32(255, 255, 255, 255), RubbleTint = new Color32(255, 255, 255, 255);
 
@@ -160,9 +166,10 @@ namespace Orpheus.Client
             // (ObjectMesh.Cliffs); валуны редко на гребне и уступах, осыпь у подошвы.
             new ObjectLook
             {
-                Id = ObjectId.Cliff, Block = true, Height = 1.3f, Step = 0.7f, Levels = 3,
+                Id = ObjectId.Cliff, Block = true, Height = 1.0f, Step = 0.45f, Levels = 5,
                 Shadow = 1f,
-                Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.05f, DecoEdge = 0.16f, DecoFoot = 0.3f,
+                Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.025f, DecoEdge = 0.12f, DecoFoot = 0.3f,
+                Plants = new[] { "bush_a", "bush_b" }, PlantTop = 0.035f, PlantTint = new Color32(210, 230, 190, 255),
                 DecoTint = new Color32(200, 196, 214, 255), RubbleTint = new Color32(176, 170, 192, 255),
             },
             // Костёр, верстак I и факел (E2-4), сундук и кровать (E2-5): E2-17 — объёмные заглушки 3/4 tools/make_furniture.py
@@ -281,6 +288,17 @@ namespace Orpheus.Client
                     }
 
                     look.DecoSprites = deco.ToArray();
+                    var plants = new List<int>();
+                    foreach (string name in look.Plants)
+                    {
+                        int d = ObjectAtlas.Find(name);
+                        if (d >= 0)
+                        {
+                            plants.Add(d);
+                        }
+                    }
+
+                    look.PlantSprites = plants.ToArray();
                     if (look.WhiteSprite < 0)
                     {
                         Debug.LogWarning($"[objects] у блока {look.Id} нет белого квадрата листа — не рисуется");

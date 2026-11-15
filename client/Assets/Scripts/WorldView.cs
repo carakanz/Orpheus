@@ -465,6 +465,7 @@ namespace Orpheus.Client
         // Меши строк, где сменился объект или пол под ним, и меш теней чанка — в том же вызове, что и правка.
         void BuildObjects(ChunkNode node, Chunk? chunk, bool all)
         {
+            _objects.InvalidateBlocks(); // C-016: ярусы массива — по скале этого чанка и соседей на сейчас
             bool any = false;
             for (int ly = 0; ly < Size; ly++)
             {
@@ -512,6 +513,7 @@ namespace Orpheus.Client
                 return;
             }
 
+            _objects.InvalidateBlocks();
             const int reach = ObjectMesh.BlockReach;
             int from = dy > 0 ? Size - reach : 0, to = dy < 0 ? reach - 1 : Size - 1;
             bool any = false;

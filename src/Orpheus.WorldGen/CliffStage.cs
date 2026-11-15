@@ -102,9 +102,16 @@ namespace Orpheus.WorldGen
         /// <summary>Полуширина ущелья, сотые ячейки (ячейка — 2 тайла): 70 — ущелье ≈ 2–3 тайла.</summary>
         public const int MazeHalfWidth100 = 70;
 
-        /// <summary>Доля открытых границ между глыбами (ущелье), ‰; доля глыб-долин, ‰.</summary>
-        public const int OpenPerMille = 650;
-        public const int ValleyPerMille = 110;
+        /// <summary>Доля открытых границ между глыбами (ущелье), ‰: пара вдоль хребта района / поперёк; доля глыб-долин, ‰.</summary>
+        public const int OpenAlong = 380;
+        public const int OpenAcross = 920;
+        public const int FieldRidgeDir = 10;
+        public static readonly int[] CellsRidgeDir = { 256, 128 };
+
+        // cos и sin 16 направлений полукруга (0…168,75°), Q8.
+        private static readonly int[] CosQ8 = { 256, 251, 237, 213, 181, 142, 98, 50, 0, -50, -98, -142, -181, -213, -237, -251 };
+        private static readonly int[] SinQ8 = { 0, 50, 98, 142, 181, 213, 237, 251, 256, 251, 237, 213, 181, 142, 98, 50 };
+        public const int ValleyPerMille = 140;
 
         /// <summary>Открытие скалы кругом, ячеек²; скала меньше — прочь; замкнутая щель меньше — заливается, ячеек.</summary>
         public const int MazeOpenR2 = 2;
@@ -325,7 +332,7 @@ namespace Orpheus.WorldGen
         /// Скала лабиринта в ячейках 2 × 2 (C-016, v8). Возвышенность делится на «глыбы» — области Вороного вокруг точек
         /// сетки <see cref="MazeGrid"/> ячеек (точка — по хэшу в своей клетке, координаты искривлены шумом). Между двумя
         /// соседними глыбами — ущелье шириной 2 × <see cref="MazeHalfWidth100"/> ячейки, если граница «открыта» (хэш пары
-        /// &lt; <see cref="OpenPerMille"/>); закрытые границы сливают глыбы в длинные хребты, открытые без выхода дают тупики.
+        /// &lt; <see cref="OpenAlong"/>…<see cref="OpenAcross"/> по направлению хребтов района); закрытые границы сливают глыбы в длинные хребты, открытые без выхода дают тупики.
         /// Глыба с хэшем &lt; <see cref="ValleyPerMille"/> — долина (открыто целиком). Потом скала тоньше ~3 ячеек и куски
         /// меньше <see cref="MinMassCells"/> убираются, замкнутые щели меньше <see cref="MinPocketCells"/> заливаются скалой.
         /// Связность после — этап 12 (<see cref="ConnectStage"/>).
@@ -348,6 +355,24 @@ namespace Orpheus.WorldGen
                 ulong h = Orpheus.Core.Rng.SplitMix64.Hash(k, 0x6A7E, seed);
                 fx[k] = (((k % gn) * g) + 1) * 256 + (int)(h & 0xFFFF) * ((g - 2) * 256) / 65536;
                 fy[k] = (((k / gn) * g) + 1) * 256 + (int)((h >> 16) & 0xFFFF) * ((g - 2) * 256) / 65536;
+            }
+
+            // Направление хребтов района: поле → 16 направлений (полукруг). Пара глыб вдоль хребта чаще слита (хребет),
+            // поперёк — чаще разделена ущельем (долины между хребтами).
+            var ridgeField = new FieldNoise(MacroGenerator.FieldSeed(t.Macro.Map.Seed, Stage, FieldRidgeDir), w, CellsRidgeDir, ridged: false);
+            var dirOf = new int[gn * gn];
+            for (int k = 0; k < dirOf.Length; k++)
+            {
+                int v = ridgeField.Sample(((fx[k] >> 8) << 1) + 1, ((fy[k] >> 8) << 1) + 1);
+                dirOf[k] = (int)(((long)Math.Clamp((v - 16384) * 2, 0, LatticeNoise.One - 1) * 16) >> 16);
+            }
+
+            // Доля открытых границ пары, ‰: вдоль хребта OpenAlong, поперёк OpenAcross, между — по cos² угла.
+            int OpenChance(int lo, long lx, long ly, long len)
+            {
+                long dot = ((lx * CosQ8[dirOf[lo]]) + (ly * SinQ8[dirOf[lo]])) >> 8;
+                long a2 = (dot * dot * 1000) / (len * len); // cos² × 1000
+                return (int)(OpenAcross + ((OpenAlong - OpenAcross) * a2 / 1000));
             }
 
             int span = m * 256;
@@ -402,7 +427,7 @@ namespace Orpheus.WorldGen
                     if (len > 0 && (d2 - d1) <= 2 * hw * len)
                     {
                         int lo = Math.Min(k1, k2), hi = Math.Max(k1, k2);
-                        chan = (int)(Orpheus.Core.Rng.SplitMix64.Hash(lo, hi, seed) % 1000) < OpenPerMille;
+                        chan = (int)(Orpheus.Core.Rng.SplitMix64.Hash(lo, hi, seed) % 1000) < OpenChance(lo, lx, ly, len);
                     }
 
                     rock[c] = !chan;

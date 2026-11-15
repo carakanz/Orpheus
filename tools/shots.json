@@ -128,15 +128,12 @@
     { "name": "C-015_single_2160", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "build"], "frame": { "width": 3840, "height": 2160 } },
     { "name": "C-015_chest_1080", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "chest"] },
     { "name": "E2-7_walk", "comment": "E2-7: walking strip (step in time with speed, sway). Action strips (chop, pick on stone, build, pickup, carry, sword in hand) come from the offline showcase, not this file: Orpheus.exe --anim-shots <dir> -> E2-7_*.png (run via tools\\run_hidden.ps1).", "seed": "0xE50007", "size": 1024, "tile": [514, 532], "width": 40, "args": ["--paint-demo", "--shot-walk", "e:8:0.08:0.5", "--shot-crop", "640x400"] },
-    { "name": "C-016_ridge_64", "seed": "0xE50007", "size": 1024, "tile": [262, 103], "width": 64 },
-    { "name": "C-016_ridge_40", "seed": "0xE50007", "size": 1024, "tile": [262, 103], "width": 40 },
-    { "name": "C-016_ridge_24", "seed": "0xE50007", "size": 1024, "tile": [262, 103], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
-    { "name": "C-016_vertical_64", "seed": "0xE50007", "size": 1024, "tile": [322, 470], "width": 64 },
-    { "name": "C-016_gap_40", "seed": "0xE50007", "size": 1024, "tile": [319, 444], "width": 40 },
-    { "name": "C-016_forest_64", "seed": "0xE50007", "size": 1024, "tile": [285, 108], "width": 64 },
-    { "name": "C-016_mountains_96", "seed": "0xE50007", "size": 1024, "tile": [760, 470], "width": 96 },
-    { "name": "C-016_ridge_night", "seed": "0xE50007", "size": 1024, "tile": [262, 103], "width": 40, "time": "night" },
-    { "name": "C-016_front_24", "seed": "0xE50007", "size": 1024, "tile": [264, 106], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
-    { "name": "C-016_behind_24", "seed": "0xE50007", "size": 1024, "tile": [268, 102], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] }
+    { "name": "C-016_maze_96", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 96 },
+    { "name": "C-016_maze_64", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 64 },
+    { "name": "C-016_maze_40", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 40 },
+    { "name": "C-016_maze_24", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
+    { "name": "C-016_maze_night", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 64, "time": "night" },
+    { "name": "C-016_west_96", "seed": "0xE50007", "size": 1024, "tile": [250, 450], "width": 96 },
+    { "name": "C-016_west_64", "seed": "0xE50007", "size": 1024, "tile": [250, 450], "width": 64 }
   ]
 }

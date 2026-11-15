@@ -113,7 +113,7 @@ namespace Orpheus.Client
                         | (BlockAt(tx, ty + 1) ? South : 0) | (BlockAt(tx - 1, ty) ? West : 0)
                         | (BlockAt(tx + 1, ty + 1) ? SouthEast : 0) | (BlockAt(tx - 1, ty + 1) ? SouthWest : 0)
                         | (BlockAt(tx + 1, ty - 1) ? NorthEast : 0) | (BlockAt(tx - 1, ty - 1) ? NorthWest : 0);
-                    it.Tier = TiersAt(look, tx, ty, it.Near);
+                    it.Tier = TiersAt(look, c, lx, ly);
                     RowHadBlocks = true;
                 }
                 else
