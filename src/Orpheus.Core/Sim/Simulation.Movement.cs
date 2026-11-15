@@ -12,7 +12,7 @@ namespace Orpheus.Core.Sim
     /// <summary>
     /// P-002: partial Simulation - per-file code motion, no behavior change.
     /// </summary>
-    public sealed partial class Simulation
+    public sealed partial class Simulation : ITileCells
     {
         /// <summary>Целочисленный √ (метод по разрядам; детерминирован, без float).</summary>
         private static int ISqrt(long n)
@@ -46,6 +46,7 @@ namespace Orpheus.Core.Sim
         /// Выталкивание (1-007, 8.5 «толкаются»): пары персонаж↔враг-с-мозгом и враг↔враг-с-мозгом, центры
         /// ближе суммы радиусов (204) — разъезжаются по 2 тайла/с (68 единиц/такт на тело) вдоль оси.
         /// Заглушки (0-028) и персонаж↔персонаж не трогает. Порядок по номерам, целочисленно — детерминизм (11.5).
+        /// Сдвиг — с упором в твёрдое (E2-12), сквозь стену толпа не продавливает.
         /// </summary>
         private void StepSeparation()
         {
@@ -88,8 +89,11 @@ namespace Orpheus.Core.Sim
                     int dist = ISqrt(d2);
                     int px = d.X * PushUnitsPerTick / dist;
                     int py = d.Y * PushUnitsPerTick / dist;
-                    a.Mover.Position = Torus.Wrap(_shape, new WorldPos(a.Mover.Position.X - px, a.Mover.Position.Y - py));
-                    b.Mover.Position = Torus.Wrap(_shape, new WorldPos(b.Mover.Position.X + px, b.Mover.Position.Y + py));
+                    // E2-12: выталкивание — тем же шагом с упором в стены (Collision.Move), а не переносом позиции: толпа у
+                    // стены 0,5 вдавливала тело в ячейку стены, и из неё оно выходило на другую сторону (разбойники входили в дом).
+                    // В чистом поле итог тот же, что у прежнего переноса.
+                    a.Mover.Position = Collision.Move(_shape, a.Mover.Position, -px, -py, _solid);
+                    b.Mover.Position = Collision.Move(_shape, b.Mover.Position, px, py, _solid);
                 }
             }
         }
@@ -171,6 +175,85 @@ namespace Orpheus.Core.Sim
             }
 
             return !ObjectId.IsPassable(obj, record.Flags);
+        }
+
+        /// <summary>
+        /// Твёрдые ячейки тайла 0,5 × 0,5 (E2-12, <see cref="ITileCells"/>): у стены, забора, закрытой двери — маска записи
+        /// (<see cref="BuildCells.MaskOf"/>), у остального твёрдого (пол, природные, верстак…) — весь тайл. Спрашивается
+        /// только о тайле, который <see cref="IsBlocked"/> назвал твёрдым: столкновения сервера, предсказания и ботов.
+        /// </summary>
+        public byte SolidCells(MapShape map, TileCoord tile)
+        {
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
+            if (chunk == null)
+            {
+                return BuildCells.Full;
+            }
+
+            int index = Chunk.IndexOf(tile.X, tile.Y);
+            if (!FloorId.IsPassable(chunk.GetFloor(index)))
+            {
+                return BuildCells.Full;
+            }
+
+            ushort obj = chunk.GetObject(index);
+            if (!BuildCells.IsCellBuilding(obj))
+            {
+                return BuildCells.Full;
+            }
+
+            bool has = chunk.TryGetBuild(index, out BuildRecord record);
+            return BuildCells.MaskOf(obj, has, record);
+        }
+
+        /// <summary>
+        /// Тайл цели погони (E2-12): тайл под целью; если он непроходим (игрок прижат к тонкой стене — стоит в свободных
+        /// ячейках её тайла), — проходимый сосед (8, сначала прямые), ближайший к цели: это сторона стены, где стоит цель.
+        /// Иначе заливка «цель в замкнутой области» не срабатывала (тайл цели — стена), и каждый пересчёт шёл полным A*.
+        /// </summary>
+        private TileCoord ChaseGoal(WorldPos target)
+        {
+            TileCoord t = Torus.Wrap(_shape, Torus.TileOf(_shape, target));
+            if (!IsBlocked(_shape, t))
+            {
+                return t;
+            }
+
+            TileCoord best = t;
+            long bestD = long.MaxValue;
+            for (int k = 0; k < 8; k++)
+            {
+                TileCoord n = Torus.Wrap(_shape, new TileCoord(t.X + PathFinder.NeighborDx[k], t.Y + PathFinder.NeighborDy[k]));
+                if (IsBlocked(_shape, n))
+                {
+                    continue;
+                }
+
+                long d = Torus.Dist2(_shape, target, EditRules.CenterOf(n));
+                if (d < bestD)
+                {
+                    best = n;
+                    bestD = d;
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>
+        /// Существо стоит «внутри твёрдого» (E2-12): на тайле закрытой двери/ворот (закрыли под ним правкой без выталкивания,
+        /// C-001) или центром в твёрдой ячейке. Свободная половина тайла тонкой стены — не «внутри».
+        /// </summary>
+        private bool InsideSolid(WorldPos p)
+        {
+            TileCoord t = Torus.Wrap(_shape, Torus.TileOf(_shape, p));
+            if (!IsBlocked(_shape, t))
+            {
+                return false;
+            }
+
+            ushort id = ObjectId.IdOf(_world.GetObject(t));
+            return id == ObjectId.Door || id == ObjectId.Gate || StrikeCellSolid(t, p);
         }
     }
 }

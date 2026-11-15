@@ -116,7 +116,9 @@ namespace Orpheus.Client
         BuildGhost? _ghost;
         UI.UiCraftState _craftState;
         TileCoord? _cursorTile;
+        int _cursorQuad;          // E2-12: ячейка 0,5 × 0,5 под курсором в тайле (бит 0 — восточная, бит 1 — южная половина)
         TileCoord? _buildLast;
+        int _buildLastQuad;
 
         /// <summary>Тайл под курсором мыши (нет мыши или мира — null).</summary>
         TileCoord? CursorTile()
@@ -129,7 +131,9 @@ namespace Orpheus.Client
 
             Vector3 screen = mouse.position.ReadValue();
             Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
-            return Torus.TileOf(_map, _origin.FromUnity(v));
+            WorldPos p = Torus.Wrap(_map, _origin.FromUnity(v));
+            _cursorQuad = BuildCells.QuadOf(BuildCells.CellAt(_map, p));
+            return Torus.TileOf(_map, p);
         }
 
         /// <summary>
@@ -157,7 +161,7 @@ namespace Orpheus.Client
             TileCoord t = _cursorTile.Value;
             s.Hammer = hammer;
             s.Placing = placing;
-            s.Check = BuildHand.Check(_world, _localPos, c.Inv, HeldCell, !(pr?.Dead ?? false), t);
+            s.Check = BuildHand.Check(_world, _localPos, c.Inv, HeldCell, !(pr?.Dead ?? false), t, _cursorQuad);
             s.HasGhost = placing || (s.Check.Reply != EditReply.Empty && s.Check.Reply != EditReply.Intact && s.Check.Reply != EditReply.OutOfReach);
             ushort obj = _world.GetObject(t);
             if (obj != ObjectId.Empty && _world.TryGetBuild(t, out BuildRecord rec) && !rec.IsDebris && BuildDefs.TryGet(obj, out BuildDef def))
@@ -403,10 +407,12 @@ namespace Orpheus.Client
                 demolishLeft = rc.Reply == EditReply.Intact; // целая постройка: ЛКМ молотом — снос
             }
 
-            if (!demolishLeft && (mouse.leftButton.wasPressedThisFrame || (mouse.leftButton.isPressed && _buildLast != tile)))
+            // E2-12: зажатая ЛКМ ставит на каждой новой ячейке 0,5 × 0,5 под курсором (стена — цепочкой ячеек).
+            if (!demolishLeft && (mouse.leftButton.wasPressedThisFrame || (mouse.leftButton.isPressed && (_buildLast != tile || _buildLastQuad != _cursorQuad))))
             {
-                BuildCheck chk = _ui!.Build.Click(_world!, _localPos, c.Inv, HeldCell, alive, tile);
+                BuildCheck chk = _ui!.Build.Click(_world!, _localPos, c.Inv, HeldCell, alive, tile, _cursorQuad);
                 _buildLast = tile;
+                _buildLastQuad = _cursorQuad;
                 if (!chk.Ok && mouse.leftButton.wasPressedThisFrame)
                 {
                     _lastRefusal = chk.Reason;

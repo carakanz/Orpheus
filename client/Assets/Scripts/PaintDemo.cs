@@ -271,6 +271,12 @@ namespace Orpheus.Client
                 return;
             }
 
+            if (mode == "thin")
+            {
+                ThinHouse(world, map, cx, cy);
+                return;
+            }
+
             if (mode == "build")
             {
                 Rect(world, map, cx + 1, cy - 3, 4, 3, FloorId.WoodFloor);
@@ -313,6 +319,80 @@ namespace Orpheus.Client
             {
                 Light(world, map, x, y1, ObjectId.WoodFence); // забор двора
             }
+        }
+
+        /// <summary>
+        /// Дом из тонких стен (E2-12, <c>--ui-demo thin</c>): каменные стены 0,5 тайла по внешним половинам контура
+        /// x ∈ [cx − 4; cx + 4], y ∈ [cy − 3; cy + 3] (углы — 3 ячейки), дверь внизу (нижняя пара, закрыта), дверь справа
+        /// (правая пара, открыта); внутри деревянная перегородка с Т у верхней стены и крестом посередине, торец перегородки
+        /// у пола; забор двора справа; деревянный пол. Пишет базовые тайлы и записи построек (маски ячеек).
+        /// </summary>
+        static void ThinHouse(WorldModel world, MapShape map, int cx, int cy)
+        {
+            int x0 = cx - 4, x1 = cx + 4, y0 = cy - 3, y1 = cy + 3;
+            Rect(world, map, x0, y0, x1 - x0 + 1, y1 - y0 + 1, FloorId.WoodFloor);
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    byte m = 0;
+                    m |= y == y0 ? BuildCells.DoorNorth : (byte)0;
+                    m |= y == y1 ? BuildCells.DoorSouth : (byte)0;
+                    m |= x == x0 ? BuildCells.DoorWest : (byte)0;
+                    m |= x == x1 ? BuildCells.DoorEast : (byte)0;
+                    if (m == 0)
+                    {
+                        continue;
+                    }
+
+                    if (x == cx && y == y1)
+                    {
+                        Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorSouth, false);
+                    }
+                    else if (x == x1 && y == cy + 1)
+                    {
+                        Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorEast, true);
+                    }
+                    else
+                    {
+                        Cells(world, map, x, y, ObjectId.StoneWall, m, false);
+                    }
+                }
+            }
+
+            // Деревянная перегородка: столбец cx − 1 (восточные ячейки) от верхней стены до y1 − 2 (торец), ряд cy − 1 (южные
+            // ячейки) от x0 + 1 до cx + 1 (торец) — крест в (cx − 1, cy − 1); у верхней стены Т (стык с каменной — контур).
+            for (int y = y0 + 1; y <= y1 - 2; y++)
+            {
+                Cells(world, map, cx - 1, y, ObjectId.WoodWall, y == cy - 1 ? (byte)(BuildCells.DoorEast | BuildCells.DoorSouth) : BuildCells.DoorEast, false);
+            }
+
+            for (int x = x0 + 1; x <= cx + 1; x++)
+            {
+                if (x != cx - 1)
+                {
+                    Cells(world, map, x, cy - 1, ObjectId.WoodWall, BuildCells.DoorSouth, false);
+                }
+            }
+
+            for (int x = x1 + 2; x <= x1 + 6; x++)
+            {
+                Cells(world, map, x, y1, ObjectId.WoodFence, BuildCells.DoorSouth, false); // забор двора — тонкий
+            }
+
+            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed);
+            Light(world, map, x1 - 1, y0 + 1, ObjectId.Chest);
+            Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
+        }
+
+        static void Cells(WorldModel world, MapShape map, int x, int y, ushort obj, byte mask, bool open)
+        {
+            TileCoord t = Torus.Wrap(map, new TileCoord(x, y));
+            Chunk chunk = world.GetOrCreateChunk(Torus.ChunkOf(map, t));
+            ushort index = (ushort)Chunk.IndexOf(t.X, t.Y);
+            chunk.SetBaseTile(index, chunk.GetFloor(index), obj);
+            BuildRecord rec = BuildRecord.OfPlayer(0, FloorId.Grass).WithCells(mask);
+            chunk.SetBaseBuild(index, open ? rec.WithFlags(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen) : rec);
         }
 
         /// <summary>Поставить источник света (факел/костёр) на существующий пол (E1-8).</summary>

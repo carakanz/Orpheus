@@ -36,8 +36,8 @@ namespace Orpheus.Net.Protocol
     /// </summary>
     public struct TileRequestMessage
     {
-        /// <summary>Тип 1 + номер 2 + операция 1 + кадр 4 + начало x, y 2 + 2 + конец x, y 2 + 2 + объект 2 + ячейка 1 (протокол 25).</summary>
-        public const int Bytes = 19;
+        /// <summary>Тип 1 + номер 2 + операция 1 + кадр 4 + начало x, y 2 + 2 + конец x, y 2 + 2 + объект 2 + ячейка 1 + четверти 1 (протокол 26).</summary>
+        public const int Bytes = 20;
 
         public ushort RequestId;
 
@@ -54,6 +54,13 @@ namespace Orpheus.Net.Protocol
         /// </summary>
         public byte Cell;
 
+        /// <summary>
+        /// Четверти (E2-12, протокол 26): биты 0–1 — ячейка 0,5 × 0,5 в тайле <see cref="From"/> (бит 0 — восточная половина,
+        /// бит 1 — южная), биты 2–3 — в тайле <see cref="To"/>. Постановка стены и забора — линия ячеек от одной до другой;
+        /// двери — пара ячеек тайла по ячейке начала (<c>BuildCells.DoorMaskFor</c>). Иначе 0.
+        /// </summary>
+        public byte Quad;
+
         public int Write(Span<byte> dest)
         {
             var w = new BitWriter(dest.Slice(0, Bytes));
@@ -67,6 +74,7 @@ namespace Orpheus.Net.Protocol
             w.WriteUInt16((ushort)To.Y);
             w.WriteUInt16(Obj);
             w.WriteByte(Cell);
+            w.WriteByte(Quad);
             return w.BytesWritten;
         }
 
@@ -81,7 +89,13 @@ namespace Orpheus.Net.Protocol
             m.To = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.Obj = r.ReadUInt16();
             m.Cell = r.ReadByte();
+            m.Quad = r.ReadByte();
             r.ExpectEnd();
+            if (m.Quad > 15)
+            {
+                throw new ProtocolException($"Запрос правки: четверти {m.Quad}.");
+            }
+
             if (op < (byte)TileOp.DigStart || op > (byte)TileOp.Repair)
             {
                 throw new ProtocolException($"Запрос правки: операция {op}.");
@@ -101,7 +115,7 @@ namespace Orpheus.Net.Protocol
             return m;
         }
 
-        public override string ToString() => $"запрос {RequestId}: {Op} с кадра {Frame} {From}–{To} obj {Obj} ячейка {Cell}";
+        public override string ToString() => $"запрос {RequestId}: {Op} с кадра {Frame} {From}–{To} obj {Obj} ячейка {Cell} четверти {Quad}";
     }
 
     /// <summary>

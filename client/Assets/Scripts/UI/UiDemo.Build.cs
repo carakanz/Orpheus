@@ -22,7 +22,7 @@ namespace Orpheus.Client.UI
         bool _chestOpen;
 
         /// <summary>Сцена режима стройки, сундука или дома (E2-5).</summary>
-        public static bool IsBuild(string? mode) => mode == "build" || mode == "chest" || mode == "house";
+        public static bool IsBuild(string? mode) => mode == "build" || mode == "chest" || mode == "house" || mode == "thin";
 
         /// <summary>Начало координат и родитель призрака для сцен E2-5 (звать сразу после конструктора).</summary>
         public void BindWorld(FloatingOrigin origin, Transform parent)
@@ -48,7 +48,7 @@ namespace Orpheus.Client.UI
         }
 
         // Заявки стройки стенда: мир сцены не меняется (снимок — про призрак и ленту).
-        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell) => 1;
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad) => 1;
 
         public ushort Repair(TileCoord tile) => 1;
 
@@ -91,7 +91,7 @@ namespace Orpheus.Client.UI
                 build.Check = BuildHand.Check(_world, position, _bag, _bag.Selected, true, bad);
                 if (_origin != null && _ghost != null)
                 {
-                    BuildCheck ok = BuildHand.Check(_world, position, _bag, _bag.Selected, true, good);
+                    BuildCheck ok = BuildHand.Check(_world, position, _bag, _bag.Selected, true, good, 2); // E2-12: призрак — ячейка 0,5 (ЮЗ)
                     _ghost.Show(_origin, _world.Shape, position, 0, true, good, ok);
                     _ghost.Show(_origin, _world.Shape, position, 1, true, bad, build.Check);
                     // Курсор — над красным призраком: строка причины у курсора.

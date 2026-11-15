@@ -63,7 +63,7 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
-            _costPaid[i] = 2;
+            _costPaid[i] = CostPaidRepair;
             e = new EditRequest(e.Chunk, e.Arrival, new TileEdit(e.Edit.Index, _preFloor[i], _preObj[i], rec.WithIntegrity(def.MaxIntegrity)),
                 e.Requester, e.Tag, false, repair: true);
         }

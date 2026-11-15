@@ -31,8 +31,18 @@ namespace Orpheus.Core.World
         /// <summary>Флаги — <see cref="BuildFlags"/>.</summary>
         public readonly byte Flags;
 
+        /// <summary>
+        /// Байт «природный пол + ячейки» (E2-12): младшие 4 бита — природный пол биома, который был под построенным
+        /// (`05`, 1.3: снять — вернуть природный; id полов &lt; 16), старшие 4 — маска занятых ячеек 0,5 × 0,5 у стены,
+        /// забора, двери (<see cref="BuildCells"/>; 0 — весь тайл). На диске и в сети — как есть.
+        /// </summary>
+        public readonly byte FloorCells;
+
         /// <summary>Природный пол биома, который был под построенным (`05`, 1.3: снять — вернуть природный).</summary>
-        public readonly byte NaturalFloor;
+        public readonly byte NaturalFloor => (byte)(FloorCells & 0x0F);
+
+        /// <summary>Маска ячеек постройки-ячеек (E2-12, бит <see cref="BuildCells.Bit"/>); 0 — весь тайл (старые миры, правки без маски).</summary>
+        public readonly byte Cells => (byte)(FloorCells >> 4);
 
         /// <summary>Такт (mod 65 536), до которого тайл — обломки (10 с после сноса, `05`, 1.3). Для двери —
         /// такт (mod 65 536) автозакрытия (1-012, 0 = таймер не заведён); обломки и дверь на тайле не сосуществуют.</summary>
@@ -43,9 +53,19 @@ namespace Orpheus.Core.World
             Owner = owner;
             Integrity = integrity;
             Flags = flags;
-            NaturalFloor = naturalFloor;
+            FloorCells = naturalFloor;
             DebrisEndTick = debrisEndTick;
         }
+
+        /// <summary>Запись с маской ячеек (E2-12): <paramref name="naturalFloor"/> &lt; 16, <paramref name="cells"/> — 4 бита.</summary>
+        public BuildRecord(ushort owner, ushort integrity, byte flags, byte naturalFloor, ushort debrisEndTick, byte cells)
+            : this(owner, integrity, flags, (byte)((CheckFloor(naturalFloor) & 0x0F) | ((cells & 0x0F) << 4)), debrisEndTick)
+        {
+        }
+
+        // Пол записи — младшие 4 бита (E2-12): id пола ≥ 16 перепутался бы с маской ячеек — ошибка, а не тихая порча.
+        private static byte CheckFloor(byte floor) =>
+            floor <= 15 ? floor : throw new ArgumentOutOfRangeException(nameof(floor), floor, "Пол записи постройки — 4 бита (E2-12): id пола ≥ 16 — расширить запись.");
 
         /// <summary>Запись мира: владелец 0xFFFF, полная прочность, без обломков.</summary>
         public static BuildRecord World(ushort integrity, byte naturalFloor) =>
@@ -76,19 +96,23 @@ namespace Orpheus.Core.World
 
         /// <summary>Копия записи с добавленными битами (свои сохраняются).</summary>
         public readonly BuildRecord WithFlags(BuildFlags add) =>
-            new BuildRecord(Owner, Integrity, (byte)(Flags | (byte)add), NaturalFloor, DebrisEndTick);
+            new BuildRecord(Owner, Integrity, (byte)(Flags | (byte)add), FloorCells, DebrisEndTick);
 
         /// <summary>Копия записи со снятыми битами (истечение «урона последние 10 с», 1-011).</summary>
         public readonly BuildRecord WithoutFlags(BuildFlags remove) =>
-            new BuildRecord(Owner, Integrity, (byte)(Flags & ~(byte)remove), NaturalFloor, DebrisEndTick);
+            new BuildRecord(Owner, Integrity, (byte)(Flags & ~(byte)remove), FloorCells, DebrisEndTick);
 
         /// <summary>Копия записи с новой прочностью (флаги и поля сохраняются).</summary>
         public readonly BuildRecord WithIntegrity(ushort integrity) =>
-            new BuildRecord(Owner, integrity, Flags, NaturalFloor, DebrisEndTick);
+            new BuildRecord(Owner, integrity, Flags, FloorCells, DebrisEndTick);
 
         /// <summary>Копия записи с новым тактом истечения (обломки; для двери — дедлайн автозакрытия, 1-012).</summary>
         public readonly BuildRecord WithDebrisEndTick(ushort endTick) =>
-            new BuildRecord(Owner, Integrity, Flags, NaturalFloor, endTick);
+            new BuildRecord(Owner, Integrity, Flags, FloorCells, endTick);
+
+        /// <summary>Копия записи с маской ячеек <paramref name="cells"/> (E2-12; пол и прочее сохраняются).</summary>
+        public readonly BuildRecord WithCells(byte cells) =>
+            new BuildRecord(Owner, Integrity, Flags, (byte)((FloorCells & 0x0F) | ((cells & 0x0F) << 4)), DebrisEndTick);
 
         // ---------- Байты (младший байт первым) ----------
 
@@ -105,7 +129,7 @@ namespace Orpheus.Core.World
             dest[2] = (byte)Integrity;
             dest[3] = (byte)(Integrity >> 8);
             dest[4] = Flags;
-            dest[5] = NaturalFloor;
+            dest[5] = FloorCells;
             dest[6] = (byte)DebrisEndTick;
             dest[7] = (byte)(DebrisEndTick >> 8);
         }
@@ -130,19 +154,19 @@ namespace Orpheus.Core.World
             Owner == other.Owner &&
             Integrity == other.Integrity &&
             Flags == other.Flags &&
-            NaturalFloor == other.NaturalFloor &&
+            FloorCells == other.FloorCells &&
             DebrisEndTick == other.DebrisEndTick;
 
         public override readonly bool Equals(object? obj) => obj is BuildRecord other && Equals(other);
 
         public override readonly int GetHashCode() =>
-            (Owner | (Integrity << 16)) ^ (Flags << 3) ^ (NaturalFloor << 11) ^ (DebrisEndTick << 7);
+            (Owner | (Integrity << 16)) ^ (Flags << 3) ^ (FloorCells << 11) ^ (DebrisEndTick << 7);
 
         public static bool operator ==(BuildRecord a, BuildRecord b) => a.Equals(b);
         public static bool operator !=(BuildRecord a, BuildRecord b) => !a.Equals(b);
 
         public override readonly string ToString() =>
-            $"build(owner {Owner}, integrity {Integrity}, flags {Flags}, floor {NaturalFloor}, debris {DebrisEndTick})";
+            $"build(owner {Owner}, integrity {Integrity}, flags {Flags}, floor {NaturalFloor}, cells {Cells}, debris {DebrisEndTick})";
     }
 
     /// <summary>

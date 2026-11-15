@@ -34,8 +34,11 @@ namespace Orpheus.Net.Session
     {
         public const string Name = "build_room";
 
-        /// <summary>Добыть до перехода к стройке: 30 камня (15 стен) и 26 древесины (9 полов + дверь 6 + 11 припас).</summary>
-        public const int TargetStone = 30;
+        /// <summary>
+        /// Добыть до перехода к стройке: 34 камня (E2-12: 17 рецептов по 2 камня = 34 ячейки тонкой стены) и 26 древесины
+        /// (9 полов + дверь 6 + 11 припас).
+        /// </summary>
+        public const int TargetStone = 34;
         public const int TargetWood = 26;
 
         /// <summary>Сторона комнаты (тайлов): периметр стен, внутри пол 3 × 3.</summary>
@@ -190,8 +193,7 @@ namespace Orpheus.Net.Session
                     TreesChopped++;
                     break;
                 case ObjectId.StoneWall:
-                    _wallReq = 0;
-                    _wallsFrom++;
+                    _wallReq = 0; // E2-12: тайл стены — 2–3 ячейки, к следующему тайлу — когда этот полон (Walls)
                     break;
                 case ObjectId.Door:
                     DoorPlaced = true;
@@ -516,7 +518,11 @@ namespace Orpheus.Net.Session
 
         /// <summary>Сколько предметов-построек нужно комнате: пол 3 × 3, стены периметра без двери, дверь.</summary>
         public const int NeedFloors = (RoomSize - 2) * (RoomSize - 2);
-        public const int NeedWalls = 4 * RoomSize - 5;
+        /// <summary>
+        /// Стен-ячеек на периметр (E2-12): тонкая стена — внешние половины тайлов периметра, по 2 ячейки на тайл стороны
+        /// и 3 на угол; тайл двери — дверь (пара ячеек снизу).
+        /// </summary>
+        public const int NeedWalls = 4 * 3 + 2 * (4 * (RoomSize - 2) - 1);
         public const int NeedDoors = 1;
 
         private CraftDesk? _desk;
@@ -555,6 +561,8 @@ namespace Orpheus.Net.Session
                 (byte recipe, int count) = walls < NeedWalls ? (RecipeTable.StoneWall, NeedWalls - walls)
                     : floors < NeedFloors ? (RecipeTable.WoodFloor, NeedFloors - floors)
                     : (RecipeTable.Door, NeedDoors - doors);
+                int output = RecipeTable.Get(recipe).ResultCount; // E2-12: стена — 2 ячейки за рецепт
+                count = (count + output - 1) / output;
                 CraftLine line = CraftDesk.LineOf(recipe, client.Inv, client.Craft, world.World, pos, stock: client.NearbyStock);
                 if (_desk.Make(line, count))
                 {
@@ -664,7 +672,7 @@ namespace Orpheus.Net.Session
             }
 
             TileCoord wall = WallAt(_wallsFrom);
-            if (world.World.GetObject(wall) == ObjectId.StoneWall)
+            if (WallDone(world, wall))
             {
                 _wallsFrom++; // уже стоит
                 return HammerFrame(client);
@@ -680,7 +688,7 @@ namespace Orpheus.Net.Session
             {
                 if (PlaceArmed(ObjectId.StoneWall, wall))
                 {
-                    ushort id = ClickBuild(client, world, pos, ObjectId.StoneWall, wall);
+                    ushort id = PlaceWallCells(client, world, pos, wall);
                     if (id != 0)
                     {
                         _reqObj[id] = ObjectId.StoneWall;
@@ -747,7 +755,7 @@ namespace Orpheus.Net.Session
                     }
 
                     var t = Torus.Wrap(_shape, new TileCoord(_center.X + dx, _center.Y + dy));
-                    if (t != DoorTile && world.World.GetObject(t) == ObjectId.StoneWall)
+                    if (t != DoorTile && WallDone(world, t))
                     {
                         n++;
                     }
@@ -779,7 +787,7 @@ namespace Orpheus.Net.Session
             {
                 if (PlaceArmed(ObjectId.Door, door))
                 {
-                    ushort id = ClickBuild(client, world, pos, ObjectId.Door, door);
+                    ushort id = ClickBuild(client, world, pos, ObjectId.Door, door, 2); // E2-12: ячейка снизу — дверь вдоль нижней стены
                     if (id != 0)
                     {
                         _reqObj[id] = ObjectId.Door;
@@ -1150,7 +1158,68 @@ namespace Orpheus.Net.Session
         /// ЛКМ «молотом» по тайлу (E2-5): выбор постройки в ленте и щелчок — проверка теми же функциями ядра, что у сервера
         /// и призрака игрока; можно — заявка (номер запроса), нельзя — 0 и тайл в cooldown, как после отказа сервера.
         /// </summary>
-        private ushort ClickBuild(NetClient client, ClientWorld world, WorldPos pos, ushort key, TileCoord t)
+        /// <summary>
+        /// Ячейки тонкой стены тайла периметра (E2-12): внешняя половина — верх / низ / лево / право, угол — две стороны (3 ячейки).
+        /// </summary>
+        private byte WallCellsOf(TileCoord t)
+        {
+            int h = RoomSize / 2;
+            int dx = Torus.DeltaX(_shape, _center.X, t.X), dy = Torus.DeltaY(_shape, _center.Y, t.Y);
+            byte mask = 0;
+            mask |= dy == -h ? BuildCells.DoorNorth : (byte)0;
+            mask |= dy == h ? BuildCells.DoorSouth : (byte)0;
+            mask |= dx == -h ? BuildCells.DoorWest : (byte)0;
+            mask |= dx == h ? BuildCells.DoorEast : (byte)0;
+            return mask;
+        }
+
+        /// <summary>Тонкая стена тайла периметра стоит целиком (все её ячейки).</summary>
+        private bool WallDone(ClientWorld world, TileCoord t)
+        {
+            byte want = WallCellsOf(t);
+            return world.World.GetObject(t) == ObjectId.StoneWall && (BuildCells.MaskAt(world.World, t) & want) == want;
+        }
+
+        /// <summary>
+        /// Заявка на недостающие ячейки стены тайла (E2-12): пара ячеек вдоль стороны — одной линией (<see cref="BuildHand.PlaceLine(TileCoord, TileCoord, WorldPos, in Inventory, int, int, int)"/>),
+        /// иначе одна ячейка (<see cref="BuildHand.Click(WorldModel, WorldPos, in Inventory, int, bool, TileCoord, int)"/>). Проверка — та же, что у призрака.
+        /// </summary>
+        private ushort PlaceWallCells(NetClient client, ClientWorld world, WorldPos pos, TileCoord t)
+        {
+            byte have = world.World.GetObject(t) == ObjectId.StoneWall ? BuildCells.MaskAt(world.World, t) : (byte)0;
+            int missing = WallCellsOf(t) & ~have;
+            (int a, int b) = (missing & 3) == 3 ? (0, 1) : (missing & 12) == 12 ? (2, 3) : (missing & 5) == 5 ? (0, 2) : (missing & 10) == 10 ? (1, 3) : (-1, -1);
+            if (a < 0)
+            {
+                int q = 0;
+                while (q < 4 && (missing & (1 << q)) == 0)
+                {
+                    q++;
+                }
+
+                return ClickBuild(client, world, pos, ObjectId.StoneWall, t, q & 3);
+            }
+
+            BuildHand build = Build(client);
+            int slot = BuildHand.SlotWith(client.Inv, Items.StoneWall);
+            if (slot < 0)
+            {
+                return 0;
+            }
+
+            if (!BuildHand.Check(world.World, pos, client.Inv, slot, true, t, a).Ok || !BuildHand.Check(world.World, pos, client.Inv, slot, true, t, b).Ok
+                || client.Inv.CountIn(slot) < 2)
+            {
+                LocalRefusals++;
+                _armObj = 0;
+                _skipUntil[t] = _frame + RefusalCooldownFrames / 3;
+                return 0;
+            }
+
+            return build.PlaceLine(t, t, pos, client.Inv, slot, a, b);
+        }
+
+        private ushort ClickBuild(NetClient client, ClientWorld world, WorldPos pos, ushort key, TileCoord t, int quad = 0)
         {
             BuildHand build = Build(client);
             int slot = BuildHand.SlotWith(client.Inv, BuildDefs.ItemOf(key));
@@ -1160,7 +1229,7 @@ namespace Orpheus.Net.Session
             }
 
             int before = build.PlaceRequests;
-            BuildCheck chk = build.Click(world.World, pos, client.Inv, slot, true, t);
+            BuildCheck chk = build.Click(world.World, pos, client.Inv, slot, true, t, quad);
             if (chk.Ok && build.PlaceRequests > before)
             {
                 return build.LastRequest;

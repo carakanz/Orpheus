@@ -13,6 +13,18 @@ namespace Orpheus.Core.Movement
     public delegate bool TileSolid(MapShape map, TileCoord tile);
 
     /// <summary>
+    /// Владелец функции «тайл твёрдый?» (<see cref="TileSolid"/>, его <c>Target</c>), знающий ячейки 0,5 × 0,5 (E2-12):
+    /// для твёрдого тайла — маска твёрдых ячеек (бит 1 — СЗ, 2 — СВ, 4 — ЮЗ, 8 — ЮВ; 15 — весь тайл). Так одна и та же
+    /// <see cref="TileSolid"/> (<c>Simulation.IsBlocked</c>) даёт тонкие стены серверу, предсказанию клиента и ботам;
+    /// функции без такого владельца (лямбды тестов) — целые тайлы.
+    /// </summary>
+    public interface ITileCells
+    {
+        /// <summary>Маска твёрдых ячеек тайла, о котором <see cref="TileSolid"/> ответила «твёрдый».</summary>
+        byte SolidCells(MapShape map, TileCoord tile);
+    }
+
+    /// <summary>
     /// Коллизия персонажа — круг радиусом 0,4 тайла = <see cref="RadiusUnits"/> unit — с сеткой
     /// твёрдых тайлов (docs/00, 5.1; work/refs/movement.md). Тайл — квадрат 256 unit.
     /// <para>
@@ -54,7 +66,25 @@ namespace Orpheus.Core.Movement
 
         /// <summary>Пересекает ли круг с центром в <paramref name="center"/> указанный тайл (без учёта его твёрдости).</summary>
         public static bool CircleOverlapsTile(in MapShape map, WorldPos center, TileCoord tile) =>
-            OverlapsTile(map, center.X, center.Y, tile);
+            OverlapsTile(map, center.X, center.Y, tile, FullMask);
+
+        /// <summary>Пересекает ли круг ячейки тайла по маске <paramref name="cells"/> (E2-12; 15 — весь тайл).</summary>
+        public static bool CircleOverlapsCells(in MapShape map, WorldPos center, TileCoord tile, byte cells) =>
+            OverlapsTile(map, center.X, center.Y, tile, cells);
+
+        /// <summary>Маска твёрдых ячеек тайла по функции <paramref name="solid"/>: не твёрдый — 0; владелец без ячеек — 15.</summary>
+        public static byte SolidCellsOf(in MapShape map, TileCoord tile, TileSolid solid)
+        {
+            if (!solid(map, tile))
+            {
+                return 0;
+            }
+
+            return solid.Target is ITileCells cells ? (byte)(cells.SolidCells(map, tile) & FullMask) : FullMask;
+        }
+
+        private const byte FullMask = 15;
+        private const int Half = Torus.SubTilesPerTile / 2;
 
         /// <summary>
         /// Сдвиг по X на <paramref name="dx"/> unit (только X, со сдвигом через <see cref="Torus.Offset"/>)
@@ -118,21 +148,40 @@ namespace Orpheus.Core.Movement
                     }
 
                     TileCoord t = Torus.Wrap(map, new TileCoord(tx, ty));
-                    int near = alongX ? Torus.DeltaX(map, q.X, t.X << Torus.SubTileBits)
-                                      : Torus.DeltaY(map, q.Y, t.Y << Torus.SubTileBits);
-                    int across = AxisDist(alongX ? Torus.DeltaY(map, q.Y, t.Y << Torus.SubTileBits)
-                                                 : Torus.DeltaX(map, q.X, t.X << Torus.SubTileBits));
-                    if (!OverlapsDist(AxisDist(near), across) || !solid(map, t) || OverlapsTile(map, pos.X, pos.Y, t))
+                    byte mask = SolidCellsOf(map, t, solid);
+                    if (mask == 0)
                     {
                         continue;
                     }
 
-                    // грань тайла со стороны движения + досягаемость касания: пересечения нет
-                    int reach = ContactReach(across);
-                    int cand = d > 0 ? near - reach : near + Torus.SubTilesPerTile + reach;
-                    if (d > 0 ? cand < best : cand > best)
+                    // Целый тайл — один квадрат 256 (как до E2-12, бит в бит); ячейки — квадраты 128 по маске.
+                    int size = mask == FullMask ? Torus.SubTilesPerTile : Half;
+                    for (int k = 0; k < 4; k++)
                     {
-                        best = cand;
+                        if (mask != FullMask && (mask & (1 << k)) == 0)
+                        {
+                            continue;
+                        }
+
+                        int bx = (t.X << Torus.SubTileBits) + (mask == FullMask ? 0 : (k & 1) * Half);
+                        int by = (t.Y << Torus.SubTileBits) + (mask == FullMask ? 0 : (k >> 1) * Half);
+                        int near = alongX ? Torus.DeltaX(map, q.X, bx) : Torus.DeltaY(map, q.Y, by);
+                        int across = AxisDist(alongX ? Torus.DeltaY(map, q.Y, by) : Torus.DeltaX(map, q.X, bx), size);
+                        if (OverlapsDist(AxisDist(near, size), across) && !OverlapsBox(map, pos.X, pos.Y, bx, by, size))
+                        {
+                            // грань со стороны движения + досягаемость касания: пересечения нет
+                            int reach = ContactReach(across);
+                            int cand = d > 0 ? near - reach : near + size + reach;
+                            if (d > 0 ? cand < best : cand > best)
+                            {
+                                best = cand;
+                            }
+                        }
+
+                        if (mask == FullMask)
+                        {
+                            break;
+                        }
                     }
                 }
             }
@@ -181,7 +230,8 @@ namespace Orpheus.Core.Movement
                     }
 
                     TileCoord t = Torus.Wrap(map, new TileCoord(tx, ty));
-                    if (solid(map, t) && OverlapsTile(map, cx, cy, t))
+                    byte mask = SolidCellsOf(map, t, solid);
+                    if (mask != 0 && OverlapsTile(map, cx, cy, t, mask))
                     {
                         return true;
                     }
@@ -191,21 +241,40 @@ namespace Orpheus.Core.Movement
             return false;
         }
 
-        private static bool OverlapsTile(in MapShape map, int cx, int cy, TileCoord tile) =>
-            OverlapsDist(
-                AxisDist(Torus.DeltaX(map, cx, tile.X << Torus.SubTileBits)),
-                AxisDist(Torus.DeltaY(map, cy, tile.Y << Torus.SubTileBits)));
+        // Круг задевает твёрдые ячейки тайла по маске (15 — весь тайл одним квадратом).
+        private static bool OverlapsTile(in MapShape map, int cx, int cy, TileCoord tile, byte mask)
+        {
+            int ox = tile.X << Torus.SubTileBits;
+            int oy = tile.Y << Torus.SubTileBits;
+            if (mask == FullMask)
+            {
+                return OverlapsBox(map, cx, cy, ox, oy, Torus.SubTilesPerTile);
+            }
 
-        // Расстояние по одной оси от центра круга до квадрата тайла (0 — под центром).
-        // near — дельта до левого (верхнего) края тайла; d + 256 — до правого (нижнего).
-        private static int AxisDist(int near)
+            for (int k = 0; k < 4; k++)
+            {
+                if ((mask & (1 << k)) != 0 && OverlapsBox(map, cx, cy, ox + (k & 1) * Half, oy + (k >> 1) * Half, Half))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool OverlapsBox(in MapShape map, int cx, int cy, int bx, int by, int size) =>
+            OverlapsDist(AxisDist(Torus.DeltaX(map, cx, bx), size), AxisDist(Torus.DeltaY(map, cy, by), size));
+
+        // Расстояние по одной оси от центра круга до квадрата стороной size (0 — под центром).
+        // near — дельта до левого (верхнего) края; near + size — до правого (нижнего).
+        private static int AxisDist(int near, int size)
         {
             if (near > 0)
             {
                 return near;
             }
 
-            int far = near + Torus.SubTilesPerTile;
+            int far = near + size;
             return far < 0 ? -far : 0;
         }
 

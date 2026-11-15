@@ -137,9 +137,10 @@ namespace Orpheus.Core.Sim
             new RecipeDef(WoodFloor, Items.WoodFloor, 1, Hands, DefaultTicks, Items.Wood, 1),
             new RecipeDef(StoneFloor, Items.StoneFloor, 1, Hands, DefaultTicks, Items.Stone, 1),
             new RecipeDef(Platform, Items.Platform, 1, Hands, DefaultTicks, Items.Wood, 1),
-            new RecipeDef(WoodWall, Items.WoodWall, 1, Hands, DefaultTicks, Items.Wood, 2),
-            new RecipeDef(StoneWall, Items.StoneWall, 1, Hands, DefaultTicks, Items.Stone, 2),
-            new RecipeDef(WoodFence, Items.WoodFence, 1, Hands, DefaultTicks, Items.Wood, 1),
+            // E2-12: стена и забор — ячейки 0,5 × 0,5, погонный тайл стены — 2 ячейки: выход 2, цена тайла прежняя.
+            new RecipeDef(WoodWall, Items.WoodWall, 2, Hands, DefaultTicks, Items.Wood, 2),
+            new RecipeDef(StoneWall, Items.StoneWall, 2, Hands, DefaultTicks, Items.Stone, 2),
+            new RecipeDef(WoodFence, Items.WoodFence, 2, Hands, DefaultTicks, Items.Wood, 1),
             new RecipeDef(Door, Items.Door, 1, Hands, DefaultTicks, Items.Wood, 6),
             new RecipeDef(Campfire, Items.Campfire, 1, Bench, DefaultTicks, Items.Stone, 8, Items.Wood, 4),
             new RecipeDef(Workbench, Items.Workbench, 1, Hands, DefaultTicks, Items.Wood, 10, Items.Stone, 6),
