@@ -70,9 +70,10 @@ namespace Orpheus.Core.Sim
                 return false;
             }
 
+            byte cells = DoorCells(chunk, index); // C-014: проём — хитбокс двери (её ячейки), не весь тайл
             for (int i = 0; i < _entityCount; i++)
             {
-                if (!_entities[i].Alive || !EditRules.Overlaps(_shape, _entities[i].Mover.Position, tile))
+                if (!_entities[i].Alive || !Collision.CircleOverlapsCells(_shape, _entities[i].Mover.Position, tile, cells))
                 {
                     continue;
                 }
@@ -121,8 +122,9 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Двери такта (фаза 4.5, после движения и сетки): открытая без «держать» закрывается через
-        /// <see cref="DoorAutoCloseTicks"/> тактов, когда тайл и соседи свободны; закрытая открывается,
-        /// когда персонаж на тайле (страховка) или шагнул к ней (скаляр смещения такта к центру двери &gt; 0),
+        /// <see cref="DoorAutoCloseTicks"/> тактов, когда её хитбокс (ячейки двери, C-014) никто не пересекает;
+        /// закрытая открывается, когда персонаж в хитбоксе (страховка) или в её тайле / соседнем и шагнул к ней
+        /// (скаляр смещения такта к центру хитбокса &gt; 0),
         /// в пределах <see cref="DoorLockTicks"/> после F — молчит. Враг дверь не открывает (`05` 1.3).
         /// </summary>
         private void StepDoors(long tick)
@@ -143,6 +145,7 @@ namespace Orpheus.Core.Sim
                     rec = default;
                 }
 
+                byte cells = DoorCells(chunk, index);
                 if (rec.IsDoorOpen)
                 {
                     if ((rec.Flags & (byte)BuildFlags.DoorKeepOpen) != 0)
@@ -153,7 +156,9 @@ namespace Orpheus.Core.Sim
                     // Автозакрытие (1-012): дедлайн в байте записи (DebrisEndTick, такт mod 65 536, 0 — не заведён):
                     // таймер живёт в мире, сейв v6 не растёт, после загрузки будущее не расходится.
                     ushort tickMod = unchecked((ushort)tick);
-                    if (TileAndNeighborsFree(tile))
+                    // C-014 (слово Автора 15.11): «пусто» — никто (игрок, враг) не пересекает хитбокс двери;
+                    // стоящий вплотную сбоку или в другой половине тайла таймер не держит.
+                    if (DoorHitboxFree(tile, cells))
                     {
                         if (rec.DebrisEndTick == 0)
                         {
@@ -166,7 +171,7 @@ namespace Orpheus.Core.Sim
                     }
                     else if (rec.DebrisEndTick != 0)
                     {
-                        TouchDoorDeadline(di, 0); // тайл занят — таймер снимается
+                        TouchDoorDeadline(di, 0); // хитбокс занят — таймер снимается
                     }
 
                     continue;
@@ -177,6 +182,7 @@ namespace Orpheus.Core.Sim
                     continue; // замок F
                 }
 
+                WorldPos doorCenter = DoorHitboxCenter(tile, cells);
                 for (int i = 0; i < _entityCount; i++)
                 {
                     if (!_entities[i].Alive || _entities[i].Kind == SimEntity.KindEnemy)
@@ -185,21 +191,21 @@ namespace Orpheus.Core.Sim
                     }
 
                     WorldPos p = _entities[i].Mover.Position;
-                    if (EditRules.Overlaps(_shape, p, tile))
+                    if (Collision.CircleOverlapsCells(_shape, p, tile, cells))
                     {
-                        BeginDoorOpen(di, rec); // страховка: персонаж на тайле двери
+                        BeginDoorOpen(di, rec); // страховка: персонаж в хитбоксе двери
                         break;
                     }
 
+                    // C-014: тайл двери вне хитбокса (другая половина тонкой двери) — как соседний: открывает
+                    // только шаг к ней; стояние рядом дверь не дёргает (иначе «открыть — закрыть» по кругу).
                     Int2 td = Torus.Delta(_shape, Torus.TileOf(_shape, p), tile);
-                    if (Math.Max(Math.Abs(td.X), Math.Abs(td.Y)) != 1)
+                    if (Math.Max(Math.Abs(td.X), Math.Abs(td.Y)) > 1)
                     {
-                        continue; // не соседний тайл
+                        continue; // не тайл двери и не соседний
                     }
 
-                    Int2 toDoor = Torus.Delta(_shape, p, new WorldPos(
-                        (tile.X << Torus.SubTileBits) + Torus.SubTilesPerTile / 2,
-                        (tile.Y << Torus.SubTileBits) + Torus.SubTilesPerTile / 2));
+                    Int2 toDoor = Torus.Delta(_shape, p, doorCenter);
 
                     // «Шагнул к двери» — скаляр смещения такта; «упёрся и жмёт к двери» — скаляр направления
                     // ввода (у стены закрытой двери смещение нуля, без этого стоящий у двери не открывал бы).
@@ -278,6 +284,38 @@ namespace Orpheus.Core.Sim
             }
 
             RequestEdit(tile, chunk.GetFloor(index), ObjectId.Door, rec.WithDebrisEndTick(endTick));
+        }
+
+        /// <summary>Хитбокс двери (C-014): маска её ячеек на сетке 0,5 (тонкая дверь E2-12 — пара ячеек; старые миры — весь тайл).</summary>
+        private static byte DoorCells(Chunk chunk, int index)
+        {
+            bool has = chunk.TryGetBuild(index, out BuildRecord rec);
+            return BuildCells.MaskOf(ObjectId.Door, has, rec);
+        }
+
+        /// <summary>Хитбокс двери свободен (C-014): ни одно живое существо (игрок, враг) не пересекает её ячейки.</summary>
+        private bool DoorHitboxFree(TileCoord tile, byte cells)
+        {
+            for (int i = 0; i < _entityCount; i++)
+            {
+                if (_entities[i].Alive && Collision.CircleOverlapsCells(_shape, _entities[i].Mover.Position, tile, cells))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>Центр хитбокса двери (C-014): центр охватывающего прямоугольника её ячеек; весь тайл — центр тайла.</summary>
+        private static WorldPos DoorHitboxCenter(TileCoord tile, byte cells)
+        {
+            const int half = Torus.SubTilesPerTile / 2;
+            int x0 = (cells & 0b0101) != 0 ? 0 : half; // СЗ | ЮЗ — западная колонка
+            int x1 = (cells & 0b1010) != 0 ? Torus.SubTilesPerTile : half; // СВ | ЮВ — восточная
+            int y0 = (cells & 0b0011) != 0 ? 0 : half; // СЗ | СВ — северная строка
+            int y1 = (cells & 0b1100) != 0 ? Torus.SubTilesPerTile : half; // ЮЗ | ЮВ — южная
+            return new WorldPos((tile.X << Torus.SubTileBits) + (x0 + x1) / 2, (tile.Y << Torus.SubTileBits) + (y0 + y1) / 2);
         }
 
         private void AddDoor(TileCoord tile)
