@@ -15,6 +15,13 @@ namespace Orpheus.Core.Sim
         /// <summary>Ячейка заявки постановки «любая с этим предметом» (правки без ячейки: тесты, внутренние вызовы).</summary>
         public const byte AnyCell = 0xFF;
 
+        /// <summary>
+        /// Ячейка заявки «из меню изготовления» (E2-16, протокол 28): предмет-постройка — из любых ячеек сумки; не хватает —
+        /// недостающее изготавливается на месте по рецепту (ингредиенты — сумка, затем сундуки рядом; станок рецепта — рядом).
+        /// Проверка до списания: не хватает материалов — «нет ресурсов», нет станка — «нужен станок», ничего не снято.
+        /// </summary>
+        public const byte CraftCell = 0xFE;
+
         // _costPaid: 1…4 — снято предметов-построек за постановку (E2-12: по предмету на ячейку стены); это — починка (E2-5).
         private const byte CostPaidRepair = 0x80;
 
@@ -78,6 +85,12 @@ namespace Orpheus.Core.Sim
             }
 
             int slot = SlotOf(e.Requester);
+            if (e.Cell == CraftCell)
+            {
+                PayOrCraft(i, slot, def.Item, units);
+                return;
+            }
+
             int cell = slot < 0 ? -1 : CellWith(in _entities[slot].Inv, def.Item, e.Cell);
             // E2-15: в руке стопка меньше цены тайла (стена, пол — по предмету на ячейку) — недостающее из сумки.
             if (cell < 0 || _entities[slot].Inv.TakeFromThenAny(cell, def.Item, units) != units)
@@ -89,6 +102,61 @@ namespace Orpheus.Core.Sim
             if (cell != e.Cell)
             {
                 e = new EditRequest(e.Chunk, e.Arrival, e.Edit, e.Requester, e.Tag, e.CheckCreatures, e.Repair, (byte)cell);
+            }
+
+            _costPaid[i] = (byte)units;
+        }
+
+        /// <summary>
+        /// Постановка из меню (E2-16): <paramref name="units"/> предметов <paramref name="item"/> — сначала готовые из сумки,
+        /// недостающее изготавливается здесь же: ⌈недостаёт ÷ выход⌉ изготовлений, ингредиенты — <see cref="TakeIngredients"/>
+        /// (сумка → сундуки рядом), лишнее от выхода рецепта (стена — по 2, пол — по 4) — в сумку (не влезло — кучей у ног).
+        /// Масса — как у изготовления: ингредиенты превращаются в предметы рецепта, предмет-постройка уходит в постройку.
+        /// </summary>
+        private void PayOrCraft(int i, int slot, byte item, int units)
+        {
+            if (slot < 0 || item == Items.None)
+            {
+                _preResult[i] = EditResult.NoResources;
+                return;
+            }
+
+            ref Inventory inv = ref _entities[slot].Inv;
+            int have = Math.Min(units, inv.Count(item));
+            int missing = units - have;
+            int runs = 0;
+            int recipe = 0;
+            if (missing > 0)
+            {
+                recipe = CraftRules.RecipeFor(item);
+                if (recipe == 0)
+                {
+                    _preResult[i] = EditResult.NoResources;
+                    return;
+                }
+
+                ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+                if (CraftRules.StationCheck(_world, _entities[slot].Mover.Position, def.Station) != CraftReply.Accepted)
+                {
+                    _preResult[i] = EditResult.NoStation;
+                    return;
+                }
+
+                runs = (missing + def.ResultCount - 1) / def.ResultCount;
+                if (AffordableNear(slot, def) < runs)
+                {
+                    _preResult[i] = EditResult.NoResources;
+                    return;
+                }
+
+                TakeIngredients(slot, def, runs);
+            }
+
+            inv.Remove(item, have);
+            int extra = recipe == 0 ? 0 : runs * RecipeTable.Get(recipe).ResultCount - missing;
+            if (extra > 0)
+            {
+                ReturnBuildItem(_edits[i].Requester, AnyCell, item, extra);
             }
 
             _costPaid[i] = (byte)units;

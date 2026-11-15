@@ -180,14 +180,14 @@ namespace Orpheus.Core.Sim
             TileCoord tile = TileOf(chunk, edit.Index);
             bool blocks = EditRules.BlocksCreature(edit.Obj);
             // E2-12: стена — только её ячейки; E2-15: мебель со сдвигом — её ячейки в задетых тайлах (до 4).
-            Span<TileCoord> tiles = stackalloc TileCoord[4];
-            Span<byte> masks = stackalloc byte[4];
+            Span<TileCoord> tiles = stackalloc TileCoord[BuildLayers.MaxFootTiles];
+            Span<byte> masks = stackalloc byte[BuildLayers.MaxFootTiles];
             int parts = 1;
             tiles[0] = tile;
             masks[0] = BuildLayers.OwnCells(edit.Obj, edit.HasRecord, edit.Record);
-            if (edit.HasRecord && edit.Record.HasOffset && BuildLayers.IsFurniture(edit.Obj))
+            if (BuildLayers.Spreads(edit.Obj, edit.HasRecord, edit.Record))
             {
-                parts = BuildLayers.Footprint(_shape, tile, edit.Record, tiles, masks);
+                parts = BuildLayers.Footprint(_shape, tile, edit.Obj, edit.Record, tiles, masks);
             }
 
             EditResult result = EditResult.Applied;

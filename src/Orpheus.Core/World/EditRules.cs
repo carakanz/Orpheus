@@ -80,6 +80,12 @@ namespace Orpheus.Core.World
         /// — стену туда не поставить (один объект на тайл); мебель ставят после стен.
         /// </summary>
         FurnitureInTile = 19,
+
+        /// <summary>
+        /// «нужен станок рядом» (E2-16, протокол 28): постановка из меню изготовления без готового предмета — рецепт постройки
+        /// требует станок (верстак, костёр), а его в радиусе крафта нет. Ничего не снято.
+        /// </summary>
+        NoStation = 20,
     }
 
     /// <summary>
@@ -131,6 +137,7 @@ namespace Orpheus.Core.World
                 case EditReply.UnderAttack: return "под ударом";
                 case EditReply.Paused: return "пауза";
                 case EditReply.FurnitureInTile: return "мешает мебель — ставьте её после стен";
+                case EditReply.NoStation: return "нужен станок рядом";
                 default: return "нельзя";
             }
         }
@@ -171,6 +178,7 @@ namespace Orpheus.Core.World
                 case EditResult.Occupied: return EditReply.Occupied;
                 case EditResult.EnemyNear: return EditReply.EnemyNear;
                 case EditResult.NoResources: return EditReply.NoResources;
+                case EditResult.NoStation: return EditReply.NoStation;
                 default: return EditReply.NotAllowed;
             }
         }
@@ -222,7 +230,13 @@ namespace Orpheus.Core.World
         {
             if (ObjectId.RotationOf(obj) != 0)
             {
-                return false;
+                // E2-16: поворот — у кровати, верстака, сундука (в объекте мира) и у двери (в заявке: ориентация пары ячеек).
+                if (ObjectId.IsPart(obj) || !(BuildLayers.IsRotatable(obj) || ObjectId.IdOf(obj) == ObjectId.Door))
+                {
+                    return false;
+                }
+
+                obj = ObjectId.IdOf(obj);
             }
 
             if (IsFloorKey(obj))
@@ -240,9 +254,9 @@ namespace Orpheus.Core.World
                 case ObjectId.Spikes:
                 case ObjectId.Door:
                 case ObjectId.Campfire:
-                case ObjectId.Workbench: // E2-3: верстак I, пока 1 × 1
+                case ObjectId.Workbench: // E2-3: верстак I; E2-16 — 2 × 2 тайла
                 case ObjectId.Chest:     // E2-5: сундук
-                case ObjectId.Bed:       // E2-5: кровать, пока 1 × 1
+                case ObjectId.Bed:       // E2-5: кровать; E2-16 — 1 × 2 тайла
                     return true;
                 default:
                     return false;
@@ -382,7 +396,7 @@ namespace Orpheus.Core.World
         }
 
         /// <summary>Наибольший код ответа (проверка сообщений сети).</summary>
-        public const EditReply MaxReply = EditReply.FurnitureInTile;
+        public const EditReply MaxReply = EditReply.NoStation;
 
         /// <summary>Объекты с действием (F) — в этом радиусе от тайла персонажа по оси максимума: 3 тайла (E2-5).</summary>
         public const int UseRadiusTiles = 3;

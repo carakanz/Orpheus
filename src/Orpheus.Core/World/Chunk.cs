@@ -598,13 +598,13 @@ namespace Orpheus.Core.World
         private void SetRecord(int index, in BuildRecord record)
         {
             Dictionary<ushort, BuildRecord> builds = Builds();
-            if (builds.TryGetValue((ushort)index, out BuildRecord old) && old.HasOffset)
+            if (builds.TryGetValue((ushort)index, out BuildRecord old) && old.Overhangs)
             {
                 _offsetCount--;
             }
 
             builds[(ushort)index] = record;
-            if (record.HasOffset)
+            if (record.Overhangs)
             {
                 _offsetCount++;
             }
@@ -614,7 +614,7 @@ namespace Orpheus.Core.World
         {
             if (_builds != null && _builds.TryGetValue((ushort)index, out BuildRecord old))
             {
-                if (old.HasOffset)
+                if (old.Overhangs)
                 {
                     _offsetCount--;
                 }

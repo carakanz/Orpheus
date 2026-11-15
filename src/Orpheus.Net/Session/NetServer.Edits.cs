@@ -239,7 +239,7 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            if (item != Items.None && (slot < 0 || _sim.Entities[slot].Inv.ItemAt(m.Cell) != item))
+            if (item != Items.None && !m.FromMenu && (slot < 0 || _sim.Entities[slot].Inv.ItemAt(m.Cell) != item))
             {
                 Reply(p, m.RequestId, EditReply.NoResources, EditReply.NoResources, 0);
                 return;

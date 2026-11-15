@@ -96,6 +96,12 @@ namespace Orpheus.Core.World
         /// <summary>У мебели есть сдвиг на полтайла (E2-15).</summary>
         public readonly bool HasOffset => (Layout & 0xF0) != 0;
 
+        /// <summary>
+        /// Мебель этой записи выходит за тайл-якорь (E2-16): сдвиг на полтайла или флаг <see cref="BuildFlags.Wide"/>
+        /// (многоклеточная: кровать, верстак). Такие записи считает чанк (<see cref="Chunk.OffsetCount"/>) — соседи смотрят свес.
+        /// </summary>
+        public readonly bool Overhangs => HasOffset || (Flags & (byte)BuildFlags.Wide) != 0;
+
         private static int Signed2(int v) => ((v & 3) ^ 2) - 2;
 
         /// <summary>Копия записи с маской ячеек пола <paramref name="mask"/> (E2-15; 4 бита).</summary>
@@ -277,5 +283,11 @@ namespace Orpheus.Core.World
         /// последнего урона). До C-005 починку запрещал <see cref="DamagedRecent"/> (10 с).
         /// </summary>
         RepairBlocked = 32,
+
+        /// <summary>
+        /// Мебель больше тайла (E2-16: кровать 1 × 2, верстак 2 × 2 — <see cref="BuildLayers.SizeOf"/>): её ячейки выходят за
+        /// тайл-якорь и без сдвига. Ставит постановка; в старых мирах (формат &lt; 12) — чтение сохранения.
+        /// </summary>
+        Wide = 64,
     }
 }

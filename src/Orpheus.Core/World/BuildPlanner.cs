@@ -80,6 +80,10 @@ namespace Orpheus.Core.World
                         e.Floor = world.GetFloor(anchor);
                         e.Obj = obj;
                         e.Record = BuildLayers.TopRecord(world, anchor, owner, integrity, 0).WithOffset(dx, dy);
+                        if (BuildLayers.IsWide(obj))
+                        {
+                            e.Record = e.Record.WithFlags(BuildFlags.Wide); // E2-16: многоклеточная — свес и без сдвига
+                        }
                     }
                 }
 
@@ -99,7 +103,10 @@ namespace Orpheus.Core.World
                 bool door = ObjectId.IdOf(obj) == ObjectId.Door;
                 if (door)
                 {
-                    groups[0] = new CellGroup(Torus.Wrap(map, from), BuildCells.DoorMaskFor(world, from, quad & 3), 0, 1);
+                    // E2-16: поворот заявки — ориентация пары, если соседние стены её не задают; в мир дверь идёт без поворота.
+                    int turn = ObjectId.RotationOf(obj);
+                    obj = ObjectId.Door;
+                    groups[0] = new CellGroup(Torus.Wrap(map, from), BuildCells.DoorMaskFor(world, from, quad & 3, turn), 0, 1);
                     n = 1;
                 }
                 else

@@ -26,6 +26,37 @@ namespace Orpheus.Core.Sim
         /// <summary><see cref="ChestRadiusTiles"/> в unit.</summary>
         public const int ChestRadiusUnits = ChestRadiusTiles * Torus.SubTilesPerTile;
 
+        /// <summary>Рецепт, который делает предмет <paramref name="item"/> (первый по номеру); нет — 0 (E2-16: постройка из меню).</summary>
+        public static int RecipeFor(byte item)
+        {
+            for (int id = 1; id < RecipeTable.Count; id++)
+            {
+                if (item != Items.None && RecipeTable.Get(id).Result == item)
+                {
+                    return id;
+                }
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Сколько предметов <paramref name="item"/> можно изготовить на месте (E2-16, постановка из меню): рецепт есть, станок
+        /// рецепта рядом (<see cref="StationCheck"/>), ингредиенты — сумка и сундуки рядом (<paramref name="stock"/>, null — сумка);
+        /// число изготовлений × выход рецепта. Готовые предметы в сумке сюда не входят.
+        /// </summary>
+        public static int Makeable(WorldModel world, WorldPos pos, in Inventory inv, ChestStock? stock, byte item)
+        {
+            int id = RecipeFor(item);
+            if (id == 0)
+            {
+                return 0;
+            }
+
+            ref readonly RecipeDef def = ref RecipeTable.Get(id);
+            return StationCheck(world, pos, def.Station) == CraftReply.Accepted ? Affordable(inv, def, stock) * def.ResultCount : 0;
+        }
+
         /// <summary>На сколько изготовлений хватает ингредиентов в сумке (по всем ячейкам).</summary>
         public static int Affordable(in Inventory inv, in RecipeDef def)
         {

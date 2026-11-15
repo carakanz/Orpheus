@@ -61,6 +61,16 @@ namespace Orpheus.Net.Protocol
         /// </summary>
         public byte Quad;
 
+        /// <summary>
+        /// Бит 4 в <see cref="Quad"/> (E2-16, протокол 28): постановка из меню изготовления — предмет из любых ячеек сумки, не хватает —
+        /// изготовить на месте (<c>Simulation.CraftCell</c>); <see cref="Cell"/> не читается. Поворот мебели и двери — в битах 10–11
+        /// <see cref="Obj"/>.
+        /// </summary>
+        public const byte MenuFlag = 16;
+
+        /// <summary>Заявка из меню изготовления (<see cref="MenuFlag"/>).</summary>
+        public readonly bool FromMenu => (Quad & MenuFlag) != 0;
+
         public int Write(Span<byte> dest)
         {
             var w = new BitWriter(dest.Slice(0, Bytes));
@@ -91,7 +101,7 @@ namespace Orpheus.Net.Protocol
             m.Cell = r.ReadByte();
             m.Quad = r.ReadByte();
             r.ExpectEnd();
-            if (m.Quad > 15)
+            if (m.Quad > 31)
             {
                 throw new ProtocolException($"Запрос правки: четверти {m.Quad}.");
             }

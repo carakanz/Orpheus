@@ -34,6 +34,32 @@ namespace Orpheus.Save
             return false;
         }
 
+        /// <summary>
+        /// Многоклеточная мебель старых миров (форматы 1–11 → 12, E2-16): кровать и верстак были 1 × 1 тайл, теперь 1 × 2 и 2 × 2
+        /// (<see cref="BuildLayers.SizeOf"/>, поворот 0). Записи получают флаг <see cref="BuildFlags.Wide"/>, чтобы соседи видели свес
+        /// (<see cref="Chunk.OffsetCount"/>); хэш состояния флаг не учитывает. Блок изменён — true.
+        /// </summary>
+        public static bool WidenFurniture(byte[] blob)
+        {
+            bool changed = false;
+            int at = Chunk.LayerBytes;
+            int n = blob[at] | (blob[at + 1] << 8);
+            at += Chunk.BuildCountBytes;
+            for (int i = 0; i < n; i++, at += Chunk.BuildEntryBytes)
+            {
+                int index = blob[at] | (blob[at + 1] << 8);
+                ushort obj = (ushort)(blob[Chunk.ObjectLowOffset + index] | (blob[Chunk.ObjectHighOffset + index] << 8));
+                int flags = at + 2 + 4; // байт флагов записи (BuildRecord.Write: dest[4])
+                if (BuildLayers.IsWide(obj) && (blob[flags] & (byte)BuildFlags.Wide) == 0)
+                {
+                    blob[flags] |= (byte)BuildFlags.Wide;
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
+
         /// <summary>Строка в журнал загрузки (<c>LoadedWorldState.Notes</c>).</summary>
         public static string[] AddNote(string[] notes, int count, uint format)
         {

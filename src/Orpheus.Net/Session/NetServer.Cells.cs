@@ -30,6 +30,7 @@ namespace Orpheus.Net.Session
             }
 
             bool clearance = EditRules.NeedsClearance(m.Obj);
+            byte cell = m.FromMenu ? Simulation.CraftCell : m.Cell; // E2-16: из меню — любая ячейка сумки, недостающее изготовить
             EditReply first = EditReply.Accepted;
             int queued = 0;
             for (int i = 0; i < n; i++)
@@ -43,7 +44,7 @@ namespace Orpheus.Net.Session
 
                 int tag = (m.RequestId << TagLineBits) | e.First | ((e.Count - 1) << TagCountShift);
                 if (check == EditReply.Accepted
-                    && !_sim.RequestPlayerEdit(e.Tile, e.Floor, e.Obj, true, e.Record, p.EntityId, tag, m.Cell, e.FloorOnly))
+                    && !_sim.RequestPlayerEdit(e.Tile, e.Floor, e.Obj, true, e.Record, p.EntityId, tag, cell, e.FloorOnly))
                 {
                     check = QueueRefusal(p.EntityId); // очередь такта полна или персонаж мёртв (C-004)
                 }
