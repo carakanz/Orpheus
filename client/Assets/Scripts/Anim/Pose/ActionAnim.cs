@@ -89,7 +89,7 @@ namespace Orpheus.Client.Anim
 
         /// <summary>Меч: верх замаха и конец удара.</summary>
         public const float SwordTopDeg = 110f;
-        public const float SwordHitDeg = -95f;
+        public const float SwordHitDeg = -105f; // C-012: клинок (рука + 45°) кончает удар на −60° — южная кромка сектора 120°
 
         /// <summary>Отдача после удара: подскок предмета, градусов, и отскок тела назад, тайлов.</summary>
         public const float RecoilDeg = 16f;
@@ -280,20 +280,46 @@ namespace Orpheus.Client.Anim
         }
 
         /// <summary>Угол руки с мечом по фазе удара (<see cref="SwingPhase"/>): замах вверх, удар вниз, отход к «несёт».</summary>
-        public static float SwordDeg(SwingPhase phase, float q)
+        public static float SwordDeg(SwingPhase phase, float q) => SwordDeg(phase, q, 0f);
+
+        /// <summary>
+        /// C-012: то же с прицелом <paramref name="aimDeg"/> (<see cref="AimDeg"/>: 0 — вперёд, +90 — север, −90 — юг). Вид сверху:
+        /// плоскость экрана — плоскость земли, поэтому взмах «сверху вниз» у персонажа, смотрящего вбок, — это дуга по земле от
+        /// северной кромки сектора удара к южной. Ось клинка — угол руки + 45° (значок по диагонали); удар идёт так, чтобы клинок
+        /// прошёл дугу прицел ±60° (<c>SwordStrike.HalfArcSteps</c>): от <see cref="SwordTopDeg"/> + прицел к <see cref="SwordHitDeg"/> + прицел.
+        /// </summary>
+        public static float SwordDeg(SwingPhase phase, float q, float aimDeg)
         {
             q = q < 0f ? 0f : q > 1f ? 1f : q;
+            float top = Math.Min(SwordTopDeg + aimDeg, SwordTopMaxDeg);
+            float hit = SwordHitDeg + aimDeg;
             switch (phase)
             {
                 case SwingPhase.Windup:
-                    return Lerp(CarryToolDeg, SwordTopDeg, 1f - (1f - q) * (1f - q));
+                    return Lerp(CarryToolDeg, top, 1f - (1f - q) * (1f - q));
                 case SwingPhase.Strike:
-                    return Lerp(SwordTopDeg, SwordHitDeg, Math.Min(1f, q * 1.6f));
+                    return Lerp(top, hit, Math.Min(1f, q * 1.6f));
                 case SwingPhase.Recover:
-                    return Lerp(SwordHitDeg, CarryToolDeg, Smooth(q));
+                    return Lerp(hit, CarryToolDeg, Smooth(q));
             }
 
             return CarryToolDeg;
+        }
+
+        /// <summary>C-012: верх замаха при прицеле на север — не дальше этого угла (иначе меч уходит за спину вниз).</summary>
+        public const float SwordTopMaxDeg = 150f;
+
+        /// <summary>Ось клинка на значке относительно угла руки, градусов (рукоять внизу слева, остриё вверху справа).</summary>
+        public const float BladeAxisDeg = 45f;
+
+        /// <summary>
+        /// C-012: где кончик меча в миг удара от центра существа (точки ядра), тайлов, по оси прицела: выпад тела + кисть + клинок
+        /// (<see cref="AnimParams.SwordScale"/>). Должен примерно совпадать с досягаемостью удара ядра (1,4 т).
+        /// </summary>
+        public static float SwordTipReach()
+        {
+            float grip = (float)Math.Sqrt(2.0) * (AnimParams.BladeTipXY + (AnimParams.GripX + AnimParams.GripY) / 2f);
+            return AnimParams.StrikeLunge + AnimParams.HandX + grip * AnimParams.SwordScale;
         }
 
         /// <summary>

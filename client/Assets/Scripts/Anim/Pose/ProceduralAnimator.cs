@@ -334,7 +334,7 @@ namespace Orpheus.Client.Anim
             // --- меч в руке следует фазе удара ---
             if (s.Swing != SwingPhase.None && !toolAction)
             {
-                handTarget = ActionAnim.SwordDeg(s.Swing, Clamp01(s.SwingProgress));
+                handTarget = ActionAnim.SwordDeg(s.Swing, Clamp01(s.SwingProgress), ActionAnim.AimDeg(s.SwingDirX, s.SwingDirY)); // C-012
                 handDirect = true;
             }
 

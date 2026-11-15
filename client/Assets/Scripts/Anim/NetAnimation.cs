@@ -37,7 +37,10 @@ namespace Orpheus.Client.Anim
         readonly Dictionary<int, Enemy> _enemies = new Dictionary<int, Enemy>();
         readonly SwingTrack _swings = new SwingTrack();
         readonly Sparks _sparks;
-        readonly SectorView _selfSector;
+
+        // C-012: ось своего удара в фазе «удар» — отход доигрывает её, даже если нажатие буфера уже записало в ядро ось
+        // следующего удара (MeleeAction.AimRaw).
+        Vector2 _strikeAxis = Vector2.right;
 
         sealed class Enemy
         {
@@ -83,7 +86,6 @@ namespace Orpheus.Client.Anim
             _sprite = _self.Renderer.sprite;
             _sectorMaterial = AnimAssets.SpriteMaterial(_self.Renderer);
             _sparks = new Sparks(entityRoot);
-            _selfSector = new SectorView(entityRoot, _sectorMaterial, "self sector");
             client.SwingStarted = OnSwing;
             client.MeleeResolved = OnResult;
         }
@@ -233,16 +235,24 @@ namespace Orpheus.Client.Anim
 
             s.Invulnerable = dodge.Invulnerable;
 
-            // Свой удар (1-004): фаза из предсказания — MeleeAction шагает в каждом отправленном кадре; ось — прицел
-            // начала замаха (AimRaw), сектор на земле — тот же, что у врагов (02 3.1). Анимация чужих — 1-023.
+            // Свой удар (1-004): фаза из предсказания — MeleeAction шагает в каждом отправленном кадре; ось — прицел (AimRaw:
+            // в замахе с удержанием идёт за мышью, C-012). Сектор своего удара не рисуется (слово Автора 15.11, C-012).
             SwingPhase selfPhase = SwingPhase.None;
             float selfQ = 0f;
             var selfAxis = Vector2.zero;
             MeleeAction mel = pred.Melee;
             if (mel.Active)
             {
-                float a = mel.AimRaw / 65536f * Mathf.PI * 2f;
-                selfAxis = new Vector2(Mathf.Cos(a), -Mathf.Sin(a)); // угол ядра: 0 — восток, рост к югу (Y вниз)
+                AimMath.AxisOf(mel.AimRaw, out float ax, out float ay);
+                if (mel.Phase == MeleeAction.PhaseRecover)
+                {
+                    selfAxis = _strikeAxis;
+                }
+                else
+                {
+                    selfAxis = new Vector2(ax, ay);
+                    _strikeAxis = selfAxis;
+                }
                 int total = mel.Phase == MeleeAction.PhaseWindup ? MeleeAction.WindupFrames
                     : mel.Phase == MeleeAction.PhaseStrike ? MeleeAction.StrikeFrames
                     : mel.Index == MeleeAction.SeriesSize - 1 ? MeleeAction.LastRecoverFrames : MeleeAction.RecoverFrames;
@@ -319,26 +329,6 @@ namespace Orpheus.Client.Anim
                 {
                     LifeFx.HitTile(_client.DigTile, new Vector2(s.DigDirX, s.DigDirY));
                 }
-            }
-
-            // Сектор своего удара (02 3.1): заливка растёт с замахом, в миг удара — золотая вспышка, отход гаснет.
-            float reach = SwordStrike.ReachUnits / (float)Torus.SubTilesPerTile;
-            float halfArc = SwordStrike.HalfArcSteps / 65536f * Mathf.PI * 2f;
-            Vector3 at = _g.Character.position;
-            switch (selfPhase)
-            {
-                case SwingPhase.Windup:
-                    _selfSector.Show(at, selfAxis, reach, halfArc, selfQ, 0f, 1f);
-                    break;
-                case SwingPhase.Strike:
-                    _selfSector.Show(at, selfAxis, reach, halfArc, 1f, mel.FramesLeft / (float)MeleeAction.StrikeFrames, 1f);
-                    break;
-                case SwingPhase.Recover when selfQ < 0.35f:
-                    _selfSector.Show(at, selfAxis, reach, halfArc, 1f, 0f, 1f - selfQ / 0.35f);
-                    break;
-                default:
-                    _selfSector.Hide();
-                    break;
             }
 
             // Враги по «замах начат».

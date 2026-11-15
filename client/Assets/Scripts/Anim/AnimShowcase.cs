@@ -58,6 +58,12 @@ namespace Orpheus.Client.Anim
         ActorRig _carrier = null!;
         ActorRig _picker = null!;
         ActorRig _fencer = null!;
+
+        // C-012: удар мечом к прицелу в 4 стороны (восток, север, запад, юг) и контур зоны удара ядра — только в ленте снимков
+        // (отладка: края взмаха и сектора должны совпасть; в игре свой сектор не рисуется).
+        readonly ActorRig[] _aimFencers = new ActorRig[4];
+        readonly SectorView[] _aimSectors = new SectorView[4];
+        static readonly Vector2[] AimDirs = { Vector2.right, Vector2.up, Vector2.left, Vector2.down };
         Vector3 _rock;
         TileCoord _rockTile;
         bool _rockReal;
@@ -215,7 +221,17 @@ namespace Orpheus.Client.Anim
             _picker.SetHeld(Items.StonePickaxe);
             _fencer = new ActorRig(Make("Fencer", Color.white));
             _fencer.SetHeld(Items.WoodenSword);
+            for (int i = 0; i < 4; i++)
+            {
+                _aimFencers[i] = new ActorRig(Make($"Fencer aim {i}", Color.white));
+                _aimFencers[i].SetHeld(Items.WoodenSword);
+                _aimSectors[i] = new SectorView(_stage, _sectorMat, $"Fencer aim {i} sector");
+            }
         }
+
+        /// <summary>C-012: четыре мечника 2 × 2 (шаг 3,6 т — сектора 1,4 т не перекрываются): восток, север, запад, юг.</summary>
+        Vector3 AimFencerPos(int i) => AimHub + new Vector3(i % 2 * 3.6f, -(i / 2) * 3.6f, 0f);
+        Vector3 AimHub => _c + new Vector3(7f, -5f, 0f);
 
         Vector3 MinerPos => _rock + new Vector3(-1f, 0f, 0f);
         Vector3 BuilderPos => _c + new Vector3(3.5f, -3f, 0f);
@@ -376,6 +392,20 @@ namespace Orpheus.Client.Anim
             {
                 Held = _fencer.Held, Swing = fp, SwingProgress = fq, SwingDirX = 1f, SwingDirY = 0f,
             }));
+
+            // C-012: те же фазы, ось — прицел; контур — сектор ядра (досягаемость 1,4 т, дуга 120°) от точки существа.
+            float reach = Orpheus.Core.Combat.SwordStrike.ReachUnits / (float)Torus.SubTilesPerTile;
+            float halfArc = Orpheus.Core.Combat.SwordStrike.HalfArcSteps / 65536f * Mathf.PI * 2f;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 d = AimDirs[i];
+                _aimFencers[i].Root.position = AimFencerPos(i);
+                _aimFencers[i].Apply(_aimFencers[i].Animator.Step(dt, new ActorInput
+                {
+                    Held = _aimFencers[i].Held, Swing = fp, SwingProgress = fq, SwingDirX = d.x, SwingDirY = d.y,
+                }));
+                _aimSectors[i].Show(AimFencerPos(i), d, reach, halfArc, 0f, 0f, 1f);
+            }
         }
 
         static SwingPhase PhaseAt(float su, out float q)
@@ -493,6 +523,10 @@ namespace Orpheus.Client.Anim
                     new Shot { Name = "E2-7_carry", Focus = () => _carrier.Root.position, Ortho = ShotsOrtho, Times = Series(13.50f, 0.06f), CropW = 360, CropH = 520 },
                     new Shot { Name = "E2-7_sword", Focus = () => FencerPos + new Vector3(0.4f, 0f, 0f), Ortho = ShotsOrtho,
                         Times = new[] { 15.05f, 15.20f, 15.35f, 15.42f, 15.47f, 15.70f }, CropW = 480, CropH = 560 },
+
+                    // C-012: взмах к прицелу в 4 стороны с контуром зоны удара ядра (замах, середина удара, конец удара, отход).
+                    new Shot { Name = "C-012_sword_aim", Focus = () => AimHub + new Vector3(1.8f, -1.8f, 0f), Ortho = 4.6f,
+                        Times = new[] { 15.20f, 15.42f, 15.47f, 15.70f }, CropW = 900, CropH = 900 },
                 };
 
                 foreach (Shot s in shots)
@@ -565,7 +599,7 @@ namespace Orpheus.Client.Anim
             }
 
             strip.Apply();
-            Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
+            Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
         }
 

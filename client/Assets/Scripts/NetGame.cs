@@ -562,20 +562,32 @@ namespace Orpheus.Client
             }
         }
 
-        /// <summary>Прицел (1-002, `02` 1.1 «Прицел»): угол от своего персонажа к курсору мыши, Angle16 (целый, ядро).</summary>
+        /// <summary>
+        /// Прицел (1-002, `02` 1.1 «Прицел»): угол от своего персонажа к курсору мыши, Angle16 (целый, ядро). C-012: от середины
+        /// видимого тела нарисованного персонажа (<see cref="Anim.AimMath"/>), а не от точки ядра — иначе луч уходил на север.
+        /// Мышь вне окна — прицел по последнему углу (`02` 1.1).
+        /// </summary>
         ushort ComputeAim()
         {
             Mouse? mouse = Mouse.current;
             if (mouse == null || _origin == null)
             {
-                return 0;
+                return _lastAim;
             }
 
             Vector3 screen = mouse.position.ReadValue();
+            if (screen.x < 0f || screen.y < 0f || screen.x > Screen.width || screen.y > Screen.height)
+            {
+                return _lastAim;
+            }
+
             Vector3 w = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
-            WorldPos c = _origin.FromUnity(w);
-            return Angle16.Atan2(c.Y - _localPos.Y, c.X - _localPos.X).Raw;
+            Vector3 me = _g.Character.position;
+            _lastAim = Anim.AimMath.AimRaw(me.x, me.y, w.x, w.y);
+            return _lastAim;
         }
+
+        ushort _lastAim;
 
         /// <summary>Кадр движения + прицел и ячейка быстрой панели (1-002).</summary>
         static InputFrame WithAimSlot(InputFrame f, ushort aim, byte slot) => new InputFrame(f.Direction, f.Buttons, aim, slot);

@@ -109,7 +109,8 @@ namespace Orpheus.Client.Anim
 
             bool right = p.FlipX != AnimParams.SpriteFacesRight;
             float sign = right ? 1f : -1f;
-            float k = ActionAnim.IsGripped(_look) ? AnimParams.ToolScale : AnimParams.ItemScale;
+            float k = _look == HeldLook.Sword ? AnimParams.SwordScale // C-012: клинок до досягаемости удара ядра
+                : ActionAnim.IsGripped(_look) ? AnimParams.ToolScale : AnimParams.ItemScale;
             // C-010: занесённый за голову предмет рисуется позади тела — без подъёма кисти он целиком прятался за спрайтом
             // (на лентах E2-7 замаха топора, кирки и меча не было видно). Кисть плавно поднимается к макушке вместе с углом.
             float lift = AnimParams.OverheadLiftY * Mathf.SmoothStep(0f, 1f,
