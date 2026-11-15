@@ -232,6 +232,96 @@ namespace Orpheus.Tests
             }
         }
 
+        // ------------------------------------------------------- C-012: ось удара — прицел мыши
+
+        private const ushort AimSouth = Angle16.Quarter;
+        private const ushort AimWest = Angle16.Half;
+
+        /// <summary>C-012: удержание ЛКМ — второй удар серии бьёт по прицелу своего кадра, а не по оси первого.</summary>
+        [Fact]
+        public void C012_HeldAttack_SecondStrike_FollowsAim()
+        {
+            var me = SwordMover(20, 32);
+            bool sawSecond = false;
+            for (int f = 0; f < 80; f++)
+            {
+                ushort aim = f < 18 ? (ushort)0 : AimSouth; // мышь ушла на юг во время отхода первого удара
+                me.StepFrame(Map, Input8.None, false, true, aim, Collision.Empty);
+                if (me.Melee.Phase == MeleeAction.PhaseStrike && me.Melee.Index == 1)
+                {
+                    Assert.Equal(AimSouth, me.Melee.AimRaw);
+                    sawSecond = true;
+                }
+            }
+
+            Assert.True(sawSecond, "второй удар серии был");
+        }
+
+        /// <summary>C-012: клик в буфере отхода с прицелом на запад, потом кнопка отпущена (прицел кадров — 0) — ось второго удара — запад.</summary>
+        [Fact]
+        public void C012_BufferedClick_TakesAimOfClick()
+        {
+            var me = SwordMover(20, 32);
+            for (int f = 0; f <= 40; f++)
+            {
+                bool press = f == 0 || f == 30;
+                ushort aim = f == 30 ? AimWest : (ushort)0;
+                me.StepFrame(Map, Input8.None, false, press, aim, Collision.Empty);
+            }
+
+            Assert.Equal(1, me.Melee.Index);
+            Assert.Equal(AimWest, me.Melee.AimRaw);
+        }
+
+        /// <summary>C-012: кнопка удержана в замахе — ось идёт за прицелом и фиксируется переходом в удар; одиночный клик — прицел клика.</summary>
+        [Fact]
+        public void C012_Windup_HeldAimFollows_ClickKeeps()
+        {
+            var held = SwordMover(20, 32);
+            var click = SwordMover(20, 32);
+            for (int f = 0; f <= 9; f++)
+            {
+                ushort aim = f < 5 ? (ushort)0 : AimSouth;
+                held.StepFrame(Map, Input8.None, false, true, aim, Collision.Empty);
+                click.StepFrame(Map, Input8.None, false, f == 0, aim, Collision.Empty);
+            }
+
+            Assert.Equal(MeleeAction.PhaseStrike, held.Melee.Phase);
+            Assert.Equal(AimSouth, held.Melee.AimRaw);
+            Assert.Equal(MeleeAction.PhaseStrike, click.Melee.Phase);
+            Assert.Equal((ushort)0, click.Melee.AimRaw);
+            for (int f = 10; f < 18; f++)
+            {
+                held.StepFrame(Map, Input8.None, false, true, AimWest, Collision.Empty);
+                Assert.Equal(AimSouth, held.Melee.AimRaw); // в фазе «удар» ось не меняется
+            }
+        }
+
+        /// <summary>
+        /// C-012 в симуляции: ЛКМ удержана, первый удар — на восток (враг задет), потом мышь на юг — следующий удар серии
+        /// задевает врага на юге. До C-012 серия била по оси первого удара, и южный враг не получал урона.
+        /// </summary>
+        [Fact]
+        public void C012_Sim_HeldSeries_TurnsToCursor()
+        {
+            var s = new SwordSim();
+            s.Clear(20, 33);
+            int south = s.Sim.AddEnemy(At(20, 33));
+            bool eastHit = false;
+            int southHits = 0;
+            for (int t = 1; t <= 60; t++)
+            {
+                s.Tick(out List<int> hits, eastHit ? AimSouth : (ushort)0, chase: false);
+                eastHit |= hits.Count > 0;
+                foreach (SimEvent ev in s.Sim.Events)
+                    if (ev.Kind == SimEventKind.Damage && ev.Victim == south)
+                        southHits++;
+            }
+
+            Assert.True(eastHit, "первый удар — по восточному врагу");
+            Assert.True(southHits > 0, "удар после поворота мыши — по южному врагу");
+        }
+
         // ------------------------------------------------------- сектор (чистая геометрия)
 
         [Fact]
@@ -284,16 +374,19 @@ namespace Orpheus.Tests
             /// (после отбрасывания), иначе стоит; меч в кадрах — ячейка <see cref="SwordSlot"/>.
             /// Возвращает попадания (урон) по врагу.
             /// </summary>
-            public void Tick(out List<int> hits)
+            public void Tick(out List<int> hits) => Tick(out hits, 0, chase: true);
+
+            /// <summary>Такт с прицелом <paramref name="aim"/>; <paramref name="chase"/> = false — стоять на месте (C-012).</summary>
+            public void Tick(out List<int> hits, ushort aim, bool chase)
             {
                 hits = new List<int>();
                 var me = Sim.GetEntity(Char).Mover.Position;
                 var en = Sim.GetEntity(Enemy).Mover.Position;
-                Input8 dir = Torus.Delta(Map, me, en).X > 430 ? Input8.East : Input8.None;
+                Input8 dir = chase && Torus.Delta(Map, me, en).X > 430 ? Input8.East : Input8.None;
                 Span<InputFrame> frames = stackalloc InputFrame[]
                 {
-                    new InputFrame(dir, InputButtons.Attack, 0, SwordSlot),
-                    new InputFrame(dir, InputButtons.Attack, 0, SwordSlot),
+                    new InputFrame(dir, InputButtons.Attack, aim, SwordSlot),
+                    new InputFrame(dir, InputButtons.Attack, aim, SwordSlot),
                 };
                 Sim.SetFramesAt(Slot, frames);
                 Sim.Step();
