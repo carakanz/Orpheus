@@ -301,7 +301,7 @@ namespace Orpheus.WorldGen
             MarkGorges(t, cliff);
         }
 
-        /// <summary>Тайлы у скалы (8 соседей) помечаются <see cref="TileWorld.MarkGorge"/>: ущелья 2–3 тайла не заваливаются деревьями и валунами.</summary>
+        /// <summary>Тайлы в 2 от скалы помечаются <see cref="TileWorld.MarkGorge"/>: ущелья и проходы до 4–5 тайлов не заваливаются деревьями и валунами.</summary>
         private static void MarkGorges(TileWorld t, bool[] cliff)
         {
             int w = t.WorldSize;
@@ -316,9 +316,9 @@ namespace Orpheus.WorldGen
                         continue;
                     }
 
-                    for (int k = 0; k < 9; k++)
+                    for (int k = 0; k < 25; k++)
                     {
-                        if (k != 4 && cliff[(((y + (k / 3) - 1) & mask) * w) + ((x + (k % 3) - 1) & mask)])
+                        if (k != 12 && cliff[(((y + (k / 5) - 2) & mask) * w) + ((x + (k % 5) - 2) & mask)])
                         {
                             t.Marks[i] |= TileWorld.MarkGorge;
                             break;

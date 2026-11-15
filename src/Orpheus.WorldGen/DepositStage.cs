@@ -237,9 +237,9 @@ namespace Orpheus.WorldGen
             }
 
             // Пометка «у скалы» в выемке и вокруг — заново по оставшейся скале.
-            for (int oy = -reach - 1; oy <= reach + 1; oy++)
+            for (int oy = -reach - 2; oy <= reach + 2; oy++)
             {
-                for (int ox = -reach - 1; ox <= reach + 1; ox++)
+                for (int ox = -reach - 2; ox <= reach + 2; ox++)
                 {
                     int x = (cx + ox) & mask;
                     int y = (cy + oy) & mask;
@@ -250,9 +250,9 @@ namespace Orpheus.WorldGen
                     }
 
                     bool near = false;
-                    for (int k = 0; k < 9 && !near; k++)
+                    for (int k = 0; k < 25 && !near; k++)
                     {
-                        near = k != 4 && t.Objects[(((y + (k / 3) - 1) & mask) * w) + ((x + (k % 3) - 1) & mask)] == ObjectId.Cliff;
+                        near = k != 12 && t.Objects[(((y + (k / 5) - 2) & mask) * w) + ((x + (k % 5) - 2) & mask)] == ObjectId.Cliff;
                     }
 
                     if (!near)
