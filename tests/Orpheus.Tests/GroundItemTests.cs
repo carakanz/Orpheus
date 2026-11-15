@@ -1130,7 +1130,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_Net_GoldenBytes_Piles_PileGone_BagRequest()
         {
-            Assert.Equal(23, NetModule.ProtocolVersion); // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5)
+            Assert.Equal(24, NetModule.ProtocolVersion); // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
 
             var buf = new byte[PilesMessage.MaxBytes];
             var piles = new[]

@@ -44,6 +44,7 @@ namespace Orpheus.Client.UI
         public const string CraftTitle = "Изготовление";
         public const string CraftKey = "C";
         public const string CraftNeeds = "Нужно:";
+        public const string CraftInChest = " (в сундуке)";
         public const string CraftQueue = "Очередь — щелчок по позиции отменяет её";
         public const string CraftQueueEmpty = "Очередь пуста";
         public const string CraftQueueStopped = "Стоит: подойдите к станку";

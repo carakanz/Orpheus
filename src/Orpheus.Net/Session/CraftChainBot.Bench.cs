@@ -96,7 +96,7 @@ namespace Orpheus.Net.Session
             _desk ??= new CraftDesk(client);
             if (count > 0 && client.Craft.IsEmpty && _frame - _craftFrame > 90)
             {
-                CraftLine line = CraftDesk.LineOf(recipe, client.Inv, client.Craft, world.World, pos);
+                CraftLine line = CraftDesk.LineOf(recipe, client.Inv, client.Craft, world.World, pos, stock: client.NearbyStock);
                 if (_desk.Make(line, count))
                 {
                     _craftFrame = _frame;

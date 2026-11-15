@@ -167,4 +167,79 @@ namespace Orpheus.Net.Protocol
 
         public override string ToString() => $"очередь #{EntityId} такт {Tick}: {Queue}{(Running ? string.Empty : " (стоит)")}";
     }
+
+    /// <summary>
+    /// «Сундуки рядом» (E2-10, тип 36, канал 2; <c>06</c> 3.5): сколько каждого предмета в сундуках рядом — для каждого
+    /// вида станка (руки — от персонажа, верстак и костёр — от ближайшего такого станка в радиусе крафта). Сервер шлёт
+    /// владельцу, когда сводка изменилась (подошёл, отошёл, сундук пополнили или опустошили); окно крафта прибавляет её к
+    /// сумке при расчёте «есть». Не предсказывается. Поля: тип 1 + 3 × (число строк 1 + строки × (предмет 1 + количество
+    /// u16)); строки — по возрастанию предмета, количество 1…65 535 (больше — обрезано). Пустая сводка — 4 байта.
+    /// </summary>
+    public struct NearbyStockMessage
+    {
+        /// <summary>Наибольший размер: все предметы таблицы у всех трёх видов станка.</summary>
+        public static int MaxBytes => 1 + ChestStock.Stations * (1 + ItemTable.Count * 3);
+
+        public ChestStock Stock;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.NearbyStock);
+            for (int s = 0; s < ChestStock.Stations; s++)
+            {
+                int n = 0;
+                for (int item = 1; item < ItemTable.Count; item++)
+                {
+                    n += Stock.Count((CraftStation)s, (byte)item) > 0 ? 1 : 0;
+                }
+
+                w.WriteByte((byte)n);
+                for (int item = 1; item < ItemTable.Count; item++)
+                {
+                    int c = Stock.Count((CraftStation)s, (byte)item);
+                    if (c > 0)
+                    {
+                        w.WriteByte((byte)item);
+                        w.WriteUInt16((ushort)c);
+                    }
+                }
+            }
+
+            return w.BytesWritten;
+        }
+
+        /// <summary>Прочитать в <paramref name="into"/> (очищается).</summary>
+        public static void Read(ReadOnlySpan<byte> src, ChestStock into)
+        {
+            var r = Codec.Begin(src, MessageType.NearbyStock);
+            into.Clear();
+            for (int s = 0; s < ChestStock.Stations; s++)
+            {
+                int n = r.ReadByte();
+                if (n >= ItemTable.Count)
+                {
+                    throw new ProtocolException($"Сундуки рядом: {n} строк у станка {s}.");
+                }
+
+                int last = 0;
+                for (int k = 0; k < n; k++)
+                {
+                    int item = r.ReadByte();
+                    int c = r.ReadUInt16();
+                    if (item <= last || item >= ItemTable.Count || c == 0)
+                    {
+                        throw new ProtocolException($"Сундуки рядом: предмет {item} × {c} у станка {s}.");
+                    }
+
+                    last = item;
+                    into.Set((CraftStation)s, (byte)item, c);
+                }
+            }
+
+            r.ExpectEnd();
+        }
+
+        public override string ToString() => "сундуки рядом";
+    }
 }

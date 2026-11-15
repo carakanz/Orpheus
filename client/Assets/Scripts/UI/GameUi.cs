@@ -53,6 +53,9 @@ namespace Orpheus.Client.UI
         public int Progress;
         public WorldModel? World;
         public WorldPos Position;
+
+        /// <summary>E2-10: сводка сервера «сундуки рядом» (<c>NetClient.NearbyStock</c>) — «есть» с учётом сундуков; null — только сумка.</summary>
+        public ChestStock? Stock;
     }
 
     /// <summary>Окно сумки (E2-2): 8 × 5 ячеек, верхняя строка — быстрая панель (ячейки 0…7), ниже — ячейки 8…39.</summary>
@@ -374,7 +377,7 @@ namespace Orpheus.Client.UI
                 for (int r = 1; r < _lines.Length; r++)
                 {
                     _lines[r] = craft.World != null
-                        ? CraftDesk.LineOf(r, bag, craft.Queue, craft.World, craft.Position, !dead)
+                        ? CraftDesk.LineOf(r, bag, craft.Queue, craft.World, craft.Position, !dead, craft.Stock)
                         : new CraftLine((byte)r, CraftReply.NoStation, 0);
                 }
 
@@ -453,6 +456,7 @@ namespace Orpheus.Client.UI
 
             if (CraftOpen)
             {
+                _craft.Stock = craft.Stock; // E2-10: «есть» карточки — сумка + сундуки рядом
                 _craft.Show(_lines, bag, craft.Queue, craft.Running, craft.Progress, dead, hit, _message);
             }
 
@@ -661,7 +665,7 @@ namespace Orpheus.Client.UI
         }
 
         /// <summary>Сцена с окном крафта (нужен верстак рядом с персонажем).</summary>
-        public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint";
+        public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint" || mode == "craft-chest";
 
         public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode) || IsBuild(mode);
 
@@ -740,7 +744,20 @@ namespace Orpheus.Client.UI
             }
 
             var craft = new UiCraftState { Queue = _queue, Running = !_queue.IsEmpty, Progress = 9, World = _world, Position = position };
+            if (_mode == "craft-chest")
+            {
+                craft.Stock = DemoStock(); // E2-10: «в сундуке рядом» — 12 слитков и 20 древесины у верстака
+            }
+
             _ui.Frame(input, _bag, selected: 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100, craft);
+        }
+
+        static ChestStock DemoStock()
+        {
+            var stock = new ChestStock();
+            stock.Set(CraftStation.Workbench, Items.CopperIngot, 12);
+            stock.Set(CraftStation.Workbench, Items.Wood, 20);
+            return stock;
         }
 
         // Скрипт окна крафта (вкладка «Верстак» открывается сама — верстак рядом): слиток «всё» → стрелы × 2 → выбрана
@@ -751,6 +768,16 @@ namespace Orpheus.Client.UI
             if (_mode == "craft-hint")
             {
                 input.Pointer = new Vector2(40f, 40f); // окно закрыто: у панели подсказка «C — верстак»
+                return;
+            }
+
+            if (_mode == "craft-chest")
+            {
+                // E2-10: окно открыто, выбрана медная кирка — слитков в сумке 5, ещё 12 в сундуке рядом: «есть 17 / 8 (в сундуке)».
+                input.Craft = f == 2;
+                input.Pointer = f < 4 ? new Vector2(40f, 40f) : _ui.CraftPoint(CraftPart.Row, 4);
+                input.LeftDown = f == 5;
+                input.LeftHeld = input.LeftDown;
                 return;
             }
 
