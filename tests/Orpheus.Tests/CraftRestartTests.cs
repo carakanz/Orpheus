@@ -50,17 +50,26 @@ namespace Orpheus.Tests
                 NetClient c = srv.Connect(Name, clients);
                 Assert.True(Pump(() => c.HasSnapshot && c.Latest.Self.Present && c.Inv.Count(Items.Fiber) == 297, 10_000, clients), $"не вошёл или нет набора: {c.State}");
 
-                // Две позиции: верёвка × 99 (297 волокна — три полные стопки) и каменный топор × 10 (два вида ингредиентов).
-                Assert.True(c.RequestCraft(RecipeTable.Rope, 99));
-                Assert.True(c.RequestCraft(RecipeTable.StoneAxe, 10));
+                // Две позиции: верёвка × 60 (180 из 297 волокна) и каменный топор × 6 (18 из 30 камня, 12 из 20 древесины — два вида
+                // ингредиентов). Не всё сырьё: лишнее снятие ингредиентов (вдвое) не упирается в остаток сумки и теряет массу.
+                Assert.True(c.RequestCraft(RecipeTable.Rope, 60));
+                Assert.True(c.RequestCraft(RecipeTable.StoneAxe, 6));
                 Assert.True(Pump(() => first.Crashed, 30_000, clients), "очередь не поставлена или на носителе нет записи, начатой с непустой очередью");
                 // Падение: дальше этот сервер для теста не существует — его остановка пишет в исходное хранилище, не в снимок.
             }
 
-            // На носителе — сохранение с непустой очередью (падение в такте {CrashTick}); часть позиций успела
-            // изготовиться до падения — это законное превращение ингредиентов в изделия, сверяемся с массой падения.
+            // На носителе — сохранение с непустой очередью; масса AtCrash снята в том же такте, что записан в это
+            // сохранение (хэш состояния такта = хэш, с которым начата запись). Часть позиций могла успеть изготовиться —
+            // изделия пересчитываются в ингредиенты по рецептам (Raw), и масса в сырье точно равна выданной.
+            Assert.Null(first.Error);
             Assert.False(first.Queue.IsEmpty);
             _out.WriteLine($"такт падения {first.CrashTick}, очередь {first.Queue}");
+            Assert.Equal(297, first.Given[Items.Fiber]);
+            int[] rawAtCrash = Raw(first.AtCrash, first.Given);
+            for (int item = 1; item < ItemTable.Count; item++)
+            {
+                Assert.True(first.Given[item] == rawAtCrash[item], $"предмет {item}: выдано {first.Given[item]}, в такте падения в сырье {rawAtCrash[item]}");
+            }
 
             var second = new SecondRun();
             using (var srv = new Run(first.Frozen!, world, create: false, second.AfterTick, null))
@@ -70,11 +79,14 @@ namespace Orpheus.Tests
                 NetClient c = srv.Connect(Name, clients);
                 Assert.True(Pump(() => c.HasSnapshot && c.Latest.Self.Present && second.Ticks >= 15, 10_000, clients), $"не вошёл снова: {c.State}");
                 int[] after = second.Totals!;
+                int[] rawAfter = Raw(after, first.Given);
                 for (int item = 1; item < ItemTable.Count; item++)
                 {
                     Assert.True(first.AtCrash[item] == after[item], $"предмет {item}: в такте падения {first.AtCrash[item]}, после перезапуска {after[item]}");
+                    Assert.True(first.Given[item] == rawAfter[item], $"предмет {item}: выдано {first.Given[item]}, после перезапуска в сырье {rawAfter[item]}");
                 }
 
+                Assert.Equal(297, rawAfter[Items.Fiber]); // волокно сумки + 3 на каждую изготовленную верёвку
                 Assert.True(second.QueueEmpty);
                 Assert.Equal(c.Inv.Count(Items.Fiber), second.BagFiber); // вернувшийся видит ту же сумку
                 Assert.Equal(0, srv.Stop().ExitCode);
@@ -134,6 +146,28 @@ namespace Orpheus.Tests
             return n;
         }
 
+        /// <summary>
+        /// Масса в сырье: <paramref name="totals"/>, где каждое изделие поставленных рецептов (каменный топор, верёвка) сверх
+        /// выданного набора <paramref name="given"/> пересчитано в свои ингредиенты по <see cref="RecipeTable"/>. Точно, без допусков.
+        /// </summary>
+        private static int[] Raw(int[] totals, int[] given)
+        {
+            var n = (int[])totals.Clone();
+            foreach (byte id in new[] { RecipeTable.StoneAxe, RecipeTable.Rope })
+            {
+                RecipeDef d = RecipeTable.Get(id);
+                int made = n[d.Result] - given[d.Result];
+                Assert.True(made % d.ResultCount == 0, $"рецепт {id}: изделий {made} не кратно {d.ResultCount}");
+                n[d.Result] = given[d.Result];
+                for (int k = 0; k < d.IngredientCount; k++)
+                {
+                    n[d.IngredientItem(k)] += made / d.ResultCount * d.IngredientCountOf(k);
+                }
+            }
+
+            return n;
+        }
+
         private static bool Pump(Func<bool> done, int timeoutMs, List<NetClient> clients)
         {
             var w = System.Diagnostics.Stopwatch.StartNew();
@@ -164,11 +198,12 @@ namespace Orpheus.Tests
         {
             private volatile bool _crashed;
             private bool _given;
-            private readonly Dictionary<long, CraftQueue> _queuedTicks = new Dictionary<long, CraftQueue>();
+            private readonly Dictionary<long, (CraftQueue Queue, int[] Totals)> _savedTicks = new Dictionary<long, (CraftQueue Queue, int[] Totals)>();
 
             public WaitEveryWrite? Hook { get; set; }
             public MemoryStorage? Storage { get; set; }
             public bool Crashed => _crashed;
+            public string? Error { get; private set; }
             public int[] Given { get; private set; } = Array.Empty<int>();
             public int[] AtCrash { get; private set; } = Array.Empty<int>();
             public CraftQueue Queue { get; private set; }
@@ -198,20 +233,31 @@ namespace Orpheus.Tests
                     return;
                 }
 
-                // Помечаем такты с непустой очередью: «падение» — когда ЗАПИСАННАЯ на носителе запись начата в таком такте.
-                // Заявка изготовления и сохранение одного такта могут разъехаться под нагрузкой (запись начата в такте 1,
-                // поток такта ушёл в такт 4; заявки сохранений на такты 2–4 схлопнуты) — поэтому условие не «такт == такт
-                // записи», а «последняя завершившаяся запись начата в такте с очередью».
-                _queuedTicks[sim.Tick] = craft;
-                long doneTick = Hook!.LastDoneTick;
-                if (!_queuedTicks.TryGetValue(doneTick, out CraftQueue saved))
+                // Такт, в котором начата запись (Capture — в этом же такте, строкой выше o.AfterTick): масса и очередь
+                // снимаются здесь и сверяются хэшем состояния с хэшем, с которым начата запись, — это ровно то состояние,
+                // что ляжет в файл. Под нагрузкой запись кончается тактами позже (заявки сохранений между ними схлопнуты),
+                // поэтому масса берётся из такта записи, а не из такта падения.
+                if (Hook!.TryBeginHash(sim.Tick, out ulong savedHash))
                 {
-                    return; // на носителе пока только запись до постановки в очередь — ждём сохранения с очередью
+                    ulong now = StateHash.Compute(sim).Total;
+                    if (now != savedHash)
+                    {
+                        Error ??= $"такт {sim.Tick}: хэш состояния {now:x16} ≠ хэшу записи {savedHash:x16}";
+                    }
+
+                    _savedTicks[sim.Tick] = (craft, Totals(sim, slot));
                 }
 
-                AtCrash = Totals(sim, slot);
-                Queue = saved;
-                CrashTick = doneTick;
+                // «Падение» — когда незаконченной записи нет (новую запись начинает только поток такта, то есть не во время
+                // этого вызова — копия носителя не разойдётся с LastDoneTick), а последняя законченная начата в такте с очередью.
+                if (Hook.InFlight || !_savedTicks.TryGetValue(Hook.LastDoneTick, out (CraftQueue Queue, int[] Totals) saved))
+                {
+                    return;
+                }
+
+                AtCrash = saved.Totals;
+                Queue = saved.Queue;
+                CrashTick = Hook.LastDoneTick;
                 Frozen = Storage.Snapshot();
                 _crashed = true;
             }
@@ -251,6 +297,28 @@ namespace Orpheus.Tests
             private long _doneTick = -1;
             private long _begunTick = -1;
             private ulong _begun, _done;
+            private readonly Dictionary<long, ulong> _hashes = new Dictionary<long, ulong>();
+
+            /// <summary>Есть начатая, но не законченная запись.</summary>
+            public bool InFlight
+            {
+                get
+                {
+                    lock (_sync)
+                    {
+                        return _done < _begun;
+                    }
+                }
+            }
+
+            /// <summary>Хэш состояния, с которым начата запись в такте <paramref name="tick"/>.</summary>
+            public bool TryBeginHash(long tick, out ulong hash)
+            {
+                lock (_sync)
+                {
+                    return _hashes.TryGetValue(tick, out hash);
+                }
+            }
 
             public string Plan => "C-005: поток такта ждёт конца каждой записи";
 
@@ -292,6 +360,7 @@ namespace Orpheus.Tests
                     _beginTick = tick;
                     _begun = number;
                     _begunTick = tick;
+                    _hashes[tick] = hash;
                 }
             }
 

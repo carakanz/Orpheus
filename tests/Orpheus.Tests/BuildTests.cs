@@ -390,6 +390,81 @@ namespace Orpheus.Tests
             Assert.Equal(0, rec.Flags);
         }
 
+        /// <summary>
+        /// C-005 (замечание 2 проверки (П)): идущую починку прерывают — новая починка (прежней «прервано» сразу, новая идёт
+        /// своим чередом), молот убран из рук, смерть. На каждую заявку ровно один ответ; прерванная — сразу (не через 0,5 с
+        /// и не отказом «нужен инструмент»), постройка и сумка не тронуты.
+        /// </summary>
+        [Fact]
+        public void C005_Repair_Interrupted_ByNewRepair_HammerAway_Death_OneReplyEach()
+        {
+            using var rig = new EditTests.EditRig(World(), _ => Spot);
+            NetClient c = Start(rig, Kit((Items.Stone, 12)));
+            var hand = new BuildHand(c);
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            var a = new TileCoord(302, 200);
+            var b = new TileCoord(298, 200);
+            Assert.True(Build(rig, c, hand, ObjectId.StoneWall, a).Ok);
+            Assert.True(Build(rig, c, hand, ObjectId.StoneWall, b).Ok);
+            Assert.True(rig.Sim.DamageBuilding(a, 150));
+            Assert.True(rig.Sim.DamageBuilding(b, 150));
+            rig.Run(BuildDefs.RepairBlockTicks + 3);
+            int stone = rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone);
+            replies.Clear();
+
+            int Of(ushort id) => replies.FindAll(r => r.RequestId == id).Count;
+            EditReply ReplyOf(ushort id) => replies.Find(r => r.RequestId == id).Reply;
+            int Integrity(TileCoord t) => rig.Sim.World.TryGetBuild(t, out BuildRecord r) ? r.Integrity : -1;
+
+            // Новая починка вытесняет прежнюю: прежней — «прервано» сразу, новая доходит до конца.
+            ushort first = c.Repair(a);
+            rig.Run(4);
+            Assert.Empty(replies);
+            ushort second = c.Repair(b);
+            rig.Run(3);
+            Assert.Equal(1, Of(first));
+            Assert.Equal(EditReply.Interrupted, ReplyOf(first));
+            Assert.Equal(0, Of(second));
+            rig.Run(BuildDefs.RepairFrames / 2 + 4);
+            Assert.Equal((1, 1, 2), (Of(first), Of(second), replies.Count));
+            Assert.Equal(EditReply.Accepted, ReplyOf(second));
+            Assert.Equal(150, Integrity(a));
+            Assert.Equal(300, Integrity(b));
+            stone -= BuildDefs.RepairCostOf(2, 150, 300); // списано только за вторую
+            Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
+
+            // Молот убран из рук: «прервано» сразу (не «нужен инструмент» через 0,5 с), стена и сумка не тронуты.
+            ushort third = c.Repair(a);
+            rig.Run(3);
+            rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, 0); // в руки — кирка
+            rig.Run(3);
+            Assert.Equal(1, Of(third));
+            Assert.Equal(EditReply.Interrupted, ReplyOf(third));
+            rig.InputOf = _ => HammerHold;
+            rig.Run(BuildDefs.RepairFrames);
+            Assert.Equal(1, Of(third));
+            Assert.Equal(150, Integrity(a));
+            Assert.Equal(stone, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
+
+            // Смерть во время починки: «прервано» до возрождения, ровно один ответ; стена и сумка не тронуты.
+            rig.Run(Simulation.InvulnRespawnTicks + 2);
+            ushort fourth = c.Repair(a);
+            rig.Run(3);
+            Assert.Equal(0, Of(fourth));
+            rig.Sim.ApplyStrike(c.EntityId, -1, 1000, rig.Sim.GetEntity(c.EntityId).Mover.Position, knockback: false);
+            Assert.False(rig.Sim.GetEntity(c.EntityId).Alive);
+            rig.Run(3);
+            Assert.False(rig.Sim.GetEntity(c.EntityId).Alive);
+            Assert.Equal(1, Of(fourth));
+            Assert.Equal(EditReply.Interrupted, ReplyOf(fourth));
+            rig.Run(Simulation.RespawnDelayTicks + BuildDefs.RepairFrames);
+            Assert.Equal(1, Of(fourth));
+            Assert.Equal(150, Integrity(a));
+            Assert.Equal(stone, Total(rig.Sim, Items.Stone)); // сумка могла выпасть кучей — масса та же
+            Assert.Equal(4, replies.Count);
+        }
+
         // ---------- Сундук ----------
 
         private static BagHand Hand(NetClient c)
