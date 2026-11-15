@@ -35,11 +35,11 @@ namespace Orpheus.Net.Session
         public const string Name = "build_room";
 
         /// <summary>
-        /// Добыть до перехода к стройке: 34 камня (E2-12: 17 рецептов по 2 камня = 34 ячейки тонкой стены) и 42 древесины
-        /// (E2-15: пол 5 × 5 под стенами — 25 рецептов по 4 ячейки + дверь 6 + 11 припас).
+        /// Добыть до перехода к стройке: 34 камня (E2-12: 17 рецептов по 2 камня = 34 ячейки тонкой стены) и 34 древесины
+        /// (E2-15: пол 5 × 5 под стенами — 25 рецептов по 4 ячейки + дверь 6 + 3 припаса; деревьев в радиусе 32 у старта — 13, 39 древесины).
         /// </summary>
         public const int TargetStone = 34;
-        public const int TargetWood = 42;
+        public const int TargetWood = 34;
 
         /// <summary>Сторона комнаты (тайлов): периметр стен, внутри пол 3 × 3.</summary>
         public const int RoomSize = 5;
@@ -616,7 +616,7 @@ namespace Orpheus.Net.Session
 
             // E2-15: ряд пола — вся ширина площадки (под будущими стенами тоже), заявка — прямоугольник ячеек ряда тайлов.
             int h = RoomSize / 2;
-            int y = _center.Y - h + _floorRow % RoomSize;
+            int y = _center.Y - h + FirstOpenFloorRow(world);
             var from = Torus.Wrap(_shape, new TileCoord(_center.X - h, y));
             var to = Torus.Wrap(_shape, new TileCoord(_center.X + h, y));
             if (!PlaceArmed(BuildDefs.WoodFloorKey, from))
@@ -639,6 +639,25 @@ namespace Orpheus.Net.Session
             }
 
             return HammerFrame(client);
+        }
+
+        // Первый ряд площадки (0…RoomSize − 1), где пол лежит не целиком (E2-15: ряд с готовыми тайлами отвечал бы «занято»).
+        private int FirstOpenFloorRow(ClientWorld world)
+        {
+            int h = RoomSize / 2;
+            for (int dy = -h; dy <= h; dy++)
+            {
+                for (int dx = -h; dx <= h; dx++)
+                {
+                    var t = Torus.Wrap(_shape, new TileCoord(_center.X + dx, _center.Y + dy));
+                    if (world.World.GetFloor(t) != FloorId.WoodFloor || BuildLayers.FloorCellsAt(world.World, t) != BuildCells.Full)
+                    {
+                        return dy + h;
+                    }
+                }
+            }
+
+            return _floorRow % RoomSize;
         }
 
         private void CountFloors(ClientWorld world)

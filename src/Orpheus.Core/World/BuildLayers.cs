@@ -110,6 +110,25 @@ namespace Orpheus.Core.World
             return n;
         }
 
+        /// <summary>
+        /// СЗ ячейка мебели 2 × 2 под точкой <paramref name="p"/> (курсор, E2-15): центр мебели — ближний к точке узел сетки 0,5,
+        /// СЗ ячейка — на одну ячейку к северо-западу от узла (координаты ячеек, свёрнуты в карту ячеек).
+        /// </summary>
+        public static TileCoord FurnitureCellAt(in MapShape map, WorldPos p)
+        {
+            WorldPos w = Torus.Wrap(map, p);
+            int cx = (w.X + BuildCells.CellUnits / 2) / BuildCells.CellUnits - 1;
+            int cy = (w.Y + BuildCells.CellUnits / 2) / BuildCells.CellUnits - 1;
+            MapShape cells = BuildCells.CellShape(map);
+            if (!cells.Wraps)
+            {
+                cx = Math.Max(0, Math.Min(cells.Width - FurnitureCells, cx));
+                cy = Math.Max(0, Math.Min(cells.Height - FurnitureCells, cy));
+            }
+
+            return Torus.Wrap(cells, new TileCoord(cx, cy));
+        }
+
         /// <summary>Центр мебели (или верха без сдвига — центр тайла) в единицах мира: центр якоря + сдвиг × 0,5 тайла.</summary>
         public static WorldPos CenterOf(TileCoord anchor, bool hasRecord, in BuildRecord rec)
         {

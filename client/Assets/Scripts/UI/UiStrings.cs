@@ -281,10 +281,22 @@ namespace Orpheus.Client.UI
         public static string RulerNote(Orpheus.Net.Session.RulerKind kind, int cells, int w, int h, int need, int have)
         {
             string size = kind == Orpheus.Net.Session.RulerKind.Rect
-                ? $"{w} × {h} = {w * h} м²"
+                ? $"{Half(w)} × {Half(h)} = {Quarter(w * h)} м²" // E2-15: стороны в ячейках 0,5
                 : $"длина {cells / 2}{(cells % 2 == 1 ? ",5" : string.Empty)} м";
             return $"{size} · нужно {need}, есть {have} · ПКМ / Esc — отмена";
         }
+
+        // Ячейки 0,5 → метры: 3 → «1,5».
+        static string Half(int cells) => $"{cells / 2}{(cells % 2 == 1 ? ",5" : string.Empty)}";
+
+        // Ячейки 0,5 × 0,5 → м²: 6 → «1,5», 1 → «0,25».
+        static string Quarter(int cells) => (cells % 4) switch
+        {
+            0 => $"{cells / 4}",
+            1 => $"{cells / 4},25",
+            2 => $"{cells / 4},5",
+            _ => $"{cells / 4},75",
+        };
 
         /// <summary>Прочность постройки под курсором.</summary>
         public static string Integrity(int cur, int max) => $"Прочность {cur} / {max}";

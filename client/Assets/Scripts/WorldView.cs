@@ -60,6 +60,11 @@ namespace Orpheus.Client
             public Tilemap Floor = null!;
             public Tilemap Objects = null!;
 
+            /// <summary>E2-15: пол частью тайла — плитки-четверти на сетке 0,5 (<see cref="FloorCellsLook"/>) и что на ней сейчас.</summary>
+            public Tilemap FloorCells = null!;
+            public readonly byte[] FloorMasks = new byte[Size * Size];
+            public readonly byte[] FloorMaskFloors = new byte[Size * Size];
+
             /// <summary>Меш земли чанка (E1-4).</summary>
             public Mesh Ground = null!;
 
@@ -380,6 +385,7 @@ namespace Orpheus.Client
             {
                 Root = root,
                 Floor = AddTilemap(root.transform, "Floor", FloorOrder, TilemapRenderer.Mode.Chunk),
+                FloorCells = FloorCellsLook.Create(root.transform, FloorOrder),
                 // Объекты сортируются по одному с персонажем по оси Y (перспектива с наклоном, 00 5.1).
                 Objects = AddTilemap(root.transform, "Objects", ObjectOrder, TilemapRenderer.Mode.Individual),
                 Ground = GroundMesh.Create(),
@@ -667,7 +673,9 @@ namespace Orpheus.Client
                     int index = Chunk.IndexOf(lx, ly);
                     byte floor = chunk == null ? FloorId.Grass : chunk.GetFloor(index);
                     ushort obj = chunk == null ? ObjectId.Empty : chunk.GetObject(index);
-                    TileBase? floorTile = FloorTile(floor);
+                    byte part = FloorCellsLook.PartialMask(chunk, index, floor); // E2-15: пол частью тайла — четвертями
+                    FloorCellsLook.Sync(node.FloorCells, node.FloorMasks, node.FloorMaskFloors, lx, ly, floor, part);
+                    TileBase? floorTile = part != 0 ? null : FloorTile(floor);
                     built |= floorTile != null;
                     _floorBuf[row + lx] = floorTile;
                     if (objs[index] != obj)

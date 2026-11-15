@@ -17,7 +17,7 @@ namespace Orpheus.Client
     /// <item>В <see cref="JunctionDx"/> тайлах к востоку (сцена «стык»): шесть видов земли клиньями вокруг пруда.</item>
     /// </list>
     /// </summary>
-    public static class PaintDemo
+    public static partial class PaintDemo
     {
         /// <summary>Центр озера от старта, тайлов.</summary>
         public const int LakeDx = -13, LakeDy = -2;
@@ -274,6 +274,12 @@ namespace Orpheus.Client
             if (mode == "thin")
             {
                 ThinHouse(world, map, cx, cy);
+                return;
+            }
+
+            if (mode == "half")
+            {
+                HalfHouse(world, map, cx, cy); // E2-15: пол до самых стен, мебель вплотную к стенам (PaintDemo.Half.cs)
                 return;
             }
 
