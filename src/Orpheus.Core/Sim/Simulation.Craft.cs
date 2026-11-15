@@ -8,11 +8,12 @@ namespace Orpheus.Core.Sim
     /// E2-3 (шаг 2.3): крафт руками и у станков. Рецепты — данные (<see cref="RecipeTable"/>).
     /// <para>
     /// Заявка «изготовить рецепт × N» встаёт в очередь такта вместе с заявками на сумку (порядок — по приходу) и
-    /// исполняется фазой предметов: проверки → ингредиенты всех принятых изготовлений снимаются из сумки → позиция в
+    /// исполняется фазой предметов: проверки → ингредиенты всех принятых изготовлений снимаются из сумки и сундуков рядом → позиция в
     /// очереди изготовления персонажа (<see cref="CraftQueue"/>). Дальше каждый такт первая позиция продвигается, пока
     /// персонаж жив и рядом нужный станок (ручные рецепты — всегда); готовое кладётся в сумку, не влезшее — кучей у ног.
     /// Отмена возвращает ингредиенты оставшихся изготовлений в сумку (не влезшее — кучей); смерть сбрасывает очередь
-    /// и кладёт ингредиенты кучей у тела. Масса сохраняется: ингредиенты до = результат + возврат.
+    /// и тоже возвращает ингредиенты в сумку (E2-10; не влезшее — кучей у тела). Ингредиенты берутся и из сундуков рядом —
+    /// <c>Simulation.CraftChests.cs</c>. Масса сохраняется: ингредиенты до = результат + возврат.
     /// </para>
     /// <para>Детерминизм (11.5): сущности — по списку, станок ищется обходом тайлов в фиксированном порядке, без дробей.</para>
     /// </summary>
@@ -201,7 +202,7 @@ namespace Orpheus.Core.Sim
                 return station;
             }
 
-            int can = Affordable(in e.Inv, in def);
+            int can = AffordableNear(slot, in def); // E2-10: сумка + сундуки рядом
             if (can == 0)
             {
                 return CraftReply.NoIngredients;
@@ -235,11 +236,7 @@ namespace Orpheus.Core.Sim
 
             ref SimEntity e = ref _entities[slot];
             ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
-            for (int i = 0; i < def.IngredientCount; i++)
-            {
-                e.Inv.Remove(def.IngredientItem(i), def.IngredientCountOf(i) * units); // хватает: units ≤ Affordable
-            }
-
+            TakeIngredients(slot, in def, units); // хватает: units ≤ AffordableNear; сумка, потом сундуки рядом (E2-10)
             e.Craft.Push(def.Id, units);
             AddEvent(new SimEvent(SimEventKind.CraftQueued, tick, default, 0, EditResult.Applied, 0,
                 requester: e.Id, victim: recipe, damage: units));
@@ -302,7 +299,7 @@ namespace Orpheus.Core.Sim
 
                 if (!_entities[i].Alive)
                 {
-                    RefundAll(tick, i, toBag: false, forever: true); // смерть: очередь сброшена, ингредиенты — кучей у тела (не исчезает: «потерь при смерти в срезе нет», `06` 10)
+                    RefundAll(tick, i, toBag: true, forever: true); // смерть: очередь сброшена, ингредиенты — в сумку (E2-10), не влезшее — кучей у тела, не исчезает («потерь при смерти в срезе нет», `06` 10)
                     continue;
                 }
 

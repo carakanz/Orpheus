@@ -58,6 +58,9 @@ namespace Orpheus.Client.UI
         public int Progress;
         public WorldModel? World;
         public WorldPos Position;
+
+        /// <summary>E2-10: сводка сервера «сундуки рядом» (<c>NetClient.NearbyStock</c>) — «есть» с учётом сундуков; null — только сумка.</summary>
+        public ChestStock? Stock;
     }
 
     /// <summary>Окно сумки (E2-2): 8 × 5 ячеек, верхняя строка — быстрая панель (ячейки 0…7), ниже — ячейки 8…39.</summary>
@@ -379,7 +382,7 @@ namespace Orpheus.Client.UI
                 for (int r = 1; r < _lines.Length; r++)
                 {
                     _lines[r] = craft.World != null
-                        ? CraftDesk.LineOf(r, bag, craft.Queue, craft.World, craft.Position, !dead)
+                        ? CraftDesk.LineOf(r, bag, craft.Queue, craft.World, craft.Position, !dead, craft.Stock)
                         : new CraftLine((byte)r, CraftReply.NoStation, 0);
                 }
 
@@ -463,6 +466,7 @@ namespace Orpheus.Client.UI
 
             if (CraftOpen)
             {
+                _craft.Stock = craft.Stock; // E2-10: «есть» карточки — сумка + сундуки рядом
                 _craft.Show(_lines, bag, craft.Queue, craft.Running, craft.Progress, dead, hit, _message);
             }
 
@@ -488,7 +492,7 @@ namespace Orpheus.Client.UI
             }
             else if (hit.Part == CraftPart.Cell && CraftOpen)
             {
-                tip = RecipeTip(_craft.RecipeInCell(hit.Index), bag);
+                tip = RecipeTip(_craft.RecipeInCell(hit.Index), bag, craft.Stock);
             }
 
             _tip.Show(tip, size, p);
@@ -505,16 +509,10 @@ namespace Orpheus.Client.UI
         }
 
         // Подсказка значка рецепта: название, «есть / нужно» (те же числа, что в карточке), станок, что мешает.
-        string? RecipeTip(int recipe, in Inventory bag)
+        string? RecipeTip(int recipe, in Inventory bag, ChestStock? stock)
         {
-            if (recipe == 0)
-            {
-                return null;
-            }
-
-            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
-            return UiStrings.RecipeTip(recipe, _lines[recipe], bag.Count(def.IngredientItem(0)),
-                def.IngredientCount > 1 ? bag.Count(def.IngredientItem(1)) : 0, def.IngredientCount > 2 ? bag.Count(def.IngredientItem(2)) : 0);
+            return recipe == 0 ? null : UiStrings.RecipeTip(recipe, _lines[recipe], CraftDesk.Have(recipe, 0, bag, stock),
+                CraftDesk.Have(recipe, 1, bag, stock), CraftDesk.Have(recipe, 2, bag, stock));
         }
 
         // Щелчок по окну изготовления: раздел, подраздел, галочка, значок рецепта, полоса прокрутки, кнопка «сделать»,
@@ -722,7 +720,7 @@ namespace Orpheus.Client.UI
         }
 
         /// <summary>Сцена с окном крафта (нужен верстак рядом с персонажем).</summary>
-        public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint" || IsInv(mode);
+        public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint" || mode == "craft-chest" || IsInv(mode);
 
         /// <summary>Сцены окна «сумка + изготовление» (E2-9).</summary>
         public static bool IsInv(string? mode) => mode == "inv" || mode == "inv-weapons" || mode == "inv-buildings";
@@ -804,6 +802,11 @@ namespace Orpheus.Client.UI
             }
 
             var craft = new UiCraftState { Queue = _queue, Running = !_queue.IsEmpty, Progress = 9, World = _world, Position = position };
+            if (_mode == "craft-chest")
+            {
+                craft.Stock = DemoStock(); // E2-10: «в сундуке рядом» — 12 слитков и 20 древесины у верстака
+            }
+
             _ui.Frame(input, _bag, selected: 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100, craft);
         }
 
@@ -829,6 +832,20 @@ namespace Orpheus.Client.UI
             (5, CraftPart.Section, 0), (99, CraftPart.Section, 0),
         };
 
+        // craft-chest (E2-10): C → Инструменты → Кирки → медная кирка: слитков в сумке 5, ещё 12 в сундуке рядом.
+        static readonly (int Frame, CraftPart Part, int Index)[] ChestSteps =
+        {
+            (5, CraftPart.Section, 2), (8, CraftPart.Sub, 0), (11, CraftPart.Cell, 1), (99, CraftPart.Button, 0),
+        };
+
+        static ChestStock DemoStock()
+        {
+            var stock = new ChestStock();
+            stock.Set(CraftStation.Workbench, Items.CopperIngot, 12);
+            stock.Set(CraftStation.Workbench, Items.Wood, 20);
+            return stock;
+        }
+
         void CraftScript(ref UiInput input)
         {
             int f = _frame;
@@ -839,7 +856,7 @@ namespace Orpheus.Client.UI
             }
 
             // Открыть: inv и прежние craft — клавишей C, остальные — Tab (то же окно).
-            bool byC = _mode == "inv" || _mode == "craft" || _mode == "craft+bag";
+            bool byC = _mode == "inv" || _mode == "craft" || _mode == "craft+bag" || _mode == "craft-chest";
             input.Craft = byC && f == 2;
             input.Toggle = !byC && f == 2;
             if (f < 4)
@@ -848,7 +865,7 @@ namespace Orpheus.Client.UI
                 return;
             }
 
-            var steps = _mode == "inv-weapons" ? WeaponSteps : _mode == "inv-buildings" ? BuildingSteps : InvSteps;
+            var steps = _mode == "inv-weapons" ? WeaponSteps : _mode == "inv-buildings" ? BuildingSteps : _mode == "craft-chest" ? ChestSteps : InvSteps;
             int k = 0;
             while (k < steps.Length - 1 && f > steps[k].Frame)
             {

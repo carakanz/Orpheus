@@ -17,6 +17,15 @@ namespace Orpheus.Core.Sim
         /// <summary>Дальше радиуса станок ищется ещё до 8 тайлов — чтобы отличить «слишком далеко» от «станка нет».</summary>
         public const int SearchTiles = 8;
 
+        /// <summary>
+        /// E2-10: ингредиенты берутся и из сундуков не дальше 6 тайлов (<c>06</c> 3.5: «из сундуков в 6 тайлах от станка»)
+        /// от центра тайла станка до центра тайла сундука; у рецептов «руками» — от центра персонажа. Тор — через шов.
+        /// </summary>
+        public const int ChestRadiusTiles = 6;
+
+        /// <summary><see cref="ChestRadiusTiles"/> в unit.</summary>
+        public const int ChestRadiusUnits = ChestRadiusTiles * Torus.SubTilesPerTile;
+
         /// <summary>На сколько изготовлений хватает ингредиентов в сумке (по всем ячейкам).</summary>
         public static int Affordable(in Inventory inv, in RecipeDef def)
         {
@@ -27,6 +36,72 @@ namespace Orpheus.Core.Sim
             }
 
             return can == int.MaxValue ? 0 : can;
+        }
+
+        /// <summary>
+        /// E2-10: на сколько изготовлений хватает ингредиентов в сумке и в сундуках рядом (сводка сервера
+        /// <paramref name="stock"/> для станка рецепта; null — только сумка).
+        /// </summary>
+        public static int Affordable(in Inventory inv, in RecipeDef def, ChestStock? stock)
+        {
+            int can = int.MaxValue;
+            for (int i = 0; i < def.IngredientCount; i++)
+            {
+                byte item = def.IngredientItem(i);
+                int have = inv.Count(item) + (stock?.Count(def.Station, item) ?? 0);
+                can = Math.Min(can, have / def.IngredientCountOf(i));
+            }
+
+            return can == int.MaxValue ? 0 : can;
+        }
+
+        /// <summary>
+        /// E2-10: откуда считаются сундуки рядом для рецептов станка <paramref name="station"/>: «руки» — позиция персонажа;
+        /// станок — центр тайла ближайшего станка этого вида в радиусе крафта (равные — первый в обходе строками сверху вниз,
+        /// слева направо). Станка в радиусе нет — false.
+        /// </summary>
+        public static bool SourceCenter(WorldModel world, WorldPos pos, CraftStation station, out WorldPos center)
+        {
+            center = pos;
+            ushort want = RecipeTable.ObjectOf(station);
+            if (want == ObjectId.Empty)
+            {
+                return true;
+            }
+
+            MapShape shape = world.Shape;
+            TileCoord c0 = Torus.TileOf(shape, pos);
+            long best = (long)RadiusUnits * RadiusUnits + 1;
+            const int R = (RadiusUnits / Torus.SubTilesPerTile) + 1;
+            for (int dy = -R; dy <= R; dy++)
+            {
+                for (int dx = -R; dx <= R; dx++)
+                {
+                    var t = new TileCoord(c0.X + dx, c0.Y + dy);
+                    if (!shape.Wraps && ((uint)t.X >= (uint)shape.Width || (uint)t.Y >= (uint)shape.Height))
+                    {
+                        continue;
+                    }
+
+                    t = Torus.Wrap(shape, t);
+                    ushort raw = world.GetObject(t);
+                    if (raw == ObjectId.Empty || ObjectId.IsPart(raw) || ObjectId.IdOf(raw) != want)
+                    {
+                        continue;
+                    }
+
+                    WorldPos corner = Torus.CornerOf(t);
+                    var mid = new WorldPos(corner.X + Torus.SubTilesPerTile / 2, corner.Y + Torus.SubTilesPerTile / 2);
+                    long d2 = Torus.Dist2(shape, pos, mid);
+                    if (d2 < best)
+                    {
+                        best = d2;
+                        center = mid;
+                    }
+                }
+            }
+
+            return best <= (long)RadiusUnits * RadiusUnits;
         }
 
         /// <summary>

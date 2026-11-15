@@ -537,6 +537,10 @@ namespace Orpheus.Net.Session
                     case MessageType.CraftState when State == NetClientState.InGame:
                         OnCraftState(CraftStateMessage.Read(data)); // E2-3
                         break;
+                    case MessageType.NearbyStock when State == NetClientState.InGame:
+                        NearbyStockMessage.Read(data, NearbyStock); // E2-10: сундуки рядом
+                        NearbyStockSeen++;
+                        break;
                     case MessageType.UseReply when State == NetClientState.InGame:
                         OnUseReply(UseReplyMessage.Read(data)); // E2-5
                         break;
