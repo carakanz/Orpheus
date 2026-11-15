@@ -65,19 +65,19 @@ namespace Orpheus.Client.UI
     }
 
     /// <summary>
-    /// Окно сумки (E2-2 → C-008, как в Terraria): в левом верхнем углу сетка 8 × 4 полупрозрачных ячеек (8…39) без
-    /// подложки-окна, сверху мелкая подпись, снизу одна строка клавиш. Быстрая панель (ячейки 0…7) — внизу экрана между
-    /// сферами, при открытой сумке она и есть верхний ряд сумки (ЛКМ / ПКМ / Shift / Ctrl по ней — те же заявки), поэтому
+    /// Окно сумки (E2-2 → C-008 → C-015, как в Terraria): в левом верхнем углу сразу под быстрой панелью сетка 8 × 4
+    /// полупрозрачных ячеек (8…39) без подложки-окна, под ней одна строка «Сумка (Q)» и клавиши. Быстрая панель (ячейки
+    /// 0…7) — над сеткой (<see cref="HotbarView"/>), при открытой сумке она и есть верхний ряд сумки (ЛКМ / ПКМ / Shift / Ctrl по ней — те же заявки), поэтому
     /// здесь не дублируется (решение C-008 по слову Автора о нижней панели).
     /// </summary>
     public sealed class BagWindow : UiGroup
     {
-        public const float TitleH = 26f, HintH = 24f, Gap = 4f;
+        public const float HintH = 24f, Gap = 4f;
         public static readonly float GridW = UiSlotGrid.WidthOf(Inventory.Slots);
         static readonly int Rows = (Inventory.Cells - Inventory.Slots) / Inventory.Slots;
         public static readonly float GridH = UiSlotGrid.WidthOf(Rows);
         public static readonly float Width = GridW;
-        public static readonly float Height = HintH + Gap + GridH + Gap + TitleH;
+        public static readonly float Height = HintH + Gap + GridH;
         static readonly float GridY = HintH + Gap;
 
         readonly UiSlotGrid _main;
@@ -85,13 +85,11 @@ namespace Orpheus.Client.UI
         bool _dead;
 
         public BagWindow(UiRoot root)
-            : base(root, "Bag", new Vector2(0f, 1f), new Vector2(20f, -20f - Height), new Vector2(Width, Height))
+            : base(root, "Bag", new Vector2(0f, 1f), new Vector2(HudLayout.Margin, -HudLayout.BagTop - Height), new Vector2(Width, Height))
         {
             _main = new UiSlotGrid(Rt, 0f, GridY, Inventory.Slots, Rows, Inventory.Slots, UiCellLook.Glass);
-            UiRoot.Label(Rt, "Title", 2f, Height - TitleH, Width, TitleH, 20, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true, bold: true)
-                .text = UiStrings.BagTitleKeys;
-            _hint = UiRoot.Label(Rt, "Hint", 2f, 0f, Width + 120f, HintH, 18, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true);
-            _hint.text = UiStrings.BagHintShort;
+            _hint = UiRoot.Label(Rt, "Hint", 2f, 0f, Width + 160f, HintH, 18, TextAnchor.MiddleLeft, UiStyle.TextLight, outline: true);
+            _hint.text = HintText(false);
             Visible = false;
         }
 
@@ -123,9 +121,12 @@ namespace Orpheus.Client.UI
             if (dead != _dead)
             {
                 _dead = dead;
-                _hint.text = dead ? UiStrings.BagDead : UiStrings.BagHintShort;
+                _hint.text = HintText(dead);
             }
         }
+
+        // C-015: подписи над сеткой нет (там быстрая панель) — «Сумка (Q)» идёт началом строки клавиш.
+        static string HintText(bool dead) => UiStrings.BagTitleKeys + "    " + (dead ? UiStrings.BagDead : UiStrings.BagHintShort);
     }
 
     /// <summary>
@@ -139,6 +140,7 @@ namespace Orpheus.Client.UI
     {
         readonly UiRoot _root;
         readonly BottomBar _bar;
+        readonly HotbarView _hotbar;
         readonly BagWindow _bag;
         readonly MiniMapView _map;
         readonly CraftWindow _craft;
@@ -171,11 +173,12 @@ namespace Orpheus.Client.UI
             _hand = new BagHand(requests);
             _desk = new CraftDesk(craft);
 
-            _bar = new BottomBar(_root); // C-008: сферы и быстрая панель внизу по центру
+            _bar = new BottomBar(_root); // C-015: внизу по центру — сферы и способности между ними
+            _hotbar = new HotbarView(_root); // C-015: быстрая панель — левый верхний угол
 
-            // Подсказка «рядом станок» / «F — сундук» — над правым краем панели (E2-4).
+            // Подсказка «рядом станок» / «F — сундук» — над правым краем нижней панели (E2-4).
             const float hintW = 190f, hintH = 34f;
-            _stationHint = new UiGroup(_root, "StationHint", new Vector2(0.5f, 0f), new Vector2(BottomBar.PanelW / 2f - hintW, BarTop + 6f), new Vector2(hintW, hintH));
+            _stationHint = new UiGroup(_root, "StationHint", new Vector2(0.5f, 0f), new Vector2(BottomBar.Width / 2f - hintW, BarTop + 6f), new Vector2(hintW, hintH));
             UiRoot.Picture(_stationHint.Rt, "Back", 0f, 0f, hintW, hintH, UiStyle.Frame(UiStyle.GlassPanel, UiStyle.Gold, thick: 2f, radius: 6f));
             _stationHintText = UiRoot.Label(_stationHint.Rt, "Text", 0f, 0f, hintW, hintH, 20, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _stationHint.Visible = false;
@@ -235,9 +238,9 @@ namespace Orpheus.Client.UI
         /// <summary>Станок, у которого стоит персонаж (подсказка у панели); нет — <see cref="CraftStation.None"/>.</summary>
         public CraftStation NearStation => _near;
 
-        /// <summary>Середина ячейки на холсте: 0…7 — на нижней панели, 8…39 — в сумке (скрипт стенда снимков).</summary>
+        /// <summary>Середина ячейки на холсте: 0…7 — на быстрой панели, 8…39 — в сумке (скрипт стенда снимков).</summary>
         public Vector2 CellCenter(int cell) => cell < Inventory.Slots
-            ? _bar.Origin(_root.Size) + _bar.CellCenter(cell)
+            ? _hotbar.Origin(_root.Size) + _hotbar.CellCenter(cell)
             : _bag.Origin(_root.Size) + _bag.CellCenter(cell);
 
         /// <summary>Середина части окна крафта на холсте (скрипт стенда снимков).</summary>
@@ -360,6 +363,7 @@ namespace Orpheus.Client.UI
             Vector2 size = _root.Size, p = input.Pointer;
             _pointer.Clear();
             _bar.AddZones(_pointer, size);
+            _hotbar.AddZones(_pointer, size);
             _bag.AddZones(_pointer, size);
             _chest.AddZones(_pointer, size);
             _craft.AddZones(_pointer, size);
@@ -377,11 +381,10 @@ namespace Orpheus.Client.UI
             OverWindow = false;
             if (input.HasPointer)
             {
-                Vector2 barLocal = _bar.Local(size, p);
-                cell = _bar.CellAt(barLocal);
+                cell = _hotbar.CellAt(_hotbar.Local(size, p));
                 if (cell < 0)
                 {
-                    barPart = overUi ? _bar.PartAt(barLocal) : BottomBar.Part.None;
+                    barPart = overUi ? _bar.PartAt(_bar.Local(size, p)) : BottomBar.Part.None;
                 }
 
                 if (cell < 0 && _bag.Covers(_bag.Local(size, p)))
@@ -503,11 +506,11 @@ namespace Orpheus.Client.UI
             // Показ.
             for (int i = 0; i < Inventory.Slots; i++)
             {
-                _bar.Grid.Set(i, bag.ItemAt(i), _hand.ShownCount(i));
+                _hotbar.Grid.Set(i, bag.ItemAt(i), _hand.ShownCount(i));
             }
 
-            _bar.Grid.Select(selected);
-            _bar.Grid.Hover(cell >= 0 && cell < Inventory.Slots ? cell : -1);
+            _hotbar.Grid.Select(selected);
+            _hotbar.Grid.Hover(cell >= 0 && cell < Inventory.Slots ? cell : -1);
             if (BagOpen)
             {
                 _bag.Show(bag, _hand, cell, dead);
@@ -709,10 +712,11 @@ namespace Orpheus.Client.UI
             }
         }
 
-        // C-008: сумка — левый верхний угол, сундук — под ней, изготовление — левый нижний угол; места постоянные.
+        // C-015: быстрая панель и под ней сумка — левый верхний угол; сундук — справа от сумки (верх сетки вровень с сеткой
+        // сумки, заголовок — на уровне быстрой панели); изготовление — левый нижний угол (не доходит до сумки и сферы).
         void Layout()
         {
-            _chest.Offset = new Vector2(20f, -20f - BagWindow.Height - 14f - ChestWindow.Height);
+            _chest.Offset = new Vector2(HudLayout.Margin + BagWindow.Width + 24f, -HudLayout.BagTop - ChestWindow.GridHeight);
         }
 
         void SetOpen(bool open)

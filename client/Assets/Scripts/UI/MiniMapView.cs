@@ -32,8 +32,7 @@ namespace Orpheus.Client.UI
         readonly Color32[] _colors = new Color32[Pixels * Pixels];
         readonly RectTransform _body;
         readonly Text _collapsed;
-        readonly Image[] _marks = new Image[MaxMarks];
-        readonly Sprite _dot;
+        readonly UiShape[] _marks = new UiShape[MaxMarks];
         int _zoom = 1;
         int _row = Pixels;
         float _next;
@@ -56,16 +55,16 @@ namespace Orpheus.Client.UI
             map.raycastTarget = false;
             map.color = new Color(1f, 1f, 1f, 0.88f);
 
-            _dot = UiStyle.Round(0, new Color32(255, 255, 255, 255));
+            // C-015: точки — круги шейдером (UiShape), край в 1 пиксель на любом разрешении.
             for (int i = 0; i < _marks.Length; i++)
             {
-                _marks[i] = UiRoot.Picture(_body, "Mark", 0f, 0f, 9f, 9f, _dot, sliced: false);
+                _marks[i] = UiShape.Create(_body, "Mark", 0f, 0f, 9f, 9f, UiShape.Shape.Disc, new Color32(255, 255, 255, 255));
                 _marks[i].enabled = false;
             }
 
             // Персонаж — золотая точка с тёмной каймой в центре (поверх остальных).
-            UiRoot.Picture(_body, "SelfRing", Size / 2f - 8f, Size / 2f - 8f, 16f, 16f, UiStyle.Round(0, UiStyle.Ink), sliced: false);
-            UiRoot.Picture(_body, "Self", Size / 2f - 6f, Size / 2f - 6f, 12f, 12f, UiStyle.Round(0, UiStyle.Gold), sliced: false);
+            UiShape.Create(_body, "SelfRing", Size / 2f - 8f, Size / 2f - 8f, 16f, 16f, UiShape.Shape.Disc, UiStyle.Ink);
+            UiShape.Create(_body, "Self", Size / 2f - 6f, Size / 2f - 6f, 12f, 12f, UiShape.Shape.Disc, UiStyle.Gold);
             UiRoot.Label(_body, "North", Size / 2f - 10f, Size - 26f, 20f, 22f, 18, TextAnchor.MiddleCenter, UiStyle.TextLight, outline: true, bold: true).text = "С";
 
             _collapsed = UiRoot.Label(Rt, "Collapsed", 0f, Size - 26f, Size - 4f, 24f, 18, TextAnchor.MiddleRight, UiStyle.TextLight, outline: true, bold: true);
@@ -143,7 +142,7 @@ namespace Orpheus.Client.UI
                         continue;
                     }
 
-                    Image m = _marks[used++];
+                    UiShape m = _marks[used++];
                     m.enabled = true;
                     m.color = enemy ? new Color32(255, 60, 50, 255) : new Color32(90, 200, 255, 255);
                     m.rectTransform.anchoredPosition = new Vector2(Border + (x + 1f) * Side / 2f - 4.5f, Border + (y + 1f) * Side / 2f - 4.5f);

@@ -7,7 +7,8 @@ namespace Orpheus.Client.UI
     /// <summary>
     /// Стиль интерфейса (E2-2): тёмный контур, плоская заливка тёплых тонов (пергамент, охра), без градиентов.
     /// Рамки и ячейки — картинки, нарисованные кодом при запуске (скруглённый прямоугольник с контуром, 9 срезов);
-    /// файлов-заглушек у интерфейса нет. Размеры — в единицах холста (эталон 1080 по высоте, <see cref="UiRoot"/>).
+    /// круглые части (сферы, замок, точки карты) — шейдером на GPU (<see cref="UiShape"/>, C-015); файлов-заглушек у
+    /// интерфейса нет. Размеры — в единицах холста (эталон 1080 по высоте, <see cref="UiRoot"/>).
     /// </summary>
     public static class UiStyle
     {
@@ -63,8 +64,13 @@ namespace Orpheus.Client.UI
         public static readonly Color32 OrbHealth = new Color32(226, 34, 46, 255);
         public static readonly Color32 OrbStamina = new Color32(156, 214, 44, 255);
 
-        const int TexSize = 32;
-        const int Slice = 12;
+        // C-015: рамка рисуется в 4 раза крупнее своего размера на холсте (32 единицы → 128 пикселей текстуры) с мип-уровнями
+        // и трилинейной фильтрацией: на 4K (2 пикселя на единицу) текстура не растягивается, на 1080p и 1440p — честно
+        // уменьшается по мип-уровням. Раньше 32 пикселя растягивались ×2 на 4K — контур ячеек и окон «мылился».
+        const int Super = 4;
+        const int TexSize = 32 * Super;
+        const int Slice = 12 * Super;
+        const float AaTexels = Super / 2f; // сглаживание края — пиксель экрана 4K (на 1080p мип-уровень сводит его в 1 пиксель)
 
         static readonly Dictionary<long, Sprite> _frames = new Dictionary<long, Sprite>();
         static Font? _font;
@@ -110,14 +116,16 @@ namespace Orpheus.Client.UI
                 return s;
             }
 
-            var tex = new Texture2D(TexSize, TexSize, TextureFormat.RGBA32, false)
+            var tex = new Texture2D(TexSize, TexSize, TextureFormat.RGBA32, true)
             {
-                filterMode = FilterMode.Bilinear,
+                filterMode = FilterMode.Trilinear,
                 wrapMode = TextureWrapMode.Clamp,
                 hideFlags = HideFlags.HideAndDontSave,
             };
             var px = new Color32[TexSize * TexSize];
             float half = TexSize / 2f;
+            radius *= Super;
+            thick *= Super;
             for (int y = 0; y < TexSize; y++)
             {
                 for (int x = 0; x < TexSize; x++)
@@ -126,8 +134,8 @@ namespace Orpheus.Client.UI
                     float qx = Mathf.Abs(x + 0.5f - half) - (half - radius);
                     float qy = Mathf.Abs(y + 0.5f - half) - (half - radius);
                     float d = Mathf.Min(Mathf.Max(qx, qy), 0f) + new Vector2(Mathf.Max(qx, 0f), Mathf.Max(qy, 0f)).magnitude - radius;
-                    float outside = Mathf.Clamp01(d + 0.5f);             // 1 — снаружи
-                    float inner = Mathf.Clamp01(-d - thick + 0.5f);      // 1 — заливка
+                    float outside = Mathf.Clamp01(d / AaTexels + 0.5f);           // 1 — снаружи; край — 1 пиксель на 4K
+                    float inner = Mathf.Clamp01((-d - thick) / AaTexels + 0.5f);  // 1 — заливка
                     Color c = Color.Lerp((Color)border, (Color)fill, inner);
                     if (fill.a == 0)
                     {
@@ -141,92 +149,12 @@ namespace Orpheus.Client.UI
             }
 
             tex.SetPixels32(px);
-            tex.Apply(false, true);
-            s = Sprite.Create(tex, new Rect(0, 0, TexSize, TexSize), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect,
+            tex.Apply(true, true);
+            // 100 × Super пикселей на единицу: срез 48 пикселей = 12 единиц холста, как раньше.
+            s = Sprite.Create(tex, new Rect(0, 0, TexSize, TexSize), new Vector2(0.5f, 0.5f), 100f * Super, 0, SpriteMeshType.FullRect,
                 new Vector4(Slice, Slice, Slice, Slice));
             s.hideFlags = HideFlags.HideAndDontSave;
             _frames[key] = s;
-            return s;
-        }
-
-        static readonly Dictionary<long, Sprite> _round = new Dictionary<long, Sprite>();
-
-        /// <summary>
-        /// C-008: круглые картинки кодом (128 × 128): 0 — «жидкость» сферы цвета <paramref name="c"/> (светлее в середине,
-        /// темнее к краю и книзу); 1 — подложка сферы (тёмное стекло, золотое кольцо); 2 — блик (белый овал сверху слева);
-        /// 3 — замок (закрытый слот способности). Файлов-заглушек нет.
-        /// </summary>
-        public static Sprite Round(int kind, Color32 c)
-        {
-            long key = ((long)kind << 32) ^ Pack(c);
-            if (_round.TryGetValue(key, out Sprite? s) && s != null)
-            {
-                return s;
-            }
-
-            const int n = 128;
-            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false)
-            {
-                filterMode = FilterMode.Bilinear,
-                wrapMode = TextureWrapMode.Clamp,
-                hideFlags = HideFlags.HideAndDontSave,
-            };
-            var px = new Color32[n * n];
-            float half = n / 2f;
-            for (int y = 0; y < n; y++)
-            {
-                for (int x = 0; x < n; x++)
-                {
-                    float dx = (x + 0.5f - half) / half, dy = (y + 0.5f - half) / half;
-                    float r = Mathf.Sqrt(dx * dx + dy * dy);
-                    float edge = Mathf.Clamp01((1f - r) * half); // 1 внутри, 0 снаружи, мягкий край в 1 пиксель
-                    Color o = Color.clear;
-                    switch (kind)
-                    {
-                        case 0:
-                        {
-                            float light = 0.62f + 0.5f * (1f - r * r) - 0.18f * (1f - (dy + 1f) / 2f);
-                            Color baseC = c;
-                            o = new Color(Mathf.Clamp01(baseC.r * light), Mathf.Clamp01(baseC.g * light), Mathf.Clamp01(baseC.b * light), edge);
-                            break;
-                        }
-                        case 1:
-                        {
-                            float ring = r > 0.86f ? 1f : 0f;
-                            Color inner = new Color(0.06f, 0.05f, 0.12f, 0.78f);
-                            Color gold = Color.Lerp((Color)GoldDark, (Color)Gold, Mathf.Clamp01((dy + 1f) / 2f));
-                            o = r > 0.93f ? (Color)Ink : ring > 0f ? gold : inner;
-                            o.a *= edge;
-                            break;
-                        }
-                        case 2:
-                        {
-                            float ex = (dx + 0.28f) / 0.42f, ey = (dy - 0.42f) / 0.24f;
-                            float e = 1f - Mathf.Sqrt(ex * ex + ey * ey);
-                            o = new Color(1f, 1f, 1f, Mathf.Clamp01(e * 1.6f) * 0.55f);
-                            break;
-                        }
-                        case 3:
-                        {
-                            // Замок: тело — прямоугольник снизу, дужка — кольцо сверху.
-                            bool body = Mathf.Abs(dx) < 0.46f && dy > -0.62f && dy < 0.02f;
-                            float rr = Mathf.Sqrt(dx * dx + (dy - 0.08f) * (dy - 0.08f));
-                            bool shackle = dy > 0.02f && rr > 0.22f && rr < 0.36f;
-                            bool hole = Mathf.Abs(dx) < 0.07f && dy > -0.4f && dy < -0.14f;
-                            o = (body && !hole) || shackle ? (Color)c : Color.clear;
-                            break;
-                        }
-                    }
-
-                    px[y * n + x] = o;
-                }
-            }
-
-            tex.SetPixels32(px);
-            tex.Apply(false, true);
-            s = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect);
-            s.hideFlags = HideFlags.HideAndDontSave;
-            _round[key] = s;
             return s;
         }
 
