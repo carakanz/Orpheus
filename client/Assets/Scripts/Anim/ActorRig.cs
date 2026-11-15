@@ -110,7 +110,11 @@ namespace Orpheus.Client.Anim
             bool right = p.FlipX != AnimParams.SpriteFacesRight;
             float sign = right ? 1f : -1f;
             float k = ActionAnim.IsGripped(_look) ? AnimParams.ToolScale : AnimParams.ItemScale;
-            _hand.localPosition = new Vector3((AnimParams.HandX + p.HandReachX) * sign, AnimParams.HandY + p.HandReachY, 0f);
+            // C-010: занесённый за голову предмет рисуется позади тела — без подъёма кисти он целиком прятался за спрайтом
+            // (на лентах E2-7 замаха топора, кирки и меча не было видно). Кисть плавно поднимается к макушке вместе с углом.
+            float lift = AnimParams.OverheadLiftY * Mathf.SmoothStep(0f, 1f,
+                Mathf.InverseLerp(AnimParams.OverheadLiftFromDeg, AnimParams.OverheadLiftFullDeg, p.HandDeg));
+            _hand.localPosition = new Vector3((AnimParams.HandX + p.HandReachX) * sign, AnimParams.HandY + p.HandReachY + lift, 0f);
             // Поворот после зеркала: зеркальный значок поворачивается в обратную сторону (M = T·R·S).
             _hand.localRotation = Quaternion.Euler(0f, 0f, p.HandDeg * sign);
             _hand.localScale = new Vector3(k * sign, k, 1f);
