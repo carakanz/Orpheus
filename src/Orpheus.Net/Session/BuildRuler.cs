@@ -62,7 +62,10 @@ namespace Orpheus.Net.Session
         /// <summary>Сторона прямоугольника пола не больше (тайлов): ряд — одна заявка, рядов не больше ждущих линий сервера.</summary>
         public const int MaxRectSide = 16;
 
-        private const int MaxSegments = MaxRectSide;
+        private const int MaxSegments = 2 * MaxRectSide;
+
+        /// <summary>Прямоугольник пола — по ячейкам 0,5 (false — по тайлам; E2-15: сетка 0,5 для всех построек).</summary>
+        public const bool RectOnCells = false;
 
         private readonly RulerSpot[] _spots = new RulerSpot[MaxRectSide * MaxRectSide];
         private readonly TileCoord[] _segFrom = new TileCoord[MaxSegments];
@@ -121,10 +124,14 @@ namespace Orpheus.Net.Session
         /// <summary>Вид линейки для предмета в руке; не постройка — <see cref="RulerKind.Single"/>.</summary>
         public static RulerKind KindOfItem(byte item) => BuildHand.IsBuildItem(item, out ushort key) ? KindOf(key) : RulerKind.Single;
 
-        /// <summary>Начать протягивание от тайла / ячейки (ЛКМ нажата).</summary>
-        public void Begin(TileCoord tile, int quad)
+        /// <summary>Предмет в руке при начале протягивания (сменили — клиент отменяет протягивание).</summary>
+        public byte AnchorItem { get; private set; }
+
+        /// <summary>Начать протягивание от тайла / ячейки (ЛКМ нажата) предметом <paramref name="item"/>.</summary>
+        public void Begin(TileCoord tile, int quad, byte item = 0)
         {
             Dragging = true;
+            AnchorItem = item;
             AnchorTile = tile;
             AnchorQuad = quad & 3;
             Count = 0;
@@ -161,7 +168,7 @@ namespace Orpheus.Net.Session
             }
             else if (Kind == RulerKind.Rect)
             {
-                PlanRect(map, tile);
+                PlanRect(map, tile, quad);
             }
             else
             {
@@ -171,7 +178,7 @@ namespace Orpheus.Net.Session
             for (int s = 0; s < Segments; s++)
             {
                 _segOk[s] = 0;
-                if (Kind == RulerKind.Line)
+                if (Kind == RulerKind.Line || (Kind == RulerKind.Rect && RectOnCells))
                 {
                     TileCoord a = BuildCells.CellOf(_segFrom[s], _segFromQuad[s]);
                     TileCoord b = BuildCells.CellOf(_segTo[s], _segToQuad[s]);
@@ -266,7 +273,7 @@ namespace Orpheus.Net.Session
             _spots[Count++] = new RulerSpot(Torus.Wrap(world.Shape, tile), c.Cells, c.Reply, ok && Need > Have);
         }
 
-        // Стена, забор: ячейки от A до B по большей оси (Shift — прямая A–B), до MaxLineCells; отрезки по 32 ячейки.
+        // Стена, забор: ячейки от A до B по большей оси (Shift — прямая A–B), до MaxLineCells.
         private void PlanLine(in MapShape map, TileCoord tile, int quad, bool diagonal)
         {
             MapShape cells = BuildCells.CellShape(map);
@@ -295,20 +302,18 @@ namespace Orpheus.Net.Session
             }
 
             LengthCells = n;
-            for (int i0 = 0; i0 < n; i0 += EditRules.MaxLineTiles)
-            {
-                int i1 = Math.Min(i0 + EditRules.MaxLineTiles - 1, n - 1);
-                TileCoord p0 = Torus.Wrap(cells, new TileCoord(a.X + Scale(dx, i0, n - 1), a.Y + Scale(dy, i0, n - 1)));
-                TileCoord p1 = Torus.Wrap(cells, new TileCoord(a.X + Scale(dx, i1, n - 1), a.Y + Scale(dy, i1, n - 1)));
-                AddSegment(BuildCells.TileOfCell(p0), BuildCells.QuadOf(p0), BuildCells.TileOfCell(p1), BuildCells.QuadOf(p1));
-            }
+            AddRun(map, true, a, dx, dy);
         }
 
-        // Пол: прямоугольник тайлов A–B (стороны до MaxRectSide), ряды от ряда A, в ряду — от столбца A.
-        private void PlanRect(in MapShape map, TileCoord tile)
+        // Пол: прямоугольник A–B (стороны до MaxRectSide), ряды от ряда A, в ряду — от столбца A. Сетка — RectOnCells
+        // (E2-15 переведёт пол на ячейки 0,5 этим флагом: развёртка рядов — та же AddRun).
+        private void PlanRect(in MapShape map, TileCoord tile, int quad)
         {
-            TileCoord a = Torus.Wrap(map, AnchorTile);
-            Int2 d = Torus.Delta(map, a, Torus.Wrap(map, tile));
+            bool onCells = RectOnCells;
+            MapShape grid = onCells ? BuildCells.CellShape(map) : map;
+            TileCoord a = onCells ? Torus.Wrap(grid, BuildCells.CellOf(AnchorTile, AnchorQuad)) : Torus.Wrap(map, AnchorTile);
+            TileCoord b = onCells ? Torus.Wrap(grid, BuildCells.CellOf(tile, quad)) : Torus.Wrap(map, tile);
+            Int2 d = Torus.Delta(grid, a, b);
             int dx = Math.Max(-(MaxRectSide - 1), Math.Min(MaxRectSide - 1, d.X));
             int dy = Math.Max(-(MaxRectSide - 1), Math.Min(MaxRectSide - 1, d.Y));
             Width = Math.Abs(dx) + 1;
@@ -316,10 +321,46 @@ namespace Orpheus.Net.Session
             int sy = dy < 0 ? -1 : 1;
             for (int j = 0; j < Height; j++)
             {
-                int y = a.Y + sy * j;
-                AddSegment(Torus.Wrap(map, new TileCoord(a.X, y)), 0, Torus.Wrap(map, new TileCoord(a.X + dx, y)), 0);
+                AddRun(map, onCells, new TileCoord(a.X, a.Y + sy * j), dx, 0);
             }
         }
+
+        /// <summary>
+        /// Развёртка прямой от <paramref name="a"/> на (<paramref name="dx"/>, <paramref name="dy"/>) в отрезки заявок (одна
+        /// функция для линии и рядов прямоугольника): по сетке ячеек 0,5 (<paramref name="onCells"/>) или тайлов, отрезок — до
+        /// 32 клеток (<see cref="EditRules.MaxLineTiles"/>). На сетке ячеек стык отрезков — только на границе тайлов: ячейки
+        /// одного тайла — одна правка сервера, тайл в двух заявках одного такта поставил бы одну (проверка П E2-13, з. 1).
+        /// </summary>
+        private void AddRun(in MapShape map, bool onCells, TileCoord a, int dx, int dy)
+        {
+            MapShape grid = onCells ? BuildCells.CellShape(map) : map;
+            int n = Math.Max(Math.Abs(dx), Math.Abs(dy)) + 1;
+            int i0 = 0;
+            while (i0 < n)
+            {
+                int i1 = Math.Min(i0 + EditRules.MaxLineTiles - 1, n - 1);
+                while (onCells && i1 > i0 && i1 < n - 1 && BuildCells.TileOfCell(RunPoint(grid, a, dx, dy, n, i1)) == BuildCells.TileOfCell(RunPoint(grid, a, dx, dy, n, i1 + 1)))
+                {
+                    i1--;
+                }
+
+                TileCoord p0 = RunPoint(grid, a, dx, dy, n, i0);
+                TileCoord p1 = RunPoint(grid, a, dx, dy, n, i1);
+                if (onCells)
+                {
+                    AddSegment(BuildCells.TileOfCell(p0), BuildCells.QuadOf(p0), BuildCells.TileOfCell(p1), BuildCells.QuadOf(p1));
+                }
+                else
+                {
+                    AddSegment(p0, 0, p1, 0);
+                }
+
+                i0 = i1 + 1;
+            }
+        }
+
+        private static TileCoord RunPoint(in MapShape grid, TileCoord a, int dx, int dy, int n, int i) =>
+            Torus.Wrap(grid, new TileCoord(a.X + Scale(dx, i, n - 1), a.Y + Scale(dy, i, n - 1)));
 
         private void AddSegment(TileCoord from, int fromQuad, TileCoord to, int toQuad)
         {
