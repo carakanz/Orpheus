@@ -17,7 +17,7 @@ namespace Orpheus.Client
     /// <item>В <see cref="JunctionDx"/> тайлах к востоку (сцена «стык»): шесть видов земли клиньями вокруг пруда.</item>
     /// </list>
     /// </summary>
-    public static class PaintDemo
+    public static partial class PaintDemo
     {
         /// <summary>Центр озера от старта, тайлов.</summary>
         public const int LakeDx = -13, LakeDy = -2;
@@ -271,7 +271,19 @@ namespace Orpheus.Client
                 return;
             }
 
-            if (mode == "build")
+            if (mode == "thin")
+            {
+                ThinHouse(world, map, cx, cy);
+                return;
+            }
+
+            if (mode == "half")
+            {
+                HalfHouse(world, map, cx, cy); // E2-15: пол до самых стен, мебель вплотную к стенам (PaintDemo.Half.cs)
+                return;
+            }
+
+            if (mode == "build" || mode == "build-open" || mode.StartsWith("ruler")) // E2-13: сцены линейки — тот же недостроенный угол
             {
                 Rect(world, map, cx + 1, cy - 3, 4, 3, FloorId.WoodFloor);
                 for (int x = cx; x <= cx + 5; x++)
@@ -313,6 +325,167 @@ namespace Orpheus.Client
             {
                 Light(world, map, x, y1, ObjectId.WoodFence); // забор двора
             }
+        }
+
+        /// <summary>
+        /// Дом из тонких стен (E2-12, <c>--ui-demo thin</c>): каменные стены 0,5 тайла по внешним половинам контура
+        /// x ∈ [cx − 4; cx + 4], y ∈ [cy − 3; cy + 3] (углы — 3 ячейки), дверь внизу (нижняя пара, закрыта), дверь справа
+        /// (правая пара, открыта); внутри деревянная перегородка с Т у верхней стены и крестом посередине, торец перегородки
+        /// у пола; забор двора справа; деревянный пол. Пишет базовые тайлы и записи построек (маски ячеек).
+        /// </summary>
+        static void ThinHouse(WorldModel world, MapShape map, int cx, int cy)
+        {
+            int x0 = cx - 4, x1 = cx + 4, y0 = cy - 3, y1 = cy + 3;
+            Rect(world, map, x0, y0, x1 - x0 + 1, y1 - y0 + 1, FloorId.WoodFloor);
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    byte m = 0;
+                    m |= y == y0 ? BuildCells.DoorNorth : (byte)0;
+                    m |= y == y1 ? BuildCells.DoorSouth : (byte)0;
+                    m |= x == x0 ? BuildCells.DoorWest : (byte)0;
+                    m |= x == x1 ? BuildCells.DoorEast : (byte)0;
+                    if (m == 0)
+                    {
+                        continue;
+                    }
+
+                    if (x == cx && y == y1)
+                    {
+                        Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorSouth, false);
+                    }
+                    else if (x == x1 && y == cy + 1)
+                    {
+                        Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorEast, true);
+                    }
+                    else
+                    {
+                        Cells(world, map, x, y, ObjectId.StoneWall, m, false);
+                    }
+                }
+            }
+
+            // Деревянная перегородка: столбец cx − 1 (восточные ячейки) от верхней стены до y1 − 2 (торец), ряд cy − 1 (южные
+            // ячейки) от x0 + 1 до cx + 1 (торец) — крест в (cx − 1, cy − 1); у верхней стены Т (стык с каменной — контур).
+            for (int y = y0 + 1; y <= y1 - 2; y++)
+            {
+                Cells(world, map, cx - 1, y, ObjectId.WoodWall, y == cy - 1 ? (byte)(BuildCells.DoorEast | BuildCells.DoorSouth) : BuildCells.DoorEast, false);
+            }
+
+            for (int x = x0 + 1; x <= cx + 1; x++)
+            {
+                if (x != cx - 1)
+                {
+                    Cells(world, map, x, cy - 1, ObjectId.WoodWall, BuildCells.DoorSouth, false);
+                }
+            }
+
+            for (int x = x1 + 2; x <= x1 + 6; x++)
+            {
+                Cells(world, map, x, y1, ObjectId.WoodFence, BuildCells.DoorSouth, false); // забор двора — тонкий
+            }
+
+            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed);
+            Light(world, map, x1 - 1, y0 + 1, ObjectId.Chest);
+            Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
+        }
+
+        /// <summary>Слово <c>--home-demo</c> (E2-17) — где персонаж относительно дома.</summary>
+        public static bool IsHomeMode(string? mode) =>
+            mode == "overview" || mode == "south" || mode == "north" || mode == "behind" || mode == "door" || mode == "camp" || mode == "fence";
+
+        /// <summary>
+        /// Дом «с высотой» для снимков E2-17 (<c>--home-demo</c>): каменные стены 0,5 по внешним половинам контура 11 × 7
+        /// тайлов, на южной стене две двери рядом — закрытая и открытая, на западной — закрытая вертикальная, на восточной —
+        /// открытая вертикальная; деревянная перегородка спальни (Т у северной и западной стен, проём, торец); кровать,
+        /// два сундука, верстак, два факела внутри; каменные дорожки от дверей, костёр у дома, забор двора с углом.
+        /// Дом ставится так, чтобы персонаж (cx, cy) оказался в месте сцены: <c>overview</c> — в 3 тайлах к югу от закрытой
+        /// двери, <c>south</c> — внутри за южной стеной, <c>north</c> — внутри у северной стены, <c>behind</c> — снаружи за
+        /// северной стеной, <c>door</c> — в открытой двери, <c>camp</c> — у костра, <c>fence</c> — у забора.
+        /// </summary>
+        public static void Home(WorldModel world, MapShape map, int cx, int cy, string mode)
+        {
+            int hx, hy;
+            switch (mode)
+            {
+                case "south": hx = cx - 3; hy = cy - 3; break;
+                case "north": hx = cx - 2; hy = cy + 3; break;
+                case "behind": hx = cx - 2; hy = cy + 4; break;
+                case "door": hx = cx - 1; hy = cy - 3; break;
+                case "camp": hx = cx - 3; hy = cy - 6; break;
+                case "fence": hx = cx - 8; hy = cy - 5; break;
+                default: hx = cx + 2; hy = cy - 6; break;
+            }
+
+            int x0 = hx - 5, x1 = hx + 5, y0 = hy - 3, y1 = hy + 3;
+            Rect(world, map, x0 - 4, y0 - 4, x1 - x0 + 14, y1 - y0 + 10, FloorId.Grass); // двор без деревьев
+            Rect(world, map, x0, y0, x1 - x0 + 1, y1 - y0 + 1, FloorId.WoodFloor);
+            Rect(world, map, hx - 2, y1 + 1, 1, 2, FloorId.StoneFloor);
+            Rect(world, map, hx + 1, y1 + 1, 1, 2, FloorId.StoneFloor);
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    byte m = 0;
+                    m |= y == y0 ? BuildCells.DoorNorth : (byte)0;
+                    m |= y == y1 ? BuildCells.DoorSouth : (byte)0;
+                    m |= x == x0 ? BuildCells.DoorWest : (byte)0;
+                    m |= x == x1 ? BuildCells.DoorEast : (byte)0;
+                    if (m == 0)
+                    {
+                        continue;
+                    }
+
+                    if (y == y1 && x == hx - 2) Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorSouth, false);
+                    else if (y == y1 && x == hx + 1) Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorSouth, true);
+                    else if (x == x0 && y == hy) Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorWest, false);
+                    else if (x == x1 && y == hy + 1) Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorEast, true);
+                    else if (x == x0 && y == hy - 1) Cells(world, map, x, y, ObjectId.StoneWall, (byte)(m | BuildCells.DoorSouth), false); // Т перегородки
+                    else Cells(world, map, x, y, ObjectId.StoneWall, m, false);
+                }
+            }
+
+            // Перегородка спальни (дерево): столбец hx − 1 (восточные ячейки) от северной стены до hy − 1, ряд hy − 1 (южные
+            // ячейки) от западной стены до hx − 3 — проём в hx − 2, торец у проёма.
+            for (int y = y0 + 1; y <= hy - 1; y++)
+            {
+                Cells(world, map, hx - 1, y, ObjectId.WoodWall, y == hy - 1 ? (byte)(BuildCells.DoorEast | BuildCells.DoorSouth) : BuildCells.DoorEast, false);
+            }
+
+            for (int x = x0 + 1; x <= hx - 3; x++)
+            {
+                Cells(world, map, x, hy - 1, ObjectId.WoodWall, BuildCells.DoorSouth, false);
+            }
+
+            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed);
+            Light(world, map, x0 + 3, y0 + 1, ObjectId.Chest);
+            Light(world, map, hx + 1, y0 + 1, ObjectId.Workbench);
+            Light(world, map, hx + 3, y0 + 1, ObjectId.Chest);
+            Light(world, map, x1 - 1, y1 - 1, ObjectId.Torch);
+            Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
+            Light(world, map, hx + 4, y1 + 3, ObjectId.Campfire);
+
+            // Забор двора: ряд к востоку от юго-восточного угла (жерди упираются в стену), угол и столбец к северу.
+            for (int x = x1 + 1; x <= x1 + 5; x++)
+            {
+                Cells(world, map, x, y1, ObjectId.WoodFence, x == x1 + 5 ? (byte)(BuildCells.DoorSouth | BuildCells.DoorEast) : BuildCells.DoorSouth, false);
+            }
+
+            for (int y = y1 - 3; y < y1; y++)
+            {
+                Cells(world, map, x1 + 5, y, ObjectId.WoodFence, BuildCells.DoorEast, false);
+            }
+        }
+
+        static void Cells(WorldModel world, MapShape map, int x, int y, ushort obj, byte mask, bool open)
+        {
+            TileCoord t = Torus.Wrap(map, new TileCoord(x, y));
+            Chunk chunk = world.GetOrCreateChunk(Torus.ChunkOf(map, t));
+            ushort index = (ushort)Chunk.IndexOf(t.X, t.Y);
+            chunk.SetBaseTile(index, chunk.GetFloor(index), obj);
+            BuildRecord rec = BuildRecord.OfPlayer(0, FloorId.Grass).WithCells(mask);
+            chunk.SetBaseBuild(index, open ? rec.WithFlags(BuildFlags.DoorOpen | BuildFlags.DoorKeepOpen) : rec);
         }
 
         /// <summary>Поставить источник света (факел/костёр) на существующий пол (E1-8).</summary>

@@ -51,6 +51,10 @@ namespace Orpheus.Core.Pathing
             return blocked ? PathCost.Blocked : PathCost.Normal;
         }
 
+        /// <inheritdoc />
+        /// <remarks>Те же ячейки, что у столкновений (<see cref="Simulation.SolidCells"/>): путь видит ту же проходимость, что движение.</remarks>
+        public byte CellsOf(TileCoord tile, PathMode mode) => _sim.SolidCells(_sim.Shape, tile);
+
         private bool WalkerBlocked(TileCoord tile)
         {
             MapShape map = _sim.Shape;
@@ -66,7 +70,8 @@ namespace Orpheus.Core.Pathing
                 return true;
             }
 
-            if (chunk.GetObject(index) == ObjectId.Empty)
+            // E2-15: пустой тайл может занять свес мебели соседа — быстрый ответ, только если сдвигов рядом нет.
+            if (chunk.GetObject(index) == ObjectId.Empty && !BuildLayers.MayOverhang(_sim.World, tile))
             {
                 return false;
             }

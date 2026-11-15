@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using Orpheus.Core.Sim;
+using Orpheus.Net.Session;
 
 namespace Orpheus.Client.UI
 {
@@ -11,9 +12,42 @@ namespace Orpheus.Client.UI
     public static class UiStrings
     {
         public const string BagTitle = "Сумка";
-        public const string BagHint = "ЛКМ — взять / положить      ПКМ — взять половину\nShift+ЛКМ — перекинуть      ЛКМ мимо окна — выбросить";
+        public const string BagHint = "ЛКМ — взять / положить      ПКМ — взять 1 (ещё ПКМ — ещё 1)\nShift+ЛКМ — половину      Ctrl+ЛКМ — перекинуть      ЛКМ мимо окна — выбросить";
         public const string BagDead = "Вы погибли: сумка откроется для действий после возрождения";
-        public const string BagKeys = "Tab / I";
+        public const string BagKeys = "Q / I";
+
+        // ---------- C-008: окна как в Terraria ----------
+
+        /// <summary>Подсказка клавиш сумки — одной строкой мелко под сеткой (полная — <see cref="BagHint"/>, при наведении).</summary>
+        public const string BagHintShort = "ПКМ — 1   Shift — половина   Ctrl — перекинуть";
+        public const string BagTitleKeys = "Сумка  (Q)";
+        public const string ChestTitleKeys = "Сундук  (F)";
+        public const string ChestTakeAll = "Взять всё";
+        public const string ChestPutAll = "Положить всё";
+        /// <summary>C-008: почему «Взять / Положить всё» остановился (null — сказать нечего).</summary>
+        public static string? MoveAllStopped(MoveAllStop why) => why switch
+        {
+            MoveAllStop.NoRoom => "Не всё влезло — нет места",
+            MoveAllStop.NotAccepted => "Сервер не принял перенос",
+            MoveAllStop.Dead => "Мёртвый не переносит",
+            _ => null,
+        };
+
+        public const string ChestTakeAllTip = "Всё из сундука — в сумку";
+        public const string ChestPutAllTip = "Сумка (без быстрой панели) — в сундук";
+        public const string CraftTitleKeys = "Изготовление  (C)";
+        public const string CraftMakeTip = "ЛКМ — сделать 1   Shift — 5   Ctrl — всё (Enter)";
+        public const string AbilityLocked = "Способность — откроется позже";
+        public const string PassiveLocked = "Пассивная способность — откроется позже";
+        public const string MapCollapsed = "Карта (M)";
+        public const string CraftEmptyShort = "Здесь пока нет рецептов";
+        public const string CraftEmptyFilteredShort = "Сейчас ничего не сделать — Ins: показать все";
+
+        public static string FilterTip(bool on) => on ? "Только доступные: вкл (Ins)" : "Только доступные: выкл (Ins)";
+
+        public static string HealthTip(int cur, int max) => $"Здоровье {cur} / {max}";
+
+        public static string StaminaTip(int cur, int max) => $"Выносливость {cur} / {max}";
 
         static readonly Dictionary<string, string> ItemNames = new Dictionary<string, string>
         {
@@ -66,7 +100,7 @@ namespace Orpheus.Client.UI
 
         // ---------- окно «сумка + изготовление» (E2-9) ----------
 
-        public const string CraftKeyInv = "Tab · C · Esc";
+        public const string CraftKeyInv = "Q · C · Esc";
         public const string CraftOnlyAvailable = "Только доступные";
         public const string CraftFlat = "Все рецепты раздела";
         public const string CraftEmptySub = "Здесь пока нет рецептов";
@@ -234,11 +268,41 @@ namespace Orpheus.Client.UI
         /// <summary>Подсказка у призрака постановки (E2-11): что жать и сколько в руке.</summary>
         public static string PlaceHint(int inHand) => $"ЛКМ — поставить, зажать — подряд (в руке {inHand})";
 
+        /// <summary>E2-13: подпись режима постановки у панели.</summary>
+        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (R — поштучно)" : "Поштучно   (R — линейка)";
+
+        /// <summary>E2-13: подсказка у призрака в режиме линейки.</summary>
+        public static string RulerHint(Orpheus.Net.Session.RulerKind kind, int inHand) =>
+            kind == Orpheus.Net.Session.RulerKind.Rect
+                ? $"ЛКМ — тянуть прямоугольник, отпустить — поставить (в руке {inHand})"
+                : $"ЛКМ — тянуть линию, Shift — по диагонали (в руке {inHand})";
+
+        /// <summary>E2-13: строка у курсора при протягивании — длина или площадь, «нужно N, есть M», отмена.</summary>
+        public static string RulerNote(Orpheus.Net.Session.RulerKind kind, int cells, int w, int h, int need, int have)
+        {
+            string size = kind == Orpheus.Net.Session.RulerKind.Rect
+                ? $"{Half(w)} × {Half(h)} = {Quarter(w * h)} м²" // E2-15: стороны в ячейках 0,5
+                : $"длина {cells / 2}{(cells % 2 == 1 ? ",5" : string.Empty)} м";
+            return $"{size} · нужно {need}, есть {have} · ПКМ / Esc — отмена";
+        }
+
+        // Ячейки 0,5 → метры: 3 → «1,5».
+        static string Half(int cells) => $"{cells / 2}{(cells % 2 == 1 ? ",5" : string.Empty)}";
+
+        // Ячейки 0,5 × 0,5 → м²: 6 → «1,5», 1 → «0,25».
+        static string Quarter(int cells) => (cells % 4) switch
+        {
+            0 => $"{cells / 4}",
+            1 => $"{cells / 4},25",
+            2 => $"{cells / 4},5",
+            _ => $"{cells / 4},75",
+        };
+
         /// <summary>Прочность постройки под курсором.</summary>
         public static string Integrity(int cur, int max) => $"Прочность {cur} / {max}";
 
         public const string ChestTitle = "Сундук";
-        public const string ChestHint = "ЛКМ — взять / положить      ПКМ — половину\nShift+ЛКМ — в сумку / в сундук";
+        public const string ChestHint = "ЛКМ — взять / положить      ПКМ — взять 1      Shift+ЛКМ — половину\nCtrl+ЛКМ — в сумку / в сундук";
         public const string ChestKeys = "F, Esc";
 
         /// <summary>Подсказка над панелью: что сделает F.</summary>

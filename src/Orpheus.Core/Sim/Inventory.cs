@@ -476,6 +476,27 @@ namespace Orpheus.Core.Sim
             return take;
         }
 
+        /// <summary>
+        /// Снять ровно <paramref name="count"/> предметов <paramref name="item"/>: сначала из ячейки <paramref name="cell"/> (рука),
+        /// недостающие — из прочих ячеек сумки (E2-15: стена и пол стоят по предмету на ячейку 0,5 — тайл больше стопки в руке).
+        /// Всего меньше — ничего не снимается, 0; иначе — <paramref name="count"/>.
+        /// </summary>
+        public int TakeFromThenAny(int cell, byte item, int count)
+        {
+            if (count <= 0 || item == Items.None || Count(item) < count)
+            {
+                return 0;
+            }
+
+            int first = ItemAt(cell) == item ? TakeFrom(cell, count) : 0;
+            if (first < count && !Remove(item, count - first))
+            {
+                return 0; // не бывает: всего хватало
+            }
+
+            return count;
+        }
+
         // ---------- Материалы (короткая запись предмета, прежний интерфейс счётчиков) ----------
 
         /// <summary>Сколько материала во всей сумке; вне таблицы — 0.</summary>

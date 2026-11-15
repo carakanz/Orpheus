@@ -317,12 +317,12 @@ namespace Orpheus.Tests
 
             byte[] bytes = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "мир", roster.Capture()), 9, 0);
             SaveFile f = SaveContainer.Read(bytes);
-            Assert.Equal(9u, f.Header.FormatVersion); // формат 9 (E2-5; 8 — E2-3; 7 — E2-1; мозг врага в записи сущности — с формата 6, 1-007)
+            Assert.Equal(11u, f.Header.FormatVersion); // E2-15: 11 // формат 10 (E2-12; 9 — E2-5; 8 — E2-3; 7 — E2-1; мозг врага в записи сущности — с формата 6, 1-007)
             Assert.True(f.HasSection(SaveSections.Characters));
 
             WorldModel world = WorldSnapshot.LoadBase(live.BaseBytes);
             LoadedWorldState state = WorldSave.Load(f, world, live.BaseSha);
-            Assert.Equal(9u, state.FormatVersion); // формат 9 (E2-5)
+            Assert.Equal(11u, state.FormatVersion); // E2-15: 11 // формат 10 (E2-12; 9 — E2-5)
             Assert.Equal(2, state.Characters.Length);
             Assert.Equal("живой", state.Characters[0].Name);
             Assert.Equal(inWorld, state.Characters[0].EntityId);
@@ -404,7 +404,7 @@ namespace Orpheus.Tests
             Assert.Equal(5, sim.EntityCount);
 
             byte[] v4 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), state.Name, roster.Capture()), 2, 0);
-            Assert.Equal(9u, SaveContainer.Read(v4).Header.FormatVersion); // нынешний формат (9 с E2-5)
+            Assert.Equal(11u, SaveContainer.Read(v4).Header.FormatVersion); // E2-15: 11 // нынешний формат (10 с E2-12)
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, v4)).Total);
         }
 

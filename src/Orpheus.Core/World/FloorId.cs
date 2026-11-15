@@ -45,7 +45,7 @@ namespace Orpheus.Core.World
         public const byte DryGrass = 12;
 
         /// <summary>Наибольший описанный id: таблица заполнена до него включительно.</summary>
-        public const byte MaxKnown = 12;
+        public const byte MaxKnown = 12; // E2-12: ≤ 15 — пол записи постройки занимает 4 бита (старшие — маска ячеек), тест E212_FloorIds_Fit4Bits
 
         /// <summary>Размер таблицы свойств (id 0…<see cref="MaxKnown"/>).</summary>
         public const int TableSize = MaxKnown + 1;

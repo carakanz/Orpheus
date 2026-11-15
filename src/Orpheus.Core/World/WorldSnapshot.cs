@@ -30,7 +30,11 @@ namespace Orpheus.Core.World
         /// <summary>Метка «ORPW».</summary>
         public static ReadOnlySpan<byte> Magic => new byte[] { (byte)'O', (byte)'R', (byte)'P', (byte)'W' };
 
-        /// <summary>Версия формата: 2 — SHA-256 покрывает и заголовок (0-009).</summary>
+        /// <summary>
+        /// Версия формата: 2 — SHA-256 покрывает и заголовок (0-009). E2-15: запись постройки в блоке — 9 байт; версия не
+        /// менялась (SHA снимка генерации записан в сохранениях, а в генерации построек нет — блоки те же): блок со старыми
+        /// записями по 8 байт узнаётся по размеру и расширяется при чтении (<see cref="Chunk.WidenLegacyBlob"/>).
+        /// </summary>
         public const byte FormatVersion = 2;
 
         /// <summary>Вид: снимок генерации.</summary>
@@ -334,6 +338,14 @@ namespace Orpheus.Core.World
 
             for (int i = 0; i < coords.Length; i++)
             {
+                // E2-15: блок со старыми записями (8 байт) — расширить; хэш сверен по записанному блоку, копия — от нового.
+                byte[] widened = Chunk.WidenLegacyBlob(blobs[i]);
+                if (widened.Length != blobs[i].Length)
+                {
+                    blobs[i] = widened;
+                    compressed[i] = null!;
+                }
+
                 model.GetOrCreateChunk(coords[i]).Load(blobs[i], compressed[i], revisions[i], changedSinceBase);
             }
         }

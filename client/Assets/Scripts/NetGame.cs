@@ -491,7 +491,26 @@ namespace Orpheus.Client
             // 1-002: прицел и ячейка — в каждый кадр ввода (журнал 2.4); в net-smoke кадр скриптованный, без мыши.
             ushort aim = _args.NetSmokeSeconds > 0 ? (ushort)0 : ComputeAim();
             byte slot = _args.NetSmokeSeconds > 0 ? SmokeMeleeSlot(now) : (byte)_slot;
-            if (_args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame() && !ShiftForWindow())
+            bool dodgePress = _args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame() && !ShiftForWindow();
+            if (dodgePress && _args.NetSmokeSeconds == 0 && ShiftOnlyPressed() && RulerMayTakeShift())
+            {
+                _shiftDodgeHold = DodgeWaitFrames; // E2-13: Shift со стеной в руке ждёт ЛКМ (диагональ линейки) до 6 кадров
+                dodgePress = false;
+            }
+
+            if (_shiftDodgeHold > 0)
+            {
+                if (_ui != null && _ui.Ruler.Dragging)
+                {
+                    _shiftDodgeHold = 0; // нажал ЛКМ — Shift ушёл в диагональ линейки, уворота нет
+                }
+                else if (--_shiftDodgeHold == 0)
+                {
+                    dodgePress = true; // ЛКМ не нажали — обычный уворот (позже на 6 кадров)
+                }
+            }
+
+            if (dodgePress)
             {
                 _dodgeWait = DodgeWaitFrames; // 0-034: нажатие ждёт направления до 0,1 с
                 DodgePresses++;
@@ -688,7 +707,7 @@ namespace Orpheus.Client
                     GameObject go = GetEntity(id);
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
-                    _anim?.Remote(id, go.transform);
+                    _anim?.Remote(id, go.transform, snap.Entities[i]); // E2-7: предмет в руке и удар мечом чужих — из снимка
                 }
             }
 
@@ -787,22 +806,38 @@ namespace Orpheus.Client
         /// E2-4: Shift нажат, пока курсор над открытым окном (Shift+ЛКМ — «перекинуть») — в игру уворотом не уходит.
         /// X и кнопка геймпада уворачиваются как раньше.
         /// </summary>
+        int _shiftDodgeHold;
+
+        /// <summary>В этом кадре нажат Shift (а не X): уворот «Shift + направление».</summary>
+        static bool ShiftOnlyPressed()
+        {
+            Keyboard? kb = Keyboard.current;
+            return kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) && !kb.xKey.wasPressedThisFrame;
+        }
+
+        /// <summary>
+        /// E2-13 (проверка П, з. 2): Shift может уйти в диагональ линейки — в руке стена или забор, режим линейки, курсор над
+        /// миром. Тогда уворот по Shift ждёт до <see cref="DodgeWaitFrames"/> кадров: нажал ЛКМ — протягивание без уворота,
+        /// не нажал — уворот. X уворачивает сразу всегда.
+        /// </summary>
+        bool RulerMayTakeShift() =>
+            _ui != null && !_ui.PointerBlocked && _ui.Ruler.Mode == PlaceMode.Ruler && BuildRuler.KindOfItem(HeldItem) == RulerKind.Line;
+
         bool ShiftForWindow()
         {
             Keyboard? kb = Keyboard.current;
-            return _ui != null && _ui.OverWindow && kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame);
+            return _ui != null && (_ui.OverWindow || _ui.Ruler.Dragging) && kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame); // E2-13: Shift при протягивании — диагональ, не уворот
         }
 
         void UpdateZoom()
         {
             float scroll = _g.ZoomAxis.ReadValue<float>();
-            if (_ui != null && _ui.OverWindow)
-            {
-                scroll = 0f; // E2-4: колесо над окном сумки или крафта обзор не меняет
-            }
-
             Keyboard? kb = Keyboard.current;
             bool slotWheel = kb != null && (kb.leftAltKey.isPressed || kb.rightAltKey.isPressed);
+            if (_ui != null && _ui.OverWindow && !slotWheel)
+            {
+                scroll = 0f; // E2-4, C-008: колесо над интерфейсом (окна, нижняя панель, сферы, карта) обзор не меняет; Alt+колесо — ячейка, как было
+            }
             if (scroll > 0.01f)
             {
                 if (slotWheel) _slot = (_slot + 1) % InputFrame.MaxSlots;
@@ -1069,7 +1104,7 @@ namespace Orpheus.Client
             Quit(1);
         }
 
-        void QuitIfEscaped() => PauseFrame(); // 0-036: в игре Esc / Start — пауза, выход — Q в паузе; вне игры Esc и Q — выход (NetGame.Pause.cs)
+        void QuitIfEscaped() => PauseFrame(); // 0-036: в игре Esc / Start — пауза, выход — Ctrl+Q в паузе; вне игры Esc и Q — выход (NetGame.Pause.cs)
 
         void Quit(int code)
         {

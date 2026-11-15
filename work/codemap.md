@@ -17,6 +17,7 @@ Simulation.Piles.cs (E2-1): константы :18-42 · Piles :58 · AddPile :6
 
 ## Spawner.cs - partial Simulation (спавн)
 Волны, точки появления, очередь спавна: методы по grep (класс Simulation :34).
+C-006: константы ночи и рассвета :45-112 (SpawnNightLimit, SpawnAttemptNightTicks, DaylightDespawnStaggerTicks, DaylightFightTicks, IsDaylight, TicksSinceDawn) · StepDespawn :218 (уход на рассвете — блок `if (daylight)`) · StepSpawnAttempt :296 (только Night). Тесты — `tests/Orpheus.Tests/C006NightOnlySpawnTests.cs`.
 
 ## NetServer*.cs - src/Orpheus.Net/Session (P-002: partial по подсистемам, ядро + 6 файлов + Edits/Pause/Threats)
 Ядро NetServer.cs (530): поля/константы :45-140, ctor :142, метрики-свойства :~185-380, ClockEpoch :265, WorldTimeTicks :271, Poll :382, OnConnected :403 / OnDisconnected :411 / OnReceive :435 (ITransportHandler). Остальное — grep по имени метода.
@@ -109,6 +110,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - CraftChainBot*.cs (craft_chain, E2-3): `.cs` — Next / Decide (этапы Stage), OnReply · `.Harvest.cs` — Harvest (ходьба рывками, копание, подбор), Dig, ToolSlotFor · `.Path.cs` — Plan (поиск в ширину, разведка по клеткам), Flood, BuildPath · `.Bench.cs` — PlaceBench, Craft, Equip.
 - CharacterRoster.cs: Restore (загрузка: очередь изготовления → в сумку записи) · Park (уход из мира: очередь → в сумку).
 - client/Assets/Scripts/PileView.cs: значки куч; NetGame.Edits.cs: HookPiles, BagHud (ячейки). tools/make_item_icons.py — заглушки значков.
+- Анимация (K-001, E2-7) client/Assets/Scripts/Anim: Pose/ActionAnim.cs (чистый, тесты ActionAnimTests) — LookOf · DigActionOf · BeatsFor/BeatSec/BeatPhase/ImpactsBetween (такт удара по кадрам копания) · ToolSwing · SwordDeg · BuildGesture · PickupBend · AimDeg. Pose/ProceduralAnimator.cs: Step (слои: ходьба, уворот, удар, действие инструментом, жесты, рука, толчок), OnHit/OnBuild/OnPickup. ActorRig.cs: SetHeld · ApplyHand (значок в руке, зеркало). NetAnimation.cs: Remote(id, root, SnapshotEntity) · RemoteSwing · OnPickup (из NetGame.Edits.HookPiles) · Frame (такт по DigProgress, жест стройки по EditRequestsSent) · Emit (отклик удара). AnimShowcase.cs: ToolDig, ленты E2-7_*.
 
 ## Стройка, сундук, кровать (E2-5)
 - Sim/Simulation.Build.cs: RequestRepair · IsRepairEdit · PreRepair · RefundRepair · RequestSetBed · SetBed · RespawnPointOf · сундуки: ChestCells (30) · ChestCellBase · ChestTiles/ChestContents · TryGetChest · SetChest · RestoreChests · RequestChestOp · ApplyChestOp · SpillChest · StoreChest.
@@ -120,6 +122,19 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Save: SaveSections CreaturesField.Chest · ChestField · EntityField.BedX/BedY · CharacterField.BedX/BedY; WorldSave ReadChest. CharacterRecord.HasBed/Bed; CharacterRoster.Park (кровать за ключом).
 - client: UI/GameUi.Build.cs (UiBuildState.Placing, UiNote, ShowBuild, SyncChestWindow, OpenCraft, Notify) · UI/BuildBar.cs (ChestWindow; лента BuildBar убрана в E2-11) · UI/UiDemo.Build.cs (--ui-demo build|chest|house) · BuildGhost.cs · BuildLook.cs · NetGame.Edits.cs (BuildState, UseObject, HammerEdits) · PaintDemo.House.
 - tests/BuildTests.cs (E25_*); Golden/format8_craft.*.
+
+## Стена в полтайла (E2-12)
+- World/BuildCells.cs: CellGroup · BuildCells (Full, Bit, IsCellBuilding, MaskOf, MaskAt, Count, IsDoorMask, CellShape/CellOf/CellAt/QuadOf, Line — линия ячеек по тайлам, DoorMaskFor, CheckPlace). BuildRecord: FloorCells / NaturalFloor / Cells / WithCells.
+- Movement/Collision.cs: ITileCells · SolidCellsOf · CircleOverlapsCells · AxisPush/OverlapsTile по квадратам ячеек. Simulation.Movement.cs: SolidCells. Simulation.Combat.cs: StrikeCellSolid. Simulation.BuildItems.cs: PlacementUnits · CostPaidRepair.
+- E2-13 линейка: Net/Session/BuildRuler.cs — PlaceMode (Ruler по умолчанию / Single) · RulerKind (Line стена/забор, Rect пол/настил, Single прочее) · RulerSpot · BuildRuler: KindOf/KindOfItem · Begin · Update (план: PlanLine — ось по большему смещению, Shift — Брезенхэм, отрезки по 32 ячейки; PlanRect — ряды тайлов) · Release (пачка BuildHand.PlaceLine, хвост обрезан по «есть» — LastOk) · AddRun (единая развёртка в отрезки, стык — по границе тайла) · RectOnCells (E2-15) · AnchorItem · Cancel · Toggle. Клиент: NetGame.Edits.cs RulerEdits / RulerTookEscape, NetGame.cs RulerMayTakeShift / _shiftDodgeHold (Shift ждёт ЛКМ 6 кадров), BuildState (план при протягивании), GameUi.Build.cs (Ruler, ToggleRuler, SessionMode, подпись _mode), BuildGhost.ShowPlan/HidePlan, UiDemo.Build.cs (ruler-wall|ruler-floor). Тесты RulerTests (E213_*).
+- Net: NetServer.Cells.cs (PlaceCells, TagCountShift) · NetClient.Cells.cs (PlaceCells) · TileRequestMessage.Quad · BuildHand Check/Click(quad), PlaceLine(fromQuad, toQuad), BuildCheck.Cells. BuildRoomBot: WallCellsOf · WallDone · PlaceWallCells.
+- Save/LegacyWalls.cs (счёт старых стен, формат < 10). Client: (ThinWallLook.cs удалён в E2-17) · WorldView.RefreshSeams · BuildGhost.CellBox · PaintDemo.ThinHouse (--ui-demo thin) · NetGame.Edits _cursorQuad.
+- tests/HalfWallTests.cs; Golden/format9_walls.*.
+
+## Путь врагов на решётке 0,5 (E2-12b)
+- Pathing/PathFinder.cs: SnapToLattice · TileCenter · Find (TileCoord / WorldPos) · AStar · GoalEnclosed (предел — центры тайлов) · NearestOutside · Neighbors (полушаги + целые шаги из центра) · TileNeighbors (быстрый шаг по тайлам вдали от тонких) · IsCenter · IsNode · NearThin · PointCost (4 ячейки вокруг точки) · TileIndex (кэш тайлов окна). PathBuffer.Points (WorldPos), End (тайл), EndPoint. IPathTerrain.CellsOf; SimulationPathTerrain.CellsOf = Simulation.SolidCells. PathRequest/Enqueue — WorldPos.
+- Sim/Simulation.Steer.cs: ChaseGoal (точка решётки у цели) · BlockedGoalMoved · EnqueueChasePath · FollowPath (проход MeleeRogue.PathPointPass2) · SteerTo / Closer (подруливание у косяка). Simulation.Enemies.cs Chase: «упёрся» — переспрос при уходе цели и после «застрял».
+- tests/HalfPathTests.cs (проёмы, дома, «замкнута», косяк, случаи Автора), tests/ForestChaseTests.cs (лес генератора v7), PathTests.D02_S9_2_Big_Bench1024_ThinHouses….
 
 ## Интерфейс (E2-2) - client/Assets/Scripts/UI
 - UiRoot.cs: `UiRoot` (холст перед камерой, Fit, FromScreen, Node/Picture/Label), `UiGroup` (привязка, Contains/Local).
@@ -143,3 +158,10 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 
 ## Генератор - src/Orpheus.WorldGen
 - DepositStage.cs (E2-6): Run :~120 (сетка ячеек 32, выбор вида) · Place :~205 (тайлы пятна) · DepositStats.Of / MaskOf (числа приёмки). Штамп меди — HearthStage.StampCopper.
+- C-008: Net/Session/HudLayout.cs (раскладка панели и мини-карты, AddHud, SlotCenter, OrbCenter) · BagHand.Pump/MoveAllStop (пачки по 8) · Net/Session/UiPointer.cs (PointerRoute World/Ui/Drop, Add/Over/Route/Blocks) · Net/Session/MiniMap.cs (FloorColors, ObjectColors, ColorOf, Paint, TileOffset, Marker) · BagHand.TakeAll/PutAll · UI/BottomBar.cs (сферы, панель 1–8, рамки способностей; PartAt, AddZones, Set) · UI/MiniMapView.cs (Frame, Repaint по 32 строки, Toggle M, Zoom) · BagWindow (GameUi.cs, 8 × 4, AddZones) · ChestWindow (BuildBar.cs, кнопки ButtonAt) · CraftWindow (столбик GridRows 7, AddZones, TipFor) · UiCellLook / UiSlotGrid(cell) в UiParts.cs · UiStyle.Glass*, Round (сферы, замок) · UiGroup.Zone · тесты C008PointerTests, C008MiniMapTests.
+- E2-15: World/BuildLayers.cs (IsFurniture · FootMask · OwnCells · Footprint · FurnitureCellAt · CenterOf/CenterAt · MayOverhang · OverhangAt · TopCellsAt · TryTopOfCell · FloorCellsOf/At · CheckFloor · FloorRecord · TopRecord · DebrisOf · NaturalUnder · AfterDig · AfterDebris · CheckFurniture) · World/BuildPlanner.cs (PlannedEdit, Plan, PlanFloor, MaxFloorCells) · BuildRecord.Layout/FloorMask/OffsetX/OffsetY/WithFloorMask/WithOffset/Over/FloorOnly/ReadLegacy · Chunk.OffsetCount/WidenLegacyBlob · BuildCells.WholeTilesQuad · Simulation.BuildItems PlacementOf/GiveBuildRefund(i) · Simulation.Movement SolidCellsIn · NetServer.Cells PlacePlan · NetClient.Cells PlacePlan · BuildHand.Check (план, AddedCells) · BuildRuler PlanRect/AddBand/LastColumn · BuildRoomBot Furnish/TorchTile · client FloorCellsLook.cs, PaintDemo.Half.cs · tests E215LayerTests.
+
+## Высота построек (E2-17) - client/Assets/Scripts
+- ObjectMesh.Walls.cs (partial ObjectMesh): WallHeight · FenceShare · Looks (камень/дерево) · ReadCells/ReadNear/CellKind (ячейки тайла и 4 соседей) · CellKey · Cells (тайл в меше строки) · WallCell · Fence · Door/Slab · HullShadow · CellShadows. ObjectMesh.cs: Item.Cell, Collect (постройки-ячеек → CellLook), BuildRow/BuildShadows.
+- WorldView.cs: ChunkNode.CellKeys · Fill (ключ → строка грязная) · RefreshSeams (строки соседних чанков) · ObjectTile (стены → null). ObjectAtlas.ClearMarks (уголок заглушки). PaintDemo.Home / IsHomeMode, ClientArgs --home-demo, GameBoot. tools/make_furniture.py (мебель 3/4).
+- E2-15 (П): Sim/Simulation.Claims.cs (ClearClaims · ClaimCells · ClaimedAt · AddClaim; вызов в PreEdit перед PayPlacement) · EditReply.FurnitureInTile (19) · tests E215ReviewTests, Golden/format10_build.*.

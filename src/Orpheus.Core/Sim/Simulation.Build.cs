@@ -63,7 +63,7 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
-            _costPaid[i] = 2;
+            _costPaid[i] = CostPaidRepair;
             e = new EditRequest(e.Chunk, e.Arrival, new TileEdit(e.Edit.Index, _preFloor[i], _preObj[i], rec.WithIntegrity(def.MaxIntegrity)),
                 e.Requester, e.Tag, false, repair: true);
         }
@@ -154,7 +154,7 @@ namespace Orpheus.Core.Sim
                 return _respawnCenter;
             }
 
-            return FreeGroundNear(EditRules.CenterOf(e.Bed));
+            return FreeGroundNear(BuildLayers.CenterAt(_world, e.Bed)); // E2-15: от центра кровати
         }
 
         // ---------- Сундуки (`05` 1.3, `06` 5.3: 30 ячеек) ----------

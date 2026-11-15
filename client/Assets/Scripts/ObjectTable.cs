@@ -163,33 +163,33 @@ namespace Orpheus.Client
                 Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.45f, DecoEdge = 0.7f, DecoFoot = 0.35f,
                 DecoTint = new Color32(214, 204, 200, 255), RubbleTint = new Color32(196, 188, 186, 255),
             },
-            // Костёр, верстак I и факел (E2-4): свои заглушки TEMP_obj_* (tools/make_item_icons.py, 128 × 160, опора внизу по
-            // центру); круг света костра и факела — DayTintView (E1-8). Огонь тени не бросает.
+            // Костёр, верстак I и факел (E2-4), сундук и кровать (E2-5): E2-17 — объёмные заглушки 3/4 tools/make_furniture.py
+            // (128 × 160, верх 1:1, высота × ObjectMesh.WallHeight, опора внизу по центру); круг света костра и факела —
+            // DayTintView (E1-8). Огонь тени не бросает: у костра тени нет, у факела — бледная (древко).
             new ObjectLook
             {
                 Id = ObjectId.Campfire, Variants = new[] { V("obj_campfire") },
-                Size = 0.95f, Shadow = 0f,
+                Shadow = 0f,
             },
             new ObjectLook
             {
                 Id = ObjectId.Workbench, Variants = new[] { V("obj_workbench") },
-                Shadow = 0.5f,
+                Shadow = 0.45f,
             },
             new ObjectLook
             {
                 Id = ObjectId.Torch, Variants = new[] { V("obj_torch") },
-                Size = 0.8f, Shadow = 0f,
+                Shadow = 0.3f,
             },
-            // Сундук и кровать (E2-5): заглушки TEMP_obj_chest / bed (tools/make_item_icons.py, 128 × 160, опора внизу по центру).
             new ObjectLook
             {
                 Id = ObjectId.Chest, Variants = new[] { V("obj_chest") },
-                Size = 0.9f, Shadow = 0.4f,
+                Shadow = 0.45f,
             },
             new ObjectLook
             {
                 Id = ObjectId.Bed, Variants = new[] { V("obj_bed") },
-                Shadow = 0.3f,
+                Shadow = 0.35f,
             },
         };
 

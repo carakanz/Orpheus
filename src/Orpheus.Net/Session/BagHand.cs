@@ -42,6 +42,28 @@ namespace Orpheus.Net.Session
         Dropped = 5,
     }
 
+    /// <summary>Чем кончился «Взять всё» / «Положить всё» (C-008).</summary>
+    public enum MoveAllStop : byte
+    {
+        /// <summary>Ещё идёт или не начинался.</summary>
+        None = 0,
+
+        /// <summary>Перенесено всё.</summary>
+        Done,
+
+        /// <summary>Осталось, но некуда положить.</summary>
+        NoRoom,
+
+        /// <summary>Сундук закрылся посреди переноса.</summary>
+        ChestClosed,
+
+        /// <summary>Персонаж умер.</summary>
+        Dead,
+
+        /// <summary>Сервер не ответил на пачку несколько раз подряд (пауза, лимит занят) или заявка не ушла.</summary>
+        NotAccepted,
+    }
+
     /// <summary>
     /// «Рука» окна сумки (E2-2, шаг 2.2): общий путь заявок для окна игрока и для ботов / тестов. Правил игры здесь
     /// нет — сумку меняет только сервер. У сервера нет ячейки курсора, поэтому «взять» — состояние клиента: стопка
@@ -170,7 +192,10 @@ namespace Orpheus.Net.Session
             return Holding ? Put(cell) : Take(cell, CountIn(cell));
         }
 
-        /// <summary>ПКМ по ячейке: пустой рукой — взять половину (с округлением вверх), с предметом — вернуть на место.</summary>
+        /// <summary>
+        /// ПКМ по ячейке (слово Автора 15.11, как в Terraria): пустой рукой — взять 1; по той же ячейке с предметом в руке —
+        /// ещё 1 (пока есть в стопке); по другой ячейке с предметом в руке — вернуть на место.
+        /// </summary>
         public BagClick Right(int cell)
         {
             if ((uint)cell >= CellCount || Dead)
@@ -180,15 +205,37 @@ namespace Orpheus.Net.Session
 
             if (Holding)
             {
+                if (cell == From && Count < CountIn(cell))
+                {
+                    Count++;
+                    return BagClick.Taken;
+                }
+
+                if (cell == From)
+                {
+                    return BagClick.None; // вся стопка уже в руке
+                }
+
                 Cancel();
                 return BagClick.Cancelled;
+            }
+
+            return Take(cell, 1);
+        }
+
+        /// <summary>Shift+ЛКМ по ячейке пустой рукой (слово Автора 15.11): взять половину (с округлением вверх).</summary>
+        public BagClick Half(int cell)
+        {
+            if ((uint)cell >= CellCount || Dead || Holding)
+            {
+                return BagClick.None;
             }
 
             return Take(cell, (CountIn(cell) + 1) / 2);
         }
 
         /// <summary>
-        /// Shift+ЛКМ: быстро перекинуть стопку между быстрой панелью (первые <see cref="Inventory.Slots"/> ячеек) и
+        /// Ctrl+ЛКМ (слово Автора 15.11: было Shift+ЛКМ): быстро перекинуть стопку между быстрой панелью (первые <see cref="Inventory.Slots"/> ячеек) и
         /// остальной сумкой — в стопку того же предмета с местом, иначе в первую пустую ячейку.
         /// </summary>
         public BagClick Quick(int cell)
@@ -202,6 +249,168 @@ namespace Orpheus.Net.Session
                 : cell >= ChestBase ? FitTarget(_bag, ItemAt(cell), 0, Inventory.Cells)      // сундук → сумка
                 : FitTarget(_chest, ItemAt(cell), 0, Simulation.ChestCells, ChestBase);   // сумка → сундук
             return to >= 0 && Send(_requests.RequestBagMove(cell, to)) ? BagClick.Moved : BagClick.None;
+        }
+
+        /// <summary>Заявок пачки «Взять / Положить всё» за раз: лимит сервера на игрока за такт (больше — отказ без ответа).</summary>
+        public const int MoveAllBatch = NetServer.MaxBagRequestsPerPlayerTick;
+
+        /// <summary>Сколько ждать ответа на пачку (сумка и сундук не изменились), прежде чем повторить, секунд.</summary>
+        public const double MoveAllWaitSeconds = 0.3;
+
+        /// <summary>Повторов пачки без ответа подряд, после которых перенос останавливается («сервер не принял»).</summary>
+        public const int MoveAllRetries = 2;
+
+        private bool _moveAll, _moveAllFromChest, _moveAllWaiting;
+        private Inventory _sentBag, _sentChest;
+        private double _now, _sentAt;
+        private int _silentRetries;
+
+        /// <summary>Идёт «Взять всё» / «Положить всё» (пачки по <see cref="MoveAllBatch"/>).</summary>
+        public bool MovingAll => _moveAll;
+
+        /// <summary>Чем кончился последний «Взять / Положить всё»; <see cref="MoveAllStop.None"/> — ещё идёт или не было.</summary>
+        public MoveAllStop LastStop { get; private set; }
+
+        /// <summary>
+        /// C-008: кнопка «Взять всё» у сундука — всё из сундука в сумку обычными заявками переноса (сообщение 29, новых
+        /// заявок нет). Сервер берёт не больше <see cref="NetServer.MaxBagRequestsPerPlayerTick"/> заявок игрока за такт,
+        /// остальные отклоняет молча (проверка C-008, п. 1), поэтому рука шлёт пачку не больше 8, а следующую — когда
+        /// сервер ответил (сумка и сундук изменились, <see cref="Pump"/>). Цели пачки считаются по копиям сумки и сундука
+        /// той же функцией <see cref="Inventory.Move(ref Inventory, int, ref Inventory, int)"/>, что у сервера, — заявки
+        /// пачки не наступают друг на друга; каждая пачка — по свежему состоянию сервера, так что отклонённые (лимит такта
+        /// занят другими заявками) уходят снова. Возвращает число заявок первой пачки.
+        /// </summary>
+        public int TakeAll() => StartMoveAll(fromChest: true);
+
+        /// <summary>C-008: кнопка «Положить всё» — сумка без быстрой панели (ячейки 8…39) в сундук, как в Terraria.</summary>
+        public int PutAll() => StartMoveAll(fromChest: false);
+
+        /// <summary>
+        /// Кадр «Взять / Положить всё» — звать каждый кадр после <see cref="Sync"/> и <see cref="SyncChest"/>
+        /// (<paramref name="now"/> — секунды, растут). Ответ на пачку пришёл (сумка и сундук изменились) — следующая пачка;
+        /// ответа нет дольше <see cref="MoveAllWaitSeconds"/> — пачка снова по свежему состоянию (отказ «лимит»); после
+        /// <see cref="MoveAllRetries"/> таких повторов — стоп <see cref="MoveAllStop.NotAccepted"/>. Сундук закрылся,
+        /// персонаж умер, переносить нечего или некуда — стоп с причиной (<see cref="LastStop"/>).
+        /// </summary>
+        public void Pump(double now)
+        {
+            _now = now;
+            if (!_moveAll)
+            {
+                return;
+            }
+
+            if (!ChestOpen)
+            {
+                StopMoveAll(MoveAllStop.ChestClosed);
+                return;
+            }
+
+            if (Dead)
+            {
+                StopMoveAll(MoveAllStop.Dead);
+                return;
+            }
+
+            if (_moveAllWaiting)
+            {
+                if (_bag != _sentBag && _chest != _sentChest)
+                {
+                    _silentRetries = 0; // ответ пришёл: перенос меняет и сумку, и сундук
+                }
+                else if (now - _sentAt >= MoveAllWaitSeconds)
+                {
+                    if (++_silentRetries > MoveAllRetries)
+                    {
+                        StopMoveAll(MoveAllStop.NotAccepted);
+                        return;
+                    }
+                }
+                else
+                {
+                    return;
+                }
+
+                _moveAllWaiting = false;
+            }
+
+            MoveAllBatchSend();
+        }
+
+        private int StartMoveAll(bool fromChest)
+        {
+            if (!ChestOpen || Dead || Holding)
+            {
+                return 0;
+            }
+
+            _moveAll = true;
+            _moveAllFromChest = fromChest;
+            _moveAllWaiting = false;
+            _silentRetries = 0;
+            LastStop = MoveAllStop.None;
+            return MoveAllBatchSend();
+        }
+
+        private void StopMoveAll(MoveAllStop why)
+        {
+            _moveAll = false;
+            _moveAllWaiting = false;
+            LastStop = why;
+        }
+
+        // Пачка: не больше MoveAllBatch заявок по копиям сумки и сундука. Нечего — «готово»; есть, но некуда — «нет места».
+        private int MoveAllBatchSend()
+        {
+            if (Holding)
+            {
+                return 0; // взял предмет в руку посреди переноса — подождать
+            }
+
+            bool fromChest = _moveAllFromChest;
+            Inventory bag = _bag, chest = _chest;
+            int sent = 0;
+            bool left = false;
+            int lo = fromChest ? 0 : Inventory.Slots, hi = fromChest ? Simulation.ChestCells : Inventory.Cells;
+            for (int i = lo; i < hi && sent < MoveAllBatch; i++)
+            {
+                for (int tries = 0; tries < 4 && sent < MoveAllBatch; tries++)
+                {
+                    byte item = fromChest ? chest.ItemAt(i) : bag.ItemAt(i);
+                    if (item == Items.None)
+                    {
+                        break;
+                    }
+
+                    int to = fromChest ? FitTarget(bag, item, 0, Inventory.Cells) : FitTarget(chest, item, 0, Simulation.ChestCells);
+                    if (to < 0 || !(fromChest ? Inventory.Move(ref chest, i, ref bag, to) : Inventory.Move(ref bag, i, ref chest, to)))
+                    {
+                        left = true;
+                        break;
+                    }
+
+                    if (!Send(_requests.RequestBagMove(fromChest ? ChestBase + i : i, fromChest ? to : ChestBase + to)))
+                    {
+                        StopMoveAll(MoveAllStop.NotAccepted);
+                        return sent;
+                    }
+
+                    sent++;
+                }
+            }
+
+            if (sent == 0)
+            {
+                StopMoveAll(left ? MoveAllStop.NoRoom : MoveAllStop.Done);
+                return 0;
+            }
+
+            _moveAllWaiting = true;
+            _sentBag = _bag;
+            _sentChest = _chest;
+            _sentAt = _now;
+
+            return sent;
         }
 
         /// <summary>ЛКМ мимо окна с предметом в руке: выбросить на землю.</summary>

@@ -329,8 +329,12 @@ namespace Orpheus.Core.Sim
                     h.Add(r.Owner);
                     h.Add(r.Integrity);
                     h.Add(r.Flags);
-                    h.Add(r.NaturalFloor);
+                    h.Add(r.FloorCells); // E2-12: пол + маска ячеек (без тонких стен — прежний пол)
                     h.Add(r.DebrisEndTick);
+                    if (r.Layout != 0)
+                    {
+                        h.Add(r.Layout); // E2-15: ячейки пола и сдвиг мебели; без них — хэш старых миров прежний
+                    }
                 }
             }
 

@@ -158,7 +158,9 @@ namespace Orpheus.Tests
         {
             Assert.Equal(12, BuildDefs.Palette.Length);
             using var rig = new EditTests.EditRig(World(), _ => Spot);
-            NetClient c = Start(rig, Kit(EveryBuildItem(2)));
+            // E2-15: настил — целым тайлом, 4 ячейки = 4 предмета (рецепт даёт 4): ему 2 + 3, остаётся 1, как у прочих.
+            var kit = new List<(byte, int)>(EveryBuildItem(2)) { (Items.Platform, 3) };
+            NetClient c = Start(rig, Kit(kit.ToArray()));
             rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, HandCell); // в руке — ячейка с постройкой, не молот
             rig.Run(2);
             var hand = new BuildHand(c);
@@ -312,14 +314,16 @@ namespace Orpheus.Tests
             Assert.Equal(1, c.Inv.CountIn(HandCell));
 
             Inventory inv = rig.Sim.GetEntity(c.EntityId).Inv;
-            inv.SetCell(HandCell, Items.StoneWall, 3);
+            // E2-12: стена — ячейки 0,5 × 0,5, по предмету на ячейку; линия верхних ячеек тайлов 297…301 — 10 ячеек, 2 на тайл.
+            inv.SetCell(HandCell, Items.StoneWall, 4);
             Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
             rig.Run(3);
             replies.Clear();
-            Assert.NotEqual(0, hand.PlaceLine(new TileCoord(297, 197), new TileCoord(301, 197), Spot, c.Inv, HandCell));
+            Assert.NotEqual(0, hand.PlaceLine(new TileCoord(297, 197), new TileCoord(301, 197), Spot, c.Inv, HandCell, 0, 1));
             rig.Run(4);
             TileReplyMessage r = Assert.Single(replies);
-            Assert.Equal(0x7u, r.Mask);
+            Assert.Equal(0xFu, r.Mask); // тайлы 297 и 298 — по 2 ячейки
+            Assert.Equal(BuildCells.DoorNorth, BuildCells.MaskAt(rig.Sim.World, new TileCoord(298, 197)));
             Assert.Equal(EditReply.NoResources, r.FirstRefusal);
             Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountIn(HandCell));
             Assert.Equal(0, c.Inv.CountIn(HandCell));
@@ -433,7 +437,9 @@ namespace Orpheus.Tests
                     }
 
                     found++;
-                    Assert.Equal(1, rec.ResultCount);
+                    // E2-12: стена и забор — ячейки 0,5 × 0,5, рецепт даёт 2 (погонный тайл), дверь и прочее — 1.
+                    // E2-15: пол и настил — ячейки, тайл — 4 ячейки: рецепт даёт 4.
+                    Assert.Equal(EditRules.IsFloorKey(key) ? 4 : BuildCells.IsCellBuilding(key) && key != ObjectId.Door ? 2 : 1, rec.ResultCount);
                     Assert.Equal(key == ObjectId.Campfire ? CraftStation.Workbench : CraftStation.None, rec.Station);
                     Assert.Equal(ItemTable.OfMaterial(def.Material1), rec.In1);
                     Assert.Equal(def.Count1, rec.N1);
@@ -471,17 +477,17 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Весь путь игрока по сети (E2-11): 4 камня → «каменная стена × 2» руками (заявка изготовления) → стены в сумке →
+        /// Весь путь игрока по сети (E2-11): 2 камня → «каменная стена» руками (E2-12: выход 2 ячейки-стены) (заявка изготовления) → стены в сумке →
         /// перетащить в ячейку панели → ЛКМ — стена стоит, в руке 1.
         /// </summary>
         [Fact]
         public void E211_Craft_Walls_MoveToHotbar_Place()
         {
             using var rig = new EditTests.EditRig(World(), _ => Spot);
-            NetClient c = Start(rig, Kit((Items.Stone, 4)));
+            NetClient c = Start(rig, Kit((Items.Stone, 2)));
             var hand = new BuildHand(c);
-            Assert.True(c.RequestCraft(RecipeTable.StoneWall, 2));
-            rig.Run(2 * RecipeTable.DefaultTicks + 10);
+            Assert.True(c.RequestCraft(RecipeTable.StoneWall, 1));
+            rig.Run(RecipeTable.DefaultTicks + 10);
             Assert.Equal(2, c.Inv.Count(Items.StoneWall));
             Assert.Equal(0, c.Inv.Count(Items.Stone));
             Assert.Equal(-1, BuildHand.SlotWith(c.Inv, Items.StoneWall)); // сделанное легло в сумку, не на панель
@@ -792,7 +798,7 @@ namespace Orpheus.Tests
             // b: ПКМ — половина из сундука → в пустую ячейку сумки; Shift+ЛКМ камень → сундук.
             BagHand hb = Hand(b);
             int empty = BagHand.FitTarget(b.Inv, Items.Meat, Inventory.Slots, Inventory.Cells);
-            Assert.Equal(BagClick.Taken, hb.Right(BagHand.ChestBase + 0));
+            Assert.Equal(BagClick.Taken, hb.Half(BagHand.ChestBase + 0));
             Assert.Equal(BagClick.Split, hb.Left(empty));
             rig.Run(3);
             hb = Hand(b);
@@ -1076,7 +1082,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Save_Format9_Chests_Beds_RoundTrip_ServerRestart()
         {
-            Assert.Equal(9u, SaveModule.FormatVersion);
+            Assert.Equal(11u, SaveModule.FormatVersion); // E2-15: 11
             SaveFixtures.LiveWorld live = SaveFixtures.Create(256, 25, bots: 0);
             Simulation sim = live.Sim;
             WorldPos at = Orpheus.Server.ServerRun.SpawnPoint(sim.Shape, 0);
@@ -1107,7 +1113,7 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "сундуки", chars), 2, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(9u, f.Header.FormatVersion);
+            Assert.Equal(11u, f.Header.FormatVersion); // E2-15: 11
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(2, st.ChestTiles.Length);
             Assert.Equal(c1, st.ChestTiles[0]); // по (Y, X): c2 южнее (Y больше) — второй
@@ -1190,7 +1196,7 @@ namespace Orpheus.Tests
             int id = st.Entities[0].Id;
             Assert.Equal(EditReply.Accepted, sim.RequestSetBed(id, bed));
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат8", st.Characters), 7, 0);
-            Assert.Equal(9u, SaveContainer.Read(again).Header.FormatVersion);
+            Assert.Equal(11u, SaveContainer.Read(again).Header.FormatVersion); // E2-15: 11
             Simulation re = SaveFixtures.Load(baseBytes, again);
             Assert.Equal(StateHash.Compute(sim).Total, StateHash.Compute(re).Total);
             Assert.True(re.TryGetChest(chest, out Inventory back));
@@ -1220,11 +1226,15 @@ namespace Orpheus.Tests
             var cases = new List<(TileCoord Tile, byte Floor, ushort Obj, byte Natural, int Integrity, byte Item, int Refund)>();
             for (int i = 0; i < 3; i++)
             {
-                cases.Add((new TileCoord(130 + i, 128), FloorId.WoodFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.WoodFloor, 1));
-                cases.Add((new TileCoord(130 + i, 130), FloorId.StoneFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.StoneFloor, 1));
-                cases.Add((new TileCoord(130 + i, 125), FloorId.Platform, ObjectId.Empty, FloorId.Water, BuildRecord.MaxIntegrity, Items.Platform, 1));
-                cases.Add((new TileCoord(125, 127 + i), FloorId.Grass, ObjectId.WoodWall, FloorId.Grass, i == 2 ? 60 : 120, Items.WoodWall, 1));
-                cases.Add((new TileCoord(123, 127 + i), FloorId.Grass, ObjectId.StoneWall, FloorId.Grass, i == 2 ? 150 : 300, Items.StoneWall, 1));
+                // E2-15: старый пол в 1 тайл читается целым тайлом из 4 ячеек 0,5 — снос даёт 4 предмета-ячейки (рецепт пола
+                // теперь даёт 4; записка half_tile_all.md, «Перенос старых миров»).
+                cases.Add((new TileCoord(130 + i, 128), FloorId.WoodFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.WoodFloor, 4));
+                cases.Add((new TileCoord(130 + i, 130), FloorId.StoneFloor, ObjectId.Empty, FloorId.Grass, BuildRecord.MaxIntegrity, Items.StoneFloor, 4));
+                cases.Add((new TileCoord(130 + i, 125), FloorId.Platform, ObjectId.Empty, FloorId.Water, BuildRecord.MaxIntegrity, Items.Platform, 4));
+                cases.Add((new TileCoord(125, 127 + i), FloorId.Grass, ObjectId.WoodWall, FloorId.Grass, i == 2 ? 60 : 120, Items.WoodWall, 4));
+                cases.Add((new TileCoord(123, 127 + i), FloorId.Grass, ObjectId.StoneWall, FloorId.Grass, i == 2 ? 150 : 300, Items.StoneWall, 4));
+                // E2-12: старая стена в 1 тайл читается сплошным тайлом из 4 ячеек 0,5 × 0,5 — снос даёт 4 предмета-ячейки
+                // (записка half_tile_walls.md, «Перенос старых миров»).
             }
 
             foreach (var k in cases)
@@ -1234,6 +1244,12 @@ namespace Orpheus.Tests
                 Assert.True(sim.World.TryGetBuild(k.Tile, out BuildRecord rec), $"нет записи постройки на {k.Tile}");
                 Assert.Equal(k.Natural, rec.NaturalFloor);
                 Assert.True(k.Integrity == rec.Integrity, $"{k.Tile}: прочность {rec.Integrity}, ждали {k.Integrity}");
+                if (k.Obj != ObjectId.Empty)
+                {
+                    Assert.Equal(0, rec.Cells); // формат 8: маски нет — весь тайл (E2-12)
+                    Assert.Equal(BuildCells.Full, BuildCells.MaskAt(sim.World, k.Tile));
+                    Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, k.Tile));
+                }
             }
 
             // Снос — та же правка, что ставит сервер, докопав молотом (`NetServer.Edits`: пол — природному из записи).
@@ -1256,7 +1272,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Net_GoldenBytes_Use_Reply_Chest_Repair()
         {
-            Assert.Equal(25, NetModule.ProtocolVersion);
+            Assert.Equal(27, NetModule.ProtocolVersion);
             var buf = new byte[256];
             int n = new UseRequestMessage { Op = UseOp.Use, Tile = new TileCoord(0x0102, 0x0304) }.Write(buf);
             Assert.Equal(UseRequestMessage.Bytes, n);
@@ -1269,7 +1285,9 @@ namespace Orpheus.Tests
             n = new UseReplyMessage { Tile = new TileCoord(5, 6), Obj = ObjectId.Bed, Reply = EditReply.Paused }.Write(buf);
             Assert.Equal("22-05-00-06-00-0A-00-12", BitConverter.ToString(buf, 0, n));
             Assert.Equal(EditReply.Paused, UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Reply);
-            buf[7] = 19;
+            buf[7] = 19; // E2-15 (протокол 27): 19 — «мешает мебель», допустим
+            Assert.Equal(EditReply.FurnitureInTile, UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Reply);
+            buf[7] = 20;
             Assert.Throws<ProtocolException>(() => UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             var cells = new Inventory();

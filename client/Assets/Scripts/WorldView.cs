@@ -60,6 +60,11 @@ namespace Orpheus.Client
             public Tilemap Floor = null!;
             public Tilemap Objects = null!;
 
+            /// <summary>E2-15: пол частью тайла — плитки-четверти на сетке 0,5 (<see cref="FloorCellsLook"/>) и что на ней сейчас.</summary>
+            public Tilemap FloorCells = null!;
+            public readonly byte[] FloorMasks = new byte[Size * Size];
+            public readonly byte[] FloorMaskFloors = new byte[Size * Size];
+
             /// <summary>Меш земли чанка (E1-4).</summary>
             public Mesh Ground = null!;
 
@@ -80,6 +85,9 @@ namespace Orpheus.Client
 
             /// <summary>Объекты чанка, по которым собраны меши строк и теней (E1-7): что сейчас на экране.</summary>
             public readonly ushort[] Objs = new ushort[Size * Size];
+
+            /// <summary>E2-17: ключи вида построек-ячеек (<see cref="ObjectMesh.CellKey"/>), по которым собраны меши строк.</summary>
+            public readonly long[] CellKeys = new long[Size * Size];
 
             /// <summary>Строки объектов «с высотой»: меш и отрисовщик на строку тайлов; создаются, когда в строке что-то появилось.</summary>
             public readonly Mesh?[] RowMeshes = new Mesh?[Size];
@@ -226,15 +234,14 @@ namespace Orpheus.Client
                 case ObjectId.Bush: return _tree;
                 case ObjectId.Granite: return _rock;
                 case ObjectId.Ore: return _rock;
-                // Стены, забор, дверь (E2-5): плитки заглушек tools/make_item_icons.py; нет картинки — как раньше (камень пола).
+                // Стены, забор, дверь (E2-17): «с высотой» — в мешах строк объектов (ObjectMesh.Walls), плитки нет.
                 case ObjectId.StoneWall:
                 case ObjectId.WoodWall:
                 case ObjectId.WoodFence:
-                    return BuildLook.TileOf(ObjectId.IdOf(obj)) ?? _stone;
+                case ObjectId.Door:
+                    return null;
                 // Ковёр (1-011, бесплатная постройка): своего спрайта нет (1-024) — рисуем лугом, проба 1-022 видит клетку.
                 case ObjectId.Carpet: return _meadow;
-                // Дверь (1-012): закрытая — камнем (видная преграда), открытая — светлее (лугом); свои спрайты — 1-024.
-                case ObjectId.Door: return BuildLook.TileOf(ObjectId.Door) ?? _stone;
                 // Факел и костёр (E1-8: свет источников для тона суток): своего спрайта нет (1-024) — рисуем валуном,
                 // чтобы в кадре было видно, от чего круг света.
                 case ObjectId.Torch: return _rock;
@@ -242,10 +249,6 @@ namespace Orpheus.Client
                 default: return null;
             }
         }
-
-        /// <summary>Тайл двери по состоянию (1-012): открытая — светлее (луг), закрытая — как <see cref="ObjectTile"/>.</summary>
-        public TileBase DoorTile(bool open) =>
-            (open ? BuildLook.Tile(BuildLook.DoorOpen) : BuildLook.TileOf(ObjectId.Door)) ?? (open ? _meadow : _stone);
 
         /// <summary>Сдвинуть окно к персонажу: выбросить вышедшие чанки в пул, залить вошедшие, расставить узлы от якоря.</summary>
         public void UpdateWindow(WorldPos character)
@@ -295,6 +298,7 @@ namespace Orpheus.Client
             if (_nodes.TryGetValue(c, out ChunkNode? node))
             {
                 Fill(node, c);
+                RefreshSeams(c); // E2-12: контур тонкой стены у соседнего чанка зависит от ячеек этого
                 return;
             }
 
@@ -379,6 +383,7 @@ namespace Orpheus.Client
             {
                 Root = root,
                 Floor = AddTilemap(root.transform, "Floor", FloorOrder, TilemapRenderer.Mode.Chunk),
+                FloorCells = FloorCellsLook.Create(root.transform, FloorOrder),
                 // Объекты сортируются по одному с персонажем по оси Y (перспектива с наклоном, 00 5.1).
                 Objects = AddTilemap(root.transform, "Objects", ObjectOrder, TilemapRenderer.Mode.Individual),
                 Ground = GroundMesh.Create(),
@@ -537,7 +542,8 @@ namespace Orpheus.Client
             for (int lx = 0; lx < Size; lx++)
             {
                 int index = Chunk.IndexOf(lx, ly);
-                if (ObjectTable.Find(chunk.GetObject(index), chunk.GetFloor(index)) != null)
+                ushort obj = chunk.GetObject(index);
+                if (BuildCells.IsCellBuilding(obj) || ObjectTable.Find(obj, chunk.GetFloor(index)) != null)
                 {
                     return true;
                 }
@@ -606,6 +612,50 @@ namespace Orpheus.Client
             node.GroundDirty = false;
         }
 
+        /// <summary>
+        /// Постройки-ячеек у границы (E2-12, E2-17): вид стены зависит от ячеек за границей тайла — у соседних чанков
+        /// пересобрать строки, где у тайла-постройки в ряду, прилегающем к чанку <paramref name="c"/>, сменился ключ вида.
+        /// </summary>
+        void RefreshSeams(ChunkCoord c)
+        {
+            for (int k = 0; k < 4; k++)
+            {
+                int dx = k == 0 ? 1 : k == 1 ? -1 : 0, dy = k == 2 ? 1 : k == 3 ? -1 : 0;
+                if (!TryNeighbour(c, dx, dy, out ChunkNode n) || !n.HasFloors)
+                {
+                    continue;
+                }
+
+                Chunk? chunk = _world.FindChunk(n.Coord);
+                if (chunk == null)
+                {
+                    continue;
+                }
+
+                TileCoord corner = Torus.CornerOf(n.Coord);
+                Array.Clear(_rowDirty, 0, Size);
+                bool any = false;
+                for (int i = 0; i < Size; i++)
+                {
+                    int lx = dx == 1 ? 0 : dx == -1 ? Size - 1 : i;
+                    int ly = dy == 1 ? 0 : dy == -1 ? Size - 1 : i;
+                    int index = Chunk.IndexOf(lx, ly);
+                    long key = BuildCells.IsCellBuilding(chunk.GetObject(index)) ? _objects.CellKey(corner.X + lx, corner.Y + ly) : 0;
+                    if (key != n.CellKeys[index])
+                    {
+                        n.CellKeys[index] = key;
+                        _rowDirty[ly] = true;
+                        any = true;
+                    }
+                }
+
+                if (any)
+                {
+                    BuildObjects(n, chunk, all: false);
+                }
+            }
+        }
+
         bool TryNeighbour(ChunkCoord c, int dx, int dy, out ChunkNode node) =>
             _nodes.TryGetValue(Torus.Wrap(_map, new ChunkCoord(c.X + dx, c.Y + dy)), out node!);
 
@@ -637,7 +687,17 @@ namespace Orpheus.Client
                     int index = Chunk.IndexOf(lx, ly);
                     byte floor = chunk == null ? FloorId.Grass : chunk.GetFloor(index);
                     ushort obj = chunk == null ? ObjectId.Empty : chunk.GetObject(index);
-                    TileBase? floorTile = FloorTile(floor);
+                    byte part = FloorCellsLook.PartialMask(chunk, index, floor); // E2-15: пол частью тайла — четвертями
+                    if (FloorCellsLook.Sync(node.FloorCells, node.FloorMasks, node.FloorMaskFloors, lx, ly, floor, part) && !fresh)
+                    {
+                        // Пол стал частью тайла или целым: земля под ним — другая (природная под частью) — меш земли заново.
+                        if (lx < minX) minX = lx;
+                        if (lx > maxX) maxX = lx;
+                        if (ly < minY) minY = ly;
+                        if (ly > maxY) maxY = ly;
+                    }
+
+                    TileBase? floorTile = part != 0 ? null : FloorTile(floor);
                     built |= floorTile != null;
                     _floorBuf[row + lx] = floorTile;
                     if (objs[index] != obj)
@@ -671,13 +731,21 @@ namespace Orpheus.Client
                         if (ly > maxY) maxY = ly;
                     }
 
-                    TileBase? tile = ObjectTile(obj);
-                    if (obj == ObjectId.Door && chunk != null && chunk.TryGetBuild(index, out BuildRecord rec))
+                    // E2-17: стена, забор, дверь — в меше строки; вид зависит от соседних ячеек и двери — по ключу.
+                    long key = 0;
+                    if (BuildCells.IsCellBuilding(obj))
                     {
-                        tile = DoorTile(rec.IsDoorOpen); // 1-012: состояние двери видно (открытая светлее)
+                        TileCoord corner = Torus.CornerOf(c);
+                        key = _objects.CellKey(corner.X + lx, corner.Y + ly);
                     }
 
-                    _objBuf[row + lx] = tile;
+                    if (node.CellKeys[index] != key)
+                    {
+                        node.CellKeys[index] = key;
+                        _rowDirty[ly] = true;
+                    }
+
+                    _objBuf[row + lx] = ObjectTile(obj);
                 }
             }
 
@@ -703,6 +771,7 @@ namespace Orpheus.Client
             {
                 GrassLayer.MarkFresh(node.Grass);
                 BuildGround(node);
+                RefreshSeams(c); // E2-17: стены соседних чанков у общего края видят ячейки этого
                 // Соседи, собранные без этого чанка, пересоберутся в PlaceNodes этого кадра.
                 for (int dy = -1; dy <= 1; dy++)
                 {

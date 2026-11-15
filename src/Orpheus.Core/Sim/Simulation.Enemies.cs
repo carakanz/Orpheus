@@ -26,49 +26,46 @@ namespace Orpheus.Core.Sim
             ref EnemyBrain b = ref e.Brain;
             e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
 
+            // Сдача (1-013, 9.3): 20 с эпизода «упёрся» без продвижения по пути — цель в игнор на 30 с, враг в Ожидание. C-009: и из
+            // погони — враг, которого толкотня раскачивает у косяка, двигается (таймер «застрял» не доходит до Blocked), но не ближе.
+            if (b.BlockedSince != 0 && tick - b.BlockedSince >= MeleeRogue.BlockedGiveUpTicks)
+            {
+                e.Input = InputFrame.None;
+                b.IgnoreTargetId = b.TargetId;
+                b.IgnoreUntil = tick + MeleeRogue.IgnoreTargetTicks;
+                b.TargetId = EnemyBrain.NoTarget;
+                b.State = EnemyState.Idle;
+                b.StateTicks = 0;
+                b.PathStamp = 0;
+                b.BlockedSince = 0;
+                b.EnclosedRev = 0;
+                return;
+            }
+
             if (b.State == EnemyState.Blocked)
             {
-                // «Упёрся» (1-013, 9.3): стоит у преграды; пересчёт — сразу при правке мира (ревизия сдвинулась);
-                // через 20 с цель уходит в игнор на 30 с, враг — в Ожидание (не застревает).
+                // «Упёрся» (1-013, 9.3): стоит у преграды; пересчёт — сразу при правке мира (ревизия сдвинулась).
                 e.Input = InputFrame.None;
-                long blockedFor = tick - b.BlockedSince;
-                if (b.BlockedSince != 0 && blockedFor >= MeleeRogue.BlockedGiveUpTicks)
+                bool decide = (tick + e.Id) % AiDecisionTicks == 0;
+                if ((b.EnclosedRev != 0 && _editRev + 1 != b.EnclosedRev) || (decide && BlockedGoalMoved(ref b, target.Mover.Position)))
                 {
-                    b.IgnoreTargetId = b.TargetId;
-                    b.IgnoreUntil = tick + MeleeRogue.IgnoreTargetTicks;
-                    b.TargetId = EnemyBrain.NoTarget;
-                    b.State = EnemyState.Idle;
-                    b.StateTicks = 0;
-                    b.PathStamp = 0;
-                    b.BlockedSince = 0;
-                    b.EnclosedRev = 0;
-                    return;
-                }
-
-                if (b.EnclosedRev != 0 && _editRev + 1 != b.EnclosedRev)
-                {
-                    // Тайл в окне поменялся (стена снесена, дверь открыта) — пересчёт сразу, без ожидания (9.3).
-                    TileCoord start = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
-                    TileCoord bt = Torus.Wrap(_shape, Torus.TileOf(_shape, target.Mover.Position));
-                    if (_paths.Enqueue(slot, start, bt, PathMode.Walker, tick))
+                    // Тайл в окне поменялся (стена снесена, дверь открыта) — пересчёт сразу, без ожидания (9.3). E2-12b: и цель ушла
+                    // дальше тайла от той, к которой искали (игрок вышел из дома, обошёл постройку) — иначе враг стоял до 20 с.
+                    if (EnqueueChasePath(ref e, slot, ChaseGoal(target.Mover.Position), tick))
                     {
-                        b.PathStamp = (int)tick;
-                        b.PathPos = 0;
-                        b.PathRev = _editRev;
-                        b.EnclosedRev = 0;
+                        b.EnclosedRev = EnemyBrain.AfterEnclosed; // C-009: найдёт путь — «путь появился», эпизод закрыт
                         b.ProgressTick = (int)tick;
                         b.ProgressX = e.Mover.Position.X;
                         b.ProgressY = e.Mover.Position.Y;
-                        b.GoalX = bt.X;
-                        b.GoalY = bt.Y;
                         b.State = EnemyState.Chase;
                         b.StateTicks = 0;
                     }
                 }
-                else if (b.EnclosedRev == 0 && blockedFor % MeleeRogue.BlockedRetryTicks == 0 &&
-                    (tick + e.Id) % AiDecisionTicks == 0)
+                else if (b.EnclosedRev == 0 && decide && b.StateTicks >= AiDecisionTicks)
                 {
-                    // Blocked без кэша (загрузка сейва): переспрос каждые 2 с, как в 8.4.
+                    // Blocked без кэша — «застрял» (нет продвижения 2 с при пути) или загрузка сейва: переспрос на ближайшем решении
+                    // (E2-12b; было «каждые 2 с» по условию, которое при сдвиге фаз не выполнялось никогда — враг стоял 20 с).
+                    // Сдача через 20 с — по BlockedSince, он сбрасывается только продвижением.
                     b.State = EnemyState.Chase;
                     b.StateTicks = 0;
                     b.PathStamp = 0;
@@ -91,7 +88,9 @@ namespace Orpheus.Core.Sim
             }
             else if (Torus.Dist2(_shape, e.Mover.Position, new WorldPos(b.ProgressX, b.ProgressY)) >= MeleeRogue.ProgressMove2)
             {
-                // Продвинулись — контрольная точка за текущей позицией, таймер «упёрся» сброшен.
+                // Продвинулись — контрольная точка за текущей позицией, таймер «застрял» сброшен. Эпизод «упёрся» (BlockedSince)
+                // смещение не закрывает (C-009: толкотня раскачивает у косяка — смещается, но путь не укорачивается; враг не
+                // сдавался никогда) — закрывает продвижение по пути (точки пути, ниже) и «путь появился».
                 b.ProgressTick = (int)tick;
                 b.ProgressX = e.Mover.Position.X;
                 b.ProgressY = e.Mover.Position.Y;
@@ -103,7 +102,7 @@ namespace Orpheus.Core.Sim
                 b.State = EnemyState.Blocked;
                 b.StateTicks = 0;
                 b.PathStamp = 0;
-                b.EnclosedRev = _editRev + 1;
+                b.EnclosedRev = 0; // E2-12b: без кэша — переспрос на ближайшем решении (застрял — не значит «пути нет»)
                 if (b.BlockedSince == 0)
                 {
                     b.BlockedSince = tick;
@@ -113,7 +112,8 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
-            TileCoord goal = Torus.Wrap(_shape, Torus.TileOf(_shape, target.Mover.Position));
+            WorldPos goalPoint = ChaseGoal(target.Mover.Position);
+            TileCoord goal = Torus.TileOf(_shape, goalPoint);
             PathBuffer buf = _pathBuf[slot];
 
             // Не дальше 60 тайлов от точки появления (1-013 з.3, 0-028): увязся далеко — цель в игнор, домой (Lost).
@@ -136,15 +136,7 @@ namespace Orpheus.Core.Sim
             {
                 if ((tick + e.Id) % AiDecisionTicks == 0)
                 {
-                    TileCoord start = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
-                    if (_paths.Enqueue(slot, start, goal, PathMode.Walker, tick))
-                    {
-                        b.PathStamp = (int)tick;
-                        b.PathPos = 0;
-                        b.PathRev = _editRev;
-                        b.GoalX = goal.X;
-                        b.GoalY = goal.Y;
-                    }
+                    EnqueueChasePath(ref e, slot, goalPoint, tick);
                 }
 
                 MoveToward(ref e, goal);
@@ -168,16 +160,7 @@ namespace Orpheus.Core.Sim
             {
                 if (revised || (tick + e.Id) % AiDecisionTicks == 0)
                 {
-                    TileCoord start = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
-                    if (_paths.Enqueue(slot, start, goal, PathMode.Walker, tick))
-                    {
-                        b.PathStamp = (int)tick;
-                        b.PathPos = 0;
-                        b.PathRev = _editRev;
-                        b.EnclosedRev = 0;
-                        b.GoalX = goal.X;
-                        b.GoalY = goal.Y;
-                    }
+                    EnqueueChasePath(ref e, slot, goalPoint, tick);
                 }
 
                 MoveToward(ref e, goal);
@@ -207,25 +190,23 @@ namespace Orpheus.Core.Sim
                     return;
 
                 default:
-                    b.BlockedSince = 0; // путь есть — «упёрся» не копится (1-013)
-                    break; // Found / WindowEdge / Partial — идём по шагам
+                    // Found / WindowEdge / Partial — идём по точкам. Эпизод «упёрся» закрыт (C-009, 9.3 «путь появился →
+                    // Преследование»): поиск после «замкнута» нашёл путь до цели — или враг прошёл по пути
+                    // EpisodeClosePathPoints точек (остаток пути укоротился; раскачиваемый у косяка точек не проходит).
+                    if (b.BlockedSince != 0 &&
+                        ((b.EnclosedRev == EnemyBrain.AfterEnclosed && buf.Status == PathStatus.Found) ||
+                         b.PathPos >= MeleeRogue.EpisodeClosePathPoints))
+                    {
+                        b.BlockedSince = 0;
+                    }
+
+                    b.EnclosedRev = 0;
+                    break;
             }
 
-            // Путь готов (Found — до цели; WindowEdge — до края окна; Partial — предельная длина): по шагам.
-            int steps = buf.Length;
-            while (b.PathPos < steps &&
-                Torus.Dist2(_shape, e.Mover.Position,
-                    EditRules.CenterOf(Torus.Wrap(_shape, buf.Steps[b.PathPos]))) <= MeleeRogue.NodePass2)
+            // Путь готов (Found — до цели; WindowEdge — до края окна; Partial — предельная длина): по точкам решётки (E2-12b).
+            if (FollowPath(ref e, buf))
             {
-                b.PathPos++;
-            }
-
-            if (b.PathPos < steps)
-            {
-                TileCoord node = Torus.Wrap(_shape, buf.Steps[b.PathPos]);
-                e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
-                Int2 d = Torus.Delta(_shape, e.Mover.Position, EditRules.CenterOf(node));
-                e.Input = new InputFrame(Input8.FromStick(d.X, d.Y));
                 return;
             }
 
@@ -290,7 +271,13 @@ namespace Orpheus.Core.Sim
                 {
                     ref SimEntity target = ref _entities[ts];
                     long dist2 = Torus.Dist2(_shape, e.Mover.Position, target.Mover.Position);
-                    if (dist2 <= MeleeRogue.StrikeRange2)
+                    // В атаку — только при чистой линии удара (E2-12, `02` 9.3): сквозь стену 0,5 игрок у внутренней грани в 1,3 т —
+                    // в зоне удара, но за стеной; стоять «в атаке» у стены нельзя — погоня, «упёрся» и уход через 20 с. Забор прозрачен.
+                    // Враг в закрытой двери (закрыли под ним правкой без выталкивания, C-001) или центром в твёрдой ячейке стоит, как
+                    // раньше: погоня вывела бы его из двери на сторону цели. Замах гасит линия удара. Свободная половина тайла стены — нет.
+                    TileCoord own = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
+                    if (dist2 <= MeleeRogue.StrikeRange2 &&
+                        (InsideSolid(e.Mover.Position) || StrikeLineClear(e.Mover.Position, target.Mover.Position, own)))
                     {
                         // В зоне удара (8.1 «бьёт в упор»): стоит; замах ведёт фаза боя по состоянию Attack.
                         e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;

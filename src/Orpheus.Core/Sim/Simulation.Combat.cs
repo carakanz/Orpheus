@@ -409,6 +409,21 @@ namespace Orpheus.Core.Sim
             return false;
         }
 
+        /// <summary>Точка <paramref name="p"/> лежит в твёрдой ячейке 0,5 × 0,5 тайла <paramref name="tile"/> (E2-12, <see cref="SolidCells"/>).</summary>
+        private bool StrikeCellSolid(TileCoord tile, WorldPos p)
+        {
+            byte mask = SolidCells(_shape, Torus.Wrap(_shape, tile));
+            if (mask == BuildCells.Full)
+            {
+                return true;
+            }
+
+            WorldPos w = Torus.Wrap(_shape, p);
+            int qx = (w.X >> (Torus.SubTileBits - 1)) & 1;
+            int qy = (w.Y >> (Torus.SubTileBits - 1)) & 1;
+            return (mask & BuildCells.Bit(qx, qy)) != 0;
+        }
+
         /// <summary>
         /// Линия удара чиста (`02` 3.1, 3.4): отрезок «начало удара — центр цели» с шагом
         /// <see cref="StrikeLosStepUnits"/> unit не пересекает непроходимых тайлов (<see cref="IsBlocked"/>:
@@ -432,7 +447,8 @@ namespace Orpheus.Core.Sim
                     continue;
                 }
 
-                if (StrikeTileBlocked(tile))
+                // E2-12: стена в полтайла — точка гасит удар, только если попала в твёрдую ячейку тайла (у целых тайлов — всегда).
+                if (StrikeTileBlocked(tile) && StrikeCellSolid(tile, p))
                 {
                     return false;
                 }
