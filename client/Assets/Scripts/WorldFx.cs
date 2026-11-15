@@ -136,9 +136,9 @@ namespace Orpheus.Client
 
         /// <summary>
         /// Тень существа (C-017): пятно у ног, силуэт по солнцу и тени от огня — <see cref="ActorShadow"/> (потомок корня
-        /// существа, слой теней). <paramref name="width"/> — ширина пятна у ног, тайлов.
+        /// существа, слой теней). <paramref name="width"/> — ширина пятна у ног, <paramref name="height"/> — высота силуэта, тайлов.
         /// </summary>
-        public static void AddActorShadow(Transform actor, float width) => ActorShadow.Attach(actor, width);
+        public static void AddActorShadow(Transform actor, float width, float height = ActorShadow.Height) => ActorShadow.Attach(actor, width, height);
 
         // ---------- Кадр ----------
 

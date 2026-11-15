@@ -20,7 +20,7 @@ namespace Orpheus.Client
     /// </summary>
     public sealed class ActorShadow : MonoBehaviour
     {
-        /// <summary>Высота силуэта существа и его ширина, тайлов (предварительно).</summary>
+        /// <summary>Высота силуэта существа по умолчанию и ширина силуэта, тайлов (предварительно; куча — ниже).</summary>
         public const float Height = 1.0f, SunWidth = 0.42f, FireWidth = 0.5f;
 
         /// <summary>Длина тени от огня на тайл высоты: у источника и прирост за тайл, предел (как у предметов).</summary>
@@ -33,13 +33,13 @@ namespace Orpheus.Client
         readonly List<Vector2> _sun = new List<Vector2>(16);
         readonly LightSight.Lit[] _lit = new LightSight.Lit[2];
         Mesh? _mesh;
-        float _width;
+        float _width, _height = Height;
         WorldModel? _world;
         ChunkCoord _chunk;
         int _x4, _y4;
 
         /// <summary>Повесить тень на существо (потомок корня, слой теней).</summary>
-        public static void Attach(Transform actor, float width)
+        public static void Attach(Transform actor, float width, float height = Height)
         {
             Material? material = ObjectAtlas.ShadowMaterial;
             int blob = ObjectAtlas.Find(ObjectAtlas.BlobName);
@@ -52,6 +52,7 @@ namespace Orpheus.Client
             go.transform.SetParent(actor, false);
             var shadow = go.AddComponent<ActorShadow>();
             shadow._width = width;
+            shadow._height = height;
             shadow.Build(ObjectAtlas.Entries[blob].Uv);
             go.AddComponent<MeshFilter>().sharedMesh = shadow._mesh;
             var mr = go.AddComponent<MeshRenderer>();
@@ -119,7 +120,7 @@ namespace Orpheus.Client
             for (int i = 0; i < 16; i++)
             {
                 _color[i] = new Color32(0, 0, 0, (byte)(i < 4 ? 235 : i < 8 ? 210 : 0));
-                _sun.Add(new Vector2(i == 6 || i == 7 ? Height : 0f, i < 4 ? ObjectMesh.FootChannel : i < 8 ? ObjectMesh.SunChannel : ObjectMesh.FireChannel));
+                _sun.Add(new Vector2(i == 6 || i == 7 ? _height : 0f, i < 4 ? ObjectMesh.FootChannel : i < 8 ? ObjectMesh.SunChannel : ObjectMesh.FireChannel));
             }
 
             _mesh.vertices = _pos;
@@ -178,7 +179,7 @@ namespace Orpheus.Client
                     {
                         u /= dist;
                         var side = new Vector2(u.y, -u.x) * (FireWidth * 0.5f);
-                        float len = Mathf.Min(FireLenMax, FireLenNear + FireLenPerTile * dist) * Height;
+                        float len = Mathf.Min(FireLenMax, FireLenNear + FireLenPerTile * dist) * _height;
                         if (_world != null)
                         {
                             int want4 = Mathf.CeilToInt(len * 4f);

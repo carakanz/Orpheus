@@ -156,6 +156,7 @@
     { "name": "C-017_glade_night", "seed": "0xE50007", "size": 1024, "tile": [521, 566], "width": 40, "time": "night", "args": ["--paint-demo"] },
     { "name": "C-017_wall_night", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "night", "args": ["--home-demo", "wall"] },
     { "name": "C-017_wall_morning", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "0.05", "args": ["--home-demo", "wall"] },
+    { "name": "C-017_piles_evening", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "time": "0.58", "args": ["--paint-demo", "--demo-piles", "--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
     { "name": "C-017_mountain_evening", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 64, "time": "0.58" }
   ]
 }
