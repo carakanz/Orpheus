@@ -790,7 +790,7 @@ namespace Orpheus.Client
         bool ShiftForWindow()
         {
             Keyboard? kb = Keyboard.current;
-            return _ui != null && _ui.OverWindow && kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame);
+            return _ui != null && (_ui.OverWindow || _ui.Ruler.Dragging) && kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame); // E2-13: Shift при протягивании — диагональ, не уворот
         }
 
         void UpdateZoom()

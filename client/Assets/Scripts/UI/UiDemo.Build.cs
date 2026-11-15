@@ -22,7 +22,10 @@ namespace Orpheus.Client.UI
         bool _chestOpen;
 
         /// <summary>Сцена режима стройки, сундука или дома (E2-5).</summary>
-        public static bool IsBuild(string? mode) => mode == "build" || mode == "chest" || mode == "house" || mode == "thin";
+        public static bool IsBuild(string? mode) => mode == "build" || mode == "chest" || mode == "house" || mode == "thin" || IsRuler(mode);
+
+        /// <summary>E2-13: сцены линейки — протягивание стены (<c>ruler-wall</c>) и пола (<c>ruler-floor</c>).</summary>
+        public static bool IsRuler(string? mode) => mode == "ruler-wall" || mode == "ruler-floor";
 
         /// <summary>Начало координат и родитель призрака для сцен E2-5 (звать сразу после конструктора).</summary>
         public void BindWorld(FloatingOrigin origin, Transform parent)
@@ -45,7 +48,16 @@ namespace Orpheus.Client.UI
                 _bag.SetCell(6, Items.StoneWall, 24); // E2-11: стена — предмет в ячейке панели 7
                 _bag.Select(6);
             }
+
+            if (IsRuler(_mode))
+            {
+                // E2-13: стен 12 на линию из 16 ячеек — хвост бледный («не хватит»); пол 20 на 4 × 3.
+                _bag.SetCell(6, _mode == "ruler-wall" ? Items.StoneWall : Items.WoodFloor, _mode == "ruler-wall" ? 12 : 20);
+                _bag.Select(6);
+            }
         }
+
+        readonly BuildRuler _demoRuler = new BuildRuler();
 
         // Заявки стройки стенда: мир сцены не меняется (снимок — про призрак и ленту).
         public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad) => 1;
@@ -98,6 +110,25 @@ namespace Orpheus.Client.UI
                     input.Pointer = _ui.WorldToCanvas(_origin.ToUnity(EditRules.CenterOf(bad)) + new Vector3(0.2f, -0.1f, 0f));
                 }
             }
+            else if (IsRuler(_mode))
+            {
+                // Протягивание: стена — ряд под персонажем через дерево сцены (красные ячейки пропускаются); пол — 4 × 3 слева
+                // сверху, на тайле верстака — красный. Курсор — в точке B, у курсора «длина / площадь, нужно, есть».
+                bool wall = _mode == "ruler-wall";
+                var a = wall ? new TileCoord(me.X - 5, me.Y + 1) : new TileCoord(me.X - 5, me.Y - 3);
+                var b = wall ? new TileCoord(me.X + 2, me.Y + 1) : new TileCoord(me.X - 2, me.Y - 1);
+                _demoRuler.Begin(a, wall ? 2 : 0);
+                _demoRuler.Update(_world, position, _bag, _bag.Selected, true, b, wall ? 3 : 0, false);
+                build.Placing = true;
+                build.RulerMode = true;
+                build.Dragging = true;
+                build.Plan = _demoRuler;
+                if (_origin != null && _ghost != null)
+                {
+                    _ghost.ShowPlan(_origin, _world.Shape, position, _demoRuler.Spots);
+                    input.Pointer = _ui.WorldToCanvas(_origin.ToUnity(EditRules.CenterOf(b)) + new Vector3(0.25f, -0.25f, 0f));
+                }
+            }
             else if (_mode == "chest")
             {
                 // Скрипт: древесина из сундука → в сумку (Shift+ЛКМ), камень из сумки — половину в сундук.
@@ -112,7 +143,7 @@ namespace Orpheus.Client.UI
 
             build.Chest = _chest;
             build.Use = _chestOpen ? UseKind.None : ObjectUse.Find(_world, position, null, out _, out UseKind use) ? use : UseKind.None;
-            _ui.Frame(input, _bag, selected: _mode == "build" ? 6 : 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100,
+            _ui.Frame(input, _bag, selected: _mode == "build" || IsRuler(_mode) ? 6 : 3, dead: false, health: 72, maxHealth: 100, stamina: 45, maxStamina: 100,
                 new UiCraftState { Queue = _queue, World = _world, Position = position }, build);
         }
     }

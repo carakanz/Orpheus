@@ -23,6 +23,7 @@ namespace Orpheus.Client
         static readonly Color Ok = new Color(0.35f, 1f, 0.45f, 0.62f);
         static readonly Color Bad = new Color(1f, 0.28f, 0.22f, 0.62f);
         static readonly Color Fix = new Color(1f, 0.85f, 0.25f, 0.9f);
+        static readonly Color Spare = new Color(1f, 0.8f, 0.3f, 0.35f);
         static readonly Color GridColor = new Color(1f, 1f, 1f, 0.13f);
 
         readonly GameObject _root;
@@ -30,6 +31,7 @@ namespace Orpheus.Client
         readonly SpriteRenderer[][] _frame = new SpriteRenderer[Slots][];
         readonly SpriteRenderer[] _fill = new SpriteRenderer[Slots];
         readonly SpriteRenderer[] _grid;
+        readonly System.Collections.Generic.List<SpriteRenderer> _plan = new System.Collections.Generic.List<SpriteRenderer>();
         static Sprite? _white;
 
         public BuildGhost(Transform parent)
@@ -116,6 +118,76 @@ namespace Orpheus.Client
             Edge(_frame[slot][1], c + new Vector3(0f, -h / 2f, 0f), w + Line, Line, col);
             Edge(_frame[slot][2], c + new Vector3(-w / 2f, 0f, 0f), Line, h + Line, col);
             Edge(_frame[slot][3], c + new Vector3(w / 2f, 0f, 0f), Line, h + Line, col);
+        }
+
+        /// <summary>
+        /// План линейки (E2-13): сетка и клетка на каждую клетку плана — зелёная (можно), бледно-жёлтая (можно, но предметов
+        /// не хватит), красная (нельзя — будет пропущена). Ячейки стен — квадрат 0,5, пол — тайл. Призраки слотов скрыты.
+        /// «Можно / нельзя» — готовое из <see cref="BuildRuler"/> (проверка ядра), своих правил нет.
+        /// </summary>
+        public void ShowPlan(FloatingOrigin origin, MapShape map, WorldPos self, System.ReadOnlySpan<RulerSpot> spots)
+        {
+            if (!_root.activeSelf)
+            {
+                _root.SetActive(true);
+            }
+
+            ShowGrid(origin, map, self);
+            for (int s = 0; s < Slots; s++)
+            {
+                _ghost[s].gameObject.SetActive(false);
+                _fill[s].gameObject.SetActive(false);
+                foreach (SpriteRenderer f in _frame[s])
+                {
+                    f.gameObject.SetActive(false);
+                }
+            }
+
+            while (_plan.Count < spots.Length)
+            {
+                _plan.Add(Quad("Plan" + _plan.Count, Order));
+            }
+
+            for (int i = 0; i < _plan.Count; i++)
+            {
+                bool on = i < spots.Length;
+                if (_plan[i].gameObject.activeSelf != on)
+                {
+                    _plan[i].gameObject.SetActive(on);
+                }
+
+                if (!on)
+                {
+                    continue;
+                }
+
+                RulerSpot sp = spots[i];
+                Vector3 c = origin.ToUnity(EditRules.CenterOf(Torus.Wrap(map, sp.Tile)));
+                float w = 0.94f, h = 0.94f;
+                if (sp.Cells != 0 && sp.Cells != BuildCells.Full)
+                {
+                    CellBox(sp.Cells, out float ox, out float oy, out w, out h);
+                    c += new Vector3(ox, oy, 0f);
+                    w -= 0.04f;
+                    h -= 0.04f;
+                }
+
+                _plan[i].transform.position = c;
+                _plan[i].transform.localScale = new Vector3(w, h, 1f);
+                _plan[i].color = !sp.Ok ? Bad : sp.Short ? Spare : new Color(Ok.r, Ok.g, Ok.b, 0.5f);
+            }
+        }
+
+        /// <summary>Убрать план линейки (протягивание кончилось).</summary>
+        public void HidePlan()
+        {
+            foreach (SpriteRenderer r in _plan)
+            {
+                if (r.gameObject.activeSelf)
+                {
+                    r.gameObject.SetActive(false);
+                }
+            }
         }
 
         /// <summary>

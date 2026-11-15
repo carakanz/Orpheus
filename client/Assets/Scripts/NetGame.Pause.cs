@@ -91,7 +91,7 @@ namespace Orpheus.Client
                     _pauseKey.Enable();
                 }
 
-                if (_pauseKey.WasPressedThisFrame() && _ui?.EscapeUsed != true) // E2-2: Esc, закрывший окно сумки, паузу не ставит
+                if (_pauseKey.WasPressedThisFrame() && _ui?.EscapeUsed != true && !RulerTookEscape) // E2-2: Esc, закрывший окно сумки, паузу не ставит
                 {
                     c.RequestPause(!c.Paused);
                     Debug.Log(c.Paused ? "[net] «продолжить» отправлено" : "[net] «пауза» отправлена");

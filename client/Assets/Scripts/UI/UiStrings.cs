@@ -234,6 +234,24 @@ namespace Orpheus.Client.UI
         /// <summary>Подсказка у призрака постановки (E2-11): что жать и сколько в руке.</summary>
         public static string PlaceHint(int inHand) => $"ЛКМ — поставить, зажать — подряд (в руке {inHand})";
 
+        /// <summary>E2-13: подпись режима постановки у панели.</summary>
+        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (R — поштучно)" : "Поштучно   (R — линейка)";
+
+        /// <summary>E2-13: подсказка у призрака в режиме линейки.</summary>
+        public static string RulerHint(Orpheus.Net.Session.RulerKind kind, int inHand) =>
+            kind == Orpheus.Net.Session.RulerKind.Rect
+                ? $"ЛКМ — тянуть прямоугольник, отпустить — поставить (в руке {inHand})"
+                : $"ЛКМ — тянуть линию, Shift — по диагонали (в руке {inHand})";
+
+        /// <summary>E2-13: строка у курсора при протягивании — длина или площадь, «нужно N, есть M», отмена.</summary>
+        public static string RulerNote(Orpheus.Net.Session.RulerKind kind, int cells, int w, int h, int need, int have)
+        {
+            string size = kind == Orpheus.Net.Session.RulerKind.Rect
+                ? $"{w} × {h} = {w * h} м²"
+                : $"длина {cells / 2}{(cells % 2 == 1 ? ",5" : string.Empty)} м";
+            return $"{size} · нужно {need}, есть {have} · ПКМ / Esc — отмена";
+        }
+
         /// <summary>Прочность постройки под курсором.</summary>
         public static string Integrity(int cur, int max) => $"Прочность {cur} / {max}";
 
