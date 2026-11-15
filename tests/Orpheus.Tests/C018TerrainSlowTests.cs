@@ -303,5 +303,82 @@ namespace Orpheus.Tests
 
             Assert.Equal(Run(), Run());
         }
+
+        /// <summary>Решение C-018: враг не появляется в воде (вода проходима, но тайл появления — нет); трава рядом — годна.</summary>
+        [Fact]
+        public void C018_Spawn_NotInWater_GrassNearbyOk()
+        {
+            var sim = new Simulation(FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1804));
+            TileCoord wet = new TileCoord(100, 100);
+            TileCoord dry = new TileCoord(100, 103);
+            sim.World.SetBaseTile(wet, FloorId.Water, ObjectId.Empty);
+            Assert.False(sim.IsBlocked(sim.Shape, wet));
+            Assert.True(sim.IsSpawnTileOk(dry), "трава рядом должна годиться — иначе тест не проверяет воду");
+            Assert.False(sim.IsSpawnTileOk(wet));
+        }
+
+        /// <summary>
+        /// Решение C-018: бродяга не выбирает точку блуждания в воде (домой — пауза ещё раз). Дом — тайл травы посреди пруда шире
+        /// радиуса блуждания: ни одна цель и ни одна позиция за 100 с не в воде, а блуждание (Wander) было.
+        /// </summary>
+        [Fact]
+        public void C018_Wander_GoalNeverInWater()
+        {
+            var sim = new Simulation(FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1805));
+            Fill(sim, 90, 90, 110, 110, FloorId.Water, ObjectId.Empty);
+            sim.World.SetBaseTile(new TileCoord(100, 100), FloorId.Grass, ObjectId.Empty);
+            int rogue = sim.AddMeleeRogue(Center(100, 100));
+            int wanders = 0;
+            for (int i = 0; i < 3000; i++)
+            {
+                sim.Step();
+                SimEntity e = sim.GetEntity(rogue);
+                if (e.Brain.State == EnemyState.Wander)
+                {
+                    wanders++;
+                    Assert.NotEqual(FloorId.Water, sim.World.GetFloor(new TileCoord(e.Brain.GoalX, e.Brain.GoalY)));
+                }
+
+                Assert.NotEqual(FloorId.Water, sim.World.GetFloor(Torus.TileOf(sim.Shape, e.Mover.Position)));
+            }
+
+            Assert.True(wanders > 0, "бродяга ни разу не выбирал точку");
+        }
+
+        /// <summary>Настил над водой — проходим и без замедления (правило `05` 1.3 не менялось; перенесено из E12).</summary>
+        [Fact]
+        public void C018_PlatformOverWater_FullSpeed()
+        {
+            Simulation sim = Flat();
+            sim.World.SetBaseTile(new TileCoord(20, 10), FloorId.Platform, ObjectId.Empty);
+            Assert.False(sim.IsBlocked(sim.Shape, new TileCoord(20, 10)));
+            Assert.Equal(TerrainSlow.One, sim.SpeedQ8(sim.Shape, new TileCoord(20, 10)));
+        }
+
+        /// <summary>
+        /// Полоса шва (`--spawn-seam`, челнок net-smoke шва) — без препятствий и с обычной скоростью: вода или куст в полосе
+        /// середины делают её «нечистой», выбирается другая строка, и в выбранной полосе нет ни воды, ни куста.
+        /// </summary>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void C018_SeamLane_NoWaterOrBush(bool water)
+        {
+            var sim = new Simulation(FlatWorldGenerator.Instance.Generate(MapShape.World(256), 1806), maxEntities: 8);
+            MapShape shape = sim.Shape;
+            TileCoord c0 = Orpheus.Server.ServerRun.SeamSpawnCenter(sim, out bool clear0);
+            Assert.True(clear0);
+            int row0 = c0.Y - 1;
+            sim.World.SetBaseTile(new TileCoord(3, row0), water ? FloorId.Water : FloorId.Grass, water ? ObjectId.Empty : ObjectId.Bush);
+            Assert.False(sim.IsBlocked(shape, new TileCoord(3, row0)));
+
+            TileCoord c1 = Orpheus.Server.ServerRun.SeamSpawnCenter(sim, out bool clear1);
+            Assert.True(clear1);
+            Assert.NotEqual(row0, c1.Y - 1);
+            for (int x = -Orpheus.Server.ServerRun.SeamLaneBefore; x < Orpheus.Server.ServerRun.SeamLaneAfter; x++)
+            {
+                Assert.Equal(TerrainSlow.One, sim.SpeedQ8(shape, Torus.Wrap(shape, new TileCoord(x, c1.Y - 1))));
+            }
+        }
     }
 }

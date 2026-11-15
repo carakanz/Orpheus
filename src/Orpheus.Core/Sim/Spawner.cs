@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.World;
 
