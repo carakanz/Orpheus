@@ -400,8 +400,8 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Годный тайл появления (8.5, docs/01 6): проходимый; не построенный пол (пол игрока); свет
-        /// построенных источников &lt; 0,5; ≥ 16 т от точки старта/Очага; ≥ 36 т от каждого игрока; не внутри
-        /// области, замкнутой стенами (заливка проходимых 4-соседей, лимит 256).
+        /// построенных источников &lt; 0,5; не в комнате с огнём (C-017, <see cref="RoomIndex"/>); ≥ 16 т от точки
+        /// старта/Очага; ≥ 36 т от каждого игрока; не внутри области, замкнутой стенами (заливка проходимых 4-соседей, лимит 256).
         /// </summary>
         public bool IsSpawnTileOk(TileCoord tile)
         {
@@ -424,6 +424,11 @@ namespace Orpheus.Core.Sim
             if (_world.Lights.SourceLightX1024(tile) >= SpawnLightLimitX1024)
             {
                 return false;
+            }
+
+            if (_world.Rooms.LitRoomInTile(tile))
+            {
+                return false; // C-017: комната, замкнутая стенами и дверями, с факелом или костром внутри
             }
 
             WorldPos center = EditRules.CenterOf(tile);

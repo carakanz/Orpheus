@@ -386,19 +386,20 @@ namespace Orpheus.Client
             }
         }
 
-        // Тень блока: след тайла, сдвинутый по высоте яруса вправо-вниз (и на полпути — чтобы тень была сплошной).
+        // Тень блока (C-017): объём тайла на высоте яруса — верх, сдвинутый шейдером по солнцу, и боковые грани по рёбрам,
+        // за которыми сосед ниже (у равного соседа грань внутри массива — её закрывает верх соседа).
         void BlockShadow(in Item it, int tx, int ty, ObjectAtlas.Entry[] entries)
         {
             ref ObjectAtlas.Entry white = ref entries[it.Look.WhiteSprite];
-            float h = it.Tier.H * it.Look.Shadow;
-            var d = new Vector2(h * ShearX * 0.6f, -h * ShearY);
+            float k = it.Look.Shadow, h = it.Tier.H * k;
             float x0 = it.Lx, yb = it.Y;
             Vector2 sw = new Vector2(x0, yb) + Jitter(tx, ty + 1, NodeJitter), se = new Vector2(x0 + 1f, yb) + Jitter(tx + 1, ty + 1, NodeJitter);
             Vector2 nw = new Vector2(x0, yb + 1f) + Jitter(tx, ty, NodeJitter), ne = new Vector2(x0 + 1f, yb + 1f) + Jitter(tx + 1, ty, NodeJitter);
-            var black = new Color32(0, 0, 0, 255);
-            Vector2 m = white.Uv.center;
-            Quad(sw + d * 0.5f, se + d * 0.5f, nw + d * 0.5f, ne + d * 0.5f, m.x, m.y, m.x, m.y, black);
-            Quad(sw + d, se + d, nw + d, ne + d, m.x, m.y, m.x, m.y, black);
+            Tiers t = it.Tier;
+            float eps = TierEps;
+            // Рёбра по кругу sw → se → ne → nw: юг, восток, север, запад.
+            int edges = (t.S < t.H - eps ? 1 : 0) | (t.E < t.H - eps ? 2 : 0) | (t.N < t.H - eps ? 4 : 0) | (t.W < t.H - eps ? 8 : 0);
+            Prism(sw, se, ne, nw, h, 255, edges, white.Uv.center);
         }
     }
 }

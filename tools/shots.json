@@ -141,6 +141,22 @@
     { "name": "C-016_west_96", "seed": "0xE50007", "size": 1024, "tile": [250, 450], "width": 96 },
     { "name": "C-016_west_64", "seed": "0xE50007", "size": 1024, "tile": [250, 450], "width": 64 },
     { "name": "C-016_front_24", "seed": "0xE50007", "size": 1024, "tile": [771, 482], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
-    { "name": "C-016_behind_24", "seed": "0xE50007", "size": 1024, "tile": [773, 485], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] }
+    { "name": "C-016_behind_24", "seed": "0xE50007", "size": 1024, "tile": [773, 485], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
+    { "name": "C-017_bench_day", "seed": "0xE50007", "size": 1024, "tile": null, "width": 64, "time": "day", "args": ["--home-demo", "torches"] },
+    { "name": "C-017_bench_night", "seed": "0xE50007", "size": 1024, "tile": null, "width": 64, "time": "night", "args": ["--home-demo", "torches"] },
+    { "name": "C-017_home_morning", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "0.05", "args": ["--home-demo", "torches"] },
+    { "name": "C-017_home_noon", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "0.3", "args": ["--home-demo", "torches"] },
+    { "name": "C-017_home_evening", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "0.58", "args": ["--home-demo", "torches"] },
+    { "name": "C-017_forest_morning", "seed": "0xE50007", "size": 1024, "tile": [521, 566], "width": 40, "time": "0.05", "args": ["--paint-demo"] },
+    { "name": "C-017_forest_noon", "seed": "0xE50007", "size": 1024, "tile": [521, 566], "width": 40, "time": "0.3", "args": ["--paint-demo"] },
+    { "name": "C-017_forest_evening", "seed": "0xE50007", "size": 1024, "tile": [521, 566], "width": 40, "time": "0.58", "args": ["--paint-demo"] },
+    { "name": "C-017_room_day", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "0.05", "args": ["--home-demo", "room"] },
+    { "name": "C-017_room_evening", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "0.58", "args": ["--home-demo", "room"] },
+    { "name": "C-017_room_night", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "night", "args": ["--home-demo", "room"] },
+    { "name": "C-017_glade_night", "seed": "0xE50007", "size": 1024, "tile": [521, 566], "width": 40, "time": "night", "args": ["--paint-demo"] },
+    { "name": "C-017_wall_night", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "night", "args": ["--home-demo", "wall"] },
+    { "name": "C-017_wall_morning", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "0.05", "args": ["--home-demo", "wall"] },
+    { "name": "C-017_piles_evening", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "time": "0.58", "args": ["--paint-demo", "--demo-piles", "--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
+    { "name": "C-017_mountain_evening", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 64, "time": "0.58" }
   ]
 }

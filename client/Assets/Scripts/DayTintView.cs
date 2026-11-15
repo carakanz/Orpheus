@@ -12,7 +12,8 @@ namespace Orpheus.Client
     /// тёплые круги в темноте.
     /// <para>
     /// Кадр считается так: для прямоугольника камеры строится сетка тайлов (текстура R8: k биома по полу,
-    /// G8: свет источников из <see cref="LightIndex"/>, билинейно — свет кругом). Шейдер «Orpheus/DayTint»
+    /// G8: свет источников, билинейно — свет кругом; C-017: по ячейкам 0,5 тайла, свет — с учётом стен
+    /// (<see cref="LightSight"/>), B8 — закрытая комната (<see cref="RoomIndex"/>, для теней)). Шейдер «Orpheus/DayTint»
     /// (в <c>Assets/Resources</c> — так шейдер гарантированно в сборке) умножает кадр на цвет неба
     /// (<see cref="ToneAt"/> по такту суток), ночью в лесу — ещё на k; где светит источник, тон уходит в тёплый свет.
     /// Днём множитель ровно 1 — слой невидим (E1-7: раньше k = 1024 не помещался в байт сетки и день выходил
@@ -106,14 +107,13 @@ namespace Orpheus.Client
             return true;
         }
 
-        /// <summary>Сторона сетки не больше этого числа тайлов (зум максимально дальний — 96…128 тайлов).</summary>
-        const int MaxGrid = 256;
+        /// <summary>Сторона сетки не больше этого числа точек (ячеек 0,5; зум максимально дальний — 96…128 тайлов).</summary>
+        const int MaxGrid = 320;
 
         readonly Camera _camera;
         readonly WorldModel _world;
         readonly MapShape _map;
         readonly FloatingOrigin _origin;
-        readonly LightIndex _lights;
 
         readonly GameObject _quad;
         readonly Material? _material;
@@ -130,7 +130,6 @@ namespace Orpheus.Client
             _world = world;
             _map = world.Shape;
             _origin = origin;
-            _lights = world.Lights;
 
             Shader shader = Shader.Find("Orpheus/DayTint");
             if (shader == null || !shader.isSupported || WorldFx.Off("notint"))
@@ -183,6 +182,7 @@ namespace Orpheus.Client
         public void Update(int worldTicks, float aspect = 0f)
         {
             _ticks = worldTicks;
+            SunTable.Apply(worldTicks); // C-017: солнце теней — каждый кадр, и без слоя тона
             if (_material == null)
             {
                 return;
@@ -198,8 +198,8 @@ namespace Orpheus.Client
             Color sky = ToneAt(worldTicks);
 
             // Прямоугольник камеры в тайлах мира (мировая Y вниз → низ экрана = больший Y), расширенный до сетки в
-            // Align тайлов: пока камера не перешла её линию, сетка та же (E1-7: раньше сетка пересобиралась при каждом
-            // сдвиге края обзора на тайл, а смена места без смены размера не замечалась вовсе).
+            // Align тайлов: пока камера не перешла её линию, сетка та же (E1-7). C-017: сетка — по ячейкам 0,5 тайла
+            // (свет с учётом тонких стен и комнаты — без размытия на полтайла).
             Vector3 c = _camera.transform.position;
             float hh = _camera.orthographicSize, hw = hh * aspect;
             TileCoord a = Torus.TileOf(_map, _origin.FromUnity(new Vector3(c.x - hw, c.y + hh, 0f)));
@@ -207,8 +207,8 @@ namespace Orpheus.Client
             int minX = FloorTo(a.X - 1, Align), minY = FloorTo(a.Y - 1, Align);
             int w = CeilTo(Mod(b.X - a.X, _map.Width) + (a.X - minX) + 2, Align);
             int h = CeilTo(Mod(b.Y - a.Y, _map.Height) + (a.Y - minY) + 2, Align);
-            int step = Math.Max(1, (Math.Max(w, h) + MaxGrid - 1) / MaxGrid);
-            int cols = (w + step - 1) / step, rows = (h + step - 1) / step;
+            int step = Math.Max(1, (2 * Math.Max(w, h) + MaxGrid - 1) / MaxGrid); // в ячейках
+            int cols = (2 * w + step - 1) / step, rows = (2 * h + step - 1) / step;
 
             int stamp = Stamp(minX, minY, w, h, step);
             if (stamp != _stamp)
@@ -221,13 +221,28 @@ namespace Orpheus.Client
             _material.SetVector("_Sky", new Vector4(sky.r, sky.g, sky.b, 1f));       // векторы: цвет — уже множитель, без пересчёта гаммы
             _material.SetVector("_Fire", new Vector4(FireTone.r, FireTone.g, FireTone.b, 1f));
 
-            // Прямоугольник сетки в координатах Unity: точка (col, row) — центр тайла (minX + col × step,
-            // minY + (rows − 1 − row) × step); строка 0 — низ.
+            // Прямоугольник сетки в координатах Unity: точка (col, row) — середина ячейки (2 × minX + col × step,
+            // 2 × minY + (rows − 1 − row) × step) по сетке ячеек мира; строка 0 — низ.
             Vector3 corner = _origin.ToUnity(Torus.CornerOf(a)); // левый верхний угол тайла a
-            float x0 = corner.x - (a.X - minX) + 0.5f - 0.5f * step;
-            float y0 = corner.y - (minY + (rows - 1) * step - a.Y) - 0.5f - 0.5f * step;
-            _material.SetVector("_GridRect", new Vector4(x0, y0, 1f / (cols * step), 1f / (rows * step)));
+            float size = 0.5f * step;                            // точка сетки, тайлов
+            float x0 = corner.x - a.X + minX + 0.25f - 0.5f * size;
+            float y0 = corner.y + a.Y - (minY + (rows - 1) * step * 0.5f) - 0.25f - 0.5f * size;
+            var rect = new Vector4(x0, y0, 1f / (cols * size), 1f / (rows * size));
+            _material.SetVector("_GridRect", rect);
+            Shader.SetGlobalVector(LightRectId, rect);
+            Shader.SetGlobalVector(LightSizeId, new Vector4(cols, rows, 1f / cols, 1f / rows));
         }
+
+        /// <summary>C-017: замер — пересобрать сетку под текущей камерой (как при переходе линии сетки).</summary>
+        public void BenchFill()
+        {
+            _stamp = 0;
+            Update(_ticks);
+        }
+
+        static readonly int LightGridId = Shader.PropertyToID("_OrphLightGrid");
+        static readonly int LightRectId = Shader.PropertyToID("_OrphLightRect");
+        static readonly int LightSizeId = Shader.PropertyToID("_OrphLightSize");
 
         /// <summary>Сетка привязана к линиям через столько тайлов.</summary>
         const int Align = 8;
@@ -240,13 +255,14 @@ namespace Orpheus.Client
         int Stamp(int minX, int minY, int w, int h, int step)
         {
             int s = (minX * 73856093) ^ (minY * 19349663) ^ (w * 83492791) ^ (h * 2654435) ^ step;
-            int cx0 = FloorTo(minX, Torus.ChunkSize), cy0 = FloorTo(minY, Torus.ChunkSize);
-            for (int y = cy0; y < minY + h; y += Torus.ChunkSize)
+            // C-017: и чанки на один за краем — свет и комнаты зависят от окна 3 × 3.
+            int cx0 = FloorTo(minX, Torus.ChunkSize) - Torus.ChunkSize, cy0 = FloorTo(minY, Torus.ChunkSize) - Torus.ChunkSize;
+            for (int y = cy0; y < minY + h + Torus.ChunkSize; y += Torus.ChunkSize)
             {
-                for (int x = cx0; x < minX + w; x += Torus.ChunkSize)
+                for (int x = cx0; x < minX + w + Torus.ChunkSize; x += Torus.ChunkSize)
                 {
                     Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_map, Torus.Wrap(_map, new TileCoord(x, y))));
-                    s = unchecked(s * 1000003 + (int)(chunk?.Revision ?? 0));
+                    s = unchecked(s * 1000003 + (chunk == null ? -7 : (int)chunk.Revision));
                 }
             }
 
@@ -298,6 +314,22 @@ namespace Orpheus.Client
             return false;
         }
 
+        // Сетка чанка на время одной заливки: k полов, свет с учётом стен и комнаты (C-017).
+        ChunkCoord _fillCc;
+        bool _fillHave;
+        Chunk? _fillChunk;
+        ushort[]? _fillLight;
+        byte[]? _fillRooms;
+
+        void FillChunk(ChunkCoord cc)
+        {
+            _fillHave = true;
+            _fillCc = cc;
+            _fillChunk = _world.FindChunk(cc);
+            _fillLight = LightNear(cc) && _world.Sight.AnySource(cc) ? _world.Sight.GridOf(cc) : null;
+            _fillRooms = _fillChunk != null ? _world.Rooms.LabelsOf(cc) : null;
+        }
+
         void Fill(int minX, int minY, int step, int cols, int rows)
         {
             if (_grid == null || _grid.width != cols || _grid.height != rows)
@@ -311,41 +343,43 @@ namespace Orpheus.Client
                 _buf = new Color32[cols * rows];
             }
 
-            // Чанк и «рядом есть свет» — один раз на отрезок строки внутри чанка, а не на каждый тайл: сетка света ядра
-            // (LightIndex) спрашивается только там, где источник есть в окне 3 × 3 чанка.
-            bool have = false;
-            ChunkCoord last = default;
-            Chunk? chunk = null;
-            bool lit = false;
+            // Чанк, свет и комнаты — один раз на отрезок строки внутри чанка, а не на каждую ячейку.
+            // R — k биома по полу, G — свет источников с учётом стен (LightSight; правила врагов — LightIndex без стен),
+            // B — 255 в закрытой комнате (RoomIndex: солнечной тени нет).
+            _fillHave = false;
+            const int n = CellWindow.CellsPerChunk;
+            int cx0 = 2 * minX, cy0 = 2 * minY;
             for (int r = 0; r < rows; r++)
             {
                 // Строка 0 текстуры — низ (v = 0) = низ экрана = наибольшая Y мира.
-                int ty = minY + (rows - 1 - r) * step;
+                int cy = cy0 + (rows - 1 - r) * step;
+                int ty = _map.Wraps ? Mod(cy >> 1, _map.Height) : Torus.Wrap(_map, new TileCoord(0, cy >> 1)).Y;
+                int ly = ty & (Torus.ChunkSize - 1);
+                int rowCell = ((ly << 1) | (cy & 1)) * n;
                 for (int cIdx = 0; cIdx < cols; cIdx++)
                 {
-                    TileCoord t = Torus.Wrap(_map, new TileCoord(minX + cIdx * step, ty));
-                    ChunkCoord cc = Torus.ChunkOf(_map, t);
-                    if (!have || cc != last)
+                    int cx = cx0 + cIdx * step;
+                    int tx = _map.Wraps ? Mod(cx >> 1, _map.Width) : Torus.Wrap(_map, new TileCoord(cx >> 1, 0)).X;
+                    if (!_fillHave || (tx >> Torus.ChunkBits) != _fillCc.X || (ty >> Torus.ChunkBits) != _fillCc.Y)
                     {
-                        have = true;
-                        last = cc;
-                        chunk = _world.FindChunk(cc);
-                        lit = LightNear(cc);
+                        FillChunk(Torus.ChunkOf(_map, new TileCoord(tx, ty)));
                     }
 
-                    byte floor = chunk == null
-                        ? FloorId.Grass
-                        : chunk.GetFloor(Chunk.IndexOf(t.X & (Torus.ChunkSize - 1), t.Y & (Torus.ChunkSize - 1)));
+                    int lx = tx & (Torus.ChunkSize - 1);
+                    byte floor = _fillChunk == null ? FloorId.Grass : _fillChunk.GetFloor(Chunk.IndexOf(lx, ly));
                     int k = DayTint.BiomeKX1024ForFloor(floor);
-                    int s = lit ? _lights.SourceLightX1024(t) : 0;
+                    int cell = rowCell + ((lx << 1) | (cx & 1));
+                    int s = _fillLight != null ? _fillLight[cell] : 0;
+                    byte room = _fillRooms != null && _fillRooms[cell] != RoomIndex.Outside ? (byte)255 : (byte)0;
                     // 1024 → 255 (E1-7: было k >> 2 = 256 → байт 0: открытая земля считалась полной тьмой, день выходил бурым).
-                    _buf[r * cols + cIdx] = new Color32(ToByte(k), ToByte(s), 0, 255);
+                    _buf[r * cols + cIdx] = new Color32(ToByte(k), ToByte(s), room, 255);
                 }
             }
 
             _grid.SetPixels32(_buf);
             _grid.Apply(false);
             _material!.SetTexture("_MainTex", _grid);
+            Shader.SetGlobalTexture(LightGridId, _grid);
         }
 
         static byte ToByte(int x1024) => (byte)(x1024 <= 0 ? 0 : x1024 >= DayClock.LightScale ? 255 : x1024 * 255 / DayClock.LightScale);

@@ -86,6 +86,15 @@ namespace Orpheus.Core.World
         /// </summary>
         public LightIndex Lights => _lights ??= new LightIndex(this);
 
+        private RoomIndex? _rooms;
+        private LightSight? _sight;
+
+        /// <summary>C-017: закрытые комнаты на сетке ячеек (запрет появления врагов в комнате с огнём; клиент — без солнечной тени).</summary>
+        public RoomIndex Rooms => _rooms ??= new RoomIndex(this);
+
+        /// <summary>C-017: свет источников с учётом стен — только для картинки клиента (правила — <see cref="Lights"/>).</summary>
+        public LightSight Sight => _sight ??= new LightSight(this);
+
         /// <summary>
         /// Убрать чанк (клиент: чанк вышел из окна 8 × 6, docs/07 3.5; 0-026). Тайлы убранного чанка — пустые, как у
         /// несозданного. false — чанка не было.

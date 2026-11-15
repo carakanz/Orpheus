@@ -160,7 +160,7 @@ namespace Orpheus.Client
             var shadowAnchor = new GameObject("ShadowAnchor");
             shadowAnchor.transform.SetParent(root.transform, false);
             shadowAnchor.transform.localPosition = new Vector3(-0.1f, WorldFx.FootOffset - 0.1f, 0f);
-            WorldFx.AddActorShadow(shadowAnchor.transform, 0.75f);
+            WorldFx.AddActorShadow(shadowAnchor.transform, 0.75f, 0.35f); // C-017: куча низкая — короткий силуэт по солнцу
 
             var icon = new GameObject("Icon");
             icon.transform.SetParent(root.transform, false);

@@ -19,7 +19,7 @@ namespace Orpheus.Client
     /// <item><b>Забор:</b> столбик в середине ячейки и две жерди к соседним ячейкам забора (или стены) — сквозь видно.</item>
     /// <item><b>Дверь:</b> закрытая — сплошное светлое полотно досками от косяка до косяка, высотой со стену, с оковкой и
     /// ручкой; открытая — полотно повёрнуто на петле на 90° внутрь тайла и видно ребром у одного косяка, проём пуст.</item>
-    /// <item><b>Тень</b> — в общий слой теней: след ячейки, протянутый вправо-вниз на высоту.</item>
+    /// <item><b>Тень</b> — в общий слой теней: объём ячейки (след и верх на высоте), верх сдвигается по солнцу (C-017).</item>
     /// </list>
     /// Вид — таблица «объект → цвета» (<see cref="Looks"/>), высота лица — одна константа <see cref="WallHeight"/>.
     /// Свой персонаж за стеной: квадраты стены помечены «высокими» — в круге вокруг персонажа полупрозрачны (как кроны).
@@ -512,16 +512,11 @@ namespace Orpheus.Client
             }
         }
 
-        // Тень постройки: основание (x0…x1, y0…y1), протянутое вправо-вниз на высоту h (выпуклая оболочка из двух четырёхугольников).
+        // Тень постройки (C-017): прямоугольник основания (x0…x1, y0…y1) поднят на высоту h — объём, шейдер сдвигает верх по солнцу.
         void HullShadow(float x0, float y0, float x1, float y1, float h, float strength, in ObjectAtlas.Entry white)
         {
-            float dx = h * ShearX * WallShadow, dy = -h * ShearY * WallShadow;
-            var c = new Color32(0, 0, 0, (byte)(255 * strength));
-            Vector2 m = white.Uv.center;
-            Vector3 p0 = new Vector3(x0, y0), p1 = new Vector3(x0 + dx, y0 + dy), p2 = new Vector3(x1 + dx, y0 + dy);
-            Vector3 p3 = new Vector3(x1 + dx, y1 + dy), p4 = new Vector3(x1, y1), p5 = new Vector3(x0, y1);
-            Quad(p0, p1, p5, p4, m.x, m.y, m.x, m.y, c);
-            Quad(p1, p2, p4, p3, m.x, m.y, m.x, m.y, c);
+            Prism(new Vector2(x0, y0), new Vector2(x1, y0), new Vector2(x1, y1), new Vector2(x0, y1), h * WallShadow,
+                (byte)(255 * strength), 15, white.Uv.center);
         }
 
         // Тень тайла постройки-ячеек.
