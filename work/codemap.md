@@ -6,7 +6,7 @@
 Simulation.Entities.cs: GetEntity :18 · SlotOf :30 · NearestCharacterWithin :58 · Respawn :81 · NearestCharacterSlot :95 · AddEntity :124/:138 · AddEnemy :153 · RemoveEntity :168 · AddEntityWithId :196
 Simulation.Input.cs: ApplySlot :18 · CopyPendingInputs :30 · DesiredDirection :45 · SetInput :58 · SetInputAt :71 · SetFramesAt :95
 Simulation.Inventory.cs: SetInventory :14
-Simulation.Edits.cs: AddExpire :17 · StepExpiry :44 · GiveBuildRefund :81 · DamageBuilding :112 · CheckCreatures :156 · GiveDigLoot :189 · TileAndNeighborsFree :207 · TileOf :227 · RequestPlayerEdit :238 · Enqueue :244 · RequestEdit :271/:275 · CostOf :282 · RefundCost :294 · ApplyEditBatches :310 · PreEdit :418
+Simulation.Edits.cs: AddExpire :17 · StepExpiry :44 · ExpiredFlags/DropExpiredFlagsAfter (C-005, флаги урона одной правкой) · GiveBuildRefund · DamageBuilding · CheckCreatures :156 · GiveDigLoot :189 · TileAndNeighborsFree :207 · TileOf :227 · RequestPlayerEdit :238 · Enqueue :244 · RequestEdit :271/:275 · CostOf :282 · RefundCost :294 · ApplyEditBatches :310 · PreEdit :418
 Simulation.EditQueue.cs: SortByChunkThenArrival :19 · Compare :59 · структура EditRequest :62
 Simulation.Doors.cs: BeginDoorOpen :18 · BeginDoorClose :43 · IndexOfDoor :109 · StepDoors :128 · PushEnemyOffTile :223 · TouchDoorDeadline :264 · AddDoor :283 · IndexDoors :322 · DoorLockUntil :345 · RequestCloseDoor :353 · CloseDoorNearest :376 · RemoveDoor :407
 Simulation.Combat.cs: StartAttack :21 · ApplyStrike :57 · BeginWindup :151 · EnableAttackCycle :163 · ResolveMeleeStrike :189 · StepCombat :255 · StrikeLineClear приземления :333 · StrikeTileBlocked :395 · StrikeLineClear :420
@@ -113,7 +113,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Sim/Simulation.Build.cs: RequestRepair · IsRepairEdit · PreRepair · RefundRepair · RequestSetBed · SetBed · RespawnPointOf · сундуки: ChestCells (30) · ChestCellBase · ChestTiles/ChestContents · TryGetChest · SetChest · RestoreChests · RequestChestOp · ApplyChestOp · SpillChest · StoreChest.
 - World/BuildDefs.cs: FloorKeyBase / WoodFloorKey… · FloorKey · FloorOf · Palette · Affordable · RepairCostOf · TryGet. World/EditRules.cs: Intact/UnderAttack/Paused (16–18) · MaxReply · UseRadiusTiles · InUseRadius · CheckRepair · RepairAffordable.
 - Net/Protocol/UseMessages.cs: UseOp · UseRequestMessage (33) · UseReplyMessage (34) · ChestStateMessage (35). EditMessages: TileOp.Repair (5). Messages: BagRequestMessage.MaxCell (70).
-- Net/Session/NetServer.Use.cs: OnRepair · OnUseRequest · OnChestBagRequest · SendChestTo · CloseChest. NetClient.Use.cs: Repair · RequestUse · RequestCloseChest · Chest/ChestOpen/ChestTile · UseReplied · ChestChanged.
+- Net/Session/NetServer.Use.cs: OnRepair · CheckRepairNow · StopRepair · AdvanceRepair (C-005: починка 0,5 с) · OnUseRequest · OnChestBagRequest · SendChestTo · CloseChest. NetClient.Use.cs: Repair · RequestUse · RequestCloseChest · Chest/ChestOpen/ChestTile · UseReplied · ChestChanged.
 - Net/Session/BuildHand.cs: IBuildRequests · IUseRequests · BuildAction · BuildCheck · BuildHand (Step, Select, Check, Click, PlaceLine, CostLine, LastRequest). ObjectUse.cs: UseKind · KindOf · At · Find (правило F). BagHand: SyncChest · ChestBase · ItemAt/CountIn · FitTarget.
 - Save: SaveSections CreaturesField.Chest · ChestField · EntityField.BedX/BedY · CharacterField.BedX/BedY; WorldSave ReadChest. CharacterRecord.HasBed/Bed; CharacterRoster.Park (кровать за ключом).
 - client: UI/GameUi.Build.cs (UiBuildState, UiNote, ShowBuild, SyncChestWindow, OpenCraft, Notify) · UI/BuildBar.cs (BuildBar, ChestWindow) · UI/UiDemo.Build.cs (--ui-demo build|chest|house) · BuildGhost.cs · BuildLook.cs · NetGame.Edits.cs (BuildState, UseObject, HammerEdits) · PaintDemo.House.
@@ -141,3 +141,4 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 
 ## Генератор - src/Orpheus.WorldGen
 - DepositStage.cs (E2-6): Run :~120 (сетка ячеек 32, выбор вида) · Place :~205 (тайлы пятна) · DepositStats.Of / MaskOf (числа приёмки). Штамп меди — HearthStage.StampCopper.
+- C-005: `Orpheus.Save/WorldSave.cs` LiveCharacters — сумка персонажа в мире из сущности при Capture; тесты `CraftRestartTests` (ServerHost + ISaveHook + MemoryStorage.Snapshot = падение).
