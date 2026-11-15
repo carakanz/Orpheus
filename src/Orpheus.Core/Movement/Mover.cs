@@ -151,7 +151,9 @@ namespace Orpheus.Core.Movement
                 return Position;
             }
 
-            Position = MovementTick.Tick(map, Position, Carry, input, UnitsPerTickX10, solid, out Carry);
+            // C-018: множитель местности под ногами (вода, куст) — по тайлу центра до шага.
+            int v = TileSpeed.Scale(UnitsPerTickX10, TileSpeed.At(map, Position, solid));
+            Position = MovementTick.Tick(map, Position, Carry, input, v, solid, out Carry);
             return Position;
         }
 
@@ -247,16 +249,19 @@ namespace Orpheus.Core.Movement
                     Dodge.Cooldown--;
                 }
 
-                Position = MovementTick.Tick(map, Position, Carry, input, FrameSpeedX10(), solid, out Carry);
+                // C-018: бег в воде/кусте медленнее — множитель тайла под ногами до шага.
+                Position = MovementTick.Tick(map, Position, Carry, input, TileSpeed.Scale(FrameSpeedX10(), TileSpeed.At(map, Position, solid)), solid, out Carry);
                 StepMelee(attack, aimRaw);
                 return Position;
             }
 
+            // C-018: уворот в воде/кусте короче — та же длительность, скорость рывка × множитель тайла кадра.
             Input8 dir = Dodge.DashDirection;
-            int wantX = (Carry.X + dir.SpeedX10(Movement.Dodge.SpeedX10)) / MovementTick.SpeedScale;
-            int wantY = (Carry.Y + dir.SpeedY10(Movement.Dodge.SpeedX10)) / MovementTick.SpeedScale;
+            int dashX10 = TileSpeed.Scale(Movement.Dodge.SpeedX10, TileSpeed.At(map, Position, solid));
+            int wantX = (Carry.X + dir.SpeedX10(dashX10)) / MovementTick.SpeedScale;
+            int wantY = (Carry.Y + dir.SpeedY10(dashX10)) / MovementTick.SpeedScale;
             WorldPos from = Position;
-            Position = MovementTick.Tick(map, Position, Carry, dir, Movement.Dodge.SpeedX10, solid, out Carry);
+            Position = MovementTick.Tick(map, Position, Carry, dir, dashX10, solid, out Carry);
             Int2 moved = Torus.Delta(map, from, Position);
 
             // Упёрся: по каждой оси направления пройдено не всё (по оси без движения — «упёрто» само собой).

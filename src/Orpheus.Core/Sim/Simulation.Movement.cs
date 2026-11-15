@@ -12,7 +12,7 @@ namespace Orpheus.Core.Sim
     /// <summary>
     /// P-002: partial Simulation - per-file code motion, no behavior change.
     /// </summary>
-    public sealed partial class Simulation : ITileCells
+    public sealed partial class Simulation : ITileCells, ITileSpeed
     {
         /// <summary>Целочисленный √ (метод по разрядам; детерминирован, без float).</summary>
         private static int ISqrt(long n)
@@ -161,14 +161,14 @@ namespace Orpheus.Core.Sim
         private byte SolidCellsIn(Chunk chunk, in MapShape map, TileCoord tile)
         {
             int index = Chunk.IndexOf(tile.X, tile.Y);
-            if (!FloorId.IsPassable(chunk.GetFloor(index)))
+            if (!TerrainSlow.WalkFloor(chunk.GetFloor(index)))
             {
-                return BuildCells.Full;
+                return BuildCells.Full; // C-018: вода — проходима с замедлением (TerrainSlow), лава — нет
             }
 
             byte cells = 0;
             ushort obj = chunk.GetObject(index);
-            if (obj != ObjectId.Empty)
+            if (obj != ObjectId.Empty && !TerrainSlow.WalkObject(obj)) // C-018: куст не твёрдый, замедляет
             {
                 if (ObjectId.IsPart(obj))
                 {
@@ -193,6 +193,22 @@ namespace Orpheus.Core.Sim
             }
 
             return (byte)(cells | BuildLayers.OverhangAt(_world, Torus.Wrap(map, tile), solidOnly: true));
+        }
+
+        /// <summary>
+        /// Множитель скорости тайла в 1/256 (C-018, <see cref="ITileSpeed"/>): пол × объект по таблице <see cref="TerrainSlow"/>.
+        /// Несозданный чанк — обычный ход. Тот же ответ у сервера, предсказания клиента и ботов (одна <see cref="Solid"/>).
+        /// </summary>
+        public int SpeedQ8(MapShape map, TileCoord tile)
+        {
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
+            if (chunk == null)
+            {
+                return TerrainSlow.One;
+            }
+
+            int index = Chunk.IndexOf(tile.X, tile.Y);
+            return TerrainSlow.TileQ8(chunk.GetFloor(index), chunk.GetObject(index));
         }
 
         /// <summary>

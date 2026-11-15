@@ -315,10 +315,12 @@ namespace Orpheus.Tests
 
         private static WorldPos Center(int x, int y) => new WorldPos((x * U) + (U / 2), (y * U) + (U / 2));
 
-        /// <summary>Игрок бежит на восток в стену обрыва и в воду — упирается: за 10 с не пересёк столбец преграды.</summary>
+        /// <summary>
+        /// Игрок бежит на восток в стену обрыва — упирается: за 10 с не пересёк столбец преграды. C-018 (слово Автора 15.11):
+        /// вода больше не стена (проходима с замедлением — <c>C018TerrainSlowTests</c>), случай «вода» снят.
+        /// </summary>
         [Theory]
         [InlineData(true)]
-        [InlineData(false)]
         public void E12_Player_StopsAtCliffAndWater(bool cliff)
         {
             WorldModel world = Meadow();
@@ -352,10 +354,10 @@ namespace Orpheus.Tests
         /// <summary>
         /// Путь пешего врага обходит отрезок обрыва и озеро (ни одного шага по преграде, путь длиннее прямого); сплошная линия
         /// поперёк мира — пути нет (частичный, до преграды). Летун над водой и обрывом летит (природное ему не мешает).
+        /// C-018: вода проходима со стоимостью ~1/замедление — случай «вода» снят (обход/брод — <c>C018TerrainSlowTests</c>).
         /// </summary>
         [Theory]
         [InlineData(true)]
-        [InlineData(false)]
         public void E12_EnemyPath_GoesAroundCliffAndWater(bool cliff)
         {
             WorldModel world = Meadow();
