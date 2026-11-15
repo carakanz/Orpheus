@@ -20,12 +20,17 @@ namespace Orpheus.Core.Pathing
     public readonly struct PathRequest
     {
         public readonly int Owner;
-        public readonly TileCoord Start;
-        public readonly TileCoord Goal;
+        public readonly WorldPos Start;
+        public readonly WorldPos Goal;
         public readonly PathMode Mode;
         public readonly long RequestedTick;
 
         public PathRequest(int owner, TileCoord start, TileCoord goal, PathMode mode, long requestedTick)
+            : this(owner, PathFinder.TileCenter(start), PathFinder.TileCenter(goal), mode, requestedTick)
+        {
+        }
+
+        public PathRequest(int owner, WorldPos start, WorldPos goal, PathMode mode, long requestedTick)
         {
             Owner = owner;
             Start = start;
@@ -146,7 +151,10 @@ namespace Orpheus.Core.Pathing
         public long LastTickElapsed { get; private set; }
 
         /// <summary>Поставить запрос; false — очередь полна.</summary>
-        public bool Enqueue(int owner, TileCoord start, TileCoord goal, PathMode mode, long tick)
+        public bool Enqueue(int owner, TileCoord start, TileCoord goal, PathMode mode, long tick) =>
+            Enqueue(owner, PathFinder.TileCenter(start), PathFinder.TileCenter(goal), mode, tick);
+
+        public bool Enqueue(int owner, WorldPos start, WorldPos goal, PathMode mode, long tick)
         {
             if ((uint)owner >= (uint)_results.Length)
             {

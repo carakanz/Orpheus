@@ -51,6 +51,10 @@ namespace Orpheus.Core.Pathing
             return blocked ? PathCost.Blocked : PathCost.Normal;
         }
 
+        /// <inheritdoc />
+        /// <remarks>Те же ячейки, что у столкновений (<see cref="Simulation.SolidCells"/>): путь видит ту же проходимость, что движение.</remarks>
+        public byte CellsOf(TileCoord tile, PathMode mode) => _sim.SolidCells(_sim.Shape, tile);
+
         private bool WalkerBlocked(TileCoord tile)
         {
             MapShape map = _sim.Shape;

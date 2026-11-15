@@ -239,6 +239,11 @@ namespace Orpheus.Core.Sim
         /// зоны удара (512), иначе погоня «прибывает» к тайлу цели раньше, чем входит в удар, и замирает.</summary>
         public const long NodePass2 = (long)(3 * Torus.SubTilesPerTile / 4) * (3 * Torus.SubTilesPerTile / 4);
 
+        /// <summary>Точка пути пройдена (E2-12b): центр ближе 1/4 тайла (64) к точке решётки 0,5. Точки идут через полшага по
+        /// прямой и диагонали (те же 8 направлений, что у ввода), шаг такта (46) меньше поперечника круга прохода — враг
+        /// идёт по линии пути, а не срезает углы у косяков. Конец пути и прямой ход — по <see cref="NodePass2"/>.</summary>
+        public const long PathPointPass2 = (long)(Torus.SubTilesPerTile / 4) * (Torus.SubTilesPerTile / 4);
+
         /// <summary>Выталкивание: скорость расталкивания 2 тайла/с = 205 (X10); после фазы движения (8.5 «толкаются»).</summary>
         public const int SeparationSpeedX10 = 205;
 

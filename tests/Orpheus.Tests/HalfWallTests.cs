@@ -275,12 +275,18 @@ namespace Orpheus.Tests
         {
             var sim = new Simulation(Flat(1307));
             int ch = sim.AddEntity(new WorldPos(10 * U + U / 2 + 40, 10 * U + 150)); // не задевает тайл двери — дверь сама не открывается
-            switch (kind)
+            // Ряд 11 — линия на 81 тайл (E2-12b): враг с путём на ячейках обходит короткую стену и бьёт сбоку; обход длинной
+            // за 300 тактов (45 т) невозможен — проверяется только линия удара сквозь ряд. Стена в западной половине — щели 0,5.
+            for (int x = 10 - 40; x <= 10 + 40; x++)
             {
-                case 0: Cells(sim, 10, 11, ObjectId.StoneWall, BuildCells.DoorNorth); break;
-                case 1: Cells(sim, 10, 11, ObjectId.Door, BuildCells.DoorNorth); break;
-                case 2: Cells(sim, 10, 11, ObjectId.WoodFence, BuildCells.DoorNorth); break;
-                default: Cells(sim, 10, 11, ObjectId.StoneWall, BuildCells.DoorWest); break;
+                int tx = x & 1023;
+                switch (kind)
+                {
+                    case 0: Cells(sim, tx, 11, ObjectId.StoneWall, BuildCells.DoorNorth); break;
+                    case 1: Cells(sim, tx, 11, x == 10 ? ObjectId.Door : ObjectId.StoneWall, BuildCells.DoorNorth); break;
+                    case 2: Cells(sim, tx, 11, ObjectId.WoodFence, BuildCells.DoorNorth); break;
+                    default: Cells(sim, tx, 11, ObjectId.StoneWall, BuildCells.DoorWest); break;
+                }
             }
 
             sim.Step();

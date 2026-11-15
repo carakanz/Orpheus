@@ -446,7 +446,24 @@ namespace Orpheus.Tests
             return results;
         }
 
-        private static TileCoord[] Steps(PathBuffer path) => path.Steps.AsSpan(0, path.Length).ToArray();
+        /// <summary>
+        /// Тайлы пути (E2-12b: путь — точки решётки 0,5): тайлы точек-центров тайлов по порядку. В мире целых тайлов путь между
+        /// центрами проходит центры тех же тайлов, что тайловый путь до E2-12b.
+        /// </summary>
+        internal static TileCoord[] Steps(PathBuffer path)
+        {
+            var list = new System.Collections.Generic.List<TileCoord>();
+            for (int i = 0; i < path.Length; i++)
+            {
+                WorldPos p = path.Points[i];
+                if ((p.X & 255) == 128 && (p.Y & 255) == 128)
+                {
+                    list.Add(new TileCoord(p.X >> 8, p.Y >> 8));
+                }
+            }
+
+            return list.ToArray();
+        }
 
         private static void Box(GridTerrain map, TileCoord center, int radius)
         {
@@ -459,14 +476,26 @@ namespace Orpheus.Tests
             }
         }
 
-        private static void AssertConnected(MapShape shape, TileCoord start, PathBuffer path)
+        internal static void AssertConnected(MapShape shape, TileCoord start, PathBuffer path) =>
+            AssertConnected(shape, PathFinder.TileCenter(start), path);
+
+        /// <summary>
+        /// Соседние точки пути — шаг графа: полшага решётки 0,5 по прямой или диагонали, или целый шаг между центрами соседних
+        /// тайлов (вдали от тонких стен).
+        /// </summary>
+        internal static void AssertConnected(MapShape shape, WorldPos start, PathBuffer path)
         {
-            TileCoord prev = start;
+            WorldPos prev = PathFinder.SnapToLattice(shape, start);
             for (int i = 0; i < path.Length; i++)
             {
-                Int2 d = Torus.Delta(shape, prev, path.Steps[i]);
-                Assert.True(Math.Abs(d.X) <= 1 && Math.Abs(d.Y) <= 1 && (d.X != 0 || d.Y != 0), $"разрыв пути на шаге {i}: {prev} → {path.Steps[i]}");
-                prev = path.Steps[i];
+                Int2 d = Torus.Delta(shape, prev, path.Points[i]);
+                const int U = PathFinder.PointUnits;
+                int ax = Math.Abs(d.X), ay = Math.Abs(d.Y);
+                bool half = ax <= U && ay <= U;
+                bool whole = (ax == 0 || ax == 2 * U) && (ay == 0 || ay == 2 * U) && (prev.X & 255) == 128 && (prev.Y & 255) == 128;
+                Assert.True((half || whole) && (d.X != 0 || d.Y != 0) && d.X % U == 0 && d.Y % U == 0,
+                    $"разрыв пути на шаге {i}: {prev} → {path.Points[i]}");
+                prev = path.Points[i];
             }
         }
     }
@@ -503,6 +532,8 @@ namespace Orpheus.Tests
             _read[i] = true;
             return mode == PathMode.Flyer ? _fly[i] : _walk[i];
         }
+
+        public byte CellsOf(TileCoord tile, PathMode mode) => 15; // целые тайлы
 
         public byte Walk(TileCoord t) => _walk[Index(t)];
 
@@ -779,7 +810,7 @@ namespace Orpheus.Tests
             h = Orpheus.Core.Rng.SplitMix64.Mix(h ^ ((ulong)path.Status << 56) ^ ((ulong)(uint)path.Length << 24) ^ (uint)path.Cost);
             for (int i = 0; i < path.Length; i++)
             {
-                h = Orpheus.Core.Rng.SplitMix64.Mix(h ^ ((ulong)(uint)path.Steps[i].X << 32) ^ (uint)path.Steps[i].Y);
+                h = Orpheus.Core.Rng.SplitMix64.Mix(h ^ ((ulong)(uint)path.Points[i].X << 32) ^ (uint)path.Points[i].Y);
             }
 
             return h;
