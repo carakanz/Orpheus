@@ -329,6 +329,88 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// Замечание 1 проверки (П): сервер сверяет предмет в ячейке заявки <b>до</b> очереди такта (<c>NetServer.OnPlace</c>).
+        /// В ячейке чужая постройка или пусто, тайл вне досягаемости — ответ сразу «нет ресурсов», а не «далеко» (проверка тайлов
+        /// и очередь такта до этой заявки не дошли); в ячейке нужная постройка — тот же тайл даёт «далеко». Мир и сумка не меняются.
+        /// </summary>
+        [Fact]
+        public void E211_Server_ChecksItemInCell_BeforeQueue()
+        {
+            using var rig = new EditTests.EditRig(World(), _ => Spot);
+            NetClient c = Start(rig, Kit());
+            Inventory inv = rig.Sim.GetEntity(c.EntityId).Inv;
+            inv.SetCell(HandCell, Items.WoodWall, 3);
+            inv.SetCell(6, Items.StoneWall, 3);
+            Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
+            rig.Run(3);
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            var far = new TileCoord(308, 200); // 8 тайлов по оси — вне радиуса постановки (6)
+            long refused = rig.Server.EditsRefused;
+
+            c.Place(far, far, ObjectId.StoneWall, Spot, HandCell); // в ячейке деревянная стена
+            rig.Run(3);
+            Assert.Equal(EditReply.NoResources, Assert.Single(replies).Reply);
+            Assert.Equal(0u, replies[0].Mask);
+            c.Place(far, far, ObjectId.StoneWall, Spot, 5); // в ячейке факелы
+            c.Place(far, far, ObjectId.StoneWall, Spot, 4); // в ячейке лук
+            rig.Run(3);
+            Assert.Equal(new[] { EditReply.NoResources, EditReply.NoResources, EditReply.NoResources }, replies.ConvertAll(r => r.Reply).ToArray());
+
+            c.Place(far, far, ObjectId.StoneWall, Spot, 6); // нужная постройка — сервер дошёл до тайлов
+            rig.Run(3);
+            Assert.Equal(EditReply.OutOfReach, replies[^1].Reply);
+            Assert.Equal(ObjectId.Empty, Obj(rig.Sim, far));
+            Assert.Equal(inv, rig.Sim.GetEntity(c.EntityId).Inv);
+            Assert.True(rig.Server.EditsRefused >= refused);
+        }
+
+        /// <summary>
+        /// Замечание 2 проверки (П): запасные ветки возврата предмета при отказе после списания (<see cref="Simulation.ReturnBuildItem"/>,
+        /// им пользуется возврат такта). Ячейка заявки пуста или с тем же предметом — в неё; занята другим предметом — в сумку
+        /// (доукладка); сумка полна — кучей у ног. Масса во всех случаях +1 ровно.
+        /// </summary>
+        [Fact]
+        public void E211_Refund_CellTaken_ToBag_BagFull_PileAtFeet()
+        {
+            var sim = new Simulation(World());
+            int id = sim.AddEntity(Spot);
+            Inventory inv = Inventory.StartingKit();
+            inv.SetCell(HandCell, Items.StoneWall, 2);
+            Assert.True(sim.SetInventory(id, inv));
+
+            Assert.True(sim.ReturnBuildItem(id, HandCell, Items.StoneWall)); // тот же предмет — в ячейку
+            Assert.Equal(3, sim.GetEntity(id).Inv.CountIn(HandCell));
+
+            Assert.True(sim.ReturnBuildItem(id, 0, Items.StoneWall)); // ячейка 0 занята киркой — в сумку
+            Assert.Equal(Items.StonePickaxe, sim.GetEntity(id).Inv.ItemAt(0));
+            Assert.Equal(4, sim.GetEntity(id).Inv.Count(Items.StoneWall));
+            Assert.Equal(4, Total(sim, Items.StoneWall));
+
+            // Сумка полна: все ячейки заняты чужим — куча у ног, ровно один предмет.
+            inv = sim.GetEntity(id).Inv;
+            for (int k = 0; k < Inventory.Cells; k++)
+            {
+                if (inv.ItemAt(k) == Items.None)
+                {
+                    inv.SetCell(k, Items.Stone, 99);
+                }
+            }
+
+            Assert.True(sim.SetInventory(id, inv));
+            int stone = Total(sim, Items.Stone);
+            Assert.True(sim.ReturnBuildItem(id, 0, Items.Bed));
+            Assert.Equal(0, sim.GetEntity(id).Inv.Count(Items.Bed));
+            GroundPile pile = Assert.Single(sim.Piles.ToArray());
+            Assert.Equal((Items.Bed, 1), (pile.Item, pile.Count));
+            Int2 d = Torus.Delta(sim.Shape, sim.GetEntity(id).Mover.Position, pile.Position);
+            Assert.True(Math.Abs(d.X) <= 2 * U && Math.Abs(d.Y) <= 2 * U, $"куча не у ног: {d.X}, {d.Y}");
+            Assert.Equal(1, Total(sim, Items.Bed));
+            Assert.Equal(stone, Total(sim, Items.Stone));
+            Assert.False(sim.ReturnBuildItem(id + 1000, 0, Items.Bed)); // персонажа нет
+        }
+
+        /// <summary>
         /// Каждая строка <see cref="BuildDefs"/> — предмет и ровно один рецепт (E2-11): выход 1, ингредиенты — прежняя цена
         /// постановки (в <c>06</c> 6.9 стена — 2 древесины, «4 из 1» нет); руками, костёр — у верстака (<c>06</c> 3.3);
         /// рецепт лежит в окне в «Здания» (по материалу) или «Мебель» (по типу).

@@ -4,7 +4,6 @@ using Orpheus.Core.World;
 using Orpheus.Net.Session;
 using UnityEngine;
 using UnityEngine.UI;
-using Material = Orpheus.Core.Sim.Material;
 
 namespace Orpheus.Client.UI
 {
