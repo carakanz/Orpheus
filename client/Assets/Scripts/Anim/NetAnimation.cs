@@ -7,6 +7,7 @@ using Orpheus.Core.World;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Orpheus.Client.Anim
 {
@@ -44,6 +45,31 @@ namespace Orpheus.Client.Anim
             public WorldPos Position;
         }
 
+        // E2-7: такт копания своего — по счёту кадров ядра (NetClient.DigProgress) и доле кадра с последнего счёта.
+        const float FrameSec = 1f / ActionAnim.FramesPerSecond;
+        int _digProgSeen = -1;
+        float _digSub;
+        TileCoord _digTileSeen;
+        bool _digSeen;
+        long _requestsSeen = -1;
+
+        // E2-7: удар мечом чужих — фаза из снимка (Melee), доля — своим таймером от смены фазы.
+        readonly Dictionary<int, RemoteMelee> _remoteMelee = new Dictionary<int, RemoteMelee>();
+
+        struct RemoteMelee
+        {
+            public byte Phase;
+            public byte Index;
+            public float Age;
+        }
+
+        /// <summary>E2-7: ударов инструментом своего показано (отклик: дерево — встряска и щепки, камень — искры и крошка).</summary>
+        public long ImpactsShown { get; private set; }
+
+        /// <summary>E2-7: жестов стройки и наклонов подбора показано.</summary>
+        public long BuildGestures { get; private set; }
+        public long PickupGestures { get; private set; }
+
         /// <summary>Замахов показано (без повторов сообщений), попаданий показано.</summary>
         public long SwingsShown => _swings.Accepted;
         public long HitsShown { get; private set; }
@@ -64,8 +90,12 @@ namespace Orpheus.Client.Anim
             client.MeleeResolved = OnResult;
         }
 
-        /// <summary>Чужой персонаж поставлен на интерполированное место: ходьба, рывок — по скорости.</summary>
-        public void Remote(int id, Transform root)
+        /// <summary>
+        /// Чужой персонаж поставлен на интерполированное место: ходьба, рывок — по скорости; E2-7: предмет в руке и удар мечом —
+        /// по снимку (<see cref="SnapshotEntity.HeldItem"/>, <see cref="SnapshotEntity.Melee"/>). Копания чужих в снимке нет —
+        /// рубки у них не видно (протокол не менялся, см. карточку E2-7).
+        /// </summary>
+        public void Remote(int id, Transform root, in SnapshotEntity e)
         {
             if (!_remotes.TryGetValue(id, out ActorRig? rig))
             {
@@ -75,7 +105,9 @@ namespace Orpheus.Client.Anim
 
             float dt = Time.deltaTime;
             Vector2 v = rig.MeasureVelocity(dt);
-            var s = new ActorInput { VelX = v.x, VelY = v.y };
+            rig.SetHeld(e.HeldItem);
+            var s = new ActorInput { VelX = v.x, VelY = v.y, Held = rig.Held };
+            RemoteSwing(id, e.Melee, dt, rig, ref s);
             if (v.magnitude > AnimParams.RemoteDashSpeed)
             {
                 Vector2 d = v.normalized;
@@ -86,6 +118,75 @@ namespace Orpheus.Client.Anim
             }
 
             rig.Apply(rig.Animator.Step(dt, s));
+        }
+
+        /// <summary>
+        /// E2-7: удар мечом чужого по снимку — фаза (2 бита) и номер в серии; доля фазы считается от её смены по длительностям
+        /// <see cref="MeleeAction"/> (снимок идёт реже кадров — доля своим таймером). Ось — куда смотрит.
+        /// </summary>
+        void RemoteSwing(int id, byte melee, float dt, ActorRig rig, ref ActorInput s)
+        {
+            byte phase = (byte)(melee & 3);
+            byte index = (byte)(melee >> 2);
+            _remoteMelee.TryGetValue(id, out RemoteMelee m);
+            if (m.Phase != phase || m.Index != index)
+            {
+                m = new RemoteMelee { Phase = phase, Index = index, Age = 0f };
+            }
+            else
+            {
+                m.Age += dt;
+            }
+
+            _remoteMelee[id] = m;
+            if (phase == MeleeAction.PhaseIdle)
+            {
+                return;
+            }
+
+            int frames = phase == MeleeAction.PhaseWindup ? MeleeAction.WindupFrames
+                : phase == MeleeAction.PhaseStrike ? MeleeAction.StrikeFrames
+                : index == MeleeAction.SeriesSize - 1 ? MeleeAction.LastRecoverFrames : MeleeAction.RecoverFrames;
+            s.Swing = (SwingPhase)phase;
+            s.SwingProgress = Mathf.Clamp01(m.Age / (frames * FrameSec));
+            s.SwingDirX = rig.Animator.FacingRight ? 1f : -1f;
+            s.SwingDirY = 0f;
+        }
+
+        /// <summary>
+        /// E2-7: кучу подобрали (сообщение «кучи нет» с поднявшим): свой (<paramref name="self"/>) или чужой
+        /// (<paramref name="takerId"/>) делает короткий наклон к ней.
+        /// </summary>
+        public void OnPickup(bool self, int takerId, Vector3 pileAt)
+        {
+            ActorRig? rig = self ? _self : _remotes.TryGetValue(takerId, out ActorRig? r) ? r : null;
+            if (rig == null)
+            {
+                return;
+            }
+
+            Vector2 d = (Vector2)(pileAt - rig.Root.position);
+            if (d.sqrMagnitude > 9f)
+            {
+                d = Vector2.zero; // куча неизвестна (позиция по умолчанию) — наклон туда, куда смотрит
+            }
+
+            rig.Animator.OnPickup(d.x, d.y);
+            PickupGestures++;
+        }
+
+        /// <summary>Точка под курсором мыши в координатах Unity (нет мыши — null).</summary>
+        Vector3? CursorWorld()
+        {
+            Mouse? mouse = Mouse.current;
+            Camera? cam = _g.Camera;
+            if (mouse == null || cam == null)
+            {
+                return null;
+            }
+
+            Vector2 screen = mouse.position.ReadValue();
+            return cam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
         }
 
         /// <summary>Кадр: свой персонаж, враги, частицы. Позиции корней уже расставлены от якоря.</summary>
@@ -130,8 +231,15 @@ namespace Orpheus.Client.Anim
                 s.SwingDirY = selfAxis.y;
             }
 
+            // E2-7: предмет в руке — по своему счёту (ячейка последнего кадра).
+            byte held = pred.HeldItem;
+            _self.SetHeld(held);
+            s.Held = _self.Held;
+
             Vector3 digAt = Vector3.zero;
             float[] dust = AnimParams.DustLight;
+            ushort digObj = ObjectId.Empty;
+            bool digStarted = false;
             if (_client.Digging)
             {
                 TileCoord t = _client.DigTile;
@@ -141,14 +249,61 @@ namespace Orpheus.Client.Anim
                 s.DigDirX = d.x;
                 s.DigDirY = d.y;
                 s.DigPeriod = ProceduralAnimator.DigPeriodFor(_client.DigFrames);
-                dust = DustOf(_world.GetObject(t));
+                digObj = _world.GetObject(t);
+                dust = DustOf(digObj);
+
+                // E2-7: такт удара — по кадрам копания ядра (DigProgress из DigFrames): последний удар — в кадр, когда объект
+                // снят. Между счётами — доля кадра по времени (не больше кадра), чтобы замах шёл плавно при любой частоте кадров.
+                int prog = _client.DigProgress;
+                digStarted = !_digSeen || t.X != _digTileSeen.X || t.Y != _digTileSeen.Y || prog < _digProgSeen;
+                if (digStarted || prog != _digProgSeen)
+                {
+                    _digSub = 0f;
+                    _digProgSeen = prog;
+                }
+                else
+                {
+                    _digSub = Mathf.Min(_digSub + dt, FrameSec);
+                }
+
+                _digSeen = true;
+                _digTileSeen = t;
+                s.Action = ActionAnim.DigActionOf(held);
+                s.ActionFrames = _client.DigFrames;
+                s.ActionSec = prog * FrameSec + (_client.DigPredicted ? 0f : _digSub);
             }
+            else
+            {
+                _digSeen = false;
+                _digProgSeen = -1;
+            }
+
+            // E2-7: постановка постройки — запрос правки ушёл с постройкой в руке (не начало копания): жест к курсору.
+            long req = _client.EditRequestsSent;
+            if (_requestsSeen >= 0 && req > _requestsSeen && !digStarted && BuildHand.IsBuildItem(held))
+            {
+                Vector3? cur = CursorWorld();
+                Vector2 to = cur.HasValue ? (Vector2)(cur.Value - _g.Character.position) : new Vector2(_self.Animator.FacingRight ? 1f : -1f, 0f);
+                _self.Animator.OnBuild(to.x, to.y);
+                BuildGestures++;
+            }
+
+            _requestsSeen = req;
 
             Pose p = _self.Animator.Step(dt, s);
             _self.Apply(p);
             if (p.DigPokeNow)
             {
-                EmitDust(digAt, new Vector2(-s.DigDirX, -s.DigDirY), dust);
+                if (s.Action == ActionKind.Chop || s.Action == ActionKind.Mine || s.Action == ActionKind.Hammer)
+                {
+                    EmitImpact(digAt, new Vector2(-s.DigDirX, -s.DigDirY), digObj);
+                    ImpactsShown++;
+                }
+                else
+                {
+                    EmitDust(digAt, new Vector2(-s.DigDirX, -s.DigDirY), dust);
+                }
+
                 if (_client.Digging)
                 {
                     LifeFx.HitTile(_client.DigTile, new Vector2(s.DigDirX, s.DigDirY)); // E1-11: удар по дереву — встряска и листья
@@ -240,6 +395,39 @@ namespace Orpheus.Client.Anim
             Vector2 at = (Vector2)tileCenter + towardPlayer * 0.45f;
             _sparks.Emit(at, towardPlayer + Vector2.up * 0.8f, AnimParams.DigDust, AnimParams.DigDustSpeed, AnimParams.DigDustLife, 55f, true,
                 main, main, AnimParams.DustLight);
+        }
+
+        /// <summary>
+        /// E2-7: отклик удара инструментом по тайлу. Дерево — щепки (листья и встряску даёт <c>LifeFx.HitTile</c>); камень,
+        /// руда, стена — искры (короткие, тормозят) и крошка камня (падает); пустой тайл — пыль. Общий пул <see cref="Sparks"/>.
+        /// </summary>
+        void EmitImpact(Vector3 tileCenter, Vector2 towardPlayer, ushort obj)
+        {
+            Emit(_sparks, tileCenter, towardPlayer, obj);
+        }
+
+        /// <summary>Отклик удара (общий для сети и показа <see cref="AnimShowcase"/>).</summary>
+        public static void Emit(Sparks sparks, Vector3 tileCenter, Vector2 towardPlayer, ushort obj)
+        {
+            Vector2 at = (Vector2)tileCenter + towardPlayer * 0.42f;
+            if (obj == ObjectId.Empty)
+            {
+                sparks.Emit(at, towardPlayer + Vector2.up * 0.8f, AnimParams.DigDust, AnimParams.DigDustSpeed, AnimParams.DigDustLife, 55f, true,
+                    AnimParams.DustLight);
+                return;
+            }
+
+            if (ObjectId.IdOf(obj) == ObjectId.Tree)
+            {
+                sparks.Emit(at + Vector2.up * 0.25f, towardPlayer + Vector2.up * 1.1f, AnimParams.WoodChips, AnimParams.DigDustSpeed * 1.2f,
+                    AnimParams.DigDustLife, 50f, true, AnimParams.DustWood, AnimParams.DustWood, AnimParams.DustLight);
+                return;
+            }
+
+            sparks.Emit(at, towardPlayer + Vector2.up * 0.4f, AnimParams.StoneSparks, AnimParams.StoneSparkSpeed, AnimParams.StoneSparkLife, 70f, false,
+                AnimParams.StrikeFlash, AnimParams.SparkLight);
+            sparks.Emit(at, towardPlayer + Vector2.up * 0.9f, AnimParams.StoneCrumbs, AnimParams.DigDustSpeed, AnimParams.DigDustLife, 45f, true,
+                AnimParams.DustStone, AnimParams.DustStone, AnimParams.DustLight);
         }
 
         void EmitHit(Vector2 at, Vector2 dir)
