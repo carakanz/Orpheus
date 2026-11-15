@@ -211,7 +211,7 @@ namespace Orpheus.Core.Sim
             int slot = SlotOf(r.EntityId);
             if (slot < 0 || !_entities[slot].IsCharacter || !_entities[slot].Alive)
             {
-                if (slot >= 0 && (r.Op == BagOp.Craft || r.Op == BagOp.CraftCancel))
+                if (slot >= 0 && (r.Op == BagOp.Craft || r.Op == BagOp.CraftCancel || r.Op == BagOp.CraftInto))
                 {
                     CraftRefusedEvent(tick, r.EntityId, r.Op, r.From, CraftReply.Dead); // умер между заявкой и тактом — ответ всё равно один
                 }
@@ -251,6 +251,9 @@ namespace Orpheus.Core.Sim
                     break;
                 case BagOp.CraftCancel:
                     ApplyCraftCancel(tick, slot, r.From, r.Count);
+                    break;
+                case BagOp.CraftInto:
+                    ApplyCraftInto(tick, slot, r.From, r.To, r.Count); // C-013
                     break;
             }
         }

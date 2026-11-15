@@ -264,8 +264,7 @@ namespace Orpheus.Tests
             Assert.True(ObjectUse.Find(sim.World, self, bedTail, out TileCoord t, out UseKind k));
             Assert.Equal((bed, UseKind.Bed), (t, k));
             var benchTail = new TileCoord(98, 101);
-            Assert.True(ObjectUse.Find(sim.World, self, benchTail, out t, out k));
-            Assert.Equal((bench, UseKind.Workbench), (t, k));
+            Assert.Equal(UseKind.None, ObjectUse.At(sim.World, self, benchTail)); // C-013 [док]: у верстака нет действия F («F — верстак не нужно»)
             Assert.Equal(UseKind.None, ObjectUse.At(sim.World, self, new TileCoord(103, 99))); // рядом с хвостом — пусто
 
             // Персонаж южнее ножной части на 3 тайла: до изголовья 4 — достаёт по хвосту.

@@ -96,9 +96,12 @@ namespace Orpheus.Net.Session
             else
             {
                 p.BagRequestsThisTick++;
-                reply = m.Op == CraftOp.Make
-                    ? _sim.RequestCraft(p.EntityId, m.Arg, m.Count)
-                    : _sim.RequestCraftCancel(p.EntityId, m.Arg, m.Count);
+                reply = m.Op switch
+                {
+                    CraftOp.Make => _sim.RequestCraft(p.EntityId, m.Arg, m.Count),
+                    CraftOp.MakeInto => _sim.RequestCraftInto(p.EntityId, m.Arg, m.Cell, m.Count), // C-013
+                    _ => _sim.RequestCraftCancel(p.EntityId, m.Arg, m.Count),
+                };
             }
 
             if (reply != CraftReply.Accepted)
@@ -136,9 +139,13 @@ namespace Orpheus.Net.Session
                     case SimEventKind.CraftCancelled:
                         SendCraftReply(pl, CraftOp.Cancel, (byte)events[e].Victim, CraftReply.Accepted);
                         break;
+                    case SimEventKind.CraftMade:
+                        SendCraftReply(pl, CraftOp.MakeInto, (byte)events[e].Victim, CraftReply.Accepted); // C-013
+                        break;
                     case SimEventKind.CraftRefused:
                         CraftRequestsRefused++;
-                        SendCraftReply(pl, events[e].Damage == (int)BagOp.CraftCancel ? CraftOp.Cancel : CraftOp.Make,
+                        SendCraftReply(pl, events[e].Damage == (int)BagOp.CraftCancel ? CraftOp.Cancel
+                            : events[e].Damage == (int)BagOp.CraftInto ? CraftOp.MakeInto : CraftOp.Make,
                             (byte)events[e].Victim, (CraftReply)events[e].Tag);
                         break;
                 }
@@ -181,7 +188,8 @@ namespace Orpheus.Net.Session
                 for (int e = 0; e < events.Length && !due; e++)
                 {
                     due = events[e].Requester == pl.EntityId
-                        && (events[e].Kind == SimEventKind.CraftQueued || events[e].Kind == SimEventKind.CraftCancelled);
+                        && (events[e].Kind == SimEventKind.CraftQueued || events[e].Kind == SimEventKind.CraftCancelled
+                            || events[e].Kind == SimEventKind.CraftMade);
                 }
             }
 

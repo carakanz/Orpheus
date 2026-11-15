@@ -140,9 +140,23 @@ namespace Orpheus.Net.Session
             return SendCraftRequest(CraftOp.Cancel, (byte)index, (ushort)recipe);
         }
 
-        private bool SendCraftRequest(CraftOp op, byte arg, ushort count)
+        /// <summary>
+        /// C-013: заявка «изготовить рецепт <paramref name="recipe"/> × <paramref name="count"/> сразу в ячейку сумки
+        /// <paramref name="cell"/>» (0xFF — куда влезет). Не предсказывается: сумку пришлёт сервер.
+        /// </summary>
+        public bool RequestCraftInto(int recipe, int cell, int count = 1)
         {
-            int len = new CraftRequestMessage { Op = op, Arg = arg, Count = count }.Write(_buf);
+            if (State != NetClientState.InGame || !RecipeTable.Exists(recipe) || count <= 0 || (cell != 0xFF && (uint)cell >= Inventory.Cells))
+            {
+                return false;
+            }
+
+            return SendCraftRequest(CraftOp.MakeInto, (byte)recipe, (ushort)Math.Min(count, ushort.MaxValue), (byte)cell);
+        }
+
+        private bool SendCraftRequest(CraftOp op, byte arg, ushort count, byte cell = 0xFF)
+        {
+            int len = new CraftRequestMessage { Op = op, Arg = arg, Count = count, Cell = cell }.Write(_buf);
             _transport.Send(_serverPeer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             return true;
         }

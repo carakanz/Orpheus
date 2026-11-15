@@ -52,8 +52,18 @@ namespace Orpheus.Net.Session
         {
             Inventory v = VirtualBag(bag, slot, item, available);
             BuildCheck c = BuildHand.Check(world, self, v, slot, alive, tile, quad, rotation);
-            return c.Ok && available <= 0
-                ? new BuildCheck(c.Action, EditReply.NoResources, c.Key, c.Material1, c.Count1, c.Material2, c.Count2, c.Cells, c.Anchor, c.OffsetX, c.OffsetY)
+            if (!c.Ok)
+            {
+                return c;
+            }
+
+            // C-013: остаток от выхода рецепта (стена — 2, пол — 4) должен влезть в сумку; выход 1 — сумка не нужна.
+            int units = c.Cells != 0 ? BuildCells.Count(c.Cells) : 1;
+            EditReply refuse = available <= 0 ? EditReply.NoResources
+                : !CraftRules.MenuLeftoverFits(in bag, item, units) ? EditReply.BagFull
+                : EditReply.Accepted;
+            return refuse != EditReply.Accepted
+                ? new BuildCheck(c.Action, refuse, c.Key, c.Material1, c.Count1, c.Material2, c.Count2, c.Cells, c.Anchor, c.OffsetX, c.OffsetY)
                 : c;
         }
 

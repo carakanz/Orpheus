@@ -1275,7 +1275,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Net_GoldenBytes_Use_Reply_Chest_Repair()
         {
-            Assert.Equal(28, NetModule.ProtocolVersion); // E2-16: 28
+            Assert.Equal(29, NetModule.ProtocolVersion); // C-013: 29; E2-16: 28
             var buf = new byte[256];
             int n = new UseRequestMessage { Op = UseOp.Use, Tile = new TileCoord(0x0102, 0x0304) }.Write(buf);
             Assert.Equal(UseRequestMessage.Bytes, n);
@@ -1292,7 +1292,9 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.FurnitureInTile, UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Reply);
             buf[7] = 20; // E2-16 (протокол 28): 20 — «нужен станок», допустим
             Assert.Equal(EditReply.NoStation, UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Reply);
-            buf[7] = 21;
+            buf[7] = 21; // C-013 (протокол 29): 21 — «сумка полна», допустим
+            Assert.Equal(EditReply.BagFull, UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Reply);
+            buf[7] = 22;
             Assert.Throws<ProtocolException>(() => UseReplyMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             var cells = new Inventory();

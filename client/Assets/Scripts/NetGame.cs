@@ -821,7 +821,7 @@ namespace Orpheus.Client
         /// не нажал — уворот. X уворачивает сразу всегда.
         /// </summary>
         bool RulerMayTakeShift() =>
-            _ui != null && !_ui.PointerBlocked && _ui.Ruler.Mode == PlaceMode.Ruler && BuildRuler.KindOfItem(HeldItem) == RulerKind.Line;
+            _ui != null && !_ui.PointerBlocked && _ui.Ruler.Mode == PlaceMode.Ruler && BuildRuler.KindOfItem(HandItem) == RulerKind.Line;
 
         bool ShiftForWindow()
         {

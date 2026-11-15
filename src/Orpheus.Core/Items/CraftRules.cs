@@ -57,6 +57,88 @@ namespace Orpheus.Core.Sim
             return StationCheck(world, pos, def.Station) == CraftReply.Accepted ? Affordable(inv, def, stock) * def.ResultCount : 0;
         }
 
+        /// <summary>
+        /// C-013: сумка после снятия ингредиентов <paramref name="runs"/> изготовлений — только сумочная часть, тем же порядком,
+        /// что <c>Simulation.TakeIngredients</c> (из сумки сколько есть, остальное — из сундуков рядом, их тут нет). Копия:
+        /// по ней сервер и клиент одной функцией решают, куда ляжет результат.
+        /// </summary>
+        public static Inventory BagAfterIngredients(in Inventory bag, in RecipeDef def, int runs)
+        {
+            Inventory v = bag;
+            for (int i = 0; i < def.IngredientCount; i++)
+            {
+                byte item = def.IngredientItem(i);
+                v.Remove(item, Math.Min(def.IngredientCountOf(i) * runs, v.Count(item)));
+            }
+
+            return v;
+        }
+
+        /// <summary>
+        /// C-013: сколько предметов <paramref name="item"/> влезет в ячейку <paramref name="cell"/>: пустая — стопка, с тем же
+        /// предметом — до полной стопки, с другим — 0.
+        /// </summary>
+        public static int RoomInCell(in Inventory bag, int cell, byte item)
+        {
+            if ((uint)cell >= Inventory.Cells || item == Items.None)
+            {
+                return 0;
+            }
+
+            int max = ItemTable.MaxStackOf(item);
+            int have = bag.CountIn(cell);
+            return have == 0 ? max : bag.ItemAt(cell) == item ? Math.Max(0, max - have) : 0;
+        }
+
+        /// <summary>
+        /// C-013: сколько изготовлений рецепта <paramref name="def"/> (не больше <paramref name="want"/>) поместится результатом
+        /// в ячейку <paramref name="cell"/> (<c>0xFF</c> — в сумку куда угодно, с доукладкой), если ингредиенты снимаются из
+        /// этой же сумки (освобождённое ими место считается). Ингредиентов хватает — проверяет вызывающий.
+        /// </summary>
+        public static int RunsThatFit(in Inventory bag, in RecipeDef def, int cell, int want)
+        {
+            for (int runs = want; runs > 0; runs--)
+            {
+                Inventory v = BagAfterIngredients(bag, def, runs);
+                int room = cell == 0xFF ? v.RoomFor(def.Result) : RoomInCell(v, cell, def.Result);
+                if (room >= runs * def.ResultCount)
+                {
+                    return runs;
+                }
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// C-013 (слова Автора 15.11: «если крафтится 1 предмет … можно делать» при полной сумке): постановка «из меню»
+        /// <paramref name="units"/> предметов-построек <paramref name="item"/> — остаток от выхода рецепта (стена — 2, пол — 4)
+        /// влезет в сумку? Готовые берутся из сумки, недостающее — ⌈недостаёт ÷ выход⌉ изготовлений; остатка нет (выход 1 или
+        /// хватило готовых) — true при любой сумке. Тот же расчёт у сервера (<c>Simulation.PayOrCraft</c>) и у призрака клиента.
+        /// </summary>
+        public static bool MenuLeftoverFits(in Inventory bag, byte item, int units)
+        {
+            int have = Math.Min(units, bag.Count(item));
+            int missing = units - have;
+            int recipe = missing > 0 ? RecipeFor(item) : 0;
+            if (recipe == 0)
+            {
+                return true;
+            }
+
+            ref readonly RecipeDef def = ref RecipeTable.Get(recipe);
+            int runs = (missing + def.ResultCount - 1) / def.ResultCount;
+            int extra = runs * def.ResultCount - missing;
+            if (extra <= 0)
+            {
+                return true;
+            }
+
+            Inventory v = BagAfterIngredients(bag, def, runs);
+            v.Remove(item, have);
+            return v.RoomFor(item) >= extra;
+        }
+
         /// <summary>На сколько изготовлений хватает ингредиентов в сумке (по всем ячейкам).</summary>
         public static int Affordable(in Inventory inv, in RecipeDef def)
         {

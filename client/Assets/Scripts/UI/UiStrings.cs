@@ -37,7 +37,11 @@ namespace Orpheus.Client.UI
         public const string ChestTakeAllTip = "Всё из сундука — в сумку";
         public const string ChestPutAllTip = "Сумка (без быстрой панели) — в сундук";
         public const string CraftTitleKeys = "Изготовление  (C)";
-        public const string CraftMakeTip = "ЛКМ — сделать 1   Shift — 5   Ctrl — всё (Enter)";
+        public const string CraftMakeTip = "Щелчок по значку — выбрать, по ячейке сумки — сделать туда (Shift — 5, Ctrl — сколько влезет; Enter — в сумку)";
+        public const string CraftPlaceTip = "Щелчок по значку — выбрать; по земле — сделать и поставить, по ячейке сумки — сделать туда (ПКМ / Esc — снять)";
+
+        /// <summary>C-013: выбран рецепт не-постройки, курсор над миром — подсказка у курсора.</summary>
+        public static string ArmedNote(byte item) => $"{ItemName(item)}: щёлкни по ячейке сумки   (ПКМ / Esc — снять)";
         public const string AbilityLocked = "Способность — откроется позже";
         public const string PassiveLocked = "Пассивная способность — откроется позже";
         public const string MapCollapsed = "Карта (M)";
@@ -222,6 +226,7 @@ namespace Orpheus.Client.UI
             CraftReply.NoRecipe => "Отказ: нет такого рецепта",
             CraftReply.BadCount => "Отказ: неверное количество",
             CraftReply.NoEntity => "Отказ: персонажа нет в мире",
+            CraftReply.NoRoom => "Некуда: ячейка занята другим или стопка полна",
             _ => "Отказ сервера",
         };
 
@@ -285,9 +290,6 @@ namespace Orpheus.Client.UI
             (rotatable ? "R — поворот   " : string.Empty)
             + (menu ? $"из меню: {available}  (Esc — убрать)" : PlaceModeLabel(ruler));
 
-        /// <summary>Кнопка в карточке рецепта постройки (E2-16).</summary>
-        public const string PlaceFromMenu = "Поставить";
-
         /// <summary>E2-13: подсказка у призрака в режиме линейки.</summary>
         public static string RulerHint(Orpheus.Net.Session.RulerKind kind, int inHand) =>
             kind == Orpheus.Net.Session.RulerKind.Rect
@@ -326,8 +328,7 @@ namespace Orpheus.Client.UI
         public static string UseHint(Orpheus.Net.Session.UseKind kind) => kind switch
         {
             Orpheus.Net.Session.UseKind.Door => "F — закрыть дверь",
-            Orpheus.Net.Session.UseKind.Workbench => "F — верстак",
-            Orpheus.Net.Session.UseKind.Campfire => "F — костёр",
+            // C-013: «F — верстак не нужно» — у станков действия F нет (ObjectUse.KindOf), подсказки тоже.
             Orpheus.Net.Session.UseKind.Chest => "F — сундук",
             Orpheus.Net.Session.UseKind.Bed => "F — кровать",
             _ => string.Empty,
