@@ -6,4 +6,9 @@
     <OrpheusDeterministicRules>true</OrpheusDeterministicRules>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- C-009: флаги симуляции только для тестов (internal), не в протоколе и не в сохранении. -->
+    <InternalsVisibleTo Include="Orpheus.Tests" />
+  </ItemGroup>
+
 </Project>

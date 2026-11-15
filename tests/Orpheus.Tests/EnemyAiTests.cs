@@ -186,6 +186,13 @@ namespace Orpheus.Tests
         /// точно на игрока, и совпадение пропало. Замах, на котором уворота не было (выносливость &lt; 25 — «щёлк»), в счёт
         /// спасений не идёт: правило i-кадров — про начатый рывок.
         /// </para>
+        /// <para>
+        /// C-009: чтобы поломка уворота на кадровом вводе (рывок не начинается) не уменьшала выборку молча, а роняла тест:
+        /// 1) каждое нажатие при выносливости ≥ 25 и готовом увороте начинает рывок (все 100 %); 2) замахов с рывком ≥ 60 % всех.
+        /// Порог 60 %, а не 90 %: правило выносливости (2.2–2.3: рывок −25, пауза 0,5 с, +20/с) при замахе раз в 1,1 с
+        /// (<see cref="MeleeRogue.PeriodTicks"/> 33) даёт в установившемся режиме долю f из 25f = 12f + 22(1 − f), f = 22/35 ≈ 63 %
+        /// (+ начальный запас 100); замер — 110 из 160 (69 %).
+        /// </para>
         /// </summary>
         [Fact]
         public void D02_S8_13_RogueStrikes_Dodged95of100()
@@ -198,7 +205,7 @@ namespace Orpheus.Tests
             InputFrame[] south = { new InputFrame(new Input8(0, 1), InputButtons.Dodge), InputFrame.None };
             InputFrame[] idle = { InputFrame.None, InputFrame.None };
 
-            int attacks = 0, dodged = 0, dodgedHits = 0, hits = 0, prev = 0;
+            int attacks = 0, dodged = 0, dodgedHits = 0, hits = 0, prev = 0, ready = 0, readyDashed = 0;
             bool dodgedThis = false, hitThis = false;
             for (int t = 1; t <= 30_000 && dodged < 110; t++)
             {
@@ -206,10 +213,18 @@ namespace Orpheus.Tests
                 // Рывок на север / юг через раз (иначе за 30 рывков игрок уходит на 60 т — враг бросает погоню по поводку 8.3):
                 // уворот идёт в направлении ввода кадра нажатия (0-029 2.2); в остальных кадрах ввод пустой.
                 sim.SetFramesAt(slot, press ? ((attacks & 1) == 0 ? north : south) : idle);
+                Mover before = sim.GetEntity(ch).Mover;
+                bool canDash = press && before.Stamina.CanDodge && before.Dodge.Ready;
                 sim.Step();
                 if (press && sim.GetEntity(ch).Mover.Dodge.Dashing)
                 {
                     dodgedThis = true;
+                }
+
+                if (canDash)
+                {
+                    ready++;
+                    readyDashed += sim.GetEntity(ch).Mover.Dodge.Dashing ? 1 : 0;
                 }
 
                 foreach (SimEvent ev in sim.Events)
@@ -240,6 +255,8 @@ namespace Orpheus.Tests
             }
 
             Assert.True(dodged >= 100, $"замахов с уворотом {dodged} (всего {attacks})");
+            Assert.True(ready >= 100 && readyDashed == ready, $"нажатий при выносливости ≥ 25 и готовом увороте {ready}, рывков из них {readyDashed}");
+            Assert.True(dodged * 100 >= 60 * attacks, $"замахов с рывком {dodged} из {attacks} — меньше 60 %");
             Assert.True(dodged - dodgedHits >= 95 * dodged / 100, $"спасено {dodged - dodgedHits} из {dodged} — меньше 95 %");
             Assert.True(sim.GetEntity(ch).Health > 0, $"игрок умер: попаданий {hits} из {attacks} замахов");
         }

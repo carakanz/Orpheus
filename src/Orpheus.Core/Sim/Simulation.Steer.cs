@@ -12,6 +12,12 @@ namespace Orpheus.Core.Sim
     public sealed partial class Simulation
     {
         /// <summary>
+        /// Только для тестов (C-009): подруливание у косяка выключено — враг идёт прямо к точке пути, и упор в угол проверяет
+        /// вторую линию («застрял» → переспрос, сдача через 20 с). По умолчанию выключен; не в протоколе, сохранении и хэше.
+        /// </summary>
+        internal bool SteerOffForTests { get; set; }
+
+        /// <summary>
         /// Точка цели погони: точка решётки 0,5, ближайшая к цели. Центр круга, не задевающего твёрдое, всегда в ≤ 0,25 тайла по
         /// осям от свободной точки (круг 0,4 в ней задевает только 4 ячейки вокруг), так что у тонкой стены (игрок прижат) цель —
         /// на его стороне стены, и «цель в замкнутой области» срабатывает. Цель всё же в твёрдом (дверь закрыли на ней) —
@@ -56,6 +62,12 @@ namespace Orpheus.Core.Sim
             TileCoord gt = Torus.TileOf(_shape, ChaseGoal(target));
             long d2 = Torus.Dist2(_shape, gt, new TileCoord(b.GoalX, b.GoalY)) * (long)Torus.SubTilesPerTile * Torus.SubTilesPerTile;
             return d2 > (long)MeleeRogue.RepathGoalDelta * MeleeRogue.RepathGoalDelta;
+        }
+
+        /// <summary>Только для тестов (C-009): перенести сущность (толкотня/отбрасывание сбили врага с пути; игрок вышел из дома).</summary>
+        internal void PlaceForTests(int entityId, WorldPos position)
+        {
+            _entities[SlotOf(entityId)].Mover.Position = position;
         }
 
         /// <summary>Поставить поиск пути погони от позиции врага к точке <paramref name="goal"/>; true — запрос в очереди.</summary>
@@ -105,31 +117,28 @@ namespace Orpheus.Core.Sim
         /// от линии проёма на 0,1–0,4 тайла, упирается в угол косяка: столкновения раздельные по осям, поперёк хода круг не
         /// сползает — враг стоял до «упёрся». Поэтому ход пробуется шагом такта (<see cref="Collision.Move"/>, те же стены):
         /// направление к точке, затем соседние (у прямого — диагонали в сторону поперечного смещения, затем само смещение;
-        /// у диагонали — оси, большая первой); берётся первое, после которого точка ближе. Ни одно не приближает — прямое.
+        /// у диагонали подруливать нечем — C-009); берётся первое, после которого точка ближе. Ни одно не приближает — прямое.
         /// Целочисленно, порядок фиксирован (детерминизм).
         /// </summary>
-        private Input8 SteerTo(WorldPos at, int speedX10, WorldPos node)
+        internal Input8 SteerTo(WorldPos at, int speedX10, WorldPos node)
         {
             Int2 d = Torus.Delta(_shape, at, node);
             Input8 q = Input8.FromStick(d.X, d.Y);
             long d0 = d.LengthSquared;
-            if (!q.IsMoving || Closer(at, speedX10, q, node, d0))
+            if (!q.IsMoving || SteerOffForTests || Closer(at, speedX10, q, node, d0))
             {
                 return q;
             }
 
-            int sx = d.X > 0 ? 1 : d.X < 0 ? -1 : 0;
-            int sy = d.Y > 0 ? 1 : d.Y < 0 ? -1 : 0;
             if (q.IsDiagonal)
             {
-                bool xFirst = (d.X < 0 ? -d.X : d.X) >= (d.Y < 0 ? -d.Y : d.Y);
-                Input8 a = xFirst ? new Input8(q.DX, 0) : new Input8(0, q.DY);
-                Input8 c = xFirst ? new Input8(0, q.DY) : new Input8(q.DX, 0);
-                return Closer(at, speedX10, a, node, d0) ? a : Closer(at, speedX10, c, node, d0) ? c : q;
+                // C-009: диагональ не приближает, только если оба её осевых сдвига нулевые (столкновения по осям, X затем Y, без
+                // отката за старт) — тогда и чисто осевые шаги стоят; подруливать нечем (тест C009_Steer_DiagonalBlocked…).
+                return q;
             }
 
             // Прямой ход: поперечное смещение (знак) — сначала диагональ в его сторону, затем в другую, затем само смещение.
-            int side = q.DX == 0 ? sx : sy;
+            int side = q.DX == 0 ? (d.X > 0 ? 1 : d.X < 0 ? -1 : 0) : (d.Y > 0 ? 1 : d.Y < 0 ? -1 : 0);
             int first = side >= 0 ? 1 : -1;
             Input8 d1 = q.DX == 0 ? new Input8(first, q.DY) : new Input8(q.DX, first);
             Input8 d2 = q.DX == 0 ? new Input8(-first, q.DY) : new Input8(q.DX, -first);
@@ -155,8 +164,11 @@ namespace Orpheus.Core.Sim
             return q;
         }
 
+        /// <summary>Только для тестов (C-009): круг в точке задевает твёрдое (те же стены, что у движения).</summary>
+        internal bool TouchesSolidForTests(WorldPos p) => Collision.TouchesSolid(_shape, p, _solid);
+
         /// <summary>Шаг такта направлением <paramref name="dir"/> (с упором в стены) приближает к точке.</summary>
-        private bool Closer(WorldPos at, int speedX10, Input8 dir, WorldPos node, long d0)
+        internal bool Closer(WorldPos at, int speedX10, Input8 dir, WorldPos node, long d0)
         {
             WorldPos p = Collision.Move(_shape, at, dir.SpeedX10(speedX10) / MovementTick.SpeedScale,
                 dir.SpeedY10(speedX10) / MovementTick.SpeedScale, _solid);

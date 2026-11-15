@@ -26,25 +26,26 @@ namespace Orpheus.Core.Sim
             ref EnemyBrain b = ref e.Brain;
             e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
 
+            // Сдача (1-013, 9.3): 20 с эпизода «упёрся» без продвижения по пути — цель в игнор на 30 с, враг в Ожидание. C-009: и из
+            // погони — враг, которого толкотня раскачивает у косяка, двигается (таймер «застрял» не доходит до Blocked), но не ближе.
+            if (b.BlockedSince != 0 && tick - b.BlockedSince >= MeleeRogue.BlockedGiveUpTicks)
+            {
+                e.Input = InputFrame.None;
+                b.IgnoreTargetId = b.TargetId;
+                b.IgnoreUntil = tick + MeleeRogue.IgnoreTargetTicks;
+                b.TargetId = EnemyBrain.NoTarget;
+                b.State = EnemyState.Idle;
+                b.StateTicks = 0;
+                b.PathStamp = 0;
+                b.BlockedSince = 0;
+                b.EnclosedRev = 0;
+                return;
+            }
+
             if (b.State == EnemyState.Blocked)
             {
-                // «Упёрся» (1-013, 9.3): стоит у преграды; пересчёт — сразу при правке мира (ревизия сдвинулась);
-                // через 20 с цель уходит в игнор на 30 с, враг — в Ожидание (не застревает).
+                // «Упёрся» (1-013, 9.3): стоит у преграды; пересчёт — сразу при правке мира (ревизия сдвинулась).
                 e.Input = InputFrame.None;
-                long blockedFor = tick - b.BlockedSince;
-                if (b.BlockedSince != 0 && blockedFor >= MeleeRogue.BlockedGiveUpTicks)
-                {
-                    b.IgnoreTargetId = b.TargetId;
-                    b.IgnoreUntil = tick + MeleeRogue.IgnoreTargetTicks;
-                    b.TargetId = EnemyBrain.NoTarget;
-                    b.State = EnemyState.Idle;
-                    b.StateTicks = 0;
-                    b.PathStamp = 0;
-                    b.BlockedSince = 0;
-                    b.EnclosedRev = 0;
-                    return;
-                }
-
                 bool decide = (tick + e.Id) % AiDecisionTicks == 0;
                 if ((b.EnclosedRev != 0 && _editRev + 1 != b.EnclosedRev) || (decide && BlockedGoalMoved(ref b, target.Mover.Position)))
                 {
@@ -52,6 +53,7 @@ namespace Orpheus.Core.Sim
                     // дальше тайла от той, к которой искали (игрок вышел из дома, обошёл постройку) — иначе враг стоял до 20 с.
                     if (EnqueueChasePath(ref e, slot, ChaseGoal(target.Mover.Position), tick))
                     {
+                        b.EnclosedRev = EnemyBrain.AfterEnclosed; // C-009: найдёт путь — «путь появился», эпизод закрыт
                         b.ProgressTick = (int)tick;
                         b.ProgressX = e.Mover.Position.X;
                         b.ProgressY = e.Mover.Position.Y;
@@ -86,13 +88,9 @@ namespace Orpheus.Core.Sim
             }
             else if (Torus.Dist2(_shape, e.Mover.Position, new WorldPos(b.ProgressX, b.ProgressY)) >= MeleeRogue.ProgressMove2)
             {
-                // Продвинулись — контрольная точка за текущей позицией, таймер «упёрся» сброшен. E2-12b: и эпизод «упёрся»
-                // (BlockedSince) закрыт — если последний поиск не «замкнута» (тогда идёт к краю у стены, а не к цели).
-                if (_pathBuf[slot].Status != PathStatus.Enclosed)
-                {
-                    b.BlockedSince = 0;
-                }
-
+                // Продвинулись — контрольная точка за текущей позицией, таймер «застрял» сброшен. Эпизод «упёрся» (BlockedSince)
+                // смещение не закрывает (C-009: толкотня раскачивает у косяка — смещается, но путь не укорачивается; враг не
+                // сдавался никогда) — закрывает продвижение по пути (точки пути, ниже) и «путь появился».
                 b.ProgressTick = (int)tick;
                 b.ProgressX = e.Mover.Position.X;
                 b.ProgressY = e.Mover.Position.Y;
@@ -192,7 +190,18 @@ namespace Orpheus.Core.Sim
                     return;
 
                 default:
-                    break; // Found / WindowEdge / Partial — идём по точкам; «упёрся» сбрасывает продвижение (E2-12b)
+                    // Found / WindowEdge / Partial — идём по точкам. Эпизод «упёрся» закрыт (C-009, 9.3 «путь появился →
+                    // Преследование»): поиск после «замкнута» нашёл путь до цели — или враг прошёл по пути
+                    // EpisodeClosePathPoints точек (остаток пути укоротился; раскачиваемый у косяка точек не проходит).
+                    if (b.BlockedSince != 0 &&
+                        ((b.EnclosedRev == EnemyBrain.AfterEnclosed && buf.Status == PathStatus.Found) ||
+                         b.PathPos >= MeleeRogue.EpisodeClosePathPoints))
+                    {
+                        b.BlockedSince = 0;
+                    }
+
+                    b.EnclosedRev = 0;
+                    break;
             }
 
             // Путь готов (Found — до цели; WindowEdge — до края окна; Partial — предельная длина): по точкам решётки (E2-12b).
