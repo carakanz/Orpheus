@@ -133,15 +133,14 @@ namespace Orpheus.Client.UI
             _chest = new ChestWindow(root);
             _note = new UiNote(root);
             const float nw = 620f, nh = 40f;
-            _notice = new UiGroup(root, "Notice", new Vector2(0.5f, 0f), new Vector2(-nw / 2f, barTop + 52f), new Vector2(nw, nh));
+            _notice = new UiGroup(root, "Notice", new Vector2(0.5f, 0f), new Vector2(-nw / 2f, barTop + 48f), new Vector2(nw, nh));
             UiRoot.Picture(_notice.Rt, "Back", 0f, 0f, nw, nh, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
             _noticeText = UiRoot.Label(_notice.Rt, "Text", 0f, 0f, nw, nh, 22, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _notice.Visible = false;
 
             // E2-13: подпись режима постановки — над левым краем быстрой панели (справа — подсказка станка).
             const float mw = 250f, mh = 34f;
-            float barW = UiSlotGrid.WidthOf(Inventory.Slots) + 2f * BarPad;
-            _mode = new UiGroup(root, "PlaceMode", new Vector2(0.5f, 0f), new Vector2(-barW / 2f, barTop + 8f), new Vector2(mw, mh));
+            _mode = new UiGroup(root, "PlaceMode", new Vector2(0.5f, 0f), new Vector2(-BottomBar.PanelW / 2f, barTop + 6f), new Vector2(mw, mh));
             UiRoot.Picture(_mode.Rt, "Back", 0f, 0f, mw, mh, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
             _modeText = UiRoot.Label(_mode.Rt, "Text", 0f, 0f, mw, mh, 20, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _mode.Visible = false;

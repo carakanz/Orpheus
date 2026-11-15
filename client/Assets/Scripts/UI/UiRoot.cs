@@ -211,6 +211,19 @@ namespace Orpheus.Client.UI
         /// <summary>Точка холста → точка внутри группы.</summary>
         public Vector2 Local(Vector2 canvas, Vector2 point) => point - Origin(canvas);
 
+        /// <summary>
+        /// C-008: часть видимой группы (прямоугольник в её координатах) — «интерфейс, не мир» для
+        /// <see cref="Orpheus.Net.Session.UiPointer"/>; вне таких частей щелчок идёт в мир.
+        /// </summary>
+        public void Zone(Orpheus.Net.Session.UiPointer p, Vector2 canvas, float x, float y, float w, float h)
+        {
+            if (Visible)
+            {
+                Vector2 o = Origin(canvas);
+                p.Add(o.x + x, o.y + y, w, h);
+            }
+        }
+
         /// <summary>Курсор над группой (видимой).</summary>
         public bool Contains(Vector2 canvas, Vector2 point)
         {
