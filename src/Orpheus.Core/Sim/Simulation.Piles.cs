@@ -335,6 +335,10 @@ namespace Orpheus.Core.Sim
         private static readonly sbyte[] NearDx = { 0, 1, 0, -1, 0, 1, -1, -1, 1, 2, 2, 2, 1, 0, -1, -2, -2, -2, -2, -2, -1, 0, 1, 2, 2 };
         private static readonly sbyte[] NearDy = { 0, 0, 1, 0, -1, 1, 1, -1, -1, 0, 1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2, -2, -2, -2, -1 };
 
+        /// <summary>Тайл годен для кучи: проходим и не вода (C-018: вода проходима, но куча в ней не лежит — как в E2-1).</summary>
+        private bool PileGroundOk(TileCoord t) =>
+            !IsBlocked(_shape, t) && TerrainSlow.FloorQ8(_world.GetFloor(t)) == TerrainSlow.One;
+
         /// <summary>
         /// Куча не лежит в воде, на обрыве и внутри твёрдого объекта: позиция на непроходимом тайле сдвигается в центр
         /// ближайшего проходимого (порядок — <see cref="NearDx"/>). Вокруг всё занято — остаётся как есть.
@@ -342,7 +346,7 @@ namespace Orpheus.Core.Sim
         private WorldPos FreeGroundNear(WorldPos pos)
         {
             TileCoord tile = Torus.TileOf(_shape, pos);
-            if (!IsBlocked(_shape, tile))
+            if (PileGroundOk(Torus.Wrap(_shape, tile)))
             {
                 return pos;
             }
@@ -356,7 +360,7 @@ namespace Orpheus.Core.Sim
                 }
 
                 t = Torus.Wrap(_shape, t);
-                if (!IsBlocked(_shape, t))
+                if (PileGroundOk(t))
                 {
                     WorldPos c = Torus.CornerOf(t);
                     return new WorldPos(c.X + Torus.SubTilesPerTile / 2, c.Y + Torus.SubTilesPerTile / 2);

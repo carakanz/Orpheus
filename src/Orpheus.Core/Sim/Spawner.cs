@@ -410,9 +410,15 @@ namespace Orpheus.Core.Sim
                 return false;
             }
 
-            if (FloorId.IsBuilt(_world.GetFloor(tile)))
+            byte spawnFloor = _world.GetFloor(tile);
+            if (FloorId.IsBuilt(spawnFloor))
             {
                 return false; // пол, построенный игроком, — «дом», не место появления
+            }
+
+            if (TerrainSlow.FloorQ8(spawnFloor) != TerrainSlow.One)
+            {
+                return false; // C-018: вода проходима, но враг из воды не появляется
             }
 
             if (_world.Lights.SourceLightX1024(tile) >= SpawnLightLimitX1024)

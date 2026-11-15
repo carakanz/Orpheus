@@ -424,16 +424,17 @@ namespace Orpheus.Tests
 
         private static WorldPos Center(int x, int y) => new WorldPos((x * U) + (U / 2), (y * U) + (U / 2));
 
-        /// <summary>Игрок бежит на восток в стену обрыва и в воду — упирается: за 10 с не пересёк столбец преграды.</summary>
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void E12_Player_StopsAtCliffAndWater(bool cliff)
+        /// <summary>
+        /// Игрок бежит на восток в стену обрыва — упирается: за 10 с не пересёк столбец преграды. C-018 (слово Автора 15.11):
+        /// вода больше не стена (проходима с замедлением — <c>C018TerrainSlowTests</c>), случай «вода» снят; настил над водой — <c>C018_PlatformOverWater_FullSpeed</c>.
+        /// </summary>
+        [Fact]
+        public void E12_Player_StopsAtCliff()
         {
             WorldModel world = Meadow();
             for (int y = 0; y < 64; y++)
             {
-                world.SetBaseTile(new TileCoord(20, y), cliff ? FloorId.Grass : FloorId.Water, cliff ? ObjectId.Cliff : ObjectId.Empty);
+                world.SetBaseTile(new TileCoord(20, y), FloorId.Grass, ObjectId.Cliff);
             }
 
             var sim = new Simulation(world);
@@ -446,30 +447,22 @@ namespace Orpheus.Tests
             }
 
             WorldPos at = sim.Entities[sim.SlotOf(id)].Mover.Position;
-            _out.WriteLine($"{(cliff ? "обрыв" : "вода")}: игрок остановился на x = {at.X / (double)U:F2}");
+            _out.WriteLine($"обрыв: игрок остановился на x = {at.X / (double)U:F2}");
             Assert.True(at.X > 18 * U, "игрок не дошёл до преграды");
             Assert.True(at.X < 20 * U, $"игрок прошёл сквозь преграду: x = {at.X / (double)U:F2}");
-
-            // Настил над водой — проходим (правило `05` 1.3 не менялось).
-            if (!cliff)
-            {
-                world.SetBaseTile(new TileCoord(20, 10), FloorId.Platform, ObjectId.Empty);
-                Assert.False(sim.IsBlocked(world.Shape, new TileCoord(20, 10)));
-            }
         }
 
         /// <summary>
-        /// Путь пешего врага обходит отрезок обрыва и озеро (ни одного шага по преграде, путь длиннее прямого); сплошная линия
+        /// Путь пешего врага обходит отрезок обрыва (ни одного шага по преграде, путь длиннее прямого); сплошная линия
         /// поперёк мира — пути нет (частичный, до преграды). Летун над водой и обрывом летит (природное ему не мешает).
+        /// C-018: вода проходима со стоимостью ~1/замедление — случай «вода» снят (обход/брод — <c>C018TerrainSlowTests</c>).
         /// </summary>
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public void E12_EnemyPath_GoesAroundCliffAndWater(bool cliff)
+        [Fact]
+        public void E12_EnemyPath_GoesAroundCliff()
         {
             WorldModel world = Meadow();
-            byte floor = cliff ? FloorId.Grass : FloorId.Water;
-            ushort obj = cliff ? ObjectId.Cliff : ObjectId.Empty;
+            byte floor = FloorId.Grass;
+            ushort obj = ObjectId.Cliff;
             for (int y = 5; y <= 15; y++)
             {
                 world.SetBaseTile(new TileCoord(20, y), floor, obj);

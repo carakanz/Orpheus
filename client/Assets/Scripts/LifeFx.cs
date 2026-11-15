@@ -226,6 +226,32 @@ namespace Orpheus.Client
             _walkers[id] = w;
         }
 
+        /// <summary>
+        /// C-018: пол и объект тайла под точкой Unity (корень существа — центр его круга, как множитель скорости ядра).
+        /// Мир не привязан или чанка нет — false.
+        /// </summary>
+        public static bool TryTileAt(Vector3 unity, out byte floor, out ushort obj)
+        {
+            floor = 0;
+            obj = 0;
+            if (_world == null || _origin == null)
+            {
+                return false;
+            }
+
+            TileCoord t = Torus.Wrap(_map, Torus.TileOf(_map, _origin.FromUnity(unity)));
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_map, t));
+            if (chunk == null)
+            {
+                return false;
+            }
+
+            int index = Chunk.IndexOf(t.X, t.Y);
+            floor = chunk.GetFloor(index);
+            obj = chunk.GetObject(index);
+            return true;
+        }
+
         static void PushNear(Vector2 feet, Vector2 moveDir)
         {
             TileCoord at = Torus.TileOf(_map, _origin!.FromUnity(new Vector3(feet.x, feet.y, 0f)));
@@ -252,7 +278,10 @@ namespace Orpheus.Client
                         dir.x = Mathf.Abs(moveDir.x) > 0.2f ? Mathf.Sign(moveDir.x) * 0.5f : (GroundAtlas.Hash(t.X, t.Y, 151) < 0.5f ? -0.5f : 0.5f);
                     }
 
-                    AddPush(t, look!, place, basePos, dir.normalized, PushStrength, LeafFx.RangeInt(look!.LeavesMin, look.LeavesMax + 1), PushCooldown);
+                    // C-018: существо внутри куста (куст проходим) — куст шевелится сильнее и чаще, листьев меньше.
+                    bool inside = dx == 0 && dy == 0 && d.sqrMagnitude < 0.5f;
+                    AddPush(t, look!, place, basePos, dir.normalized, inside ? PushStrength * 1.6f : PushStrength,
+                        inside ? LeafFx.RangeInt(0, 2) : LeafFx.RangeInt(look!.LeavesMin, look.LeavesMax + 1), inside ? 0.3f : PushCooldown);
                 }
             }
         }
@@ -506,6 +535,7 @@ namespace Orpheus.Client
             }
 
             LeafFx.Frame(dt, _offset, WindDir(_time) * WindStrength(_time));
+            WadeFx.Frame(_time, _offset); // C-018: круги на воде
             Upload(camera.orthographicSize * 2f * 16f / 9f);
             _view?.FlushGrass(GrassLayer.Bands * 2);
         }

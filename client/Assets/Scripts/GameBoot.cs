@@ -96,6 +96,7 @@ namespace Orpheus.Client
         SmokeRun? _smoke;
         ScreenshotRun? _screenshot;
         Anim.ActorRig? _heroRig;        // K-001: ходьба и дыхание своего персонажа офлайн
+        WadeDemoEnemy? _wadeEnemy;      // C-018: враг-болванка в воде (--wade-demo enemy)
         Anim.AnimShowcase? _showcase;   // K-001: показ анимации и замер (--anim-shots, --anim-bench)
         TileBenchRun? _tileBench;       // 1-022: стенд «48 Tilemap» (--tile-bench): бег через шов + поток правок, замеры
         DayTintView? _dayTint;          // E1-8: тон суток (ночь, сумерки, рассвет; свет факела и костра)
@@ -196,6 +197,20 @@ namespace Orpheus.Client
                 PaintDemo.Home(World, Map, at.X, at.Y, Args.HomeDemo!);
                 View.Clear();
                 View.UpdateWindow(Player.Position);
+            }
+
+            if (Args.WadeDemo != null)
+            {
+                // C-018: пруд и кусты вокруг персонажа; в сцене enemy — враг-болванка в воде.
+                TileCoord at = Torus.TileOf(Map, Player.Position);
+                PaintDemo.Wade(World, Map, at.X, at.Y, Args.WadeDemo!);
+                View.Clear();
+                View.UpdateWindow(Player.Position);
+                if (PaintDemo.WadeDemoEnemyTile(Args.WadeDemo!, at.X, at.Y, out TileCoord et))
+                {
+                    Sprite heroSprite = Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                    _wadeEnemy = new WadeDemoEnemy(new GameObject("WadeDemo").transform, heroSprite, Origin, TileCenter(et));
+                }
             }
 
             if (Args.UiDemo != null)
@@ -382,6 +397,7 @@ namespace Orpheus.Client
             // 5. Персонаж и камера.
             PlaceCharacterAndCamera();
             _heroRig?.AnimateWalk(Time.deltaTime);
+            _wadeEnemy?.Frame(Time.deltaTime);
             _piles?.Frame(Origin, Time.deltaTime);
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
