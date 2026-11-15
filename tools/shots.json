@@ -94,6 +94,7 @@
     { "name": "C-008_buildings_stone_720", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "inv-stone"], "frame": { "width": 1280, "height": 720 } },
     { "name": "C-008_weapons", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "inv-weapons"] },
     { "name": "C-008_weapons_720", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "inv-weapons"], "frame": { "width": 1280, "height": 720 } },
-    { "name": "C-008_hotbar_night", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "time": "night", "args": ["--paint-demo", "--ui-demo", "hotbar"], "frame": { "width": 1280, "height": 720 } }
+    { "name": "C-008_hotbar_night", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "time": "night", "args": ["--paint-demo", "--ui-demo", "hotbar"], "frame": { "width": 1280, "height": 720 } },
+    { "name": "C-008_minimap", "seed": "0xE50007", "size": 1024, "tile": [512, 538], "width": 64, "args": ["--paint-demo", "--ui-demo", "hotbar"] }
   ]
 }

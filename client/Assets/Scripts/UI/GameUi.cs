@@ -43,6 +43,9 @@ namespace Orpheus.Client.UI
         public bool Ctrl;
         public bool CancelLast;
 
+        /// <summary>C-008: M — свернуть / развернуть мини-карту.</summary>
+        public bool Map;
+
     }
 
     /// <summary>
@@ -137,6 +140,7 @@ namespace Orpheus.Client.UI
         readonly UiRoot _root;
         readonly BottomBar _bar;
         readonly BagWindow _bag;
+        readonly MiniMapView _map;
         readonly CraftWindow _craft;
         readonly UiTooltip _tip;
         readonly UiCarry _carry;
@@ -174,6 +178,7 @@ namespace Orpheus.Client.UI
             _stationHint.Visible = false;
 
             _bag = new BagWindow(_root);
+            _map = new MiniMapView(_root); // C-008 п. 8: мини-карта справа вверху
             _craft = new CraftWindow(_root);
             CreateBuild(_root, build, BarTop); // E2-5: окно сундука, строка у курсора, сообщение, подпись линейки
             _tip = new UiTooltip(_root);
@@ -183,6 +188,15 @@ namespace Orpheus.Client.UI
 
         /// <summary>Окно сумки открыто.</summary>
         public bool BagOpen => _bag.Visible;
+
+        /// <summary>C-008: свежий снимок сервера для точек игроков и врагов на мини-карте (ставит NetGame перед <see cref="Frame"/>).</summary>
+        public Orpheus.Net.Protocol.Snapshot? MapSnapshot { get; set; }
+
+        /// <summary>Свой номер сущности (на мини-карте — не точкой, а золотым центром).</summary>
+        public int MapSelf { get; set; } = -1;
+
+        /// <summary>Мини-карта (C-008).</summary>
+        public MiniMapView Map => _map;
 
         /// <summary>Окно крафта открыто.</summary>
         public bool CraftOpen => _craft.Visible;
@@ -254,6 +268,7 @@ namespace Orpheus.Client.UI
                 input.Make = kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame;
                 input.CancelLast = kb.deleteKey.wasPressedThisFrame;
                 input.Filter = kb.insertKey.wasPressedThisFrame;
+                input.Map = kb.mKey.wasPressedThisFrame;
             }
 
             return input;
@@ -333,6 +348,11 @@ namespace Orpheus.Client.UI
             _bag.AddZones(_pointer, size);
             _chest.AddZones(_pointer, size);
             _craft.AddZones(_pointer, size);
+            _map.AddZones(_pointer, size);
+            if (input.Map)
+            {
+                _map.Toggle();
+            }
             bool overUi = input.HasPointer && _pointer.Over(p.x, p.y);
 
             int cell = -1, chestButton = -1;
@@ -367,6 +387,15 @@ namespace Orpheus.Client.UI
                     hit = _craft.HitTest(local);
                     overGrid = _craft.OverGrid(local);
                     OverWindow = overUi && (hit.Part != CraftPart.None || overGrid);
+                }
+            }
+
+            if (input.HasPointer && _map.Covers(size, p))
+            {
+                OverWindow = true; // колесо над картой — масштаб карты, не обзор
+                if (Mathf.Abs(input.Wheel) > 0.01f)
+                {
+                    _map.Zoom(input.Wheel);
                 }
             }
 
@@ -520,6 +549,7 @@ namespace Orpheus.Client.UI
             _tip.Show(tip, size, p);
             _carry.Show(_hand.Item, _hand.Count, p);
             _bar.Set(health, maxHealth, stamina, maxStamina);
+            _map.Frame(craft.World, craft.Position, MapSnapshot, MapSelf);
         }
 
         // Подсказка значка рецепта: название, «есть / нужно», станок, что мешает.

@@ -29,6 +29,7 @@ namespace Orpheus.Client.UI
         public const string CraftMakeTip = "ЛКМ — сделать 1   Shift — 5   Ctrl — всё (Enter)";
         public const string AbilityLocked = "Способность — откроется позже";
         public const string PassiveLocked = "Пассивная способность — откроется позже";
+        public const string MapCollapsed = "Карта (M)";
         public const string CraftEmptyShort = "Здесь пока нет рецептов";
         public const string CraftEmptyFilteredShort = "Сейчас ничего не сделать — Ins: показать все";
 
