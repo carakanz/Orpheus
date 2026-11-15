@@ -14,7 +14,7 @@ namespace Orpheus.Core.Sim
         /// <summary>Тайл записи постройки (обёрнутый).</summary>
         public readonly TileCoord Tile;
 
-        /// <summary>Такт последнего урона: «урон последние 10 с» после загрузки снимается от него.</summary>
+        /// <summary>Такт последнего урона.</summary>
         public readonly long Hit;
 
         /// <summary>Такт, по который прибавка уже в мире (до начала восстановления — такт начала: урон + 3 с).</summary>
@@ -161,7 +161,8 @@ namespace Orpheus.Core.Sim
             _healScanPending = scanWorld;
         }
 
-        // Старый мир: все повреждённые постройки — в список (один раз, первым тактом после загрузки).
+        // Старый мир: все повреждённые постройки — в список, флаги урона и обломки — в очередь истечений (её старые файлы
+        // не пишут; З2 проверки E2-14) — один раз, первым тактом после загрузки.
         private void ScanDamaged()
         {
             _healScanPending = false;
@@ -176,6 +177,7 @@ namespace Orpheus.Core.Sim
                     TileCoord t = TileOf(keys[c], builds[k]);
                     chunk.TryGetBuild(builds[k], out BuildRecord rec);
                     ushort obj = _world.GetObject(t);
+                    ExpireLegacy(keys[c], builds[k], rec);
                     if (obj != ObjectId.Empty && !rec.IsDebris && BuildDefs.TryGet(obj, out BuildDef def)
                         && rec.Integrity < def.MaxIntegrity && !_healAt.ContainsKey(HealKey(t)))
                     {
@@ -231,21 +233,16 @@ namespace Orpheus.Core.Sim
 
                 int acc = e.Acc;
                 int healed = Math.Min(def.MaxIntegrity, rec.Integrity + Gain(tick - e.Last, def.MaxIntegrity, ref acc));
-                // После загрузки истечения флагов урона не восстанавливаются (backlog [save]): восстановление их и снимает —
-                // «чинить нельзя» раньше начала не бывает, «урон последние 10 с» — через 10 с после удара (в обычной игре их
-                // к этому такту уже сняла очередь истечений, правка тайла этого такта ушла бы на следующий).
-                BuildFlags clear = (BuildFlags)rec.Flags & (BuildFlags.RepairBlocked
-                    | (tick >= e.Hit + BuildDefs.DamageFlagTicks ? BuildFlags.DamagedRecent : BuildFlags.None));
-                if (healed != rec.Integrity || clear != BuildFlags.None)
+                if (healed != rec.Integrity)
                 {
                     if (j >= 0)
                     {
                         EditRequest p = _edits[j];
-                        BuildRecord merged = p.Edit.Record.WithIntegrity((ushort)healed).WithoutFlags(clear);
+                        BuildRecord merged = p.Edit.Record.WithIntegrity((ushort)healed);
                         _edits[j] = new EditRequest(p.Chunk, p.Arrival, new TileEdit(p.Edit.Index, p.Edit.Floor, p.Edit.Obj, merged),
                             p.Requester, p.Tag, p.CheckCreatures, p.Repair, p.Cell);
                     }
-                    else if (!Enqueue(t, _world.GetFloor(t), obj, true, rec.WithIntegrity((ushort)healed).WithoutFlags(clear), 0, 0, false))
+                    else if (!Enqueue(t, _world.GetFloor(t), obj, true, rec.WithIntegrity((ushort)healed), 0, 0, false))
                     {
                         return; // очередь правок полна — следующим тактом
                     }

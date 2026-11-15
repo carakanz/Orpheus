@@ -205,9 +205,8 @@ namespace Orpheus.Tests
         /// <summary>
         /// Сохранение посреди восстановления (формат 13) и загрузка. Стены после флагов урона (10 с), посреди секунды: дальше —
         /// тот же хэш на каждом такте, что у мира без перезапуска (остаток накопителя и такт записи едут в файле). Стена, по
-        /// которой били 1,7 с назад: восстановление начинается на том же такте и идёт так же (прочность и список — те же
-        /// на каждом такте; полный хэш расходится ревизией чанка: очередь истечений флагов урона не сохраняется — backlog [save],
-        /// флаги после загрузки снимает восстановление).
+        /// которой били 1,7 с назад: восстановление начинается на том же такте и идёт так же — прочность, список и полный хэш
+        /// те же на каждом такте (очередь истечений флагов урона тоже в файле, З2 проверки).
         /// </summary>
         [Fact]
         public void E214_Save_MidHeal_Load_ContinuesSameHash()
@@ -246,6 +245,7 @@ namespace Orpheus.Tests
                 sim.Step();
                 loaded.Step();
                 Assert.Equal(sim.Heals.ToArray(), loaded.Heals.ToArray());
+                Assert.Equal(StateHash.Compute(sim).Total, StateHash.Compute(loaded).Total); // очередь истечений тоже в файле (З2)
                 foreach (TileCoord w in walls)
                 {
                     Assert.Equal(Integrity(sim, w), Integrity(loaded, w));
@@ -258,6 +258,101 @@ namespace Orpheus.Tests
                 Assert.True(loaded.World.TryGetBuild(w, out BuildRecord rec));
                 Assert.Equal(0, rec.Flags);
             }
+        }
+
+        /// <summary>
+        /// З2 проверки: малый урон (3 из 300) заживает за 3,3 с — раньше флага «урон 10 с». Сохранение в этом окне → загрузка:
+        /// через 10 с от удара флаг снят (очередь истечений в файле, формат 13), снос молотом даёт предмет-стену, а не обломки.
+        /// Обломки после загрузки исчезают в срок (10 с от разрушения), запись снимается.
+        /// </summary>
+        [Fact]
+        public void E214_Save_HealedBefore10s_FlagClears_DemolishRefunds_DebrisExpires()
+        {
+            SaveFixtures.LiveWorld live = SaveFixtures.Create(256, 23, 0);
+            Simulation sim = live.Sim;
+            var wall = new TileCoord(100, 100);
+            var broken = new TileCoord(110, 100);
+            int id = sim.AddEntity(new WorldPos(103 * 256 + 128, 103 * 256 + 128));
+            foreach (TileCoord w in new[] { wall, broken })
+            {
+                Assert.True(sim.RequestEdit(w, FloorId.Grass, ObjectId.StoneWall, new BuildRecord(1, 300, 0, FloorId.Grass, 0)));
+            }
+
+            sim.Step();
+            Assert.True(sim.DamageBuilding(wall, 3));
+            Assert.True(sim.DamageBuilding(broken, 1000));
+            long hit = sim.Tick;
+            Steps(sim, 150); // 5 с: стена уже цела (на 100-м такте), флаг «урон 10 с» ещё стоит; обломки лежат
+            Assert.Equal(300, Integrity(sim, wall));
+            Assert.True(sim.Heals.IsEmpty);
+            Assert.True(sim.World.TryGetBuild(wall, out BuildRecord rec));
+            Assert.True(rec.IsDamagedRecent);
+            Assert.True(sim.World.TryGetBuild(broken, out BuildRecord deb));
+            Assert.True(deb.IsDebris);
+
+            Simulation loaded = SaveAndLoad(live, sim, out LoadedWorldState st);
+            Assert.NotEmpty(st.Expiries);
+            while (loaded.Tick < hit + BuildDefs.DamageFlagTicks)
+            {
+                loaded.Step();
+            }
+
+            Assert.True(loaded.World.TryGetBuild(wall, out rec));
+            Assert.False(rec.IsDamagedRecent);
+            Assert.Equal(0, rec.Flags);
+            Assert.False(loaded.World.TryGetBuild(broken, out _)); // обломки сняты: запись ушла
+            Assert.Equal(ObjectId.Empty, ObjectId.IdOf(loaded.World.GetObject(broken)));
+
+            // Снос целой постройки — возврат предмета кучей на тайл (не обломки).
+            Assert.True(loaded.RequestPlayerEdit(wall, FloorId.Grass, ObjectId.Empty, false, default, id, 1));
+            loaded.Step();
+            Assert.Equal(ObjectId.Empty, ObjectId.IdOf(loaded.World.GetObject(wall)));
+            Assert.False(loaded.World.TryGetBuild(wall, out _));
+            Assert.Contains(loaded.Piles.ToArray(), p => p.Item == Items.StoneWall && p.Count == 4); // стена во весь тайл — 4 ячейки (E2-12)
+        }
+
+        /// <summary>
+        /// Многоклеточная мебель (верстак 2 × 2, флаг <see cref="BuildFlags.Wide"/>): прочность одна — у якоря; в списке одна
+        /// запись, лечится по правилу один раз (не по числу тайлов); удар по свесу — отказ.
+        /// </summary>
+        [Fact]
+        public void E214_Wide_Workbench_HealsOnceAtAnchor()
+        {
+            var sim = new Simulation(FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1), maxEntities: 4);
+            Assert.True(sim.RequestEdit(T, FloorId.Grass, ObjectId.Workbench,
+                new BuildRecord(1, 100, (byte)BuildFlags.Wide, FloorId.Grass, 0)));
+            sim.Step();
+            Assert.True(sim.World.TryGetBuild(T, out BuildRecord rec));
+            Assert.True(rec.Overhangs);
+            Assert.False(sim.DamageBuilding(new TileCoord(T.X + 1, T.Y), 30)); // свес — без записи
+            Assert.True(sim.DamageBuilding(T, 70));
+            long hit = sim.Tick;
+            for (int i = 0; i < 1200; i++)
+            {
+                sim.Step();
+                Assert.True(sim.Heals.Length <= 1);
+                Assert.Equal(HealedAfter(30, 100, sim.Tick - hit), Integrity(sim, T));
+            }
+
+            Assert.Equal(100, Integrity(sim, T));
+        }
+
+        /// <summary>З3: порченый файл — дубль тайла в восстановлении — ошибка чтения (InvalidDataException), а не ArgumentException.</summary>
+        [Fact]
+        public void E214_Save_DuplicateHealTile_InvalidData()
+        {
+            SaveFixtures.LiveWorld live = SaveFixtures.Create(256, 25, 0);
+            Simulation sim = live.Sim;
+            var w = new TileCoord(100, 100);
+            Assert.True(sim.RequestEdit(w, FloorId.Grass, ObjectId.StoneWall, new BuildRecord(1, 300, 0, FloorId.Grass, 0)));
+            sim.Step();
+            Assert.True(sim.DamageBuilding(w, 100));
+            sim.Step();
+            WorldSaveData d = WorldSave.Capture(sim, live.BaseSha, "дубль");
+            BuildHeal h = sim.Heals[0];
+            typeof(WorldSaveData).GetProperty(nameof(WorldSaveData.Heals))!.SetValue(d, new[] { h, h });
+            byte[] bad = WorldSave.Build(d, 4, 0);
+            Assert.Throws<InvalidDataException>(() => WorldSave.Load(SaveContainer.Read(bad), WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha));
         }
 
         private static Simulation SaveAndLoad(SaveFixtures.LiveWorld live, Simulation sim, out LoadedWorldState st)

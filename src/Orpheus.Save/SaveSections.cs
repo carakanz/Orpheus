@@ -118,6 +118,12 @@ namespace Orpheus.Save
             /// списка симуляции (он задаёт очередь при пределе правок такта). У старых файлов нет — список собирается обходом мира.
             /// </summary>
             public const int Heal = 4;
+
+            /// <summary>
+            /// Истечение обломков или флага урона на тайле (E2-14, формат 13; замечание З2): запись <see cref="ExpireField"/>, по
+            /// порядку очереди симуляции. Нет (старые файлы) — флаги и обломки находит поиск первым тактом.
+            /// </summary>
+            public const int Expire = 5;
         }
 
         /// <summary>Поля записи сущности (минимально: то, что есть в такте 0-006; уворот — с формата 2, 0-029).</summary>
@@ -419,6 +425,22 @@ namespace Orpheus.Save
             public const int Acc = 6;
         }
 
+        /// <summary>Поля записи истечения (E2-14, формат 13; <c>BuildExpiry</c>).</summary>
+        public static class ExpireField
+        {
+            public const int X = 1;
+            public const int Y = 2;
+
+            /// <summary>Такт истечения.</summary>
+            public const int End = 3;
+
+            /// <summary>Снять обломки (иначе — флаг).</summary>
+            public const int Debris = 4;
+
+            /// <summary>Флаг урона, который снять: 16 — «урон 10 с», 32 — «чинить нельзя».</summary>
+            public const int Clear = 5;
+        }
+
         /// <summary>Поля записи кучи на земле (E2-1, формат 7).</summary>
         public static class PileField
         {
@@ -512,7 +534,13 @@ namespace Orpheus.Save
                 .Field(HealField.Hit, "такт урона")
                 .Field(HealField.Last, "в мире по такт")
                 .Field(HealField.Due, "запись на такте")
-                .Field(HealField.Acc, "остаток накопителя"));
+                .Field(HealField.Acc, "остаток накопителя"))
+            .Field(CreaturesField.Expire, "истечение", new RecordSchema()
+                .Field(ExpireField.X, "x тайла")
+                .Field(ExpireField.Y, "y тайла")
+                .Field(ExpireField.End, "такт")
+                .Field(ExpireField.Debris, "обломки")
+                .Field(ExpireField.Clear, "флаг"));
 
         private static readonly RecordSchema CharactersSchema = new RecordSchema()
             .Field(CharactersField.Character, "персонаж", new RecordSchema()
