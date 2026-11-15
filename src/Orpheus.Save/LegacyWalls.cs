@@ -6,18 +6,18 @@ namespace Orpheus.Save
     /// <summary>
     /// Перенос построек старых миров (форматы 1–9 → 10, E2-12): стена, забор и дверь занимали целый тайл; в формате 10
     /// у них маска ячеек 0,5 × 0,5 в старших 4 битах байта пола записи (<see cref="BuildRecord.Cells"/>). Старая постройка
-    /// становится сплошным квадратом из 4 ячеек (маска 1111) — комнаты остаются закрытыми, проходы прежними
-    /// (записка <c>work/design/half_tile_walls.md</c>). Правится блок чанка до загрузки в мир.
+    /// становится сплошным квадратом из 4 ячеек — комнаты остаются закрытыми, проходы прежними (записка
+    /// <c>work/design/half_tile_walls.md</c>). Перевод — правилом, а не байтами: маска 0 у постройки-ячеек и есть «весь тайл»
+    /// (<see cref="BuildCells.MaskOf"/>), блок не меняется — хэш состояния старого мира тот же. Здесь — только счёт для журнала.
     /// </summary>
     internal static class LegacyWalls
     {
-        /// <summary>Перевести постройки блока; <paramref name="count"/> += число переведённых. true — блок изменён.</summary>
+        /// <summary>Посчитать старые постройки-ячейки блока (маска 0 — весь тайл); <paramref name="count"/> += их число. Блок не меняется — false.</summary>
         public static bool Convert(byte[] blob, ref int count)
         {
             int at = Chunk.LayerBytes;
             int n = blob[at] | (blob[at + 1] << 8);
             at += Chunk.BuildCountBytes;
-            bool changed = false;
             for (int i = 0; i < n; i++, at += Chunk.BuildEntryBytes)
             {
                 int index = blob[at] | (blob[at + 1] << 8);
@@ -28,12 +28,10 @@ namespace Orpheus.Save
                     continue;
                 }
 
-                blob[floorCells] = (byte)((blob[floorCells] & 0x0F) | (BuildCells.Full << 4));
-                changed = true;
                 count++;
             }
 
-            return changed;
+            return false;
         }
 
         /// <summary>Строка в журнал загрузки (<c>LoadedWorldState.Notes</c>).</summary>
@@ -41,7 +39,7 @@ namespace Orpheus.Save
         {
             var all = new string[notes.Length + 1];
             Array.Copy(notes, all, notes.Length);
-            all[notes.Length] = $"Формат {format} → 10: стен, заборов, дверей переведено в ячейки 0,5 × 0,5 (сплошной тайл): {count}.";
+            all[notes.Length] = $"Формат {format} → 10: стен, заборов, дверей читаются как сплошной тайл из 4 ячеек 0,5 × 0,5: {count}.";
             return all;
         }
     }
