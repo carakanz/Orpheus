@@ -23,7 +23,7 @@ namespace Orpheus.Client.UI
         public bool RightDown;
         public bool Shift;
 
-        /// <summary>Tab / I — открыть / закрыть сумку; Esc — закрыть.</summary>
+        /// <summary>Q / I — открыть / закрыть сумку (слово Автора 15.11: было Tab); Esc — закрыть.</summary>
         public bool Toggle;
         public bool Escape;
 
@@ -227,7 +227,7 @@ namespace Orpheus.Client.UI
 
         /// <summary>
         /// Курсор над открытым окном (сумка или крафт; E2-4): колесо мыши не меняет обзор, Shift не уходит в игру
-        /// уворотом (Shift+ЛКМ в окне — «перекинуть»).
+        /// уворотом (Shift+ЛКМ в окне — «половину», Ctrl+ЛКМ — «перекинуть»).
         /// </summary>
         public bool OverWindow { get; private set; }
 
@@ -275,7 +275,7 @@ namespace Orpheus.Client.UI
             {
                 input.Shift = kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
                 input.Ctrl = kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed;
-                input.Toggle = kb.tabKey.wasPressedThisFrame || kb.iKey.wasPressedThisFrame; // `02` 1.1: Tab, запасная — I
+                input.Toggle = kb.qKey.wasPressedThisFrame || kb.iKey.wasPressedThisFrame; // слово Автора 15.11: инвентарь — Q (было Tab), запасная — I
                 input.Escape = kb.escapeKey.wasPressedThisFrame;
                 input.Craft = kb.cKey.wasPressedThisFrame;
                 input.TabStep = (kb.endKey.wasPressedThisFrame ? 1 : 0) - (kb.homeKey.wasPressedThisFrame ? 1 : 0);
@@ -396,9 +396,13 @@ namespace Orpheus.Client.UI
             {
                 if (cell >= 0 && BagOpen)
                 {
-                    if (input.Shift)
+                    if (input.Ctrl && !held)
                     {
-                        _hand.Quick(cell);
+                        _hand.Quick(cell); // Ctrl+ЛКМ — перекинуть (слово Автора 15.11)
+                    }
+                    else if (input.Shift && !held)
+                    {
+                        _hand.Half(cell); // Shift+ЛКМ — взять половину (слово Автора 15.11)
                     }
                     else
                     {

@@ -58,7 +58,7 @@ namespace Orpheus.Tests
 
             // ПКМ: половина; ЛКМ в пустую — деление.
             Sync(hand, a);
-            Assert.Equal(BagClick.Taken, hand.Right(20));
+            Assert.Equal(BagClick.Taken, hand.Half(20));
             Assert.Equal(20, hand.Count);
             Assert.Equal(20, hand.ShownCount(20));
             Assert.Equal(BagClick.Split, hand.Left(21));
@@ -69,7 +69,7 @@ namespace Orpheus.Tests
             // Половина нечётной стопки — с округлением вверх; доукладка в стопку того же предмета.
             Give(rig, a, 22, Items.Stone, 5);
             Sync(hand, a);
-            Assert.Equal(BagClick.Taken, hand.Right(22));
+            Assert.Equal(BagClick.Taken, hand.Half(22));
             Assert.Equal(3, hand.Count);
             Assert.Equal(BagClick.Split, hand.Left(21));
             rig.Run(4);
@@ -89,7 +89,7 @@ namespace Orpheus.Tests
             // Мимо окна с половиной в руке — выброс части; оба клиента видят кучу.
             Sync(hand, a);
             Assert.Equal(BagClick.None, hand.Outside()); // пустой рукой — ничего
-            hand.Right(21);
+            hand.Half(21);
             Assert.Equal(12, hand.Count);
             Assert.Equal(BagClick.Dropped, hand.Outside());
             rig.Run(4);
@@ -101,6 +101,38 @@ namespace Orpheus.Tests
             Assert.Equal(hand.RequestsSent, rig.Server.BagRequestsReceived);
             Assert.Equal(0, rig.Server.BagRequestsRefused);
             Assert.Equal(0, a.BadMessages + b.BadMessages);
+        }
+
+        [Fact]
+        public void C007_Hand_RightTakesOne_RepeatAddsOne_ShiftHalf()
+        {
+            // Слово Автора 15.11: ПКМ берёт 1 (ещё ПКМ по той же ячейке — ещё 1), Shift+ЛКМ — половину.
+            using var rig = new EditTests.EditRig(Flat(), i => Center(300 + 3 * i, 200));
+            NetClient a = rig.Join();
+            rig.Run(10);
+            Give(rig, a, 10, Items.Stone, 3);
+            var hand = new BagHand(a);
+            Sync(hand, a);
+
+            Assert.Equal(BagClick.Taken, hand.Right(10));
+            Assert.Equal(1, hand.Count);
+            Assert.Equal(BagClick.Taken, hand.Right(10));
+            Assert.Equal(2, hand.Count);
+            Assert.Equal(BagClick.Taken, hand.Right(10));
+            Assert.Equal(3, hand.Count);
+            Assert.Equal(BagClick.None, hand.Right(10)); // вся стопка уже в руке
+            Assert.Equal(3, hand.Count);
+            Assert.Equal(BagClick.Moved, hand.Left(20)); // в руке вся стопка — это перенос
+            rig.Run(4);
+            Assert.Equal(3, a.Inv.CountIn(20) + a.Inv.CountIn(10));
+
+            Give(rig, a, 30, Items.Wood, 7);
+            Sync(hand, a);
+            Assert.Equal(BagClick.Taken, hand.Half(30));
+            Assert.Equal(4, hand.Count); // половина нечётной — вверх
+            Assert.Equal(BagClick.None, hand.Half(31)); // с предметом в руке Shift+ЛКМ половину не берёт
+            Assert.Equal(BagClick.Cancelled, hand.Right(31)); // ПКМ по другой ячейке — вернуть
+            Assert.False(hand.Holding);
         }
 
         [Fact]
@@ -161,7 +193,7 @@ namespace Orpheus.Tests
             Assert.False(hand.Holding);
 
             // Часть стопки на чужой предмет — нельзя, рука остаётся; в почти полную стопку — сколько влезает.
-            hand.Right(10);
+            hand.Half(10);
             Assert.Equal(BagClick.None, hand.Left(12));
             Assert.True(hand.Holding);
             Assert.Equal(BagClick.Split, hand.Left(11));

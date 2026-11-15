@@ -795,7 +795,7 @@ namespace Orpheus.Tests
             // b: ПКМ — половина из сундука → в пустую ячейку сумки; Shift+ЛКМ камень → сундук.
             BagHand hb = Hand(b);
             int empty = BagHand.FitTarget(b.Inv, Items.Meat, Inventory.Slots, Inventory.Cells);
-            Assert.Equal(BagClick.Taken, hb.Right(BagHand.ChestBase + 0));
+            Assert.Equal(BagClick.Taken, hb.Half(BagHand.ChestBase + 0));
             Assert.Equal(BagClick.Split, hb.Left(empty));
             rig.Run(3);
             hb = Hand(b);

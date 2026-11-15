@@ -103,8 +103,13 @@ namespace Orpheus.Client
             }
 
             // E2-5 → E2-11: призрак и сетка — пока в руке постройка (или молот над повреждённой постройкой) и мышь не над интерфейсом.
-            if ((build.Hammer || build.Placing) && build.HasGhost && !_ui.PointerBlocked && _cursorTile.HasValue)
+            if (build.Dragging && build.Plan != null)
             {
+                _ghost!.ShowPlan(_origin!, _map, _localPos, build.Plan.Spots); // E2-13: линейка — вся линия / прямоугольник
+            }
+            else if ((build.Hammer || build.Placing) && build.HasGhost && !_ui.PointerBlocked && _cursorTile.HasValue)
+            {
+                _ghost!.HidePlan();
                 _ghost!.Show(_origin!, _map, _localPos, 0, true, _cursorTile.Value, build.Check);
             }
             else
@@ -119,6 +124,10 @@ namespace Orpheus.Client
         int _cursorQuad;          // E2-12: ячейка 0,5 × 0,5 под курсором в тайле (бит 0 — восточная, бит 1 — южная половина)
         TileCoord? _buildLast;
         int _buildLastQuad;
+        int _rulerCancelFrame = -1; // E2-13: кадр, в котором Esc отменил протягивание (паузу этот Esc не ставит)
+
+        /// <summary>Esc этого кадра занят линейкой: идёт протягивание или его только что отменили.</summary>
+        bool RulerTookEscape => (_ui?.Ruler.Dragging ?? false) || _rulerCancelFrame == Time.frameCount;
 
         /// <summary>Тайл под курсором мыши (нет мыши или мира — null).</summary>
         TileCoord? CursorTile()
@@ -153,9 +162,26 @@ namespace Orpheus.Client
             s.Use = ObjectUse.Find(_world, _localPos, _cursorTile, out _, out UseKind kind) ? kind : UseKind.None;
             byte held = HeldItem;
             bool hammer = BuildHand.IsHammer(held), placing = BuildHand.IsBuildItem(held);
+            BuildRuler ruler = _ui.Ruler;
+            if (ruler.Dragging && (held != ruler.AnchorItem || BuildRuler.KindOfItem(held) == RulerKind.Single || ruler.Mode != PlaceMode.Ruler))
+            {
+                ruler.Cancel(); // сменили предмет в руке (другая постройка, дверь, факел, не постройка) — протягивание отменено
+            }
+
+            s.Placing = placing;
+            s.RulerMode = ruler.Mode == PlaceMode.Ruler;
             if (!(hammer || placing) || !_cursorTile.HasValue)
             {
                 return s;
+            }
+
+            if (placing && ruler.Dragging)
+            {
+                Keyboard? kb = Keyboard.current;
+                bool diagonal = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
+                ruler.Update(_world, _localPos, c.Inv, HeldCell, !(pr?.Dead ?? false), _cursorTile.Value, _cursorQuad, diagonal);
+                s.Dragging = true;
+                s.Plan = ruler;
             }
 
             TileCoord t = _cursorTile.Value;
@@ -362,6 +388,12 @@ namespace Orpheus.Client
             {
                 // E2-2: мышь занята интерфейсом (курсор над окном или панелью, предмет «в руке») — мир на неё не отвечает.
                 c.StopDig();
+                if (_ui.Ruler.Dragging && (!mouse.leftButton.isPressed || Keyboard.current?.escapeKey.wasPressedThisFrame == true))
+                {
+                    _ui.Ruler.Cancel(); // E2-13: отпустил или Esc над интерфейсом — линейка не ставит
+                    _rulerCancelFrame = Time.frameCount;
+                }
+
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
@@ -400,6 +432,19 @@ namespace Orpheus.Client
         {
             bool alive = !(_pred?.Dead ?? false);
             bool hammer = BuildHand.IsHammer(held);
+            if (!hammer && Keyboard.current?.rKey.wasPressedThisFrame == true)
+            {
+                PlaceMode mode = _ui!.ToggleRuler(); // E2-13: R — «линейка / поштучно», режим на сессию
+                Debug.Log($"[build] режим постановки: {mode}");
+            }
+
+            if (!hammer && _ui!.Ruler.Mode == PlaceMode.Ruler && BuildRuler.KindOfItem(held) != RulerKind.Single)
+            {
+                RulerEdits(c, mouse, tile, alive, now);
+                c.StopDig();
+                return c.Digging ? InputButtons.Dig : (ushort)0;
+            }
+
             bool demolishLeft = false;
             if (hammer && mouse.leftButton.isPressed)
             {
@@ -438,6 +483,54 @@ namespace Orpheus.Client
             }
 
             return c.Digging ? InputButtons.Dig : (ushort)0;
+        }
+
+        /// <summary>
+        /// Линейка (E2-13): ЛКМ нажата — начало протягивания в ячейке под курсором; пока зажата — план считает
+        /// <see cref="BuildState"/> (призрак всей линии / прямоугольника); отпущена — план уходит пачкой заявок линии
+        /// (<see cref="BuildRuler.Release"/>, предсказание как у обычной постановки). ПКМ или Esc во время протягивания — отмена.
+        /// </summary>
+        void RulerEdits(NetClient c, Mouse mouse, TileCoord tile, bool alive, long now)
+        {
+            BuildRuler ruler = _ui!.Ruler;
+            if (ruler.Dragging && (mouse.rightButton.wasPressedThisFrame || Keyboard.current?.escapeKey.wasPressedThisFrame == true))
+            {
+                ruler.Cancel();
+                _rulerCancelFrame = Time.frameCount;
+                return;
+            }
+
+            if (!ruler.Dragging && mouse.leftButton.wasPressedThisFrame)
+            {
+                ruler.Begin(tile, _cursorQuad, HeldItem);
+            }
+
+            if (ruler.Dragging && !mouse.leftButton.isPressed)
+            {
+                Keyboard? kb = Keyboard.current;
+                bool diagonal = kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed);
+                ruler.Update(_world!, _localPos, c.Inv, HeldCell, alive, tile, _cursorQuad, diagonal);
+                string? why = null;
+                if (ruler.Need == 0)
+                {
+                    foreach (RulerSpot sp in ruler.Spots)
+                    {
+                        why ??= sp.Ok ? null : EditRules.Describe(sp.Reply);
+                    }
+                }
+                else if (ruler.Have == 0)
+                {
+                    why = EditRules.Describe(EditReply.NoResources);
+                }
+
+                int sent = ruler.Release(_ui.Build, _localPos, c.Inv, HeldCell);
+                Debug.Log($"[build] линейка: заявок {sent}");
+                if (sent == 0 && why != null)
+                {
+                    _lastRefusal = why;
+                    _lastRefusalUntilUs = now + FlashUs;
+                }
+            }
         }
 
         /// <summary>

@@ -26,6 +26,11 @@ namespace Orpheus.Client.UI
         public bool ChestOpen;
         public Inventory Chest;
         public UseKind Use;
+
+        /// <summary>E2-13: постройка в руке и режим линейки — показать подпись режима; идёт протягивание — план <see cref="Plan"/>.</summary>
+        public bool RulerMode;
+        public bool Dragging;
+        public BuildRuler? Plan;
     }
 
     /// <summary>Плашка у курсора (E2-5): строка призрака («Сундук — нельзя: занято») и полоса прочности постройки.</summary>
@@ -93,11 +98,28 @@ namespace Orpheus.Client.UI
         BuildHand _build = null!;
         Text _noticeText = null!;
         UiGroup _notice = null!;
+        UiGroup _mode = null!;
+        Text _modeText = null!;
+        readonly BuildRuler _ruler = new BuildRuler { Mode = SessionMode };
+
+        /// <summary>Режим постановки на сессию (E2-13): новый интерфейс (переподключение) берёт прежний.</summary>
+        static PlaceMode SessionMode = PlaceMode.Ruler;
         string? _noticeMsg;
         float _noticeUntil;
 
         /// <summary>«Рука строителя» (заявки постановки и починки — тот же класс, что у бота).</summary>
         public BuildHand Build => _build;
+
+        /// <summary>Линейка (E2-13): режим, протягивание, план — общий класс с ботом и тестами.</summary>
+        public BuildRuler Ruler => _ruler;
+
+        /// <summary>Переключить «линейка / поштучно» (R); режим запоминается на сессию.</summary>
+        public PlaceMode ToggleRuler()
+        {
+            _ruler.Cancel();
+            SessionMode = _ruler.Toggle();
+            return SessionMode;
+        }
 
         /// <summary>Окно сундука открыто.</summary>
         public bool ChestShown => _chest.Visible;
@@ -115,6 +137,14 @@ namespace Orpheus.Client.UI
             UiRoot.Picture(_notice.Rt, "Back", 0f, 0f, nw, nh, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
             _noticeText = UiRoot.Label(_notice.Rt, "Text", 0f, 0f, nw, nh, 22, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _notice.Visible = false;
+
+            // E2-13: подпись режима постановки — над левым краем быстрой панели (справа — подсказка станка).
+            const float mw = 250f, mh = 34f;
+            float barW = UiSlotGrid.WidthOf(Inventory.Slots) + 2f * BarPad;
+            _mode = new UiGroup(root, "PlaceMode", new Vector2(0.5f, 0f), new Vector2(-barW / 2f, barTop + 8f), new Vector2(mw, mh));
+            UiRoot.Picture(_mode.Rt, "Back", 0f, 0f, mw, mh, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
+            _modeText = UiRoot.Label(_mode.Rt, "Text", 0f, 0f, mw, mh, 20, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
+            _mode.Visible = false;
         }
 
         /// <summary>Точка мира Unity → точка холста (скрипт стенда снимков).</summary>
@@ -183,11 +213,19 @@ namespace Orpheus.Client.UI
             bool bad = false;
             if ((build.Hammer || build.Placing) && !overUi && !_hand.Holding)
             {
-                if (build.HasGhost)
+                if (build.Dragging && build.Plan != null)
+                {
+                    BuildRuler p = build.Plan;
+                    note = UiStrings.RulerNote(p.Kind, p.LengthCells, p.Width, p.Height, p.Need, p.Have);
+                    bad = p.Need == 0 || p.Have < p.Need;
+                }
+                else if (build.HasGhost)
                 {
                     BuildCheck c = build.Check;
                     bool repair = c.Action == BuildAction.Repair;
-                    string cost = repair ? CostText(c) : UiStrings.PlaceHint(bag.CountIn(selected));
+                    string cost = repair ? CostText(c)
+                        : build.RulerMode && BuildRuler.KindOf(c.Key) != RulerKind.Single ? UiStrings.RulerHint(BuildRuler.KindOf(c.Key), bag.CountIn(selected))
+                        : UiStrings.PlaceHint(bag.CountIn(selected));
                     note = UiStrings.GhostNote(repair, c.Ok, c.Reason, c.Key, cost);
                     bad = !c.Ok;
                 }
@@ -201,6 +239,13 @@ namespace Orpheus.Client.UI
             }
 
             _note.Show(note, integrity, bad, size, input.Pointer);
+
+            bool showMode = build.Placing && !build.Hammer;
+            _mode.Visible = showMode;
+            if (showMode)
+            {
+                _modeText.text = UiStrings.PlaceModeLabel(build.RulerMode);
+            }
 
             if (_noticeMsg != null && Time.unscaledTime > _noticeUntil)
             {

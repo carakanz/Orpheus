@@ -68,6 +68,11 @@
     { "name": "E2-11_buildings_wood", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 64, "args": ["--paint-demo", "--ui-demo", "inv-buildings"] },
     { "name": "E2-12_thin_room",     "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "thin"] },
     { "name": "E2-12_thin_room_720", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "thin"], "frame": { "width": 1280, "height": 720 } },
-    { "name": "E2-12_thin_ghost",    "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "build"] }
+    { "name": "E2-12_thin_ghost",    "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "build"] },
+    { "name": "E2-13_ruler_wall",     "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "ruler-wall"] },
+    { "name": "E2-13_ruler_wall_720", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "ruler-wall"], "frame": { "width": 1280, "height": 720 } },
+    { "name": "E2-13_ruler_floor",    "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "ruler-floor"] },
+    { "name": "E2-13_single_mode",    "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "build"] },
+    { "name": "E2-13_room",           "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "thin"] }
   ]
 }
