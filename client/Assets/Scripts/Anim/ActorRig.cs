@@ -155,6 +155,87 @@ namespace Orpheus.Client.Anim
             Apply(Animator.Step(dt, s));
         }
 
+        // C-018: вода и куст — глубина (опускание спрайта в воде) и обрез низа (вода — по линии ног, куст — низ ног).
+        Sprite? _baseSprite;
+        float _sink, _hide, _rippleWait;
+        SpriteRenderer? _waterLine;
+        Transform? _shadow;
+        bool _shadowLooked;
+
+        void ApplyWade(int order)
+        {
+            float dt = Mathf.Min(Time.deltaTime, 0.1f);
+            WadeFx.Ground g = WadeFx.At(_root.position);
+            _sink = Mathf.MoveTowards(_sink, g == WadeFx.Ground.Water ? WadeFx.WaterDepth : 0f, WadeFx.DepthRate * dt);
+            _hide = Mathf.MoveTowards(_hide, g == WadeFx.Ground.Bush ? WadeFx.BushHide : 0f, WadeFx.DepthRate * dt);
+            if (_baseSprite == null)
+            {
+                _baseSprite = _sr.sprite;
+            }
+
+            float cut = Mathf.Max(_sink, _hide);
+            if (_baseSprite != null)
+            {
+                // Обрез — в точках листа, шагом 2 (кэш спрайтов мал); опускание — в воде.
+                int px = Mathf.RoundToInt(cut * _baseSprite.pixelsPerUnit * 0.5f) * 2;
+                _sr.sprite = WadeFx.Cropped(_baseSprite, px);
+            }
+
+            _sprite.localPosition += new Vector3(0f, -_sink, 0f);
+
+            if (!_shadowLooked)
+            {
+                _shadow = _root.Find("Shadow");
+                _shadowLooked = true;
+            }
+
+            if (_shadow != null)
+            {
+                bool dry = _sink < 0.05f; // тени в воде нет
+                if (_shadow.gameObject.activeSelf != dry)
+                {
+                    _shadow.gameObject.SetActive(dry);
+                }
+            }
+
+            float wet = _sink / WadeFx.WaterDepth;
+            Vector2 feet = new Vector2(_root.position.x, _root.position.y + _basePos.y);
+            if (wet > 0.05f && WadeFx.Ring != null)
+            {
+                if (_waterLine == null)
+                {
+                    var go = new GameObject("WaterLine");
+                    go.transform.SetParent(_root, false);
+                    _waterLine = go.AddComponent<SpriteRenderer>();
+                    _waterLine.sprite = WadeFx.Ring;
+                }
+
+                _waterLine.enabled = true;
+                float pulse = 1f + 0.05f * Mathf.Sin(LifeFx.Time * 5f + _lifeId);
+                _waterLine.transform.localPosition = new Vector3(0f, _basePos.y + 0.02f, 0f);
+                _waterLine.transform.localScale = new Vector3(0.62f * pulse, 0.62f * pulse, 1f);
+                _waterLine.sortingOrder = order + 2;
+                _waterLine.color = new Color(0.85f, 0.95f, 1f, 0.55f * wet);
+
+                _rippleWait -= dt;
+                bool moving = _vel.sqrMagnitude > 0.16f;
+                if (_rippleWait <= 0f)
+                {
+                    WadeFx.Emit(feet, order - 1, moving ? 0.9f : 0.75f);
+                    _rippleWait = moving ? WadeFx.WalkRippleEvery : WadeFx.IdleRippleEvery;
+                }
+            }
+            else
+            {
+                if (_waterLine != null)
+                {
+                    _waterLine.enabled = false;
+                }
+
+                _rippleWait = 0f;
+            }
+        }
+
         public void Apply(in Pose p)
         {
             _sprite.localPosition = _basePos + new Vector3(p.OffsetX, p.OffsetY, 0f);
@@ -168,6 +249,7 @@ namespace Orpheus.Client.Anim
             LifeFx.Touch(_lifeId, new Vector2(_root.position.x, _root.position.y + _basePos.y));
             _sr.color = new Color(_baseColor.r * p.TintR, _baseColor.g * p.TintG, _baseColor.b * p.TintB, _baseColor.a * p.Alpha);
             ApplyHand(p, order);
+            ApplyWade(order);
 
             for (int i = 0; i < _ghosts.Length; i++)
             {

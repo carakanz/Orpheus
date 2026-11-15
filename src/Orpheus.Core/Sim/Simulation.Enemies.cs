@@ -349,9 +349,9 @@ namespace Orpheus.Core.Sim
                     Input8 dir = Input8.FromIndex(EnemyRng.NextDir8(h));
                     int dist = 1 + EnemyRng.NextInt(h >> 16, MeleeRogue.WanderRadiusTiles);
                     TileCoord goal = Torus.Wrap(_shape, new TileCoord(home.X + dir.DX * dist, home.Y + dir.DY * dist));
-                    if (IsBlocked(_shape, goal))
+                    if (IsBlocked(_shape, goal) || TerrainSlow.FloorQ8(_world.GetFloor(goal)) != TerrainSlow.One)
                     {
-                        goal = home; // в стенку не идём — пауза ещё раз
+                        goal = home; // в стенку и в воду (C-018) не идём — пауза ещё раз
                     }
 
                     b.GoalX = goal.X;

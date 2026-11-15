@@ -108,7 +108,9 @@ namespace Orpheus.Core.Sim
             }
 
             e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
-            e.Input = new InputFrame(SteerTo(e.Mover.Position, e.Mover.UnitsPerTickX10, buf.Points[b.PathPos]));
+            // C-018: шаг примеряется той скоростью, которой враг реально пойдёт (вода, куст — × множитель тайла под ним).
+            int speed = TileSpeed.Scale(e.Mover.UnitsPerTickX10, TileSpeed.At(_shape, e.Mover.Position, _solid));
+            e.Input = new InputFrame(SteerTo(e.Mover.Position, speed, buf.Points[b.PathPos]));
             return true;
         }
 

@@ -519,7 +519,7 @@ namespace Orpheus.Tests
             world.SetBaseTile(new TileCoord(50, 50), FloorId.Water, ObjectId.Empty);
             world.SetBaseTile(new TileCoord(51, 50), FloorId.Grass, ObjectId.Cliff); // восток занят обрывом
             var sim = new Simulation(world, maxEntities: 4);
-            Assert.True(sim.IsBlocked(sim.Shape, new TileCoord(50, 50)));
+            Assert.False(sim.IsBlocked(sim.Shape, new TileCoord(50, 50))); // C-018: вода проходима, но куча в ней не лежит
             sim.AddPile(Items.Wood, 1, Center(50, 50));
             GroundPile p = Assert.Single(sim.Piles.ToArray());
             Assert.Equal(Center(50, 51), p.Position); // следующий по порядку сосед (юг) — проходим

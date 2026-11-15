@@ -9,7 +9,7 @@ namespace Orpheus.Core.Pathing
     /// Карта поиска пути по миру симуляции (только чтение). Пеший — то же правило, что в такте:
     /// <see cref="Simulation.IsBlocked"/> (пол и объекты, `05` 1.3). Летун (9.2) — непроходимы только постройки
     /// игрока и стены данжа: объект твёрдый и не природный (дверь — по флагу записи, как в такте); пол не мешает.
-    /// Замедляющих полов в таблице <see cref="FloorId"/> пока нет — множитель всегда <see cref="PathCost.Normal"/>.
+    /// Замедляющая местность (C-018: вода, куст — <see cref="TerrainSlow"/>) проходима пешему с множителем ≈ 1/скорость.
     /// <para>
     /// Быстрый путь пешего: чанк берётся из кэша на 4 чанка (сброс в <see cref="BeginSearch"/>), пол и пустой объект
     /// читаются из чанка тем же кодом, что в <see cref="Simulation.IsBlocked"/>; тайл с объектом — сам
@@ -47,8 +47,28 @@ namespace Orpheus.Core.Pathing
         /// <inheritdoc />
         public byte CostOf(TileCoord tile, PathMode mode)
         {
-            bool blocked = mode == PathMode.Flyer ? FlyerBlocked(tile) : WalkerBlocked(tile);
-            return blocked ? PathCost.Blocked : PathCost.Normal;
+            if (mode == PathMode.Flyer)
+            {
+                return FlyerBlocked(tile) ? PathCost.Blocked : PathCost.Normal;
+            }
+
+            return WalkerBlocked(tile) ? PathCost.Blocked : WalkerFactor(tile);
+        }
+
+        /// <summary>
+        /// C-018: множитель стоимости пешего по замедляющей местности (<see cref="TerrainSlow.PathFactor"/>, ≈ 1/множитель скорости):
+        /// враг идёт в воду или куст, только если обход дороже. Летуну местность не мешает.
+        /// </summary>
+        private byte WalkerFactor(TileCoord tile)
+        {
+            Chunk? chunk = FindChunk(Torus.ChunkOf(_sim.Shape, tile));
+            if (chunk == null)
+            {
+                return PathCost.Normal;
+            }
+
+            int index = Chunk.IndexOf(tile.X, tile.Y);
+            return TerrainSlow.PathFactor(TerrainSlow.TileQ8(chunk.GetFloor(index), chunk.GetObject(index)));
         }
 
         /// <inheritdoc />
@@ -65,7 +85,7 @@ namespace Orpheus.Core.Pathing
             }
 
             int index = Chunk.IndexOf(tile.X, tile.Y);
-            if (!FloorId.IsPassable(chunk.GetFloor(index)))
+            if (!TerrainSlow.WalkFloor(chunk.GetFloor(index)))
             {
                 return true;
             }
