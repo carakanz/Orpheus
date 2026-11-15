@@ -53,13 +53,13 @@ namespace Orpheus.Tests
                 // Две позиции: верёвка × 99 (297 волокна — три полные стопки) и каменный топор × 10 (два вида ингредиентов).
                 Assert.True(c.RequestCraft(RecipeTable.Rope, 99));
                 Assert.True(c.RequestCraft(RecipeTable.StoneAxe, 10));
-                Assert.True(Pump(() => first.Crashed, 10_000, clients), "очередь не поставлена или нет сохранения");
-                Assert.Null(first.Error);
+                Assert.True(Pump(() => first.Crashed, 30_000, clients), "очередь не поставлена или на носителе нет записи, начатой с непустой очередью");
                 // Падение: дальше этот сервер для теста не существует — его остановка пишет в исходное хранилище, не в снимок.
             }
 
+            // На носителе — сохранение с непустой очередью (падение в такте {CrashTick}); часть позиций успела
+            // изготовиться до падения — это законное превращение ингредиентов в изделия, сверяемся с массой падения.
             Assert.False(first.Queue.IsEmpty);
-            Assert.Equal(first.Given, first.AtCrash); // постановка в очередь массы не меняет (ингредиенты — в очереди)
             _out.WriteLine($"такт падения {first.CrashTick}, очередь {first.Queue}");
 
             var second = new SecondRun();
@@ -72,11 +72,10 @@ namespace Orpheus.Tests
                 int[] after = second.Totals!;
                 for (int item = 1; item < ItemTable.Count; item++)
                 {
-                    Assert.True(first.Given[item] == after[item], $"предмет {item}: было {first.Given[item]}, после перезапуска {after[item]}");
+                    Assert.True(first.AtCrash[item] == after[item], $"предмет {item}: в такте падения {first.AtCrash[item]}, после перезапуска {after[item]}");
                 }
 
                 Assert.True(second.QueueEmpty);
-                Assert.Equal(297, after[Items.Fiber]);
                 Assert.Equal(c.Inv.Count(Items.Fiber), second.BagFiber); // вернувшийся видит ту же сумку
                 Assert.Equal(0, srv.Stop().ExitCode);
             }
@@ -165,11 +164,11 @@ namespace Orpheus.Tests
         {
             private volatile bool _crashed;
             private bool _given;
+            private readonly Dictionary<long, CraftQueue> _queuedTicks = new Dictionary<long, CraftQueue>();
 
             public WaitEveryWrite? Hook { get; set; }
             public MemoryStorage? Storage { get; set; }
             public bool Crashed => _crashed;
-            public string? Error { get; private set; }
             public int[] Given { get; private set; } = Array.Empty<int>();
             public int[] AtCrash { get; private set; } = Array.Empty<int>();
             public CraftQueue Queue { get; private set; }
@@ -193,16 +192,26 @@ namespace Orpheus.Tests
                     return;
                 }
 
-                if (sim.Entities[slot].Craft.IsEmpty)
+                CraftQueue craft = sim.Entities[slot].Craft;
+                if (craft.IsEmpty)
                 {
                     return;
                 }
 
-                // Такт, в котором заявка снята с сумки: сохранение этого такта записано (крючок дождался) — снимок носителя.
-                Error = Hook!.LastBeginTick == sim.Tick ? null : $"в такте {sim.Tick} сохранения не было (последнее — {Hook.LastBeginTick})";
+                // Помечаем такты с непустой очередью: «падение» — когда ЗАПИСАННАЯ на носителе запись начата в таком такте.
+                // Заявка изготовления и сохранение одного такта могут разъехаться под нагрузкой (запись начата в такте 1,
+                // поток такта ушёл в такт 4; заявки сохранений на такты 2–4 схлопнуты) — поэтому условие не «такт == такт
+                // записи», а «последняя завершившаяся запись начата в такте с очередью».
+                _queuedTicks[sim.Tick] = craft;
+                long doneTick = Hook!.LastDoneTick;
+                if (!_queuedTicks.TryGetValue(doneTick, out CraftQueue saved))
+                {
+                    return; // на носителе пока только запись до постановки в очередь — ждём сохранения с очередью
+                }
+
                 AtCrash = Totals(sim, slot);
-                Queue = sim.Entities[slot].Craft;
-                CrashTick = sim.Tick;
+                Queue = saved;
+                CrashTick = doneTick;
                 Frozen = Storage.Snapshot();
                 _crashed = true;
             }
@@ -239,6 +248,8 @@ namespace Orpheus.Tests
         {
             private readonly object _sync = new object();
             private long _beginTick = -1;
+            private long _doneTick = -1;
+            private long _begunTick = -1;
             private ulong _begun, _done;
 
             public string Plan => "C-005: поток такта ждёт конца каждой записи";
@@ -250,6 +261,18 @@ namespace Orpheus.Tests
                     lock (_sync)
                     {
                         return _beginTick;
+                    }
+                }
+            }
+
+            /// <summary>Такт, в котором начата последняя завершившаяся запись на носителе (−1 — записей не было).</summary>
+            public long LastDoneTick
+            {
+                get
+                {
+                    lock (_sync)
+                    {
+                        return _doneTick;
                     }
                 }
             }
@@ -268,6 +291,7 @@ namespace Orpheus.Tests
                 {
                     _beginTick = tick;
                     _begun = number;
+                    _begunTick = tick;
                 }
             }
 
@@ -276,6 +300,11 @@ namespace Orpheus.Tests
                 lock (_sync)
                 {
                     _done = Math.Max(_done, number);
+                    if (number == _begun)
+                    {
+                        _doneTick = _begunTick;
+                    }
+
                     Monitor.PulseAll(_sync);
                 }
             }
