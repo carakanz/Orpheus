@@ -99,10 +99,10 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_RecipeTable_MatchesDesign()
         {
-            Assert.Equal(15, RecipeTable.Count); // 14 рецептов + нулевая строка
-            Assert.Equal(21, ItemTable.Count);
+            Assert.Equal(26, RecipeTable.Count); // 14 рецептов + 11 построек (E2-11, строки — BuildTests.E211_*) + нулевая строка
+            Assert.Equal(32, ItemTable.Count);
             Assert.False(RecipeTable.Exists(0));
-            Assert.False(RecipeTable.Exists(15));
+            Assert.False(RecipeTable.Exists(26));
             Assert.Equal(0, RecipeTable.Get(200).Id);
 
             void Row(byte id, byte result, int count, CraftStation station, params (byte Item, int N)[] ins)
@@ -769,7 +769,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_Net_GoldenBytes_CraftRequest_Reply_State()
         {
-            Assert.Equal(24, NetModule.ProtocolVersion);
+            Assert.Equal(25, NetModule.ProtocolVersion);
             var buf = new byte[64];
 
             int n = new CraftRequestMessage { Op = CraftOp.Make, Arg = RecipeTable.CopperPickaxe, Count = 0x0102 }.Write(buf);
