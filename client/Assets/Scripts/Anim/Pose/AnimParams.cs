@@ -173,6 +173,12 @@ namespace Orpheus.Client.Anim
         /// <summary>Предмет в ладони — центр значка над кистью, тайлов при масштабе 1.</summary>
         public const float PalmY = 0.06f;
 
+        /// <summary>C-010: подъём кисти при замахе за голову (тайлов): от угла руки <see cref="OverheadLiftFromDeg"/> до
+        /// <see cref="OverheadLiftFullDeg"/> кисть плавно уходит к макушке, чтобы предмет позади тела был виден над головой.</summary>
+        public const float OverheadLiftY = 0.55f;
+        public const float OverheadLiftFromDeg = 40f;
+        public const float OverheadLiftFullDeg = 105f;
+
         // ---------- отклик удара по камню (E2-7) ----------
 
         /// <summary>Искры удара киркой по камню и руде: число, скорость (т/с), жизнь (с).</summary>

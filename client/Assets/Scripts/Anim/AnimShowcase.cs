@@ -508,7 +508,7 @@ namespace Orpheus.Client.Anim
                 }
 
                 yield return new WaitForEndOfFrame();
-                Texture2D full = ScreenCapture.CaptureScreenshotAsTexture();
+                Texture2D full = CaptureFrame();
                 Save("K-001_overview.png", full);
                 UnityEngine.Object.Destroy(full);
                 Time.captureDeltaTime = 0f;
@@ -536,7 +536,7 @@ namespace Orpheus.Client.Anim
         IEnumerator Strip(Shot s)
         {
             _ortho = s.Ortho;
-            int w = Mathf.Min(s.CropW, Screen.width), h = Mathf.Min(s.CropH, Screen.height);
+            int w = s.CropW, h = s.CropH; // кадр CaptureFrame — не меньше 320×180; вырезка ограничивается ниже по его размеру
             const int gap = 4;
             var strip = new Texture2D(s.Times.Length * (w + gap) - gap, h, TextureFormat.RGB24, false);
             var fill = new Color[strip.width * strip.height];
@@ -557,15 +557,48 @@ namespace Orpheus.Client.Anim
                 }
 
                 yield return new WaitForEndOfFrame();
-                Texture2D frame = ScreenCapture.CaptureScreenshotAsTexture();
-                int x0 = (frame.width - w) / 2, y0 = (frame.height - h) / 2;
-                strip.SetPixels(i * (w + gap), 0, w, h, frame.GetPixels(x0, y0, w, h));
+                Texture2D frame = CaptureFrame();
+                int cw = Mathf.Min(w, frame.width), ch = Mathf.Min(h, frame.height);
+                int x0 = (frame.width - cw) / 2, y0 = (frame.height - ch) / 2;
+                strip.SetPixels(i * (w + gap) + (w - cw) / 2, (h - ch) / 2, cw, ch, frame.GetPixels(x0, y0, cw, ch));
                 UnityEngine.Object.Destroy(frame);
             }
 
             strip.Apply();
             Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
+        }
+
+        /// <summary>
+        /// Кадр камеры в текстуру размера экрана (C-010): ручная отрисовка в RenderTexture, как <c>ScreenshotRun.Capture</c>.
+        /// <see cref="ScreenCapture.CaptureScreenshotAsTexture()"/> в <c>-batchmode</c> (запуск через <c>run_hidden.ps1</c>)
+        /// возвращает null — лента падала NullReferenceException.
+        /// </summary>
+        Texture2D CaptureFrame()
+        {
+            int w = Screen.width >= 320 ? Screen.width : 1280, h = Screen.height >= 180 ? Screen.height : 720;
+            Camera cam = _g.Camera;
+            var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            RenderTexture? prevTarget = cam.targetTexture;
+            RenderTexture? prevActive = RenderTexture.active;
+            try
+            {
+                WorldFx.BeforeManualRender(w, h); // тени, трава и тон — под размер кадра
+                cam.targetTexture = rt;
+                cam.Render();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+                tex.Apply();
+                return tex;
+            }
+            finally
+            {
+                cam.targetTexture = prevTarget;
+                RenderTexture.active = prevActive;
+                rt.Release();
+                UnityEngine.Object.Destroy(rt);
+            }
         }
 
         void Save(string file, Texture2D tex)
@@ -648,7 +681,7 @@ namespace Orpheus.Client.Anim
             if (_dir != null)
             {
                 yield return new WaitForEndOfFrame();
-                Texture2D full = ScreenCapture.CaptureScreenshotAsTexture();
+                Texture2D full = CaptureFrame();
                 Save("K-001_bench.png", full);
                 UnityEngine.Object.Destroy(full);
             }
