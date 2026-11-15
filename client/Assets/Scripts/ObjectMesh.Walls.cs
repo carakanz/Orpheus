@@ -46,34 +46,39 @@ namespace Orpheus.Client
             public bool Planks;
         }
 
-        static readonly Color32 WallOutline = new Color32(36, 27, 24, 255);
+        /// <summary>Цвет палитры (sRGB) → цвет вершины. Проект в линейном пространстве: цвет вершины шейдер не переводит,
+        /// и без перевода 124 из палитры выходит на экран как ≈186 — стены белёсые, лицо не темнее верха.</summary>
+        static Color32 Srgb(byte r, byte g, byte b, byte a) =>
+            QualitySettings.activeColorSpace == ColorSpace.Linear ? (Color32)new Color(r / 255f, g / 255f, b / 255f, a / 255f).linear : new Color32(r, g, b, a);
+
+        static readonly Color32 WallOutline = Srgb(36, 27, 24, 255);
 
         static readonly Dictionary<byte, WallLook> Looks = new Dictionary<byte, WallLook>
         {
             {
                 KStone, new WallLook
                 {
-                    Top = new Color32(222, 214, 198, 255), TopSeam = new Color32(140, 132, 122, 255), TopHi = new Color32(246, 242, 230, 255),
-                    Face = new Color32(124, 116, 132, 255), FaceSeam = new Color32(70, 64, 78, 255), Plinth = new Color32(92, 86, 100, 255),
+                    Top = Srgb(222, 214, 198, 255), TopSeam = Srgb(140, 132, 122, 255), TopHi = Srgb(246, 242, 230, 255),
+                    Face = Srgb(124, 116, 132, 255), FaceSeam = Srgb(70, 64, 78, 255), Plinth = Srgb(92, 86, 100, 255),
                 }
             },
             {
                 KWood, new WallLook
                 {
-                    Top = new Color32(230, 176, 104, 255), TopSeam = new Color32(146, 94, 50, 255), TopHi = new Color32(250, 212, 146, 255),
-                    Face = new Color32(168, 100, 48, 255), FaceSeam = new Color32(92, 52, 26, 255), Plinth = new Color32(112, 66, 34, 255),
+                    Top = Srgb(230, 176, 104, 255), TopSeam = Srgb(146, 94, 50, 255), TopHi = Srgb(250, 212, 146, 255),
+                    Face = Srgb(168, 100, 48, 255), FaceSeam = Srgb(92, 52, 26, 255), Plinth = Srgb(112, 66, 34, 255),
                     Planks = true,
                 }
             },
         };
 
         // Дверь: полотно светлее и насыщеннее пола, оковка, латунная ручка.
-        static readonly Color32 DoorWood = new Color32(236, 150, 58, 255), DoorTop = new Color32(252, 196, 112, 255),
-            DoorSeam = new Color32(150, 80, 30, 255), DoorIron = new Color32(64, 66, 86, 255), DoorBrass = new Color32(255, 222, 96, 255);
+        static readonly Color32 DoorWood = Srgb(236, 150, 58, 255), DoorTop = Srgb(252, 196, 112, 255),
+            DoorSeam = Srgb(150, 80, 30, 255), DoorIron = Srgb(64, 66, 86, 255), DoorBrass = Srgb(255, 222, 96, 255);
 
         // Забор.
-        static readonly Color32 FencePost = new Color32(170, 108, 58, 255), FenceCap = new Color32(228, 174, 112, 255),
-            FenceRail = new Color32(206, 146, 84, 255);
+        static readonly Color32 FencePost = Srgb(170, 108, 58, 255), FenceCap = Srgb(228, 174, 112, 255),
+            FenceRail = Srgb(206, 146, 84, 255);
 
         /// <summary>Пустышка строки таблицы для квадратов построек-ячеек (тень есть, не блок).</summary>
         static readonly ObjectLook CellLook = new ObjectLook { Shadow = 1f };
@@ -235,7 +240,7 @@ namespace Orpheus.Client
 
         void WallCell(float x0, float yb, int qx, int qy, int gx, int gy, WallLook look, in ObjectAtlas.Entry white)
         {
-            const float o = 0.032f, plinth = 0.06f, seam = 0.014f;
+            const float o = 0.032f, plinth = 0.06f, seam = 0.04f;
             float h = WallHeight, x1 = x0 + 0.5f, yt = yb + 0.5f;
             bool n = IsWall(CellKind(qx, qy - 1)), s = IsWall(CellKind(qx, qy + 1));
             bool w = IsWall(CellKind(qx - 1, qy)), e = IsWall(CellKind(qx + 1, qy));
@@ -264,7 +269,7 @@ namespace Orpheus.Client
                 }
                 else
                 {
-                    int courses = Mathf.Max(1, Mathf.RoundToInt(body / 0.2f));
+                    int courses = Mathf.Max(1, Mathf.RoundToInt(body / 0.15f));
                     float ch = body / courses;
                     for (int i = 0; i < courses; i++)
                     {
