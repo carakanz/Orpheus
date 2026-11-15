@@ -181,7 +181,8 @@ namespace Orpheus.WorldGen
                     }
 
                     bool wet = t.Floor[i] != FloorId.Empty; // вода или берег
-                    bool path = t.Marks[i] != 0;
+                    bool path = (t.Marks[i] & (TileWorld.MarkTrail | TileWorld.MarkClear)) != 0;
+                    bool gorge = (t.Marks[i] & TileWorld.MarkGorge) != 0;
                     bool isForest = rule.Biome == Biome.Forest;
                     bool inGlade = isForest && glade[i] >= gladeFrom;
                     if (!wet)
@@ -207,9 +208,9 @@ namespace Orpheus.WorldGen
                         t.Floor[i] = floor;
                     }
 
-                    if (wet || path || t.Objects[i] != ObjectId.Empty)
+                    if (wet || path || gorge || t.Objects[i] != ObjectId.Empty)
                     {
-                        continue; // вода, берег, тропа, проход, обрыв
+                        continue; // вода, берег, тропа, проход, обрыв, тайл у скалы
                     }
 
                     ushort obj = ObjectId.Empty;

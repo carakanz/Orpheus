@@ -90,6 +90,29 @@ namespace Orpheus.WorldGen
         public const int FieldWarpY = 3;
         public const int FieldWobble = 4;
         public const int FieldThick = 5;
+        public const int FieldMazeA = 6;
+        public const int FieldMazeB = 7;
+        public const int FieldGate = 8;
+
+        /// <summary>Лабиринт (C-016, v8): шаг сетки глыб, ячеек (ячейка — 2 тайла); искривление координат (поле, размах Q8 ячеек).</summary>
+        public const int MazeGrid = 8;
+        public static readonly int[] CellsMazeWarp = { 32, 16 };
+        public const int MazeWarpQ8 = 640;
+
+        /// <summary>Полуширина ущелья, сотые ячейки (ячейка — 2 тайла): 70 — ущелье ≈ 2–3 тайла.</summary>
+        public const int MazeHalfWidth100 = 70;
+
+        /// <summary>Доля открытых границ между глыбами (ущелье), ‰; доля глыб-долин, ‰.</summary>
+        public const int OpenPerMille = 650;
+        public const int ValleyPerMille = 110;
+
+        /// <summary>Открытие скалы кругом, ячеек²; скала меньше — прочь; замкнутая щель меньше — заливается, ячеек.</summary>
+        public const int MazeOpenR2 = 2;
+        public const int MinMassCells = 24;
+        public const int MinPocketCells = 10;
+
+        /// <summary>Дрожание края массива, как <see cref="WobbleQ8"/>, но меньше — ущелья не смыкаются.</summary>
+        public const int MazeWobbleQ8 = 300;
 
         /// <summary>Доля ячеек ниже края возвышенности уровня k, ‰ (по возрастанию; один-два уровня).</summary>
         public static readonly int[] LevelPerMille = { 740 };
@@ -211,10 +234,19 @@ namespace Orpheus.WorldGen
                     sd[c] = high[c] ? sqrtQ8[inside[c]] - 256 : 256 - sqrtQ8[outside[c]];
                 }
 
-                var band = new bool[w * w];
-                var depthQ8 = new short[w * w];
+                // 3'. Массивы-лабиринт (C-016, генератор v8): возвышенность — сплошная скала, в ней долины и узкие ущелья.
+                bool[] rock = MazeCells(t, high, m);
+                int[] rin = Dist2(Not(rock), m);
+                int[] rout = Dist2(rock, m);
+                var rs = new int[m * m];
+                for (int c = 0; c < rs.Length; c++)
+                {
+                    rs[c] = rock[c] ? sqrtQ8[rin[c]] - 256 : 256 - sqrtQ8[rout[c]];
+                }
+
                 for (int y = 0; y < w; y++)
                 {
+                    long dy = IntMath.Wrap(y - half, w);
                     int j0 = ((y - 1) >> 1) & mmask;
                     int j1 = (j0 + 1) & mmask;
                     int fy = (y & 1) == 0 ? 3 : 1;
@@ -223,82 +255,32 @@ namespace Orpheus.WorldGen
                         int i0 = ((x - 1) >> 1) & mmask;
                         int i1 = (i0 + 1) & mmask;
                         int fx = (x & 1) == 0 ? 3 : 1;
-                        int a = sd[(j0 * m) + i0];
-                        int b = sd[(j0 * m) + i1];
-                        int c = sd[(j1 * m) + i0];
-                        int d = sd[(j1 * m) + i1];
-                        if (a < -1024 && b < -1024 && c < -1024 && d < -1024)
+                        int a = rs[(j0 * m) + i0];
+                        int b = rs[(j0 * m) + i1];
+                        int c = rs[(j1 * m) + i0];
+                        int d = rs[(j1 * m) + i1];
+                        if (a < -768 && b < -768 && c < -768 && d < -768)
                         {
                             continue; // далеко снаружи
                         }
 
-                        int s = (((a * (4 - fx)) + (b * fx)) * (4 - fy) + (((c * (4 - fx)) + (d * fx)) * fy)) >> 4;
-                        if (s > 2048)
+                        int v = (((a * (4 - fx)) + (b * fx)) * (4 - fy) + (((c * (4 - fx)) + (d * fx)) * fy)) >> 4;
+                        v += ((wobble.Sample(x, y) - (LatticeNoise.One >> 1)) * MazeWobbleQ8) >> 16;
+                        if (v >= 0)
                         {
-                            continue; // далеко внутри
-                        }
-
-                        if (lower != null)
-                        {
-                            int la = lower[(j0 * m) + i0];
-                            int lb = lower[(j0 * m) + i1];
-                            int lc = lower[(j1 * m) + i0];
-                            int ld = lower[(j1 * m) + i1];
-                            int ls = (((la * (4 - fx)) + (lb * fx)) * (4 - fy) + (((lc * (4 - fx)) + (ld * fx)) * fy)) >> 4;
-                            if (ls < MinApartTiles << 8)
-                            {
-                                continue;
-                            }
-                        }
-
-                        int th = 740 + (((thick.Sample(x, y) - 30000) * 2300) >> 16);
-                        th = th < 620 ? 620 : (th > 1100 ? 1100 : th);
-                        depthQ8[(y * w) + x] = (short)s;
-                        s += ((wobble.Sample(x, y) - (LatticeNoise.One >> 1)) * WobbleQ8) >> 16;
-                        band[(y * w) + x] = s >= 0 && s < th;
-                    }
-                }
-
-                // Полоса не тоньше двух тайлов по каждой оси: к тайлу без соседей сверху и снизу (слева и справа)
-                // добавляется сосед с той стороны, где глубже в возвышенность.
-                for (int y = 0; y < w; y++)
-                {
-                    long dy = IntMath.Wrap(y - half, w);
-                    int up = ((y - 1) & mask) * w;
-                    int down = ((y + 1) & mask) * w;
-                    int row = y * w;
-                    for (int x = 0; x < w; x++)
-                    {
-                        if (!band[row + x])
-                        {
-                            continue;
-                        }
-
-                        long dx = IntMath.Wrap(x - half, w);
-                        bool near = (dx * dx) + (dy * dy) <= r * r;
-                        Put(t, cliff, x, y, near);
-                        int xl = (x - 1) & mask;
-                        int xr = (x + 1) & mask;
-                        if (!band[up + x] && !band[down + x])
-                        {
-                            Put(t, cliff, x, depthQ8[up + x] > depthQ8[down + x] ? (y - 1) & mask : (y + 1) & mask, near);
-                        }
-
-                        if (!band[row + xl] && !band[row + xr])
-                        {
-                            Put(t, cliff, depthQ8[row + xl] > depthQ8[row + xr] ? xl : xr, y, near);
+                            long dx = IntMath.Wrap(x - half, w);
+                            Put(t, cliff, x, y, (dx * dx) + (dy * dy) <= r * r);
                         }
                     }
                 }
 
+                WidenGaps(cliff, w);
                 lower = sd;
             }
 
             // 5. Короткие гряды — прочь; длинные — нарезать проходами; обрубки — прочь.
             var depth = new int[w * w];
             var queue = new int[w * w];
-            Runs(cliff, w, MinLineTiles, depth, queue, MacroGenerator.StageSeed(seed, Stage), t, periodic: true);
-            Runs(cliff, w, MinRunTiles, depth, queue, 0, t, periodic: false);
             Runs(cliff, w, MinRunTiles, depth, queue, 0, null, periodic: false);
 
             for (int i = 0; i < cliff.Length; i++)
@@ -306,6 +288,174 @@ namespace Orpheus.WorldGen
                 if (cliff[i])
                 {
                     t.Objects[i] = ObjectId.Cliff;
+                }
+            }
+
+            MarkGorges(t, cliff);
+        }
+
+        /// <summary>Тайлы у скалы (8 соседей) помечаются <see cref="TileWorld.MarkGorge"/>: ущелья 2–3 тайла не заваливаются деревьями и валунами.</summary>
+        private static void MarkGorges(TileWorld t, bool[] cliff)
+        {
+            int w = t.WorldSize;
+            int mask = w - 1;
+            for (int y = 0; y < w; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    int i = (y * w) + x;
+                    if (cliff[i])
+                    {
+                        continue;
+                    }
+
+                    for (int k = 0; k < 9; k++)
+                    {
+                        if (k != 4 && cliff[(((y + (k / 3) - 1) & mask) * w) + ((x + (k % 3) - 1) & mask)])
+                        {
+                            t.Marks[i] |= TileWorld.MarkGorge;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Скала лабиринта в ячейках 2 × 2 (C-016, v8). Возвышенность делится на «глыбы» — области Вороного вокруг точек
+        /// сетки <see cref="MazeGrid"/> ячеек (точка — по хэшу в своей клетке, координаты искривлены шумом). Между двумя
+        /// соседними глыбами — ущелье шириной 2 × <see cref="MazeHalfWidth100"/> ячейки, если граница «открыта» (хэш пары
+        /// &lt; <see cref="OpenPerMille"/>); закрытые границы сливают глыбы в длинные хребты, открытые без выхода дают тупики.
+        /// Глыба с хэшем &lt; <see cref="ValleyPerMille"/> — долина (открыто целиком). Потом скала тоньше ~3 ячеек и куски
+        /// меньше <see cref="MinMassCells"/> убираются, замкнутые щели меньше <see cref="MinPocketCells"/> заливаются скалой.
+        /// Связность после — этап 12 (<see cref="ConnectStage"/>).
+        /// </summary>
+        private static bool[] MazeCells(TileWorld t, bool[] high, int m)
+        {
+            int w = t.WorldSize;
+            int mmask = m - 1;
+            ulong seed = MacroGenerator.FieldSeed(t.Macro.Map.Seed, Stage, FieldMazeA);
+            var warpX = new FieldNoise(MacroGenerator.FieldSeed(t.Macro.Map.Seed, Stage, FieldMazeB), w, CellsMazeWarp, ridged: false);
+            var warpY = new FieldNoise(MacroGenerator.FieldSeed(t.Macro.Map.Seed, Stage, FieldGate), w, CellsMazeWarp, ridged: false);
+            int g = MazeGrid;
+            int gn = m / g; // клеток сетки по стороне (m и g — степени двойки)
+            int gmask = gn - 1;
+            // Точки глыб, Q8 ячеек, в своей клетке сетки с полем 1 ячейка от края.
+            var fx = new int[gn * gn];
+            var fy = new int[gn * gn];
+            for (int k = 0; k < fx.Length; k++)
+            {
+                ulong h = Orpheus.Core.Rng.SplitMix64.Hash(k, 0x6A7E, seed);
+                fx[k] = (((k % gn) * g) + 1) * 256 + (int)(h & 0xFFFF) * ((g - 2) * 256) / 65536;
+                fy[k] = (((k / gn) * g) + 1) * 256 + (int)((h >> 16) & 0xFFFF) * ((g - 2) * 256) / 65536;
+            }
+
+            int span = m * 256;
+            long hw = (long)MazeHalfWidth100 * 256 / 100; // Q8 ячеек
+            var rock = new bool[m * m];
+            for (int j = 0; j < m; j++)
+            {
+                for (int i = 0; i < m; i++)
+                {
+                    int c = (j * m) + i;
+                    if (!high[c])
+                    {
+                        continue;
+                    }
+
+                    int tx = (i << 1) + 1, ty = (j << 1) + 1;
+                    int px = (i * 256) + 128 + (((warpX.Sample(tx, ty) - (LatticeNoise.One >> 1)) * MazeWarpQ8) >> 15);
+                    int py = (j * 256) + 128 + (((warpY.Sample(tx, ty) - (LatticeNoise.One >> 1)) * MazeWarpQ8) >> 15);
+                    int gi = (int)((uint)(px + span) % (uint)span) / 256 / g;
+                    int gj = (int)((uint)(py + span) % (uint)span) / 256 / g;
+                    long d1 = long.MaxValue, d2 = long.MaxValue;
+                    int k1 = -1, k2 = -1;
+                    long x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+                    for (int oy = -1; oy <= 1; oy++)
+                    {
+                        for (int ox = -1; ox <= 1; ox++)
+                        {
+                            int k = (((gj + oy) & gmask) * gn) + ((gi + ox) & gmask);
+                            long dx = Wrap(fx[k] - px, span), dy = Wrap(fy[k] - py, span);
+                            long d = (dx * dx) + (dy * dy);
+                            if (d < d1)
+                            {
+                                d2 = d1; k2 = k1; x2 = x1; y2 = y1;
+                                d1 = d; k1 = k; x1 = dx; y1 = dy;
+                            }
+                            else if (d < d2)
+                            {
+                                d2 = d; k2 = k; x2 = dx; y2 = dy;
+                            }
+                        }
+                    }
+
+                    if ((int)(Orpheus.Core.Rng.SplitMix64.Hash(k1, 0x7A11, seed) % 1000) < ValleyPerMille)
+                    {
+                        continue; // долина
+                    }
+
+                    // Расстояние до серединного перпендикуляра пары: (d2 − d1) / (2 · |f2 − f1|).
+                    long lx = x2 - x1, ly = y2 - y1;
+                    long len = IntMath.Isqrt((lx * lx) + (ly * ly));
+                    bool chan = false;
+                    if (len > 0 && (d2 - d1) <= 2 * hw * len)
+                    {
+                        int lo = Math.Min(k1, k2), hi = Math.Max(k1, k2);
+                        chan = (int)(Orpheus.Core.Rng.SplitMix64.Hash(lo, hi, seed) % 1000) < OpenPerMille;
+                    }
+
+                    rock[c] = !chan;
+                }
+            }
+
+            rock = Near(Not(Near(Not(rock), m, MazeOpenR2)), m, MazeOpenR2); // тонкая скала — прочь
+            DropSmall(rock, m, true, MinMassCells);
+            DropSmall(rock, m, false, MinPocketCells);
+            return rock;
+        }
+
+        private static long Wrap(long d, int span)
+        {
+            int half = span >> 1;
+            d %= span;
+            if (d < -half) d += span;
+            if (d >= half) d -= span;
+            return d;
+        }
+
+        /// <summary>
+        /// Щель в один тайл между скалами (обрыв слева и справа или сверху и снизу) расширяется до двух: соседний тайл
+        /// скалы справа (снизу) убирается. Два прохода по порядку строк — результат один на любой машине.
+        /// </summary>
+        private static void WidenGaps(bool[] cliff, int w)
+        {
+            int mask = w - 1;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                for (int y = 0; y < w; y++)
+                {
+                    int row = y * w;
+                    int up = ((y - 1) & mask) * w;
+                    int down = ((y + 1) & mask) * w;
+                    for (int x = 0; x < w; x++)
+                    {
+                        if (cliff[row + x])
+                        {
+                            continue;
+                        }
+
+                        int xl = (x - 1) & mask, xr = (x + 1) & mask;
+                        if (cliff[row + xl] && cliff[row + xr])
+                        {
+                            cliff[row + xr] = false;
+                        }
+
+                        if (cliff[up + x] && cliff[down + x])
+                        {
+                            cliff[down + x] = false;
+                        }
+                    }
                 }
             }
         }
@@ -361,6 +511,7 @@ namespace Orpheus.WorldGen
                 cliff[i] = t.Objects[i] == ObjectId.Cliff;
             }
 
+            WidenGaps(cliff, w); // выемки жил и проходы этапа 12 могли оставить щель в тайл
             Runs(cliff, w, MinRunTiles, new int[w * w], new int[w * w], 0, null, periodic: false);
             for (int i = 0; i < cliff.Length; i++)
             {
@@ -501,7 +652,9 @@ namespace Orpheus.WorldGen
         }
 
         /// <summary>Убрать связные куски значения <paramref name="value"/> (4 стороны, тор) меньше <see cref="MinAreaCells"/> ячеек.</summary>
-        private static void DropSmall(bool[] a, int m, bool value)
+        private static void DropSmall(bool[] a, int m, bool value) => DropSmall(a, m, value, MinAreaCells);
+
+        private static void DropSmall(bool[] a, int m, bool value, int minCells)
         {
             int mmask = m - 1;
             var seen = new bool[a.Length];
@@ -534,7 +687,7 @@ namespace Orpheus.WorldGen
                     }
                 }
 
-                if (qt < MinAreaCells)
+                if (qt < minCells)
                 {
                     for (int k = 0; k < qt; k++)
                     {

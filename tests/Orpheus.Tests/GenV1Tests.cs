@@ -53,7 +53,7 @@ namespace Orpheus.Tests
         /// Одно зерно дважды — одинаковые хэши макрокарты (после этапа 7) и всех чанков (SHA-256 снимка генерации и
         /// <see cref="StateHash.Generation"/>); эталоны — одинаковые в Debug (CI) и Release (<c>dotnet test -c Release</c>).
         /// Меняется результат — меняются эталоны и растёт <see cref="GeneratorV1.GeneratorVersion"/>. Эталоны снимка и генерации
-        /// обновлены в E1-2 (версия 5: вода, обрывы, лес куртинами), E1-6b (6), E2-6 (версия 7: залежи пятнами); макрокарта не менялась — её эталон прежний.
+        /// обновлены в E1-2 (версия 5: вода, обрывы, лес куртинами), E1-6b (6), E2-6 (версия 7: залежи пятнами), C-016 (версия 8: горы-лабиринт); макрокарта не менялась — её эталон прежний.
         /// </summary>
         [Fact]
         public void D17_Gen_SameSeedTwice_SameHashes_Golden()
@@ -70,8 +70,8 @@ namespace Orpheus.Tests
             ulong gen = StateHash.Generation(loaded);
             _out.WriteLine($"зерно 1: макрокарта {a.Macro.Map.HashHex()}, снимок {Sha(baseA)}, генерация {gen:x16}");
             Assert.Equal("912d8e607f4a3b7c2f9b8400c288dd72c4fbc873c3ee61d9303122a0fcb3f202", a.Macro.Map.HashHex());
-            Assert.Equal("b337ec06617fd8c1f0b13bcdaf3a7de48b5f39d202e60defd7d4f2d8d34fecf3", Sha(baseA));
-            Assert.Equal(0x6da4fd55e055236eUL, gen);
+            Assert.Equal("17b93bb4aafff4c0c51f96c82b70c867a218281bc7ceeeb80a7459ddb034bcd0", Sha(baseA));
+            Assert.Equal(0xc055c82eb106d136UL, gen);
 
             TileWorld other = GeneratorV1.BuildTiles(MapShape.World(W), 2);
             Assert.NotEqual(StateHash.Generation(GeneratorV1.ToModel(other)), gen);

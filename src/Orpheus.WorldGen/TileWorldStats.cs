@@ -93,6 +93,8 @@ namespace Orpheus.WorldGen
                     }
 
                     bool boulder = obj == ObjectId.Rock || obj == ObjectId.Granite;
+                    // C-016 (v8): горы считаются по открытой земле — скала массива и тайлы у неё (без объектов) не в счёт.
+                    bool rockyOpen = obj != ObjectId.Cliff && (t.Marks[i] & TileWorld.MarkGorge) == 0;
                     switch (t.Biome[i])
                     {
                         case Biome.Meadow:
@@ -104,7 +106,7 @@ namespace Orpheus.WorldGen
                             s.ForestLand++;
                             s.ForestTrees += obj == ObjectId.Tree ? 1 : 0;
                             break;
-                        case Biome.Mountain:
+                        case Biome.Mountain when rockyOpen:
                             s.MountainLand++;
                             s.MountainBoulders += boulder ? 1 : 0;
                             break;
@@ -157,7 +159,17 @@ namespace Orpheus.WorldGen
         /// </summary>
         public long NearParallel;
 
+        /// <summary>Тайлов глубже 3 шагов от края (C-016: массив, а не полоса).</summary>
+        public long Deep;
+
+        /// <summary>Тайлов глубже 10 шагов от края (массив шире ~20 тайлов).</summary>
+        public long VeryDeep;
+
         public double ThinPercent => Tiles == 0 ? 0 : 100.0 * Thin / Tiles;
+
+        public double DeepPercent => Tiles == 0 ? 0 : 100.0 * Deep / Tiles;
+
+        public double VeryDeepPercent => Tiles == 0 ? 0 : 100.0 * VeryDeep / Tiles;
 
         public double StraightOver8Percent => EdgeTiles == 0 ? 0 : 100.0 * StraightOver8 / EdgeTiles;
 
@@ -227,6 +239,8 @@ namespace Orpheus.WorldGen
                     {
                         layer[i] = d;
                         s.MaxDepth = d;
+                        s.Deep += d > 3 ? 1 : 0;
+                        s.VeryDeep += d > 10 ? 1 : 0;
                         any = true;
                     }
                 }

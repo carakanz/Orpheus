@@ -192,10 +192,72 @@ namespace Orpheus.WorldGen
                     }
 
                     int radius = rMin + (rSpan % (rMax - rMin + 1));
+                    if (kind != DepositKind.Rocks)
+                    {
+                        ClearRock(t, edge, px, py, radius + RockClearMargin); // C-016: жила в массиве — в своей выемке
+                    }
+
                     int placed = Place(t, edge, tileSeed, px, py, radius, kind, forced: false);
                     if (placed > 0)
                     {
                         t.Deposits.Add(new DepositPatch(px, py, radius, kind, placed, stamped: false));
+                    }
+                }
+            }
+        }
+
+        /// <summary>C-016 (v8): медь и гранит в скальном массиве лежат в выемке — скала убирается на столько тайлов шире пятна.</summary>
+        public const int RockClearMargin = 2;
+
+        /// <summary>Убрать скалу массива (обрыв) в круге радиуса <paramref name="radius"/> с неровным краем пятна.</summary>
+        public static void ClearRock(TileWorld t, FieldNoise edge, int cx, int cy, int radius)
+        {
+            int w = t.WorldSize;
+            int mask = w - 1;
+            int reach = radius + EdgeJagTiles;
+            for (int oy = -reach; oy <= reach; oy++)
+            {
+                for (int ox = -reach; ox <= reach; ox++)
+                {
+                    int x = (cx + ox) & mask;
+                    int y = (cy + oy) & mask;
+                    int j = (y * w) + x;
+                    if (t.Objects[j] != ObjectId.Cliff)
+                    {
+                        continue;
+                    }
+
+                    int jag = (int)(((long)(edge.Sample(x, y) - (LatticeNoise.One >> 1)) * EdgeJagTiles * 2 * 256) >> 16);
+                    int d256 = (int)IntMath.Isqrt((long)((ox * ox) + (oy * oy)) << 16);
+                    if (d256 < (radius * 256) + jag)
+                    {
+                        t.Objects[j] = ObjectId.Empty;
+                    }
+                }
+            }
+
+            // Пометка «у скалы» в выемке и вокруг — заново по оставшейся скале.
+            for (int oy = -reach - 1; oy <= reach + 1; oy++)
+            {
+                for (int ox = -reach - 1; ox <= reach + 1; ox++)
+                {
+                    int x = (cx + ox) & mask;
+                    int y = (cy + oy) & mask;
+                    int j = (y * w) + x;
+                    if ((t.Marks[j] & TileWorld.MarkGorge) == 0)
+                    {
+                        continue;
+                    }
+
+                    bool near = false;
+                    for (int k = 0; k < 9 && !near; k++)
+                    {
+                        near = k != 4 && t.Objects[(((y + (k / 3) - 1) & mask) * w) + ((x + (k % 3) - 1) & mask)] == ObjectId.Cliff;
+                    }
+
+                    if (!near)
+                    {
+                        t.Marks[j] &= unchecked((byte)~TileWorld.MarkGorge);
                     }
                 }
             }
