@@ -12,8 +12,12 @@ namespace Orpheus.Client
     /// <item><b>Строка тайлов чанка — один меш</b> (до 32 квадратов из общего листа <see cref="ObjectAtlas"/>): строки
     /// сортируются между собой и с существами по нижней кромке (порядок отрисовки строки —
     /// <see cref="WorldView.SortOrderAt"/>), внутри строки квадраты идут от дальнего к ближнему.</item>
-    /// <item><b>Тени чанка — один меш:</b> тот же квадрат картинки, положенный на землю вправо-вниз от опоры
-    /// (сплющен и сдвинут по высоте), рисуется в текстуру теней (<see cref="WorldFx"/>).</item>
+    /// <item><b>Тени чанка — один меш:</b> тот же квадрат картинки, положенный на землю у опоры; точка на высоте h
+    /// сдвигается в шейдере на h × вектор солнца (C-017, <see cref="SunTable"/>) — тень поворачивается и вытягивается
+    /// по времени суток без пересборки; у построек и гор — объём (низ, верх и боковые грани, сдвинутые по солнцу).
+    /// Рисуется в текстуру теней (<see cref="WorldFx"/>).</item>
+    /// <item><b>Тени от огня — свой меш чанка</b> (C-017, <see cref="BuildFireShadows"/>): силуэт предмета прочь от каждого
+    /// из 3 сильнейших видимых источников (<see cref="LightSight"/>), темнота ∝ вкладу источника.</item>
     /// </list>
     /// Координаты — в узле чанка: тайл (lx, ly) занимает x ∈ [lx; lx + 1], y ∈ [−ly − 1; −ly].
     /// </summary>
@@ -21,8 +25,8 @@ namespace Orpheus.Client
     {
         const int Size = Torus.ChunkSize;
 
-        /// <summary>Тень точки на высоте h лежит на земле в (h × ShearX; −h × ShearY) от опоры: вправо-вниз.</summary>
-        public const float ShearX = 0.55f, ShearY = 0.3f;
+        /// <summary>Каналы теней (uv2.y меша теней, Shaders/Shadow.shader): солнце, огонь, пятно у ног.</summary>
+        public const float SunChannel = 0f, FireChannel = 1f, FootChannel = 2f;
 
         struct Item
         {
@@ -62,6 +66,7 @@ namespace Orpheus.Client
         readonly List<Vector2> _uv = new List<Vector2>(Size * Size * 4);
         readonly List<Vector4> _info = new List<Vector4>(Size * 4);
         readonly List<Color32> _color = new List<Color32>(Size * Size * 4);
+        readonly List<Vector2> _sun = new List<Vector2>(Size * 4); // C-017: uv2 меша теней — солнечная высота точки, канал
         readonly List<ushort> _index = new List<ushort>(Size * Size * 6);
 
         /// <summary>Мешей строк и теней собрано за всё время.</summary>
@@ -144,6 +149,44 @@ namespace Orpheus.Client
             _info.Clear();
             _color.Clear();
             _index.Clear();
+            _sun.Clear();
+        }
+
+        // C-017: солнечная высота для вершин последнего квадрата (левый нижний, правый нижний, левый верхний, правый верхний).
+        void Sun4(float h0, float h1, float channel)
+        {
+            while (_sun.Count < _pos.Count - 4)
+            {
+                _sun.Add(new Vector2(0f, channel));
+            }
+
+            _sun.Add(new Vector2(h0, channel));
+            _sun.Add(new Vector2(h0, channel));
+            _sun.Add(new Vector2(h1, channel));
+            _sun.Add(new Vector2(h1, channel));
+        }
+
+        // C-017: объём постройки или горы на солнце — выпуклый след (4 угла по кругу) на земле, его копия на высоте h и
+        // боковые грани по рёбрам (edges: бит i — ребро corners[i]…corners[i + 1]); шейдер сдвигает верх по солнцу —
+        // при любом направлении солнца выходит «оболочка» основания и верха (параллелограмм).
+        void Prism(Vector2 c0, Vector2 c1, Vector2 c2, Vector2 c3, float h, byte alpha, int edges, Vector2 white)
+        {
+            var c = new Color32(0, 0, 0, alpha);
+            // Верх: c0 c1 — нижние, c3 c2 — верхние (порядок Quad: ЛН, ПН, ЛВ, ПВ).
+            Quad(c0, c1, c3, c2, white.x, white.y, white.x, white.y, c);
+            Sun4(h, h, SunChannel);
+            for (int i = 0; i < 4; i++)
+            {
+                if ((edges & (1 << i)) == 0)
+                {
+                    continue;
+                }
+
+                Vector2 p = i == 0 ? c0 : i == 1 ? c1 : i == 2 ? c2 : c3;
+                Vector2 q = i == 0 ? c1 : i == 1 ? c2 : i == 2 ? c3 : c0;
+                Quad(p, q, p, q, white.x, white.y, white.x, white.y, c);
+                Sun4(0f, h, SunChannel);
+            }
         }
 
         void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, in ObjectAtlas.Entry e, bool flip, Color32 color)
@@ -352,11 +395,10 @@ namespace Orpheus.Client
                     float s = it.Place.Scale;
                     float x0 = -e.PivotX * s, x1 = x0 + e.Width * s;
                     float h0 = -e.PivotY * s, h1 = h0 + e.Height * s;
-                    // Точка картинки (x, h) ложится на землю в (x + h × ShearX; −h × ShearY) от опоры.
-                    float sx = ShearX * k, sy = ShearY * k;
-                    Quad(new Vector3(it.X + x0 + h0 * sx, it.Y - h0 * sy), new Vector3(it.X + x1 + h0 * sx, it.Y - h0 * sy),
-                        new Vector3(it.X + x0 + h1 * sx, it.Y - h1 * sy), new Vector3(it.X + x1 + h1 * sx, it.Y - h1 * sy),
+                    // C-017: точка картинки (x, h) лежит у опоры в (x; 0), шейдер сдвигает её на h × k × солнце.
+                    Quad(new Vector3(it.X + x0, it.Y), new Vector3(it.X + x1, it.Y), new Vector3(it.X + x0, it.Y), new Vector3(it.X + x1, it.Y),
                         e, it.Place.Flip, new Color32(0, 0, 0, 255));
+                    Sun4(h0 * k, h1 * k, SunChannel);
                     // E1-11: тень качается вместе с кроной — uv1: опора, высота точки над опорой, ветер.
                     float sway = SwayOf(it.Look, Torus.CornerOf(c).X + it.Lx, Torus.CornerOf(c).Y + ly);
                     while (_info.Count < _pos.Count - 4)
@@ -377,16 +419,7 @@ namespace Orpheus.Client
                 return 0;
             }
 
-            while (_info.Count < _pos.Count)
-            {
-                _info.Add(Vector4.zero);
-            }
-
-            mesh.SetVertices(_pos);
-            mesh.SetUVs(0, _uv);
-            mesh.SetUVs(1, _info);
-            mesh.SetColors(_color);
-            mesh.SetTriangles(_index, 0, calculateBounds: true);
+            FinishShadowMesh(mesh);
             return shadows;
         }
     }

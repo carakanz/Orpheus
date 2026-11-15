@@ -33,10 +33,28 @@ namespace Orpheus.Client
         static readonly int ShadowTexId = Shader.PropertyToID("_OrphShadowTex");
         static readonly int ShadowRectId = Shader.PropertyToID("_OrphShadowRect");
 
+        static readonly int LightGridId = Shader.PropertyToID("_OrphLightGrid");
+        static readonly int LightRectId = Shader.PropertyToID("_OrphLightRect");
+        static readonly int LightSizeId = Shader.PropertyToID("_OrphLightSize");
+
+        /// <summary>C-017: мир, начало координат и вид — для теней от огня (меши чанков, существа).</summary>
+        public static Orpheus.Core.World.WorldModel? World { get; private set; }
+        public static FloatingOrigin? Origin { get; private set; }
+        static WorldView? _view;
+
+        /// <summary>Новый мир (<see cref="WorldView"/>): тени от огня берут свет с учётом стен из него.</summary>
+        public static void Bind(Orpheus.Core.World.WorldModel world, FloatingOrigin origin, WorldView view)
+        {
+            World = world;
+            Origin = origin;
+            _view = view;
+        }
+
+        static Texture2D? _noGrid;
+
         static Camera? _main;
         static Camera? _shadowCam;
         static RenderTexture? _shadowRt;
-        static Mesh? _blobMesh;
         static bool _ready;
         // ---------- Запуск ----------
 
@@ -47,6 +65,18 @@ namespace Orpheus.Client
             _ready = false;
             Shader.SetGlobalVector(HeroId, Vector4.zero);
             Shader.SetGlobalVector(HeroFadeId, new Vector4(HeroFadeAlpha, 0f, 0f, 0f));
+            // C-017: без слоя тона (notint) сетки света нет — «снаружи, без огня»; солнце — как днём, пока часы не придут.
+            if (_noGrid == null)
+            {
+                _noGrid = new Texture2D(1, 1, TextureFormat.RGBA32, false, true) { name = "NoLightGrid" };
+                _noGrid.SetPixel(0, 0, new Color(1f, 0f, 0f, 1f));
+                _noGrid.Apply();
+            }
+
+            Shader.SetGlobalTexture(LightGridId, _noGrid);
+            Shader.SetGlobalVector(LightRectId, new Vector4(0f, 0f, 0f, 0f));
+            Shader.SetGlobalVector(LightSizeId, new Vector4(1f, 1f, 1f, 1f));
+            SunTable.Apply(Orpheus.Core.World.DayClock.DuskStartTick / 2);
 
             ObjectAtlas.Ensure();
             ObjectSet? set = ObjectAtlas.Set;
@@ -104,44 +134,11 @@ namespace Orpheus.Client
             mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
         }
 
-        /// <summary>Пятно-тень под существом: маленький эллипс у ног (потомок корня существа, слой теней).</summary>
-        public static void AddActorShadow(Transform actor, float width)
-        {
-            Material? material = ObjectAtlas.ShadowMaterial;
-            int blob = ObjectAtlas.Find(ObjectAtlas.BlobName);
-            if (material == null || blob < 0)
-            {
-                return;
-            }
-
-            if (_blobMesh == null)
-            {
-                Rect uv = ObjectAtlas.Entries[blob].Uv;
-                _blobMesh = new Mesh { name = "ActorShadow" };
-                _blobMesh.SetVertices(new[]
-                {
-                    new Vector3(-0.5f, -0.5f), new Vector3(0.5f, -0.5f), new Vector3(-0.5f, 0.5f), new Vector3(0.5f, 0.5f),
-                });
-                _blobMesh.SetUVs(0, new[]
-                {
-                    new Vector2(uv.xMin, uv.yMin), new Vector2(uv.xMax, uv.yMin), new Vector2(uv.xMin, uv.yMax), new Vector2(uv.xMax, uv.yMax),
-                });
-                var c = new Color32(0, 0, 0, 235);
-                _blobMesh.SetColors(new[] { c, c, c, c });
-                _blobMesh.SetTriangles(new[] { 0, 2, 1, 1, 2, 3 }, 0);
-            }
-
-            var go = new GameObject("Shadow") { layer = ShadowLayer };
-            go.transform.SetParent(actor, false);
-            go.transform.localPosition = new Vector3(0.1f, -FootOffset - 0.02f, 0f);
-            go.transform.localScale = new Vector3(width, width * 0.42f, 1f);
-            go.AddComponent<MeshFilter>().sharedMesh = _blobMesh;
-            var mr = go.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = material;
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
-            mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-        }
+        /// <summary>
+        /// Тень существа (C-017): пятно у ног, силуэт по солнцу и тени от огня — <see cref="ActorShadow"/> (потомок корня
+        /// существа, слой теней). <paramref name="width"/> — ширина пятна у ног, тайлов.
+        /// </summary>
+        public static void AddActorShadow(Transform actor, float width) => ActorShadow.Attach(actor, width);
 
         // ---------- Кадр ----------
 
@@ -161,6 +158,7 @@ namespace Orpheus.Client
             }
 
             Sync(_main.aspect, _main.pixelHeight);
+            _view?.FlushFire(6);
         }
 
         /// <summary>
@@ -178,6 +176,8 @@ namespace Orpheus.Client
             LifeFx.BeforeManualRender(_main); // E1-11: правки травы этого кадра и параметры ветра
             DayTintView.Current?.Refresh(w / (float)h); // слой тона — под размер этого кадра
             UI.UiRoot.Current?.Fit(w / (float)h, h);    // E2-2: интерфейс — под размер этого кадра (текст — под его пиксели)
+            _view?.FlushFire(int.MaxValue);             // C-017: тени от огня всех чанков — до снимка
+            ActorShadow.UpdateAll();
             if (_shadowCam != null)
             {
                 _shadowCam.Render();
@@ -215,9 +215,8 @@ namespace Orpheus.Client
                     UnityEngine.Object.Destroy(_shadowRt);
                 }
 
-                RenderTextureFormat format = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.R8)
-                    ? RenderTextureFormat.R8
-                    : RenderTextureFormat.ARGB32;
+                // C-017: три канала — солнце, огонь, пятно у ног (Shaders/Shadow.shader).
+                RenderTextureFormat format = RenderTextureFormat.ARGB32;
                 _shadowRt = new RenderTexture(w, h, 16, format, RenderTextureReadWrite.Linear)
                 {
                     name = "Shadows",

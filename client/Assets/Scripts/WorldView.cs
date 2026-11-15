@@ -103,6 +103,11 @@ namespace Orpheus.Client
             public Mesh Shadows = null!;
             public MeshRenderer ShadowRenderer = null!;
 
+            /// <summary>C-017: меш теней от огня и штамп окна 3 × 3, по которому он собран (0 — не собран).</summary>
+            public Mesh FireShadows = null!;
+            public MeshRenderer FireRenderer = null!;
+            public long FireStamp;
+
             /// <summary>Пучки травы чанка (E1-11, план 1.12): полосы мешей над землёй.</summary>
             public GrassLayer.Node Grass = null!;
 
@@ -146,7 +151,8 @@ namespace Orpheus.Client
             _ground = new GroundMesh(world);
             _objects = new ObjectMesh(world);
             _grass = new GrassLayer(world);
-            LifeFx.Bind(world, origin, this); // E1-11: ветер, толчки, след в траве — от этого мира и начала координат
+            LifeFx.Bind(world, origin, this);
+            WorldFx.Bind(world, origin, this); // C-017: тени от огня и у существ — от этого мира // E1-11: ветер, толчки, след в траве — от этого мира и начала координат
             _groundMaterial = GroundAtlas.Material;
             ObjectAtlas.Ensure();
         }
@@ -407,6 +413,13 @@ namespace Orpheus.Client
             node.ShadowRenderer = shadows.AddComponent<MeshRenderer>();
             Plain(node.ShadowRenderer, ObjectAtlas.ShadowMaterial);
             node.ShadowRenderer.enabled = false;
+            node.FireShadows = ObjectMesh.Create("FireShadows");
+            var fire = new GameObject("FireShadows") { layer = WorldFx.ShadowLayer };
+            fire.transform.SetParent(root.transform, false);
+            fire.AddComponent<MeshFilter>().sharedMesh = node.FireShadows;
+            node.FireRenderer = fire.AddComponent<MeshRenderer>();
+            Plain(node.FireRenderer, ObjectAtlas.ShadowMaterial);
+            node.FireRenderer.enabled = false;
             node.Grass = _grass.CreateNode(root.transform);
             NodesCreated++;
             return node;
@@ -613,6 +626,42 @@ namespace Orpheus.Client
             }
         }
 
+        /// <summary>
+        /// C-017: тени от огня — меш чанка пересобирается, когда сменилось окно 3 × 3 вокруг него (поставили или убрали
+        /// факел, предмет, стену; пришёл чанк). Не больше <paramref name="budget"/> чанков за вызов.
+        /// </summary>
+        public void FlushFire(int budget)
+        {
+            if (ObjectAtlas.ShadowMaterial == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _count && budget > 0; i++)
+            {
+                ChunkNode node = _nodes[_current[i]];
+                if (!node.HasFloors)
+                {
+                    continue;
+                }
+
+                long stamp = CellWindow.StampOf(_world, node.Coord);
+                if (stamp == node.FireStamp)
+                {
+                    continue;
+                }
+
+                node.FireStamp = stamp;
+                budget--;
+                int n = _objects.BuildFireShadows(_world.FindChunk(node.Coord), node.Coord, node.FireShadows);
+                node.FireRenderer.enabled = n > 0;
+                FireBuilds++;
+            }
+        }
+
+        /// <summary>Мешей теней огня собрано (замер).</summary>
+        public int FireBuilds { get; private set; }
+
         /// <summary>Пучков травы в собранных полосах (замер) и полос собрано за всё время.</summary>
         public int GrassTufts { get; private set; }
         public int GrassBuilds => _grass.Builds;
@@ -622,6 +671,8 @@ namespace Orpheus.Client
             node.Root.SetActive(false);
             node.HasFloors = false;
             node.GroundDirty = false;
+            node.FireStamp = 0;
+            node.FireRenderer.enabled = false;
             _pool.Push(node);
         }
 
