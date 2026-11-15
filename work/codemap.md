@@ -17,6 +17,7 @@ Simulation.Piles.cs (E2-1): константы :18-42 · Piles :58 · AddPile :6
 
 ## Spawner.cs - partial Simulation (спавн)
 Волны, точки появления, очередь спавна: методы по grep (класс Simulation :34).
+C-006: константы ночи и рассвета :45-112 (SpawnNightLimit, SpawnAttemptNightTicks, DaylightDespawnStaggerTicks, DaylightFightTicks, IsDaylight, TicksSinceDawn) · StepDespawn :218 (уход на рассвете — блок `if (daylight)`) · StepSpawnAttempt :296 (только Night). Тесты — `tests/Orpheus.Tests/C006NightOnlySpawnTests.cs`.
 
 ## NetServer*.cs - src/Orpheus.Net/Session (P-002: partial по подсистемам, ядро + 6 файлов + Edits/Pause/Threats)
 Ядро NetServer.cs (530): поля/константы :45-140, ctor :142, метрики-свойства :~185-380, ClockEpoch :265, WorldTimeTicks :271, Poll :382, OnConnected :403 / OnDisconnected :411 / OnReceive :435 (ITransportHandler). Остальное — grep по имени метода.
