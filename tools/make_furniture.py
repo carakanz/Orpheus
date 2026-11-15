@@ -272,10 +272,201 @@ def torch_obj() -> Image.Image:
     return p.done()
 
 
+# ---------- E2-16: многоклеточная мебель и повороты ----------
+# Кровать 1 x 2 тайла, верстак 2 x 2 (docs/05 1.3), поворот 0/90/180/270 (R). Картинка — на весь предмет: ширина = тайлы
+# по X x 128 px, высота = тайлы по Y x 128 + запас под высоту; опора — низ по центру (передняя кромка на земле), как у 1 x 1.
+# Вид «боком» (90°) — отдельная картинка (_e); 270° — она же зеркально (в игре flip); 180° — своя картинка (_s / _n).
+
+def tall_pen(tiles_w, tiles_h, extra):
+    """Pen под предмет tiles_w x tiles_h тайлов: высота картинки = глубина + запас extra; GROUND — передний край."""
+    global GROUND
+    w, h = 128 * tiles_w, 128 * tiles_h + extra
+    GROUND = h - 3
+    return Pen(w, h)
+
+
+def end_pen():
+    global GROUND
+    GROUND = 157
+
+
+def bed_parts():
+    return dict(frame=(176, 92, 48), frame_d=(120, 58, 30), sheet=(244, 238, 224), blanket=(54, 112, 214),
+                blanket_l=(120, 170, 240), pillow=(255, 252, 242), edge=(66, 30, 14, 255))
+
+
+def bed_vertical(head_north: bool) -> Image.Image:
+    """Кровать вдоль Y (1 x 2 тайла): 0° — изголовье на севере (дальний край), 180° — на юге (у зрителя)."""
+    c = bed_parts()
+    p = tall_pen(1, 2, 48)
+    x0, x1 = 22, 106
+    height = 22
+    yf = GROUND - height
+    yb = yf - 228
+    head = 26
+    frame, frame_d, edge = c["frame"], c["frame_d"], c["edge"]
+    if head_north:
+        p.rect(x0 - 2, yb - head, x1 + 2, yb + 6, mul(frame, 1.12), mul(frame, 0.9), edge=edge)
+        p.rect(x0 + 6, yb - head + 5, x1 - 6, yb - 2, mul(frame, 0.92), mul(frame, 0.8))
+        for cx in (x0 + 1, x1 - 1):
+            p.ell(cx - 5, yb - head - 5, cx + 5, yb - head + 3, mul(frame, 1.25), edge, 0.8)
+    p.rect(x0, yb, x1, yf, frame, mul(frame, 0.9))
+    p.rect(x0, yf, x1, GROUND, mul(frame_d, 1.15), mul(frame_d, 0.82), edge=edge)
+    p.rect(x0 + 5, yb + 4, x1 - 5, yf - 3, c["sheet"], mul(c["sheet"], 0.9))
+    if head_north:
+        p.rect(x0 + 12, yb + 10, x1 - 12, yb + 40, c["pillow"], (226, 220, 206), edge=(170, 160, 146, 255))
+        p.rect(x0 + 3, yb + 56, x1 - 3, yf + 4, c["blanket"], mul(c["blanket"], 0.78), edge=mul(c["blanket"], 0.5))
+        p.rect(x0 + 3, yb + 56, x1 - 3, yb + 68, c["blanket_l"], mul(c["blanket_l"], 0.92))
+        for fx in (46, 82):
+            p.line([(fx, yb + 76), (fx - 2, yf - 4)], mul(c["blanket"], 0.82), 1.0)
+        p.rect(x0 + 3, yf + 4, x1 - 3, yf + 10, mul(c["blanket"], 0.7), mul(c["blanket"], 0.55))
+    else:
+        # Изголовье у зрителя: одеяло от дальнего края, подушка у ближнего, спинка закрывает низ матраса.
+        p.rect(x0 + 3, yb + 2, x1 - 3, yf - 60, c["blanket"], mul(c["blanket"], 0.78), edge=mul(c["blanket"], 0.5))
+        p.rect(x0 + 3, yf - 72, x1 - 3, yf - 60, c["blanket_l"], mul(c["blanket_l"], 0.92))
+        for fx in (46, 82):
+            p.line([(fx, yb + 10), (fx + 2, yf - 76)], mul(c["blanket"], 0.82), 1.0)
+        p.rect(x0 + 12, yf - 52, x1 - 12, yf - 22, c["pillow"], (226, 220, 206), edge=(170, 160, 146, 255))
+        p.rect(x0 - 2, yf - head + 4, x1 + 2, GROUND, mul(frame, 1.12), mul(frame, 0.86), edge=edge)
+        p.rect(x0 + 6, yf - head + 9, x1 - 6, GROUND - 6, mul(frame, 0.92), mul(frame, 0.8))
+        for cx in (x0 + 1, x1 - 1):
+            p.ell(cx - 5, yf - head - 1, cx + 5, yf - head + 7, mul(frame, 1.25), edge, 0.8)
+    for lx in (x0, x1 - 7):
+        p.rect(lx, GROUND - 6, lx + 7, GROUND, mul(frame_d, 0.9), mul(frame_d, 0.7))
+    p.line([(x0, GROUND), (x1, GROUND)], (40, 20, 10, 255), 1.0)
+    img = p.done()
+    end_pen()
+    return img
+
+
+def bed_side() -> Image.Image:
+    """Кровать вдоль X (2 x 1 тайла), изголовье на востоке (90°); 270° — зеркально."""
+    c = bed_parts()
+    p = tall_pen(2, 1, 40)
+    x0, x1 = 14, 230
+    height = 22
+    yf = GROUND - height
+    yb = yf - 92
+    frame, frame_d, edge = c["frame"], c["frame_d"], c["edge"]
+    p.rect(x0, yb, x1, yf, frame, mul(frame, 0.9))
+    p.rect(x0, yf, x1, GROUND, mul(frame_d, 1.15), mul(frame_d, 0.82), edge=edge)
+    p.rect(x0 + 4, yb + 5, x1 - 4, yf - 3, c["sheet"], mul(c["sheet"], 0.9))
+    p.rect(x1 - 52, yb + 14, x1 - 16, yf - 12, c["pillow"], (226, 220, 206), edge=(170, 160, 146, 255))
+    p.rect(x0 + 2, yb + 3, x1 - 66, yf + 6, c["blanket"], mul(c["blanket"], 0.78), edge=mul(c["blanket"], 0.5))
+    p.rect(x1 - 78, yb + 3, x1 - 66, yf + 6, c["blanket_l"], mul(c["blanket_l"], 0.92))
+    for fy in (yb + 30, yb + 60):
+        p.line([(x0 + 10, fy), (x1 - 84, fy + 2)], mul(c["blanket"], 0.82), 1.0)
+    # Изголовье — спинка на восточном торце, выше матраса.
+    head = 34
+    p.rect(x1 - 8, yb - head, x1 + 6, GROUND, mul(frame, 1.12), mul(frame, 0.84), edge=edge)
+    p.ell(x1 - 6, yb - head - 6, x1 + 4, yb - head + 4, mul(frame, 1.25), edge, 0.8)
+    p.rect(x0 - 4, yb - 8, x0 + 6, GROUND, mul(frame, 1.0), mul(frame, 0.8), edge=edge)   # низкая спинка в ногах
+    for lx in (x0 + 8, x1 - 20):
+        p.rect(lx, GROUND - 6, lx + 7, GROUND, mul(frame_d, 0.9), mul(frame_d, 0.7))
+    p.line([(x0, GROUND), (x1, GROUND)], (40, 20, 10, 255), 1.0)
+    img = p.done()
+    end_pen()
+    return img
+
+
+def bench_big(face: str) -> Image.Image:
+    """Верстак 2 x 2 тайла. face: 's' — рабочий край к зрителю (0°), 'n' — от зрителя (180°), 'e' — к востоку (90°)."""
+    p = tall_pen(2, 2, 64)
+    top_c, face_c, leg_c = (238, 178, 104), (176, 108, 54), (150, 88, 44)
+    edge = (70, 36, 18, 255)
+    x0, x1 = 10, 246
+    height, slab = 46, 10
+    yf = GROUND - height
+    yb = yf - 210
+    p.rect(x0 + 10, yf + slab, x1 - 10, GROUND - 6, (70, 42, 26), (44, 26, 16))
+    for lx in (22, 222):
+        p.rect(lx + 2, yf + slab, lx + 10, GROUND - 14, mul(leg_c, 0.6), mul(leg_c, 0.45))
+    p.rect(x0 + 12, GROUND - 18, x1 - 12, GROUND - 11, (214, 150, 84), (160, 100, 50), edge=edge)
+    for lx in (13, 229):
+        p.rect(lx, yf + slab, lx + 14, GROUND, mul(leg_c, 1.1), mul(leg_c, 0.8), edge=edge)
+    p.rect(x0, yb, x1, yf, mul(top_c, 1.04), mul(top_c, 0.9))
+    if face == 'e':
+        for k in range(1, 6):
+            x = x0 + (x1 - x0) * k / 6
+            p.line([(x, yb + 1), (x, yf - 1)], mul(top_c, 0.74), 1.0)
+    else:
+        for k in range(1, 6):
+            y = yb + (yf - yb) * k / 6
+            p.line([(x0 + 1, y), (x1 - 1, y)], mul(top_c, 0.74), 1.0)
+    p.rect(x0, yf, x1, yf + slab, mul(face_c, 1.08), mul(face_c, 0.85))
+    p.line([(x0, yf), (x1, yf)], mul(top_c, 1.2), 1.2)
+    p.d.rectangle([x0 * S, yb * S, x1 * S - 1, (yf + slab) * S - 1], outline=edge, width=S)
+    iron, iron_d, iron_e = (196, 202, 222), (120, 126, 150), (40, 42, 56, 255)
+    # Тиски — на рабочем крае: юг — правый передний угол, север — правый дальний, восток — правый край посередине.
+    if face == 's':
+        p.rect(212, yf - 16, 236, yf - 4, iron, iron_d, edge=iron_e)
+        p.rect(217, yf - 4, 231, yf + 9, (150, 156, 180), (96, 100, 122), edge=iron_e)
+        ty = yb + 40
+    elif face == 'n':
+        p.rect(212, yb - 10, 236, yb + 4, iron, iron_d, edge=iron_e)
+        ty = yb + 120
+    else:
+        p.rect(x1 - 18, yb + 92, x1 + 2, yb + 120, iron, iron_d, edge=iron_e)
+        ty = yb + 70
+    # Инструменты на столе: молот, слиток, пила (сдвинуты к рабочему краю).
+    p.line([(50, ty + 60), (96, ty + 10)], (122, 74, 40, 255), 5.0)
+    p.line([(50, ty + 60), (96, ty + 10)], (176, 118, 66, 255), 2.5)
+    p.poly([(88, ty), (108, ty + 8), (102, ty + 22), (82, ty + 14)], (150, 156, 178, 255), iron_e, 1.0)
+    p.poly([(130, ty + 40), (162, ty + 34), (168, ty + 48), (136, ty + 54)], (240, 128, 60, 255), (110, 46, 18, 255), 1.0)
+    p.poly([(118, ty - 6), (170, ty - 12), (172, ty - 4), (120, ty + 2)], (206, 212, 230, 255), (60, 62, 80, 255), 1.0)
+    p.rect(170, ty - 16, 186, ty + 2, (200, 120, 60), (150, 84, 40), edge=edge)
+    p.line([(x0, GROUND), (x1, GROUND)], (40, 22, 12, 255), 1.0)
+    img = p.done()
+    end_pen()
+    return img
+
+
+def chest_turned(face: str) -> Image.Image:
+    """Сундук 1 x 1 повёрнутый: 'n' — замок от зрителя (180°, видна задняя стенка с петлями), 'e' — замок к востоку (90°)."""
+    p = Pen()
+    wood_t, wood_f = (236, 156, 74), (150, 80, 34)
+    iron, iron_l = (70, 74, 98), (156, 164, 192)
+    edge = (70, 36, 18, 255)
+    x0, x1 = 18, 110
+    depth, height = 60, 36
+    if face == 'e':
+        x0, x1 = 30, 98
+        depth = 84
+    yf, yb = box(p, x0, x1, depth, height, wood_t, wood_f, edge)
+    if face == 'e':
+        for k in range(1, 4):
+            x = x0 + (x1 - x0) * k / 4
+            p.line([(x, yb + 1), (x, yf - 1)], mul(wood_t, 0.72), 1.0)
+        for by in (yb + 12, yf - 12):
+            p.rect(x0, by - 4, x1, by + 4, iron_l, iron)
+        p.rect(x1 - 6, yb + depth * 0.4, x1 + 2, yb + depth * 0.62, (255, 226, 110), (214, 150, 30), edge=(110, 66, 10, 255))
+        for bx in (x0 + 10, x1 - 10):
+            p.rect(bx - 4, yf, bx + 4, GROUND, mul(iron, 1.15), mul(iron, 0.8))
+    else:
+        for k in range(1, 4):
+            y = yb + depth * k / 4
+            p.line([(x0 + 1, y), (x1 - 1, y)], mul(wood_t, 0.72), 1.0)
+        p.line([(x0 + 1, yf + height * 0.5), (x1 - 1, yf + height * 0.5)], mul(wood_f, 0.66), 1.0)
+        for bx in (30, 98):
+            p.rect(bx - 4, yb, bx + 4, yf, iron_l, iron)
+            p.rect(bx - 4, yf, bx + 4, GROUND, mul(iron, 1.15), mul(iron, 0.8))
+        for hx in (46, 82):                                                          # петли крышки у зрителя
+            p.rect(hx - 6, yf - 3, hx + 6, yf + 6, (110, 114, 136), (70, 74, 98), edge=(40, 42, 56, 255))
+        p.rect(58, yb - 3, 70, yb + 5, (255, 226, 110), (214, 150, 30), edge=(110, 66, 10, 255))   # замок на дальнем крае
+    p.line([(x0, GROUND), (x1, GROUND)], (40, 22, 12, 255), 1.5)
+    return p.done()
+
+
 FURNITURE = {
-    "workbench": (workbench, "объект «верстак» 128x160, 3/4 с высотой (верх 1:1, высота x0,5), опора — низ по центру (E2-17); скрипт tools/make_furniture.py"),
+    "workbench": (lambda: bench_big('s'), "объект «верстак» 2 x 2 тайла 256x320 (E2-16), 3/4 с высотой (верх 1:1, высота x0,5), рабочий край к зрителю (0°), опора — низ по центру; скрипт tools/make_furniture.py"),
     "chest": (chest, "объект «сундук» 128x160, 3/4 с высотой (верх 1:1, высота x0,5), опора — низ по центру (E2-17); скрипт tools/make_furniture.py"),
-    "bed": (bed, "объект «кровать» 128x160 (в ядре 1 x 1), 3/4 с высотой, изголовье к северу, опора — низ по центру (E2-17); скрипт tools/make_furniture.py"),
+    "bed": (lambda: bed_vertical(True), "объект «кровать» 1 x 2 тайла 128x304 (E2-16), 3/4 с высотой, изголовье к северу (поворот 0°), опора — низ по центру; скрипт tools/make_furniture.py"),
+    "bed_s": (lambda: bed_vertical(False), "объект «кровать» 1 x 2, поворот 180° — изголовье к зрителю, 128x304 (E2-16); скрипт tools/make_furniture.py"),
+    "bed_e": (bed_side, "объект «кровать» 2 x 1, поворот 90° — изголовье на восток (270° — зеркально), 256x168 (E2-16); скрипт tools/make_furniture.py"),
+    "workbench_n": (lambda: bench_big('n'), "объект «верстак» 2 x 2, поворот 180° — рабочий край от зрителя, 256x320 (E2-16); скрипт tools/make_furniture.py"),
+    "workbench_e": (lambda: bench_big('e'), "объект «верстак» 2 x 2, поворот 90° — рабочий край к востоку (270° — зеркально), 256x320 (E2-16); скрипт tools/make_furniture.py"),
+    "chest_n": (lambda: chest_turned('n'), "объект «сундук», поворот 180° — замок от зрителя, 128x160 (E2-16); скрипт tools/make_furniture.py"),
+    "chest_e": (lambda: chest_turned('e'), "объект «сундук», поворот 90° — замок к востоку (270° — зеркально), 128x160 (E2-16); скрипт tools/make_furniture.py"),
     "campfire": (campfire, "объект «костёр» 128x160, кольцо камней с гранями, поленья, пламя слоями, опора — низ по центру (E2-17); скрипт tools/make_furniture.py"),
     "torch": (torch_obj, "объект «факел на земле» 128x160, каменное основание, древко, чаша, пламя, опора — низ по центру (E2-17); скрипт tools/make_furniture.py"),
 }

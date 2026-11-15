@@ -102,10 +102,15 @@ namespace Orpheus.Client
             Color col = repair ? (check.Ok ? Fix : Bad) : check.Ok ? Ok : Bad;
             // E2-15: мебель — тайл со сдвигом на полтайла (якорь и сдвиг — из BuildCheck, план ядра); при починке — её центр.
             bool furniture = BuildLayers.IsFurniture(check.Key);
+            float fw = 1f, fh = 1f; // E2-16: размер мебели в тайлах по повороту (кровать 1 × 2, верстак 2 × 2)
             if (furniture && !repair)
             {
+                BuildLayers.SizeOf(check.Key, out int cw, out int ch);
+                fw = cw * 0.5f;
+                fh = ch * 0.5f;
                 WorldPos a = EditRules.CenterOf(Torus.Wrap(map, check.Anchor));
-                c = origin.ToUnity(new WorldPos(a.X + check.OffsetX * BuildCells.CellUnits, a.Y + check.OffsetY * BuildCells.CellUnits));
+                c = origin.ToUnity(new WorldPos(a.X + (2 * check.OffsetX + cw - 2) * BuildCells.CellUnits / 2,
+                    a.Y + (2 * check.OffsetY + ch - 2) * BuildCells.CellUnits / 2));
             }
             else if (repair && _world != null)
             {
@@ -114,16 +119,18 @@ namespace Orpheus.Client
 
             // E2-12: стена, забор, дверь, E2-15: пол — ячейки 0,5 × 0,5: призрак — прямоугольник ячеек (BuildCheck.Cells) без картинки тайла.
             bool cells = !repair && !furniture && check.Cells != 0 && check.Cells != BuildCells.Full;
-            float w = 1f, h = 1f;
+            float w = furniture && !repair ? fw : 1f, h = furniture && !repair ? fh : 1f;
             if (cells)
             {
                 CellBox(check.Cells, out float ox, out float oy, out w, out h);
                 c += new Vector3(ox, oy, 0f);
             }
 
-            string? name = repair || cells ? null : BuildLook.NameOf(check.Key);
-            Sprite? s = name != null ? BuildLook.Centered(name) : null;
+            bool flip = false;
+            string? name = repair || cells ? null : furniture ? BuildLook.TurnedName(check.Key, out flip) : BuildLook.NameOf(check.Key);
+            Sprite? s = name == null ? null : furniture ? BuildLook.Centered(name, fh) : BuildLook.Centered(name);
             _ghost[slot].sprite = s;
+            _ghost[slot].flipX = flip; // E2-16: 270° — вид 90° зеркально
             _ghost[slot].enabled = s != null;
             _ghost[slot].color = new Color(col.r, col.g, col.b, 0.72f);
             _ghost[slot].transform.position = c;

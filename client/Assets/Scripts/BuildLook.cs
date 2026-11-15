@@ -41,6 +41,47 @@ namespace Orpheus.Client
         /// <summary>Имя картинки постройки по ключу (<see cref="BuildDefs.Palette"/>); нет — null.</summary>
         public static string? NameOf(ushort key) => Names.TryGetValue(key, out string? n) ? n : null;
 
+        /// <summary>
+        /// Картинка постройки с поворотом (E2-16, призрак): кровать, верстак, сундук — вид по повороту из <see cref="ObjectTable"/>
+        /// (<c>Turns</c>), 270° — зеркало 90°; прочее — <see cref="NameOf"/> по id.
+        /// </summary>
+        public static string? TurnedName(ushort key, out bool flip)
+        {
+            flip = false;
+            ushort id = key > ObjectId.IdMask && !ObjectId.IsPart(key) ? ObjectId.IdOf(key) : key;
+            int rot = id != key ? ObjectId.RotationOf(key) : 0;
+            foreach (ObjectLook look in ObjectTable.Looks)
+            {
+                if (look.Id == id && rot < look.Turns.Length && look.Turns.Length > 0)
+                {
+                    flip = rot < look.TurnFlip.Length && look.TurnFlip[rot];
+                    return look.Turns[rot];
+                }
+            }
+
+            return NameOf(id);
+        }
+
+        /// <summary>
+        /// Картинка с опорой в середине «земли» предмета глубиной <paramref name="depthTiles"/> тайлов (E2-16: кровать 1 × 2,
+        /// верстак 2 × 2 — низ картинки — передняя кромка, середина — на половине глубины от низа).
+        /// </summary>
+        public static Sprite? Centered(string name, float depthTiles)
+        {
+            string key = name + "@" + depthTiles;
+            if (_centered.TryGetValue(key, out Sprite? s))
+            {
+                return s;
+            }
+
+            Sprite? src = PileView.Find(name);
+            s = src != null
+                ? Sprite.Create(src.texture, src.rect, new Vector2(0.5f, Mathf.Min(0.5f, depthTiles * src.pixelsPerUnit * 0.5f / src.rect.height)), src.pixelsPerUnit)
+                : null;
+            _centered[key] = s;
+            return s;
+        }
+
         /// <summary>Значок для интерфейса (без пурпурного уголка, как у значков предметов).</summary>
         public static Sprite? Icon(ushort key)
         {

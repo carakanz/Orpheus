@@ -29,6 +29,11 @@ namespace Orpheus.Client.UI
 
         /// <summary>E2-13: постройка в руке и режим линейки — показать подпись режима; идёт протягивание — план <see cref="Plan"/>.</summary>
         public bool RulerMode;
+
+        /// <summary>E2-16: постройка в руке поворачивается (R), она взята из меню, и сколько её можно поставить (готовые + изготовить).</summary>
+        public bool Rotatable;
+        public bool FromMenu;
+        public int MenuAvailable;
         public bool Dragging;
         public BuildRuler? Plan;
     }
@@ -96,6 +101,7 @@ namespace Orpheus.Client.UI
         ChestWindow _chest = null!;
         UiNote _note = null!;
         BuildHand _build = null!;
+        BuildHand _menuBuild = null!;
         Text _noticeText = null!;
         UiGroup _notice = null!;
         UiGroup _mode = null!;
@@ -113,7 +119,30 @@ namespace Orpheus.Client.UI
         /// <summary>Линейка (E2-13): режим, протягивание, план — общий класс с ботом и тестами.</summary>
         public BuildRuler Ruler => _ruler;
 
-        /// <summary>Переключить «линейка / поштучно» (R); режим запоминается на сессию.</summary>
+        /// <summary>«Рука строителя» для постановки из меню (E2-16): те же заявки с флагом меню (изготовить на месте).</summary>
+        public BuildHand MenuBuild => _menuBuild;
+
+        /// <summary>
+        /// Постройка, взятая «Поставить» из окна изготовления (E2-16), — предмет; 0 — нет. Ставит и снимает
+        /// <c>NetGame</c> (Esc / ПКМ — убрать из руки, смена ячейки панели — тоже).
+        /// </summary>
+        public byte MenuPlace { get; set; }
+
+        // E2-16: «Поставить» у рецепта постройки — окно закрывается, постройка в руке (призрак под курсором).
+        void PlaceFromMenu(int recipe)
+        {
+            byte item = CraftWindow.PlaceableResult(recipe);
+            if (item == Items.None)
+            {
+                return;
+            }
+
+            MenuPlace = item;
+            _ruler.Cancel();
+            _craft.Visible = false;
+        }
+
+        /// <summary>Переключить «линейка / поштучно» (Tab; до E2-16 — R); режим запоминается на сессию.</summary>
         public PlaceMode ToggleRuler()
         {
             _ruler.Cancel();
@@ -130,6 +159,7 @@ namespace Orpheus.Client.UI
         void CreateBuild(UiRoot root, IBuildRequests build, float barTop)
         {
             _build = new BuildHand(build);
+            _menuBuild = new BuildHand(MenuHand.Requests(build));
             _chest = new ChestWindow(root);
             _note = new UiNote(root);
             const float nw = 620f, nh = 40f;
@@ -139,10 +169,10 @@ namespace Orpheus.Client.UI
             _notice.Visible = false;
 
             // E2-13: подпись режима постановки — над левым краем быстрой панели (справа — подсказка станка).
-            const float mw = 250f, mh = 34f;
+            const float mw = 430f, mh = 34f; // E2-16: + «R — повернуть», «из меню: есть N»
             _mode = new UiGroup(root, "PlaceMode", new Vector2(0.5f, 0f), new Vector2(-BottomBar.PanelW / 2f, barTop + 6f), new Vector2(mw, mh));
             UiRoot.Picture(_mode.Rt, "Back", 0f, 0f, mw, mh, UiStyle.Frame(UiStyle.Ink, UiStyle.Ink, radius: 6f));
-            _modeText = UiRoot.Label(_mode.Rt, "Text", 0f, 0f, mw, mh, 20, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
+            _modeText = UiRoot.Label(_mode.Rt, "Text", 0f, 0f, mw, mh, 18, TextAnchor.MiddleCenter, UiStyle.TextLight, bold: true);
             _mode.Visible = false;
         }
 
@@ -243,7 +273,7 @@ namespace Orpheus.Client.UI
             _mode.Visible = showMode;
             if (showMode)
             {
-                _modeText.text = UiStrings.PlaceModeLabel(build.RulerMode);
+                _modeText.text = UiStrings.PlaceModeLabel(build.RulerMode, build.Rotatable, build.FromMenu, build.MenuAvailable);
             }
 
             if (_noticeMsg != null && Time.unscaledTime > _noticeUntil)

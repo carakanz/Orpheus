@@ -277,6 +277,12 @@ namespace Orpheus.Client
                 return;
             }
 
+            if (mode == "turn")
+            {
+                TurnRoom(world, map, cx, cy); // E2-16: повороты кровати, верстака, сундука; дверь в вертикальной стене (PaintDemo.Turn.cs)
+                return;
+            }
+
             if (mode == "half")
             {
                 HalfHouse(world, map, cx, cy); // E2-15: пол до самых стен, мебель вплотную к стенам (PaintDemo.Half.cs)
