@@ -160,6 +160,13 @@ namespace Orpheus.Client
         /// <summary>E2-2, только для снимков без сервера: показ интерфейса — <c>bag</c> (окно сумки открыто, предмет «в руке») или <c>hotbar</c> (панель и подсказка).</summary>
         public string? UiDemo;
 
+        /// <summary>
+        /// E2-17, только для снимков без сервера: дом из тонких стен с мебелью, дверями и забором вокруг персонажа
+        /// (<see cref="global::Orpheus.Client.PaintDemo.Home"/>); слово — где стоит персонаж: <c>overview</c>, <c>south</c>, <c>north</c>,
+        /// <c>behind</c>, <c>door</c>, <c>camp</c>, <c>fence</c>.
+        /// </summary>
+        public string? HomeDemo;
+
         /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
         public bool PaintForest;
 
@@ -196,7 +203,7 @@ namespace Orpheus.Client
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|ruler-wall|ruler-floor] [--day-tick 0…35999]";
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence] [--day-tick 0…35999]";
 
         static bool TryParseWalk(string? text, ClientArgs a)
         {
@@ -480,6 +487,18 @@ namespace Orpheus.Client
                         else
                         {
                             a.UiDemo = next;
+                        }
+
+                        break;
+                    case "--home-demo":
+                        i++;
+                        if (!global::Orpheus.Client.PaintDemo.IsHomeMode(next))
+                        {
+                            a.Error = $"--home-demo: нужно overview, south, north, behind, door, camp или fence, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.HomeDemo = next;
                         }
 
                         break;

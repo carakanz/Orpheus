@@ -146,7 +146,7 @@ namespace Orpheus.Client
                 anisoLevel = 2,
             };
             // Поля 16 px: соседние картинки не затекают друг в друга на первых четырёх mip-уровнях.
-            Rect[] rects = atlas.PackTextures(textures, 16, 4096, makeNoLongerReadable: true);
+            Rect[] rects = atlas.PackTextures(textures, 16, 4096, makeNoLongerReadable: false);
             if (rects == null || rects.Length != textures.Length)
             {
                 Debug.LogError("[objects] PackTextures не собрал лист (картинки не читаются?) — объекты не рисуются");
@@ -159,6 +159,12 @@ namespace Orpheus.Client
             }
 
             Texel = new Vector2(1f / atlas.width, 1f / atlas.height);
+            int cleared = ClearMarks(atlas, rects, n);
+            atlas.Apply(updateMipmaps: true, makeNoLongerReadable: true);
+            if (cleared > 0)
+            {
+                Debug.Log($"[objects] пурпурный уголок заглушки скрыт в отрисовке у {cleared} картинок (в файлах остаётся)");
+            }
 
             Material = new Material(set.ObjectShader) { name = "Objects" };
             Material.SetTexture("_MainTex", atlas);
@@ -201,6 +207,36 @@ namespace Orpheus.Client
             }
 
             return sum < 1.0 ? fallback : new Color32((byte)(r / sum), (byte)(g / sum), (byte)(b / sum), 255);
+        }
+
+        /// <summary>
+        /// E2-17: пурпурный уголок заглушки (8 × 8 px слева вверху, правило заглушек) остаётся в файле PNG, но у объектов
+        /// мира не рисуется — как у значков (<see cref="PileView.Unmarked"/>): в листе уголок становится прозрачным.
+        /// </summary>
+        static int ClearMarks(Texture2D atlas, Rect[] rects, int n)
+        {
+            const int mark = 8;
+            int w = atlas.width, h = atlas.height, cleared = 0;
+            var clear = new Color32[mark * mark];
+            for (int i = 0; i < n && i < rects.Length; i++)
+            {
+                int x = Mathf.RoundToInt(rects[i].xMin * w), yTop = Mathf.RoundToInt(rects[i].yMax * h);
+                if (Mathf.RoundToInt(rects[i].width * w) < 2 * mark || Mathf.RoundToInt(rects[i].height * h) < 2 * mark)
+                {
+                    continue;
+                }
+
+                Color c = atlas.GetPixel(x + 1, yTop - 2);
+                if (!(c.a > 0.78f && c.r > 0.78f && c.b > 0.78f && c.g < 0.32f))
+                {
+                    continue; // готовая картинка без уголка
+                }
+
+                atlas.SetPixels32(x, yTop - mark, mark, mark, clear);
+                cleared++;
+            }
+
+            return cleared;
         }
 
         static Texture2D BuildWhite()

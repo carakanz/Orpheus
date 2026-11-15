@@ -52,6 +52,76 @@ namespace Orpheus.Client.Anim
             Animator.PhaseOffset = (s_created++ % 7) * 0.37f;
         }
 
+        // E2-7: предмет в руке — значок на дочернем «Hand» спрайта (наследует сдвиг, наклон и приседание тела).
+        Transform? _hand;
+        Transform? _handIcon;
+        SpriteRenderer? _handSr;
+        byte _held;
+        HeldLook _look;
+
+        /// <summary>Как держится предмет в руке (для <see cref="ActorInput.Held"/>).</summary>
+        public HeldLook Held => _look;
+
+        /// <summary>Предмет в руке (id из таблицы предметов; 0 — пусто): значок появляется у кисти.</summary>
+        public void SetHeld(byte item)
+        {
+            if (item == _held && (_hand != null || item == 0))
+            {
+                return;
+            }
+
+            _held = item;
+            _look = ActionAnim.LookOf(item);
+            if (_look == HeldLook.None)
+            {
+                if (_handSr != null)
+                {
+                    _handSr.enabled = false;
+                }
+
+                return;
+            }
+
+            if (_hand == null)
+            {
+                var hand = new GameObject("Hand");
+                hand.transform.SetParent(_sprite, false);
+                var icon = new GameObject("Icon");
+                icon.transform.SetParent(hand.transform, false);
+                _handSr = icon.AddComponent<SpriteRenderer>();
+                _handSr.spriteSortPoint = _sr.spriteSortPoint;
+                _hand = hand.transform;
+                _handIcon = icon.transform;
+            }
+
+            _handSr!.sprite = PileView.SpriteFor(item);
+            _handSr.enabled = _handSr.sprite != null;
+            bool grip = ActionAnim.IsGripped(_look);
+            _handIcon!.localPosition = grip ? new Vector3(AnimParams.GripX, AnimParams.GripY, 0f) : new Vector3(0f, AnimParams.PalmY, 0f);
+        }
+
+        void ApplyHand(in Pose p, int order)
+        {
+            if (_hand == null || _handSr == null || !_handSr.enabled)
+            {
+                return;
+            }
+
+            bool right = p.FlipX != AnimParams.SpriteFacesRight;
+            float sign = right ? 1f : -1f;
+            float k = ActionAnim.IsGripped(_look) ? AnimParams.ToolScale : AnimParams.ItemScale;
+            // C-010: занесённый за голову предмет рисуется позади тела — без подъёма кисти он целиком прятался за спрайтом
+            // (на лентах E2-7 замаха топора, кирки и меча не было видно). Кисть плавно поднимается к макушке вместе с углом.
+            float lift = AnimParams.OverheadLiftY * Mathf.SmoothStep(0f, 1f,
+                Mathf.InverseLerp(AnimParams.OverheadLiftFromDeg, AnimParams.OverheadLiftFullDeg, p.HandDeg));
+            _hand.localPosition = new Vector3((AnimParams.HandX + p.HandReachX) * sign, AnimParams.HandY + p.HandReachY + lift, 0f);
+            // Поворот после зеркала: зеркальный значок поворачивается в обратную сторону (M = T·R·S).
+            _hand.localRotation = Quaternion.Euler(0f, 0f, p.HandDeg * sign);
+            _hand.localScale = new Vector3(k * sign, k, 1f);
+            _handSr.sortingOrder = p.HandBehind ? order - 1 : order + 1;
+            _handSr.color = new Color(p.TintR, p.TintG, p.TintB, _baseColor.a * p.Alpha);
+        }
+
         public Transform Root => _root;
         public SpriteRenderer Renderer => _sr;
 
@@ -82,7 +152,7 @@ namespace Orpheus.Client.Anim
         public void AnimateWalk(float dt)
         {
             Vector2 v = MeasureVelocity(dt);
-            var s = new ActorInput { VelX = v.x, VelY = v.y };
+            var s = new ActorInput { VelX = v.x, VelY = v.y, Held = _look };
             Apply(Animator.Step(dt, s));
         }
 
@@ -98,6 +168,7 @@ namespace Orpheus.Client.Anim
             // E1-11: существо приминает траву под ногами и задевает деревья рядом (только вид).
             LifeFx.Touch(_lifeId, new Vector2(_root.position.x, _root.position.y + _basePos.y));
             _sr.color = new Color(_baseColor.r * p.TintR, _baseColor.g * p.TintG, _baseColor.b * p.TintB, _baseColor.a * p.Alpha);
+            ApplyHand(p, order);
 
             for (int i = 0; i < _ghosts.Length; i++)
             {

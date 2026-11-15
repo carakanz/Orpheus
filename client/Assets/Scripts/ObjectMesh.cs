@@ -17,7 +17,7 @@ namespace Orpheus.Client
     /// </list>
     /// Координаты — в узле чанка: тайл (lx, ly) занимает x ∈ [lx; lx + 1], y ∈ [−ly − 1; −ly].
     /// </summary>
-    public sealed class ObjectMesh
+    public sealed partial class ObjectMesh
     {
         const int Size = Torus.ChunkSize;
 
@@ -31,6 +31,7 @@ namespace Orpheus.Client
             public float X, Y; // опора в узле чанка
             public int Lx;     // столбец тайла в чанке
             public int Near;   // блок: соседи-блоки (биты North…SouthWest)
+            public bool Cell;  // постройка-ячеек (E2-17: стена, забор, дверь — ObjectMesh.Walls)
         }
 
         const int North = 1, East = 2, South = 4, West = 8, SouthEast = 16, SouthWest = 32, NorthEast = 64, NorthWest = 128;
@@ -81,7 +82,9 @@ namespace Orpheus.Client
             for (int lx = 0; lx < Size; lx++)
             {
                 int index = Chunk.IndexOf(lx, ly);
-                ObjectLook? look = ObjectTable.Find(chunk.GetObject(index), chunk.GetFloor(index));
+                ushort obj = chunk.GetObject(index);
+                bool cell = BuildCells.IsCellBuilding(obj);
+                ObjectLook? look = cell ? CellLook : ObjectTable.Find(obj, chunk.GetFloor(index));
                 if (look == null)
                 {
                     continue;
@@ -91,7 +94,14 @@ namespace Orpheus.Client
                 it.Look = look;
                 it.Lx = lx;
                 it.Near = 0;
-                if (look.Block)
+                it.Cell = cell;
+                if (cell)
+                {
+                    it.Place = default;
+                    it.X = lx + 0.5f;
+                    it.Y = -ly - 1f + 0.25f; // в строке — среди объектов с опорой у середины ячеек
+                }
+                else if (look.Block)
                 {
                     int tx = corner.X + lx, ty = corner.Y + ly;
                     it.Place = default;
@@ -193,6 +203,17 @@ namespace Orpheus.Client
             for (int i = 0; i < n; i++)
             {
                 ref Item it = ref _items[i];
+                if (it.Cell)
+                {
+                    while (_info.Count < _pos.Count)
+                    {
+                        _info.Add(Vector4.zero); // квадраты блоков до постройки
+                    }
+
+                    Cells(it, corner.X + it.Lx, corner.Y + ly, entries);
+                    continue;
+                }
+
                 if (it.Look.Block)
                 {
                     Block(it, corner.X + it.Lx, corner.Y + ly, entries);
@@ -222,7 +243,7 @@ namespace Orpheus.Client
                 for (int i = 0; i < n; i++)
                 {
                     ref Item it = ref _items[i];
-                    if (it.Look.Block)
+                    if (it.Look.Block && !it.Cell)
                     {
                         BlockDeco(it, corner.X + it.Lx, corner.Y + ly, entries);
                     }
@@ -270,7 +291,8 @@ namespace Orpheus.Client
             return 0.86f + 0.14f * GroundAtlas.Hash(t.X, t.Y, 139);
         }
 
-        static Color32 Mul(Color32 c, float k) => new Color32((byte)(c.r * k), (byte)(c.g * k), (byte)(c.b * k), c.a);
+        static Color32 Mul(Color32 c, float k) =>
+            new Color32((byte)Mathf.Min(255f, c.r * k), (byte)Mathf.Min(255f, c.g * k), (byte)Mathf.Min(255f, c.b * k), c.a);
 
         // Отрезок контура p–q толщиной o (сплошной цвет).
         void Line(Vector2 p, Vector2 q, float o, in ObjectAtlas.Entry white, Color32 color)
@@ -480,6 +502,18 @@ namespace Orpheus.Client
                     float k = it.Look.Shadow;
                     if (k <= 0f)
                     {
+                        continue;
+                    }
+
+                    if (it.Cell)
+                    {
+                        while (_info.Count < _pos.Count)
+                        {
+                            _info.Add(Vector4.zero);
+                        }
+
+                        CellShadows(it, Torus.CornerOf(c).X + it.Lx, Torus.CornerOf(c).Y + ly, entries);
+                        shadows++;
                         continue;
                     }
 

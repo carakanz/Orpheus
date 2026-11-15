@@ -275,6 +275,11 @@ namespace Orpheus.Client
                     {
                         PilesPicked++;
                     }
+
+                    if (taker != null && _origin != null)
+                    {
+                        _anim?.OnPickup(m.Taker == _localId, m.Taker, _origin.ToUnity(was.Position)); // E2-7: наклон подбора
+                    }
                 }
 
                 _pileView?.Remove(m.Id, taker);
