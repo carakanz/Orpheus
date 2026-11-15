@@ -472,7 +472,9 @@ namespace Orpheus.Tests
             Assert.False(plan[0].Moves);
             sim.Step();
             Assert.Equal(ObjectId.Chest, sim.World.GetObject(a3));
-            Assert.Equal(10 - 2 - queued, sim.GetEntity(me).Inv.Count(Items.StoneWall));
+            Assert.Equal(1, queued); // встала только северная половина 98 (2 ячейки)
+            Assert.Equal(ObjectId.StoneWall, sim.World.GetObject(new TileCoord(98, 100)));
+            Assert.Equal(10 - 2 - 2, sim.GetEntity(me).Inv.Count(Items.StoneWall));
         }
 
         // ------------------------------------------------ выравнивание pre-pass после сортировки

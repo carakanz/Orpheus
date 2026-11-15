@@ -415,10 +415,80 @@ def bench_big(face: str) -> Image.Image:
     p.poly([(130, ty + 40), (162, ty + 34), (168, ty + 48), (136, ty + 54)], (240, 128, 60, 255), (110, 46, 18, 255), 1.0)
     p.poly([(118, ty - 6), (170, ty - 12), (172, ty - 4), (120, ty + 2)], (206, 212, 230, 255), (60, 62, 80, 255), 1.0)
     p.rect(170, ty - 16, 186, ty + 2, (200, 120, 60), (150, 84, 40), edge=edge)
+    # C-011: рабочая сторона видна издалека — ящики с ручками у рабочего края, высокая доска с инструментами напротив него.
+    if face == 's':
+        bench_drawers(p, 96, 216, yf + slab, edge)
+        bench_rack_back(p, x0 + 6, x1 - 6, yb, edge)
+    elif face == 'n':
+        bench_rack_front(p, x0 + 6, x1 - 6, yf + slab, edge)
+    else:
+        bench_rack_west(p, x0, yb, yf, edge)
+        for k, yy in enumerate((yb + 140, yb + 178)):                               # ящики на восточном крае: торцы ручек
+            p.rect(x1 - 30, yy, x1 - 4, yy + 26, (214, 146, 78), (170, 104, 52), edge=edge)
+            p.rect(x1 - 12, yy + 9, x1 - 6, yy + 17, (255, 222, 96), (200, 150, 40), edge=(110, 66, 10, 255))
     p.line([(x0, GROUND), (x1, GROUND)], (40, 22, 12, 255), 1.0)
     img = p.done()
     end_pen()
     return img
+
+
+RACK, RACK_D, PEG = (122, 74, 40), (88, 52, 28), (60, 34, 18)
+
+
+def rack_face(p: Pen, x0, x1, y0, y1, edge):
+    """Лицо доски с инструментами: доска, ряды отверстий, висящие молот, пила, клещи (силуэтами)."""
+    p.rect(x0, y0, x1, y1, mul(RACK, 1.1), mul(RACK, 0.85), edge=edge)
+    for yy in (y0 + 8, y1 - 8):
+        for xx in range(int(x0) + 10, int(x1) - 6, 14):
+            p.ell(xx - 1.5, yy - 1.5, xx + 1.5, yy + 1.5, PEG + (255,))
+    w = x1 - x0
+    hx = x0 + w * 0.2                                                               # молот
+    p.rect(hx - 2, y0 + 10, hx + 2, y1 - 6, (176, 118, 66), (122, 74, 40))
+    p.rect(hx - 9, y0 + 8, hx + 9, y0 + 16, (170, 176, 198), (110, 116, 140), edge=(40, 42, 56, 255))
+    sx = x0 + w * 0.45                                                              # пила
+    p.poly([(sx, y0 + 10), (sx + 34, y0 + 14), (sx + 34, y1 - 10), (sx, y1 - 6)], (210, 216, 232, 255), (60, 62, 80, 255), 1.0)
+    p.rect(sx - 10, y0 + 8, sx + 2, y1 - 12, (200, 120, 60), (150, 84, 40), edge=edge)
+    kx = x0 + w * 0.8                                                               # клещи
+    p.line([(kx - 6, y0 + 10), (kx + 4, y1 - 6)], (90, 94, 116, 255), 3.0)
+    p.line([(kx + 6, y0 + 10), (kx - 4, y1 - 6)], (90, 94, 116, 255), 3.0)
+
+
+def bench_rack_back(p: Pen, x0, x1, yb, edge):
+    """Доска с инструментами вдоль дальнего (северного) края: стоит на столе, лицом к зрителю."""
+    hr, th = 44, 8
+    p.rect(x0, yb - hr - th, x1, yb - hr, mul(RACK, 1.25), mul(RACK, 1.05), edge=edge)
+    rack_face(p, x0, x1, yb - hr, yb + 2, edge)
+
+
+def bench_rack_front(p: Pen, x0, x1, ybase, edge):
+    """180°: доска вдоль ближнего края — к зрителю видна её задняя сторона (гладкая, с планками), стол за ней."""
+    hr, th = 44, 8
+    p.rect(x0, ybase - hr - th - 12, x1, ybase - hr - 12, mul(RACK, 1.25), mul(RACK, 1.05), edge=edge)
+    p.rect(x0, ybase - hr - 12, x1, ybase - 12, mul(RACK_D, 1.15), mul(RACK_D, 0.9), edge=edge)
+    for k in range(1, 4):
+        x = x0 + (x1 - x0) * k / 4
+        p.line([(x, ybase - hr - 10), (x, ybase - 14)], mul(RACK_D, 0.7), 1.2)
+    p.line([(x0 + 2, ybase - 34), (x1 - 2, ybase - 34)], mul(RACK_D, 0.7), 2.0)
+
+
+def bench_rack_west(p: Pen, x0, yb, yf, edge):
+    """90°: доска вдоль западного края — сверху видна толстая планка с ручками инструментов, у зрителя — её торец."""
+    hr, wd = 44, 22
+    p.rect(x0, yf - hr, x0 + wd, yf, mul(RACK, 1.0), mul(RACK, 0.8), edge=edge)        # торец
+    p.rect(x0, yb - hr, x0 + wd, yf - hr, mul(RACK, 1.25), mul(RACK, 1.05), edge=edge)  # верх доски
+    for k, yy in enumerate(range(int(yb - hr) + 20, int(yf - hr) - 10, 34)):
+        c = ((176, 118, 66), (170, 176, 198), (200, 120, 60))[k % 3]
+        p.rect(x0 + wd - 2, yy, x0 + wd + 12, yy + 8, c, mul(c, 0.8), edge=(40, 42, 56, 255))   # торчат к столу
+
+
+def bench_drawers(p: Pen, x0, x1, ytop, edge):
+    """Два ящика с латунными ручками под столешницей на рабочем (южном) крае."""
+    h = 22
+    mid = (x0 + x1) / 2
+    for a, b in ((x0, mid - 2), (mid + 2, x1)):
+        p.rect(a, ytop, b, ytop + h, (214, 146, 78), (170, 104, 52), edge=edge)
+        c = (a + b) / 2
+        p.rect(c - 7, ytop + 8, c + 7, ytop + 14, (255, 222, 96), (200, 150, 40), edge=(110, 66, 10, 255))
 
 
 def chest_turned(face: str) -> Image.Image:

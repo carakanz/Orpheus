@@ -400,6 +400,12 @@ namespace Orpheus.Client
         /// <summary>Толщина полотна двери, тайлов.</summary>
         const float DoorLeaf = 0.16f;
 
+        /// <summary>Ширина короба закрытой вертикальной двери (C-011): шире полотна — сверху читается как дверь, а не щель в стене.</summary>
+        const float DoorLeafV = 0.4f;
+
+        /// <summary>Порог открытой вертикальной двери — тёмная полоса пустого проёма (C-011).</summary>
+        static readonly Color32 DoorSill = Srgb(70, 46, 30, 255);
+
         // Ориентация двери: горизонтальная — ряд ячеек qy (0 — северный), вертикальная — столбец qx.
         static bool DoorVertical(byte mask, out int q)
         {
@@ -470,23 +476,36 @@ namespace Orpheus.Client
 
             float x = lx + 0.5f * q + 0.25f; // середина столбца ячеек
             float yTop = top, yBot = top - 1f;
+            const float tv = DoorLeafV;
             if (!me.Open)
             {
-                Slab(x - t * 0.5f, yBot, x + t * 0.5f, yTop, white, false);
-                // Доски поперёк верха и ручка — закрытая вертикальная дверь видна сверху полосой во весь проём.
-                for (int k = 1; k < 6; k++)
+                // C-011: закрытая вертикальная дверь — короб шире стены-колонны: лицо к югу с досками и оковкой (как у
+                // горизонтальной), сверху — полотно досками поперёк, две полосы оковки у косяков и латунная ручка сбоку.
+                Slab(x - tv * 0.5f, yBot, x + tv * 0.5f, yTop, white, true);
+                float y0 = yBot + WallHeight, y1 = yTop + WallHeight;
+                for (int k = 1; k < 8; k++)
                 {
-                    float y = yBot + WallHeight + k / 6f;
-                    Solid(x - t * 0.5f, y - 0.006f, x + t * 0.5f, y + 0.006f, white, DoorSeam);
+                    float y = y0 + (y1 - y0) * k / 8f;
+                    Solid(x - tv * 0.5f + 0.02f, y - 0.007f, x + tv * 0.5f - 0.02f, y + 0.007f, white, DoorSeam);
                 }
 
-                float hy = yBot + WallHeight + 0.5f;
-                Solid(x - 0.045f, hy - 0.045f, x + 0.045f, hy + 0.045f, white, WallOutline);
-                Solid(x - 0.03f, hy - 0.03f, x + 0.03f, hy + 0.03f, white, DoorBrass);
+                foreach (float f in new[] { 0.14f, 0.86f })
+                {
+                    float y = y0 + (y1 - y0) * f;
+                    Solid(x - tv * 0.5f, y - 0.03f, x + tv * 0.5f, y + 0.03f, white, DoorIron); // оковка у косяков
+                }
+
+                float hx = x + tv * 0.5f - 0.06f, hy = y0 + (y1 - y0) * 0.5f;
+                Solid(hx - 0.05f, hy - 0.05f, hx + 0.05f, hy + 0.05f, white, WallOutline);
+                Solid(hx - 0.035f, hy - 0.035f, hx + 0.035f, hy + 0.035f, white, DoorBrass);
             }
             else
             {
-                // Петля у северного косяка; полотно — внутрь тайла (восточный столбец — к западу) и видно лицом.
+                // C-011: открытая — проём явно пуст: тёмный порог по столбцу и косяки-упоры у концов; полотно — ребром у
+                // северного косяка, повёрнуто внутрь тайла (восточный столбец — к западу) и видно лицом.
+                Solid(x - tv * 0.5f, yBot + 0.04f, x + tv * 0.5f, yTop - 0.04f, white, DoorSill);
+                Solid(x - tv * 0.5f, yBot, x + tv * 0.5f, yBot + 0.07f, white, DoorIron);
+                Solid(x - tv * 0.5f, yTop - 0.07f, x + tv * 0.5f, yTop, white, DoorIron);
                 float y0 = yTop - 0.02f - t;
                 float x0 = q == 1 ? x + t * 0.5f - len : x - t * 0.5f, x1 = q == 1 ? x + t * 0.5f : x - t * 0.5f + len;
                 Slab(x0, y0, x1, y0 + t, white, true);
@@ -525,7 +544,7 @@ namespace Orpheus.Client
                 else
                 {
                     float x = lx + 0.5f * q + 0.25f;
-                    if (!me.Open) HullShadow(x - t * 0.5f, top - 1f, x + t * 0.5f, top, h, 1f, white);
+                    if (!me.Open) HullShadow(x - DoorLeafV * 0.5f, top - 1f, x + DoorLeafV * 0.5f, top, h, 1f, white);
                     else HullShadow(q == 1 ? x + t * 0.5f - len : x - t * 0.5f, top - 0.02f - t, q == 1 ? x + t * 0.5f : x - t * 0.5f + len, top - 0.02f, h, 1f, white);
                 }
 
