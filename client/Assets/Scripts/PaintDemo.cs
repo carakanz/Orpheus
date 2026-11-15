@@ -385,6 +385,93 @@ namespace Orpheus.Client
             Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
         }
 
+        /// <summary>Слово <c>--home-demo</c> (E2-17) — где персонаж относительно дома.</summary>
+        public static bool IsHomeMode(string? mode) =>
+            mode == "overview" || mode == "south" || mode == "north" || mode == "behind" || mode == "door" || mode == "camp" || mode == "fence";
+
+        /// <summary>
+        /// Дом «с высотой» для снимков E2-17 (<c>--home-demo</c>): каменные стены 0,5 по внешним половинам контура 11 × 7
+        /// тайлов, на южной стене две двери рядом — закрытая и открытая, на западной — закрытая вертикальная, на восточной —
+        /// открытая вертикальная; деревянная перегородка спальни (Т у северной и западной стен, проём, торец); кровать,
+        /// два сундука, верстак, два факела внутри; каменные дорожки от дверей, костёр у дома, забор двора с углом.
+        /// Дом ставится так, чтобы персонаж (cx, cy) оказался в месте сцены: <c>overview</c> — в 3 тайлах к югу от закрытой
+        /// двери, <c>south</c> — внутри за южной стеной, <c>north</c> — внутри у северной стены, <c>behind</c> — снаружи за
+        /// северной стеной, <c>door</c> — в открытой двери, <c>camp</c> — у костра, <c>fence</c> — у забора.
+        /// </summary>
+        public static void Home(WorldModel world, MapShape map, int cx, int cy, string mode)
+        {
+            int hx, hy;
+            switch (mode)
+            {
+                case "south": hx = cx - 3; hy = cy - 3; break;
+                case "north": hx = cx - 2; hy = cy + 3; break;
+                case "behind": hx = cx - 2; hy = cy + 4; break;
+                case "door": hx = cx - 1; hy = cy - 3; break;
+                case "camp": hx = cx - 3; hy = cy - 6; break;
+                case "fence": hx = cx - 8; hy = cy - 5; break;
+                default: hx = cx + 2; hy = cy - 6; break;
+            }
+
+            int x0 = hx - 5, x1 = hx + 5, y0 = hy - 3, y1 = hy + 3;
+            Rect(world, map, x0 - 4, y0 - 4, x1 - x0 + 14, y1 - y0 + 10, FloorId.Grass); // двор без деревьев
+            Rect(world, map, x0, y0, x1 - x0 + 1, y1 - y0 + 1, FloorId.WoodFloor);
+            Rect(world, map, hx - 2, y1 + 1, 1, 2, FloorId.StoneFloor);
+            Rect(world, map, hx + 1, y1 + 1, 1, 2, FloorId.StoneFloor);
+            for (int y = y0; y <= y1; y++)
+            {
+                for (int x = x0; x <= x1; x++)
+                {
+                    byte m = 0;
+                    m |= y == y0 ? BuildCells.DoorNorth : (byte)0;
+                    m |= y == y1 ? BuildCells.DoorSouth : (byte)0;
+                    m |= x == x0 ? BuildCells.DoorWest : (byte)0;
+                    m |= x == x1 ? BuildCells.DoorEast : (byte)0;
+                    if (m == 0)
+                    {
+                        continue;
+                    }
+
+                    if (y == y1 && x == hx - 2) Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorSouth, false);
+                    else if (y == y1 && x == hx + 1) Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorSouth, true);
+                    else if (x == x0 && y == hy) Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorWest, false);
+                    else if (x == x1 && y == hy + 1) Cells(world, map, x, y, ObjectId.Door, BuildCells.DoorEast, true);
+                    else if (x == x0 && y == hy - 1) Cells(world, map, x, y, ObjectId.StoneWall, (byte)(m | BuildCells.DoorSouth), false); // Т перегородки
+                    else Cells(world, map, x, y, ObjectId.StoneWall, m, false);
+                }
+            }
+
+            // Перегородка спальни (дерево): столбец hx − 1 (восточные ячейки) от северной стены до hy − 1, ряд hy − 1 (южные
+            // ячейки) от западной стены до hx − 3 — проём в hx − 2, торец у проёма.
+            for (int y = y0 + 1; y <= hy - 1; y++)
+            {
+                Cells(world, map, hx - 1, y, ObjectId.WoodWall, y == hy - 1 ? (byte)(BuildCells.DoorEast | BuildCells.DoorSouth) : BuildCells.DoorEast, false);
+            }
+
+            for (int x = x0 + 1; x <= hx - 3; x++)
+            {
+                Cells(world, map, x, hy - 1, ObjectId.WoodWall, BuildCells.DoorSouth, false);
+            }
+
+            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed);
+            Light(world, map, x0 + 3, y0 + 1, ObjectId.Chest);
+            Light(world, map, hx + 1, y0 + 1, ObjectId.Workbench);
+            Light(world, map, hx + 3, y0 + 1, ObjectId.Chest);
+            Light(world, map, x1 - 1, y1 - 1, ObjectId.Torch);
+            Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
+            Light(world, map, hx + 4, y1 + 3, ObjectId.Campfire);
+
+            // Забор двора: ряд к востоку от юго-восточного угла (жерди упираются в стену), угол и столбец к северу.
+            for (int x = x1 + 1; x <= x1 + 5; x++)
+            {
+                Cells(world, map, x, y1, ObjectId.WoodFence, x == x1 + 5 ? (byte)(BuildCells.DoorSouth | BuildCells.DoorEast) : BuildCells.DoorSouth, false);
+            }
+
+            for (int y = y1 - 3; y < y1; y++)
+            {
+                Cells(world, map, x1 + 5, y, ObjectId.WoodFence, BuildCells.DoorEast, false);
+            }
+        }
+
         static void Cells(WorldModel world, MapShape map, int x, int y, ushort obj, byte mask, bool open)
         {
             TileCoord t = Torus.Wrap(map, new TileCoord(x, y));

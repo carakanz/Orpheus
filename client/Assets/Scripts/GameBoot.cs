@@ -189,6 +189,15 @@ namespace Orpheus.Client
                 _piles.AddDemo(Map, Player.Position, t => Rules.IsBlocked(Map, t));
             }
 
+            if (Args.HomeDemo != null)
+            {
+                // E2-17: дом «с высотой» для снимков — постройки вокруг персонажа, персонаж в нужном месте сцены.
+                TileCoord at = Torus.TileOf(Map, Player.Position);
+                PaintDemo.Home(World, Map, at.X, at.Y, Args.HomeDemo!);
+                View.Clear();
+                View.UpdateWindow(Player.Position);
+            }
+
             if (Args.UiDemo != null)
             {
                 if (Args.ScreenshotPath != null)
