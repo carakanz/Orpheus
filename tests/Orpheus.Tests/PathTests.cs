@@ -433,6 +433,27 @@ namespace Orpheus.Tests
 #endif
         }
 
+        /// <summary>
+        /// E2-12b: тот же бенч, но коробки — дома из тонкой стены (ячейки 0,5 на внутренних половинах кольца), у половины — проём
+        /// 1 тайл со сдвигом на полтайла: узлы решётки 0,5 у тонких стен. Бюджет `02` 9.2 — тот же.
+        /// </summary>
+        [Fact]
+        [Trait("Category", "Big")]
+        public void D02_S9_2_Big_Bench1024_ThinHouses_1000Ticks40Searches()
+        {
+            PathBench bench = PathBench.Build(1024, Seed, 1000 * PathBench.PerTick, thinHouses: true);
+            bench.RunDirect(2000, new PathFinder());
+            PathBench.Report direct = bench.RunDirect(bench.Requests.Length, new PathFinder());
+            _out.WriteLine("тонкие дома, поиски подряд: " + direct);
+            PathBench.Report sched = bench.RunScheduler(1000, new StopwatchClock());
+            _out.WriteLine("тонкие дома, такты, 40 запросов за такт, бюджет 40 и 3 мс: " + sched);
+            Assert.Equal(direct.Found + direct.Edge + direct.Partial + direct.Enclosed, sched.Completed);
+#if !DEBUG
+            Assert.True(sched.MeanTickUs <= 3000, $"среднее за такт {sched.MeanTickUs:F0} мкс");
+            Assert.True(sched.MaxWaitTicks <= 5, $"ожидание {sched.MaxWaitTicks} тактов");
+#endif
+        }
+
         // ---------- Помощники ----------
 
         private static PathBuffer[] Buffers(int n)
@@ -638,7 +659,7 @@ namespace Orpheus.Tests
 
         public int Boxes { get; }
 
-        public static PathBench Build(int size, ulong seed, int requestCount = 1000)
+        public static PathBench Build(int size, ulong seed, int requestCount = 1000, bool thinHouses = false)
         {
             var shape = MapShape.World(size);
             var world = new WorldModel(shape, seed);
@@ -683,6 +704,29 @@ namespace Orpheus.Tests
                     {
                         bool ring = Math.Abs(dx) == r || Math.Abs(dy) == r;
                         Put(world, blocked, size, cx + dx, cy + dy, ring ? ObjectId.StoneWall : ObjectId.Empty);
+                        if (ring && thinHouses)
+                        {
+                            // E2-12b: дом из тонкой стены — ячейки на внутренних половинах кольца; у каждой второй коробки внизу
+                            // проём 1 тайл, сдвинутый на полтайла (правая ячейка тайла dx = 0 и левая dx = 1).
+                            byte mask = 0;
+                            mask |= dy == -r ? BuildCells.DoorSouth : (byte)0;
+                            mask |= dy == r ? BuildCells.DoorNorth : (byte)0;
+                            mask |= dx == -r ? BuildCells.DoorEast : (byte)0;
+                            mask |= dx == r ? BuildCells.DoorWest : (byte)0;
+                            if ((b & 1) == 1 && dy == r && dx == 0)
+                            {
+                                mask = (byte)(mask & ~2);
+                            }
+
+                            if ((b & 1) == 1 && dy == r && dx == 1)
+                            {
+                                mask = (byte)(mask & ~1);
+                            }
+
+                            TileCoord t = Torus.Wrap(world.Shape, new TileCoord(cx + dx, cy + dy));
+                            world.FindChunk(Torus.ChunkOf(world.Shape, t))!.SetBaseBuild(
+                                Chunk.IndexOf(t.X, t.Y), BuildRecord.OfPlayer(1, FloorId.Grass).WithCells(mask));
+                        }
                     }
                 }
 

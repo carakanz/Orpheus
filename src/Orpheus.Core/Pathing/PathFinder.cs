@@ -126,6 +126,8 @@ namespace Orpheus.Core.Pathing
         private int _tileMaxX;
         private int _tileMaxY;
         private int _goalIndex = -1; // цель — узел всегда
+        private int _parX; // чётность начала окна: точка (x, y) — центр тайла, если (x + _parX) и (y + _parY) нечётны
+        private int _parY;
         private int _goalX;
         private int _goalY;
         private int _fillMinX;
@@ -214,6 +216,8 @@ namespace Orpheus.Core.Pathing
             _tileOriginX = _tileMinX = (_originX - 1) >> 1;
             _tileOriginY = _tileMinY = (_originY - 1) >> 1;
             _tileMaxX = (_originX + LatticeSize - 1) >> 1;
+            _parX = _originX & 1;
+            _parY = _originY & 1;
             _tileMaxY = (_originY + LatticeSize - 1) >> 1;
             Int2 d = Torus.Delta(_map, start, goal);
             _goalX = LatticeHalf + (d.X >> 7);
@@ -234,6 +238,22 @@ namespace Orpheus.Core.Pathing
 
             int goalIndex = goalInside ? _goalY * LatticeSize + _goalX : -1;
             _goalIndex = goalIndex;
+            if (goalInside && CostAt(goalIndex) == PathCost.Blocked)
+            {
+                // Цель в твёрдом (стена, закрытая дверь): к ней пути нет — A* к свободному узлу рядом с ней (не дальше 2 тайлов),
+                // итог «частичный» (9.2: лучший путь к месту, ближайшему к цели). Без этого A* перебирал все 1500 узлов.
+                int near = NearestFreeNode(goalIndex, 2 * PointsPerTile);
+                if (near >= 0)
+                {
+                    _goalX = near % LatticeSize;
+                    _goalY = near / LatticeSize;
+                    _goalIndex = near;
+                    AStar(near, result);
+                    result.Status = PathStatus.Partial;
+                    return PathStatus.Partial;
+                }
+            }
+
             if (goalInside && GoalEnclosed(goalIndex))
             {
                 // К краю области, ближайшему к цели: точка вне области — новая цель A*; итог — «замкнута» с путём к краю.
@@ -483,20 +503,64 @@ namespace Orpheus.Core.Pathing
             return best < 0 ? StartIndex : best;
         }
 
+        /// <summary>
+        /// Свободный узел в кольцах до <paramref name="radius"/> точек вокруг <paramref name="center"/>, ближайший к нему; при
+        /// равенстве — ближе к старту, затем меньший индекс. Нет — −1.
+        /// </summary>
+        private int NearestFreeNode(int center, int radius)
+        {
+            int cx = center % LatticeSize;
+            int cy = center / LatticeSize;
+            int best = -1;
+            long bestD = long.MaxValue;
+            long bestS = long.MaxValue;
+            for (int r = 1; r <= radius && best < 0; r++)
+            {
+                for (int y = cy - r; y <= cy + r; y++)
+                {
+                    int step = y == cy - r || y == cy + r ? 1 : 2 * r;
+                    for (int x = cx - r; x <= cx + r; x += step)
+                    {
+                        if (!InWindow(x, y))
+                        {
+                            continue;
+                        }
+
+                        int i = y * LatticeSize + x;
+                        if (CostAt(i) == PathCost.Blocked || !IsNode(i, x, y))
+                        {
+                            continue;
+                        }
+
+                        long d = new Int2(x - cx, y - cy).LengthSquared;
+                        long sd = new Int2(x - LatticeHalf, y - LatticeHalf).LengthSquared;
+                        if (d < bestD || (d == bestD && (sd < bestS || (sd == bestS && i < best))))
+                        {
+                            best = i;
+                            bestD = d;
+                            bestS = sd;
+                        }
+                    }
+                }
+            }
+
+            return best;
+        }
+
         // ---------- Окно ----------
 
         /// <summary>
         /// Соседи узла (x, y) в <see cref="_nbIndex"/> / <see cref="_nbCost"/> (удвоенная стоимость шага), число — итог.
-        /// Сначала полушаги к узлам (порядок <see cref="NeighborDx"/>; диагональ — если обе прямые соседки свободны), затем у центра
-        /// тайла — целые шаги к центрам соседних тайлов, если середина шага свободна и не узел (у диагонали свободны и четыре
-        /// точки по бокам — без срезания углов).
+        /// Центр тайла вдали от тонких построек — целые шаги по тайлам (<see cref="TileNeighbors"/>). Иначе — полушаги к узлам
+        /// (порядок <see cref="NeighborDx"/>; диагональ — если обе прямые соседки свободны). У центра рядом с тонкой постройкой
+        /// все 8 соседних точек касаются его тайла и потому узлы: целые шаги через них не нужны.
         /// </summary>
         private int Neighbors(int x, int y)
         {
             int count = 0;
             int index = y * LatticeSize + x;
             byte own = _cost[index];
-            if (IsCenter(index))
+            if (Center(x, y))
             {
                 int tx = (_originX + x) >> 1;
                 int ty = (_originY + y) >> 1;
@@ -506,6 +570,8 @@ namespace Orpheus.Core.Pathing
                 }
             }
 
+            // Свободны ли прямые соседи (бит k): диагональ k = 4…7 — по битам своих прямых, без повторных взглядов.
+            int freeMask = 0;
             for (int k = 0; k < 8; k++)
             {
                 int dx = NeighborDx[k];
@@ -517,44 +583,9 @@ namespace Orpheus.Core.Pathing
                     continue;
                 }
 
-                int n = ny * LatticeSize + nx;
-                byte fn = CostAt(n);
-                if (fn == PathCost.Blocked || !IsNode(n))
+                if (k >= 4 && ((freeMask >> (dx > 0 ? 0 : 1)) & (freeMask >> (dy > 0 ? 2 : 3)) & 1) == 0)
                 {
                     continue;
-                }
-
-                if (k >= 4 && (CostAt(y * LatticeSize + nx) == PathCost.Blocked || CostAt(ny * LatticeSize + x) == PathCost.Blocked))
-                {
-                    continue;
-                }
-
-                _nbIndex[count] = n;
-                _nbCost[count] = PathCost.Step(k < 4 ? PathCost.Straight : PathCost.Diagonal, fn < own ? fn : own);
-                count++;
-            }
-
-            if (!IsCenter(index))
-            {
-                return count;
-            }
-
-            for (int k = 0; k < 8; k++)
-            {
-                int dx = NeighborDx[k];
-                int dy = NeighborDy[k];
-                int nx = x + 2 * dx;
-                int ny = y + 2 * dy;
-                if (!InWindow(nx, ny))
-                {
-                    continue;
-                }
-
-                int m = (y + dy) * LatticeSize + x + dx;
-                byte fm = CostAt(m);
-                if (fm == PathCost.Blocked || IsNode(m))
-                {
-                    continue; // середина занята — шага нет; середина — узел — путь идёт полушагами через неё
                 }
 
                 int n = ny * LatticeSize + nx;
@@ -564,16 +595,18 @@ namespace Orpheus.Core.Pathing
                     continue;
                 }
 
-                if (k >= 4 &&
-                    (CostAt(y * LatticeSize + x + dx) == PathCost.Blocked || CostAt((y + dy) * LatticeSize + x) == PathCost.Blocked ||
-                     CostAt((y + dy) * LatticeSize + nx) == PathCost.Blocked || CostAt(ny * LatticeSize + x + dx) == PathCost.Blocked))
+                if (k < 4)
+                {
+                    freeMask |= 1 << k;
+                }
+
+                if (!IsNode(n, nx, ny))
                 {
                     continue;
                 }
 
-                int step = k < 4 ? PathCost.Straight : PathCost.Diagonal;
                 _nbIndex[count] = n;
-                _nbCost[count] = PathCost.Step(step, fm < own ? fm : own) + PathCost.Step(step, fm < fn ? fm : fn);
+                _nbCost[count] = PathCost.Step(k < 4 ? PathCost.Straight : PathCost.Diagonal, fn < own ? fn : own);
                 count++;
             }
 
@@ -643,16 +676,19 @@ namespace Orpheus.Core.Pathing
         }
 
         /// <summary>Точка окна — центр тайла (обе координаты решётки мира нечётные).</summary>
-        private bool IsCenter(int index) =>
-            ((_originX + index % LatticeSize) & 1) != 0 && ((_originY + index / LatticeSize) & 1) != 0;
+        private bool IsCenter(int index) => Center(index % LatticeSize, index / LatticeSize);
+
+        private bool Center(int x, int y) => ((x + _parX) & (y + _parY) & 1) != 0;
 
         /// <summary>
         /// Точка — узел графа: центр тайла, старт, цель или точка у тонкой постройки (тайл, которого касается круг, или его сосед —
         /// с частью ячеек твёрдых).
         /// </summary>
-        private bool IsNode(int index)
+        private bool IsNode(int index) => IsNode(index, index % LatticeSize, index / LatticeSize);
+
+        private bool IsNode(int index, int x, int y)
         {
-            if (index == StartIndex || index == _goalIndex || IsCenter(index))
+            if (Center(x, y) || index == StartIndex || index == _goalIndex)
             {
                 return true;
             }
@@ -664,8 +700,8 @@ namespace Orpheus.Core.Pathing
                 return node != 0;
             }
 
-            int gx = _originX + index % LatticeSize;
-            int gy = _originY + index / LatticeSize;
+            int gx = _originX + x;
+            int gy = _originY + y;
             bool near = false;
             for (int ty = (gy - 1) >> 1; ty <= gy >> 1 && !near; ty++)
             {

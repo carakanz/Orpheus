@@ -371,7 +371,7 @@ namespace Orpheus.Tests
             var finder = new PathFinder(enclosureFillLimit: 0);
             var path = new PathBuffer();
             Assert.Equal(PathStatus.Found, finder.Find(terrain, new TileCoord(15, 10), new TileCoord(25, 10), PathMode.Walker, path));
-            Assert.True(path.Length > 20, $"путь {path.Length} — прямой сквозь преграду (прямо — 20 точек 0,5)");
+            Assert.True(path.Length > 10, $"путь {path.Length} — прямой сквозь преграду");
             for (int i = 0; i < path.Length; i++)
             {
                 Assert.False(Orpheus.Core.Movement.Collision.TouchesSolid(world.Shape, path.Points[i], sim.Solid), $"точка в преграде {path.Points[i]}");

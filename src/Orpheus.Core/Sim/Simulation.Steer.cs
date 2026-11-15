@@ -47,6 +47,17 @@ namespace Orpheus.Core.Sim
             return best;
         }
 
+        /// <summary>
+        /// «Упёрся», а цель ушла (E2-12b): тайл точки цели дальше <see cref="MeleeRogue.RepathGoalDelta"/> от тайла, к которому
+        /// искали путь (<see cref="EnemyBrain.GoalX"/>/<see cref="EnemyBrain.GoalY"/>).
+        /// </summary>
+        private bool BlockedGoalMoved(ref EnemyBrain b, WorldPos target)
+        {
+            TileCoord gt = Torus.TileOf(_shape, ChaseGoal(target));
+            long d2 = Torus.Dist2(_shape, gt, new TileCoord(b.GoalX, b.GoalY)) * (long)Torus.SubTilesPerTile * Torus.SubTilesPerTile;
+            return d2 > (long)MeleeRogue.RepathGoalDelta * MeleeRogue.RepathGoalDelta;
+        }
+
         /// <summary>Поставить поиск пути погони от позиции врага к точке <paramref name="goal"/>; true — запрос в очереди.</summary>
         private bool EnqueueChasePath(ref SimEntity e, int slot, WorldPos goal, long tick)
         {
