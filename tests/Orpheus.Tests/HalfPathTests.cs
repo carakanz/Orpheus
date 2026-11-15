@@ -657,6 +657,137 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// C-009: эпизод «упёрся», начатый застреванием (не «замкнута»), закрывает продвижение по пути. Без подруливания враг стоит у
+        /// косяка 18 с (переспросы не помогают); затем подруливание включают — враг проходит проём и идёт по пути к игроку дольше,
+        /// чем осталось до 20 с эпизода. Пройденные точки пути закрывают эпизод — враг бьёт, а не сдаётся на ходу.
+        /// Мутация «точки пути эпизод не закрывают» — сдаётся (красный).
+        /// </summary>
+        [Fact]
+        public void C009_StuckEpisode_WalksPath_EpisodeClosed()
+        {
+            var sim = DoorRoom(false, 1226, out int ch);
+            sim.SteerOffForTests = true;
+            int rogue = sim.AddMeleeRogue(At(16.5, 27.5));
+            int guard = 0;
+            while (sim.GetEntity(rogue).Brain.BlockedSince == 0)
+            {
+                sim.Step();
+                Assert.True(++guard < 900, "враг не упёрся");
+            }
+
+            long since = sim.GetEntity(rogue).Brain.BlockedSince;
+            while (sim.Tick < since + 560)
+            {
+                sim.Step();
+            }
+
+            Assert.True(sim.GetEntity(rogue).Mover.Position.X < 20 * U, "враг прошёл проём без подруливания — сценарий не проверяет");
+            sim.SteerOffForTests = false;
+            long attack = -1, gaveUp = -1;
+            for (int i = 0; i < 600 && attack < 0 && gaveUp < 0; i++)
+            {
+                sim.Step();
+                if (sim.GetEntity(rogue).Brain.State == EnemyState.Attack)
+                {
+                    attack = sim.Tick;
+                }
+
+                if (sim.GetEntity(rogue).Brain.IgnoreTargetId == ch)
+                {
+                    gaveUp = sim.Tick;
+                }
+            }
+
+            _out.WriteLine($"эпизод с {since}, подруливание с {since + 560}, бьёт {attack}, сдался {gaveUp}");
+            Assert.True(attack > since + 600, $"сценарий не проверяет (бьёт {attack} до конца 20 с эпизода)");
+            Assert.True(gaveUp < 0, $"сдался на ходу по пути: {gaveUp}");
+        }
+
+        /// <summary>
+        /// C-009, проверка (П) — длинный обход после «упёрся» (`docs/02` 9.3: «путь появился → Преследование»). Игрок в длинной
+        /// узкой комнате (тайлы x 31…33, y 10…50, целые стены), враг снаружи вплотную к западной стене напротив. wait &lt; 0 —
+        /// проём (30, 11) открыт с начала (обычный обход); иначе комната замкнута, враг «упёрся», через wait тактов (0/5/10/15/
+        /// ~20 с) проём открывают правкой мира — обход ~40 т (сначала на север, прямое расстояние растёт). Враг доходит, а не
+        /// сдаётся посреди обхода. Мутация «эпизод закрывает только приближение по прямой» (первая редакция C-009) — красный
+        /// при 450. 590, а не 600: на 600 тактах эпизода враг уже сдался (правило 20 с) — до открытия.
+        /// </summary>
+        [Theory]
+        [InlineData(-1, 51)]
+        [InlineData(0, 51)]
+        [InlineData(150, 51)]
+        [InlineData(300, 51)]
+        [InlineData(450, 51)]
+        [InlineData(590, 51)]
+        [InlineData(-1, 41)]
+        [InlineData(300, 41)]
+        public void C009_LongDetourAfterBlocked_PathAppears_Reaches(int wait, int south)
+        {
+            var sim = new Simulation(Flat(4242));
+            void Wall(int x, int y) =>
+                Assert.True(sim.RequestEdit(new TileCoord(x, y), FloorId.Grass, ObjectId.StoneWall, BuildRecord.OfPlayer(1, FloorId.Grass)));
+            int y0 = 9, y1 = south;
+            for (int y = y0; y <= y1; y++)
+            {
+                if (!(wait < 0 && y == 11))
+                {
+                    Wall(30, y);
+                }
+
+                Wall(34, y);
+            }
+
+            for (int x = 31; x <= 33; x++)
+            {
+                Wall(x, y0);
+                Wall(x, y1);
+            }
+
+            sim.Step();
+            int ch = sim.AddEntity(At(32.5, 30.5));
+            int rogue = sim.AddMeleeRogue(At(29.45, 30.5));
+            long since = 0;
+            if (wait >= 0)
+            {
+                int g = 0;
+                while (sim.GetEntity(rogue).Brain.BlockedSince == 0)
+                {
+                    sim.Step();
+                    Assert.True(++g < 600, "не упёрся");
+                }
+
+                since = sim.GetEntity(rogue).Brain.BlockedSince;
+                for (int i = 0; i < wait; i++)
+                {
+                    sim.Step();
+                }
+
+                Assert.True(sim.GetEntity(rogue).Brain.IgnoreTargetId != ch, "сдался до открытия проёма");
+                Assert.True(sim.RequestEdit(new TileCoord(30, 11), FloorId.Grass, ObjectId.Empty));
+            }
+
+            long open = sim.Tick;
+            long attack = -1, gaveUp = -1;
+            for (int i = 0; i < 1500 && attack < 0 && gaveUp < 0; i++)
+            {
+                sim.Step();
+                EnemyBrain b = sim.GetEntity(rogue).Brain;
+                if (b.State == EnemyState.Attack)
+                {
+                    attack = sim.Tick;
+                }
+
+                if (b.IgnoreTargetId == ch)
+                {
+                    gaveUp = sim.Tick;
+                }
+            }
+
+            _out.WriteLine($"wait {wait} south {south}: эпизод с {since}, проём на {open}, бьёт {attack}, сдался {gaveUp}, {sim.GetEntity(rogue).Mover.Position}");
+            Assert.True(attack > 0, $"враг сдался/не дошёл при существующем пути: сдался {gaveUp}, эпизод с {since}, проём {open}");
+            Assert.True(attack - open <= 300, $"обход {attack - open} тактов");
+        }
+
+        /// <summary>
         /// C-009 (замечание 4): подруливание у диагонали. Мутация «у диагонали не подруливать» выжила у проверяющего — она
         /// эквивалентна: столкновения раздельные по осям (сначала X, потом Y) и не откатывают за старт, так что диагональный
         /// шаг не приближает, только если оба его осевых сдвига нулевые, — тогда и чисто осевые шаги стоят. Ветка удалена;

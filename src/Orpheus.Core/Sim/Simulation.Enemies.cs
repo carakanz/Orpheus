@@ -26,7 +26,7 @@ namespace Orpheus.Core.Sim
             ref EnemyBrain b = ref e.Brain;
             e.Mover.UnitsPerTickX10 = MeleeRogue.ChaseSpeedX10;
 
-            // Сдача (1-013, 9.3): 20 с эпизода «упёрся» без приближения к цели — цель в игнор на 30 с, враг в Ожидание. C-009: и из
+            // Сдача (1-013, 9.3): 20 с эпизода «упёрся» без продвижения по пути — цель в игнор на 30 с, враг в Ожидание. C-009: и из
             // погони — враг, которого толкотня раскачивает у косяка, двигается (таймер «застрял» не доходит до Blocked), но не ближе.
             if (b.BlockedSince != 0 && tick - b.BlockedSince >= MeleeRogue.BlockedGiveUpTicks)
             {
@@ -53,6 +53,7 @@ namespace Orpheus.Core.Sim
                     // дальше тайла от той, к которой искали (игрок вышел из дома, обошёл постройку) — иначе враг стоял до 20 с.
                     if (EnqueueChasePath(ref e, slot, ChaseGoal(target.Mover.Position), tick))
                     {
+                        b.EnclosedRev = EnemyBrain.AfterEnclosed; // C-009: найдёт путь — «путь появился», эпизод закрыт
                         b.ProgressTick = (int)tick;
                         b.ProgressX = e.Mover.Position.X;
                         b.ProgressY = e.Mover.Position.Y;
@@ -87,21 +88,12 @@ namespace Orpheus.Core.Sim
             }
             else if (Torus.Dist2(_shape, e.Mover.Position, new WorldPos(b.ProgressX, b.ProgressY)) >= MeleeRogue.ProgressMove2)
             {
-                // Сдвинулись от контрольной точки — таймер «застрял» сброшен. Вне эпизода «упёрся» точка переезжает за врагом.
-                // В эпизоде (C-009) точка — ближайшее к цели место эпизода: переезжает и закрывает эпизод (BlockedSince) только
-                // приближение к цели; смещение вбок/назад (толкотня, раскачка у косяка, обход) — нет, иначе раскачиваемый враг
-                // не сдавался никогда. Последний поиск «замкнута» — эпизод не закрывается (идёт к краю у стены, не к цели).
+                // Продвинулись — контрольная точка за текущей позицией, таймер «застрял» сброшен. Эпизод «упёрся» (BlockedSince)
+                // смещение не закрывает (C-009: толкотня раскачивает у косяка — смещается, но путь не укорачивается; враг не
+                // сдавался никогда) — закрывает продвижение по пути (точки пути, ниже) и «путь появился».
                 b.ProgressTick = (int)tick;
-                if (b.BlockedSince == 0 || CloserToTarget(e.Mover.Position, new WorldPos(b.ProgressX, b.ProgressY), target.Mover.Position))
-                {
-                    if (_pathBuf[slot].Status != PathStatus.Enclosed)
-                    {
-                        b.BlockedSince = 0;
-                    }
-
-                    b.ProgressX = e.Mover.Position.X;
-                    b.ProgressY = e.Mover.Position.Y;
-                }
+                b.ProgressX = e.Mover.Position.X;
+                b.ProgressY = e.Mover.Position.Y;
             }
             else if (b.ProgressTick != 0 && tick - b.ProgressTick >= MeleeRogue.StuckTicks)
             {
@@ -198,7 +190,18 @@ namespace Orpheus.Core.Sim
                     return;
 
                 default:
-                    break; // Found / WindowEdge / Partial — идём по точкам; «упёрся» сбрасывает продвижение (E2-12b)
+                    // Found / WindowEdge / Partial — идём по точкам. Эпизод «упёрся» закрыт (C-009, 9.3 «путь появился →
+                    // Преследование»): поиск после «замкнута» нашёл путь до цели — или враг прошёл по пути
+                    // EpisodeClosePathPoints точек (остаток пути укоротился; раскачиваемый у косяка точек не проходит).
+                    if (b.BlockedSince != 0 &&
+                        ((b.EnclosedRev == EnemyBrain.AfterEnclosed && buf.Status == PathStatus.Found) ||
+                         b.PathPos >= MeleeRogue.EpisodeClosePathPoints))
+                    {
+                        b.BlockedSince = 0;
+                    }
+
+                    b.EnclosedRev = 0;
+                    break;
             }
 
             // Путь готов (Found — до цели; WindowEdge — до края окна; Partial — предельная длина): по точкам решётки (E2-12b).

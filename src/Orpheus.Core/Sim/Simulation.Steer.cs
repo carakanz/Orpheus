@@ -64,14 +64,6 @@ namespace Orpheus.Core.Sim
             return d2 > (long)MeleeRogue.RepathGoalDelta * MeleeRogue.RepathGoalDelta;
         }
 
-        /// <summary>
-        /// Приближение к цели в эпизоде «упёрся» (C-009): <paramref name="at"/> ближе к цели, чем контрольная точка, не меньше чем
-        /// на шаг продвижения (<see cref="MeleeRogue.ProgressMove2"/>, 48 единиц) — по прямой до текущей позиции цели (цель ушла —
-        /// идущий за ней враг ближе к ней, чем точка позади него).
-        /// </summary>
-        private bool CloserToTarget(WorldPos at, WorldPos checkpoint, WorldPos target) =>
-            ISqrt(Torus.Dist2(_shape, checkpoint, target)) - ISqrt(Torus.Dist2(_shape, at, target)) >= MeleeRogue.ProgressStep;
-
         /// <summary>Только для тестов (C-009): перенести сущность (толкотня/отбрасывание сбили врага с пути; игрок вышел из дома).</summary>
         internal void PlaceForTests(int entityId, WorldPos position)
         {
