@@ -211,20 +211,34 @@ namespace Orpheus.Net.Session
             }
         }
 
+        /// <summary>
+        /// Переносы якоря мебели такта (C-011, <see cref="Simulation.TakeAnchorMoves"/>): окно открытого сундука — на новый якорь
+        /// (содержимое перенесено тем же тактом; клиент узнает тайл из сообщения 35), точка возрождения персонажа вне мира — тоже.
+        /// </summary>
+        private void FollowAnchorMoves()
+        {
+            foreach ((TileCoord from, TileCoord to) in _sim.TakeAnchorMoves())
+            {
+                for (int i = 0; i < _players.Count; i++)
+                {
+                    Player pl = _players[i];
+                    if (pl.ChestOpen && pl.ChestTile == from)
+                    {
+                        pl.ChestTile = to;
+                        pl.ChestSent = false;
+                    }
+                }
+
+                Characters.MoveBed(from, to);
+            }
+        }
+
         /// <summary>После такта: открытый сундук игрока — закрыть, если его нет, игрок далеко или мёртв; иначе содержимое, если изменилось.</summary>
         private void SendChestTo(Player p, int slot)
         {
             if (!p.ChestOpen)
             {
                 return;
-            }
-
-            // C-011: сундук перенёс якорь (стена в его тайл) — окно идёт за ним (содержимое перенесено тем же тактом).
-            if (ObjectId.IdOf(_sim.World.GetObject(p.ChestTile)) != ObjectId.Chest && BuildLayers.TryFurnitureAt(_sim.World, p.ChestTile, out TileCoord moved)
-                && ObjectId.IdOf(_sim.World.GetObject(moved)) == ObjectId.Chest)
-            {
-                p.ChestTile = moved;
-                p.ChestSent = false;
             }
 
             if (slot < 0 || !_sim.Entities[slot].Alive

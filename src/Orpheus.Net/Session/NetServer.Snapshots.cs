@@ -192,6 +192,7 @@ namespace Orpheus.Net.Session
             BroadcastPatches(); // правки такта — до окон: вошедшие в окно чанки уйдут уже с ревизией после такта (3.7)
             BroadcastCombatEvents(); // 1-001: смерть/возрождение такта — канал 2 всем в игре
             SendEditReplies(); // 0-028: «принято» / «отказ» по исходам такта
+            FollowAnchorMoves(); // C-011: окна сундуков и кровати вне мира — за перенесённой мебелью
             ReadOnlySpan<SimEntity> entities = _sim.Entities;
             uint tick = (uint)_sim.Tick;
             for (int p = 0; p < _players.Count; p++)

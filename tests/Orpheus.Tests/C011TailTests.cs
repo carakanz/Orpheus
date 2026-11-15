@@ -464,7 +464,7 @@ namespace Orpheus.Tests
             Assert.Equal(0, queued);
             Assert.Equal(EditReply.FurnitureInTile, plan[0].Check);
 
-            // Стена линией по северным половинам 102…103 (вторая правка — в тайле нового якоря).
+            // Стена линией по северным половинам 97…98 (вторая правка — в тайле нового якоря 98).
             var a3 = new TileCoord(97, 100);
             Assert.Equal(1, Place(sim, me, ObjectId.Chest, a3, a3, 3)); // сдвиг (+1, +1): ЮВ четверть 97 и соседи
             plan = Enqueue(sim, me, ObjectId.StoneWall, a3, new TileCoord(98, 100), 0 | (1 << 2), out queued);
@@ -502,6 +502,155 @@ namespace Orpheus.Tests
             Assert.Equal(ObjectId.Empty, sim.World.GetObject(tp));
             Assert.Equal(ObjectId.Torch, sim.World.GetObject(tr));
             Assert.Equal(0, sim.GetEntity(rich).Inv.Count(Items.Torch));
+            Assert.Equal(0, sim.GetEntity(poor).Inv.Count(Items.Torch)); // чужая оплата не возвращается бедному (П, з. 2)
+        }
+
+        /// <summary>
+        /// То же для починки (оплата <c>CostPaidRepair</c>): бедный (без камня) чинит стену в чанке «позже» первым, богатый — в
+        /// чанке «раньше» вторым. Богатый починил и заплатил, бедному ничего не вернулось, его стена не починена.
+        /// </summary>
+        [Fact]
+        public void C011_PrePass_Repair_Follows_Edits_After_Chunk_Sort()
+        {
+            var sim = new Simulation(Flat());
+            int poor = Me(sim, 70, 10);
+            int rich = Me(sim, 10, 10, (Items.Stone, 20));
+            var tp = new TileCoord(72, 10);
+            var tr = new TileCoord(12, 10);
+            Assert.True(BuildDefs.TryGet(ObjectId.StoneWall, out BuildDef def));
+            foreach (TileCoord t in new[] { tp, tr })
+            {
+                Assert.True(sim.RequestEdit(t, FloorId.Grass, ObjectId.StoneWall, new BuildRecord(1, (ushort)(def.MaxIntegrity / 2), 0, FloorId.Grass, 0)));
+            }
+
+            sim.Step();
+            Assert.True(sim.RequestRepair(tp, poor, 1));
+            Assert.True(sim.RequestRepair(tr, rich, 2));
+            sim.Step();
+            Assert.Equal(EditResult.Applied, LastResult(sim, rich));
+            Assert.NotEqual(EditResult.Applied, LastResult(sim, poor));
+            Assert.True(sim.World.TryGetBuild(tr, out BuildRecord rr));
+            Assert.Equal(def.MaxIntegrity, rr.Integrity);
+            Assert.True(sim.World.TryGetBuild(tp, out BuildRecord pr));
+            Assert.Equal(def.MaxIntegrity / 2, pr.Integrity);
+            Assert.True(sim.GetEntity(rich).Inv.Count(Items.Stone) < 20);
+            Assert.Equal(0, sim.GetEntity(poor).Inv.Count(Items.Stone));
+        }
+
+        // ------------------------------------------------ ответ на проверку (П)
+
+        /// <summary>
+        /// З. 1: один игрок сносит сундук, другой тем же тактом ставит стену в свободную половину его якоря (стена пришла
+        /// второй). Перенос не применяется (тайл якоря уже в пачке, <c>MoveFits</c>): сундук ровно один — кучей, нового якоря
+        /// нет, стена не встала, её предметы возвращены.
+        /// </summary>
+        [Fact]
+        public void C011_Demolish_And_Wall_Into_Anchor_Same_Tick_No_Duplicate()
+        {
+            var sim = new Simulation(Flat());
+            int a = Me(sim, 100, 100, (Items.Chest, 1));
+            int b = Me(sim, 100, 102, (Items.StoneWall, 4));
+            var anchor = new TileCoord(102, 100);
+            var next = new TileCoord(103, 100);
+            Assert.Equal(1, Place(sim, a, ObjectId.Chest, anchor, anchor, 1));
+            int piles = sim.Piles.Length;
+
+            BuildLayers.AfterDig(sim.World, anchor, out byte fl, out bool keep, out BuildRecord rest);
+            Assert.True(sim.RequestPlayerEdit(anchor, fl, ObjectId.Empty, keep, rest, a, 0));
+            PlannedEdit[] plan = Enqueue(sim, b, ObjectId.StoneWall, anchor, anchor, 0 | (2 << 2), out int queued);
+            Assert.Equal(1, queued);
+            Assert.True(plan[0].Moves);
+            sim.Step();
+
+            Assert.Equal(EditResult.Applied, LastResult(sim, a));
+            Assert.Equal(EditResult.Busy, LastResult(sim, b));
+            Assert.Equal(ObjectId.Empty, sim.World.GetObject(anchor));
+            Assert.Equal(ObjectId.Empty, sim.World.GetObject(next));
+            Assert.Equal(0, sim.SolidCells(sim.Shape, next));
+            int chests = 0;
+            for (int i = piles; i < sim.Piles.Length; i++)
+            {
+                chests += sim.Piles[i].Item == Items.Chest ? sim.Piles[i].Count : 0;
+            }
+
+            Assert.Equal(1, chests);
+            Assert.Equal(4, sim.GetEntity(b).Inv.Count(Items.StoneWall));
+        }
+
+        /// <summary>
+        /// З. 3: по сети открыт сундук; стена в свободную половину его якоря — окно не закрывается, тайл в сообщении 35 — новый
+        /// якорь, содержимое прежнее, операция «из сундука в сумку» проходит.
+        /// </summary>
+        [Fact]
+        public void C011_Open_Chest_Window_Follows_Moved_Chest()
+        {
+            using var rig = new EditTests.EditRig(Flat(), _ => EditTests.TileCenter(300, 200));
+            NetClient c = rig.Join();
+            rig.Run(5);
+            var inv = rig.Sim.GetEntity(c.EntityId).Inv;
+            inv.SetCell(5, Items.StoneWall, 4);
+            inv.SetCell(6, Items.Chest, 1);
+            Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
+            rig.Run(3);
+            WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
+            var a = new TileCoord(302, 199);
+            var b = new TileCoord(303, 199);
+            c.Place(a, a, ObjectId.Chest, self, 6, 1);
+            rig.Run(6);
+            Assert.Equal(ObjectId.Chest, rig.Sim.World.GetObject(a));
+            var stuff = new Inventory();
+            stuff.SetCell(0, Items.Stone, 7);
+            rig.Sim.RestoreChests(new[] { a }, new[] { stuff });
+            Assert.True(c.RequestUse(a));
+            rig.Run(4);
+            Assert.True(c.ChestOpen);
+            Assert.Equal(a, c.ChestTile);
+
+            c.Place(a, a, ObjectId.StoneWall, self, 5, 0 | (2 << 2));
+            rig.Run(6);
+            Assert.Equal(ObjectId.Chest, rig.Sim.World.GetObject(b));
+            Assert.True(c.ChestOpen);
+            Assert.Equal(b, c.ChestTile);
+            Assert.Equal(7, c.Chest.Count(Items.Stone));
+
+            int before = rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone);
+            Assert.True(c.RequestBagMove(BagHand.ChestBase + 0, 20));
+            rig.Run(4);
+            Assert.Equal(before + 7, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Stone));
+            rig.Sim.TryGetChest(b, out Inventory left);
+            Assert.Equal(0, left.Count(Items.Stone));
+        }
+
+        /// <summary>
+        /// З. 4: точка возрождения переходит на новый якорь в такте переноса, а не поиском по старому тайлу. Кровать A
+        /// переносит якорь стеной; затем её сносят, а в ячейку старого якоря свешивается чужая кровать — точка не
+        /// перескакивает на чужую кровать: смерть — у старта.
+        /// </summary>
+        [Fact]
+        public void C011_Respawn_Follows_Move_At_Once_Not_Foreign_Bed()
+        {
+            var sim = new Simulation(Flat());
+            sim.RespawnCenter = At(200, 200);
+            int me = Me(sim, 100, 100, (Items.Bed, 2), (Items.StoneWall, 6));
+            var a = new TileCoord(102, 98);
+            var b = new TileCoord(103, 98);
+            Assert.Equal(1, Place(sim, me, Bed(0), a, a, 1)); // восточная половина 102 и западная 103, ряды 98–99
+            Assert.Equal(EditReply.Accepted, sim.RequestSetBed(me, a));
+            Assert.Equal(2, Place(sim, me, ObjectId.StoneWall, a, new TileCoord(102, 99), 0 | (2 << 2))); // западные половины 102, ряды 98–99
+            Assert.Equal(ObjectId.Bed, ObjectId.IdOf(sim.World.GetObject(b)));
+            Assert.Equal(b, sim.GetEntity(me).Bed); // сразу, в такте переноса
+
+            // Снос своей кровати; другая кровать 90° свешивается в свободную восточную половину старого якоря (102, 98).
+            Demolish(sim, me, b);
+            Assert.Equal(ObjectId.Empty, sim.World.GetObject(b));
+            var other = new TileCoord(102, 97);
+            Assert.Equal(1, Place(sim, me, Bed(1), other, other, 3)); // 90°: 4 × 2 ячейки от СЗ ячейки (205, 195): ряд 98 тайлов 102–104
+            Assert.True(BuildLayers.TryFurnitureAt(sim.World, a, out TileCoord foreign));
+            Assert.Equal(ObjectId.Bed, ObjectId.IdOf(sim.World.GetObject(foreign)));
+
+            Kill(sim, me);
+            Assert.Equal(sim.RespawnCenter, sim.GetEntity(me).Mover.Position);
+            Assert.False(sim.GetEntity(me).HasBed);
         }
     }
 }

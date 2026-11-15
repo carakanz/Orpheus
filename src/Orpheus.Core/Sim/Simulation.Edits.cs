@@ -423,14 +423,11 @@ namespace Orpheus.Core.Sim
                         AddDoor(TileOf(chunk, _edits[i].Edit.Index));
                     }
 
-                    // C-011: перенос якоря мебели — правка нового якоря (без заказчика: в пачку клиентам), сундук — содержимое за ним.
+                    // C-011: перенос якоря мебели — правка нового якоря (без заказчика: в пачку клиентам); сундук, кровать — за ней.
                     if (result == EditResult.Applied && _edits[i].HasMove)
                     {
                         AddEvent(new SimEvent(SimEventKind.TileEdit, tick, chunk, _edits[i].MoveEdit.Index, _results[_batchOf[i] + 1], revision, 0, 0));
-                        if (ObjectId.IdOf(_preObj[i]) == ObjectId.Chest)
-                        {
-                            MoveChest(TileOf(chunk, _edits[i].Edit.Index), TileOf(chunk, _edits[i].MoveEdit.Index));
-                        }
+                        MoveAnchor(TileOf(chunk, _edits[i].Edit.Index), TileOf(chunk, _edits[i].MoveEdit.Index), _preObj[i]);
                     }
 
                     // Сундук (E2-5): снесён или разрушен — содержимое кучами на его тайл (и от правок мира, без заказчика).
