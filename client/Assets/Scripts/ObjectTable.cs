@@ -60,27 +60,18 @@ namespace Orpheus.Client
         public int LeavesMin, LeavesMax;
 
         /// <summary>
-        /// Блок (обрыв, шаги 1.6, 1.6б): не картинка с опорой, а кусок скальной гряды на весь тайл — верхняя грань, поднятая на
-        /// <see cref="Height"/>, лицо к зрителю (к югу) там, где южнее блока нет, наклонные бока, тёмный контур по свободным краям.
-        /// Куски берутся из картинок <see cref="Top"/> и <see cref="Face"/> по координате тайла (картинка — несколько тайлов).
+        /// Блок (обрыв, шаги 1.6, 1.6б, C-016): не картинка с опорой, а кусок скального массива на весь тайл — верхняя грань,
+        /// поднятая на высоту яруса, лицо к зрителю (к югу) там, где южный сосед ниже, наклонные бока, контур; рисуется кодом
+        /// (<see cref="ObjectMesh"/>, файл <c>ObjectMesh.Cliffs.cs</c>).
         /// </summary>
         public bool Block;
-        public string Top = "", Face = "";
 
-        /// <summary>Высота блока, тайлов.</summary>
+        /// <summary>Высота блока, тайлов (у обрыва — нижний ярус, C-016).</summary>
         public float Height = 1f;
 
-        /// <summary>Цвет контура блока.</summary>
-        public Color32 Outline = new Color32(46, 34, 38, 255);
-
-        /// <summary>Блок-гряда (E1-6b): цвет лица, освещённого (западного) и теневого (восточного) боков.</summary>
-        public Color32 FaceTint = new Color32(255, 255, 255, 255), SideLit = new Color32(255, 255, 255, 255), SideDark = new Color32(255, 255, 255, 255);
-
-        /// <summary>На сколько тайлов верх гряды уже подошвы со свободного бока (бок — наклонная грань).</summary>
-        public float Inset = 0.34f;
-
-        /// <summary>Рисунок верха крупнее в столько раз (картинка «галька» читается как скала, а не мостовая).</summary>
-        public int TopCells = 1;
+        /// <summary>Обрыв (C-016): прибавка высоты на ярус и число ярусов (ярус — длина ряда обрыва к югу, западу, востоку).</summary>
+        public float Step;
+        public int Levels = 1;
 
         /// <summary>Камни-украшения гряды (без коллизий): картинки, доля тайлов с камнем на верху (внутри / у края), с осыпью у подошвы.</summary>
         public string[] Deco = new string[0];
@@ -88,7 +79,7 @@ namespace Orpheus.Client
         public Color32 DecoTint = new Color32(255, 255, 255, 255), RubbleTint = new Color32(255, 255, 255, 255);
 
         internal int[] DecoSprites = new int[0];
-        internal int TopSprite = -1, FaceSprite = -1, WhiteSprite = -1;
+        internal int WhiteSprite = -1;
 
         /// <summary>
         /// Картинки по повороту объекта 0°, 90°, 180°, 270° (E2-16: кровать, верстак, сундук; пусто — без поворота) и зеркало
@@ -164,15 +155,15 @@ namespace Orpheus.Client
                 Id = ObjectId.Stump, Variants = new[] { V("stump") },
                 ScaleMin = 0.9f, ScaleMax = 1.1f, Jitter = 0.15f, Flip = true, Shadow = 0.8f,
             },
-            // Обрыв (шаги 1.6, 1.6б): скальная гряда-граница, не копается и не проходится. Верх — тёмный камень с валунами,
-            // лицо к югу в 1,7 тайла, наклонные бока, контур; форма — по соседним тайлам-обрывам (ObjectMesh.Block).
+            // Обрыв (шаги 1.6, 1.6б, C-016): скальный массив-граница, не копается и не проходится. Ярусы ступенями от южной
+            // кромки к северному гребню (чем шире полоса, тем выше), лицо к югу, наклонные бока, контур — кодом
+            // (ObjectMesh.Cliffs); валуны редко на гребне и уступах, осыпь у подошвы.
             new ObjectLook
             {
-                Id = ObjectId.Cliff, Block = true, Top = "cliff_top", Face = "cliff_face", Height = 1.7f, Shadow = 1f,
-                Tint = new Color32(122, 128, 146, 255), TopCells = 2,
-                FaceTint = new Color32(128, 126, 186, 255), SideLit = new Color32(156, 154, 204, 255), SideDark = new Color32(88, 90, 138, 255),
-                Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.45f, DecoEdge = 0.7f, DecoFoot = 0.35f,
-                DecoTint = new Color32(214, 204, 200, 255), RubbleTint = new Color32(196, 188, 186, 255),
+                Id = ObjectId.Cliff, Block = true, Height = 1.3f, Step = 0.7f, Levels = 3,
+                Shadow = 1f,
+                Deco = new[] { "boulder_a", "boulder_c", "boulder_b", "boulder_a" }, DecoTop = 0.05f, DecoEdge = 0.16f, DecoFoot = 0.3f,
+                DecoTint = new Color32(200, 196, 214, 255), RubbleTint = new Color32(176, 170, 192, 255),
             },
             // Костёр, верстак I и факел (E2-4), сундук и кровать (E2-5): E2-17 — объёмные заглушки 3/4 tools/make_furniture.py
             // (128 × 160, верх 1:1, высота × ObjectMesh.WallHeight, опора внизу по центру); круг света костра и факела —
@@ -236,11 +227,6 @@ namespace Orpheus.Client
                     }
                 }
 
-                if (look.Block)
-                {
-                    if (seen.Add(look.Top)) yield return look.Top;
-                    if (seen.Add(look.Face)) yield return look.Face;
-                }
             }
         }
 
@@ -283,8 +269,6 @@ namespace Orpheus.Client
                 look.TotalWeight = total;
                 if (look.Block)
                 {
-                    look.TopSprite = ObjectAtlas.Find(look.Top);
-                    look.FaceSprite = ObjectAtlas.Find(look.Face);
                     look.WhiteSprite = ObjectAtlas.Find(ObjectAtlas.WhiteName);
                     var deco = new List<int>();
                     foreach (string name in look.Deco)
@@ -297,9 +281,9 @@ namespace Orpheus.Client
                     }
 
                     look.DecoSprites = deco.ToArray();
-                    if (look.TopSprite < 0 || look.FaceSprite < 0 || look.WhiteSprite < 0)
+                    if (look.WhiteSprite < 0)
                     {
-                        Debug.LogWarning($"[objects] у блока {look.Id} нет картинок {look.Top} / {look.Face} — не рисуется");
+                        Debug.LogWarning($"[objects] у блока {look.Id} нет белого квадрата листа — не рисуется");
                         continue;
                     }
                 }
