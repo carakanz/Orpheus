@@ -79,7 +79,8 @@ namespace Orpheus.Core.Sim
 
             int slot = SlotOf(e.Requester);
             int cell = slot < 0 ? -1 : CellWith(in _entities[slot].Inv, def.Item, e.Cell);
-            if (cell < 0 || _entities[slot].Inv.CountIn(cell) < units || _entities[slot].Inv.TakeFrom(cell, units) != units)
+            // E2-15: в руке стопка меньше цены тайла (стена, пол — по предмету на ячейку) — недостающее из сумки.
+            if (cell < 0 || _entities[slot].Inv.TakeFromThenAny(cell, def.Item, units) != units)
             {
                 _preResult[i] = EditResult.NoResources;
                 return;

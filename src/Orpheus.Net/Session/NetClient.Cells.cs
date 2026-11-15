@@ -41,7 +41,7 @@ namespace Orpheus.Net.Session
                 }
 
                 int units = e.Units;
-                if (!free && (inv.ItemAt(cell) != def.Item || inv.CountIn(cell) < units || inv.TakeFrom(cell, units) != units))
+                if (!free && (inv.ItemAt(cell) != def.Item || inv.TakeFromThenAny(cell, def.Item, units) != units))
                 {
                     break; // предметы кончились посреди линии (`05` 1.4): остаток не предсказываем
                 }
