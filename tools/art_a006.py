@@ -6,6 +6,8 @@
     python tools/art_a006.py collect                  # скачать готовое в build/art_a006/raw/<ключ>.png
     python tools/art_a006.py wait [--every 600]       # фоновый сборщик: collect раз в N секунд, пока очередь не пуста
     python tools/art_a006.py table                    # таблица заданий (markdown) для карточки
+    python tools/art_a006.py sheets                   # листы work/screens/A-006_*.png, значки 128 и концепты 512 в work/art/
+    python tools/art_a006.py install предмет=ключ …   # поставить выбранные значки п. 1 в игру (TEMP_, уголок, манифест)
 
 Модель — Z-Image base (z_image_bf16), 30 шагов, cfg 4, граф как у tools/art_stage1.py. Значки п. 1 — img2img
 по эскизу (LoadImage → VAEEncode → KSampler с denoise < 1): контролнета под Z-Image на Маке нет (ModelPatchLoader
@@ -479,9 +481,169 @@ def cmd_table():
         print(f"| `{k}` | `{j['pid']}` | {j['seed']} | {sk} | {j.get('status')} |")
 
 
+# ---------------------------------------------------------------- листы
+P1_LABEL = {"hammer": "молот", "wood_wall": "стена деревянная", "platform": "настил", "door": "дверь", "arrows": "стрелы"}
+IC_LABEL = {"copper_helmet": "медный шлем", "copper_chestplate": "медный доспех", "copper_greaves": "медные поножи",
+            "copper_arrows": "медные стрелы", "bandage": "повязка", "healing_herb": "лечебная трава",
+            "torch_box": "факел-ящик", "wood_spikes": "шипы деревянные"}
+EN_LABEL = {"swordsman": "разбойник-мечник", "archer": "разбойник-лучник", "wolf": "волк", "shade": "тень"}
+ICONS_OUT = ROOT / "work" / "art" / "icons_a006"
+SCREENS = ROOT / "work" / "screens"
+
+
+def icon_pair(key):
+    """Сырая картинка → (128, 64) с вырезанным фоном; None — нет картинки."""
+    import numpy as np
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import art_icon_probe as probe
+    src = RAW / f"{key}.png"
+    if not src.exists():
+        return None
+    im = Image.open(src).convert("RGB")
+    cut = probe.cut_green(im)
+    border = np.concatenate([np.asarray(im)[:8].reshape(-1, 3), np.asarray(im)[-8:].reshape(-1, 3)])
+    med = np.median(border, axis=0)
+    if not (med[1] > med[0] + 60 and med[1] > med[2] + 60):     # фон не зелёный: цвет предмета не гасить
+        cut = Image.merge("RGBA", (*im.split(), cut.getchannel("A")))
+    return probe.fit(cut, 128), probe.fit(cut, 64)
+
+
+def label_font(size, bold=False):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import art_icon_probe as probe
+    return probe.font(size, bold)
+
+
+def grass_cell(ic128):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import art_icon_probe as probe
+    g = probe.grass(probe.CELL + 16, probe.CELL + 16)
+    g.alpha_composite(probe.cell_with(probe.fit_from(ic128, probe.ICON) if ic128 is not None else None), (8, 8))
+    return g
+
+
+def icon_sheet(title, rows, out, before=None):
+    """rows: [(подпись, [ключи])]; before: {подпись: картинка 128 «до»}."""
+    led = load_ledger()
+    ICONS_OUT.mkdir(parents=True, exist_ok=True)
+    ncol = max(len(k) for _, k in rows) + (2 if before else 0)
+    cw, rh, left, top = 150, 230, 200, 60
+    W, H = left + ncol * cw + 20, top + len(rows) * rh + 10
+    sh = Image.new("RGBA", (W, H), (236, 222, 196, 255))
+    d = ImageDraw.Draw(sh)
+    d.text((16, 14), title, fill=(50, 30, 20), font=label_font(24, True))
+    for ri, (lab, keys) in enumerate(rows):
+        y = top + ri * rh
+        d.text((16, y + 50), lab, fill=(50, 30, 20), font=label_font(20, True))
+        cells = []
+        if before:
+            cells.append(("было", before[lab][0]))
+            cells.append(("эскиз", before[lab][1]))
+        for k in keys:
+            pair = icon_pair(k)
+            if pair:
+                pair[0].save(ICONS_OUT / f"{k}_128.png", optimize=True)
+            j = led.get(k, {})
+            note = f"d={j['denoise']}" if j.get("denoise") else ("без эскиза" if k.startswith("p1_") else "")
+            cells.append((f"{k.rsplit('_', 1)[-1]} {note}".strip(), pair[0] if pair else None))
+        for ci, (cap, im) in enumerate(cells):
+            x = left + ci * cw
+            d.rectangle((x, y, x + 132, y + 132), outline=(170, 130, 80))
+            if im is None:
+                d.text((x + 10, y + 56), "нет", fill=(170, 40, 30), font=label_font(18))
+            else:
+                im = im.convert("RGBA")
+                if im.size != (128, 128):
+                    im = im.resize((128, 128), Image.LANCZOS)
+                sh.alpha_composite(im, (x + 2, y + 2))
+                if cap != "эскиз":
+                    sh.alpha_composite(grass_cell(im), (x + 34, y + 140))
+            d.text((x + 2, y + 208), cap, fill=(70, 45, 30), font=label_font(14))
+    SCREENS.mkdir(parents=True, exist_ok=True)
+    sh.convert("RGB").save(out, optimize=True)
+    print("лист:", out)
+
+
+def concept_sheet(title, rows, out, px, dst_dir):
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    ncol = max(len(k) for _, k in rows)
+    left, top = 220, 60
+    W, H = left + ncol * (px + 12) + 10, top + len(rows) * (px + 40)
+    sh = Image.new("RGB", (W, H), (236, 222, 196))
+    d = ImageDraw.Draw(sh)
+    d.text((16, 14), title, fill=(50, 30, 20), font=label_font(24, True))
+    for ri, (lab, keys) in enumerate(rows):
+        y = top + ri * (px + 40)
+        d.text((16, y + px // 2 - 12), lab, fill=(50, 30, 20), font=label_font(22, True))
+        for ci, k in enumerate(keys):
+            x = left + ci * (px + 12)
+            src = RAW / f"{k}.png"
+            if src.exists():
+                im = Image.open(src).convert("RGB")
+                im.resize((512, 512), Image.LANCZOS).save(dst_dir / f"{k}.png", optimize=True)
+                sh.paste(im.resize((px, px), Image.LANCZOS), (x, y))
+            else:
+                d.rectangle((x, y, x + px, y + px), outline=(170, 130, 80))
+                d.text((x + 20, y + px // 2), "нет картинки", fill=(170, 40, 30), font=label_font(18))
+            d.text((x + 4, y + px + 6), k, fill=(70, 45, 30), font=label_font(15))
+    sh.save(out, optimize=True)
+    print("лист:", out)
+
+
+def cmd_sheets():
+    icons_b = ROOT / "art" / "style" / "icons_b"
+    temp = ROOT / "client" / "Assets" / "Art" / "_TEMP"
+    before = {}
+    for k, lab in P1_LABEL.items():
+        b = icons_b / f"{k}_128.png"
+        old = Image.open(b) if b.exists() else Image.open(temp / f"TEMP_item_{k}.png").resize((128, 128), Image.NEAREST)
+        before[lab] = (old, Image.open(SKETCH / f"sk_{k}.png").convert("RGBA"))
+    icon_sheet("A-006 п. 1 — перезаказ значков по эскизу (img2img Z-Image, denoise) и строгим промптом",
+               [(lab, [f"p1_{k}_{i}" for i in ("1", "2", "3", "4", "t")]) for k, lab in P1_LABEL.items()],
+               SCREENS / "A-006_icons_p1.png", before)
+    icon_sheet("A-006 п. 2 — значки этапа 3 (стиль Б), по 2 варианта",
+               [(lab, [f"ic_{k}_1", f"ic_{k}_2"]) for k, lab in IC_LABEL.items()], SCREENS / "A-006_icons_stage3.png")
+    concept_sheet("A-006 п. 3 — концепты врагов этапа 3 (вид сверху 3/4)",
+                  [(lab, [f"en_{k}_{i}" for i in (1, 2, 3)]) for k, lab in EN_LABEL.items()],
+                  SCREENS / "A-006_enemies.png", 384, ROOT / "work" / "art" / "enemies")
+    concept_sheet("A-006 п. 4 — Цербер, концепты босса (вид сверху 3/4)",
+                  [("Цербер", [f"cer_{i}" for i in (1, 2, 3, 4)])], SCREENS / "A-006_cerberus.png", 448,
+                  ROOT / "work" / "art" / "cerberus")
+
+
+
+def cmd_install(pairs):
+    """предмет=ключ … → art/style/icons_b/<предмет>_128/_64.png, TEMP_item_<предмет>.png (64, пурпурный уголок), манифест."""
+    import csv
+    icons_b = ROOT / "art" / "style" / "icons_b"
+    temp = ROOT / "client" / "Assets" / "Art" / "_TEMP"
+    man = ROOT / "art" / "manifest.csv"
+    led = load_ledger()
+    with man.open(encoding="utf-8", newline="") as f:
+        rows = list(csv.reader(f))
+    notes = {}
+    for pr in pairs:
+        item, _, key = pr.partition("=")
+        big, small = icon_pair(key)
+        big.save(icons_b / f"{item}_128.png", optimize=True)
+        small.save(icons_b / f"{item}_64.png", optimize=True)
+        t = small.copy()
+        ImageDraw.Draw(t).rectangle([0, 0, 7, 7], fill=(255, 0, 255, 255))
+        t.save(temp / f"TEMP_item_{item}.png", optimize=True)
+        j = led[key]
+        how = f"img2img по эскизу {j['sketch']}, denoise {j['denoise']}" if j.get("sketch") else "без эскиза"
+        notes[f"client/Assets/Art/_TEMP/TEMP_item_{item}.png"] = (
+            f"значок предмета «{P1_LABEL.get(item, item)}» 64x64; Мак, стиль Б (A-006: Z-Image base, {how}, seed {j['seed']}, "
+            f"ключ {key}); 128 px — art/style/icons_b/{item}_128.png; финальный — после приёмки Автора; скрипт tools/art_a006.py")
+        print(f"{item}: {key}")
+    rows = [[r[0], "placeholder", "А", notes[r[0]]] if r and r[0] in notes else r for r in rows]
+    with man.open("w", encoding="utf-8", newline="") as f:
+        csv.writer(f, lineterminator="\n").writerows(rows)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["sketches", "list", "queue", "collect", "wait", "table"])
+    ap.add_argument("cmd", choices=["sketches", "list", "queue", "collect", "wait", "table", "sheets", "install"])
     ap.add_argument("keys", nargs="*")
     ap.add_argument("--every", type=int, default=600)
     ap.add_argument("--limit-h", type=float, default=11)
@@ -501,6 +663,10 @@ def main():
         print("ждут:", cmd_collect())
     elif a.cmd == "wait":
         sys.exit(cmd_wait(a.every, a.limit_h))
+    elif a.cmd == "install":
+        cmd_install(a.keys)
+    elif a.cmd == "sheets":
+        cmd_sheets()
     else:
         cmd_table()
 

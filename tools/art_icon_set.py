@@ -57,7 +57,9 @@ CHOICE = {
     "platform": "s_platform_r", "wood_wall": "s_wood_wall_r", "copper_ore": "s_copper_ore_r",
 }
 # Не удались все попытки — остаётся прежняя заглушка скрипта (молот: 2 варианта и перезаказ — на плашке / голова отдельно).
-KEEP = {"hammer"}
+KEEP = set()
+# Перезаказаны в A-006 по эскизу (tools/art_a006.py install) — этот скрипт их не перезаписывает.
+A006 = {"hammer", "wood_wall", "platform", "door", "arrows"}
 
 
 def source(item: str, raw: Path, praw: Path) -> Path:
@@ -103,6 +105,9 @@ def install(raw: Path, praw: Path) -> None:
         rows = list(csv.reader(f))
     notes = {}
     for item in LABEL:
+        if item in A006:
+            print(f"{item}: A-006 (tools/art_a006.py) — пропуск")
+            continue
         if item in KEEP:
             print(f"{item}: прежняя заглушка (KEEP)")
             continue

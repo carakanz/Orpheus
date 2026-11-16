@@ -645,8 +645,8 @@ def main() -> None:
     with MANIFEST.open(encoding="utf-8", newline="") as f:
         rows = list(csv.reader(f))
     known = {r[0] for r in rows if r}
-    # A-005: значки из набора Мака (стиль Б) скрипт не перерисовывает — их делает tools/art_icon_set.py
-    mac_b = {r[0] for r in rows if r and len(r) > 3 and "стиль Б (A-005" in r[3]}
+    # A-005/A-006: значки из набора Мака (стиль Б) скрипт не перерисовывает — их делают tools/art_icon_set.py и tools/art_a006.py
+    mac_b = {r[0] for r in rows if r and len(r) > 3 and ("стиль Б (A-005" in r[3] or "стиль Б (A-006" in r[3])}
     if "--c008" in sys.argv:
         # C-008: только значки построек по силуэту (остальные картинки не трогать); строки манифеста — новое описание.
         notes_of = {f"client/Assets/Art/_TEMP/TEMP_item_{k}.png": n for k, (_, n) in BUILD_ICONS_C008.items()}
