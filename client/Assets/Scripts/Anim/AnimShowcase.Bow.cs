@@ -143,7 +143,7 @@ namespace Orpheus.Client.Anim
             float dist = Vector2.Distance(from, target) - (hit ? 0.6f : 0.42f);
             long travel = (long)(dist * Torus.SubTilesPerTile * 256f);
             WorldPos stop = Torus.Wrap(_g.Map, p.PositionAtTravel(travel));
-            _bowShots.OnMessage(ProjectileMessage.StopOf(new ProjectileStop(p.Id, p.Owner, hit ? ProjectileEnd.Hit : ProjectileEnd.Wall,
+            _bowShots.OnMessage(ProjectileMessage.StopOf(new Orpheus.Core.Sim.ProjectileStop(p.Id, p.Owner, hit ? ProjectileEnd.Hit : ProjectileEnd.Wall,
                 stop, hit ? 1 : -1, false)), 1, nowUs);
             if (hit)
             {

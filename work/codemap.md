@@ -179,3 +179,10 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - tests/PathTests.cs: Bench1024 :410 · ThinHouses :443 (пороги MeanTickUs/MaxWaitTicks :432–434, только Release) · `ThreadCpuClock` :646 (`QueryThreadCycleTime`) · `PathBench` :709 (`RunDirect`/`RunScheduler`, `PerTick`=40).
 - tests/MetricsTests.cs: `ReadyMaxSeconds` :131 · `D07_S1_9_4_Big_Server1024_ReadyWithin5s_Under128Mb` :144 · `StartServer` (парсит `sinceProcessStartSec` из stdout) :198..225.
 - Bots/BotRun.cs: `EntryGraceSeconds` :248 · `allInAt`/`windowEnd` ~:340 (окно `--seconds` от события «все в игре»).
+
+## Лук и снаряды (E3-2)
+- Movement/BowAction.cs: BowInput.Of (вход кадра) · BowAction.StepFrame · PowerQ8 · TakeShot · CancelByDash. Mover.Bow, StepFrame(…, bowInput, solid), FrameSpeedX10 (60 %).
+- Combat/Projectile.cs: BowDef (DamageAt, SpeedX256At), Projectiles (таблица луков, константы, TryGetBow), ProjectileEnd, Projectile (PositionAt/PositionAtTravel).
+- Sim/Simulation.Projectiles.cs: ProjectileStop · SpawnProjectile (общий, и для врагов) · FireBow · BowInputOf · BowFrames30 · StepProjectiles (фаза 4.2) · FlyOneTick · ProjectileVictim · Stop (куча 50 %). Буферы ShotsThisTick / StopsThisTick.
+- Net: Protocol/ProjectileMessages.cs (37), NetServer.Events.BroadcastProjectiles, Session/ClientProjectiles.cs (полёт на клиенте, подмена предсказанной), LocalPrediction.HasArrows/Bow/TryTakeShot, NetServer.Threats (BowInput в копиях Mover).
+- Клиент: ArrowView.cs (стрелы, след, кольцо силы), NetGame (бит удара с луком в NetGame.Edits, «нет стрел», AddPredicted, CursorPoint), ActionAnim.BowDraw/BowRelease, ProceduralAnimator (слой лука), NetAnimation (свой лук из предсказания, отдача чужих OnShot), Anim/AnimShowcase.Bow.cs (ленты E3-2_*).

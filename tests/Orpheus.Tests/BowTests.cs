@@ -459,5 +459,28 @@ namespace Orpheus.Tests
             Assert.Equal(a, b);
             Assert.NotEqual(a[^1], c[^1]);
         }
+
+        /// <summary>
+        /// «Золотой» хэш: сценарий лука (натяжения разной силы, оси, стена, враг) — один и тот же хэш состояния на любой машине.
+        /// Меняется только осознанно (правила лука или снаряда) — с записью в карточке.
+        /// </summary>
+        [Fact]
+        public void E32_Golden_StateHash()
+        {
+            var r = new Range(seed: 11);
+            r.Sim.AddEnemy(At(20, 32));
+            r.Build(13, 31, ObjectId.StoneWall, BuildRecord.OfPlayer(1, FloorId.Grass));
+            for (int k = 0; k < 6; k++)
+            {
+                ushort aim = (ushort)(k * 3000 - 6000);
+                for (int t = 0; t < 10; t++)
+                    r.Tick(t < 3 + k, aim);
+            }
+
+            Assert.True(r.Shots.Count >= 5, $"выстрелов {r.Shots.Count}");
+            Assert.Equal(GoldenHash, StateHash.Compute(r.Sim).Total);
+        }
+
+        private const ulong GoldenHash = 2109277538302106159UL;
     }
 }
