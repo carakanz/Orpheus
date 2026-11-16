@@ -214,6 +214,36 @@ namespace Orpheus.Tests
             Assert.True(sim.IsSpawnTileOk(spot));
         }
 
+        /// <summary>
+        /// Правило «в комнате с факелом враги не появляются» проверяет ВСЮ комнату (ячейки 0,5 тайла), а не одну четверть
+        /// тайла (<see cref="RoomIndex.LitRoomInTile"/>): большая комната 30 × 30 (стены по внешним половинам, внутри
+        /// 58 × 58 ячеек — меньше предела 64) с факелом в дальнем юго-западном углу. Свет ядра (<see cref="LightIndex"/>:
+        /// факел 3 / 6 тайлов) до противоположного угла не достаёт, зато метка LitRoom у комнаты общая — появление запрещено
+        /// по всей комнате, включая противоположный угол. Снаружи — можно.
+        /// </summary>
+        [Fact]
+        public void S02_Lit_Room_Rule_Covers_Whole_Room()
+        {
+            var sim = new Simulation(Flat());
+            Room(sim, 700, 700, 729, 729, door: 2); // в стороне от точки старта (правило ≥ 16 тайлов)
+            var near = new TileCoord(701, 701);  // северо-западный угол комнаты
+            var far = new TileCoord(728, 728);   // противоположный (юго-восточный) угол той же комнаты
+            Assert.True(sim.IsSpawnTileOk(near));
+            Assert.True(sim.IsSpawnTileOk(far));
+
+            Assert.True(sim.RequestEdit(new TileCoord(701, 728), FloorId.Grass, ObjectId.Torch));
+            sim.Step();
+            WorldModel w = sim.World;
+            // Факел в одном (юго-западном) углу: свет ядра до дальнего угла не доходит, а комната с огнём — вся.
+            Assert.Equal(0, w.Lights.SourceLightX1024(far));
+            Assert.Equal(RoomIndex.LitRoom, Label(w, 728, 728, 0, 0));
+            Assert.Equal(RoomIndex.LitRoom, Label(w, 728, 728, 1, 1));
+            Assert.True(w.Rooms.LitRoomInTile(new TileCoord(715, 715))); // середина комнаты — тоже «комната с огнём»
+            Assert.False(sim.IsSpawnTileOk(far));
+            Assert.False(sim.IsSpawnTileOk(near));
+            Assert.True(sim.IsSpawnTileOk(new TileCoord(740, 715))); // снаружи комнаты — можно
+        }
+
         // ---------- Свет для картинки ----------
 
         [Fact]
