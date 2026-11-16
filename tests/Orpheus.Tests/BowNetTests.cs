@@ -32,8 +32,8 @@ namespace Orpheus.Tests
         [Fact]
         public void E32_Codec_GoldenBytes_Projectile()
         {
-            Assert.Equal(37, (int)MessageType.Projectile);
-            Assert.Equal(30, NetModule.ProtocolVersion);
+            Assert.Equal(38, (int)MessageType.Projectile);
+            Assert.Equal(31, NetModule.ProtocolVersion);
             var buf = new byte[64];
             var shot = new ProjectileMessage
             {
@@ -42,7 +42,7 @@ namespace Orpheus.Tests
             };
             int n = shot.Write(buf);
             Assert.Equal(ProjectileMessage.ShotBytes, n);
-            Assert.Equal("25 01 04 03 02 01 07 00 00 00 01 01 0d 0c 0b 0a 33 22 11 00 66 55 44 00 00 80 ee ee 00 00 00 1e 00 00",
+            Assert.Equal("26 01 04 03 02 01 07 00 00 00 01 01 0d 0c 0b 0a 33 22 11 00 66 55 44 00 00 80 ee ee 00 00 00 1e 00 00",
                 Hex(new ReadOnlySpan<byte>(buf, 0, n)));
             ProjectileMessage back = ProjectileMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal(shot.Id, back.Id);
@@ -60,7 +60,7 @@ namespace Orpheus.Tests
             };
             n = stop.Write(buf);
             Assert.Equal(ProjectileMessage.StopBytes, n);
-            Assert.Equal("25 02 05 00 00 00 02 00 01 00 00 00 02 00 00 ff ff ff ff 01", Hex(new ReadOnlySpan<byte>(buf, 0, n)));
+            Assert.Equal("26 02 05 00 00 00 02 00 01 00 00 00 02 00 00 ff ff ff ff 01", Hex(new ReadOnlySpan<byte>(buf, 0, n)));
             back = ProjectileMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal(ProjectileEnd.Wall, back.Reason);
             Assert.Equal(-1, back.Victim);
@@ -116,6 +116,42 @@ namespace Orpheus.Tests
             Assert.Equal(ProjectileEnd.Hit, c.Projectiles.LastStop.Reason);
             Assert.Equal(enemy, c.Projectiles.LastStop.Victim);
             Assert.InRange(c.Projectiles.LastStop.Position.X, 0, 3 * U);
+            Assert.Equal(1, c.DamagesSeen); // E3-1: попадание стрелой — то же событие «урон» (37), цифра у стрелка
+        }
+
+        /// <summary>
+        /// E3-1 × E3-2 (просьба проверяющего E3-1): стрелок дальше 56 тайлов от жертвы всё равно получает событие «урон» своего
+        /// попадания (атакующему — всегда); посторонний игрок у стрелка (тоже дальше 56 т от жертвы) — не получает. Общий механизм
+        /// снаряда с дальностью 90 т (у лука 30 т — так далеко стрелок оказывается, только убежав за время полёта).
+        /// </summary>
+        [Fact]
+        public void E32_Net_FarArcher_GetsOwnHitDamageEvent()
+        {
+            var shape = MapShape.World(1024);
+            WorldModel world = FlatWorldGenerator.Instance.Generate(shape, 5);
+            using var rig = new EditTests.EditRig(world, _ => new WorldPos(100 * U + U / 2, 300 * U + U / 2));
+            for (int x = 98; x < 190; x++)
+                rig.Sim.RequestEdit(new TileCoord(x, 300), FloorId.Grass, ObjectId.Empty);
+            NetClient archer = rig.Join();
+            NetClient other = rig.Join();
+            rig.Run(20);
+            Assert.Equal(NetClientState.InGame, archer.State);
+            Assert.Equal(NetClientState.InGame, other.State);
+            int enemy = rig.Sim.AddEnemy(new WorldPos(180 * U + U / 2, 300 * U + U / 2)); // 80 т на восток
+            var seen = new List<DamageMessage>();
+            archer.DamageSeen = m => seen.Add(m);
+            long otherBefore = other.DamagesSeen;
+            int id = rig.Sim.SpawnProjectile(archer.EntityId, false, Projectiles.KindArrow, new WorldPos(100 * U + U / 2, 300 * U + U / 2), 0,
+                28 * U * 256 / 30, 90 * U, 10, 0, strong: true);
+            Assert.True(id > 0);
+            rig.Run(110);
+            Assert.Single(seen);
+            Assert.Equal(enemy, seen[0].Victim);
+            Assert.Equal(archer.EntityId, seen[0].Attacker);
+            Assert.Equal(10, seen[0].Amount);
+            Assert.True((seen[0].Flags & DamageMessage.FlagStrong) != 0, "полное натяжение — сильный");
+            Assert.Equal(otherBefore, other.DamagesSeen); // далеко от жертвы и не участник
+            Assert.Equal(ProjectileEnd.Hit, archer.Projectiles.LastStop.Reason);
         }
 
         /// <summary>

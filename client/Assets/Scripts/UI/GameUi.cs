@@ -173,6 +173,7 @@ namespace Orpheus.Client.UI
             _root = new UiRoot(camera);
             _hand = new BagHand(requests);
             _desk = new CraftDesk(craft);
+            Combat = new CombatHud(_root); // E3-1: цифры урона и полоски врагов — под всеми окнами
 
             _bar = new BottomBar(_root); // C-015: внизу по центру — сферы и способности между ними
             _hotbar = new HotbarView(_root); // C-015: быстрая панель — левый верхний угол
@@ -190,8 +191,12 @@ namespace Orpheus.Client.UI
             CreateBuild(_root, build, BarTop); // E2-5: окно сундука, строка у курсора, сообщение, подпись линейки
             _tip = new UiTooltip(_root);
             _carry = new UiCarry(_root);
+            Combat.CreateOverlay(); // E3-1: экран смерти — поверх всего
             Layout();
         }
+
+        /// <summary>E3-1: цифры урона, полоски врагов, экран смерти (рисует NetGame / стенд по <c>CombatFeed</c>).</summary>
+        public CombatHud Combat { get; }
 
         /// <summary>Окно сумки открыто.</summary>
         public bool BagOpen => _bag.Visible;
@@ -833,7 +838,7 @@ namespace Orpheus.Client.UI
         /// <summary>Сцены окна «сумка + изготовление» (E2-9).</summary>
         public static bool IsInv(string? mode) => mode == "inv" || mode == "inv-weapons" || mode == "inv-buildings" || mode == "inv-stone";
 
-        public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode) || IsBuild(mode);
+        public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode) || IsBuild(mode) || IsCombat(mode);
 
         public bool RequestBagMove(int from, int to) =>
             from >= BagHand.ChestBase || to >= BagHand.ChestBase ? ChestMove(from, to) : _bag.Move(from, to);
@@ -909,6 +914,12 @@ namespace Orpheus.Client.UI
         public void Frame(WorldPos position)
         {
             _frame++;
+            if (IsCombat(_mode))
+            {
+                CombatDemoFrame(position); // E3-1: UiDemo.Combat.cs
+                return;
+            }
+
             if (IsBuild(_mode))
             {
                 BuildFrame(position); // E2-5: UiDemo.Build.cs

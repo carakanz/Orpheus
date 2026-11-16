@@ -245,6 +245,13 @@ namespace Orpheus.Client
                 {
                     _uiDemo.BindWorld(Origin, transform);
                 }
+
+                if (UI.UiDemo.IsCombat(Args.UiDemo))
+                {
+                    // E3-1: враги-болванки вокруг персонажа, цифры урона, полоски, экран смерти.
+                    Sprite heroSprite = Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                    _uiDemo.BindCombat(Origin, new GameObject("CombatDemo").transform, heroSprite, _heroRig);
+                }
             }
         }
 

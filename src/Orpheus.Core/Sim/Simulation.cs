@@ -486,6 +486,9 @@ namespace Orpheus.Core.Sim
         /// <summary>Смерть персонажа → возрождение через 5 с = 150 тактов (13.5; приёмка 13.6 п. 1).</summary>
         public const int RespawnDelayTicks = 150;
 
+        /// <summary>E3-1: метка события «урон» (<see cref="SimEvent.Tag"/>) — сильный удар (добивающий серии меча): клиент рисует цифру крупнее.</summary>
+        public const int DamageTagStrong = 1;
+
         /// <summary>Враг: 0,5 с анимации смерти + 10 с трупа без коллизии = 315 тактов, затем удаление (`02` 8.3).</summary>
         public const int CorpseTicks = 315;
 

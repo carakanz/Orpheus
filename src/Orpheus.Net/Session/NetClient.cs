@@ -276,6 +276,12 @@ namespace Orpheus.Net.Session
         /// <summary>Возрождение сущности у центра возрождения (1-001).</summary>
         public Action<RespawnMessage>? RespawnSeen { get; set; }
 
+        /// <summary>Урон по сущности рядом (E3-1, сообщение 37): цифры урона и полоска врага. Повторов нет (канал 2).</summary>
+        public Action<DamageMessage>? DamageSeen { get; set; }
+
+        /// <summary>Сообщений «урон» принято (E3-1).</summary>
+        public long DamagesSeen { get; private set; }
+
         /// <summary>Сумка своего персонажа (1-002): при входе и когда содержимое изменилось. Повторов нет (канал 2).</summary>
         public Action<InventoryMessage>? InventorySeen { get; set; }
 
@@ -515,6 +521,10 @@ namespace Orpheus.Net.Session
                     case MessageType.Death when State == NetClientState.InGame:
                         DeathsSeen++;
                         DeathSeen?.Invoke(DeathMessage.Read(data)); // 1-001
+                        break;
+                    case MessageType.Damage when State == NetClientState.InGame:
+                        DamagesSeen++;
+                        DamageSeen?.Invoke(DamageMessage.Read(data)); // E3-1
                         break;
                     case MessageType.Respawn when State == NetClientState.InGame:
                         RespawnsSeen++;

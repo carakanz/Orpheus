@@ -10,7 +10,7 @@ namespace Orpheus.Net.Session
     /// <summary>Летящая (или только что остановившаяся) стрела на клиенте (E3-2).</summary>
     public struct FlyingProjectile
     {
-        /// <summary>Параметры полёта: с сервера (выстрел, тип 37) или предсказанные своим выстрелом (номер 0, пока сервер не подтвердил).</summary>
+        /// <summary>Параметры полёта: с сервера (выстрел, тип 38) или предсказанные своим выстрелом (номер 0, пока сервер не подтвердил).</summary>
         public Projectile P;
 
         /// <summary>Миг «возраст 0» по часам клиента, мкс.</summary>
@@ -114,7 +114,7 @@ namespace Orpheus.Net.Session
             });
         }
 
-        /// <summary>Сообщение «снаряд» (тип 37); <paramref name="ownEntity"/> — свой персонаж.</summary>
+        /// <summary>Сообщение «снаряд» (тип 38); <paramref name="ownEntity"/> — свой персонаж.</summary>
         public void OnMessage(in ProjectileMessage m, int ownEntity, long nowUs)
         {
             if (m.Op == ProjectileOp.Shot)

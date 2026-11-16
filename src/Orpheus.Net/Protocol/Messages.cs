@@ -138,8 +138,13 @@ namespace Orpheus.Net.Protocol
         /// <summary>Сервер → клиент, канал 2: сколько каждого предмета в сундуках рядом — владельцу, когда изменилось (E2-10).</summary>
         NearbyStock = 36,
 
-        /// <summary>Снаряд (E3-2): выстрел и конец полёта — сервер → все в игре, канал 2 (<see cref="ProjectileMessage"/>).</summary>
-        Projectile = 37,
+        // E3-1, урон цифрами (docs/02 6.8), канал 2. Протокол 30.
+
+        /// <summary>Сервер → клиент, канал 2: урон нанесён — жертва, атакующий, сколько, тип, «сильный» (игрокам рядом с жертвой, E3-1).</summary>
+        Damage = 37,
+
+        /// <summary>Снаряд (E3-2): выстрел и конец полёта — сервер → все в игре, канал 2 (<see cref="ProjectileMessage"/>). Протокол 31.</summary>
+        Projectile = 38,
     }
 
     /// <summary>
@@ -832,17 +837,29 @@ namespace Orpheus.Net.Protocol
     /// <summary>
     /// «Смерть» (1-001, тип 24; `02` 13.5): сущность (#Victim) убила сущность #Attacker (−1 — манекен/неизвестный
     /// атакующий); урон после брони, добивший удар, и его тип. Рассылка — канал 2 всем в игре; дублирует событие
-    /// такта, полоска здоровья приходит снимком.
+    /// такта, полоска здоровья приходит снимком. E3-1 (протокол 30): + тактов до возрождения (персонаж — 150 по
+    /// правилу ядра; враг — 0) и флаги (бит 0 — возродится у своей кровати, иначе у Очага) — для экрана смерти.
     /// </summary>
     public struct DeathMessage
     {
-        /// <summary>Тип 1 + жертва 4 + убийца 4 + урон 1 + тип урона 1.</summary>
-        public const int Bytes = 11;
+        /// <summary>Тип 1 + жертва 4 + убийца 4 + урон 1 + тип урона 1 + тактов до возрождения 2 + флаги 1.</summary>
+        public const int Bytes = 14;
+
+        /// <summary>Флаг: возродится у своей кровати (E3-1).</summary>
+        public const byte FlagAtBed = 1;
 
         public int Victim;
         public int Attacker;
         public byte Damage;
         public byte DamageType;
+
+        /// <summary>Тактов от смерти до возрождения (E3-1): 0 — не возрождается (враг).</summary>
+        public ushort RespawnTicks;
+
+        /// <summary>Флаги (E3-1): <see cref="FlagAtBed"/>.</summary>
+        public byte Flags;
+
+        public bool AtBed => (Flags & FlagAtBed) != 0;
 
         public int Write(Span<byte> dest)
         {
@@ -852,6 +869,8 @@ namespace Orpheus.Net.Protocol
             w.WriteUInt32((uint)Attacker);
             w.WriteByte(Damage);
             w.WriteByte(DamageType);
+            w.WriteUInt16(RespawnTicks);
+            w.WriteByte(Flags);
             return w.BytesWritten;
         }
 
@@ -864,12 +883,82 @@ namespace Orpheus.Net.Protocol
                 Attacker = (int)r.ReadUInt32(),
                 Damage = r.ReadByte(),
                 DamageType = r.ReadByte(),
+                RespawnTicks = r.ReadUInt16(),
+                Flags = r.ReadByte(),
             };
+            if ((m.Flags & ~FlagAtBed) != 0)
+            {
+                throw new ProtocolException($"Смерть: неизвестные флаги 0x{m.Flags:X2}.");
+            }
+
             r.ExpectEnd();
             return m;
         }
 
-        public override string ToString() => $"смерть #{Victim} (убийца #{Attacker}, урон {Damage}, тип {DamageType})";
+        public override string ToString() =>
+            $"смерть #{Victim} (убийца #{Attacker}, урон {Damage}, тип {DamageType}, возрождение через {RespawnTicks} т{(AtBed ? ", у кровати" : "")})";
+    }
+
+    /// <summary>
+    /// «Урон» (E3-1, тип 37; `02` 6.8): сущность #Attacker нанесла сущности #Victim урон после брони (событие такта
+    /// <c>SimEventKind.Damage</c> или решение угрозы сервером). Для цифр урона над головой и полоски здоровья врага — из
+    /// событий сервера, не из предсказания. Рассылка — канал 2 игрокам, чей персонаж в радиусе обзора от жертвы, и самим
+    /// жертве и атакующему.
+    /// </summary>
+    public struct DamageMessage
+    {
+        /// <summary>Тип 1 + жертва 4 + атакующий 4 + урон 2 + тип урона 1 + флаги 1.</summary>
+        public const int Bytes = 13;
+
+        /// <summary>Флаг: сильный удар (добивающий серии меча, <c>Simulation.DamageTagStrong</c>) — цифра крупнее.</summary>
+        public const byte FlagStrong = 1;
+
+        public int Victim;
+        public int Attacker;
+        public ushort Amount;
+        public byte DamageType;
+        public byte Flags;
+
+        public bool Strong => (Flags & FlagStrong) != 0;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Damage);
+            w.WriteUInt32((uint)Victim);
+            w.WriteUInt32((uint)Attacker);
+            w.WriteUInt16(Amount);
+            w.WriteByte(DamageType);
+            w.WriteByte(Flags);
+            return w.BytesWritten;
+        }
+
+        public static DamageMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Damage);
+            var m = new DamageMessage
+            {
+                Victim = (int)r.ReadUInt32(),
+                Attacker = (int)r.ReadUInt32(),
+                Amount = r.ReadUInt16(),
+                DamageType = r.ReadByte(),
+                Flags = r.ReadByte(),
+            };
+            if (m.Amount == 0)
+            {
+                throw new ProtocolException("Урон: 0 не шлётся.");
+            }
+
+            if ((m.Flags & ~FlagStrong) != 0)
+            {
+                throw new ProtocolException($"Урон: неизвестные флаги 0x{m.Flags:X2}.");
+            }
+
+            r.ExpectEnd();
+            return m;
+        }
+
+        public override string ToString() => $"урон #{Attacker}→#{Victim} {Amount} (тип {DamageType}{(Strong ? ", сильный" : "")})";
     }
 
     /// <summary>
@@ -1170,7 +1259,7 @@ namespace Orpheus.Net.Protocol
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
         /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001), 26 (сумка, 1-002) и 27…29 (кучи и заявка на сумку, E2-1;
-        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; 37 — снаряд, E3-2; последний — Projectile); 15 не занят.
+        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; 37 — урон, E3-1; 38 — снаряд, E3-2; последний — Projectile); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||

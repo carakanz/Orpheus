@@ -138,6 +138,9 @@ namespace Orpheus.Core.Combat
         /// <summary>Сырой урон.</summary>
         public byte Damage;
 
+        /// <summary>Сильный выстрел (полное натяжение): цифра урона крупнее (E3-1, «сильный»).</summary>
+        public bool Strong;
+
         /// <summary>Предмет, который остаётся при остановке (стрелы) с шансом; 0 — ничего.</summary>
         public byte DropItem;
 

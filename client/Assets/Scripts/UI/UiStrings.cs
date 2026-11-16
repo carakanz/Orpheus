@@ -52,6 +52,26 @@ namespace Orpheus.Client.UI
 
         public static string HealthTip(int cur, int max) => $"Здоровье {cur} / {max}";
 
+        // ---------- E3-1: смерть и возрождение ----------
+
+        public const string DeathTitle = "Вы погибли";
+
+        /// <summary>Кто убил: враг по архетипу, другой игрок, неизвестно.</summary>
+        public static string KilledBy(bool known, bool character, byte archetype) =>
+            !known ? "Причина смерти неизвестна"
+            : character ? "Вас убил другой игрок"
+            : archetype == EnemyArchetype.Melee ? "Вас убил разбойник"
+            : "Вас убил враг";
+
+        /// <summary>Таймер возрождения: «Возрождение у Очага через 4 с»; 0 — «Возрождение…».</summary>
+        public static string RespawnIn(int seconds, bool atBed) =>
+            seconds > 0 ? $"Возрождение {(atBed ? "у кровати" : "у Очага")} через {seconds} с" : $"Возрождение {(atBed ? "у кровати" : "у Очага")}…";
+
+        public static string Respawned(bool atBed) => atBed ? "Вы возродились у кровати" : "Вы возродились у Очага";
+
+        /// <summary>Имя элитного врага над полоской (в срезе элитных нет — стенд снимков, E3-1).</summary>
+        public const string EliteRogue = "Главарь разбойников";
+
         public static string StaminaTip(int cur, int max) => $"Выносливость {cur} / {max}";
 
         static readonly Dictionary<string, string> ItemNames = new Dictionary<string, string>

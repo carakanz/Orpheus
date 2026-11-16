@@ -76,7 +76,7 @@ namespace Orpheus.Core.Sim
         /// (вредит персонажам). Возвращает номер, 0 — потолок снарядов.
         /// </summary>
         public int SpawnProjectile(int owner, bool hostile, byte kind, WorldPos origin, ushort aimRaw, int speedX256,
-            int rangeUnits, int damage, byte dropItem)
+            int rangeUnits, int damage, byte dropItem, bool strong = false)
         {
             if (_projectileCount == MaxProjectiles)
             {
@@ -91,6 +91,7 @@ namespace Orpheus.Core.Sim
                 Kind = kind,
                 Damage = (byte)Math.Max(0, Math.Min(255, damage)),
                 DropItem = dropItem,
+                Strong = strong,
                 SpawnTick = Tick + 1,
                 Origin = Torus.Wrap(_shape, origin),
                 AimRaw = aimRaw,
@@ -145,7 +146,8 @@ namespace Orpheus.Core.Sim
             e.Inv.TakeFrom(cell, 1);
             int power = BowAction.PowerQ8(bow.ShotDraw);
             SpawnProjectile(e.Id, e.Kind == SimEntity.KindEnemy, Combat.Projectiles.KindOfBow(held),
-                new WorldPos(bow.ShotX, bow.ShotY), bow.ShotAim, def.SpeedX256At(power), def.RangeUnits, def.DamageAt(power), def.Ammo);
+                new WorldPos(bow.ShotX, bow.ShotY), bow.ShotAim, def.SpeedX256At(power), def.RangeUnits, def.DamageAt(power), def.Ammo,
+                strong: bow.ShotDraw >= BowAction.FullDrawFrames);
         }
 
         /// <summary>Вход лука кадра сущности (<see cref="BowInput"/>): лук в руках, ЛКМ, стрелы в сумке — тот же гейт у предсказания.</summary>
@@ -241,7 +243,8 @@ namespace Orpheus.Core.Sim
                 {
                     ref SimEntity v = ref _entities[victim];
                     int vid = v.Id;
-                    int dealt = ApplyStrike(vid, p.Owner, p.Damage, prev, knockback: true, damageKind: Combat.Projectiles.DamagePierce);
+                    int dealt = ApplyStrike(vid, p.Owner, p.Damage, prev, knockback: true, damageKind: Combat.Projectiles.DamagePierce,
+                        strong: p.Strong); // E3-1: событие «урон» (37) — цифра у жертвы и у стрелка, где бы он ни был
                     if (dealt > 0 && v.Mover.KnockLeft != 0)
                     {
                         v.Mover.KnockSpeedX10 /= Combat.Projectiles.ArrowKnockDivisor; // слабое: 0,5 т (`02` 4.2)

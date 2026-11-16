@@ -157,6 +157,10 @@ namespace Orpheus.Core.Sim
                     hp.Add(ps[i].SpeedX256);
                     hp.Add(ps[i].RangeUnits);
                     hp.Add(ps[i].Age);
+                    if (ps[i].Strong)
+                    {
+                        hp.Add(1); // E3-2 + E3-1: сильный выстрел
+                    }
                 }
 
                 r = new StateHashResult(r.Tick, hp.Value, r.World);

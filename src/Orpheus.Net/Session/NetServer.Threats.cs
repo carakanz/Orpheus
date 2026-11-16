@@ -274,6 +274,7 @@ namespace Orpheus.Net.Session
                 damage = _sim.ApplyStrike(p.EntityId, t.AttackerId, raw, t.Sector.Origin, knockback: true, DamageTypeMelee);
                 if (damage > 0)
                 {
+                    BroadcastDamage(p.EntityId, t.AttackerId, damage, DamageTypeMelee, strong: false); // E3-1: событие такта уже разослано
                     int target = _sim.SlotOf(p.EntityId);
                     if (target >= 0 && !_sim.Entities[target].Alive)
                     {

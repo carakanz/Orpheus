@@ -25,7 +25,7 @@ NetServer.Types.cs: PlayerState :18 · Player :24 · ViewState :166 · SentRing 
 NetServer.Input.cs: PlanFrames :15 · TrimTo :145 · TakeSticky :169 · UpdateLeadStats :187 · Advance :201 · DropSilentConnections :211 · StopStaleInputs :234 · OnInput :343
 NetServer.Snapshots.cs: SendSnapshots :15 · SendInventoryTo :51 · SendSnapshotTo :62 · TryWriteDelta :148 · WriteFull :290 · BuildView :323 · Quantize :422 (IndexIn в ядре)
 NetServer.Chunks.cs: CopyHeldChunks :15 · SyncChunks :43 · SendChunk :68 · BroadcastPatches :90 · OnChunkRequest :233
-NetServer.Events.cs: BroadcastDeath :15 · BroadcastCombatEvents :42 · BroadcastClock :103
+NetServer.Events.cs: BroadcastClock · BroadcastCombatEvents · DeathOf (E3-1) · BroadcastDamage (E3-1, сообщение 37) · BroadcastDeath — grep
 NetServer.Login.cs: CloseAll :15 · EntityOf :29 · TryGetLastFrame :40 · CreditsOf :87 · BacklogOf :103 · CountHostsInGame :142 · OnLogin :157 · LeaveWorld :319 · PlaceFor :338 · OnOpenForFriends :397 · Reject (grep)
 
 ## NetServer* (парциальные)
@@ -180,9 +180,12 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - tests/MetricsTests.cs: `ReadyMaxSeconds` :131 · `D07_S1_9_4_Big_Server1024_ReadyWithin5s_Under128Mb` :144 · `StartServer` (парсит `sinceProcessStartSec` из stdout) :198..225.
 - Bots/BotRun.cs: `EntryGraceSeconds` :248 · `allInAt`/`windowEnd` ~:340 (окно `--seconds` от события «все в игре»).
 
+## Бой на экране (E3-1)
+- Net/Protocol/Messages.cs: DamageMessage (37), DeathMessage (24, + RespawnTicks, FlagAtBed). Net/Session/CombatFeed.cs: DamageTone · DamageNumber · CombatFeed (OnDamage / OnDeath / OnRespawn / Expire · Rise / Alpha / Scale / LaneOffset / LaneLift · BarVisible · RespawnLeft / Fade / RespawnNote). HudLayout: EnemyBar*, Damage*, Death*.
+- client: UI/CombatHud.cs (EnemyMark, Frame, CreateOverlay) · NetGame.Combat.cs (HookCombat, OnDamage, OnDeath, CombatFrame) · Anim/Pose/DeathAnim.cs · NetAnimation (Gone, OnRemoteHit, поза трупа в Remote) · UI/UiDemo.Combat.cs (--ui-demo combat-*). Тесты — tests/E31CombatFeedTests.cs.
 ## Лук и снаряды (E3-2)
 - Movement/BowAction.cs: BowInput.Of (вход кадра) · BowAction.StepFrame · PowerQ8 · TakeShot · CancelByDash. Mover.Bow, StepFrame(…, bowInput, solid), FrameSpeedX10 (60 %).
 - Combat/Projectile.cs: BowDef (DamageAt, SpeedX256At), Projectiles (таблица луков, константы, TryGetBow), ProjectileEnd, Projectile (PositionAt/PositionAtTravel).
 - Sim/Simulation.Projectiles.cs: ProjectileStop · SpawnProjectile (общий, и для врагов) · FireBow · BowInputOf · BowFrames30 · StepProjectiles (фаза 4.2) · FlyOneTick · ProjectileVictim · Stop (куча 50 %). Буферы ShotsThisTick / StopsThisTick.
-- Net: Protocol/ProjectileMessages.cs (37), NetServer.Events.BroadcastProjectiles, Session/ClientProjectiles.cs (полёт на клиенте, подмена предсказанной), LocalPrediction.HasArrows/Bow/TryTakeShot, NetServer.Threats (BowInput в копиях Mover).
+- Net: Protocol/ProjectileMessages.cs (38), NetServer.Events.BroadcastProjectiles, Session/ClientProjectiles.cs (полёт на клиенте, подмена предсказанной), LocalPrediction.HasArrows/Bow/TryTakeShot, NetServer.Threats (BowInput в копиях Mover).
 - Клиент: ArrowView.cs (стрелы, след, кольцо силы), NetGame (бит удара с луком в NetGame.Edits, «нет стрел», AddPredicted, CursorPoint), ActionAnim.BowDraw/BowRelease, ProceduralAnimator (слой лука), NetAnimation (свой лук из предсказания, отдача чужих OnShot), Anim/AnimShowcase.Bow.cs (ленты E3-2_*).
