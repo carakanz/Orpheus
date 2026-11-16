@@ -80,6 +80,8 @@ namespace Orpheus.Tests
             var wall = Stopwatch.StartNew();
             ServerResult first;
             long snapshots;
+            uint loopTickDelta = 0;
+            double windowSec = 0;
             using (ServerThread host = ServerThread.Start(o, services))
             {
                 while (!host.IsReady && !host.HasExited && wall.Elapsed.TotalSeconds < 30)
@@ -95,10 +97,28 @@ namespace Orpheus.Tests
                 var client = new NetClient(clientLink, LoopbackTransport.ServerPeer, "одиночка", NetModule.Version);
                 var clock = Stopwatch.StartNew();
                 long inGameAt = -1;
+                uint firstSnapTick = 0;
+                uint lastSnapTick = 0;
+                long firstSnapUs = -1;
+                long lastSnapUs = -1;
+                bool haveFirstSnap = false;
                 while (clock.Elapsed.TotalSeconds < Ticks / (double)(Simulation.TickRate * Speed) + 1 && !host.HasExited)
                 {
                     long now = clock.Elapsed.Ticks / 10;
                     client.Poll(now);
+                    if (client.HasSnapshot && (!haveFirstSnap || client.Latest.Tick != lastSnapTick))
+                    {
+                        if (!haveFirstSnap)
+                        {
+                            firstSnapTick = client.Latest.Tick;
+                            firstSnapUs = now;
+                            haveFirstSnap = true;
+                        }
+
+                        lastSnapTick = client.Latest.Tick;
+                        lastSnapUs = now;
+                    }
+
                     if (client.State == NetClientState.InGame)
                     {
                         inGameAt = inGameAt < 0 ? now : inGameAt;
@@ -114,6 +134,9 @@ namespace Orpheus.Tests
 
                 Assert.Equal(NetClientState.InGame, client.State);
                 snapshots = client.SnapshotsApplied;
+                Assert.True(haveFirstSnap, "клиент не получил ни одного снимка");
+                loopTickDelta = lastSnapTick - firstSnapTick;
+                windowSec = (lastSnapUs - firstSnapUs) / 1e6;
                 client.Disconnect();
                 // 0-035: персонаж, бывший в мире на такте сохранения, при загрузке уходит из мира (хэш после загрузки другой) —
                 // дождаться, пока сервер заметит уход и сохранит его, тогда при остановке в мире только боты.
@@ -130,9 +153,16 @@ namespace Orpheus.Tests
             Assert.Equal(0, first.ExitCode);
             Assert.Empty(log.Errors);
             Assert.DoesNotContain(log.Warnings, w => w.Contains("перегрузка", StringComparison.Ordinal)); // отставание ≤ 3 тактов
-            Assert.InRange(first.Ticks, Ticks * 8 / 10, Ticks * 2);
+            // P-003 (5 падений в `-All`, «763 тактов при 240–600»): правило «такт держится ×2» проверялось по
+            // СОБРАННЫМ тактам сервера — в них входит и время от старта сервера до входа клиента, и ожидание
+            // сохранения после ухода (:131, до 30 с), сервер за это время тикает. Теперь — прирост тактов на
+            // снимках клиента за измеренное окно; пороги те же (0,8×…2×), правило не ослаблено.
+            Assert.True(windowSec >= 4.0, $"окно измерения {windowSec:0.00} с: клиент почти не получил снимков");
+            long expectedTicks = (long)Math.Round(windowSec * Simulation.TickRate * Speed);
+            _out.WriteLine($"[{storageKind}] окно {windowSec:0.00} с: тактов {loopTickDelta} (ожидание ×{Speed} — {expectedTicks}), всего у сервера {first.Ticks}");
+            Assert.InRange((long)loopTickDelta, expectedTicks * 8 / 10, expectedTicks * 2);
             Assert.True(first.LoginsAccepted == 1, $"входов {first.LoginsAccepted}");
-            Assert.True(snapshots > first.Ticks / 2, $"снимков {snapshots} за {first.Ticks} тактов");
+            Assert.True(snapshots > loopTickDelta / 2, $"снимков {snapshots} за {loopTickDelta} тактов окна");
             Assert.True(first.SavesWritten >= 2, $"сохранений {first.SavesWritten}"); // автосохранение раз в 3 с мира + при остановке
             if (memory != null)
             {
