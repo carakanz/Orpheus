@@ -126,8 +126,8 @@ namespace Orpheus.Net.Session
         public const int DamageFont = 30;
         public const float DamageLift = 1.2f;
 
-        /// <summary>Экран смерти: кегль заголовка «Вы погибли», строк причины и таймера; середина заголовка — доля высоты холста.</summary>
+        /// <summary>Экран смерти: кегль заголовка «Вы погибли», строк причины и таймера; середина заголовка — доля высоты холста (выше середины: свой персонаж лежит в центре экрана).</summary>
         public const int DeathTitleFont = 84, DeathLineFont = 30;
-        public const float DeathTitleY = 0.6f, DeathLineGap = 14f;
+        public const float DeathTitleY = 0.74f, DeathLineGap = 14f;
     }
 }

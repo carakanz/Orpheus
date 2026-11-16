@@ -38,7 +38,7 @@ namespace Orpheus.Net.Session
         public const double NumberSec = 0.8;
 
         /// <summary>Подъём цифры за жизнь, тайлов (с замедлением к концу).</summary>
-        public const float RiseTiles = 1.2f;
+        public const float RiseTiles = 1.8f;
 
         /// <summary>Цифра непрозрачна первую половину жизни, потом тает до 0.</summary>
         public const double SolidSec = 0.4;
@@ -49,9 +49,9 @@ namespace Orpheus.Net.Session
         /// <summary>Полоска здоровья врага видна после попадания и ещё 4 с после последнего (карточка E3-1).</summary>
         public const double BarSec = 4.0;
 
-        /// <summary>Затемнение экрана смерти: нарастает за 0,6 с до 0,7; после возрождения уходит за 0,6 с.</summary>
+        /// <summary>Затемнение экрана смерти: нарастает за 0,6 с до 0,82 (холст смешивает в линейном цвете — на глаз ~60 %); после возрождения уходит за 0,6 с.</summary>
         public const double FadeSec = 0.6;
-        public const float FadeMax = 0.7f;
+        public const float FadeMax = 0.82f;
 
         /// <summary>Надпись «Вы возродились …» после возрождения, секунд.</summary>
         public const double RespawnNoteSec = 2.5;
@@ -199,8 +199,11 @@ namespace Orpheus.Net.Session
             return pop * (strong ? StrongScale : 1f);
         }
 
-        /// <summary>Сдвиг дорожки вбок, тайлов: 0, вправо, влево.</summary>
-        public static float LaneOffset(int lane) => lane == 1 ? 0.35f : lane == 2 ? -0.35f : 0f;
+        /// <summary>Сдвиг дорожки вбок, тайлов: 0, вправо, влево (цифра шириной ~1 тайл — соседние не налезают).</summary>
+        public static float LaneOffset(int lane) => lane == 1 ? 0.65f : lane == 2 ? -0.65f : 0f;
+
+        /// <summary>Подъём дорожки, тайлов: следующая цифра начинается чуть выше.</summary>
+        public static float LaneLift(int lane) => 0.3f * lane;
 
         // ---------- полоска врага ----------
 
