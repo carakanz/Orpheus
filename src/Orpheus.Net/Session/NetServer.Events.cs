@@ -110,5 +110,31 @@ namespace Orpheus.Net.Session
             CombatEventsSent++;
         }
 
+        /// <summary>Сообщений «снаряд» отправлено (E3-2; на получателя — одно сообщение).</summary>
+        public long ProjectileMessagesSent { get; private set; }
+
+        /// <summary>
+        /// Снаряды такта (E3-2, `02` 4.4): выстрелы, затем концы — сообщение «снаряд» (37) каналом 2 всем в игре. Полёт
+        /// между ними клиент считает сам; летящие до входа игрока снаряды он не видит (короткоживущие, ≤ 1,7 с).
+        /// </summary>
+        private void BroadcastProjectiles()
+        {
+            ReadOnlySpan<Projectile> shots = _sim.ShotsThisTick;
+            ReadOnlySpan<ProjectileStop> stops = _sim.StopsThisTick;
+            for (int k = 0; k < shots.Length + stops.Length; k++)
+            {
+                ProjectileMessage m = k < shots.Length ? ProjectileMessage.ShotOf(shots[k]) : ProjectileMessage.StopOf(stops[k - shots.Length]);
+                int len = m.Write(_buf);
+                for (int p = 0; p < _players.Count; p++)
+                {
+                    Player pl = _players[p];
+                    if (pl.State == PlayerState.InGame)
+                    {
+                        _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                        ProjectileMessagesSent++;
+                    }
+                }
+            }
+        }
     }
 }

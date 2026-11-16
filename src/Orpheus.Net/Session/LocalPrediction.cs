@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
@@ -165,6 +166,48 @@ namespace Orpheus.Net.Session
         private bool AttackOf(in InputFrame f) =>
             f.AttackPressed && Items.KindOf(HeldItem) == Items.KindMelee;
 
+        /// <summary>В сумке есть стрелы (E3-2): без них лук не натягивается — тот же гейт, что в такте сервера. Ставит клиент по своей сумке.</summary>
+        public bool HasArrows { get; set; }
+
+        /// <summary>Вход лука кадра для шага предсказания (E3-2): лук в руках, ЛКМ, стрелы — как <c>Simulation.BowInputOf</c>.</summary>
+        private byte BowOf(in InputFrame f) =>
+            BowInput.Of(Items.KindOf(HeldItem) == Items.KindRanged, f.AttackPressed, HasArrows);
+
+        /// <summary>Предсказанная фаза лука после последнего кадра (E3-2): поза натяжения и кольцо силы у курсора.</summary>
+        public BowAction Bow => _mover.Bow;
+
+        private readonly Queue<BowAction> _shots = new Queue<BowAction>(16);
+
+        /// <summary>
+        /// Свой выстрел, предсказанный в отправленном кадре (E3-2, `02` 4.4 «клиент рисует свой снаряд сразу»): сила, ось, точка —
+        /// поля <see cref="BowAction.ShotDraw"/>…; переигровка сверки новых выстрелов не даёт. false — очередь пуста.
+        /// </summary>
+        public bool TryTakeShot(out BowAction shot)
+        {
+            if (_shots.Count == 0)
+            {
+                shot = default;
+                return false;
+            }
+
+            shot = _shots.Dequeue();
+            return true;
+        }
+
+        /// <summary>Выстрел кадра в очередь картинки (только первый шаг кадра, не переигровка) — флаг снят.</summary>
+        private void NoteShot()
+        {
+            if (_mover.Bow.Fired)
+            {
+                if (_shots.Count < 16)
+                {
+                    _shots.Enqueue(_mover.Bow);
+                }
+
+                _mover.Bow.Fired = false;
+            }
+        }
+
         /// <summary>Труп (1-001): здоровье 0 — предсказание стоит, сервер не шагнёт ввод.</summary>
         public bool Dead => _dead;
 
@@ -206,7 +249,8 @@ namespace Orpheus.Net.Session
                 {
                     if (!_dead)
                     {
-                        _mover.StepFrame(_map, input.Direction, input.DodgePressed, AttackOf(input), input.Angle16, _solid); // копии — с кнопками, как шлёт клиент (0-029, 1-004)
+                        _mover.StepFrame(_map, input.Direction, input.DodgePressed, AttackOf(input), input.Angle16, BowOf(input), _solid); // копии — с кнопками, как шлёт клиент (0-029, 1-004)
+                        NoteShot();
                     }
 
                     Push(frame - k, input);
@@ -228,7 +272,8 @@ namespace Orpheus.Net.Session
 
             if (!_dead)
             {
-                _mover.StepFrame(_map, input.Direction, input.DodgePressed, AttackOf(input), input.Angle16, _solid); // 1-001: труп стоит — сервер не шагнёт ввод; 1-004: удар — с melee-гейтом, как в такте
+                _mover.StepFrame(_map, input.Direction, input.DodgePressed, AttackOf(input), input.Angle16, BowOf(input), _solid); // 1-001: труп стоит — сервер не шагнёт ввод; 1-004: удар — с melee-гейтом, как в такте
+                NoteShot(); // E3-2: свой выстрел — картинка сразу
             }
 
             Push(frame, input);
@@ -378,6 +423,7 @@ namespace Orpheus.Net.Session
                 // прошли кадры новее ack: переигровка шагнула бы их второй раз, замах убежал бы вперёд сервера на длину
                 // переигровки, замедление 70 % встало бы не на те кадры — и каждая граница фазы давала бы новую правку.
                 _mover.Melee = predicted.Melee;
+                _mover.Bow = predicted.Bow; // E3-2: фазы лука в снимке нет — как удар
                 _mover.Stamina = predicted.Stamina;
             }
 
@@ -390,7 +436,8 @@ namespace Orpheus.Net.Session
             {
                 if (!_dead)
                 {
-                    _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, AttackOf(_replay[k].Input), _replay[k].Input.Angle16, _solid);
+                    _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, AttackOf(_replay[k].Input), _replay[k].Input.Angle16, BowOf(_replay[k].Input), _solid);
+                    _mover.Bow.Fired = false; // E3-2: выстрел переигровки уже нарисован
                 }
 
                 Push(_replay[k].Frame, _replay[k].Input);

@@ -137,6 +137,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: сколько каждого предмета в сундуках рядом — владельцу, когда изменилось (E2-10).</summary>
         NearbyStock = 36,
+
+        /// <summary>Снаряд (E3-2): выстрел и конец полёта — сервер → все в игре, канал 2 (<see cref="ProjectileMessage"/>).</summary>
+        Projectile = 37,
     }
 
     /// <summary>
@@ -1167,11 +1170,11 @@ namespace Orpheus.Net.Protocol
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
         /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001), 26 (сумка, 1-002) и 27…29 (кучи и заявка на сумку, E2-1;
-        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; последний — NearbyStock); 15 не занят.
+        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; 37 — снаряд, E3-2; последний — Projectile); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.NearbyStock);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.Projectile);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)

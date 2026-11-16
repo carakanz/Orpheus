@@ -139,10 +139,13 @@ namespace Orpheus.Net.Session
             // (с ударом: скорость 70 % в фазах мечу зависит от бита атаки и оружия в руках, 1-004).
             Mover m = _sim.Entities[slot].Mover;
             bool swordHeld = Items.KindOf(_sim.Entities[slot].Inv.Held) == Items.KindMelee;
+            bool bowHeld = Items.KindOf(_sim.Entities[slot].Inv.Held) == Items.KindRanged; // E3-2: натяжение — бег 60 %
+            bool arrows = _sim.Entities[slot].Inv.Count(Items.Arrows) > 0;
             for (int k = 0; k < n && ti < _threats.Count; k++)
             {
                 m.StepFrame(_sim.Shape, _frameBuf[k].Direction, _frameBuf[k].DodgePressed,
-                            _frameBuf[k].AttackPressed && swordHeld, _frameBuf[k].Angle16, _sim.Solid);
+                            _frameBuf[k].AttackPressed && swordHeld, _frameBuf[k].Angle16,
+                            BowInput.Of(bowHeld, _frameBuf[k].AttackPressed, arrows), _sim.Solid);
                 while (ti < _threats.Count && unchecked((int)(_frameNum[k] - ResolveFrame(p, _threats[ti]))) >= 0)
                 {
                     Decide(p, _threats[ti], m, false, 0);
@@ -160,7 +163,8 @@ namespace Orpheus.Net.Session
                 for (int k = 0; k < n; k++)
                 {
                     known.StepFrame(_sim.Shape, _frameBuf[k].Direction, _frameBuf[k].DodgePressed,
-                                    _frameBuf[k].AttackPressed && swordHeld, _frameBuf[k].Angle16, _sim.Solid);
+                                    _frameBuf[k].AttackPressed && swordHeld, _frameBuf[k].Angle16,
+                            BowInput.Of(bowHeld, _frameBuf[k].AttackPressed, arrows), _sim.Solid);
                 }
 
                 int missing = p.HasApplied ? unchecked((int)(ResolveFrame(p, t) - p.LastApplied)) : 0;

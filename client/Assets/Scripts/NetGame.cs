@@ -544,6 +544,7 @@ namespace Orpheus.Client
                 // 1-004: удар предсказывается только с ближним оружием в руках — предмет берётся по ячейке этого
                 // кадра, как сервер в такте (ячейка и кнопки применяются в одном кадре, 1-002).
                 _pred!.HeldItem = HeldItemAt(frame.Slot);
+                _pred.HasArrows = _bag.Count(Items.Arrows) > 0; // E3-2: гейт натяжения — как в такте сервера
                 if (frame.AttackPressed)
                 {
                     AttacksSent++;
@@ -551,6 +552,11 @@ namespace Orpheus.Client
 
                 c.SendFrame(frame);
                 _pred!.Sent(c.Frame, frame);
+                while (_pred.TryTakeShot(out BowAction shot))
+                {
+                    c.Projectiles.AddPredicted(shot, _pred.HeldItem, now); // E3-2: своя стрела — сразу по отпусканию
+                    ShotsPredicted++;
+                }
 
                 // 1-004 (net-smoke): замахы предсказания — входы в фазу замаха (в серии фаза не бывает покоем).
                 byte phase = _pred.Melee.Phase;
@@ -588,6 +594,9 @@ namespace Orpheus.Client
         }
 
         ushort _lastAim;
+
+        /// <summary>Своих выстрелов нарисовано по предсказанию (E3-2).</summary>
+        public long ShotsPredicted { get; private set; }
 
         /// <summary>Кадр движения + прицел и ячейка быстрой панели (1-002).</summary>
         static InputFrame WithAimSlot(InputFrame f, ushort aim, byte slot) => new InputFrame(f.Direction, f.Buttons, aim, slot);

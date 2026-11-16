@@ -170,6 +170,9 @@ namespace Orpheus.Net.Session
         /// <summary>Форма карты из входа.</summary>
         public MapShape Shape => _layout.Shape;
 
+        /// <summary>Стрелы на клиенте (E3-2): выстрелы и концы с сервера (тип 37) и свои предсказанные.</summary>
+        public ClientProjectiles Projectiles { get; } = new ClientProjectiles(default);
+
         /// <summary>Отказ входа: текст для игрока.</summary>
         public string? RejectText { get; private set; }
 
@@ -537,6 +540,9 @@ namespace Orpheus.Net.Session
                     case MessageType.CraftState when State == NetClientState.InGame:
                         OnCraftState(CraftStateMessage.Read(data)); // E2-3
                         break;
+                    case MessageType.Projectile when State == NetClientState.InGame:
+                        Projectiles.OnMessage(ProjectileMessage.Read(data), EntityId, _nowUs); // E3-2: выстрел / конец снаряда
+                        break;
                     case MessageType.NearbyStock when State == NetClientState.InGame:
                         NearbyStockMessage.Read(data, NearbyStock); // E2-10: сундуки рядом
                         NearbyStockSeen++;
@@ -588,6 +594,7 @@ namespace Orpheus.Net.Session
             _piles.Clear(); // кучи сервер пришлёт заново (E2-1)
             InvVersion = 0;
             _layout = new SnapshotLayout(new MapShape(m.MapWidth, m.MapHeight, m.Wraps));
+            Projectiles.Map = _layout.Shape; // E3-2
             ServerTick = m.ServerTick;
 
             // Кадры 60 Гц: два на такт; первый пакет несёт кадры «до входа» — пустые.
