@@ -6,6 +6,7 @@ using Orpheus.Core.Sim;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using UnityEngine;
+using Pose = Orpheus.Client.Anim.Pose;
 
 namespace Orpheus.Client.UI
 {

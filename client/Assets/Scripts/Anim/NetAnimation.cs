@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
-using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
@@ -126,7 +125,7 @@ namespace Orpheus.Client.Anim
                 age = _deadAge.ContainsKey(id) ? age + dt : 0f;
                 _deadAge[id] = age;
                 bool right = root.position.x >= _g.Character.position.x;
-                pose = DeathAnim.Apply(pose, age, right, dissolve: e.Kind == SimEntity.KindEnemy);
+                pose = DeathAnim.Apply(pose, age, right, dissolve: e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy);
             }
             else
             {
@@ -141,7 +140,7 @@ namespace Orpheus.Client.Anim
         float _selfDeadAge = -1f;
 
         /// <summary>E3-1: труп врага растворился — не рисовать (и тень).</summary>
-        public bool Gone(int id, byte kind) => _deadAge.TryGetValue(id, out float age) && DeathAnim.Gone(age, kind == SimEntity.KindEnemy);
+        public bool Gone(int id, byte kind) => _deadAge.TryGetValue(id, out float age) && DeathAnim.Gone(age, kind == Orpheus.Core.Sim.SimEntity.KindEnemy);
 
         /// <summary>
         /// E3-1: урон по чужому существу (сообщение 37) — красная вспышка и отдача от атакующего (своё попадание по себе — как
