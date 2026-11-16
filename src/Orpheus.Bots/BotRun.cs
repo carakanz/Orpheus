@@ -84,14 +84,20 @@ namespace Orpheus.Bots
         /// <inheritdoc cref="Pauses"/>
         public string PausedBy { get; set; } = string.Empty;
 
-        /// <summary>Кадров в паузе, где снимок или предсказание сдвинулись (после 0,5 с от входа в паузу).</summary>
+        /// <summary>Кадров в паузе, где снимок или предсказание сдвинулись (базаустановлена: снимок такта паузы применён, поток встал; P-003).</summary>
         public long PauseMovedFrames { get; set; }
+
+        /// <summary>Кадров замера в паузе (поток снимков стоит): 0 — сдвиги не замерялись, тест неинформативен (P-003).</summary>
+        public long PauseMeasuredFrames { get; set; }
 
         /// <summary>Кадров ввода, ушедших в паузе (после того как бот о ней узнал).</summary>
         public long PauseInputsSent { get; set; }
 
-        /// <summary>Правок предсказания после снятия паузы; пауза не снималась — −1.</summary>
+        /// <summary>Правок предсказания после снятия паузы (окно — от первого снимка новее такта паузы, P-003); пауза не снималась — −1.</summary>
         public long PredResyncedAfterPause { get; set; } = -1;
+
+        /// <summary>Кадров окна «после паузы»: 0 — чистый снимок после паузы не пришёл, правки не замерялись (P-003).</summary>
+        public long PredResyncWindowFrames { get; set; }
 
         /// <summary>Образцов часов, пропущенных в паузе; пауз, снятых по снимку раньше сообщения; устаревших «пауза».</summary>
         public long ClockSamplesWhileHeld { get; set; }
@@ -482,8 +488,10 @@ namespace Orpheus.Bots
                     PausedSeconds = c.PausedTotalUs / 1e6,
                     PausedBy = c.PausedBy,
                     PauseMovedFrames = pause?.MovedFrames[i] ?? 0,
+                    PauseMeasuredFrames = pause?.MeasuredFrames[i] ?? 0,
                     PauseInputsSent = pause?.InputsInPause[i] ?? 0,
                     PredResyncedAfterPause = pause?.ResyncedAfter(i) ?? -1,
+                    PredResyncWindowFrames = pause?.ResyncWindowFrames[i] ?? 0,
                     ClockSamplesWhileHeld = c.Clock.SamplesWhileHeld,
                     PausesReleasedBySnapshot = c.PausesReleasedBySnapshot,
                     PausesStale = c.PausesStale,
@@ -849,8 +857,10 @@ namespace Orpheus.Bots
                 w.WriteNumber("pausedSeconds", Math.Round(b.PausedSeconds, 3));
                 w.WriteString("pausedBy", b.PausedBy);
                 w.WriteNumber("pauseMovedFrames", b.PauseMovedFrames);
+                w.WriteNumber("pauseMeasuredFrames", b.PauseMeasuredFrames);
                 w.WriteNumber("pauseInputsSent", b.PauseInputsSent);
                 w.WriteNumber("predResyncedAfterPause", b.PredResyncedAfterPause);
+                w.WriteNumber("predResyncWindowFrames", b.PredResyncWindowFrames);
                 w.WriteNumber("clockSamplesWhileHeld", b.ClockSamplesWhileHeld);
                 w.WriteNumber("pausesReleasedBySnapshot", b.PausesReleasedBySnapshot);
                 w.WriteNumber("pausesStale", b.PausesStale);

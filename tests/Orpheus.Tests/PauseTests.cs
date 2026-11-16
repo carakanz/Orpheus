@@ -803,6 +803,7 @@ namespace Orpheus.Tests
             foreach (BotStats b in r.Bots)
             {
                 _out.WriteLine($"бот {b.Index}: {b.State}, {b.SecondsInGame:F1} с, пауз {b.Pauses}, стоял {b.PausedSeconds:F2} с, «{b.PausedBy}», сдвигов в паузе {b.PauseMovedFrames}, " +
+                               $"кадров замера в паузе {b.PauseMeasuredFrames}, окно после паузы {b.PredResyncWindowFrames} кадров, " +
                                $"кадров в паузе {b.PauseInputsSent}, правок всего {b.PredResynced}, после паузы {b.PredResyncedAfterPause}; перенумераций {b.FrameRenumbers}, " +
                                $"перестановок часов {b.ClockStepsForward}/{b.ClockStepsBack}/{b.ClockServerResets}, образцов в паузе {b.ClockSamplesWhileHeld}, " +
                                $"снято по снимку {b.PausesReleasedBySnapshot}, сверок {b.PredCompared}, > 0,5 т {b.PredOverHalfTile}");
@@ -831,8 +832,13 @@ namespace Orpheus.Tests
             Assert.Equal(1, b.Pauses);
             Assert.InRange(b.PausedSeconds, 1.3, 1.9);
             Assert.Equal(0, b.PauseMovedFrames);
+            // P-003: сдвиги в паузе замеряются, только когда поток снимков встал (база замераустановлена).
+            // 0 кадров замера — значит событие не наступило и тест неинформативен: это красный, не зелёный.
+            Assert.True(b.PauseMeasuredFrames > 30, $"кадров замера в паузе {b.PauseMeasuredFrames} — поток снимков не встал, сдвиги не замерялись");
             Assert.Equal(0, b.PauseInputsSent);
             Assert.Equal(0, b.PredResyncedAfterPause);
+            // P-003: окно «после паузы» обязано открыться чистым снимком; пустое окно = тест не замерял правки.
+            Assert.True(b.PredResyncWindowFrames > 15, $"кадров окна после паузы {b.PredResyncWindowFrames} — чистый снимок после паузы не применён, правки не замерялись");
             Assert.Equal(0, b.FrameRenumbers);
             Assert.True(res.Ticks < (res.Seconds - 1.2) * Simulation.TickRate, $"тактов {res.Ticks} за {res.Seconds:F1} с — пауза не остановила такт");
         }
