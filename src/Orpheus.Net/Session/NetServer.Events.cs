@@ -37,10 +37,19 @@ namespace Orpheus.Net.Session
             _transport.Flush();
         }
 
+        /// <summary>E3-1: сообщений «урон» (37) отправлено — по одному на игрока-получателя.</summary>
+        public long DamageMessagesSent { get; private set; }
+
         /// <summary>
-        /// События боя такта (1-001, `02` 13.5): смерть и возрождение — канал 2 (надёжный) всем в игре; урон
-        /// отдельно не шлётся — полоска здоровья приходит снимком (дельта <see cref="DeltaFields.Health"/>), удар
-        /// по игроку — «удар решён» (0-029) с уроном.
+        /// E3-1: радиус рассылки «урона», тайлов по каждой оси (тор): шире половины самого дальнего обзора (96 × 54 тайла) —
+        /// цифра видна всем, у кого жертва на экране. Жертве и атакующему — всегда.
+        /// </summary>
+        public const int DamageViewTiles = 56;
+
+        /// <summary>
+        /// События боя такта (1-001, `02` 13.5): смерть и возрождение — канал 2 (надёжный) всем в игре; E3-1 — урон
+        /// (37) игрокам рядом с жертвой (цифры урона и полоска врага — из событий сервера). Полоска своего здоровья —
+        /// снимком (дельта <see cref="DeltaFields.Health"/>), удар по игроку — ещё и «удар решён» (0-029) с уроном.
         /// </summary>
         private void BroadcastCombatEvents()
         {
@@ -49,28 +58,21 @@ namespace Orpheus.Net.Session
             for (int e = 0; e < events.Length; e++)
             {
                 SimEvent ev = events[e];
+                if (ev.Kind == SimEventKind.Damage)
+                {
+                    BroadcastDamage(ev.Victim, ev.Requester, ev.Damage, ev.DamageType, ev.Tag == Simulation.DamageTagStrong);
+                    continue;
+                }
+
                 if (ev.Kind != SimEventKind.Death && ev.Kind != SimEventKind.Respawn)
                 {
                     continue;
                 }
 
                 n++;
-                int len;
-                if (ev.Kind == SimEventKind.Death)
-                {
-                    len = new DeathMessage
-                    {
-                        Victim = ev.Victim,
-                        Attacker = ev.Requester,
-                        Damage = (byte)Math.Min(255, ev.Damage),
-                        DamageType = ev.DamageType,
-                    }.Write(_buf);
-                }
-                else
-                {
-                    len = new RespawnMessage { Victim = ev.Victim }.Write(_buf);
-                }
-
+                int len = ev.Kind == SimEventKind.Death
+                    ? DeathOf(ev.Victim, ev.Requester, ev.Damage, ev.DamageType).Write(_buf)
+                    : new RespawnMessage { Victim = ev.Victim }.Write(_buf);
                 for (int p = 0; p < _players.Count; p++)
                 {
                     Player pl = _players[p];
@@ -85,19 +87,87 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
+        /// «Смерть» с данными для экрана смерти (E3-1): персонажу — такты до возрождения по правилу ядра
+        /// (<see cref="Simulation.RespawnDelayTicks"/>) и «у кровати» (<see cref="Simulation.RespawnsAtBed"/>); врагу — 0.
+        /// </summary>
+        private DeathMessage DeathOf(int victim, int attacker, int damage, byte damageType)
+        {
+            int slot = _sim.SlotOf(victim);
+            bool character = slot >= 0 && _sim.Entities[slot].IsCharacter;
+            return new DeathMessage
+            {
+                Victim = victim,
+                Attacker = attacker,
+                Damage = (byte)Math.Min(255, damage),
+                DamageType = damageType,
+                RespawnTicks = character ? (ushort)Simulation.RespawnDelayTicks : (ushort)0,
+                Flags = character && _sim.RespawnsAtBed(victim) ? DeathMessage.FlagAtBed : (byte)0,
+            };
+        }
+
+        /// <summary>
+        /// «Урон» (E3-1): игрокам в игре, чей персонаж — жертва, атакующий или в <see cref="DamageViewTiles"/> от жертвы.
+        /// Зовётся из событий такта и из решения угрозы вне такта (<c>Decide</c>) — события такта к тому моменту разосланы.
+        /// </summary>
+        private void BroadcastDamage(int victim, int attacker, int damage, byte damageType, bool strong)
+        {
+            if (damage <= 0)
+            {
+                return;
+            }
+
+            int vs = _sim.SlotOf(victim);
+            if (vs < 0)
+            {
+                return;
+            }
+
+            WorldPos at = _sim.Entities[vs].Mover.Position;
+            int len = new DamageMessage
+            {
+                Victim = victim,
+                Attacker = attacker,
+                Amount = (ushort)Math.Min(ushort.MaxValue, damage),
+                DamageType = damageType,
+                Flags = strong ? DamageMessage.FlagStrong : (byte)0,
+            }.Write(_buf);
+            const int reach = DamageViewTiles * Torus.SubTilesPerTile;
+            for (int p = 0; p < _players.Count; p++)
+            {
+                Player pl = _players[p];
+                if (pl.State != PlayerState.InGame)
+                {
+                    continue;
+                }
+
+                if (pl.EntityId != victim && pl.EntityId != attacker)
+                {
+                    int ps = _sim.SlotOf(pl.EntityId);
+                    if (ps < 0)
+                    {
+                        continue;
+                    }
+
+                    Int2 d = Torus.Delta(_sim.Shape, _sim.Entities[ps].Mover.Position, at);
+                    if (Math.Abs(d.X) > reach || Math.Abs(d.Y) > reach)
+                    {
+                        continue;
+                    }
+                }
+
+                _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                DamageMessagesSent++;
+            }
+        }
+
+        /// <summary>
         /// Труп от удара, решённого вне такта (решение угрозы сервером, 1-001 / 0-033): события такта к моменту
         /// решения уже разосланы, а буфер событий очистит следующий <c>Step</c> — потому смерть идёт сразу, тем же
         /// сообщением и по тому же Facts-каналу, что и события такта (<see cref="CombatEventsSent"/> общий).
         /// </summary>
         private void BroadcastDeath(int victim, int attacker, int damage, byte damageType)
         {
-            int len = new DeathMessage
-            {
-                Victim = victim,
-                Attacker = attacker,
-                Damage = (byte)Math.Min(255, damage),
-                DamageType = damageType,
-            }.Write(_buf);
+            int len = DeathOf(victim, attacker, damage, damageType).Write(_buf);
             for (int p = 0; p < _players.Count; p++)
             {
                 Player pl = _players[p];
@@ -109,6 +179,5 @@ namespace Orpheus.Net.Session
 
             CombatEventsSent++;
         }
-
     }
 }

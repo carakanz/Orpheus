@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
+using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
@@ -117,7 +118,47 @@ namespace Orpheus.Client.Anim
                 s.DashDirY = d.y;
             }
 
-            rig.Apply(rig.Animator.Step(dt, s));
+            Pose pose = rig.Animator.Step(dt, s);
+            if (e.HealthPct == 0)
+            {
+                // E3-1: труп (сервер держит его 10,5 с) — падает от своего персонажа и растворяется; не мгновенно.
+                _deadAge.TryGetValue(id, out float age);
+                age = _deadAge.ContainsKey(id) ? age + dt : 0f;
+                _deadAge[id] = age;
+                bool right = root.position.x >= _g.Character.position.x;
+                pose = DeathAnim.Apply(pose, age, right, dissolve: e.Kind == SimEntity.KindEnemy);
+            }
+            else
+            {
+                _deadAge.Remove(id);
+            }
+
+            rig.Apply(pose);
+        }
+
+        // E3-1: сколько секунд показа сущность мертва (снимок: доля здоровья 0); свой — отдельно (−1 — жив).
+        readonly Dictionary<int, float> _deadAge = new Dictionary<int, float>();
+        float _selfDeadAge = -1f;
+
+        /// <summary>E3-1: труп врага растворился — не рисовать (и тень).</summary>
+        public bool Gone(int id, byte kind) => _deadAge.TryGetValue(id, out float age) && DeathAnim.Gone(age, kind == SimEntity.KindEnemy);
+
+        /// <summary>
+        /// E3-1: урон по чужому существу (сообщение 37) — красная вспышка и отдача от атакующего (своё попадание по себе — как
+        /// раньше, «удар решён»).
+        /// </summary>
+        public void OnRemoteHit(int victim, Vector3 victimAt, Vector3 attackerAt)
+        {
+            if (_remotes.TryGetValue(victim, out ActorRig? rig))
+            {
+                Vector2 dir = ((Vector2)(victimAt - attackerAt)).normalized;
+                if (dir.sqrMagnitude < 0.01f)
+                {
+                    dir = Vector2.right;
+                }
+
+                rig.Animator.OnHit(dir.x, dir.y);
+            }
         }
 
         /// <summary>
@@ -309,6 +350,17 @@ namespace Orpheus.Client.Anim
             _requestsSeen = req;
 
             Pose p = _self.Animator.Step(dt, s);
+            if (pred.Dead)
+            {
+                // E3-1: свой персонаж падает и лежит до возрождения (не растворяется).
+                _selfDeadAge = _selfDeadAge < 0f ? 0f : _selfDeadAge + dt;
+                p = DeathAnim.Apply(p, _selfDeadAge, !_self.Animator.FacingRight, dissolve: false);
+            }
+            else
+            {
+                _selfDeadAge = -1f;
+            }
+
             _self.Apply(p);
             if (p.DigPokeNow)
             {
