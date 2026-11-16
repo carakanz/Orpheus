@@ -27,9 +27,17 @@ for z in b['zones']:
     biomes.append(alias(z))
 
 bosses = [alias(x) for x in bo.get('bosses', [])]
+if os.path.exists(os.path.join(D, 'bosses_author.json')):
+    bosses += [alias(x) for x in J('bosses_author.json')['bosses']]
 bnames = {norm(x['name']) for x in bosses} | {norm(a) for x in bosses for a in x.get('aliases', [])}
 enemies = []
-for x in e['enemies']:
+# предложения 16.11 (слово Автора о разнообразии мобов): новые архетипы и мобы актов II–III
+extra_arch = J('archetypes_more.json')['archetypes'] if os.path.exists(os.path.join(D, 'archetypes_more.json')) else []
+extra_en = []
+for n in ('enemies_author.json', 'enemies_more_act2.json', 'enemies_more_act3.json'):
+    if os.path.exists(os.path.join(D, n)):
+        extra_en += J(n)['enemies']
+for x in e['enemies'] + extra_en:
     if norm(x['name']) in bnames:
         continue
     if x.get('kind') in ('босс', 'мини-босс') and bosses:
@@ -62,7 +70,7 @@ layout = {'grid': L['grid32'], 'hearth': [15.5, 15.5],
           'description': L['summary'] + ' ' + L['gridNote'] + ' Сейчас в игре (срез): ' + L['sliceSummary']}
 
 cat = {
-    'biomes': biomes, 'enemies': enemies, 'bosses': bosses, 'archetypes': e['archetypes'],
+    'biomes': biomes, 'enemies': enemies, 'bosses': bosses, 'archetypes': e['archetypes'] + extra_arch,
     'ores': ores, 'items': items, 'layout': layout,
     'notes': {'Биомы и генератор': b['notes'], 'Враги': e['notes'], 'Боссы': bo.get('notes', []),
               'Руды и ресурсы': o['notes'], 'Предметы': i['notes'],
