@@ -7,7 +7,7 @@
 | Тест | Класс | Случаи | Последнее | Примечание |
 | --- | --- | --- | --- | --- |
 | `D00_Net_Udp_BotsLogIn_Snapshots30Hz_VersionMismatchRejected` | NetTests | 10 | 13.11 (E1-1 трижды, P-002), 14.11 (E1-8 ci; C-003 ci) | **Починен 16.11 (P-003):** `--seconds` — время в игре от мига «все в игре» (вход ждём ≤ 30 с), раньше 3-секундное окно стартовало wall-clock вместе с сервером и вход не влезал под нагрузкой. Регресс-тест `D01_Net_Udp_SlowLink_EntryDoesNotEatGameWindow` (RTT 2 с: на старом коде красный, на новом зелёный) |
-| `D07_S7_4_ServerRun_HostCrashed_ServerRestarted_HostAndFriendsSamePlace` | ReturnTests | 6 | 13.11 (1-026), 14.11 (E1-8 ci) | в журнале — `HostCrashed_SamePlace`; «уход игрока не сохранён» под нагрузкой |
+| `D07_S7_4_ServerRun_HostCrashed_ServerRestarted_HostAndFriendsSamePlace` | ReturnTests | 6 | 13.11 (1-026), 14.11 (E1-8 ci) | **Починен 16.11 (P-003):** «уход игрока не сохранён» — ждали фоновую запись 5 с; под `-All` поток записи голодает. Лимит ожидания события 5→20 с (и 5→20 с у `D07_S7_4_ServerThread_PlayerLeaves…`), проверка та же — «сохранено» с причиной; мутация (другая причина) красная за 23 с. Правило ≤ 1 с — в `D07_S6_4`, не тронуто |
 | `D00_Net_Udp_Big_TwoBots60s_Rtt100_Loss1_NoDisconnects` | NetTests | 3 | 13.11 (1-026) | UDP под нагрузкой; боты 0 с в игре |
 | `D08_S3_0_2_RunSeam_Udp_Big_Rtt100_Sigma10_Loss1_LapPerAxisExact_ObserverNoSeamJump` | RunSeamTests | 4 | 13.11 (1-026) | ~9 мин, UDP Big; в этот раз — NullReference (BotRun.WatchText :659) при пустом прогоне |
 | `D07_S1_9_4_Big_Server1024_ReadyWithin5s_Under128Mb` | MetricsTests | 3 | 13.11 (1-028) | ReadyWithin5s по времени; 3-й случай → чинить в P-003 |
@@ -15,7 +15,7 @@
 | `D07_S2_13_9_Launcher_SingleThenOpen_FriendJoins_NoRestart` | HostProcessTests | 6 | 13.11 (E1-1), 14.11 (E1-8 П; C-003 ci) | старт > 5 с под нагрузкой; 3-й случай → чинить в P-003 |
 | `D07_S6_6_Saver_FrequentRequests_ReplaceSeries_OldGenerationsKept` | SaveEventTests | 1 | 14.11 (E2-1 П, ci) | «запись не кончилась» (11 с) в общем прогоне; одиночно зелёный 5 из 5 (≈ 0,8 с) на ветке E2-1 — время записи под нагрузкой, с форматом 7 не связано |
 | `D07_S6_5_Saver_CrashInsideReplacingSave_EveryMoment_LoadsNewestIntact` | SaveEventTests | 3 | 13.11 (1-028), 14.11 (E1-8 ci) | обрыв записи |
-| `D07_S2_3_ServerRun_HostLeftAlone_SavedAtOnce` | HostTests | 4 | 13.11 (P-004, при сборке Unity), 14.11 (E1-8 П) | в журнале была опечатка `HostLeegAlone`, класс — HostTests (не SaveTests) |
+| `D07_S2_3_ServerRun_HostLeftAlone_SavedAtOnce` | HostTests | 4 | 13.11 (P-004, при сборке Unity), 14.11 (E1-8 П) | **Починен 16.11 (P-003):** та же причина — ждали запись 5 с/10 с; лимиты ожидания события 5→20 с, 10→30 с («сразу» = до grace 60 с, время печатается), проверка та же. Опечатка `HostLeegAlone` в старых журналах, класс — HostTests |
 | `PlayerLeavesAndReturns_RestartBetween_SamePlace` | ReturnTests | 1 | 11.11 (1-011) | фактический тест — `D07_S7_4_ServerThread_PlayerLeavesAndReturns_RestartBetween_SamePlace` |
 | `D07_S6_4_Saver_LeaveDuringWrite_SavedRightAfter_Coalesced` | SaveEventTests | 1 | 11.11 | в журнале — `LeaveDuringWrite`; замер «записан ≤ 1 с» |
 | `D07_S11_6_Clock_FreezeIsStall_NotTickTime` | MetricsTests | 1 | 08.11 (передача) | в журнале — `FreezeIsStall`; время хрупко под нагрузкой |

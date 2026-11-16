@@ -438,7 +438,9 @@ namespace Orpheus.Tests
                     Walk(stayed, new InputFrame(Input8.SouthWest), 600, clients);
                     leftAt = Settled(left, clients);
                     left.Disconnect();
-                    Assert.True(SpinWait.SpinUntil(() => SavedLine(srv.Text, "игрок вышел"), 5_000), "уход игрока не сохранён");
+                    // P-003: «уход сохранён» — событие (поток записи на диске); под нагрузкой `-All` он голодает,
+                    // лимит ждём щедро. Правило «записан ≤ 1 с» меряет не это место, а D07_S6_4 — оно не тронуто.
+                    Assert.True(SpinWait.SpinUntil(() => SavedLine(srv.Text, "игрок вышел"), 20_000), "уход игрока не сохранён");
 
                     hostAt = Settled(host, clients);
                     stayedAt = Settled(stayed, clients);
@@ -517,7 +519,8 @@ namespace Orpheus.Tests
                 Assert.NotEqual(ServerRun.SpawnPoint(MapShape.World(1024), 0), at);
                 first.Disconnect();
                 Pump(() => false, 100, clients.ToArray());
-                Assert.True(SpinWait.SpinUntil(() => srv.Log.Saved("игрок вышел"), 5_000), "уход игрока не сохранён");
+                // P-003: событие записи на фоновом потоке; под `-All` лимит щедрее (проверка та же — «сохранено» с причиной).
+                Assert.True(SpinWait.SpinUntil(() => srv.Log.Saved("игрок вышел"), 20_000), "уход игрока не сохранён");
 
                 clients.Clear();
                 NetClient again = srv.Connect("Одиночка", clients); // имя без учёта регистра — тот же персонаж

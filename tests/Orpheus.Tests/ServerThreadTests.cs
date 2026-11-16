@@ -117,7 +117,8 @@ namespace Orpheus.Tests
                 client.Disconnect();
                 // 0-035: персонаж, бывший в мире на такте сохранения, при загрузке уходит из мира (хэш после загрузки другой) —
                 // дождаться, пока сервер заметит уход и сохранит его, тогда при остановке в мире только боты.
-                Assert.True(SpinWait.SpinUntil(() => log.Saved("игрок вышел") || host.HasExited, 10_000), "уход игрока не сохранён");
+                // P-003: событие на фоновом потоке записи; под `-All` он голодает — лимит ожидания щедрее, проверка та же.
+                Assert.True(SpinWait.SpinUntil(() => log.Saved("игрок вышел") || host.HasExited, 30_000), "уход игрока не сохранён");
                 Assert.True(host.Stop(30_000), "сервер в потоке не остановился");
                 first = host.Result ?? throw new Xunit.Sdk.XunitException("нет итога: " + host.Error);
                 _out.WriteLine($"[{storageKind}] готов за {readySec:0.00} с, в игре с {inGameAt / 1e6:0.00} с; тактов {first.Ticks} за {first.Seconds:0.00} с " +
