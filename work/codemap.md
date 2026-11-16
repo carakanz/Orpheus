@@ -174,3 +174,8 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 ## Замедляющая местность (C-018)
 - World/TerrainSlow.cs: One · WaterQ8 · BushQ8 · FloorQ8 · ObjectQ8 · TileQ8 · WalkFloor · WalkObject · PathFactor. Movement/TileSpeed.cs: ITileSpeed · TileSpeed.At/Scale (Mover.Step/StepFrame). Simulation.Movement.cs: SpeedQ8, SolidCellsIn (WalkFloor/WalkObject). SimulationPathTerrain.WalkerFactor. Spawner.IsSpawnTileOk (не в воде). Simulation.Piles.PileGroundOk. Клиент: WadeFx.cs (At, Cropped, Ring, Emit, Frame) · ActorRig.ApplyWade · LifeFx.TryTileAt · PaintDemo.Wade.cs (--wade-demo, WadeDemoEnemy). Тесты — C018TerrainSlowTests.
 - C-016: client ObjectMesh.Cliffs.cs (partial ObjectMesh): Tiers · Run/LevelAt/TiersAt (ярус обрыва) · Block (грани массива) · FaceMarks/TopMarks · BlockInfo · BlockDeco · BlockShadow · BlockReach; ObjectMesh.cs: Item.Tier, Collect; WorldView.RebuildEdgeBlocks/BlockNearEdge; ScreenshotRun.BenchRender (ORPH_SHOT_BENCH).
+## Починки хрупких тестов (P-003, 16–17.11)
+- Pathing/PathScheduler.cs: `DefaultBudgetMicroseconds` :57 (3000 мкс) · ctor budgetMicroseconds :82 · `_budgetTicks` :113 · `RunTick` :181 (проверка предела :191, `MaxWaitTicks` :211).
+- tests/PathTests.cs: Bench1024 :410 · ThinHouses :443 (пороги MeanTickUs/MaxWaitTicks :432–434, только Release) · `ThreadCpuClock` :646 (`QueryThreadCycleTime`) · `PathBench` :709 (`RunDirect`/`RunScheduler`, `PerTick`=40).
+- tests/MetricsTests.cs: `ReadyMaxSeconds` :131 · `D07_S1_9_4_Big_Server1024_ReadyWithin5s_Under128Mb` :144 · `StartServer` (парсит `sinceProcessStartSec` из stdout) :198..225.
+- Bots/BotRun.cs: `EntryGraceSeconds` :248 · `allInAt`/`windowEnd` ~:340 (окно `--seconds` от события «все в игре»).
