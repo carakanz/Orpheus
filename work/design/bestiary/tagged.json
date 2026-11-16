@@ -3813,6 +3813,1438 @@
    "description": "Старуха в черном плаще, которая питается страхом и сном. Она не бьет кулаками, а произносит проклятия, вызывая кошмары и замедляя движение игрока. Ее атаки незримы, поэтому важно следить за звуками и светом, чтобы заметить ее появление.",
    "image_subject": "A night hag, an old woman with a wrinkled face, pale skin, and a black hooded robe. She has sharp claws and holds a staff. Her eyes are dark and empty. She is standing in a hunched pose. Full body, top-down view.",
    "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A night hag, an old woman with a wrinkled face, pale skin, and a black hooded robe. She has sharp claws and holds a staff. Her eyes are dark and empty. She is standing in a hunched pose. Full body, top-down view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_horned_devil": {
+   "id": "bst_horned_devil",
+   "biomes": [
+    "lava",
+    "pregate"
+   ],
+   "act": "III",
+   "tier": "элита",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "танк",
+    "страж"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Огненный страж Врат, чья кожа трещит от жара, а рога испускают дым. Он медлителен, но каждое его движение оставляет на земле раскалённые следы, а удар когтей прожигает броню. Вступайте в бой только на открытом пространстве, чтобы избежать его удушающих огненных волн.",
+   "image_subject": "Massive horned demon, obsidian skin, glowing orange cracks, curved horns, muscular build, standing pose, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Massive horned demon, obsidian skin, glowing orange cracks, curved horns, muscular build, standing pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_giant_venomous_snake": {
+   "id": "bst_giant_venomous_snake",
+   "biomes": [
+    "swamp",
+    "forest",
+    "meadow",
+    "desert"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "засада",
+    "рой"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Ядовитая гадюка, притаившаяся в траве или болотной жиже. Её укус парализует на несколько секунд, что делает её опасной даже для опытного героя. Лучше бить её в голову, пока она не успела свернуться в кольцо и выпустить яд.",
+   "image_subject": "Huge venomous snake, green scales, yellow eyes, open mouth with fangs, coiled posture, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Huge venomous snake, green scales, yellow eyes, open mouth with fangs, coiled posture, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_otyugh": {
+   "id": "bst_otyugh",
+   "biomes": [
+    "cave",
+    "basin"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "танк",
+    "страж"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Гниющий хищник пещер, чья плоть отравлена спорами и слизью. Он медленно ползёт, но его щупальца тянутся далеко, а дыхание вызывает тошноту. Держите дистанцию и не позволяйте ему коснуться вас, иначе начнётся неконтролируемое кровотечение.",
+   "image_subject": "Bulbous aberration, fleshy mass, multiple tentacles, wet texture, glowing eyes, crouching pose, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Bulbous aberration, fleshy mass, multiple tentacles, wet texture, glowing eyes, crouching pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_roc": {
+   "id": "bst_roc",
+   "biomes": [
+    "mountain",
+    "glacier",
+    "desert"
+   ],
+   "act": "III",
+   "tier": "элита",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "летун",
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 4.0,
+   "description": "Небесный хищник, чьи крылья затмевают солнце. Он кружит высоко, сбрасывая камни и пикируя с огромной скоростью. Стреляйте по крыльям, чтобы сбить его с курса, но будьте готовы к мощному удару когтей, если он приземлится.",
+   "image_subject": "Gigantic bird of prey, white feathers, golden beak, sharp talons, wings spread, flying pose, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Gigantic bird of prey, white feathers, golden beak, sharp talons, wings spread, flying pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_giant_lizard": {
+   "id": "bst_giant_lizard",
+   "biomes": [
+    "swamp",
+    "forest",
+    "desert",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "стая",
+    "быстрый"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Крупный рептилий с чешуёй цвета камня. Он агрессивен и быстро бросается на добычу, используя хвост как хлыст. Лучше всего сражаться с ним в одиночку, избегая ударов хвостом и атакуя в мягкое брюхо.",
+   "image_subject": "Large lizard, rocky grey scales, long tail, muscular legs, standing pose, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large lizard, rocky grey scales, long tail, muscular legs, standing pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_bulette": {
+   "id": "bst_bulette",
+   "biomes": [
+    "mountain",
+    "meadow",
+    "forest"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "burrower",
+   "archetype_name": "",
+   "role": [
+    "засада",
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Подземный зверь, покрытый панцирем из костей и камня. Он выныривает из-под земли, разрывая её когтями, и тяжело дышит клубами пыли. Стреляйте в его спину, пока он рычит, или используйте взрывчатку, чтобы ослабить его броню.",
+   "image_subject": "Armored burrowing beast, bone plates, spiky back, powerful jaws, emerging from ground, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Armored burrowing beast, bone plates, spiky back, powerful jaws, emerging from ground, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_sphinx_of_lore": {
+   "id": "bst_sphinx_of_lore",
+   "biomes": [
+    "desert",
+    "city"
+   ],
+   "act": "III",
+   "tier": "элита",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Древнее существо с лицом человека и телом льва, хранитель забытых знаний. Оно не атакует физически, а использует иллюзии и проклятия, запутывая разум героя. Разгадайте его загадку или используйте защитные амулеты, чтобы выжить в его присутствии.",
+   "image_subject": "Human-faced lion, golden fur, mystical aura, seated pose, glowing eyes, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Human-faced lion, golden fur, mystical aura, seated pose, glowing eyes, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_giant_badger": {
+   "id": "bst_giant_badger",
+   "biomes": [
+    "forest"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "засада",
+    "быстрый"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Ночной хищник с мощными когтями и злобным нравом. Он выкапывает норы и атакует внезапно, используя свою силу, чтобы перевернуть добычу. Держите дистанцию и не дайте ему загнать вас в угол.",
+   "image_subject": "Large badger, black and white stripes, sharp claws, aggressive stance, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large badger, black and white stripes, sharp claws, aggressive stance, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_pixie_wonderbringer": {
+   "id": "bst_pixie_wonderbringer",
+   "biomes": [
+    "enchanted_forest",
+    "forest"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель"
+   ],
+   "night_only": true,
+   "size_tiles": 0.5,
+   "description": "Сияющее существо из волшебного леса, которое искажает реальность вокруг себя. Игнорирует физические атаки, но уязвим к оглушению; держите дистанцию, чтобы не попасть под поток хаотичной магии.",
+   "image_subject": "Tiny fey creature with translucent iridescent wings, glowing cyan core, floating in a dynamic pose, holding a small swirling orb of magic, full body, detailed ethereal texture.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tiny fey creature with translucent iridescent wings, glowing cyan core, floating in a dynamic pose, holding a small swirling orb of magic, full body, detailed ethereal texture, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_archmage": {
+   "id": "bst_archmage",
+   "biomes": [
+    "city",
+    "mountain"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "призыватель"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Мудрый, но безумный маг, потерявший связь с миром живых. Он призывает штормы и молнии, а также телепортируется, чтобы избежать урона. Сложный бой, требующий постоянного движения и блокировки его заклинаний.",
+   "image_subject": "Elderly human mage in tattered dark robes, holding a gnarled staff topped with a glowing crystal, long white beard, intense expression, full body, standing on a floating rock.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Elderly human mage in tattered dark robes, holding a gnarled staff topped with a glowing crystal, long white beard, intense expression, full body, standing on a floating rock, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_giant_wolf_spider": {
+   "id": "bst_giant_wolf_spider",
+   "biomes": [
+    "forest",
+    "meadow",
+    "desert"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Обычный лесной обитатель, который становится опасным только в сумерках. Атакует быстрыми рывками, но легко убивается одним ударом. Хороший источник шкуры для крафта.",
+   "image_subject": "Large brown wolf spider with eight hairy legs, chelicerae bared, crouching low to the ground, full body, realistic fur texture, menacing posture.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large brown wolf spider with eight hairy legs, chelicerae bared, crouching low to the ground, full body, realistic fur texture, menacing posture, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_shambling_mound": {
+   "id": "bst_shambling_mound",
+   "biomes": [
+    "swamp",
+    "forest"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Живой ком из мха и корня, поглощающий всё на своём пути. Медленный, но обладает огромным запасом здоровья и уроном от захвата. Не атакуют первым, если вы не наступите на его «ноги».",
+   "image_subject": "Massive mound of moss, twigs, and vines forming a humanoid shape, no distinct face, arms made of thick roots, full body, swampy green coloration, imposing size.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Massive mound of moss, twigs, and vines forming a humanoid shape, no distinct face, arms made of thick roots, full body, swampy green coloration, imposing size, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_archpriest": {
+   "id": "bst_archpriest",
+   "biomes": [
+    "city",
+    "pregate"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "support",
+   "archetype_name": "",
+   "role": [
+    "поддержка",
+    "заклинатель"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Жрец забытого культа, который исцеляет союзников и накладывает защитные барьеры. Приоритетная цель для убийства, так как поддерживает выживаемость других врагов. Уязвим к физическим атакам, пока читает молитвы.",
+   "image_subject": "Human priest in ornate golden and white vestments, holding a glowing chalice, halo of light behind head, solemn expression, full body, standing upright with authority.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Human priest in ornate golden and white vestments, holding a glowing chalice, halo of light behind head, solemn expression, full body, standing upright with authority, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_goblin_warrior": {
+   "id": "bst_goblin_warrior",
+   "biomes": [
+    "forest",
+    "cave",
+    "meadow"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Группы мелкой нечисти, вооружённой ржавыми мечами. Атакуют толпой, но каждый из них слаб. Идеальны для тренировки навыков боя в начале игры.",
+   "image_subject": "Small green-skinned goblin warrior wearing crude leather armor, holding a rusty short sword, fierce grin, full body, dynamic combat stance, dirt-stained skin.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small green-skinned goblin warrior wearing crude leather armor, holding a rusty short sword, fierce grin, full body, dynamic combat stance, dirt-stained skin, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_half_dragon": {
+   "id": "bst_half_dragon",
+   "biomes": [
+    "mountain",
+    "lava"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "летун"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Древнее существо, потерявшее крылья, но сохранившее дыхание огня. Атакует с воздуха огненными струями, а при приземлении становится уязвимым. Требует точных попаданий по голове.",
+   "image_subject": "Humanoid figure with red dragon scales on arms and head, small broken wings on back, breathing a stream of fire, full body, powerful muscular build, fierce eyes.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid figure with red dragon scales on arms and head, small broken wings on back, breathing a stream of fire, full body, powerful muscular build, fierce eyes, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_pirate_admiral": {
+   "id": "bst_pirate_admiral",
+   "biomes": [
+    "ocean",
+    "city"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "ranged",
+   "archetype_name": "",
+   "role": [
+    "стрелок",
+    "вожак"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Легендарный пират, командир флота призраков. Стреляет из пушки и призываает морских призраков. Сражается агрессивно, пытаясь преследовать игрока по воде и суше.",
+   "image_subject": "Human pirate admiral in a tattered red coat and tricorn hat, holding a flintlock pistol, long black beard, scarred face, full body, standing on a ship deck.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Human pirate admiral in a tattered red coat and tricorn hat, holding a flintlock pistol, long black beard, scarred face, full body, standing on a ship deck, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_grimlock": {
+   "id": "bst_grimlock",
+   "biomes": [
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Голодные твари из глубинных пещер, чья кожа покрыта каменистой коркой. Они охотятся стаями, используя численное преимущество и внезапность. Лучше отбиваться на открытом пространстве, чтобы не быть окружённым.",
+   "image_subject": "A small hunched humanoid creature with rocky gray skin and sharp claws. It has a wide mouth full of jagged teeth and small glowing yellow eyes. The body is covered in cracked stone-like plates. It crouches low to the ground in a predatory stance. Full body view.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A small hunched humanoid creature with rocky gray skin and sharp claws. It has a wide mouth full of jagged teeth and small glowing yellow eyes. The body is covered in cracked stone-like plates. It crouches low to the ground in a predatory stance. Full body view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_vampire_spawn": {
+   "id": "bst_vampire_spawn",
+   "biomes": [
+    "city",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "стая",
+    "прилипала"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Деградировавшие слуги нежити, потерявшие разум, но сохранившие жажду крови. Они атакуют с неожиданной скоростью, пытаясь прижать жертву к земле. Огонь или священный свет причиняют им особый урон.",
+   "image_subject": "A slender, emaciated undead figure with pale blue skin and sunken black eyes. It wears tattered, dark robes that hang loosely off its bony frame. Its hands are elongated with sharp, needle-like claws. The posture is hunched and aggressive, leaning forward. Full body view.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A slender, emaciated undead figure with pale blue skin and sunken black eyes. It wears tattered, dark robes that hang loosely off its bony frame. Its hands are elongated with sharp, needle-like claws. The posture is hunched and aggressive, leaning forward. Full body view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_questing_knight": {
+   "id": "bst_questing_knight",
+   "biomes": [
+    "meadow",
+    "forest",
+    "mountain"
+   ],
+   "act": "III",
+   "tier": "элита",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "одиночка",
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Бесстрашный дух воина, вечно ищущий достойного противника. Его доспехи почти не пробиваются, а удары меча наносят огромный урон. Не пытайтесь сбежать — лучше сосредоточить огонь на одной точке или использовать магию ослабления.",
+   "image_subject": "A tall, imposing figure clad in heavy, ancient Greek-style plate armor with bronze accents. The helmet covers the face completely, leaving only glowing blue eyes visible. It holds a large two-handed sword in one hand and a round shield in the other. The stance is upright and ready for combat. Full body view.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A tall, imposing figure clad in heavy, ancient Greek-style plate armor with bronze accents. The helmet covers the face completely, leaving only glowing blue eyes visible. It holds a large two-handed sword in one hand and a round shield in the other. The stance is upright and ready for combat. Full body view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_mud_mephit": {
+   "id": "bst_mud_mephit",
+   "biomes": [
+    "swamp",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Бесформенное существо из грязевой жижи, способное испускать облака токсичного пара. Оно держит дистанцию, отравляя воздух вокруг себя. Избегайте вдыхания пара и бейте издалека, пока оно не растворилось.",
+   "image_subject": "A small, amorphous blob of dark brown mud with a vaguely humanoid shape. It has two glowing green eyes embedded in the sludge. Wisps of toxic green gas rise from its top. The surface is wet and glossy with dripping droplets. It floats slightly above the ground. Full body view.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A small, amorphous blob of dark brown mud with a vaguely humanoid shape. It has two glowing green eyes embedded in the sludge. Wisps of toxic green gas rise from its top. The surface is wet and glossy with dripping droplets. It floats slightly above the ground. Full body view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_wraith": {
+   "id": "bst_wraith",
+   "biomes": [
+    "cave",
+    "city"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "phaser",
+   "archetype_name": "",
+   "role": [
+    "засадник",
+    "мерцающий"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Призрачная сущность, способная проходить сквозь стены и мерцать в невидимости. Атакует из тени, нанося урон, игнорирующий физическую броню. Свет и серебряное оружие помогают обнаружить и остановить её.",
+   "image_subject": "A translucent, ghostly figure with a flowing, tattered white sheet-like body. The head is a hollow void with faintly glowing white eyes. The hands are long and clawed, reaching out forward. The lower body fades into mist. The posture is floating and menacing. Full body view.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A translucent, ghostly figure with a flowing, tattered white sheet-like body. The head is a hollow void with faintly glowing white eyes. The hands are long and clawed, reaching out forward. The lower body fades into mist. The posture is floating and menacing. Full body view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_erinyes": {
+   "id": "bst_erinyes",
+   "biomes": [
+    "pregate",
+    "lava"
+   ],
+   "act": "III",
+   "tier": "элита",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "призыватель"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Мстительный дух из преддверия загробного мира, преследующий нарушителей клятв. Она призывает цепи из тьмы, сковывающие движение, и испускает ауру страха. Бой с ней требует мобильности и защиты от контроля.",
+   "image_subject": "A tall, winged female figure with dark, shadowy skin and large bat-like wings. Her hair is made of writhing snakes. She holds a whip of dark energy in one hand. Her eyes glow with a menacing red light. The wings are spread wide in a threatening pose. Full body view.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A tall, winged female figure with dark, shadowy skin and large bat-like wings. Her hair is made of writhing snakes. She holds a whip of dark energy in one hand. Her eyes glow with a menacing red light. The wings are spread wide in a threatening pose. Full body view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_dretch": {
+   "id": "bst_dretch",
+   "biomes": [
+    "lava",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "swarm",
+   "archetype_name": "",
+   "role": [
+    "рой"
+   ],
+   "night_only": false,
+   "size_tiles": 0.5,
+   "description": "Мелкие, но злобные демоны, часто встречающиеся в лавовых пещерах. Они нападают толпой, кусая и царапая. Отдельная особь слабый, но их количество быстро истощает запас здоровья игрока.",
+   "image_subject": "A small, hunched demon with dark red skin and small, curved horns. It has a wide, toothy grin and small, pointed ears. Its hands are clawed, and it has a short, thin tail. The body is lean and muscular. It stands on two legs, leaning forward aggressively. Full body view.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A small, hunched demon with dark red skin and small, curved horns. It has a wide, toothy grin and small, pointed ears. Its hands are clawed, and it has a short, thin tail. The body is lean and muscular. It stands on two legs, leaning forward aggressively. Full body view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_revenant": {
+   "id": "bst_revenant",
+   "biomes": [
+    "swamp",
+    "forest",
+    "city"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "одиночка",
+    "танк"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Мощное нежитьское создание, восставшее из болотных глубин. Его тело покрыто гниющими тканями и корнями, что делает его устойчивым к физическим ударам. Атакует медленными, но сокрушительными ударами.",
+   "image_subject": "A large, muscular undead warrior with greenish, decaying skin. Vines and roots are wrapped around its arms and torso. It holds a heavy, rusted axe in one hand. The eyes are empty sockets with faint green light. The posture is stiff and powerful. Full body view.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A large, muscular undead warrior with greenish, decaying skin. Vines and roots are wrapped around its arms and torso. It holds a heavy, rusted axe in one hand. The eyes are empty sockets with faint green light. The posture is stiff and powerful. Full body view, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_smoke_mephit": {
+   "id": "bst_smoke_mephit",
+   "biomes": [
+    "lava",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "phaser",
+   "archetype_name": "Мерцающий",
+   "role": [
+    "рой"
+   ],
+   "night_only": false,
+   "size_tiles": 0.5,
+   "description": "Призрачные сгустки горячего дыма, бродящие по лавовым трещинам и глубоким пещерам. Они почти невидимы, пока не ударят, и испаряются при попадании, но могут вернуться. Бойтесь их численности и способности проходить сквозь стены.",
+   "image_subject": "Translucent swirling smoke cloud forming a humanoid shape, glowing faint orange from within, wispy tendrils extending from base, no solid core, full body, ethereal texture, dark grey and ember colors.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent swirling smoke cloud forming a humanoid shape, glowing faint orange from within, wispy tendrils extending from base, no solid core, full body, ethereal texture, dark grey and ember colors, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_salamander": {
+   "id": "bst_salamander",
+   "biomes": [
+    "lava"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "Ближний",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Огромная рептилия с чешуей, раскалённой докрасна, как кусок угля из печи. Она медленно ползёт по лавовым полям, оставляя за собой плавящийся след, и бьёт хвостом с силой, способной разбить броню. Лучше держаться на расстоянии и использовать огнестойкое снаряжение.",
+   "image_subject": "Massive quadrupedal reptile with glowing red molten rock scales, thick armored tail, heavy limbs with blunt claws, open mouth revealing hot coals, standing pose, full body, rough volcanic texture.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Massive quadrupedal reptile with glowing red molten rock scales, thick armored tail, heavy limbs with blunt claws, open mouth revealing hot coals, standing pose, full body, rough volcanic texture, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_riding_horse": {
+   "id": "bst_riding_horse",
+   "biomes": [
+    "meadow",
+    "city"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "Быстрый",
+   "role": [
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Смирная, но пугливая лошадь, часто встречающаяся в городах и на лугах. Она не нападает первой, но если её напугать или ранить, может лягаться и сбивать с ног. Идеальна для добычи ресурсов или как временное транспортное средство, если не провоцировать её.",
+   "image_subject": "Muscular brown horse with flowing mane and tail, standing alert with ears forward, sturdy legs, simple leather bridle, full body, realistic animal anatomy, neutral expression.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Muscular brown horse with flowing mane and tail, standing alert with ears forward, sturdy legs, simple leather bridle, full body, realistic animal anatomy, neutral expression, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_sahuagin_baron": {
+   "id": "bst_sahuagin_baron",
+   "biomes": [
+    "ocean"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "Ближний",
+   "role": [
+    "вожак"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Морской вождь с чешуей цвета тёмной воды и длинными плавниками, ведущий стайных существ в прибрежных водах. Он бьёт когтями и хвостом, пытаясь потащить жертву на дно. Осторожно: рядом часто появляются его подчинённые, если вы задержитесь в воде.",
+   "image_subject": "Humanoid fish-monster with dark blue scales, sharp teeth, finned arms with clawed hands, wearing simple bone armor, standing in shallow water, full body, menacing posture, gill slits on neck.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid fish-monster with dark blue scales, sharp teeth, finned arms with clawed hands, wearing simple bone armor, standing in shallow water, full body, menacing posture, gill slits on neck, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_zombie": {
+   "id": "bst_zombie",
+   "biomes": [
+    "city",
+    "meadow"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "Ближний",
+   "role": [
+    "стая"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Разлагающиеся останки древних воинов, оживающие с наступлением темноты. Они медлительны и слабы, но терпеливы и не чувствуют боли. Их легко убить одним ударом, но они могут окружить и задушить, если вы застрянете в толпе.",
+   "image_subject": "Decaying humanoid figure with tattered ancient armor, exposed ribs and matted hair, hollow eye sockets, shuffling stance, full body, grey-green skin tone, broken sword in hand.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Decaying humanoid figure with tattered ancient armor, exposed ribs and matted hair, hollow eye sockets, shuffling stance, full body, grey-green skin tone, broken sword in hand, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_triceratops": {
+   "id": "bst_triceratops",
+   "biomes": [
+    "meadow"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "tank",
+   "archetype_name": "Танк",
+   "role": [
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 3.0,
+   "description": "Гигантский травоядный динозавр с мощным щитом на голове. Он не агрессивен, но если почувствует угрозу, может таранить противников рогами, сбивая с ног. Его толстая кожа плохо пробивается обычным оружием, лучше атаковать ноги или глаза.",
+   "image_subject": "Enormous quadrupedal dinosaur with large frill on head, three prominent horns, thick armored skin, powerful legs, standing pose, full body, dusty brown and grey coloration.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Enormous quadrupedal dinosaur with large frill on head, three prominent horns, thick armored skin, powerful legs, standing pose, full body, dusty brown and grey coloration, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_boar": {
+   "id": "bst_boar",
+   "biomes": [
+    "forest",
+    "meadow"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "Быстрый",
+   "role": [
+    "засада"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Дикий кабан с загнутыми клыками, часто прячущийся в кустах. Он быстро бросается на добычу, пытаясь проткнуть её клыками. Если вы заметите его раньше, можно отступить или отвлечь, пока он не начал атаку.",
+   "image_subject": "Wild boar with coarse dark bristles, large curved tusks, low-slung body, muscular legs, aggressive stance with head lowered, full body, muddy texture, forest setting implied by pose.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Wild boar with coarse dark bristles, large curved tusks, low-slung body, muscular legs, aggressive stance with head lowered, full body, muddy texture, forest setting implied by pose, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_troll": {
+   "id": "bst_troll",
+   "biomes": [
+    "swamp",
+    "forest"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "Ближний",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Крупное существо с зелёной кожей и регенеративными способностями. Оно медленно, но мощно бьёт дубиной, а раны затягиваются на глазах. Чтобы победить, нужно наносить критические урон или использовать огонь, так как обычный урон быстро закрывается.",
+   "image_subject": "Large humanoid creature with green scaly skin, broad shoulders, holding a heavy wooden club, standing in swampy terrain, full body, muscular build, small eyes, rough texture.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large humanoid creature with green scaly skin, broad shoulders, holding a heavy wooden club, standing in swampy terrain, full body, muscular build, small eyes, rough texture, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_winged_kobold": {
+   "id": "bst_winged_kobold",
+   "biomes": [
+    "cave",
+    "mountain"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Маленькие летающие твари с кожистыми крыльями, напоминающие пересмешников-предателей. Они сбиваются в стаи и пикируют на игрока, нанося урон когтями. Идеальны для отработки прицела и уклонения в начале пути.",
+   "image_subject": "Small reptilian creature with leathery bat-like wings, green scaly skin, sharp beak, large yellow eyes, perched on a rock, full body, dynamic pose, detailed scales, no background",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small reptilian creature with leathery bat-like wings, green scaly skin, sharp beak, large yellow eyes, perched on a rock, full body, dynamic pose, detailed scales, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_hill_giant": {
+   "id": "bst_hill_giant",
+   "biomes": [
+    "mountain",
+    "meadow"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 3.0,
+   "description": "Громадный громила из горных пустошей, обросший мхом и лишайником. Медленный, но невероятно прочный; его удары молотом из камня способны разрушить постройки. Требует тактики: отвлечение и атаки по ногам.",
+   "image_subject": "Huge muscular humanoid giant with mossy grey skin, wearing rough stone armor, holding a massive rock club, broad shoulders, thick arms, standing pose, full body, rugged texture, no background",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Huge muscular humanoid giant with mossy grey skin, wearing rough stone armor, holding a massive rock club, broad shoulders, thick arms, standing pose, full body, rugged texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_violet_fungus": {
+   "id": "bst_violet_fungus",
+   "biomes": [
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "new_spitter",
+   "archetype_name": "Сплювун",
+   "role": [
+    "стрелок"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Живой гриб с лиловыми шляпками, пульсирующими в темноте пещер. При приближении выплёвывает облако споров, вызывающее замедление. Небольшой урон, но мешает маневрированию в узких коридорах.",
+   "image_subject": "Anthropomorphic mushroom creature with purple caps and glowing spores, fleshy stem body, small arms, hunched posture, full body, bioluminescent details, smooth texture, no background",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Anthropomorphic mushroom creature with purple caps and glowing spores, fleshy stem body, small arms, hunched posture, full body, bioluminescent details, smooth texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_water_elemental": {
+   "id": "bst_water_elemental",
+   "biomes": [
+    "lake",
+    "swamp"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Сгусток бурлящей воды с человеческим силуэтом, обитающий в озёрах и болотах. Устойчив к огню, но уязвим к электричеству. Атакует мощными толчками воды, создающими вихри.",
+   "image_subject": "Translucent humanoid figure made of swirling blue water, glowing white core, fluid limbs, misty edges, standing pose, full body, liquid texture, no background",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent humanoid figure made of swirling blue water, glowing white core, fluid limbs, misty edges, standing pose, full body, liquid texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_elk": {
+   "id": "bst_elk",
+   "biomes": [
+    "meadow",
+    "forest"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "одиночка"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Дикое благородное животное с большими ветвистыми рогами. В дневное время мирно пасётся, но при атаке несётся напролом, сбивая с ног. Можно охотиться на него ради ресурсов, но стоит избегать рогов.",
+   "image_subject": "Large brown elk with massive branching antlers, shaggy fur, muscular legs, alert stance, full body, naturalistic details, no background",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large brown elk with massive branching antlers, shaggy fur, muscular legs, alert stance, full body, naturalistic details, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_air_elemental": {
+   "id": "bst_air_elemental",
+   "biomes": [
+    "mountain",
+    "desert"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "быстрый"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Вихрь из воздуха и пыли, принимающий форму человека. Летает высоко и быстро, нанося удары ветром. Сложно попасть, так как он постоянно мерцает и меняет позицию в воздухе.",
+   "image_subject": "Humanoid figure made of swirling wind and clouds, translucent grey-white body, streaks of motion, ethereal limbs, flying pose, full body, airy texture, no background",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid figure made of swirling wind and clouds, translucent grey-white body, streaks of motion, ethereal limbs, flying pose, full body, airy texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_blink_dog": {
+   "id": "bst_blink_dog",
+   "biomes": [
+    "forest",
+    "enchanted_forest"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "phaser",
+   "archetype_name": "",
+   "role": [
+    "засада"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Призрачный пёс с мерцающей шерстью, видимый только в лунном свете. Появляется из ниоткуда и исчезает, прежде чем нанести укус. Требует внимания к звуковым эффектам и визуальным искажениям.",
+   "image_subject": "Translucent ghostly dog with glowing blue eyes, shimmering fur effect, ethereal tail, crouching pose, full body, magical aura, no background",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent ghostly dog with glowing blue eyes, shimmering fur effect, ethereal tail, crouching pose, full body, magical aura, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_earth_elemental": {
+   "id": "bst_earth_elemental",
+   "biomes": [
+    "mountain",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Колосс из скальной породы, медленно продвигающийся сквозь землю. Практически неуязвим для обычного оружия, но уязвим для магии разрушения. Может создавать каменные стены, блокируя путь.",
+   "image_subject": "Massive humanoid figure made of brown rock and stone, cracked surface, glowing orange veins, bulky arms, standing pose, full body, rocky texture, no background",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Massive humanoid figure made of brown rock and stone, cracked surface, glowing orange veins, bulky arms, standing pose, full body, rocky texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_animated_broom": {
+   "id": "bst_animated_broom",
+   "biomes": [
+    "city",
+    "hearth_start"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "стая",
+    "вор"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Головастая метла, сшитая из соломы и обрывков старых одеял, которая ворует еду и мелкие предметы с прилавков. Летит низко над землёй, уворачиваясь от ударов, и исчезает в темноте, если не поймать её быстро.",
+   "image_subject": "A magical broomstick with a tattered cloth head, worn wooden handle, and loose straw bristles. It floats horizontally in the air with a mischievous posture, full body view, simple materials, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A magical broomstick with a tattered cloth head, worn wooden handle, and loose straw bristles. It floats horizontally in the air with a mischievous posture, full body view, simple materials, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_fire_elemental": {
+   "id": "bst_fire_elemental",
+   "biomes": [
+    "desert",
+    "lava",
+    "mountain"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Сгусток пламени в форме торса человека, горящий ярким оранжевым светом. Бьёт кулаками, оставляющими огненные следы, и испепеляет всё вокруг. Лучше всего сражаться с ним издалека, пока он не добежал.",
+   "image_subject": "A humanoid torso made of swirling orange and yellow flames, with no head or legs. The body is composed of fire particles and glowing embers, standing in a combat stance, full body, fiery texture, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A humanoid torso made of swirling orange and yellow flames, with no head or legs. The body is composed of fire particles and glowing embers, standing in a combat stance, full body, fiery texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_animated_flying_sword": {
+   "id": "bst_animated_flying_sword",
+   "biomes": [
+    "city",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "засада"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Старый меч, оживший магической силой, парит в воздухе и наносит быстрые режущие удары. Он атакует внезапно, выпрыгивая из-за угла или из-под моста, и трудно попасть в него обычным оружием.",
+   "image_subject": "A floating ancient iron sword with a rusted hilt and a sharp, glowing blade. The weapon hovers in mid-air, angled slightly downward, full body, metallic texture, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A floating ancient iron sword with a rusted hilt and a sharp, glowing blade. The weapon hovers in mid-air, angled slightly downward, full body, metallic texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_wyvern": {
+   "id": "bst_wyvern",
+   "biomes": [
+    "mountain",
+    "jungle"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "летун",
+    "одиночка"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Грозный ящер с кожаными крыльями и хвостом, кончик которого ужален ядом. Круглит над головой игрока, пикируя вниз, чтобы врезаться в него. Уклоняйтесь от пикирования и бейте по крыльям, чтобы сбить с курса.",
+   "image_subject": "A large reptilian creature with leathery wings, a long tail, and sharp claws. It has a scaly green hide and a fierce expression, flying in a dive posture, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A large reptilian creature with leathery wings, a long tail, and sharp claws. It has a scaly green hide and a fierce expression, flying in a dive posture, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_panther": {
+   "id": "bst_panther",
+   "biomes": [
+    "forest",
+    "meadow",
+    "jungle"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "засада",
+    "одиночка"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Чёрная кошка с блестящими глазами, которая крадётся в кустах и нападает из засады. Очень быстрая, но хрупкая; один точный удар может убить её. Избегайте открытых пространств ночью, чтобы не попасться ей.",
+   "image_subject": "A sleek black panther with glowing yellow eyes, muscular build, and a long tail. It is crouching low to the ground in a stalking pose, full body, fur texture, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A sleek black panther with glowing yellow eyes, muscular build, and a long tail. It is crouching low to the ground in a stalking pose, full body, fur texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_vrock": {
+   "id": "bst_vrock",
+   "biomes": [
+    "pregate",
+    "cave",
+    "lava"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "одиночка"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Маленький демон с крыльями летучей мыши, изрыгающий клубы чёрного дыма и огня. Он держит дистанцию, посылая в игрока огненные шары, и может телепортироваться, чтобы избежать урона. Бейте быстро, пока он не исчез.",
+   "image_subject": "A small imp-like demon with bat wings, dark purple skin, and glowing red eyes. It holds a staff emitting black smoke, standing in a casting pose, full body, demonic features, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A small imp-like demon with bat wings, dark purple skin, and glowing red eyes. It holds a staff emitting black smoke, standing in a casting pose, full body, demonic features, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_steam_mephit": {
+   "id": "bst_steam_mephit",
+   "biomes": [
+    "swamp",
+    "lake",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "bomber",
+   "archetype_name": "",
+   "role": [
+    "рой"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Полупрозрачный сгусток пара в виде крохотного человечка, который взрывается облаком горячего пара при приближении. Пар ослепляет и обжигает, поэтому держите дистанцию и не подходите слишком близко.",
+   "image_subject": "A small, translucent humanoid figure made of swirling white steam and mist. It has a vague face and floating limbs, standing in a defensive posture, full body, ethereal texture, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A small, translucent humanoid figure made of swirling white steam and mist. It has a vague face and floating limbs, standing in a defensive posture, full body, ethereal texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_ghast_gravecaller": {
+   "id": "bst_ghast_gravecaller",
+   "biomes": [
+    "swamp",
+    "city",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "summoner",
+   "archetype_name": "",
+   "role": [
+    "призыватель",
+    "одиночка"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Исхудалый мертвец в разорванном саване, который призывая из земли скелетов-рабов. Сам он слаб, но его призывные заклинания опасны. Сначала уничтожайте скелетов, а затем бейте по самому призывателю.",
+   "image_subject": "A gaunt undead figure wrapped in tattered burial shrouds, with hollow eye sockets and a skeletal face. It holds a bone wand, standing with arms outstretched in a summoning pose, full body, decayed texture, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, A gaunt undead figure wrapped in tattered burial shrouds, with hollow eye sockets and a skeletal face. It holds a bone wand, standing with arms outstretched in a summoning pose, full body, decayed texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_pixie": {
+   "id": "bst_pixie",
+   "biomes": [
+    "meadow",
+    "forest",
+    "enchanted_forest"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "swarm",
+   "archetype_name": "",
+   "role": [
+    "рой",
+    "быстрый"
+   ],
+   "night_only": false,
+   "size_tiles": 0.5,
+   "description": "Маленькие светящиеся духи, парящие среди цветов и листвы. Они не наносят большого урона, но их трудно заметить из-за мерцающего света. Лучше всего расчищать их массовыми ударами, пока они не окружили героя.",
+   "image_subject": "Tiny translucent fairy with iridescent butterfly wings, glowing faintly blue, hovering in mid-air with arms outstretched, delicate ethereal body, full body, simple white background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tiny translucent fairy with iridescent butterfly wings, glowing faintly blue, hovering in mid-air with arms outstretched, delicate ethereal body, full body, simple white background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_giant_squid": {
+   "id": "bst_giant_squid",
+   "biomes": [
+    "ocean",
+    "lake",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "танк",
+    "одиночка"
+   ],
+   "night_only": false,
+   "size_tiles": 4.0,
+   "description": "Гигантское членистоногое, скрывающееся в глубинах озёр и подводных пещерах. Его щупальца могут затянуть игрока на дно, а мощные присоски наносят сильный урон. Держите дистанцию и бейте по глазам, пока он не развернулся полностью.",
+   "image_subject": "Massive deep-sea squid with long thick tentacles, dark reddish-brown skin, large prominent eyes, muscular mantle, coiled posture, full body, simple white background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Massive deep-sea squid with long thick tentacles, dark reddish-brown skin, large prominent eyes, muscular mantle, coiled posture, full body, simple white background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_pseudodragon": {
+   "id": "bst_pseudodragon",
+   "biomes": [
+    "mountain",
+    "city",
+    "desert"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "летун",
+    "стрелок"
+   ],
+   "night_only": false,
+   "size_tiles": 0.5,
+   "description": "Крошечный дракончик с перепончатыми крыльями, часто гнездящийся на крышах домов или в горных расщелинах. Он атакует коротким пламенем из пасти, которое быстро гаснет. Легко убить одним выстрелом, если заметить вовремя.",
+   "image_subject": "Tiny brown dragon with small leathery wings, long tail, sharp teeth, glowing orange eyes, perched on a rock, full body, simple white background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tiny brown dragon with small leathery wings, long tail, sharp teeth, glowing orange eyes, perched on a rock, full body, simple white background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_drider": {
+   "id": "bst_drider",
+   "biomes": [
+    "forest",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "ranged",
+   "archetype_name": "",
+   "role": [
+    "стрелок",
+    "танк"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Гибридное существо, сочетающее верхнюю часть тела человека и нижнюю часть паука. Сидит в паутине и стреляет ядовитыми стрелами, а при приближении игрока атакует клешнями. Требует осторожности из-за двойной угрозы.",
+   "image_subject": "Humanoid upper body with spider lower body, holding a bow, wearing dark leather armor, eight legs, menacing posture, full body, simple white background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid upper body with spider lower body, holding a bow, wearing dark leather armor, eight legs, menacing posture, full body, simple white background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_pteranodon": {
+   "id": "bst_pteranodon",
+   "biomes": [
+    "mountain",
+    "meadow",
+    "jungle"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "летун",
+    "быстрый"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Большая летающая рептилия с длинным клювом, охотящаяся на мелких животных. Атакует пикированием, пытаясь схватить жертву зубами. Легко отогнать стрелой, но опасно, если она закружит над головой.",
+   "image_subject": "Large pterosaur with long beak, leathery wings spread wide, small head crest, sharp claws, flying posture, full body, simple white background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large pterosaur with long beak, leathery wings spread wide, small head crest, sharp claws, flying posture, full body, simple white background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_performer_maestro": {
+   "id": "bst_performer_maestro",
+   "biomes": [
+    "city",
+    "crossroads"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "charmer",
+   "archetype_name": "",
+   "role": [
+    "чаровник",
+    "поддержка"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Зловещий музыкант в театральном костюме, играющий на скрипке. Его мелодия оглушает и замедляет игрока, заставляя его танцевать против воли. Лучше всего разбить его инструмент или быстро уйти из зоны звука.",
+   "image_subject": "Humanoid figure in tattered Victorian coat, holding a violin and bow, intense expression, musical notes floating around, dynamic dancing pose, full body, simple white background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid figure in tattered Victorian coat, holding a violin and bow, intense expression, musical notes floating around, dynamic dancing pose, full body, simple white background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_swarm_of_ravens": {
+   "id": "bst_swarm_of_ravens",
+   "biomes": [
+    "swamp",
+    "city",
+    "forest"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "swarm",
+   "archetype_name": "",
+   "role": [
+    "рой",
+    "быстрый"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Тёмное облако воронов, кружащее над болотами и кладбищами. Каждая птица наносит небольшой урон, но их количество ослепляет. Рой можно рассеять огнём или сильным ударом, но он быстро восстанавливается.",
+   "image_subject": "Swarm of black ravens with sharp beaks, wings flapping rapidly, creating a dark cloud, chaotic movement, full body, simple white background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Swarm of black ravens with sharp beaks, wings flapping rapidly, creating a dark cloud, chaotic movement, full body, simple white background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_mage": {
+   "id": "bst_mage",
+   "biomes": [
+    "city",
+    "mountain",
+    "forest"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Древний волшебник в мантии, защищённый магическим барьером. Запускает сгустки магии с безопасной дистанции и телепортируется, если игрок подходит слишком близко. Сложность в том, чтобы попасть по нему, пока он перемещается.",
+   "image_subject": "Humanoid wizard in flowing purple robe, holding a staff with glowing crystal, magical aura surrounding body, casting gesture, full body, simple white background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid wizard in flowing purple robe, holding a staff with glowing crystal, magical aura surrounding body, casting gesture, full body, simple white background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_swarm_of_rats": {
+   "id": "bst_swarm_of_rats",
+   "biomes": [
+    "swamp",
+    "city",
+    "forest",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "swarm",
+   "archetype_name": "",
+   "role": [
+    "рой"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Облако серых хвостов и острых зубов, ползущее по грязи и камням. Эти существа не причиняют сильного урона, но быстро истощают здоровье игрока, если их не разогнать. Идеальны для проверки контроля толпы на ранних этапах игры.",
+   "image_subject": "Dense cluster of small brown rats with sharp teeth and twitching tails, huddled together on a patch of dark moss, full body, chaotic posture, rough fur texture, glowing red eyes visible in the shadows.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Dense cluster of small brown rats with sharp teeth and twitching tails, huddled together on a patch of dark moss, full body, chaotic posture, rough fur texture, glowing red eyes visible in the shadows, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_mammoth": {
+   "id": "bst_mammoth",
+   "biomes": [
+    "tundra",
+    "glacier"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 3.0,
+   "description": "Древний гигант, сохранившийся в ледяных пустошах, где время течёт иначе. Его толстая шкура отбивает стрелы, а медленный, но неотвратимый шаг может задавить игрока. Требует тактики: нужно уклоняться от ударов хобота и атаковать слабые места.",
+   "image_subject": "Colossal woolly mammoth with long curved ivory tusks and thick shaggy brown fur, standing on all four legs, massive humped shoulders, heavy trunk lowered towards the ground, full body, icy blue eyes, rugged stone-like skin texture under fur.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Colossal woolly mammoth with long curved ivory tusks and thick shaggy brown fur, standing on all four legs, massive humped shoulders, heavy trunk lowered towards the ground, full body, icy blue eyes, rugged stone-like skin texture under fur, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_swarm_of_bats": {
+   "id": "bst_swarm_of_bats",
+   "biomes": [
+    "city",
+    "mountain",
+    "forest",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "рой",
+    "летун"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Чёрное облако, срывающееся с крыш и ветвей только после заката. Их укусы слабы, но они дезориентируют игрока, мешая прицеливанию и бегству. Лучше всего их отгонять огненным оружием или широкими ударами по площади.",
+   "image_subject": "Swirling cloud of small black bats with leathery wings spread wide, sharp fangs visible, erratic flying motion, full body, dark fur, glowing yellow eyes, chaotic formation, tattered wing edges, nocturnal appearance.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Swirling cloud of small black bats with leathery wings spread wide, sharp fangs visible, erratic flying motion, full body, dark fur, glowing yellow eyes, chaotic formation, tattered wing edges, nocturnal appearance, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_medusa": {
+   "id": "bst_medusa",
+   "biomes": [
+    "desert"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Пустынная стражница с волосами из живых змей, охраняющая древние руины. Её взгляд не каменит, но вызывает паралич на короткое время, давая ей шанс нанести удар. Избегайте прямого контакта глазами, атакуя с флангов или используя ослепляющие эффекты.",
+   "image_subject": "Humanoid woman with a head of writhing green and purple snakes instead of hair, pale stone-like skin, wearing tattered desert robes, standing in a defensive stance, full body, glowing hypnotic eyes, snake heads biting at each other, cracked earth texture on arms.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid woman with a head of writhing green and purple snakes instead of hair, pale stone-like skin, wearing tattered desert robes, standing in a defensive stance, full body, glowing hypnotic eyes, snake heads biting at each other, cracked earth texture on arms, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_priest_acolyte": {
+   "id": "bst_priest_acolyte",
+   "biomes": [
+    "city",
+    "meadow",
+    "forest"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "поддержка"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Следователи культа, одетые в простые белые тоги с кровавыми пятнами. Они не сильны в ближнем бою, но способны исцелять союзников или накладывать слабые проклятия. Приоритетная цель для быстрого устранения, чтобы не дать им поддержать более опасных врагов.",
+   "image_subject": "Thin human figure in a white linen toga stained with rust-red spots, holding a wooden staff with a hollow bone tip, hunched posture, full body, pale skin, dark hollow eyes, bare feet, simple rope belt, tattered fabric edges.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Thin human figure in a white linen toga stained with rust-red spots, holding a wooden staff with a hollow bone tip, hunched posture, full body, pale skin, dark hollow eyes, bare feet, simple rope belt, tattered fabric edges, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_merfolk_wavebender": {
+   "id": "bst_merfolk_wavebender",
+   "biomes": [
+    "lake",
+    "ocean"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "пловец"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Синий элементаль, сотканный из водной пены и гнева моря. Он управляет волнами, создавая барьеры и подбрасывая игрока в воздух. Эффективен против него огонь или магия сухости, разрушающая его форму. Бой лучше вести на суше, где он теряет силу.",
+   "image_subject": "Humanoid figure made of translucent blue water and foam, with a fish-like tail merging into a human torso, arms ending in fins, full body, swirling water particles, glowing cyan core, standing in a dynamic pose as if casting, wet texture, no distinct face.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid figure made of translucent blue water and foam, with a fish-like tail merging into a human torso, arms ending in fins, full body, swirling water particles, glowing cyan core, standing in a dynamic pose as if casting, wet texture, no distinct face, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_skeleton": {
+   "id": "bst_skeleton",
+   "biomes": [
+    "city",
+    "cave"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Восставшие кости павших воинов, блуждающие по ночным улицам и пещерам. Их кости хрупки, но они не чувствуют боли и действуют без страха. Легко уничтожаются любым оружием, но могут окружить игрока, если их игнорировать. Осколки костей могут использоваться как ресурс.",
+   "image_subject": "Human skeleton in tattered bronze armor, holding a rusted sword, bone structure visible, empty eye sockets with faint green glow, full body, standing upright, weathered bone texture, cracked helmet, dark shadow beneath, nocturnal undead appearance.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Human skeleton in tattered bronze armor, holding a rusted sword, bone structure visible, empty eye sockets with faint green glow, full body, standing upright, weathered bone texture, cracked helmet, dark shadow beneath, nocturnal undead appearance, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_invisible_stalker": {
+   "id": "bst_invisible_stalker",
+   "biomes": [
+    "city"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "ambusher",
+   "archetype_name": "",
+   "role": [
+    "засада",
+    "мерцающий"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Невидимый хищник, преследующий жертву в тёмных переулках города. Он виден только по искажениям воздуха и звукам дыхания. Атакует из-за спины, нанося критический урон. Обнаруживается только при активном использовании зрения сквозь тьму или звуковых ловушек.",
+   "image_subject": "Tall, slender humanoid figure with a distorted, ghostly outline, barely visible against the darkness, sharp clawed hands, elongated limbs, full body, shimmering heat-haze effect around the body, no distinct facial features, menacing posture, translucent grey and black tones.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tall, slender humanoid figure with a distorted, ghostly outline, barely visible against the darkness, sharp clawed hands, elongated limbs, full body, shimmering heat-haze effect around the body, no distinct facial features, menacing posture, translucent grey and black tones, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_sprite": {
+   "id": "bst_sprite",
+   "biomes": [
+    "forest",
+    "enchanted_forest",
+    "meadow"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": true,
+   "size_tiles": 0.5,
+   "description": "Маленькие светящиеся духи, слетающиеся в ночные тучи над лесом. Они хаотично перемещаются и наносят мелкие урон, но их легко разогнать ярким светом или шумом. Идеальны для проверки уклонения на ранних этапах.",
+   "image_subject": "Tiny translucent humanoid spirit, glowing soft blue light, wispy tail, fluttering insect wings, floating posture, full body, simple geometry, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tiny translucent humanoid spirit, glowing soft blue light, wispy tail, fluttering insect wings, floating posture, full body, simple geometry, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_pirate_captain": {
+   "id": "bst_pirate_captain",
+   "biomes": [
+    "ocean",
+    "lake",
+    "city"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "вожак",
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Ветеран-разбойник в потёртых доспехах, защищающий свои пиратские сокровища. Использует тяжёлый меч и щит, медленно, но методично преследует игрока, нанося сильные удары. Требует тактики, чтобы обойти его защиту.",
+   "image_subject": "Humanoid pirate captain, weathered leather armor, large round shield, heavy cutlass, eye patch, beard, aggressive stance, full body, detailed textures, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid pirate captain, weathered leather armor, large round shield, heavy cutlass, eye patch, beard, aggressive stance, full body, detailed textures, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_axe_beak": {
+   "id": "bst_axe_beak",
+   "biomes": [
+    "tundra",
+    "glacier",
+    "meadow"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Птица с клювом, похожим на топор, обитающая в холодных регионах. Атакует быстрыми рывками и клювом, часто встречается стаями. Не опасен сам по себе, но может загнать игрока в угол численностью.",
+   "image_subject": "Large bird monster, thick grey feathers, massive axe-shaped beak, sturdy legs, standing pose, full body, realistic anatomy, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large bird monster, thick grey feathers, massive axe-shaped beak, sturdy legs, standing pose, full body, realistic anatomy, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_satyr_revelmaster": {
+   "id": "bst_satyr_revelmaster",
+   "biomes": [
+    "forest",
+    "enchanted_forest",
+    "meadow"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "charmer",
+   "archetype_name": "",
+   "role": [
+    "чаровник",
+    "поддержка"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Пьяный сатир, играющий на флейте и призывающий других сатиров. Его музыка временно ослепляет игрока и замедляет движение. Лучше всего уничтожать его быстро, пока он не призвал подкрепление.",
+   "image_subject": "Goat-legged humanoid satyr, holding golden flute, wild hair, small horns, dancing pose, full body, vibrant colors, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Goat-legged humanoid satyr, holding golden flute, wild hair, small horns, dancing pose, full body, vibrant colors, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_constrictor_snake": {
+   "id": "bst_constrictor_snake",
+   "biomes": [
+    "swamp",
+    "jungle",
+    "desert",
+    "forest"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "ambusher",
+   "archetype_name": "",
+   "role": [
+    "засада"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Крупная змея, скрывающаяся в высокой траве или грязи. Атакует из засады, пытаясь обмотаться вокруг игрока. Если не убить быстро, может задушить игрока, нанеся урон по времени.",
+   "image_subject": "Large brown constrictor snake, scaly skin, coiled posture, head raised, forked tongue, full body, realistic texture, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large brown constrictor snake, scaly skin, coiled posture, head raised, forked tongue, full body, realistic texture, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_chimera": {
+   "id": "bst_chimera",
+   "biomes": [
+    "mountain",
+    "meadow",
+    "pregate"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "танк",
+    "взрывник"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Гибрид льва, козы и змеи, с тремя головами. Лев атакует когтями, коза пинает, а змея плюётся ядом. Мощный противник, требующий постоянного движения и уклонения от разных типов атак.",
+   "image_subject": "Hybrid monster, lion body, goat head on back, snake tail, three heads, muscular build, aggressive stance, full body, detailed scales and fur, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Hybrid monster, lion body, goat head on back, snake tail, three heads, muscular build, aggressive stance, full body, detailed scales and fur, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_draft_horse": {
+   "id": "bst_draft_horse",
+   "biomes": [
+    "city",
+    "meadow"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Дикие упряжные лошади, сбежавшие с городских конюшен. Пытаются топтать игрока копытами. Не агрессивны по природе, но становятся опасными в панике. Лучше обходить, чем драться.",
+   "image_subject": "Large brown draft horse, muscular build, thick mane, hooves, running pose, full body, realistic anatomy, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large brown draft horse, muscular build, thick mane, hooves, running pose, full body, realistic anatomy, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_hobgoblin_warlord": {
+   "id": "bst_hobgoblin_warlord",
+   "biomes": [
+    "mountain",
+    "forest",
+    "desert",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "packleader",
+   "archetype_name": "",
+   "role": [
+    "вожак",
+    "стрелок"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Военачальник хобгоблинов, командующий отрядом воинов. Стреляет из арбалета и призываёт подкрепления, если теряет здоровье. Опасен своей тактикой и способностью координировать атаку группы.",
+   "image_subject": "Green-skinned humanoid hobgoblin, wearing chainmail armor, holding crossbow, helmet with horns, commanding pose, full body, detailed armor, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Green-skinned humanoid hobgoblin, wearing chainmail armor, holding crossbow, helmet with horns, commanding pose, full body, detailed armor, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
   }
  },
  "failed": {}

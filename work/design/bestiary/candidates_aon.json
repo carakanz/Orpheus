@@ -1,0 +1,6229 @@
+[
+ {
+  "id": "aon_smog_scamp",
+  "eng": "Smog Scamp",
+  "rus": "Smog Scamp",
+  "type": "Air, Elemental",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Smog Scamp",
+    "rus": "Smog Scamp",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/1-smog-scamp"
+   }
+  ]
+ },
+ {
+  "id": "aon_automated_fire_extinguisher",
+  "eng": "Automated Fire Extinguisher",
+  "rus": "Automated Fire Extinguisher",
+  "type": "Construct, Mindless",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Automated Fire Extinguisher",
+    "rus": "Automated Fire Extinguisher",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/18-automated-fire-extinguisher"
+   }
+  ]
+ },
+ {
+  "id": "aon_zombie_shambler",
+  "eng": "Zombie Shambler",
+  "rus": "Zombie Shambler",
+  "type": "Mindless, Undead, Unholy, Zombie",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Zombie Shambler",
+    "rus": "Zombie Shambler",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/23-zombie-shambler"
+   }
+  ]
+ },
+ {
+  "id": "aon_scout_drones",
+  "eng": "Scout Drones",
+  "rus": "Scout Drones",
+  "type": "Tech",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Scout Drones",
+    "rus": "Scout Drones",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/27-scout-drones"
+   }
+  ]
+ },
+ {
+  "id": "aon_drifting_bonfire",
+  "eng": "Drifting Bonfire",
+  "rus": "Drifting Bonfire",
+  "type": "Elemental, Fire",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Drifting Bonfire",
+    "rus": "Drifting Bonfire",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/34-drifting-bonfire"
+   }
+  ]
+ },
+ {
+  "id": "aon_cinder",
+  "eng": "Cinder",
+  "rus": "Cinder",
+  "type": "Elemental, Fire",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Cinder",
+    "rus": "Cinder",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/35-cinder"
+   }
+  ]
+ },
+ {
+  "id": "aon_bonecrusher",
+  "eng": "Bonecrusher",
+  "rus": "Bonecrusher",
+  "type": "Undead, Unholy",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Bonecrusher",
+    "rus": "Bonecrusher",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/37-bonecrusher"
+   }
+  ]
+ },
+ {
+  "id": "aon_lifeleech_ooze",
+  "eng": "Lifeleech Ooze",
+  "rus": "Lifeleech Ooze",
+  "type": "Mindless, Ooze, Undead, Unholy",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Lifeleech Ooze",
+    "rus": "Lifeleech Ooze",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/40-lifeleech-ooze"
+   }
+  ]
+ },
+ {
+  "id": "aon_wight_scientist",
+  "eng": "Wight Scientist",
+  "rus": "Wight Scientist",
+  "type": "Undead, Unholy",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Wight Scientist",
+    "rus": "Wight Scientist",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/41-wight-scientist"
+   }
+  ]
+ },
+ {
+  "id": "aon_faceless",
+  "eng": "Faceless",
+  "rus": "Faceless",
+  "type": "Ghost, Incorporeal, Spirit, Undead, Unholy",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Faceless",
+    "rus": "Faceless",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/43-faceless"
+   }
+  ]
+ },
+ {
+  "id": "aon_mummy_wasp_swarm",
+  "eng": "Mummy Wasp Swarm",
+  "rus": "Mummy Wasp Swarm",
+  "type": "Swarm, Undead, Unholy",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Mummy Wasp Swarm",
+    "rus": "Mummy Wasp Swarm",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/44-mummy-wasp-swarm"
+   }
+  ]
+ },
+ {
+  "id": "aon_wayward_warp",
+  "eng": "Wayward Warp",
+  "rus": "Wayward Warp",
+  "type": "Aberration, Cosmic, Incorporeal",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Wayward Warp",
+    "rus": "Wayward Warp",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/79-wayward-warp"
+   }
+  ]
+ },
+ {
+  "id": "aon_warpstitcher",
+  "eng": "Warpstitcher",
+  "rus": "Warpstitcher",
+  "type": "Aberration",
+  "cr": "ур. 14",
+  "crMin": 14.0,
+  "crMax": 14.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Warpstitcher",
+    "rus": "Warpstitcher",
+    "cr": 14.0,
+    "url": "https://2e.aonsrd.com/creatures/80-warpstitcher"
+   }
+  ]
+ },
+ {
+  "id": "aon_void_palm",
+  "eng": "Void Palm",
+  "rus": "Void Palm",
+  "type": "Cosmic, Plant",
+  "cr": "ур. 7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Void Palm",
+    "rus": "Void Palm",
+    "cr": 7.0,
+    "url": "https://2e.aonsrd.com/creatures/83-void-palm"
+   }
+  ]
+ },
+ {
+  "id": "aon_shimmerstone_sentinel",
+  "eng": "Shimmerstone Sentinel",
+  "rus": "Shimmerstone Sentinel",
+  "type": "Construct, Mindless",
+  "cr": "ур. 12",
+  "crMin": 12.0,
+  "crMax": 12.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Shimmerstone Sentinel",
+    "rus": "Shimmerstone Sentinel",
+    "cr": 12.0,
+    "url": "https://2e.aonsrd.com/creatures/110-shimmerstone-sentinel"
+   }
+  ]
+ },
+ {
+  "id": "aon_necrolinked_wight",
+  "eng": "Necrolinked Wight",
+  "rus": "Necrolinked Wight",
+  "type": "Undead",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Necrolinked Wight",
+    "rus": "Necrolinked Wight",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/166-necrolinked-wight"
+   }
+  ]
+ },
+ {
+  "id": "aon_moonflower",
+  "eng": "Moonflower",
+  "rus": "Moonflower",
+  "type": "Plant",
+  "cr": "ур. 8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Moonflower",
+    "rus": "Moonflower",
+    "cr": 8.0,
+    "url": "https://2e.aonsrd.com/creatures/167-moonflower"
+   }
+  ]
+ },
+ {
+  "id": "aon_phantasmal_minion",
+  "eng": "Phantasmal Minion",
+  "rus": "Phantasmal Minion",
+  "type": "Force, Mindless",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Phantasmal Minion",
+    "rus": "Phantasmal Minion",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/220-phantasmal-minion"
+   }
+  ]
+ },
+ {
+  "id": "aon_dust_manta",
+  "eng": "Dust Manta",
+  "rus": "Dust Manta",
+  "type": "Beast",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "burrow"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Dust Manta",
+    "rus": "Dust Manta",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/228-dust-manta"
+   }
+  ]
+ },
+ {
+  "id": "aon_electrovore",
+  "eng": "Electrovore",
+  "rus": "Electrovore",
+  "type": "Beast",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Electrovore",
+    "rus": "Electrovore",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/229-electrovore"
+   }
+  ]
+ },
+ {
+  "id": "aon_flayer_leech",
+  "eng": "Flayer Leech",
+  "rus": "Flayer Leech",
+  "type": "Animal",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Flayer Leech",
+    "rus": "Flayer Leech",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/248-flayer-leech"
+   }
+  ]
+ },
+ {
+  "id": "aon_unspooled_vestige",
+  "eng": "Unspooled Vestige",
+  "rus": "Unspooled Vestige",
+  "type": "Animal",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Unspooled Vestige",
+    "rus": "Unspooled Vestige",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/274-unspooled-vestige"
+   }
+  ]
+ },
+ {
+  "id": "aon_powder_beetle",
+  "eng": "Powder Beetle",
+  "rus": "Powder Beetle",
+  "type": "Animal",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "burrow"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Powder Beetle",
+    "rus": "Powder Beetle",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/275-powder-beetle"
+   }
+  ]
+ },
+ {
+  "id": "aon_vent_viper",
+  "eng": "Vent Viper",
+  "rus": "Vent Viper",
+  "type": "Animal",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Vent Viper",
+    "rus": "Vent Viper",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/277-vent-viper"
+   }
+  ]
+ },
+ {
+  "id": "aon_giant_centipede",
+  "eng": "Giant Centipede",
+  "rus": "Giant Centipede",
+  "type": "Animal",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Centipede",
+    "rus": "Giant Centipede",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/281-giant-centipede"
+   }
+  ]
+ },
+ {
+  "id": "aon_foul_homunculus",
+  "eng": "Foul Homunculus",
+  "rus": "Foul Homunculus",
+  "type": "Construct, Unholy",
+  "cr": "ур. 0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Foul Homunculus",
+    "rus": "Foul Homunculus",
+    "cr": 0.0,
+    "url": "https://2e.aonsrd.com/creatures/290-foul-homunculus"
+   }
+  ]
+ },
+ {
+  "id": "aon_juvenile_star_tardigrade",
+  "eng": "Juvenile Star Tardigrade",
+  "rus": "Juvenile Star Tardigrade",
+  "type": "Amphibious, Animal, Cosmic",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Juvenile Star Tardigrade",
+    "rus": "Juvenile Star Tardigrade",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/293-juvenile-star-tardigrade"
+   }
+  ]
+ },
+ {
+  "id": "aon_electrovore_nuclear_mummy",
+  "eng": "Electrovore Nuclear Mummy",
+  "rus": "Electrovore Nuclear Mummy",
+  "type": "Mindless, Mummy, Undead, Unholy",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Electrovore Nuclear Mummy",
+    "rus": "Electrovore Nuclear Mummy",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/302-electrovore-nuclear-mummy"
+   }
+  ]
+ },
+ {
+  "id": "aon_nuclear_mummy",
+  "eng": "Nuclear Mummy",
+  "rus": "Nuclear Mummy",
+  "type": "Humanoid, Mummy, Undead, Unholy",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Nuclear Mummy",
+    "rus": "Nuclear Mummy",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/304-nuclear-mummy"
+   }
+  ]
+ },
+ {
+  "id": "aon_electronic_figment",
+  "eng": "Electronic Figment",
+  "rus": "Electronic Figment",
+  "type": "Construct, Incorporeal",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Electronic Figment",
+    "rus": "Electronic Figment",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/306-electronic-figment"
+   }
+  ]
+ },
+ {
+  "id": "aon_derelict_harvester",
+  "eng": "Derelict Harvester",
+  "rus": "Derelict Harvester",
+  "type": "Mindless, Tech",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Derelict Harvester",
+    "rus": "Derelict Harvester",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/308-derelict-harvester"
+   }
+  ]
+ },
+ {
+  "id": "aon_mature_moon_bear",
+  "eng": "Mature Moon Bear",
+  "rus": "Mature Moon Bear",
+  "type": "Animal",
+  "cr": "ур. 8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Mature Moon Bear",
+    "rus": "Mature Moon Bear",
+    "cr": 8.0,
+    "url": "https://2e.aonsrd.com/creatures/310-mature-moon-bear"
+   }
+  ]
+ },
+ {
+  "id": "aon_crystalline_ooze",
+  "eng": "Crystalline Ooze",
+  "rus": "Crystalline Ooze",
+  "type": "Ooze",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Crystalline Ooze",
+    "rus": "Crystalline Ooze",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/312-crystalline-ooze"
+   }
+  ]
+ },
+ {
+  "id": "aon_mechanolocust_swarm",
+  "eng": "Mechanolocust Swarm",
+  "rus": "Mechanolocust Swarm",
+  "type": "Swarm, Tech",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb, fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Mechanolocust Swarm",
+    "rus": "Mechanolocust Swarm",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/318-mechanolocust-swarm"
+   }
+  ]
+ },
+ {
+  "id": "aon_heart_elemental",
+  "eng": "Heart Elemental",
+  "rus": "Heart Elemental",
+  "type": "Earth, Elemental, Fire, Unholy",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [
+   "burrow, climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Heart Elemental",
+    "rus": "Heart Elemental",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/358-heart-elemental"
+   }
+  ]
+ },
+ {
+  "id": "aon_chocolate_ooze",
+  "eng": "Chocolate Ooze",
+  "rus": "Chocolate Ooze",
+  "type": "Mindless, Ooze",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Chocolate Ooze",
+    "rus": "Chocolate Ooze",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/360-chocolate-ooze"
+   }
+  ]
+ },
+ {
+  "id": "aon_digital_ghost_researcher",
+  "eng": "Digital Ghost Researcher",
+  "rus": "Digital Ghost Researcher",
+  "type": "Construct, Incorporeal, Tech",
+  "cr": "ур. 8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Digital Ghost Researcher",
+    "rus": "Digital Ghost Researcher",
+    "cr": 8.0,
+    "url": "https://2e.aonsrd.com/creatures/364-digital-ghost-researcher"
+   }
+  ]
+ },
+ {
+  "id": "aon_crystal_pulse_construct",
+  "eng": "Crystal-pulse Construct",
+  "rus": "Crystal-pulse Construct",
+  "type": "Construct, Mindless",
+  "cr": "ур. 10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Crystal-pulse Construct",
+    "rus": "Crystal-pulse Construct",
+    "cr": 10.0,
+    "url": "https://2e.aonsrd.com/creatures/372-crystal-pulse-construct"
+   }
+  ]
+ },
+ {
+  "id": "aon_minibot",
+  "eng": "Minibot",
+  "rus": "Minibot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Minibot",
+    "rus": "Minibot",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/381-minibot"
+   }
+  ]
+ },
+ {
+  "id": "aon_biotech_sporehall",
+  "eng": "Biotech Sporehall",
+  "rus": "Biotech Sporehall",
+  "type": "Tech",
+  "cr": "ур. 16",
+  "crMin": 16.0,
+  "crMax": 16.0,
+  "size": [
+   "Gargantuan"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Biotech Sporehall",
+    "rus": "Biotech Sporehall",
+    "cr": 16.0,
+    "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/455-biotech-sporehall"
+   }
+  ]
+ },
+ {
+  "id": "aon_hardlight_dragonet",
+  "eng": "Hardlight Dragonet",
+  "rus": "Hardlight Dragonet",
+  "type": "Construct, Tech",
+  "cr": "ур. 0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Hardlight Dragonet",
+    "rus": "Hardlight Dragonet",
+    "cr": 0.0,
+    "url": "https://2e.aonsrd.com/creatures/4-hardlight-dragonet"
+   }
+  ]
+ },
+ {
+  "id": "aon_young_sharpwing",
+  "eng": "Young Sharpwing",
+  "rus": "Young Sharpwing",
+  "type": "Animal",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Young Sharpwing",
+    "rus": "Young Sharpwing",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/6-young-sharpwing"
+   }
+  ]
+ },
+ {
+  "id": "aon_cyberwing",
+  "eng": "Cyberwing",
+  "rus": "Cyberwing",
+  "type": "Animal, Tech",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Cyberwing",
+    "rus": "Cyberwing",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/7-cyberwing"
+   }
+  ]
+ },
+ {
+  "id": "aon_shroomclaw",
+  "eng": "Shroomclaw",
+  "rus": "Shroomclaw",
+  "type": "Animal",
+  "cr": "ур. 0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "burrow, climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Shroomclaw",
+    "rus": "Shroomclaw",
+    "cr": 0.0,
+    "url": "https://2e.aonsrd.com/creatures/8-shroomclaw"
+   }
+  ]
+ },
+ {
+  "id": "aon_dire_shroomclaw",
+  "eng": "Dire Shroomclaw",
+  "rus": "Dire Shroomclaw",
+  "type": "Animal",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "burrow, climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Dire Shroomclaw",
+    "rus": "Dire Shroomclaw",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/9-dire-shroomclaw"
+   }
+  ]
+ },
+ {
+  "id": "aon_scrap_rat",
+  "eng": "Scrap Rat",
+  "rus": "Scrap Rat",
+  "type": "Beast",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Scrap Rat",
+    "rus": "Scrap Rat",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/15-scrap-rat"
+   }
+  ]
+ },
+ {
+  "id": "aon_cybernetic_zombie",
+  "eng": "Cybernetic Zombie",
+  "rus": "Cybernetic Zombie",
+  "type": "Mindless, Tech, Undead, Zombie",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Cybernetic Zombie",
+    "rus": "Cybernetic Zombie",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/16-cybernetic-zombie"
+   }
+  ]
+ },
+ {
+  "id": "aon_hardlight_scamp",
+  "eng": "Hardlight Scamp",
+  "rus": "Hardlight Scamp",
+  "type": "Construct, Tech",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Hardlight Scamp",
+    "rus": "Hardlight Scamp",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/17-hardlight-scamp"
+   }
+  ]
+ },
+ {
+  "id": "aon_scrap_rat_visionary",
+  "eng": "Scrap Rat Visionary",
+  "rus": "Scrap Rat Visionary",
+  "type": "Beast",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Scrap Rat Visionary",
+    "rus": "Scrap Rat Visionary",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/21-scrap-rat-visionary"
+   }
+  ]
+ },
+ {
+  "id": "aon_juvenile_glass_serpent",
+  "eng": "Juvenile Glass Serpent",
+  "rus": "Juvenile Glass Serpent",
+  "type": "Beast, Cosmic",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb, swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Juvenile Glass Serpent",
+    "rus": "Juvenile Glass Serpent",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/22-juvenile-glass-serpent"
+   }
+  ]
+ },
+ {
+  "id": "aon_hardlight_havoc",
+  "eng": "Hardlight Havoc",
+  "rus": "Hardlight Havoc",
+  "type": "Construct, Tech",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Hardlight Havoc",
+    "rus": "Hardlight Havoc",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/30-hardlight-havoc"
+   }
+  ]
+ },
+ {
+  "id": "aon_hardlight_mascot",
+  "eng": "Hardlight Mascot",
+  "rus": "Hardlight Mascot",
+  "type": "Construct, Tech",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Hardlight Mascot",
+    "rus": "Hardlight Mascot",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/31-hardlight-mascot"
+   }
+  ]
+ },
+ {
+  "id": "aon_protection_class_security_robot",
+  "eng": "Protection-Class Security Robot",
+  "rus": "Protection-Class Security Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Protection-Class Security Robot",
+    "rus": "Protection-Class Security Robot",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/38-protection-class-security-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_boneflayer",
+  "eng": "Boneflayer",
+  "rus": "Boneflayer",
+  "type": "Robot, Tech, Unholy",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Boneflayer",
+    "rus": "Boneflayer",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/39-boneflayer"
+   }
+  ]
+ },
+ {
+  "id": "aon_rigor_mortic",
+  "eng": "Rigor Mortic",
+  "rus": "Rigor Mortic",
+  "type": "Undead, Unholy",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Rigor Mortic",
+    "rus": "Rigor Mortic",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/47-rigor-mortic"
+   }
+  ]
+ },
+ {
+  "id": "aon_void_zombie",
+  "eng": "Void Zombie",
+  "rus": "Void Zombie",
+  "type": "Undead",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Void Zombie",
+    "rus": "Void Zombie",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/57-void-zombie"
+   }
+  ]
+ },
+ {
+  "id": "aon_voidsage",
+  "eng": "Voidsage",
+  "rus": "Voidsage",
+  "type": "Aberration, Cosmic, Void",
+  "cr": "ур. 8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Voidsage",
+    "rus": "Voidsage",
+    "cr": 8.0,
+    "url": "https://2e.aonsrd.com/creatures/58-voidsage"
+   }
+  ]
+ },
+ {
+  "id": "aon_assembly_ooze",
+  "eng": "Assembly Ooze",
+  "rus": "Assembly Ooze",
+  "type": "Mindless, Ooze, Tech",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Assembly Ooze",
+    "rus": "Assembly Ooze",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/63-assembly-ooze"
+   }
+  ]
+ },
+ {
+  "id": "aon_animated_firearm",
+  "eng": "Animated Firearm",
+  "rus": "Animated Firearm",
+  "type": "Construct, Mindless, Tech",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Animated Firearm",
+    "rus": "Animated Firearm",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/65-animated-firearm"
+   }
+  ]
+ },
+ {
+  "id": "aon_ferrofluid_ooze",
+  "eng": "Ferrofluid Ooze",
+  "rus": "Ferrofluid Ooze",
+  "type": "Cosmic, Metal, Mindless, Ooze",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Ferrofluid Ooze",
+    "rus": "Ferrofluid Ooze",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/66-ferrofluid-ooze"
+   }
+  ]
+ },
+ {
+  "id": "aon_animated_tech_armor",
+  "eng": "Animated Tech Armor",
+  "rus": "Animated Tech Armor",
+  "type": "Construct, Mindless, Tech",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Animated Tech Armor",
+    "rus": "Animated Tech Armor",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/74-animated-tech-armor"
+   }
+  ]
+ },
+ {
+  "id": "aon_warp_troll",
+  "eng": "Warp Troll",
+  "rus": "Warp Troll",
+  "type": "Cosmic, Giant, Humanoid, Troll",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Warp Troll",
+    "rus": "Warp Troll",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/85-warp-troll"
+   }
+  ]
+ },
+ {
+  "id": "aon_mutant_troll",
+  "eng": "Mutant Troll",
+  "rus": "Mutant Troll",
+  "type": "Cosmic, Giant, Humanoid, Mutant, Troll",
+  "cr": "ур. 9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Mutant Troll",
+    "rus": "Mutant Troll",
+    "cr": 9.0,
+    "url": "https://2e.aonsrd.com/creatures/86-mutant-troll"
+   }
+  ]
+ },
+ {
+  "id": "aon_dust_worm",
+  "eng": "Dust Worm",
+  "rus": "Dust Worm",
+  "type": "Amphibious, Beast",
+  "cr": "ур. 8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "burrow, swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Dust Worm",
+    "rus": "Dust Worm",
+    "cr": 8.0,
+    "url": "https://2e.aonsrd.com/creatures/103-dust-worm"
+   }
+  ]
+ },
+ {
+  "id": "aon_dust_worm_augur",
+  "eng": "Dust Worm Augur",
+  "rus": "Dust Worm Augur",
+  "type": "Amphibious, Beast",
+  "cr": "ур. 20",
+  "crMin": 20.0,
+  "crMax": 20.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [
+   "burrow, swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Dust Worm Augur",
+    "rus": "Dust Worm Augur",
+    "cr": 20.0,
+    "url": "https://2e.aonsrd.com/creatures/106-dust-worm-augur"
+   }
+  ]
+ },
+ {
+  "id": "aon_tool_rat",
+  "eng": "Tool Rat",
+  "rus": "Tool Rat",
+  "type": "Beast",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Tool Rat",
+    "rus": "Tool Rat",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/111-tool-rat"
+   }
+  ]
+ },
+ {
+  "id": "aon_line_class_soldier_robot",
+  "eng": "Line-Class Soldier Robot",
+  "rus": "Line-Class Soldier Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Line-Class Soldier Robot",
+    "rus": "Line-Class Soldier Robot",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/114-line-class-soldier-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_vanguard_class_soldier_robot",
+  "eng": "Vanguard-Class Soldier Robot",
+  "rus": "Vanguard-Class Soldier Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 13",
+  "crMin": 13.0,
+  "crMax": 13.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Vanguard-Class Soldier Robot",
+    "rus": "Vanguard-Class Soldier Robot",
+    "cr": 13.0,
+    "url": "https://2e.aonsrd.com/creatures/115-vanguard-class-soldier-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_observer_class_security_robot",
+  "eng": "Observer-Class Security Robot",
+  "rus": "Observer-Class Security Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Observer-Class Security Robot",
+    "rus": "Observer-Class Security Robot",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/116-observer-class-security-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_repair_class_security_robot",
+  "eng": "Repair-Class Security Robot",
+  "rus": "Repair-Class Security Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Repair-Class Security Robot",
+    "rus": "Repair-Class Security Robot",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/117-repair-class-security-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_snoop_class_infiltrator_robot",
+  "eng": "Snoop-Class Infiltrator Robot",
+  "rus": "Snoop-Class Infiltrator Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "climb, fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Snoop-Class Infiltrator Robot",
+    "rus": "Snoop-Class Infiltrator Robot",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/118-snoop-class-infiltrator-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_emissary_class_infiltrator_robot",
+  "eng": "Emissary-Class Infiltrator Robot",
+  "rus": "Emissary-Class Infiltrator Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Emissary-Class Infiltrator Robot",
+    "rus": "Emissary-Class Infiltrator Robot",
+    "cr": 11.0,
+    "url": "https://2e.aonsrd.com/creatures/119-emissary-class-infiltrator-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_ordinance_class_civil_robot",
+  "eng": "Ordinance-Class Civil Robot",
+  "rus": "Ordinance-Class Civil Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Ordinance-Class Civil Robot",
+    "rus": "Ordinance-Class Civil Robot",
+    "cr": 0.0,
+    "url": "https://2e.aonsrd.com/creatures/120-ordinance-class-civil-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_tax_class_civil_robot",
+  "eng": "Tax-Class Civil Robot",
+  "rus": "Tax-Class Civil Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Tax-Class Civil Robot",
+    "rus": "Tax-Class Civil Robot",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/121-tax-class-civil-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_elimination_class_assassin_robot",
+  "eng": "Elimination-Class Assassin Robot",
+  "rus": "Elimination-Class Assassin Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Elimination-Class Assassin Robot",
+    "rus": "Elimination-Class Assassin Robot",
+    "cr": 9.0,
+    "url": "https://2e.aonsrd.com/creatures/122-elimination-class-assassin-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_demolition_class_assassin_robot",
+  "eng": "Demolition-Class Assassin Robot",
+  "rus": "Demolition-Class Assassin Robot",
+  "type": "Construct, Robot, Tech",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Demolition-Class Assassin Robot",
+    "rus": "Demolition-Class Assassin Robot",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/123-demolition-class-assassin-robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_rendworm",
+  "eng": "Rendworm",
+  "rus": "Rendworm",
+  "type": "Aberration, Cold",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [
+   "burrow"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Rendworm",
+    "rus": "Rendworm",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/127-rendworm"
+   }
+  ]
+ },
+ {
+  "id": "aon_robotic_tactical_war_machine",
+  "eng": "Robotic Tactical War Machine",
+  "rus": "Robotic Tactical War Machine",
+  "type": "Construct, Tech",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Robotic Tactical War Machine",
+    "rus": "Robotic Tactical War Machine",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/128-robotic-tactical-war-machine"
+   }
+  ]
+ },
+ {
+  "id": "aon_robotic_advanced_war_machine",
+  "eng": "Robotic Advanced War Machine",
+  "rus": "Robotic Advanced War Machine",
+  "type": "Construct, Tech",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Robotic Advanced War Machine",
+    "rus": "Robotic Advanced War Machine",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/129-robotic-advanced-war-machine"
+   }
+  ]
+ },
+ {
+  "id": "aon_biotech_advanced_war_machine",
+  "eng": "Biotech Advanced War Machine",
+  "rus": "Biotech Advanced War Machine",
+  "type": "Construct, Cosmic",
+  "cr": "ур. 7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "fly, swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Biotech Advanced War Machine",
+    "rus": "Biotech Advanced War Machine",
+    "cr": 7.0,
+    "url": "https://2e.aonsrd.com/creatures/130-biotech-advanced-war-machine"
+   }
+  ]
+ },
+ {
+  "id": "aon_robotic_superior_war_machine",
+  "eng": "Robotic Superior War Machine",
+  "rus": "Robotic Superior War Machine",
+  "type": "Construct, Tech",
+  "cr": "ур. 9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Robotic Superior War Machine",
+    "rus": "Robotic Superior War Machine",
+    "cr": 9.0,
+    "url": "https://2e.aonsrd.com/creatures/131-robotic-superior-war-machine"
+   }
+  ]
+ },
+ {
+  "id": "aon_biotech_superior_war_machine",
+  "eng": "Biotech Superior War Machine",
+  "rus": "Biotech Superior War Machine",
+  "type": "Construct, Cosmic",
+  "cr": "ур. 11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "fly, swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Biotech Superior War Machine",
+    "rus": "Biotech Superior War Machine",
+    "cr": 11.0,
+    "url": "https://2e.aonsrd.com/creatures/132-biotech-superior-war-machine"
+   }
+  ]
+ },
+ {
+  "id": "aon_robotic_elite_war_machine",
+  "eng": "Robotic Elite War Machine",
+  "rus": "Robotic Elite War Machine",
+  "type": "Construct, Tech",
+  "cr": "ур. 13",
+  "crMin": 13.0,
+  "crMax": 13.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Robotic Elite War Machine",
+    "rus": "Robotic Elite War Machine",
+    "cr": 13.0,
+    "url": "https://2e.aonsrd.com/creatures/133-robotic-elite-war-machine"
+   }
+  ]
+ },
+ {
+  "id": "aon_biotech_ultimate_war_machine",
+  "eng": "Biotech Ultimate War Machine",
+  "rus": "Biotech Ultimate War Machine",
+  "type": "Construct, Cosmic",
+  "cr": "ур. 15",
+  "crMin": 15.0,
+  "crMax": 15.0,
+  "size": [
+   "Gargantuan"
+  ],
+  "habitats": [
+   "fly, swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Biotech Ultimate War Machine",
+    "rus": "Biotech Ultimate War Machine",
+    "cr": 15.0,
+    "url": "https://2e.aonsrd.com/creatures/134-biotech-ultimate-war-machine"
+   }
+  ]
+ },
+ {
+  "id": "aon_void_ooze",
+  "eng": "Void Ooze",
+  "rus": "Void Ooze",
+  "type": "Cosmic, Ooze",
+  "cr": "ур. 7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Void Ooze",
+    "rus": "Void Ooze",
+    "cr": 7.0,
+    "url": "https://2e.aonsrd.com/creatures/139-void-ooze"
+   }
+  ]
+ },
+ {
+  "id": "aon_elder_psychic_fungus",
+  "eng": "Elder Psychic Fungus",
+  "rus": "Elder Psychic Fungus",
+  "type": "Fungus",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Elder Psychic Fungus",
+    "rus": "Elder Psychic Fungus",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/140-elder-psychic-fungus"
+   }
+  ]
+ },
+ {
+  "id": "aon_psychic_fungus_warden",
+  "eng": "Psychic Fungus Warden",
+  "rus": "Psychic Fungus Warden",
+  "type": "Fungus, Mindless",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Psychic Fungus Warden",
+    "rus": "Psychic Fungus Warden",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/141-psychic-fungus-warden"
+   }
+  ]
+ },
+ {
+  "id": "aon_psychic_fungus_harvester",
+  "eng": "Psychic Fungus Harvester",
+  "rus": "Psychic Fungus Harvester",
+  "type": "Fungus, Mindless",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Psychic Fungus Harvester",
+    "rus": "Psychic Fungus Harvester",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/142-psychic-fungus-harvester"
+   }
+  ]
+ },
+ {
+  "id": "aon_paradoxical_solipsist",
+  "eng": "Paradoxical Solipsist",
+  "rus": "Paradoxical Solipsist",
+  "type": "Humanoid, Vesk",
+  "cr": "ур. 9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Paradoxical Solipsist",
+    "rus": "Paradoxical Solipsist",
+    "cr": 9.0,
+    "url": "https://2e.aonsrd.com/creatures/144-paradoxical-solipsist"
+   }
+  ]
+ },
+ {
+  "id": "aon_scavenger_slime",
+  "eng": "Scavenger Slime",
+  "rus": "Scavenger Slime",
+  "type": "Mindless, Ooze, Tech",
+  "cr": "ур. 9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Scavenger Slime",
+    "rus": "Scavenger Slime",
+    "cr": 9.0,
+    "url": "https://2e.aonsrd.com/creatures/146-scavenger-slime"
+   }
+  ]
+ },
+ {
+  "id": "aon_ferrofluid_magneto_cluster",
+  "eng": "Ferrofluid Magneto-Cluster",
+  "rus": "Ferrofluid Magneto-Cluster",
+  "type": "Cosmic, Metal, Mindless, Ooze",
+  "cr": "ур. 12",
+  "crMin": 12.0,
+  "crMax": 12.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Ferrofluid Magneto-Cluster",
+    "rus": "Ferrofluid Magneto-Cluster",
+    "cr": 12.0,
+    "url": "https://2e.aonsrd.com/creatures/147-ferrofluid-magneto-cluster"
+   }
+  ]
+ },
+ {
+  "id": "aon_ichor_lord",
+  "eng": "Ichor Lord",
+  "rus": "Ichor Lord",
+  "type": "Aberration, Orocoran",
+  "cr": "ур. 9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Ichor Lord",
+    "rus": "Ichor Lord",
+    "cr": 9.0,
+    "url": "https://2e.aonsrd.com/creatures/150-ichor-lord"
+   }
+  ]
+ },
+ {
+  "id": "aon_plasma_ooze",
+  "eng": "Plasma Ooze",
+  "rus": "Plasma Ooze",
+  "type": "Cosmic, Mindless, Ooze",
+  "cr": "ур. 16",
+  "crMin": 16.0,
+  "crMax": 16.0,
+  "size": [
+   "Gargantuan"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Plasma Ooze",
+    "rus": "Plasma Ooze",
+    "cr": 16.0,
+    "url": "https://2e.aonsrd.com/creatures/151-plasma-ooze"
+   }
+  ]
+ },
+ {
+  "id": "aon_malevolent_ai",
+  "eng": "Malevolent AI",
+  "rus": "Malevolent AI",
+  "type": "Construct, Spirit, Tech",
+  "cr": "ур. 15",
+  "crMin": 15.0,
+  "crMax": 15.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Malevolent AI",
+    "rus": "Malevolent AI",
+    "cr": 15.0,
+    "url": "https://2e.aonsrd.com/creatures/170-malevolent-ai"
+   }
+  ]
+ },
+ {
+  "id": "aon_cloud_skate",
+  "eng": "Cloud Skate",
+  "rus": "Cloud Skate",
+  "type": "Animal",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Cloud Skate",
+    "rus": "Cloud Skate",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/185-cloud-skate"
+   }
+  ]
+ },
+ {
+  "id": "aon_cloud_ray",
+  "eng": "Cloud Ray",
+  "rus": "Cloud Ray",
+  "type": "Animal",
+  "cr": "ур. 13",
+  "crMin": 13.0,
+  "crMax": 13.0,
+  "size": [
+   "Gargantuan"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Cloud Ray",
+    "rus": "Cloud Ray",
+    "cr": 13.0,
+    "url": "https://2e.aonsrd.com/creatures/186-cloud-ray"
+   }
+  ]
+ },
+ {
+  "id": "aon_digital_ghost_vidgamer",
+  "eng": "Digital Ghost Vidgamer",
+  "rus": "Digital Ghost Vidgamer",
+  "type": "Construct, Incorporeal, Tech",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Digital Ghost Vidgamer",
+    "rus": "Digital Ghost Vidgamer",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/202-digital-ghost-vidgamer"
+   }
+  ]
+ },
+ {
+  "id": "aon_ravenous_drake",
+  "eng": "Ravenous Drake",
+  "rus": "Ravenous Drake",
+  "type": "Dragon",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Ravenous Drake",
+    "rus": "Ravenous Drake",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/221-ravenous-drake"
+   }
+  ]
+ },
+ {
+  "id": "aon_blight_drake",
+  "eng": "Blight Drake",
+  "rus": "Blight Drake",
+  "type": "Dragon",
+  "cr": "ур. 9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Blight Drake",
+    "rus": "Blight Drake",
+    "cr": 9.0,
+    "url": "https://2e.aonsrd.com/creatures/222-blight-drake"
+   }
+  ]
+ },
+ {
+  "id": "aon_plasmazer",
+  "eng": "Plasmazer",
+  "rus": "Plasmazer",
+  "type": "Air, Elemental",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Plasmazer",
+    "rus": "Plasmazer",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/233-plasmazer"
+   }
+  ]
+ },
+ {
+  "id": "aon_shipbreaker",
+  "eng": "Shipbreaker",
+  "rus": "Shipbreaker",
+  "type": "Cosmic, Elemental, Metal, Tech",
+  "cr": "ур. 8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Shipbreaker",
+    "rus": "Shipbreaker",
+    "cr": 8.0,
+    "url": "https://2e.aonsrd.com/creatures/235-shipbreaker"
+   }
+  ]
+ },
+ {
+  "id": "aon_wastewither",
+  "eng": "Wastewither",
+  "rus": "Wastewither",
+  "type": "Elemental, Water",
+  "cr": "ур. 8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Wastewither",
+    "rus": "Wastewither",
+    "cr": 8.0,
+    "url": "https://2e.aonsrd.com/creatures/236-wastewither"
+   }
+  ]
+ },
+ {
+  "id": "aon_empathnid",
+  "eng": "Empathnid",
+  "rus": "Empathnid",
+  "type": "Animal",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Empathnid",
+    "rus": "Empathnid",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/241-empathnid"
+   }
+  ]
+ },
+ {
+  "id": "aon_dread_empathnid",
+  "eng": "Dread Empathnid",
+  "rus": "Dread Empathnid",
+  "type": "Animal",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Dread Empathnid",
+    "rus": "Dread Empathnid",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/242-dread-empathnid"
+   }
+  ]
+ },
+ {
+  "id": "aon_biotech_giant",
+  "eng": "Biotech Giant",
+  "rus": "Biotech Giant",
+  "type": "Giant, Humanoid",
+  "cr": "ур. 11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Biotech Giant",
+    "rus": "Biotech Giant",
+    "cr": 11.0,
+    "url": "https://2e.aonsrd.com/creatures/254-biotech-giant"
+   }
+  ]
+ },
+ {
+  "id": "aon_moon_giant",
+  "eng": "Moon Giant",
+  "rus": "Moon Giant",
+  "type": "Cosmic, Giant, Humanoid",
+  "cr": "ур. 15",
+  "crMin": 15.0,
+  "crMax": 15.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Moon Giant",
+    "rus": "Moon Giant",
+    "cr": 15.0,
+    "url": "https://2e.aonsrd.com/creatures/255-moon-giant"
+   }
+  ]
+ },
+ {
+  "id": "aon_glass_serpent",
+  "eng": "Glass Serpent",
+  "rus": "Glass Serpent",
+  "type": "Beast, Cosmic",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [
+   "climb, swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Glass Serpent",
+    "rus": "Glass Serpent",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/256-glass-serpent"
+   }
+  ]
+ },
+ {
+  "id": "aon_clangit",
+  "eng": "Clangit",
+  "rus": "Clangit",
+  "type": "Fey, Gremlin, Tech",
+  "cr": "ур. -1",
+  "crMin": -1.0,
+  "crMax": -1.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Clangit",
+    "rus": "Clangit",
+    "cr": -1.0,
+    "url": "https://2e.aonsrd.com/creatures/257-clangit"
+   }
+  ]
+ },
+ {
+  "id": "aon_gubbin",
+  "eng": "Gubbin",
+  "rus": "Gubbin",
+  "type": "Fey, Gremlin, Tech",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Gubbin",
+    "rus": "Gubbin",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/258-gubbin"
+   }
+  ]
+ },
+ {
+  "id": "aon_gnackle",
+  "eng": "Gnackle",
+  "rus": "Gnackle",
+  "type": "Fey, Gremlin",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Tiny"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Gnackle",
+    "rus": "Gnackle",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/259-gnackle"
+   }
+  ]
+ },
+ {
+  "id": "aon_hardlight_weaver",
+  "eng": "Hardlight Weaver",
+  "rus": "Hardlight Weaver",
+  "type": "Construct, Tech",
+  "cr": "ур. 9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Huge"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Hardlight Weaver",
+    "rus": "Hardlight Weaver",
+    "cr": 9.0,
+    "url": "https://2e.aonsrd.com/creatures/260-hardlight-weaver"
+   }
+  ]
+ },
+ {
+  "id": "aon_irradiated_undead_plant",
+  "eng": "Irradiated Undead Plant",
+  "rus": "Irradiated Undead Plant",
+  "type": "Cosmic, Mindless, Undead",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Irradiated Undead Plant",
+    "rus": "Irradiated Undead Plant",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/267-irradiated-undead-plant"
+   }
+  ]
+ },
+ {
+  "id": "aon_irradiated_undead_flyer",
+  "eng": "Irradiated Undead Flyer",
+  "rus": "Irradiated Undead Flyer",
+  "type": "Cosmic, Mindless, Undead",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Irradiated Undead Flyer",
+    "rus": "Irradiated Undead Flyer",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/268-irradiated-undead-flyer"
+   }
+  ]
+ },
+ {
+  "id": "aon_irradiated_undead_charger",
+  "eng": "Irradiated Undead Charger",
+  "rus": "Irradiated Undead Charger",
+  "type": "Cosmic, Mindless, Undead",
+  "cr": "ур. 8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Irradiated Undead Charger",
+    "rus": "Irradiated Undead Charger",
+    "cr": 8.0,
+    "url": "https://2e.aonsrd.com/creatures/269-irradiated-undead-charger"
+   }
+  ]
+ },
+ {
+  "id": "aon_fouled_water_scamp",
+  "eng": "Fouled Water Scamp",
+  "rus": "Fouled Water Scamp",
+  "type": "Amphibious, Elemental, Unholy, Water",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "fly, swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Fouled Water Scamp",
+    "rus": "Fouled Water Scamp",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/287-fouled-water-scamp"
+   }
+  ]
+ },
+ {
+  "id": "aon_fouled_brine_shark",
+  "eng": "Fouled Brine Shark",
+  "rus": "Fouled Brine Shark",
+  "type": "Aquatic, Elemental, Unholy, Water",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "swim"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Fouled Brine Shark",
+    "rus": "Fouled Brine Shark",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/288-fouled-brine-shark"
+   }
+  ]
+ },
+ {
+  "id": "aon_radiation_crawler",
+  "eng": "Radiation Crawler",
+  "rus": "Radiation Crawler",
+  "type": "Elemental, Metal",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Radiation Crawler",
+    "rus": "Radiation Crawler",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/303-radiation-crawler"
+   }
+  ]
+ },
+ {
+  "id": "aon_earth_scamp",
+  "eng": "Earth Scamp",
+  "rus": "Earth Scamp",
+  "type": "Earth, Elemental",
+  "cr": "ур. 0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "burrow, fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Earth Scamp",
+    "rus": "Earth Scamp",
+    "cr": 0.0,
+    "url": "https://2e.aonsrd.com/creatures/313-earth-scamp"
+   }
+  ]
+ },
+ {
+  "id": "aon_fire_scamp",
+  "eng": "Fire Scamp",
+  "rus": "Fire Scamp",
+  "type": "Elemental, Fire",
+  "cr": "ур. 0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [
+   "fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Fire Scamp",
+    "rus": "Fire Scamp",
+    "cr": 0.0,
+    "url": "https://2e.aonsrd.com/creatures/314-fire-scamp"
+   }
+  ]
+ },
+ {
+  "id": "aon_living_wildfire",
+  "eng": "Living Wildfire",
+  "rus": "Living Wildfire",
+  "type": "Elemental, Fire",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Living Wildfire",
+    "rus": "Living Wildfire",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/316-living-wildfire"
+   }
+  ]
+ },
+ {
+  "id": "aon_entrepreneurial_agent",
+  "eng": "Entrepreneurial Agent",
+  "rus": "Entrepreneurial Agent",
+  "type": "Humanoid",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Entrepreneurial Agent",
+    "rus": "Entrepreneurial Agent",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/336-entrepreneurial-agent"
+   }
+  ]
+ },
+ {
+  "id": "aon_executive_protection_agent",
+  "eng": "Executive Protection Agent",
+  "rus": "Executive Protection Agent",
+  "type": "Humanoid",
+  "cr": "ур. 4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Executive Protection Agent",
+    "rus": "Executive Protection Agent",
+    "cr": 4.0,
+    "url": "https://2e.aonsrd.com/creatures/337-executive-protection-agent"
+   }
+  ]
+ },
+ {
+  "id": "aon_surveillance_mage",
+  "eng": "Surveillance Mage",
+  "rus": "Surveillance Mage",
+  "type": "Humanoid",
+  "cr": "ур. 14",
+  "crMin": 14.0,
+  "crMax": 14.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Surveillance Mage",
+    "rus": "Surveillance Mage",
+    "cr": 14.0,
+    "url": "https://2e.aonsrd.com/creatures/338-surveillance-mage"
+   }
+  ]
+ },
+ {
+  "id": "aon_tough",
+  "eng": "Tough",
+  "rus": "Tough",
+  "type": "Humanoid",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Tough",
+    "rus": "Tough",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/339-tough"
+   }
+  ]
+ },
+ {
+  "id": "aon_credshark",
+  "eng": "Credshark",
+  "rus": "Credshark",
+  "type": "Humanoid",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Credshark",
+    "rus": "Credshark",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/340-credshark"
+   }
+  ]
+ },
+ {
+  "id": "aon_ganglord",
+  "eng": "Ganglord",
+  "rus": "Ganglord",
+  "type": "Humanoid",
+  "cr": "ур. 10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Ganglord",
+    "rus": "Ganglord",
+    "cr": 10.0,
+    "url": "https://2e.aonsrd.com/creatures/341-ganglord"
+   }
+  ]
+ },
+ {
+  "id": "aon_string_of_bombs",
+  "eng": "String-of-bombs",
+  "rus": "String-of-bombs",
+  "type": "Mindless, Plant",
+  "cr": "ур. 2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "String-of-bombs",
+    "rus": "String-of-bombs",
+    "cr": 2.0,
+    "url": "https://2e.aonsrd.com/creatures/342-string-of-bombs"
+   }
+  ]
+ },
+ {
+  "id": "aon_terminite_worker",
+  "eng": "Terminite Worker",
+  "rus": "Terminite Worker",
+  "type": "Aberration",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "burrow, climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Terminite Worker",
+    "rus": "Terminite Worker",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/343-terminite-worker"
+   }
+  ]
+ },
+ {
+  "id": "aon_terminite_hunter",
+  "eng": "Terminite Hunter",
+  "rus": "Terminite Hunter",
+  "type": "Aberration",
+  "cr": "ур. 6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Large"
+  ],
+  "habitats": [
+   "climb"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Terminite Hunter",
+    "rus": "Terminite Hunter",
+    "cr": 6.0,
+    "url": "https://2e.aonsrd.com/creatures/344-terminite-hunter"
+   }
+  ]
+ },
+ {
+  "id": "aon_terminite_queen",
+  "eng": "Terminite Queen",
+  "rus": "Terminite Queen",
+  "type": "Aberration",
+  "cr": "ур. 12",
+  "crMin": 12.0,
+  "crMax": 12.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [
+   "climb, fly"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Terminite Queen",
+    "rus": "Terminite Queen",
+    "cr": 12.0,
+    "url": "https://2e.aonsrd.com/creatures/345-terminite-queen"
+   }
+  ]
+ },
+ {
+  "id": "aon_bounty_hunter",
+  "eng": "Bounty Hunter",
+  "rus": "Bounty Hunter",
+  "type": "Humanoid",
+  "cr": "ур. 7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Bounty Hunter",
+    "rus": "Bounty Hunter",
+    "cr": 7.0,
+    "url": "https://2e.aonsrd.com/creatures/347-bounty-hunter"
+   }
+  ]
+ },
+ {
+  "id": "aon_graviton_assassin",
+  "eng": "Graviton Assassin",
+  "rus": "Graviton Assassin",
+  "type": "Humanoid",
+  "cr": "ур. 10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Graviton Assassin",
+    "rus": "Graviton Assassin",
+    "cr": 10.0,
+    "url": "https://2e.aonsrd.com/creatures/348-graviton-assassin"
+   }
+  ]
+ },
+ {
+  "id": "aon_security_goon",
+  "eng": "Security Goon",
+  "rus": "Security Goon",
+  "type": "Humanoid",
+  "cr": "ур. 1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Security Goon",
+    "rus": "Security Goon",
+    "cr": 1.0,
+    "url": "https://2e.aonsrd.com/creatures/349-security-goon"
+   }
+  ]
+ },
+ {
+  "id": "aon_security_sharpshooter",
+  "eng": "Security Sharpshooter",
+  "rus": "Security Sharpshooter",
+  "type": "Humanoid",
+  "cr": "ур. 5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Security Sharpshooter",
+    "rus": "Security Sharpshooter",
+    "cr": 5.0,
+    "url": "https://2e.aonsrd.com/creatures/350-security-sharpshooter"
+   }
+  ]
+ },
+ {
+  "id": "aon_security_arcanotech_agent",
+  "eng": "Security Arcanotech Agent",
+  "rus": "Security Arcanotech Agent",
+  "type": "Humanoid",
+  "cr": "ур. 10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Medium"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Security Arcanotech Agent",
+    "rus": "Security Arcanotech Agent",
+    "cr": 10.0,
+    "url": "https://2e.aonsrd.com/creatures/351-security-arcanotech-agent"
+   }
+  ]
+ },
+ {
+  "id": "aon_space_goblin_miscreant",
+  "eng": "Space Goblin Miscreant",
+  "rus": "Space Goblin Miscreant",
+  "type": "Goblin, Humanoid",
+  "cr": "ур. 0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Space Goblin Miscreant",
+    "rus": "Space Goblin Miscreant",
+    "cr": 0.0,
+    "url": "https://2e.aonsrd.com/creatures/352-space-goblin-miscreant"
+   }
+  ]
+ },
+ {
+  "id": "aon_space_goblin_junker",
+  "eng": "Space Goblin Junker",
+  "rus": "Space Goblin Junker",
+  "type": "Goblin, Humanoid",
+  "cr": "ур. 3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Space Goblin Junker",
+    "rus": "Space Goblin Junker",
+    "cr": 3.0,
+    "url": "https://2e.aonsrd.com/creatures/353-space-goblin-junker"
+   }
+  ]
+ },
+ {
+  "id": "aon_space_goblin_griefcaster",
+  "eng": "Space Goblin Griefcaster",
+  "rus": "Space Goblin Griefcaster",
+  "type": "Goblin, Humanoid",
+  "cr": "ур. 7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Small"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "Starfinder 2e (ORC)"
+  ],
+  "variants": [
+   {
+    "eng": "Space Goblin Griefcaster",
+    "rus": "Space Goblin Griefcaster",
+    "cr": 7.0,
+    "url": "https://2e.aonsrd.com/creatures/354-space-goblin-griefcaster"
+   }
+  ]
+ },
+ {
+  "id": "aon_aerial_devil",
+  "eng": "Aerial Devil",
+  "rus": "Aerial Devil",
+  "type": "animal",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "cold and temperate forests"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Aerial Devil",
+    "rus": "Aerial Devil",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Aerial%20Devil&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_animated_quartz_swarm",
+  "eng": "Animated Quartz Swarm",
+  "rus": "Animated Quartz Swarm",
+  "type": "construct (magical, swarm, technological)",
+  "cr": "CR 11",
+  "crMin": 11,
+  "crMax": 11,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Animated Quartz Swarm",
+    "rus": "Animated Quartz Swarm",
+    "cr": 11,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Animated%20Quartz%20Swarm&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_arcane_asp",
+  "eng": "Arcane Asp",
+  "rus": "Arcane Asp",
+  "type": "construct (magical, technological)",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Arcane Asp",
+    "rus": "Arcane Asp",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Arcane%20Asp&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_astro_krill_swarm",
+  "eng": "Astro-krill Swarm",
+  "rus": "Astro-krill Swarm",
+  "type": "vermin (swarm)",
+  "cr": "CR 13",
+  "crMin": 13,
+  "crMax": 13,
+  "size": [],
+  "habitats": [
+   "any vacuum"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Astro-krill Swarm",
+    "rus": "Astro-krill Swarm",
+    "cr": 13,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Astro-krill%20Swarm&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_augerwing",
+  "eng": "Augerwing",
+  "rus": "Augerwing",
+  "type": "animal",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "any land or sky"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Augerwing",
+    "rus": "Augerwing",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Augerwing&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_bodysnatcher_slime",
+  "eng": "Bodysnatcher Slime",
+  "rus": "Bodysnatcher Slime",
+  "type": "ooze",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any land"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Bodysnatcher Slime",
+    "rus": "Bodysnatcher Slime",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Bodysnatcher%20Slime&Family=Bodysnatcher%20Slime"
+   }
+  ]
+ },
+ {
+  "id": "aon_carnivorous_crystal",
+  "eng": "Carnivorous Crystal",
+  "rus": "Carnivorous Crystal",
+  "type": "ooze (earth, extraplanar)",
+  "cr": "CR 11",
+  "crMin": 11,
+  "crMax": 11,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Carnivorous Crystal",
+    "rus": "Carnivorous Crystal",
+    "cr": 11,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Carnivorous%20Crystal&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_carrion_wheel",
+  "eng": "Carrion Wheel",
+  "rus": "Carrion Wheel",
+  "type": "aberration",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any land"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Carrion Wheel",
+    "rus": "Carrion Wheel",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Carrion%20Wheel&Family=Carrion%20Wheel"
+   }
+  ]
+ },
+ {
+  "id": "aon_cerebric_fungus",
+  "eng": "Cerebric Fungus",
+  "rus": "Cerebric Fungus",
+  "type": "plant",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Cerebric Fungus",
+    "rus": "Cerebric Fungus",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Cerebric%20Fungus&Family=Cerebric%20Fungus"
+   }
+  ]
+ },
+ {
+  "id": "aon_clockwork_predator",
+  "eng": "Clockwork Predator",
+  "rus": "Clockwork Predator",
+  "type": "construct (technological)",
+  "cr": "CR 7",
+  "crMin": 7,
+  "crMax": 7,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Clockwork Predator",
+    "rus": "Clockwork Predator",
+    "cr": 7,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Clockwork%20Predator&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_collector_crab",
+  "eng": "Collector Crab",
+  "rus": "Collector Crab",
+  "type": "animal",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Collector Crab",
+    "rus": "Collector Crab",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Collector%20Crab&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_creeping_shade",
+  "eng": "Creeping Shade",
+  "rus": "Creeping Shade",
+  "type": "outsider (incorporeal)",
+  "cr": "CR 8",
+  "crMin": 8,
+  "crMax": 8,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Creeping Shade",
+    "rus": "Creeping Shade",
+    "cr": 8,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Creeping%20Shade&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_dawn_core_diver",
+  "eng": "Dawn Core-diver",
+  "rus": "Dawn Core-diver",
+  "type": "vermin",
+  "cr": "CR 10",
+  "crMin": 10,
+  "crMax": 10,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Dawn Beetle, Dawn Core-diver",
+    "rus": "Dawn Core-diver",
+    "cr": 10,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Dawn%20Core-diver&Family=Dawn%20Beetle"
+   }
+  ]
+ },
+ {
+  "id": "aon_deadfall_stalker",
+  "eng": "Deadfall Stalker",
+  "rus": "Deadfall Stalker",
+  "type": "magical beast",
+  "cr": "CR 12",
+  "crMin": 12,
+  "crMax": 12,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Deadfall Stalker",
+    "rus": "Deadfall Stalker",
+    "cr": 12,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Deadfall%20Stalker&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_detonation_ooze",
+  "eng": "Detonation Ooze",
+  "rus": "Detonation Ooze",
+  "type": "ooze",
+  "cr": "CR 9",
+  "crMin": 9,
+  "crMax": 9,
+  "size": [],
+  "habitats": [
+   "any urban"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Detonation Ooze",
+    "rus": "Detonation Ooze",
+    "cr": 9,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Detonation%20Ooze&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_imp",
+  "eng": "Imp",
+  "rus": "Imp",
+  "type": "outsider (devil, evil, extraplanar, lawful)",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Devil, Imp",
+    "rus": "Imp",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Imp&Family=Devil"
+   }
+  ]
+ },
+ {
+  "id": "aon_ceratopsid",
+  "eng": "Ceratopsid",
+  "rus": "Ceratopsid",
+  "type": "animal",
+  "cr": "CR 8",
+  "crMin": 8,
+  "crMax": 8,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Dinosaur, Ceratopsid",
+    "rus": "Ceratopsid",
+    "cr": 8,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ceratopsid&Family=Dinosaur"
+   }
+  ]
+ },
+ {
+  "id": "aon_plesiosaur",
+  "eng": "Plesiosaur",
+  "rus": "Plesiosaur",
+  "type": "animal",
+  "cr": "CR 7",
+  "crMin": 7,
+  "crMax": 7,
+  "size": [],
+  "habitats": [
+   "any water"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Dinosaur, Plesiosaur",
+    "rus": "Plesiosaur",
+    "cr": 7,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Plesiosaur&Family=Dinosaur"
+   }
+  ]
+ },
+ {
+  "id": "aon_sauropod",
+  "eng": "Sauropod",
+  "rus": "Sauropod",
+  "type": "animal",
+  "cr": "CR 10",
+  "crMin": 10,
+  "crMax": 10,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Dinosaur, Sauropod",
+    "rus": "Sauropod",
+    "cr": 10,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Sauropod&Family=Dinosaur"
+   }
+  ]
+ },
+ {
+  "id": "aon_thyreophoran",
+  "eng": "Thyreophoran",
+  "rus": "Thyreophoran",
+  "type": "animal",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Dinosaur, Thyreophoran",
+    "rus": "Thyreophoran",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Thyreophoran&Family=Dinosaur"
+   }
+  ]
+ },
+ {
+  "id": "aon_greater_elemental",
+  "eng": "Greater Elemental",
+  "rus": "Greater Elemental",
+  "type": "outsider (elemental, extraplanar)",
+  "cr": "CR 9",
+  "crMin": 9,
+  "crMax": 9,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Elemental, Greater Elemental",
+    "rus": "Greater Elemental",
+    "cr": 9,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Greater%20Elemental&Family=Elemental"
+   }
+  ]
+ },
+ {
+  "id": "aon_large_elemental",
+  "eng": "Large Elemental",
+  "rus": "Large Elemental",
+  "type": "outsider (elemental, extraplanar)",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Elemental, Large Elemental",
+    "rus": "Large Elemental",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Large%20Elemental&Family=Elemental"
+   }
+  ]
+ },
+ {
+  "id": "aon_small_elemental",
+  "eng": "Small Elemental",
+  "rus": "Small Elemental",
+  "type": "outsider (elemental, extraplanar)",
+  "cr": "CR 1",
+  "crMin": 1,
+  "crMax": 1,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Elemental, Small Elemental",
+    "rus": "Small Elemental",
+    "cr": 1,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Small%20Elemental&Family=Elemental"
+   }
+  ]
+ },
+ {
+  "id": "aon_emotivore",
+  "eng": "Emotivore",
+  "rus": "Emotivore",
+  "type": "undead (shapechanger)",
+  "cr": "CR 9",
+  "crMin": 9,
+  "crMax": 9,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Emotivore",
+    "rus": "Emotivore",
+    "cr": 9,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Emotivore&Family=Emotivore"
+   }
+  ]
+ },
+ {
+  "id": "aon_entropy_slug",
+  "eng": "Entropy Slug",
+  "rus": "Entropy Slug",
+  "type": "magical beast",
+  "cr": "CR 4",
+  "crMin": 4,
+  "crMax": 4,
+  "size": [],
+  "habitats": [
+   "underground or urban"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Entropy Slug",
+    "rus": "Entropy Slug",
+    "cr": 4,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Entropy%20Slug&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_exhaust_ooze",
+  "eng": "Exhaust Ooze",
+  "rus": "Exhaust Ooze",
+  "type": "ooze (air)",
+  "cr": "CR 18",
+  "crMin": 18,
+  "crMax": 18,
+  "size": [],
+  "habitats": [
+   "any urban"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Exhaust Ooze",
+    "rus": "Exhaust Ooze",
+    "cr": 18,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Exhaust%20Ooze&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_flying_viper_eel",
+  "eng": "Flying Viper Eel",
+  "rus": "Flying Viper Eel",
+  "type": "animal (swarm)",
+  "cr": "CR 10",
+  "crMin": 10,
+  "crMax": 10,
+  "size": [],
+  "habitats": [
+   "any air"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Flying Viper Eel",
+    "rus": "Flying Viper Eel",
+    "cr": 10,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Flying%20Viper%20Eel&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_djinni",
+  "eng": "Djinni",
+  "rus": "Djinni",
+  "type": "outsider (air, extraplanar)",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Genie, Djinni",
+    "rus": "Djinni",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Djinni&Family=Genie"
+   }
+  ]
+ },
+ {
+  "id": "aon_janni",
+  "eng": "Janni",
+  "rus": "Janni",
+  "type": "outsider (native)",
+  "cr": "CR 4",
+  "crMin": 4,
+  "crMax": 4,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Genie, Janni",
+    "rus": "Janni",
+    "cr": 4,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Janni&Family=Genie"
+   }
+  ]
+ },
+ {
+  "id": "aon_shaitan",
+  "eng": "Shaitan",
+  "rus": "Shaitan",
+  "type": "outsider (earth, extraplanar)",
+  "cr": "CR 7",
+  "crMin": 7,
+  "crMax": 7,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Genie, Shaitan",
+    "rus": "Shaitan",
+    "cr": 7,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shaitan&Family=Genie"
+   }
+  ]
+ },
+ {
+  "id": "aon_ghoul",
+  "eng": "Ghoul",
+  "rus": "Ghoul",
+  "type": "undead",
+  "cr": "CR 1",
+  "crMin": 1,
+  "crMax": 1,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Ghoul",
+    "rus": "Ghoul",
+    "cr": 1,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ghoul&Family=Ghoul"
+   }
+  ]
+ },
+ {
+  "id": "aon_ghul",
+  "eng": "Ghul",
+  "rus": "Ghul",
+  "type": "undead (shapechanger)",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Ghul",
+    "rus": "Ghul",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ghul&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_eclipse",
+  "eng": "Eclipse",
+  "rus": "Eclipse",
+  "type": "humanoid (giant)",
+  "cr": "CR 19",
+  "crMin": 19,
+  "crMax": 19,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Giant, Eclipse",
+    "rus": "Eclipse",
+    "cr": 19,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Eclipse&Family=Giant"
+   }
+  ]
+ },
+ {
+  "id": "aon_shadow",
+  "eng": "Shadow",
+  "rus": "Shadow",
+  "type": "humanoid (extraplanar, giant)",
+  "cr": "CR 13",
+  "crMin": 13,
+  "crMax": 13,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Giant, Shadow",
+    "rus": "Shadow",
+    "cr": 13,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shadow&Family=Giant"
+   }
+  ]
+ },
+ {
+  "id": "aon_glitch_dog",
+  "eng": "Glitch Dog",
+  "rus": "Glitch Dog",
+  "type": "magical beast",
+  "cr": "CR 4",
+  "crMin": 4,
+  "crMax": 4,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Glitch Dog",
+    "rus": "Glitch Dog",
+    "cr": 4,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Glitch%20Dog&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_space_goblin_zaperator",
+  "eng": "Space Goblin Zaperator",
+  "rus": "Space Goblin Zaperator",
+  "type": "humanoid (goblinoid)",
+  "cr": "CR 1/3",
+  "crMin": 0.3333333333333333,
+  "crMax": 0.3333333333333333,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Goblin (Space), Space Goblin Zaperator",
+    "rus": "Space Goblin Zaperator",
+    "cr": 0.3333333333333333,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Space%20Goblin%20Zaperator&Family=Goblin%20(Space)"
+   }
+  ]
+ },
+ {
+  "id": "aon_cybernetic_golem",
+  "eng": "Cybernetic Golem",
+  "rus": "Cybernetic Golem",
+  "type": "construct (magical, technological)",
+  "cr": "CR 8",
+  "crMin": 8,
+  "crMax": 8,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Golem, Cybernetic Golem",
+    "rus": "Cybernetic Golem",
+    "cr": 8,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Cybernetic%20Golem&Family=Golem"
+   }
+  ]
+ },
+ {
+  "id": "aon_nanotech_golem",
+  "eng": "Nanotech Golem",
+  "rus": "Nanotech Golem",
+  "type": "construct (magical, technological)",
+  "cr": "CR 14",
+  "crMin": 14,
+  "crMax": 14,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Golem, Nanotech Golem",
+    "rus": "Nanotech Golem",
+    "cr": 14,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Nanotech%20Golem&Family=Golem"
+   }
+  ]
+ },
+ {
+  "id": "aon_void_hag",
+  "eng": "Void Hag",
+  "rus": "Void Hag",
+  "type": "monstrous humanoid",
+  "cr": "CR 10",
+  "crMin": 10,
+  "crMax": 10,
+  "size": [],
+  "habitats": [
+   "any vacuum"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Hag, Void Hag",
+    "rus": "Void Hag",
+    "cr": 10,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Void%20Hag&Family=Hag"
+   }
+  ]
+ },
+ {
+  "id": "aon_harpy_jasmine",
+  "eng": "Harpy Jasmine",
+  "rus": "Harpy Jasmine",
+  "type": "plant",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "temperate or warm forests"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Harpy Jasmine",
+    "rus": "Harpy Jasmine",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Harpy%20Jasmine&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_hellhound",
+  "eng": "Hellhound",
+  "rus": "Hellhound",
+  "type": "outsider (devil)",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Hellhound",
+    "rus": "Hellhound",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hellhound&Family=Hellhound"
+   }
+  ]
+ },
+ {
+  "id": "aon_gargantuan_herd_animal",
+  "eng": "Gargantuan Herd Animal",
+  "rus": "Gargantuan Herd Animal",
+  "type": "animal",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Herd Animal, Gargantuan Herd Animal",
+    "rus": "Gargantuan Herd Animal",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gargantuan%20Herd%20Animal&Family=Herd%20Animal"
+   }
+  ]
+ },
+ {
+  "id": "aon_large_herd_animal",
+  "eng": "Large Herd Animal",
+  "rus": "Large Herd Animal",
+  "type": "animal",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Herd Animal, Large Herd Animal",
+    "rus": "Large Herd Animal",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Large%20Herd%20Animal&Family=Herd%20Animal"
+   }
+  ]
+ },
+ {
+  "id": "aon_small_herd_animal",
+  "eng": "Small Herd Animal",
+  "rus": "Small Herd Animal",
+  "type": "animal",
+  "cr": "CR 1/3",
+  "crMin": 0.3333333333333333,
+  "crMax": 0.3333333333333333,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Herd Animal, Small Herd Animal",
+    "rus": "Small Herd Animal",
+    "cr": 0.3333333333333333,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Small%20Herd%20Animal&Family=Herd%20Animal"
+   }
+  ]
+ },
+ {
+  "id": "aon_holofang",
+  "eng": "Holofang",
+  "rus": "Holofang",
+  "type": "magical beast (aquatic)",
+  "cr": "CR 4",
+  "crMin": 4,
+  "crMax": 4,
+  "size": [],
+  "habitats": [
+   "aquatic"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Holofang",
+    "rus": "Holofang",
+    "cr": 4,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Holofang&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_chinjugami",
+  "eng": "Chinjugami",
+  "rus": "Chinjugami",
+  "type": "outsider (kami, native)",
+  "cr": "CR 16",
+  "crMin": 16,
+  "crMax": 16,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Kami, Chinjugami",
+    "rus": "Chinjugami",
+    "cr": 16,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Chinjugami&Family=Kami"
+   }
+  ]
+ },
+ {
+  "id": "aon_tsukumogami",
+  "eng": "Tsukumogami",
+  "rus": "Tsukumogami",
+  "type": "outsider (kami, native)",
+  "cr": "CR 4",
+  "crMin": 4,
+  "crMax": 4,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Kami, Tsukumogami",
+    "rus": "Tsukumogami",
+    "cr": 4,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Tsukumogami&Family=Kami"
+   }
+  ]
+ },
+ {
+  "id": "aon_kurobozu",
+  "eng": "Kurobozu",
+  "rus": "Kurobozu",
+  "type": "undead",
+  "cr": "CR 9",
+  "crMin": 9,
+  "crMax": 9,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Kurobozu",
+    "rus": "Kurobozu",
+    "cr": 9,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kurobozu&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_liquescence",
+  "eng": "Liquescence",
+  "rus": "Liquescence",
+  "type": "ooze (aquatic, water)",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "any water"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Liquescence",
+    "rus": "Liquescence",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Liquescence&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_lore_guardian",
+  "eng": "Lore Guardian",
+  "rus": "Lore Guardian",
+  "type": "construct (magical)",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Lore Guardian",
+    "rus": "Lore Guardian",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Lore%20Guardian&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_magma_ooze",
+  "eng": "Magma Ooze",
+  "rus": "Magma Ooze",
+  "type": "ooze (fire)",
+  "cr": "CR 7",
+  "crMin": 7,
+  "crMax": 7,
+  "size": [],
+  "habitats": [
+   "any underground"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Magma Ooze",
+    "rus": "Magma Ooze",
+    "cr": 7,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Magma%20Ooze&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_marooned_one",
+  "eng": "Marooned One",
+  "rus": "Marooned One",
+  "type": "undead",
+  "cr": "CR 8",
+  "crMin": 8,
+  "crMax": 8,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Marooned One",
+    "rus": "Marooned One",
+    "cr": 8,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Marooned%20One&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_mephit",
+  "eng": "Mephit",
+  "rus": "Mephit",
+  "type": "outsider (extraplanar)",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Mephit",
+    "rus": "Mephit",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mephit&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_meteorite_drake",
+  "eng": "Meteorite Drake",
+  "rus": "Meteorite Drake",
+  "type": "magical beast (earth)",
+  "cr": "CR 16",
+  "crMin": 16,
+  "crMax": 16,
+  "size": [],
+  "habitats": [
+   "any high elevation"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Meteorite Drake",
+    "rus": "Meteorite Drake",
+    "cr": 16,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Meteorite%20Drake&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_midships_mimic",
+  "eng": "Midships Mimic",
+  "rus": "Midships Mimic",
+  "type": "aberration (shapechanger)",
+  "cr": "CR 8",
+  "crMin": 8,
+  "crMax": 8,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Midships Mimic",
+    "rus": "Midships Mimic",
+    "cr": 8,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Midships%20Mimic&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_nanobot_mimic",
+  "eng": "Nanobot Mimic",
+  "rus": "Nanobot Mimic",
+  "type": "construct (swarm, technological)",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Nanobot Mimic",
+    "rus": "Nanobot Mimic",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Nanobot%20Mimic&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_night_hag",
+  "eng": "Night Hag",
+  "rus": "Night Hag",
+  "type": "outsider (evil, extraplanar)",
+  "cr": "CR 9",
+  "crMin": 9,
+  "crMax": 9,
+  "size": [],
+  "habitats": [
+   "any evil-aligned plane"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Night Hag",
+    "rus": "Night Hag",
+    "cr": 9,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Night%20Hag&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_spirit",
+  "eng": "Spirit",
+  "rus": "Spirit",
+  "type": "outsider (native, oni)",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Oni, Oni, Spirit",
+    "rus": "Spirit",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Oni,%20Spirit&Family=Oni"
+   }
+  ]
+ },
+ {
+  "id": "aon_philosopher_worm",
+  "eng": "Philosopher Worm",
+  "rus": "Philosopher Worm",
+  "type": "monstrous humanoid",
+  "cr": "CR 7",
+  "crMin": 7,
+  "crMax": 7,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Philosopher Worm",
+    "rus": "Philosopher Worm",
+    "cr": 7,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Philosopher%20Worm&Family=Philosopher%20Worm"
+   }
+  ]
+ },
+ {
+  "id": "aon_plague_ooze",
+  "eng": "Plague Ooze",
+  "rus": "Plague Ooze",
+  "type": "ooze",
+  "cr": "CR 7",
+  "crMin": 7,
+  "crMax": 7,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Plague Ooze",
+    "rus": "Plague Ooze",
+    "cr": 7,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Plague%20Ooze&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_polyphonic_gel",
+  "eng": "Polyphonic Gel",
+  "rus": "Polyphonic Gel",
+  "type": "ooze",
+  "cr": "CR 1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [],
+  "habitats": [
+   "any land"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Polyphonic Gel",
+    "rus": "Polyphonic Gel",
+    "cr": 0.5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Polyphonic%20Gel&Family=Polyphonic%20Gel"
+   }
+  ]
+ },
+ {
+  "id": "aon_colossal_predator",
+  "eng": "Colossal Predator",
+  "rus": "Colossal Predator",
+  "type": "animal",
+  "cr": "CR 13",
+  "crMin": 13,
+  "crMax": 13,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Predator, Colossal Predator",
+    "rus": "Colossal Predator",
+    "cr": 13,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Colossal%20Predator&Family=Predator"
+   }
+  ]
+ },
+ {
+  "id": "aon_huge_predator",
+  "eng": "Huge Predator",
+  "rus": "Huge Predator",
+  "type": "animal",
+  "cr": "CR 7",
+  "crMin": 7,
+  "crMax": 7,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Predator, Huge Predator",
+    "rus": "Huge Predator",
+    "cr": 7,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Huge%20Predator&Family=Predator"
+   }
+  ]
+ },
+ {
+  "id": "aon_medium_predator",
+  "eng": "Medium Predator",
+  "rus": "Medium Predator",
+  "type": "animal",
+  "cr": "CR 1",
+  "crMin": 1,
+  "crMax": 1,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Predator, Medium Predator",
+    "rus": "Medium Predator",
+    "cr": 1,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Medium%20Predator&Family=Predator"
+   }
+  ]
+ },
+ {
+  "id": "aon_small_predator",
+  "eng": "Small Predator",
+  "rus": "Small Predator",
+  "type": "animal",
+  "cr": "CR 1/3",
+  "crMin": 0.3333333333333333,
+  "crMax": 0.3333333333333333,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Predator, Small Predator",
+    "rus": "Small Predator",
+    "cr": 0.3333333333333333,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Small%20Predator&Family=Predator"
+   }
+  ]
+ },
+ {
+  "id": "aon_psydrake",
+  "eng": "Psydrake",
+  "rus": "Psydrake",
+  "type": "dragon",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Psydrake",
+    "rus": "Psydrake",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Psydrake&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_pyric_wraith",
+  "eng": "Pyric Wraith",
+  "rus": "Pyric Wraith",
+  "type": "undead (incorporeal)",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Pyric Wraith",
+    "rus": "Pyric Wraith",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Pyric%20Wraith&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_quantum_slime",
+  "eng": "Quantum Slime",
+  "rus": "Quantum Slime",
+  "type": "ooze",
+  "cr": "CR 15",
+  "crMin": 15,
+  "crMax": 15,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Quantum Slime",
+    "rus": "Quantum Slime",
+    "cr": 15,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Quantum%20Slime&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_slasher",
+  "eng": "Slasher",
+  "rus": "Slasher",
+  "type": "dragon",
+  "cr": "CR 4",
+  "crMin": 4,
+  "crMax": 4,
+  "size": [],
+  "habitats": [
+   "any land"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Radiation Drake, Slasher",
+    "rus": "Slasher",
+    "cr": 4,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Slasher&Family=Radiation%20Drake"
+   }
+  ]
+ },
+ {
+  "id": "aon_ravenous_skull_swarm",
+  "eng": "Ravenous Skull Swarm",
+  "rus": "Ravenous Skull Swarm",
+  "type": "undead (swarm)",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Ravenous Skull, Ravenous Skull Swarm",
+    "rus": "Ravenous Skull Swarm",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ravenous%20Skull%20Swarm&Family=Ravenous%20Skull"
+   }
+  ]
+ },
+ {
+  "id": "aon_replicant_ooze",
+  "eng": "Replicant Ooze",
+  "rus": "Replicant Ooze",
+  "type": "ooze (shapechanger)",
+  "cr": "CR 7",
+  "crMin": 7,
+  "crMax": 7,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Replicant Ooze",
+    "rus": "Replicant Ooze",
+    "cr": 7,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Replicant%20Ooze&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_assault_disintegrator_dragon",
+  "eng": "Assault Disintegrator Dragon",
+  "rus": "Assault Disintegrator Dragon",
+  "type": "dragon (technological)",
+  "cr": "CR 16",
+  "crMin": 16,
+  "crMax": 16,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Robot Dragon, Assault Disintegrator Dragon",
+    "rus": "Assault Disintegrator Dragon",
+    "cr": 16,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Assault%20Disintegrator%20Dragon&Family=Robot%20Dragon"
+   }
+  ]
+ },
+ {
+  "id": "aon_assassin_robot",
+  "eng": "Assassin Robot",
+  "rus": "Assassin Robot",
+  "type": "construct (technological)",
+  "cr": "CR 9",
+  "crMin": 9,
+  "crMax": 9,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Robot, Assassin Robot",
+    "rus": "Assassin Robot",
+    "cr": 9,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Assassin%20Robot&Family=Robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_incapacitator",
+  "eng": "Incapacitator",
+  "rus": "Incapacitator",
+  "type": "construct (technological)",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Robot, Incapacitator",
+    "rus": "Incapacitator",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Incapacitator&Family=Robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_mining",
+  "eng": "Mining",
+  "rus": "Mining",
+  "type": "construct (technological)",
+  "cr": "CR 9",
+  "crMin": 9,
+  "crMax": 9,
+  "size": [],
+  "habitats": [
+   "any underground"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Robot, Mining",
+    "rus": "Mining",
+    "cr": 9,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mining&Family=Robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_terminator_class_security",
+  "eng": "Terminator-Class Security",
+  "rus": "Terminator-Class Security",
+  "type": "construct (technological)",
+  "cr": "CR 10",
+  "crMin": 10,
+  "crMax": 10,
+  "size": [],
+  "habitats": [
+   "any urban"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Robot, Terminator-Class Security",
+    "rus": "Terminator-Class Security",
+    "cr": 10,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Terminator-Class%20Security&Family=Robot"
+   }
+  ]
+ },
+ {
+  "id": "aon_rogue_hover_drone",
+  "eng": "Rogue Hover Drone",
+  "rus": "Rogue Hover Drone",
+  "type": "construct (technological)",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Rogue Drone, Rogue Hover Drone",
+    "rus": "Rogue Hover Drone",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Rogue%20Hover%20Drone&Family=Rogue%20Drone"
+   }
+  ]
+ },
+ {
+  "id": "aon_scouring_swarm",
+  "eng": "Scouring Swarm",
+  "rus": "Scouring Swarm",
+  "type": "aberration (swarm)",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Scouring Swarm",
+    "rus": "Scouring Swarm",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Scouring%20Swarm&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_shadow_mastiff",
+  "eng": "Shadow Mastiff",
+  "rus": "Shadow Mastiff",
+  "type": "outsider (evil, extraplanar)",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Shadow Mastiff",
+    "rus": "Shadow Mastiff",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shadow%20Mastiff&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_mummified_prophet",
+  "eng": "Mummified Prophet",
+  "rus": "Mummified Prophet",
+  "type": "undead",
+  "cr": "CR 12",
+  "crMin": 12,
+  "crMax": 12,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Silicon Mummy, Mummified Prophet",
+    "rus": "Mummified Prophet",
+    "cr": 12,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mummified%20Prophet&Family=Silicon%20Mummy"
+   }
+  ]
+ },
+ {
+  "id": "aon_sky_fisher",
+  "eng": "Sky Fisher",
+  "rus": "Sky Fisher",
+  "type": "aberration",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "any sky"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Sky Fisher",
+    "rus": "Sky Fisher",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Sky%20Fisher&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_juvenile_solar_wisp",
+  "eng": "Juvenile Solar Wisp",
+  "rus": "Juvenile Solar Wisp",
+  "type": "outsider (air, elemental, fire, native)",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "temperate or warm land or vacuum"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Solar Wisp, Juvenile Solar Wisp",
+    "rus": "Juvenile Solar Wisp",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Juvenile%20Solar%20Wisp&Family=Solar%20Wisp"
+   }
+  ]
+ },
+ {
+  "id": "aon_spookfish_swarm",
+  "eng": "Spookfish Swarm",
+  "rus": "Spookfish Swarm",
+  "type": "undead (incorporeal, swarm)",
+  "cr": "CR 16",
+  "crMin": 16,
+  "crMax": 16,
+  "size": [],
+  "habitats": [
+   "warm land"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Spookfish Swarm",
+    "rus": "Spookfish Swarm",
+    "cr": 16,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Spookfish%20Swarm&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_stormghost",
+  "eng": "Stormghost",
+  "rus": "Stormghost",
+  "type": "monstrous humanoid",
+  "cr": "CR 15",
+  "crMin": 15,
+  "crMax": 15,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Stormghost",
+    "rus": "Stormghost",
+    "cr": 15,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Stormghost&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_common",
+  "eng": "Common",
+  "rus": "Common",
+  "type": "animal",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "any marsh"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Swamp Strider, Common",
+    "rus": "Common",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Common&Family=Swamp%20Strider"
+   }
+  ]
+ },
+ {
+  "id": "aon_synapse_worm",
+  "eng": "Synapse Worm",
+  "rus": "Synapse Worm",
+  "type": "vermin",
+  "cr": "CR 2",
+  "crMin": 2,
+  "crMax": 2,
+  "size": [],
+  "habitats": [
+   "any warm or temperate"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Synapse Worm",
+    "rus": "Synapse Worm",
+    "cr": 2,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Synapse%20Worm&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_tangler",
+  "eng": "Tangler",
+  "rus": "Tangler",
+  "type": "aberration",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Tangler",
+    "rus": "Tangler",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Tangler&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_tattoo_guardian",
+  "eng": "Tattoo Guardian",
+  "rus": "Tattoo Guardian",
+  "type": "construct (magical)",
+  "cr": "CR 11",
+  "crMin": 11,
+  "crMax": 11,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Tattoo Guardian",
+    "rus": "Tattoo Guardian",
+    "cr": 11,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Tattoo%20Guardian&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_tenebrous_worm",
+  "eng": "Tenebrous Worm",
+  "rus": "Tenebrous Worm",
+  "type": "outsider (extraplanar)",
+  "cr": "CR 8",
+  "crMin": 8,
+  "crMax": 8,
+  "size": [],
+  "habitats": [
+   "any land"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Tenebrous Worm",
+    "rus": "Tenebrous Worm",
+    "cr": 8,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Tenebrous%20Worm&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_threshwolf",
+  "eng": "Threshwolf",
+  "rus": "Threshwolf",
+  "type": "animal",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "warm and temperate forests and mountains"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Threshwolf",
+    "rus": "Threshwolf",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Threshwolf&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_troll_polyp",
+  "eng": "Troll Polyp",
+  "rus": "Troll Polyp",
+  "type": "aberration (giant)",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Troll Polyp",
+    "rus": "Troll Polyp",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Troll%20Polyp&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_quantum",
+  "eng": "Quantum",
+  "rus": "Quantum",
+  "type": "humanoid (giant)",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Troll, Troll, Quantum",
+    "rus": "Quantum",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Troll,%20Quantum&Family=Troll"
+   }
+  ]
+ },
+ {
+  "id": "aon_tumbletooth_swarm",
+  "eng": "Tumbletooth Swarm",
+  "rus": "Tumbletooth Swarm",
+  "type": "fey (swarm)",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Tumbletooth Swarm",
+    "rus": "Tumbletooth Swarm",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Tumbletooth%20Swarm&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_tzitzimitl",
+  "eng": "Tzitzimitl",
+  "rus": "Tzitzimitl",
+  "type": "undead",
+  "cr": "CR 19",
+  "crMin": 19,
+  "crMax": 19,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Tzitzimitl",
+    "rus": "Tzitzimitl",
+    "cr": 19,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Tzitzimitl&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_skeletal_undead",
+  "eng": "Skeletal Undead",
+  "rus": "Skeletal Undead",
+  "type": "undead",
+  "cr": "CR 1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Undead Minion, Skeletal Undead",
+    "rus": "Skeletal Undead",
+    "cr": 0.5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Skeletal%20Undead&Family=Undead%20Minion"
+   }
+  ]
+ },
+ {
+  "id": "aon_ursine_horror",
+  "eng": "Ursine Horror",
+  "rus": "Ursine Horror",
+  "type": "outsider (chaotic, evil, extraplanar, incorporeal)",
+  "cr": "CR 9",
+  "crMin": 9,
+  "crMax": 9,
+  "size": [],
+  "habitats": [
+   "any vacuum"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Ursine Horror",
+    "rus": "Ursine Horror",
+    "cr": 9,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ursine%20Horror&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_valkyrie",
+  "eng": "Valkyrie",
+  "rus": "Valkyrie",
+  "type": "outsider (extraplanar)",
+  "cr": "CR 12",
+  "crMin": 12,
+  "crMax": 12,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Valkyrie",
+    "rus": "Valkyrie",
+    "cr": 12,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Valkyrie&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_jiang_shi",
+  "eng": "Jiang-Shi",
+  "rus": "Jiang-Shi",
+  "type": "undead",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Vampire, Jiang-Shi",
+    "rus": "Jiang-Shi",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Jiang-Shi&Family=Vampire"
+   }
+  ]
+ },
+ {
+  "id": "aon_nosferatu",
+  "eng": "Nosferatu",
+  "rus": "Nosferatu",
+  "type": "undead",
+  "cr": "CR 12",
+  "crMin": 12,
+  "crMax": 12,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Vampire, Nosferatu",
+    "rus": "Nosferatu",
+    "cr": 12,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Nosferatu&Family=Vampire"
+   }
+  ]
+ },
+ {
+  "id": "aon_asteroid_louse",
+  "eng": "Asteroid Louse",
+  "rus": "Asteroid Louse",
+  "type": "vermin",
+  "cr": "CR 1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [],
+  "habitats": [
+   "any vacuum"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Vermin (Space), Asteroid Louse",
+    "rus": "Asteroid Louse",
+    "cr": 0.5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Asteroid%20Louse&Family=Vermin%20(Space)"
+   }
+  ]
+ },
+ {
+  "id": "aon_necropede",
+  "eng": "Necropede",
+  "rus": "Necropede",
+  "type": "vermin",
+  "cr": "CR 3",
+  "crMin": 3,
+  "crMax": 3,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Vermin (Space), Necropede",
+    "rus": "Necropede",
+    "cr": 3,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Necropede&Family=Vermin%20(Space)"
+   }
+  ]
+ },
+ {
+  "id": "aon_warpmoth_swarm",
+  "eng": "Warpmoth Swarm",
+  "rus": "Warpmoth Swarm",
+  "type": "vermin (swarm)",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any vacuum"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Vermin (Space), Warpmoth Swarm",
+    "rus": "Warpmoth Swarm",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Warpmoth%20Swarm&Family=Vermin%20(Space)"
+   }
+  ]
+ },
+ {
+  "id": "aon_vesper_hound",
+  "eng": "Vesper Hound",
+  "rus": "Vesper Hound",
+  "type": "outsider (extraplanar)",
+  "cr": "CR 10",
+  "crMin": 10,
+  "crMax": 10,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Vesper Hound",
+    "rus": "Vesper Hound",
+    "cr": 10,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Vesper%20Hound&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_void_slime",
+  "eng": "Void Slime",
+  "rus": "Void Slime",
+  "type": "ooze",
+  "cr": "CR 5",
+  "crMin": 5,
+  "crMax": 5,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Void Slime",
+    "rus": "Void Slime",
+    "cr": 5,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Void%20Slime&Family=None"
+   }
+  ]
+ },
+ {
+  "id": "aon_weaponized_gamedroid",
+  "eng": "Weaponized Gamedroid",
+  "rus": "Weaponized Gamedroid",
+  "type": "construct (magical, technological)",
+  "cr": "CR 6",
+  "crMin": 6,
+  "crMax": 6,
+  "size": [],
+  "habitats": [
+   "any"
+  ],
+  "srd52": false,
+  "source": [
+   "Starfinder 1e (OGL)"
+  ],
+  "variants": [
+   {
+    "eng": "Weaponized Toy, Weaponized Gamedroid",
+    "rus": "Weaponized Gamedroid",
+    "cr": 6,
+    "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Weaponized%20Gamedroid&Family=Weaponized%20Toy"
+   }
+  ]
+ }
+]

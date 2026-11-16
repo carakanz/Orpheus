@@ -7,6 +7,7 @@ D = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(D)))
 URL = 'http://192.168.88.252:8080/v1/chat/completions'
 OUT = os.path.join(D, 'tagged.json')
+HINT = ''  # подсказка второго захода (--hint aon), добавляется к сообщению
 LOG = os.path.join(D, 'raw', 'tag.log')
 
 cat = json.load(open(os.path.join(ROOT, 'wiki', 'catalog.json'), encoding='utf-8'))
@@ -53,7 +54,7 @@ def ask(items):
     body = {'model': 'qwen3.8-27b', 'temperature': 0.7, 'top_p': 0.8, 'max_tokens': 450 * len(items) + 200,
             'chat_template_kwargs': {'enable_thinking': False},
             'messages': [{'role': 'system', 'content': SYSTEM},
-                         {'role': 'user', 'content': 'Существа:\n' + json.dumps(facts, ensure_ascii=False, indent=0)}]}
+                         {'role': 'user', 'content': HINT + 'Существа:\n' + json.dumps(facts, ensure_ascii=False, indent=0)}]}
     req = urllib.request.Request(URL, data=json.dumps(body).encode('utf-8'), headers={
         'Content-Type': 'application/json', 'Authorization': 'Bearer ' + os.environ['MAC_AI_KEY']})
     t = time.time()
@@ -80,20 +81,32 @@ def check(c, r):
     if not (60 <= len(s) <= 500) or re.search(r'[а-яё]', s, re.I): errs.append('image_subject')
     try: float(r.get('size_tiles'))
     except (TypeError, ValueError): errs.append('size_tiles')
+    if HINT and not re.search(r'[а-яё]', str(r.get('name_ru', '')), re.I): errs.append('name_ru')
     return errs
 
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--batch', type=int, default=8); ap.add_argument('--limit', type=int, default=0)
     ap.add_argument('--only', default='')
+    ap.add_argument('--in', dest='inp', default='candidates.json'); ap.add_argument('--out', default='tagged.json')
+    ap.add_argument('--hint', default='', help='aon — второй заход (Starfinder), приоритет акта III')
     a = ap.parse_args()
-    cands = json.load(open(os.path.join(D, 'candidates.json'), encoding='utf-8'))
+    global OUT, HINT
+    OUT = os.path.join(D, a.out)
+    if a.hint == 'aon':
+        HINT = ('Второй заход: существа из научно-фантастического бестиария — кандидаты для акта III (технологичный биом «Механикус» '
+                '(mechanicus), беды пифоса, Тартар, поздние биомы). По возможности ставь act III и ярус 3 / элита / босс; ниже — только если '
+                'существо явно слабое. Обязательно добавь поле name_ru — своё короткое русское имя (перевод по смыслу, не транслит; '
+                'для выдуманных слов придумай русское). В описании и промпте — механизмы и «технологичная магия» древнего мира '
+                '(бронза, шестерни, автоматоны Гефеста), без космоса, лазеров и пластика.\n')
+    cands = json.load(open(os.path.join(D, a.inp), encoding='utf-8'))
     done = json.load(open(OUT, encoding='utf-8')) if os.path.exists(OUT) else {'model': 'qwen3.8-27b', 'items': {}, 'failed': {}}
     todo = [c for c in cands if c['id'] not in done['items']]
     if a.only: todo = [c for c in todo if c['id'] in a.only.split(',')]
     # вперемешку по CR (0–2, 3–6, 7–12, 13+), чтобы и неполный прогон покрывал все акты
-    bands = [[c for c in todo if lo <= c['crMax'] < hi] for lo, hi in ((0, 3), (3, 7), (7, 13), (13, 99))]
-    todo = [c for grp in zip(*[b + [None] * (max(map(len, bands)) - len(b)) for b in bands]) for c in grp if c]
+    bands = [[c for c in todo if lo <= c['crMax'] < hi] for lo, hi in ((-99, 3), (3, 7), (7, 13), (13, 999))]
+    if HINT: todo = sorted(todo, key=lambda c: -c['crMax'])  # второй заход: сначала сильные (акт III)
+    else: todo = [c for grp in zip(*[b + [None] * (max(map(len, bands)) - len(b)) for b in bands]) for c in grp if c]
     if a.limit: todo = todo[:a.limit]
     log('start', len(todo), 'осталось из', len(cands))
     queue = [todo[i:i + a.batch] for i in range(0, len(todo), a.batch)]

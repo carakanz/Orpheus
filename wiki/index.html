@@ -275,8 +275,8 @@ const PAGES={
       sec('Где встречается',chipsTo(e.biomes,['biome'])),sec('Добыча',chipsTo(e.drops,['item','ore'])),proposals(e)]; },
   cand(c){ const a=find('arch',c.archetype);
     return [head('cand',c),$('p',{style:'margin:0'},$('span',{class:'tag prop',style:'margin-right:6px'},'кандидат'),txt(c.description)),
-      kv([['Акт',c.act],['Ярус',c.tier],['Архетип',a?link('arch',a):(c.archetypeName?c.archetypeName+' (новый: '+c.archetype+')':c.archetype)],['Роль',c.role],['Только ночью',c.nightOnly?'да':'нет'],['Размер, тайлов',c.sizeTiles],
-        ['По мотивам (бестиарий)',c.eng+' — '+txt(c.facts)],['Варианты',c.variants],['Права',c.rights]]),
+      kv([['Источник',c.source],['Акт',c.act],['Ярус',c.tier],['Архетип',a?link('arch',a):(c.archetypeName?c.archetypeName+' (новый: '+c.archetype+')':c.archetype)],['Роль',c.role],['Только ночью',c.nightOnly?'да':'нет'],['Размер, тайлов',c.sizeTiles],
+        ['По мотивам',c.eng+' — '+txt(c.facts)],['Варианты',c.variants],['Права',c.rights]]),
       sec('Биомы',chipsTo(c.biomes,['biome'])),
       sec('Промпт картинки (стиль Б)',$('p',{class:'note',style:'margin:0;font-family:var(--f-mono);font-size:12px'},c.imageSubject||'')),
       c.sources?sec('Ссылки',$('ul',{class:'plain'},c.sources.map(u=>$('li',{},$('a',{href:u,target:'_blank',rel:'noopener'},u))))):null]; },
@@ -340,7 +340,7 @@ const COLS={
   cand:[['Акт',o=>o.act],['Ярус',o=>o.tier],['Биомы',o=>o.biomes]],
 };
 /* несколько фильтров сразу (раздел «Кандидаты из бестиария») */
-const MFILTER={cand:[['biomes','Биом',v=>{ const b=find('biome',v); return b?b.name:v; }],['act','Акт',v=>'акт '+v],['tier','Ярус',v=>v],['archetype','Архетип',v=>{ const a=find('arch',v); return a?a.name:v; }]]};
+const MFILTER={cand:[['source','Источник',v=>v],['biomes','Биом',v=>{ const b=find('biome',v); return b?b.name:v; }],['act','Акт',v=>'акт '+v],['tier','Ярус',v=>v],['archetype','Архетип',v=>{ const a=find('arch',v); return a?a.name:v; }]]};
 function mfilter(kind,items){ const st=S.filter[kind]=(S.filter[kind]&&typeof S.filter[kind]==='object')?S.filter[kind]:{};
   const all=L(kind), rows=[];
   for(const [f,label,show] of MFILTER[kind]){ const vals=[...new Set(all.flatMap(o=>[].concat(o[f]??[])).map(String))].sort((a,b)=>show(a).localeCompare(show(b),'ru',{numeric:true}));
