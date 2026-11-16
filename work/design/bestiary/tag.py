@@ -91,6 +91,9 @@ def main():
     done = json.load(open(OUT, encoding='utf-8')) if os.path.exists(OUT) else {'model': 'qwen3.8-27b', 'items': {}, 'failed': {}}
     todo = [c for c in cands if c['id'] not in done['items']]
     if a.only: todo = [c for c in todo if c['id'] in a.only.split(',')]
+    # вперемешку по CR (0–2, 3–6, 7–12, 13+), чтобы и неполный прогон покрывал все акты
+    bands = [[c for c in todo if lo <= c['crMax'] < hi] for lo, hi in ((0, 3), (3, 7), (7, 13), (13, 99))]
+    todo = [c for grp in zip(*[b + [None] * (max(map(len, bands)) - len(b)) for b in bands]) for c in grp if c]
     if a.limit: todo = todo[:a.limit]
     log('start', len(todo), 'осталось из', len(cands))
     queue = [todo[i:i + a.batch] for i in range(0, len(todo), a.batch)]
@@ -103,7 +106,7 @@ def main():
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
             conn_err += 1
             log('нет связи', conn_err, repr(e)[:200])
-            if conn_err >= 15: log('стоп: Qwen недоступен'); sys.exit(2)
+            if conn_err >= 45: log('стоп: Qwen недоступен'); sys.exit(2)
             queue.insert(0, batch); time.sleep(60); continue
         except (ValueError, json.JSONDecodeError, KeyError) as e:
             log('ошибка батча', [c['id'] for c in batch], repr(e)[:300])
