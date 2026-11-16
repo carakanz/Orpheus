@@ -85,6 +85,10 @@ namespace Orpheus.Net.Session
         /// <summary>Своих выстрелов, подтверждённых сервером (предсказание подменено).</summary>
         public long OwnConfirmed { get; private set; }
 
+        /// <summary>Отказов сервера в выстреле принято / своих предсказанных, погашенных отказом (П E3-2, п. 5).</summary>
+        public long RefusedSeen { get; private set; }
+        public long OwnRefused { get; private set; }
+
         /// <summary>Своих выстрелов, погасших без подтверждения.</summary>
         public long OwnExpired { get; private set; }
 
@@ -143,6 +147,24 @@ namespace Orpheus.Net.Session
 
             StopsSeen++;
             LastStop = m;
+            if (m.Reason == ProjectileEnd.Refused)
+            {
+                // П E3-2, п. 5: сервер не выстрелил — старейшая неподтверждённая своя гаснет сразу (иначе её «подменил» бы
+                // следующий настоящий выстрел со своим временем).
+                RefusedSeen++;
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    if (_items[i].Own && !_items[i].Confirmed)
+                    {
+                        _items.RemoveAt(i);
+                        OwnRefused++;
+                        break;
+                    }
+                }
+
+                return;
+            }
+
             for (int i = 0; i < _items.Count; i++)
             {
                 FlyingProjectile f = _items[i];

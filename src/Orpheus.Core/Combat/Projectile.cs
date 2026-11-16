@@ -59,14 +59,17 @@ namespace Orpheus.Core.Combat
         /// <summary>Радиус стрелы: 0,2 т = 51 unit (`02` 4.2).</summary>
         public const int ArrowRadiusUnits = 51;
 
-        /// <summary>Шаг проверки полёта: 32 unit (1/8 тайла) — меньше половины ячейки 0,5 и радиуса стрелы: стену в полтайла не перепрыгнуть.</summary>
-        public const int StepUnits = 32;
-
         /// <summary>Отбрасывание стрелой — половина базового (0,5 т, `02` 4.2): делитель скорости отбрасывания.</summary>
         public const int ArrowKnockDivisor = 2;
 
         /// <summary>Шанс остановленной стрелы остаться предметом — 50 % *(прикидка `02` 4.2)*, в 1/256.</summary>
         public const int ArrowDropChanceQ8 = 128;
+
+        /// <summary>
+        /// Конец снаряда видят игроки дальше окна урона (56 т) на дальность стрелы с запасом — те, кто мог получить выстрел
+        /// (выстрел — в 56 т от точки выстрела), получают и конец.
+        /// </summary>
+        public const int StopViewExtraTiles = 40;
 
         /// <summary>Тип урона стрелы — колющий (`02` 6.2).</summary>
         public const byte DamagePierce = 2;
@@ -114,6 +117,12 @@ namespace Orpheus.Core.Combat
 
         /// <summary>Долетел до конца дальности.</summary>
         Range = 3,
+
+        /// <summary>
+        /// Выстрела не было (П E3-2): автомат лука выстрелил, а сервер — нет (стрел не осталось: выбросил в натяжении, или потолок
+        /// снарядов). Номер 0, только владельцу — клиент сразу гасит свою предсказанную стрелу.
+        /// </summary>
+        Refused = 4,
     }
 
     /// <summary>

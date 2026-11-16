@@ -195,5 +195,105 @@ namespace Orpheus.Tests
             Assert.Empty(cp.Items);
             Assert.Equal(1, cp.OwnExpired);
         }
+
+        /// <summary>
+        /// П E3-2, п. 2: предсказание лука со сверкой. Натяжение 40 кадров и отпускание — один свой выстрел; сверка с правкой
+        /// позиции до кадра выстрела переигрывает отпускание — второй стрелы нет (ни сразу, ни на следующем кадре).
+        /// </summary>
+        [Fact]
+        public void E32_Prediction_ReplayAfterReconcile_NoDoubleShot()
+        {
+            var map = MapShape.World(64);
+            var start = new WorldPos(20 * U + U / 2, 20 * U + U / 2);
+            var pred = new LocalPrediction(map, Collision.Empty, start) { HeldItem = Items.SimpleBow, HasArrows = true };
+            pred.Sent(1, new InputFrame(Input8.None, 0, 0, 4));
+            pred.Reconcile(1, new SelfState(start, default), 0); // установка
+            uint f = 2;
+            for (; f <= 41; f++)
+                pred.Sent(f, new InputFrame(Input8.None, InputButtons.Attack, 0, 4));
+            for (; f <= 46; f++)
+                pred.Sent(f, new InputFrame(Input8.None, 0, 0, 4));
+            Assert.True(pred.TryTakeShot(out BowAction shot));
+            Assert.Equal(BowAction.FullDrawFrames, shot.ShotDraw);
+            Assert.False(pred.TryTakeShot(out _));
+
+            // Сервер сдвинул персонажа на кадре 30 (до выстрела) — переигровка кадров 31…46, в том числе отпускания на 42.
+            pred.Reconcile(30, new SelfState(new WorldPos(start.X + 40, start.Y), default), 1_000_000);
+            Assert.False(pred.TryTakeShot(out _));
+            pred.Sent(f++, new InputFrame(Input8.None, 0, 0, 4));
+            pred.Sent(f++, new InputFrame(Input8.None, 0, 0, 4));
+            Assert.False(pred.TryTakeShot(out _));
+        }
+
+        /// <summary>П E3-2, п. 5: отказ сервера («выстрела не было») сразу гасит свою неподтверждённую стрелу; чужой отказ не трогает.</summary>
+        [Fact]
+        public void E32_Client_RefusalRemovesPredictedArrowAtOnce()
+        {
+            var map = MapShape.World(64);
+            var cp = new ClientProjectiles(map);
+            var shot = new BowAction { ShotDraw = BowAction.FullDrawFrames, ShotAim = 0, ShotX = 10 * U, ShotY = 10 * U };
+            cp.AddPredicted(shot, Items.SimpleBow, 1_000_000);
+            cp.AddPredicted(shot, Items.SimpleBow, 1_200_000);
+            Assert.Equal(2, cp.Items.Count);
+            var refused = new ProjectileMessage { Op = ProjectileOp.Stop, Id = 0, Reason = ProjectileEnd.Refused, Position = new WorldPos(10 * U, 10 * U), Victim = -1 };
+            cp.OnMessage(refused, 9, 1_100_000);
+            Assert.Single(cp.Items); // старейшая погашена сразу, не через 1,5 с
+            Assert.Equal(1_200_000, cp.Items[0].StartUs);
+            Assert.Equal(1, cp.OwnRefused);
+
+            // Следующий настоящий выстрел подменяет оставшуюся (свою), а не «призрака».
+            var p = new Projectile { Id = 7, Owner = 9, Origin = new WorldPos(10 * U, 10 * U), SpeedX256 = 28 * U * 256 / 30, RangeUnits = 30 * U };
+            cp.OnMessage(ProjectileMessage.ShotOf(p), 9, 1_250_000);
+            Assert.Single(cp.Items);
+            Assert.True(cp.Items[0].Confirmed);
+            Assert.Equal(1_200_000, cp.Items[0].StartUs);
+        }
+
+        /// <summary>
+        /// П E3-2, п. 5 и 7, по сети: «снаряд» (38) — стрелку и игрокам в окне; игрок в 200 т не получает ни выстрела, ни конца.
+        /// Отказ (стрелы выброшены в натяжении) приходит только стрелку.
+        /// </summary>
+        [Fact]
+        public void E32_Net_ProjectileFilteredByDistance_RefusalToOwnerOnly()
+        {
+            var shape = MapShape.World(1024);
+            WorldModel world = FlatWorldGenerator.Instance.Generate(shape, 7);
+            int joined = 0;
+            using var rig = new EditTests.EditRig(world, _ => joined++ < 2
+                ? new WorldPos(300 * U + U / 2 + (joined - 1) * 2 * U, 300 * U + U / 2)
+                : new WorldPos(500 * U + U / 2, 300 * U + U / 2));
+            for (int x = 298; x < 330; x++)
+                rig.Sim.RequestEdit(new TileCoord(x, 300), FloorId.Grass, ObjectId.Empty);
+            NetClient archer = rig.Join();
+            NetClient near = rig.Join();
+            NetClient far = rig.Join();
+            rig.Run(20);
+            Assert.Equal(NetClientState.InGame, far.State);
+            Assert.True(Torus.Dist2(shape, rig.Sim.GetEntity(far.EntityId).Mover.Position, rig.Sim.GetEntity(archer.EntityId).Mover.Position) > 150L * 150 * U * U);
+
+            int frame = 0;
+            rig.InputOf = c => c == archer
+                ? new InputFrame(Input8.None, ++frame <= 40 ? InputButtons.Attack : (ushort)0, 0, 4)
+                : InputFrame.None;
+            rig.Run(60);
+            Assert.Equal(1, archer.Projectiles.ShotsSeen);
+            Assert.Equal(1, archer.Projectiles.StopsSeen);
+            Assert.Equal(1, near.Projectiles.ShotsSeen);
+            Assert.Equal(0, far.Projectiles.ShotsSeen);
+            Assert.Equal(0, far.Projectiles.StopsSeen);
+
+            // Отказ: натягивает, в натяжении выбрасывает все стрелы, отпускает.
+            frame = 0;
+            rig.InputOf = c => c == archer
+                ? new InputFrame(Input8.None, ++frame <= 30 ? InputButtons.Attack : (ushort)0, 0, 4)
+                : InputFrame.None;
+            rig.Run(8);
+            Assert.True(archer.RequestBagDrop(Inventory.Slots));
+            rig.Run(40);
+            Assert.Equal(0, rig.Sim.GetEntity(archer.EntityId).Inv.Count(Items.Arrows));
+            Assert.Equal(1, archer.Projectiles.RefusedSeen);
+            Assert.Equal(0, near.Projectiles.RefusedSeen);
+            Assert.Equal(1, archer.Projectiles.ShotsSeen); // второго выстрела не было
+        }
     }
 }

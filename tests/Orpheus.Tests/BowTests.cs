@@ -242,7 +242,7 @@ namespace Orpheus.Tests
             Assert.Single(r.Stops);
             Assert.Equal(ProjectileEnd.Range, r.Stops[0].Reason);
             int dx = Torus.Delta(Map, At(10, 32), r.Stops[0].Position).X;
-            Assert.InRange(dx, 30 * U - Projectiles.StepUnits, 30 * U + 1);
+            Assert.InRange(dx, 30 * U - 2, 30 * U + 1);
             Assert.Equal(0, r.Sim.Projectiles.Length);
 
             var empty = new Range();
@@ -482,5 +482,197 @@ namespace Orpheus.Tests
         }
 
         private const ulong GoldenHash = 2109277538302106159UL;
+
+        // -------------------------------------------------------- П E3-2: стык стен углом, туннелирование, куча при попадании, уворот, отказ
+
+        /// <summary>Очистить прямоугольник тайлов от природных объектов (правка применится тактом).</summary>
+        private static void ClearArea(Range r, int x0, int y0, int x1, int y1)
+        {
+            for (int y = y0; y <= y1; y++)
+                for (int x = x0; x <= x1; x++)
+                    if (y != 32)
+                        r.Sim.RequestEdit(new TileCoord(x, y), FloorId.Grass, ObjectId.Empty);
+            r.Tick(false);
+        }
+
+        /// <summary>Снаряд персонажа под 45° (на юго-восток) от точки <paramref name="origin"/>; итог — причина конца.</summary>
+        private static ProjectileEnd Diagonal(Range r, WorldPos origin, int speedX256 = 28 * U * 256 / 30)
+        {
+            r.Stops.Clear();
+            Assert.True(r.Sim.SpawnProjectile(r.Char, false, Projectiles.KindArrow, origin, 8192, speedX256, 12 * U, 10, 0) > 0);
+            for (int t = 0; t < 30 && r.Stops.Count == 0; t++)
+                r.Tick(false);
+            Assert.Single(r.Stops);
+            return r.Stops[0].Reason;
+        }
+
+        /// <summary>
+        /// П E3-2, п. 1: «лесенка» — две стены, касающиеся углом ((16,32) и (15,33)): стрела под 45° через угол останавливается при
+        /// любом смещении линии в ±16 unit от угла (было: проходила при −1…+10). Без стен та же стрела попадает во врага за углом.
+        /// </summary>
+        [Fact]
+        public void E32_Staircase45_CornerJoint_StopsArrow()
+        {
+            var r = new Range();
+            ClearArea(r, 9, 26, 22, 38);
+            var corner = new WorldPos(16 * U, 33 * U);
+            for (int o = -16; o <= 16; o++)
+            {
+                int e = r.Sim.AddEnemy(new WorldPos(corner.X + 3 * U + o, corner.Y + 3 * U));
+                Assert.Equal(ProjectileEnd.Hit, Diagonal(r, new WorldPos(corner.X - 5 * U + o, corner.Y - 5 * U))); // без стен — попал
+                r.Sim.RemoveEntity(e);
+            }
+
+            r.Build(16, 32, ObjectId.StoneWall, BuildRecord.OfPlayer(1, FloorId.Grass));
+            r.Build(15, 33, ObjectId.StoneWall, BuildRecord.OfPlayer(1, FloorId.Grass));
+            r.Tick(false);
+            for (int o = -16; o <= 16; o++)
+            {
+                int e = r.Sim.AddEnemy(new WorldPos(corner.X + 3 * U + o, corner.Y + 3 * U));
+                Assert.True(Diagonal(r, new WorldPos(corner.X - 5 * U + o, corner.Y - 5 * U)) == ProjectileEnd.Wall, $"смещение {o}");
+                Assert.Equal(35, r.Sim.GetEntity(e).Health);
+                r.Sim.RemoveEntity(e);
+            }
+        }
+
+        /// <summary>П E3-2, п. 1: та же «лесенка» на ячейках 0,5 внутри одного тайла (СВ и ЮЗ ячейки — стена) — стык закрыт.</summary>
+        [Fact]
+        public void E32_Staircase45_HalfCells_StopsArrow()
+        {
+            var r = new Range();
+            ClearArea(r, 9, 26, 22, 38);
+            byte mask = (byte)(BuildCells.Bit(1, 0) | BuildCells.Bit(0, 1));
+            r.Build(15, 33, ObjectId.WoodWall, BuildRecord.OfPlayer(1, FloorId.Grass).WithCells(mask));
+            r.Tick(false);
+            Assert.Equal(mask, BuildCells.MaskAt(r.Sim.World, new TileCoord(15, 33)));
+            var corner = new WorldPos(15 * U + U / 2, 33 * U + U / 2);
+            for (int o = -16; o <= 16; o++)
+            {
+                Assert.True(Diagonal(r, new WorldPos(corner.X - 5 * U + o, corner.Y - 5 * U)) == ProjectileEnd.Wall, $"смещение {o}");
+            }
+        }
+
+        /// <summary>
+        /// П E3-2, п. 1: туннелирования нет — стена в полтайла (ячейки 0,5 по западному краю) останавливает стрелу при любой
+        /// скорости: 28 т/с и 3 тайла за такт (шаг такта больше ширины стены вшестеро), прямо и под углом.
+        /// </summary>
+        [Theory]
+        [InlineData(28 * U * 256 / 30, 0)]
+        [InlineData(3 * U * 256, 0)]
+        [InlineData(3 * U * 256, 4000)]
+        [InlineData(5 * U * 256, -3000)]
+        public void E32_ThinWall_NoTunneling(int speedX256, int aim)
+        {
+            var r = new Range();
+            ClearArea(r, 9, 26, 22, 38);
+            for (int y = 27; y <= 37; y++)
+                r.Build(15, y, ObjectId.WoodWall, BuildRecord.OfPlayer(1, FloorId.Grass).WithCells(BuildCells.DoorWest)); // столбец стены в полтайла
+            r.Tick(false);
+            int e = r.Sim.AddEnemy(At(20, 32));
+            Assert.True(r.Sim.SpawnProjectile(r.Char, false, Projectiles.KindArrow, new WorldPos(12 * U + U / 2, 32 * U + U / 2), (ushort)aim,
+                speedX256, 20 * U, 10, 0) > 0);
+            for (int t = 0; t < 20 && r.Stops.Count == 0; t++)
+                r.Tick(false);
+            Assert.Single(r.Stops);
+            Assert.Equal(ProjectileEnd.Wall, r.Stops[0].Reason);
+            Assert.True(Torus.Delta(Map, r.Stops[0].Position, new WorldPos(15 * U, 32 * U)).X >= 0, "остановилась перед стеной");
+            Assert.Equal(35, r.Sim.GetEntity(e).Health);
+        }
+
+        /// <summary>П E3-2, п. 3 (`02` 4.2): попавшая в существо стрела не остаётся кучей — 20 разных миров, ни одной кучи.</summary>
+        [Fact]
+        public void E32_HitArrow_LeavesNoPile()
+        {
+            int hits = 0;
+            for (ulong seed = 1; seed <= 20; seed++)
+            {
+                var r = new Range(seed: seed);
+                r.Sim.AddEnemy(At(14, 32));
+                r.Shoot(18, 20);
+                Assert.Single(r.Stops);
+                Assert.Equal(ProjectileEnd.Hit, r.Stops[0].Reason);
+                Assert.False(r.Stops[0].Dropped);
+                hits++;
+                foreach (GroundPile p in r.Sim.Piles)
+                    Assert.NotEqual(Items.Arrows, p.Item);
+            }
+
+            Assert.Equal(20, hits);
+        }
+
+        /// <summary>
+        /// П E3-2, п. 4 (`02` 4.6 п. 5): снаряд врага летит в персонажа; рывок навстречу стреле в последний миг — стрела проходит
+        /// сквозь (неуязвимость рывка), урона нет; без рывка — попадание.
+        /// </summary>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void E32_DodgeInvulnerability_ArrowPassesThrough(bool dodge)
+        {
+            var r = new Range();
+            int shooter = r.Sim.AddEnemy(At(24, 32));
+            Assert.True(r.Sim.SpawnProjectile(shooter, true, Projectiles.KindArrow, At(22, 32), Orpheus.Core.Trig.Angle16.Half,
+                20 * U * 256 / 30, 20 * U, 10, 0) > 0);
+            bool dashed = false;
+            var frames = new InputFrame[2];
+            for (int t = 0; t < 40; t++)
+            {
+                WorldPos me = r.Sim.GetEntity(r.Char).Mover.Position;
+                bool press = false;
+                if (dodge && !dashed && r.Sim.Projectiles.Length > 0)
+                {
+                    Projectile p = r.Sim.Projectiles[0];
+                    int dx = Torus.Delta(Map, me, Torus.Wrap(Map, p.PositionAt(p.Age))).X;
+                    press = dx < 2 * U; // стрела в 2 т — рывок на восток, навстречу ей (остаётся на линии)
+                }
+
+                frames[0] = new InputFrame(press ? Input8.East : Input8.None,
+                    press ? InputButtons.Dodge : (ushort)0, 0, BowSlot);
+                frames[1] = new InputFrame(press ? Input8.East : Input8.None, 0, 0, BowSlot);
+                dashed |= press;
+                r.Sim.SetFramesAt(r.Sim.SlotOf(r.Char), frames);
+                r.Sim.Step();
+                foreach (SimEvent ev in r.Sim.Events)
+                    if (ev.Kind == SimEventKind.Damage)
+                        r.Damage.Add(ev);
+            }
+
+            if (dodge)
+            {
+                Assert.True(dashed);
+                Assert.Empty(r.Damage);
+                Assert.Equal(Simulation.MaxHealthCharacter, r.Sim.GetEntity(r.Char).Health);
+            }
+            else
+            {
+                Assert.Single(r.Damage);
+                Assert.Equal(r.Char, r.Damage[0].Victim);
+            }
+        }
+
+        /// <summary>
+        /// П E3-2, п. 5: автомат лука выстрелил, а стрел уже нет (выброшены в натяжении) — снаряда нет, в такте — запись «отказ»
+        /// (номер 0, владелец — стрелок) для клиента.
+        /// </summary>
+        [Fact]
+        public void E32_ShotWithoutArrows_Refused()
+        {
+            var r = new Range();
+            for (int t = 0; t < 10; t++)
+                r.Tick(true);
+            Assert.Equal(BowAction.PhaseDraw, r.Sim.GetEntity(r.Char).Mover.Bow.Phase);
+            Assert.True(r.Sim.RequestBagOp(r.Char, BagOp.Drop, Inventory.Slots, Inventory.Slots, 0)); // все 50 стрел на землю
+            r.Tick(true);
+            Assert.Equal(0, r.Arrows);
+            r.Stops.Clear();
+            for (int t = 0; t < 5; t++)
+                r.Tick(false);
+            Assert.Empty(r.Shots);
+            Assert.Single(r.Stops);
+            Assert.Equal(ProjectileEnd.Refused, r.Stops[0].Reason);
+            Assert.Equal(0, r.Stops[0].Id);
+            Assert.Equal(r.Char, r.Stops[0].Owner);
+            Assert.Equal(0, r.Sim.Projectiles.Length);
+        }
     }
 }

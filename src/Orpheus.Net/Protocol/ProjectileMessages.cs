@@ -20,7 +20,9 @@ namespace Orpheus.Net.Protocol
     /// между ними клиент считает сам тем же счётом ядра. Выстрел: тип 1 + оп 1 + номер u32 + владелец u32 + вид 1 +
     /// флаги 1 (бит 0 — снаряд врага) + такт выстрела u32 + точка x u32, y u32 + ось u16 + скорость u32 (unit × 256 за
     /// такт) + дальность u32 (unit) = 34 байта. Конец: тип 1 + оп 1 + номер u32 + причина 1 + точка x u32, y u32 +
-    /// жертва u32 (−1 — нет) + воткнулась кучей 1 = 20 байт. Попадания решает только сервер.
+    /// жертва u32 (−1 — нет) + воткнулась кучей 1 = 20 байт; причина «отказ» (4, номер 0) — выстрела не было, только владельцу.
+    /// Получатели: выстрел — владелец и игроки в 56 т от точки выстрела; конец — владелец и игроки в 56 + 40 т от точки конца.
+    /// Попадания решает только сервер.
     /// </summary>
     public struct ProjectileMessage
     {
@@ -139,7 +141,7 @@ namespace Orpheus.Net.Protocol
                 m.Victim = (int)r.ReadUInt32();
                 byte dropped = r.ReadByte();
                 m.Dropped = dropped == 1;
-                if (m.Reason < ProjectileEnd.Hit || m.Reason > ProjectileEnd.Range || dropped > 1)
+                if (m.Reason < ProjectileEnd.Hit || m.Reason > ProjectileEnd.Refused || dropped > 1)
                 {
                     throw new ProtocolException($"Снаряд #{m.Id}: причина {(byte)m.Reason}, куча {dropped}.");
                 }

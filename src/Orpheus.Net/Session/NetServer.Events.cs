@@ -184,7 +184,7 @@ namespace Orpheus.Net.Session
         public long ProjectileMessagesSent { get; private set; }
 
         /// <summary>
-        /// Снаряды такта (E3-2, `02` 4.4): выстрелы, затем концы — сообщение «снаряд» (38) каналом 2 всем в игре. Полёт
+        /// Снаряды такта (E3-2, `02` 4.4): выстрелы, затем концы — сообщение «снаряд» (38) каналом 2: стрелку и игрокам в окне (выстрел — 56 т от точки выстрела, конец — 96 т от точки конца), отказ — только стрелку. Полёт
         /// между ними клиент считает сам; летящие до входа игрока снаряды он не видит (короткоживущие, ≤ 1,7 с).
         /// </summary>
         private void BroadcastProjectiles()
@@ -193,16 +193,37 @@ namespace Orpheus.Net.Session
             ReadOnlySpan<ProjectileStop> stops = _sim.StopsThisTick;
             for (int k = 0; k < shots.Length + stops.Length; k++)
             {
-                ProjectileMessage m = k < shots.Length ? ProjectileMessage.ShotOf(shots[k]) : ProjectileMessage.StopOf(stops[k - shots.Length]);
+                bool shot = k < shots.Length;
+                ProjectileMessage m = shot ? ProjectileMessage.ShotOf(shots[k]) : ProjectileMessage.StopOf(stops[k - shots.Length]);
                 int len = m.Write(_buf);
+                bool ownerOnly = !shot && m.Reason == ProjectileEnd.Refused;
+                int reach = (shot ? DamageViewTiles : DamageViewTiles + Projectiles.StopViewExtraTiles) * Torus.SubTilesPerTile;
                 for (int p = 0; p < _players.Count; p++)
                 {
                     Player pl = _players[p];
-                    if (pl.State == PlayerState.InGame)
+                    if (pl.State != PlayerState.InGame)
                     {
-                        _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
-                        ProjectileMessagesSent++;
+                        continue;
                     }
+
+                    if (pl.EntityId != m.Owner)
+                    {
+                        // П E3-2, п. 7: как «урон» — стрелку всегда, остальным — в окне от точки выстрела / конца.
+                        int ps = _sim.SlotOf(pl.EntityId);
+                        if (ownerOnly || ps < 0)
+                        {
+                            continue;
+                        }
+
+                        Int2 d = Torus.Delta(_sim.Shape, _sim.Entities[ps].Mover.Position, m.Position);
+                        if (Math.Abs(d.X) > reach || Math.Abs(d.Y) > reach)
+                        {
+                            continue;
+                        }
+                    }
+
+                    _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                    ProjectileMessagesSent++;
                 }
             }
         }

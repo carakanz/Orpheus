@@ -170,7 +170,7 @@ namespace Orpheus.Net.Session
         /// <summary>Форма карты из входа.</summary>
         public MapShape Shape => _layout.Shape;
 
-        /// <summary>Стрелы на клиенте (E3-2): выстрелы и концы с сервера (тип 37) и свои предсказанные.</summary>
+        /// <summary>Стрелы на клиенте (E3-2): выстрелы и концы с сервера (тип 38) и свои предсказанные.</summary>
         public ClientProjectiles Projectiles { get; } = new ClientProjectiles(default);
 
         /// <summary>Отказ входа: текст для игрока.</summary>

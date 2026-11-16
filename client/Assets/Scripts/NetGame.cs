@@ -86,7 +86,7 @@ namespace Orpheus.Client
         readonly HashSet<int> _seen = new HashSet<int>();
         GameObject _entityRoot = null!;
         PileView? _pileView; // E2-1: кучи на земле (сообщения 27 и 28)
-        ArrowView? _arrowView; // E3-2: стрелы (сообщение 37 и свои предсказанные), прицел натяжения
+        ArrowView? _arrowView; // E3-2: стрелы (сообщение 38 и свои предсказанные), прицел натяжения
         UI.GameUi? _ui;      // E2-2: быстрая панель, окно сумки, полосы
         Sprite _heroSprite = null!;
 
