@@ -86,6 +86,7 @@ namespace Orpheus.Client
         readonly HashSet<int> _seen = new HashSet<int>();
         GameObject _entityRoot = null!;
         PileView? _pileView; // E2-1: кучи на земле (сообщения 27 и 28)
+        ArrowView? _arrowView; // E3-2: стрелы (сообщение 37 и свои предсказанные), прицел натяжения
         UI.GameUi? _ui;      // E2-2: быстрая панель, окно сумки, полосы
         Sprite _heroSprite = null!;
 
@@ -149,6 +150,7 @@ namespace Orpheus.Client
             _heroSprite = _g.Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
             _entityRoot = new GameObject("Entities");
             _pileView = new PileView(new GameObject("Piles").transform);
+            _arrowView = new ArrowView(new GameObject("Arrows").transform); // E3-2: стрелы и прицел натяжения
         }
 
         /// <summary>
@@ -409,6 +411,7 @@ namespace Orpheus.Client
             _world = cw.World;
             _localId = accept.EntityId;
             _pileView?.Clear(); // E2-1: кучи нового входа сервер пришлёт заново
+            _client.Projectiles.Clear(); // E3-2: стрелы прежнего входа
             WorldPos spawn = CenterOf(accept.MapWidth / 2, accept.MapHeight / 2);
             _origin = new FloatingOrigin(_map, Torus.ChunkOf(_map, spawn));
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
@@ -595,6 +598,24 @@ namespace Orpheus.Client
 
         ushort _lastAim;
 
+        /// <summary>Точка плоскости земли под курсором (E3-2: прицел натяжения); мыши нет или она вне окна — null.</summary>
+        Vector3? CursorPoint()
+        {
+            Mouse? mouse = Mouse.current;
+            if (mouse == null)
+            {
+                return null;
+            }
+
+            Vector3 screen = mouse.position.ReadValue();
+            if (screen.x < 0f || screen.y < 0f || screen.x > Screen.width || screen.y > Screen.height)
+            {
+                return null;
+            }
+
+            return _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
+        }
+
         /// <summary>Своих выстрелов нарисовано по предсказанию (E3-2).</summary>
         public long ShotsPredicted { get; private set; }
 
@@ -742,6 +763,8 @@ namespace Orpheus.Client
 
             _anim?.Frame(now, _pred!);
             _pileView?.Frame(_origin!, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
+            _arrowView?.Frame(_client!.Projectiles, now, _origin!, _pred!.Bow, _g.Character.position,
+                _args.NetSmokeSeconds > 0 ? null : CursorPoint()); // E3-2: стрелы и кольцо силы у курсора
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeFrame(me, dx, dy);

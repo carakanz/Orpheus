@@ -73,6 +73,9 @@ namespace Orpheus.Net.Session
         /// <summary>Выстрелов с сервера принято.</summary>
         public long ShotsSeen { get; private set; }
 
+        /// <summary>Выстрел с сервера (для позы выстрела чужих).</summary>
+        public Action<ProjectileMessage>? ShotSeen { get; set; }
+
         /// <summary>Концов снарядов с сервера принято.</summary>
         public long StopsSeen { get; private set; }
 
@@ -117,6 +120,7 @@ namespace Orpheus.Net.Session
             if (m.Op == ProjectileOp.Shot)
             {
                 ShotsSeen++;
+                ShotSeen?.Invoke(m);
                 if (m.Owner == ownEntity)
                 {
                     for (int i = 0; i < _items.Count; i++)
