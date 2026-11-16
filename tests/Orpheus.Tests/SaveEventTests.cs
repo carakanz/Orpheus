@@ -73,7 +73,9 @@ namespace Orpheus.Tests
 
             storage.Release();
             var w = Stopwatch.StartNew();
-            while (saver.Written < 2 && w.ElapsedMilliseconds < 10_000)
+            // P-003: ждём СОБЫТИЕ (второе сохранение в мире) — под `-All` фоновый поток записи
+            // голодает и за 10 с не успевал; лимит ожидания 10→30 с, проверка та же.
+            while (saver.Written < 2 && w.ElapsedMilliseconds < 30_000)
             {
                 Tick(live.Sim, saver);
                 Thread.Sleep(1000 / Simulation.TickRate);
@@ -423,7 +425,9 @@ namespace Orpheus.Tests
             {
                 Tick(sim, saver);
                 var w = Stopwatch.StartNew();
-                while (saver.Writing && w.ElapsedMilliseconds < 10_000)
+                // P-003: ожидание конца фоновой записи — событие, а не тайминг; под `-All` поток
+                // записи голодает и за 10 с не кончался («запись не кончилась»). Лимит 10→30 с.
+                while (saver.Writing && w.ElapsedMilliseconds < 30_000)
                 {
                     Thread.Sleep(1);
                     saver.AfterTick(sim); // тот же такт: забрать итог; повод уже снят, нового не начнёт
@@ -444,7 +448,9 @@ namespace Orpheus.Tests
                 live.Run(1, 2);
                 saver.AfterTick(live.Sim);
                 var w = Stopwatch.StartNew();
-                while (saver.Writing && w.ElapsedMilliseconds < 10_000)
+                // P-003: ожидание конца фоновой записи — событие, а не тайминг; под `-All` поток
+                // записи голодает и за 10 с не кончался («запись не кончилась»). Лимит 10→30 с.
+                while (saver.Writing && w.ElapsedMilliseconds < 30_000)
                 {
                     Thread.Sleep(1);
                     saver.AfterTick(live.Sim);
