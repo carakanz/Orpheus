@@ -114,7 +114,11 @@ def main():
     while queue:
         batch = queue.pop(0)
         try:
-            ans = {r.get('id'): r for r in ask(batch) if isinstance(r, dict)}
+            arr = [r for r in ask(batch) if isinstance(r, dict)]
+            ans = {r.get('id'): r for r in arr}
+            if len(arr) == len(batch) and not any(c['id'] in ans for c in batch):
+                log('id не совпали, сопоставляю по порядку', [r.get('id') for r in arr])
+                ans = {c['id']: dict(r, id=c['id']) for c, r in zip(batch, arr)}
             conn_err = 0
         except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
             conn_err += 1
