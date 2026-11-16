@@ -104,6 +104,9 @@ namespace Orpheus.Bots
 
         /// <summary>Сценарий <c>dig_line</c> (0-028): итог строкой; иначе null.</summary>
         public string? DigLine { get; set; }
+
+        /// <summary>Итог сценария <c>craft_chain</c> (E2-3) строкой; другой сценарий — null.</summary>
+        public string? CraftChain { get; set; }
         public int RocksDug { get; set; }
 
         /// <summary>Сценарий <c>build_room</c> (1-026, приёмка `08` 3.1 1.5): итог строкой; иначе null.</summary>
@@ -192,6 +195,9 @@ namespace Orpheus.Bots
         public int Disconnects { get; set; }
 
         public List<BotStats> Bots { get; } = new List<BotStats>();
+
+        /// <summary>Журнал паузы (C-003, <c>--pause-at</c>): когда появилось предсказание и каждая правка — см. <see cref="BotPause.Log"/>.</summary>
+        public List<string> PauseLog { get; } = new List<string>();
 
         /// <summary>Доля сверок предсказания с расхождением ≤ 0,5 тайла по всем ботам (2.13 п. 1); сверок нет — 0.</summary>
         public double PredWithinHalfTile
@@ -414,6 +420,11 @@ namespace Orpheus.Bots
                 DisconnectText = bots.Length > 0 ? bots[0].Client.DisconnectText : null,
             };
 
+            if (pause != null)
+            {
+                report.PauseLog.AddRange(pause.Log);
+            }
+
             for (int i = 0; i < bots.Length; i++)
             {
                 NetClient c = bots[i].Client;
@@ -465,11 +476,16 @@ namespace Orpheus.Bots
                                  $"предсказаний {bots[i].Client.World?.Predicted ?? 0}, откатов {bots[i].Client.World?.PredictionsRolledBack ?? 0}";
                 }
 
+                if (bots[i].CraftChain != null)
+                {
+                    st.CraftChain = bots[i].CraftChain!.Summary;
+                }
+
                 BuildRoomBot? build = bots[i].Builder;
                 if (build != null)
                 {
                     st.BuildRoom = $"этап {build.Stage}, добыча {build.GatherTicks} тиков (камня {build.StoneAtGatherEnd}, древесины {build.WoodAtGatherEnd}, скал {build.RocksDug}, деревьев {build.TreesChopped}), " +
-                                   $"полов {build.FloorsPlaced}/9, стен {build.WallsPlaced}/15, дверь {(build.DoorPlaced ? "поставлена" : "не поставлена")}, закрыта {(build.DoorClosed ? "да" : "нет")}, " +
+                                   $"полов {build.FloorsPlaced}/{BuildRoomBot.FloorTiles}, стен {build.WallsPlaced}/15, дверь {(build.DoorPlaced ? "поставлена" : "не поставлена")}, закрыта {(build.DoorClosed ? "да" : "нет")}, " +
                                    $"стройка {build.BuildTicks} тиков, урон за дверью {build.DamageThroughDoor} кадров, смертей {build.Deaths}, рассвет {(build.DawnReached ? "дождались" : "нет")}, ударов {build.AttacksIssued}" +
                                    $"{(build.FailReason != null ? $", отказ: {build.FailReason}" : "")}" +
                                    $"; отказов {build.Refused} ({build.RefusalsText})" +
@@ -570,6 +586,11 @@ namespace Orpheus.Bots
                 if (report.Bots[i].Dodge != null)
                 {
                     console?.WriteLine($"  уворот, бот {i}: {report.Bots[i].Dodge}");
+                }
+
+                if (report.Bots[i].CraftChain != null)
+                {
+                    console?.WriteLine($"  craft_chain, бот {i}: {report.Bots[i].CraftChain}");
                 }
 
                 if (report.Bots[i].DigLine != null)
@@ -804,6 +825,11 @@ namespace Orpheus.Bots
                 w.WriteNumber("clockSamplesWhileHeld", b.ClockSamplesWhileHeld);
                 w.WriteNumber("pausesReleasedBySnapshot", b.PausesReleasedBySnapshot);
                 w.WriteNumber("pausesStale", b.PausesStale);
+                if (b.CraftChain != null)
+                {
+                    w.WriteString("craftChain", b.CraftChain);
+                }
+
                 if (b.DigLine != null)
                 {
                     w.WriteString("digLine", b.DigLine);

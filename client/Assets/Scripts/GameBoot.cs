@@ -96,10 +96,13 @@ namespace Orpheus.Client
         SmokeRun? _smoke;
         ScreenshotRun? _screenshot;
         Anim.ActorRig? _heroRig;        // K-001: ходьба и дыхание своего персонажа офлайн
+        WadeDemoEnemy? _wadeEnemy;      // C-018: враг-болванка в воде (--wade-demo enemy)
         Anim.AnimShowcase? _showcase;   // K-001: показ анимации и замер (--anim-shots, --anim-bench)
         TileBenchRun? _tileBench;       // 1-022: стенд «48 Tilemap» (--tile-bench): бег через шов + поток правок, замеры
         DayTintView? _dayTint;          // E1-8: тон суток (ночь, сумерки, рассвет; свет факела и костра)
         int _hudFrame;
+        PileView? _piles;               // E2-1: кучи на земле без сервера (--demo-piles, сцена снимков)
+        UI.UiDemo? _uiDemo;             // E2-2: интерфейс без сервера (--ui-demo, сцены снимков)
 
         void Awake()
         {
@@ -111,6 +114,7 @@ namespace Orpheus.Client
             }
 
             CreateInput();
+            WorldFx.Init(Camera, Character); // E1-7: слой теней, персонаж за кроной (до первого WorldView)
 
             // Сетевой режим (0-012): мир присылает сервер, поэтому здесь только связь; окно — сразу с HUD-текстом.
             // Одиночная и хост (0-024) — тот же сетевой режим: сервер — дочерний процесс, вход через 127.0.0.1 (07, 2.3).
@@ -144,6 +148,11 @@ namespace Orpheus.Client
                 PaintDemo.Apply(World, Map); // E1-4: тестовый узор у старта — только для снимков
             }
 
+            if (Args.PaintForest)
+            {
+                PaintDemo.ApplyBenchForest(World, Map); // E1-7: плотный лес для замера
+            }
+
             // Правила проходимости — те же, что в такте сервера (Simulation.IsBlocked): пол и объекты, `05` 1.3.
             Rules = new Simulation(World, maxEntities: 1, maxEditsPerTick: 1, reserveBuildMaps: 0);
 
@@ -174,6 +183,69 @@ namespace Orpheus.Client
             }
 
             _heroRig = new Anim.ActorRig(Character);
+            if (Args.DemoPiles)
+            {
+                // E2-1: кучи на земле для снимка без сервера (после телепорта снимка — вокруг точки сцены).
+                _piles = new PileView(new GameObject("Piles").transform);
+                _piles.AddDemo(Map, Player.Position, t => Rules.IsBlocked(Map, t));
+            }
+
+            if (Args.HomeDemo != null)
+            {
+                // E2-17: дом «с высотой» для снимков — постройки вокруг персонажа, персонаж в нужном месте сцены.
+                TileCoord at = Torus.TileOf(Map, Player.Position);
+                PaintDemo.Home(World, Map, at.X, at.Y, Args.HomeDemo!);
+                View.Clear();
+                View.UpdateWindow(Player.Position);
+            }
+
+            if (Args.WadeDemo != null)
+            {
+                // C-018: пруд и кусты вокруг персонажа; в сцене enemy — враг-болванка в воде.
+                TileCoord at = Torus.TileOf(Map, Player.Position);
+                PaintDemo.Wade(World, Map, at.X, at.Y, Args.WadeDemo!);
+                View.Clear();
+                View.UpdateWindow(Player.Position);
+                if (PaintDemo.WadeDemoEnemyTile(Args.WadeDemo!, at.X, at.Y, out TileCoord et))
+                {
+                    Sprite heroSprite = Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                    _wadeEnemy = new WadeDemoEnemy(new GameObject("WadeDemo").transform, heroSprite, Origin, TileCenter(et));
+                }
+            }
+
+            if (Args.UiDemo != null)
+            {
+                if (Args.ScreenshotPath != null)
+                {
+                    UI.UiRoot.FixedFrame = new Vector2Int(Args.ShotPixelsX, Args.ShotPixelsY); // холст — сразу в размере снимка
+                }
+
+                if (UI.UiDemo.IsCraft(Args.UiDemo))
+                {
+                    // E2-4: окно крафта показывается у верстака — ставим его в двух тайлах восточнее персонажа, костёр — западнее.
+                    TileCoord at = Torus.TileOf(Map, Player.Position);
+                    PaintDemo.Put(World, Map, at.X + 2, at.Y, ObjectId.Workbench);
+                    PaintDemo.Put(World, Map, at.X - 6, at.Y + 1, ObjectId.Campfire);
+                    PaintDemo.Put(World, Map, at.X + 4, at.Y - 1, ObjectId.Torch);
+                    View.Clear();
+                    View.UpdateWindow(Player.Position);
+                }
+
+                if (UI.UiDemo.IsBuild(Args.UiDemo))
+                {
+                    // E2-5: сцены режима стройки, сундука и дома — постройки вокруг персонажа (PaintDemo.House).
+                    TileCoord at = Torus.TileOf(Map, Player.Position);
+                    PaintDemo.House(World, Map, at.X, at.Y, Args.UiDemo!);
+                    View.Clear();
+                    View.UpdateWindow(Player.Position);
+                }
+
+                _uiDemo = new UI.UiDemo(Camera, Args.UiDemo, World);
+                if (UI.UiDemo.IsBuild(Args.UiDemo))
+                {
+                    _uiDemo.BindWorld(Origin, transform);
+                }
+            }
         }
 
         void OnDestroy()
@@ -325,8 +397,11 @@ namespace Orpheus.Client
             // 5. Персонаж и камера.
             PlaceCharacterAndCamera();
             _heroRig?.AnimateWalk(Time.deltaTime);
+            _wadeEnemy?.Frame(Time.deltaTime);
+            _piles?.Frame(Origin, Time.deltaTime);
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
+            _uiDemo?.Frame(Player.Position);
             UpdateHud();
             _smoke?.AfterFrame();
             _screenshot?.AfterFrame();
@@ -341,6 +416,7 @@ namespace Orpheus.Client
             Vector3 p = Origin.ToUnity(from) + new Vector3(dx / FloatingOrigin.UnitsPerTile, -dy / FloatingOrigin.UnitsPerTile, 0f);
             Character.position = p;
             Camera.transform.position = p + CameraOffset;
+            WorldFx.SetHero(p);
         }
 
         void UpdateHud()

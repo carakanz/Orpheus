@@ -97,7 +97,66 @@ namespace Orpheus.Core.Sim
                 throw new ArgumentNullException(nameof(sim));
             }
 
-            return Compute(sim.World, sim.Tick, sim.WorldTime, sim.Entities);
+            StateHashResult r = Compute(sim.World, sim.Tick, sim.WorldTime, sim.Entities);
+            if (sim.ChestCount > 0)
+            {
+                // Сундуки с содержимым (E2-5) входят в состояние: тайл и ячейки по порядку (Y, X). Сундуков нет — хэш прежний.
+                var hc = new Hasher64(r.Total);
+                ReadOnlySpan<Geometry.TileCoord> tiles = sim.ChestTiles;
+                ReadOnlySpan<Inventory> chests = sim.ChestContents;
+                hc.Add(tiles.Length);
+                for (int i = 0; i < tiles.Length; i++)
+                {
+                    hc.Add(tiles[i].X);
+                    hc.Add(tiles[i].Y);
+                    chests[i].AddTo(ref hc);
+                }
+
+                r = new StateHashResult(r.Tick, hc.Value, r.World);
+            }
+
+            if (sim.Heals.Length > 0)
+            {
+                // Восстановление построек (E2-14) входит в состояние: тайл, урон, такт записи в мир, следующая запись, остаток
+                // накопителя — по порядку списка (он задаёт, кто пишет первым при пределе правок такта). Списка нет — хэш прежний.
+                var hh = new Hasher64(r.Total);
+                ReadOnlySpan<BuildHeal> heals = sim.Heals;
+                hh.Add(heals.Length);
+                for (int i = 0; i < heals.Length; i++)
+                {
+                    hh.Add(heals[i].Tile.X);
+                    hh.Add(heals[i].Tile.Y);
+                    hh.Add(heals[i].Hit);
+                    hh.Add(heals[i].Last);
+                    hh.Add(heals[i].Due);
+                    hh.Add(heals[i].Acc);
+                }
+
+                r = new StateHashResult(r.Tick, hh.Value, r.World);
+            }
+
+            if (sim.NextPileId == 1)
+            {
+                return r; // куч не было ни разу — хэш тот же, что до E2-1 (эталоны сценариев без добычи не меняются)
+            }
+
+            // Кучи на земле (E2-1) входят в состояние: счётчик номеров и каждая куча по порядку.
+            var h = new Hasher64(r.Total);
+            ReadOnlySpan<GroundPile> piles = sim.Piles;
+            h.Add(sim.NextPileId);
+            h.Add(piles.Length);
+            for (int i = 0; i < piles.Length; i++)
+            {
+                h.Add(piles[i].Id);
+                h.Add(piles[i].Item);
+                h.Add(piles[i].Count);
+                h.Add(piles[i].Position.X);
+                h.Add(piles[i].Position.Y);
+                h.Add(piles[i].ExpireTick);
+                h.Add(piles[i].PickupTick);
+            }
+
+            return new StateHashResult(r.Tick, h.Value, r.World);
         }
 
         /// <summary>Хэш канонического вида из частей: мир, номер такта, сущности по номеру (для тестов полноты и инструментов). Время мира — 0.</summary>
@@ -205,7 +264,18 @@ namespace Orpheus.Core.Sim
             h.Add(e.Brain.InterestUntil);
             h.Add(e.Brain.FarSince);
             // Кэш пути (PathStamp/PathPos) — производный от запросов, чья постановка видна в хэше; не хэшируется.
-            e.Inv.AddTo(ref h); // сумка целиком (1-002): ячейка в руках, ячейки, счётчики
+            e.Inv.AddTo(ref h); // сумка целиком (1-002, E2-1): ячейка в руках и все ячейки
+            if (!e.Craft.IsEmpty)
+            {
+                e.Craft.AddTo(ref h); // очередь изготовления (E2-3) — только непустая: хэши сценариев без крафта прежние
+            }
+
+            if (e.HasBed)
+            {
+                h.Add(e.Bed.X); // точка возрождения (E2-5) — только назначенная: хэши сценариев без кровати прежние
+                h.Add(e.Bed.Y);
+            }
+
             return h.Value;
         }
 
@@ -278,9 +348,13 @@ namespace Orpheus.Core.Sim
                     h.Add(builds[k]);
                     h.Add(r.Owner);
                     h.Add(r.Integrity);
-                    h.Add(r.Flags);
-                    h.Add(r.NaturalFloor);
+                    h.Add((byte)(r.Flags & ~(byte)BuildFlags.Wide)); // E2-16: «многоклеточная» выводится из объекта — хэш старых миров прежний
+                    h.Add(r.FloorCells); // E2-12: пол + маска ячеек (без тонких стен — прежний пол)
                     h.Add(r.DebrisEndTick);
+                    if (r.Layout != 0)
+                    {
+                        h.Add(r.Layout); // E2-15: ячейки пола и сдвиг мебели; без них — хэш старых миров прежний
+                    }
                 }
             }
 

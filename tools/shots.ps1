@@ -29,7 +29,9 @@ param(
     # Run every scene twice and compare the PNG (proof that a rerun gives the same frames).
     [switch] $Check,
     # Per-scene limit, seconds.
-    [int] $TimeoutSec = 60
+    [int] $TimeoutSec = 60,
+    # Display the player binds to (2 = the Author's non-primary monitor); nothing is shown on it.
+    [int] $Monitor = 2
 )
 
 $ErrorActionPreference = 'Stop'
@@ -59,12 +61,19 @@ $total = [Diagnostics.Stopwatch]::StartNew()
 function Invoke-Shot($scene, [string] $png) {
     $log = Join-Path $logDir ($scene.name + '.log')
     if (Test-Path $png) { Remove-Item -Force $png }
-    $a = @('-batchmode', '--seed', "$($scene.seed)", '--size', "$($scene.size)", '--screenshot', "`"$png`"")
+    # -monitor 2 + a tiny window: the player binds its swap chain to the NON-primary display, so a fullscreen
+    # app on the primary monitor does not blink (the picture itself is rendered to a texture of --shot-size).
+    $a = @('-batchmode', '-monitor', "$Monitor", '-screen-fullscreen', '0', '-screen-width', '320', '-screen-height', '180', '--seed', "$($scene.seed)", '--size', "$($scene.size)", '--screenshot', "`"$png`"")
     if ($scene.tile) { $a += @('--shot-tile', ("{0},{1}" -f [int]$scene.tile[0], [int]$scene.tile[1])) }
     if ($scene.width) { $a += @('--shot-width', "$([int]$scene.width)") }
     # Extra client keys of the scene, e.g. "args": ["--paint-demo"] (E1-4).
     if ($scene.args) { $a += @($scene.args | ForEach-Object { "$_" }) }
-    $a += @('--shot-size', ("{0}x{1}" -f $width, $height), '-logFile', "`"$log`"")
+    # Time of day of the scene (E1-7): "time": "day" | "dusk" | "night" | "dawn" or a day fraction 0..1.
+    if ($scene.time) { $a += @('--shot-time', "$($scene.time)") }
+    # E2-2: a scene may carry its own frame size (UI at 1280x720): "frame": { "width": W, "height": H }.
+    $sw = $width; $sh = $height
+    if ($scene.frame) { $sw = [int]$scene.frame.width; $sh = [int]$scene.frame.height }
+    $a += @('--shot-size', ("{0}x{1}" -f $sw, $sh), '-logFile', "`"$log`"")
     # The client runs on a separate invisible desktop (tools\run_hidden.ps1): even with -batchmode the
     # player creates a window, and on the user's desktop that window takes keyboard focus.
     $hidden = Join-Path $PSScriptRoot 'run_hidden.ps1'

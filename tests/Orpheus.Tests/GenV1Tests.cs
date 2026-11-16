@@ -52,7 +52,8 @@ namespace Orpheus.Tests
         /// <summary>
         /// Одно зерно дважды — одинаковые хэши макрокарты (после этапа 7) и всех чанков (SHA-256 снимка генерации и
         /// <see cref="StateHash.Generation"/>); эталоны — одинаковые в Debug (CI) и Release (<c>dotnet test -c Release</c>).
-        /// Меняется результат — меняются эталоны и растёт <see cref="GeneratorV1.GeneratorVersion"/>.
+        /// Меняется результат — меняются эталоны и растёт <see cref="GeneratorV1.GeneratorVersion"/>. Эталоны снимка и генерации
+        /// обновлены в E1-2 (версия 5: вода, обрывы, лес куртинами), E1-6b (6), E2-6 (версия 7: залежи пятнами), C-016 (версия 8: горы-лабиринт); макрокарта не менялась — её эталон прежний.
         /// </summary>
         [Fact]
         public void D17_Gen_SameSeedTwice_SameHashes_Golden()
@@ -69,8 +70,8 @@ namespace Orpheus.Tests
             ulong gen = StateHash.Generation(loaded);
             _out.WriteLine($"зерно 1: макрокарта {a.Macro.Map.HashHex()}, снимок {Sha(baseA)}, генерация {gen:x16}");
             Assert.Equal("912d8e607f4a3b7c2f9b8400c288dd72c4fbc873c3ee61d9303122a0fcb3f202", a.Macro.Map.HashHex());
-            Assert.Equal("44b043a093e0bb9a9b3586c153c1bdd778ba9d346f4d8c7c19c965c909eaebae", Sha(baseA));
-            Assert.Equal(0xdfb545018fe15c73UL, gen);
+            Assert.Equal("5a957e8fb7f36b67ed49755dc979eaf2488e90d11a22a322717ac94b04925f80", Sha(baseA));
+            Assert.Equal(0xe147de544594261fUL, gen);
 
             TileWorld other = GeneratorV1.BuildTiles(MapShape.World(W), 2);
             Assert.NotEqual(StateHash.Generation(GeneratorV1.ToModel(other)), gen);
@@ -151,9 +152,9 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// 30 зёрен 1024²: деревья на лугах 6–10 на 1000 тайлов (заглушка — ~56); залежей меди в 600 от Очага ≥ 8;
-        /// от Очага без копания достижимы ≥ 99 % проходимых тайлов лугов и леса; лес — ~120 на 1000; скальная масса гор ~45 %;
-        /// доли биомов тайлов — в 1 п. п. от макрокарты.
+        /// 30 зёрен 1024²: залежей меди в 600 от Очага ≥ 8; от Очага без копания достижимы ≥ 98 % проходимых тайлов лугов и
+        /// леса; доли биомов тайлов — в 1 п. п. от макрокарты. Плотности деревьев, валунов, воды и обрывов — с E1-2 в
+        /// <see cref="ReliefTests"/> (лес 35–55 % вместо 120 на 1000, скальной массы гор больше нет).
         /// </summary>
         [Fact]
         public void D17_Gen_30Seeds_TreesCopperConnectivity()
@@ -166,23 +167,19 @@ namespace Orpheus.Tests
                                $"гранит пещер {s.CaveGranite:F1} %; доли тайлов − макро ≤ {s.MaxShareDiff:F2} п. п.");
             }
 
-            Assert.All(all, s => Assert.InRange(s.MeadowTrees, 6.0, 10.0));
-            Assert.All(all, s => Assert.InRange(s.ForestTrees, 100.0, 140.0));
             Assert.All(all, s => Assert.True(s.Copper >= HearthStage.CopperNeeded, $"зерно {s.Seed}: меди {s.Copper}"));
-            Assert.All(all, s => Assert.True(s.Reach >= 0.99, $"зерно {s.Seed}: достижимо {100 * s.Reach:F3} %"));
 
-            // Норма карточки — 99 %, но её держит и мир без этапа 12 (отрезаны карманы в 1–10 тайлов между деревьями;
-            // мутация 3 М). Этап 12 присоединяет все такие компоненты — значит, ровно 100 %.
-            Assert.All(all, s => Assert.True(s.Reach == 1.0, $"зерно {s.Seed}: достижимо {100 * s.Reach:F4} % — этап 12 не всё присоединил"));
-            Assert.All(all, s => Assert.InRange(s.MountMass, 40.0, 46.0));
+            // E1-2: этап 12 намеренно не присоединяет острова в озёрах (к ним — настилом) и карманы в чаще меньше 16 тайлов,
+            // до которых рубить больше двух деревьев; раньше здесь было ровно 100 %.
+            Assert.All(all, s => Assert.True(s.Reach >= 0.98, $"зерно {s.Seed}: достижимо {100 * s.Reach:F3} %"));
             Assert.All(all, s => Assert.True(s.MaxShareDiff <= 1.0, $"зерно {s.Seed}: {s.MaxShareDiff:F2} п. п."));
         }
 
         // ---------- Этап 7: штампы ----------
 
         /// <summary>
-        /// Мир без гор, пещер и леса (все ячейки — луга): своей меди нет — штамп даёт ≥ 8 залежей в 600 от Очага, и все они
-        /// достижимы для кирки (соседний тайл каждой — в компоненте Очага); леса в 200 нет — штамп леса.
+        /// Мир без гор, пещер и леса (все ячейки — луга): своей меди нет — штамп даёт пятно меди (≥ 20 залежей) в 600 от Очага, и все они
+        /// достижимы для кирки (от края пятна, к которому можно подойти, — по залежам); леса в 200 нет — штамп леса.
         /// </summary>
         [Fact]
         public void D17_Gen_Hearth_StampsCopperAndForest_WhenMissing()
@@ -196,8 +193,12 @@ namespace Orpheus.Tests
             _out.WriteLine($"штамп меди в {t.CopperStamp}, залежей в 600: {copper}");
             Assert.True(copper >= HearthStage.CopperNeeded, $"меди {copper}");
 
+            // E2-6: штамп — пятно, а не 8 отдельных залежей: внутренние тайлы закрыты своими же соседями. Каждая залежь
+            // должна быть достижима для кирки «через пятно»: от края, к которому можно подойти, по залежам (8 соседей).
             int[] label = ConnectStage.Label(t, out _);
             int main = label[(W / 2 * W) + (W / 2)];
+            var reached = new bool[t.Objects.Length];
+            var queue = new Queue<int>();
             for (int i = 0; i < t.Objects.Length; i++)
             {
                 if (t.Objects[i] != ObjectId.Ore)
@@ -207,10 +208,37 @@ namespace Orpheus.Tests
 
                 int x = i % W;
                 int y = i / W;
-                bool reachable = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) }
-                    .Any(d => label[(((y + d.Item2) & (W - 1)) * W) + ((x + d.Item1) & (W - 1))] == main);
-                Assert.True(reachable, $"залежь ({x}, {y}) не подойти");
+                if (new[] { (1, 0), (-1, 0), (0, 1), (0, -1) }
+                    .Any(d => label[(((y + d.Item2) & (W - 1)) * W) + ((x + d.Item1) & (W - 1))] == main))
+                {
+                    reached[i] = true;
+                    queue.Enqueue(i);
+                }
             }
+
+            Assert.NotEmpty(queue);
+            while (queue.Count > 0)
+            {
+                int u = queue.Dequeue();
+                for (int k = 0; k < 9; k++)
+                {
+                    int v = ((((u / W) + (k / 3) - 1) & (W - 1)) * W) + (((u % W) + (k % 3) - 1) & (W - 1));
+                    if (!reached[v] && t.Objects[v] == ObjectId.Ore)
+                    {
+                        reached[v] = true;
+                        queue.Enqueue(v);
+                    }
+                }
+            }
+
+            for (int i = 0; i < t.Objects.Length; i++)
+            {
+                Assert.True(t.Objects[i] != ObjectId.Ore || reached[i], $"залежь ({i % W}, {i / W}) не подойти");
+            }
+
+            DepositPatch stamp = Assert.Single(t.Deposits, p => p.Stamped);
+            Assert.Equal(DepositStage.StampRadius, stamp.Radius);
+            Assert.InRange(stamp.Tiles, 40, 160);
 
             // Лес — в 200 от Очага по макрокарте, луга — в 150.
             int[] dist = macro.Zones.D;
@@ -314,6 +342,7 @@ namespace Orpheus.Tests
             HearthStage.RunMacro(macro);
             TileStage.Run(t);
             Array.Fill(t.Objects, ObjectId.Empty);
+            Array.Fill(t.Floor, FloorId.Grass); // E1-2: сцена — чистый луг без озёр (острова этап 12 не присоединяет намеренно)
             int x0 = 100;
             int y0 = 100;
             int ore = -1;

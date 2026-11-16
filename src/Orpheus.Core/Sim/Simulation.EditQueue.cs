@@ -68,8 +68,37 @@ namespace Orpheus.Core.Sim
             public readonly int Tag;
             public readonly bool CheckCreatures;
 
-            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit, int requester, int tag, bool checkCreatures)
+            /// <summary>Починка (E2-5): цена — по недостающей доле прочности (<c>PreRepair</c>), не цена постановки.</summary>
+            public readonly bool Repair;
+
+            /// <summary>Ячейка сумки, из которой постановка берёт предмет-постройку (E2-11); <see cref="AnyCell"/> — любая с таким предметом.</summary>
+            public readonly byte Cell;
+
+            /// <summary>
+            /// Перенос якоря мебели (C-011): вместе с этой правкой (стена в тайл-якорь) — правка <see cref="MoveEdit"/> тайла того же
+            /// чанка (мебель на новом якоре). Применяются обе или ни одна (<c>ApplyEditBatches</c>).
+            /// </summary>
+            public readonly bool HasMove;
+            public readonly TileEdit MoveEdit;
+
+            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit, int requester, int tag, bool checkCreatures, bool repair, byte cell, in TileEdit moveEdit)
+                : this(chunk, arrival, edit, requester, tag, checkCreatures, repair, cell)
             {
+                HasMove = true;
+                MoveEdit = moveEdit;
+            }
+
+            /// <summary>Та же заявка с другой правкой тайла (перенос якоря сохраняется).</summary>
+            public EditRequest With(in TileEdit edit, byte cell) => HasMove
+                ? new EditRequest(Chunk, Arrival, edit, Requester, Tag, CheckCreatures, Repair, cell, MoveEdit)
+                : new EditRequest(Chunk, Arrival, edit, Requester, Tag, CheckCreatures, Repair, cell);
+
+            public EditRequest(ChunkCoord chunk, int arrival, TileEdit edit, int requester, int tag, bool checkCreatures, bool repair = false, byte cell = AnyCell)
+            {
+                HasMove = false;
+                MoveEdit = default;
+                Cell = cell;
+                Repair = repair;
                 Chunk = chunk;
                 Arrival = arrival;
                 Edit = edit;

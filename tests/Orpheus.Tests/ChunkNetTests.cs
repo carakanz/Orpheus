@@ -87,6 +87,43 @@ namespace Orpheus.Tests
             }
         }
 
+        /// <summary>
+        /// E1-2: чанк с водой, сухой травой и обрывом доходит до клиента побайтно как у сервера — новые значения лежат в тех же
+        /// полях (байт пола, два байта объекта), версия протокола не менялась.
+        /// </summary>
+        [Fact]
+        public void E12_Chunk_WithWaterDryGrassCliff_SameAsServer()
+        {
+            WorldModel world = Flat();
+            for (int k = 0; k < 12; k++)
+            {
+                world.SetBaseTile(new TileCoord(304 + k, 204), FloorId.Water, ObjectId.Empty);
+                world.SetBaseTile(new TileCoord(304 + k, 206), FloorId.DryGrass, ObjectId.Empty);
+                world.SetBaseTile(new TileCoord(304 + k, 208), FloorId.DryGrass, ObjectId.Cliff);
+            }
+
+            using var rig = new ChunkRig(world, n => TileCenter(300, 200));
+            NetClient c = rig.Join();
+            rig.Run(10);
+            Assert.Equal(NetClientState.InGame, c.State);
+            AssertSameAsServer(rig, c);
+            WorldModel seen = c.World!.World;
+            Assert.Equal(FloorId.Water, seen.GetFloor(new TileCoord(310, 204)));
+            Assert.Equal(FloorId.DryGrass, seen.GetFloor(new TileCoord(310, 206)));
+            Assert.Equal(ObjectId.Cliff, seen.GetObject(new TileCoord(310, 208)));
+
+            // Правка пачкой: обрыв и вода приходят и правкой.
+            rig.BeforeStep = () => rig.Sim.RequestEdit(new TileCoord(302, 202), FloorId.Water, ObjectId.Empty);
+            rig.Run(1);
+            rig.BeforeStep = () => rig.Sim.RequestEdit(new TileCoord(303, 202), FloorId.DryGrass, ObjectId.Cliff);
+            rig.Run(1);
+            rig.BeforeStep = null;
+            rig.Run(3);
+            AssertSameAsServer(rig, c);
+            Assert.Equal(FloorId.Water, seen.GetFloor(new TileCoord(302, 202)));
+            Assert.Equal(ObjectId.Cliff, seen.GetObject(new TileCoord(303, 202)));
+        }
+
         // ---------- 3.13 п. 7 ----------
 
         /// <summary>
@@ -560,9 +597,10 @@ namespace Orpheus.Tests
             var patch = new TilePatch(0, new ChunkCoord(31, 1), 0x01020304, new[]
             {
                 new TileEdit(5, FloorId.Stone, ObjectId.Torch),
-                new TileEdit(1023, FloorId.WoodFloor, ObjectId.Carpet, new BuildRecord(0x0102, 0x0304, 5, FloorId.Grass, 0x0607)),
+                new TileEdit(1023, FloorId.WoodFloor, ObjectId.Carpet, new BuildRecord(0x0102, 0x0304, 5, FloorId.Grass, 0x0607).WithFloorMask(5).WithOffset(1, -1)),
             });
-            byte[] gPatch = Golden("11 00 1f 00 01 00 04 03 02 01 02 00 05 00 03 01 00 ff 83 08 02 00 02 01 04 03 05 01 07 06",
+            // E2-15 (протокол 27): запись 9 байт — последний байт слоёв d5 (пол 0101, сдвиг X +1 = 01, Y −1 = 11).
+            byte[] gPatch = Golden("11 00 1f 00 01 00 04 03 02 01 02 00 05 00 03 01 00 ff 83 08 02 00 02 01 04 03 05 01 07 06 d5",
                 b => ChunkPatchMessage.Write(b, patch));
             var window = new ChunkWindowMessage { Center = new ChunkCoord(31, 0) };
             byte[] gWindow = Golden("12 00 1f 00 00 00", b => window.Write(b));
@@ -721,7 +759,9 @@ namespace Orpheus.Tests
             byte[] golden = Hex(
                 "ed cd b1 0d 00 20 0c c4 40 3f 61 01 f6 5f 16 29 3b d0 04 5f e3 d2 95 56 c6 98 0f c3 63 0e 1c 38 98 30 90 c4 2c " +
                 "e1 10 16 95 cd 05");
-            Assert.Equal(blob, Chunk.Decompress(golden));
+            // E2-15: золотая копия — блок до формата 11 (запись 8 байт); расширенный — байт в байт нынешний.
+            Assert.Equal(blob.Length - 1, Chunk.Decompress(golden).Length);
+            Assert.Equal(blob, Chunk.WidenLegacyBlob(Chunk.Decompress(golden)));
             Assert.Equal(blob, Chunk.Decompress(chunk.Compress()));
         }
 

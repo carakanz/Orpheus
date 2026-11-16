@@ -23,9 +23,10 @@ namespace Orpheus.Net.Session
     /// помеха на курсе — скалывается (как <see cref="DigLineBot"/>; пути клиента не строит: поиск пути на сервере).
     /// </para>
     /// <para>
-    /// Стоимость постановки списывает сервер (клиент предсказывает); молот для постановки не нужен — <c>PreEdit</c>
-    /// проверяет предмет в руках только для копания. Счёт целей — по рецептам <c>BuildDefs</c>: 15 стен × 2 камня =
-    /// 30 камня, 9 полов × 1 + дверь × 6 = 15 дерева; добыча ведётся до <see cref="TargetStone"/>/<see cref="TargetWood"/>
+    /// E2-11: постройки — предметы. После добычи и расчистки бот делает руками (рецепты, <see cref="CraftDesk"/>) 15 каменных
+    /// стен, деревянный пол (E2-15: 5 × 5 под стенами, 100 ячеек) и дверь, кладёт их на панель (<see cref="BuildHand.StockMove"/>) и ставит из руки через
+    /// <see cref="BuildHand"/>; сервер снимает по предмету на тайл (клиент предсказывает). Счёт целей — по рецептам:
+    /// 15 стен × 2 камня = 30 камня, E2-15: пол 25 древесины + дверь 6 = 31; после двери — факел из стартового набора у западной стены со сдвигом 0,5; добыча ведётся до <see cref="TargetStone"/>/<see cref="TargetWood"/>
     /// (перелёт допустим: добыча идёт объектами, не разовыми порциями).
     /// </para>
     /// </summary>
@@ -33,9 +34,12 @@ namespace Orpheus.Net.Session
     {
         public const string Name = "build_room";
 
-        /// <summary>Добыть до перехода к стройке: 30 камня (15 стен) и 26 древесины (9 полов + дверь 6 + 11 припас).</summary>
-        public const int TargetStone = 30;
-        public const int TargetWood = 26;
+        /// <summary>
+        /// Добыть до перехода к стройке: 34 камня (E2-12: 17 рецептов по 2 камня = 34 ячейки тонкой стены) и 34 древесины
+        /// (E2-15: пол 5 × 5 под стенами — 25 рецептов по 4 ячейки + дверь 6 + 3 припаса; деревьев в радиусе 32 у старта — 13, 39 древесины).
+        /// </summary>
+        public const int TargetStone = 34;
+        public const int TargetWood = 34;
 
         /// <summary>Сторона комнаты (тайлов): периметр стен, внутри пол 3 × 3.</summary>
         public const int RoomSize = 5;
@@ -55,10 +59,10 @@ namespace Orpheus.Net.Session
         /// <summary>Тактов ожидания клиентских чанков перед «нет целей добычи» (снапшоты 30 Гц, RTT).</summary>
         public const int WarmupTicks = 120;
 
-        /// <summary>Этапы: добыча → расчистка площадки → пол → стены → дверь → вход → закрытие → рассвет.</summary>
+        /// <summary>Этапы: добыча → расчистка площадки → изготовление построек (E2-11) → пол → стены → дверь → вход → закрытие → рассвет.</summary>
         public enum Phase
         {
-            Gather, Clear, Floor, Walls, Door, Enter, Close, WaitDawn, Done, Fail
+            Gather, Clear, Craft, Floor, Walls, Door, Furnish, Enter, Close, WaitDawn, Done, Fail
         }
 
         private readonly MapShape _shape;
@@ -76,6 +80,7 @@ namespace Orpheus.Net.Session
         private int _stuckFrames;
         private int _frame;
         private int _prevHealth = -1; // здоровье прошлого кадра — детект нового попадания
+        private bool _dead; // свой персонаж мёртв (здоровье 0 или нет в снимке) — смерть считается один раз
         private Phase _prevStage = Phase.Gather;
         private int _closeOpenTicks; // Close: тактов дверь открыта (F отвергается — враг на тайле, выталкивание блокировано)
         private int _enterStuckTicks; // Enter: тактов позиция не меняется (враг в проёме не пускает)
@@ -130,7 +135,7 @@ namespace Orpheus.Net.Session
         /// <summary>Ячейка стартового деревянного меча (<see cref="Inventory.StartingKit"/> — 3).</summary>
         public const int SwordSlot = 3;
 
-        /// <summary>Смертей своё (пропажа <see cref="SnapshotSelf.Present"/>).</summary>
+        /// <summary>Смертей своё (здоровье 0 или пропажа <see cref="SelfState.Present"/>; каждая — один раз).</summary>
         public int Deaths { get; private set; }
 
         /// <summary>Дожило до рассвета при закрытой двери.</summary>
@@ -165,7 +170,7 @@ namespace Orpheus.Net.Session
                 Refused++;
                 _refused[m.Reply] = _refused.TryGetValue(m.Reply, out int n) ? n + 1 : 1;
                 _armObj = 0; // отказ: следующий запрос той же цели заново «взводится» кадром с молотом
-                if (obj == FloorId.WoodFloor)
+                if (obj == BuildDefs.WoodFloorKey)
                 {
                     _floorReq = 0;
                     _skipUntil[_center] = _frame + RefusalCooldownFrames;
@@ -188,13 +193,12 @@ namespace Orpheus.Net.Session
                     TreesChopped++;
                     break;
                 case ObjectId.StoneWall:
-                    _wallReq = 0;
-                    _wallsFrom++;
+                    _wallReq = 0; // E2-12: тайл стены — 2–3 ячейки, к следующему тайлу — когда этот полон (Walls)
                     break;
                 case ObjectId.Door:
                     DoorPlaced = true;
                     break;
-                case FloorId.WoodFloor:
+                case BuildDefs.WoodFloorKey:
                     _floorReq = 0;
                     _floorRow++;
                     break;
@@ -235,16 +239,36 @@ namespace Orpheus.Net.Session
             if (Ticks > MaxTicks)
             {
                 // Этап пишется ДО перехода в Fail: иначе «этап Fail» — самоссылка, фаза терялась (P-003).
-                FailReason = $"лимит {MaxTicks} тиков: этап {Stage}, полов {FloorsPlaced}/9, стен {WallsPlaced}/15, дверь {(DoorPlaced ? "поставлена" : "нет")}";
+                FailReason = $"лимит {MaxTicks} тиков: этап {Stage}, полов {FloorsPlaced}/{FloorTiles}, стен {WallsPlaced}/15, дверь {(DoorPlaced ? "поставлена" : "нет")}";
                 Stage = Phase.Fail;
                 return InputFrame.None;
             }
 
             SelfState self = client.Latest.Self;
-            if (!self.Present)
+            if (!self.Present || self.Health == 0)
             {
-                Deaths++;
+                // C-004: мёртвый персонаж в снимке ЕСТЬ (Present), здоровье 0 — раньше смерть не замечалась
+                // («смертей 0» при убитом строителе), а сценарий продолжал строить от имени трупа.
+                if (!_dead)
+                {
+                    _dead = true;
+                    Deaths++;
+                }
+
+                _prevHealth = -1;
                 return InputFrame.None; // возрождение — на стороне сервера (1-009)
+            }
+
+            if (_dead)
+            {
+                // Возродился у точки появления мира, а не в комнате: «закрыта и бот внутри» больше не верно —
+                // возвращаемся ко входу (этапы до двери продолжаются как шли: цели считаются от позиции).
+                _dead = false;
+                if (Stage is Phase.Enter or Phase.Close or Phase.WaitDawn)
+                {
+                    Stage = Phase.Enter;
+                    DoorClosed = false;
+                }
             }
 
             if (Stage >= Phase.WaitDawn && DoorClosed && _prevHealth >= 0 && self.Health < _prevHealth)
@@ -269,6 +293,18 @@ namespace Orpheus.Net.Session
                 _doorSeen = doorOpen;
             }
 
+            // C-004: самооборона и на добыче/стройке. Сутки ×30 — ночь приходит посреди стройки; без меча
+            // разбойник забивал строителя за 9 ударов (трасса сервера, такты 1028–1292), и «комнату» достраивал труп.
+            // Удар важнее копания: на мече прогресс копания стоит (1-002) и продолжается после.
+            if (Stage < Phase.Enter)
+            {
+                InputFrame? defend = ThreatFrame(client, pos);
+                if (defend != null)
+                {
+                    return defend.Value;
+                }
+            }
+
             if (client.Digging)
             {
                 return new InputFrame(Input8.None, InputButtons.Dig, 0, (byte)_digSlot);
@@ -285,9 +321,11 @@ namespace Orpheus.Net.Session
             {
                 Phase.Gather => Gather(client, world, pos),
                 Phase.Clear => Clear(client, world, pos),
+                Phase.Craft => CraftItems(client, world, pos),
                 Phase.Floor => Floor(client, world, pos),
                 Phase.Walls => Walls(client, world, pos),
                 Phase.Door => Door(client, world, pos),
+                Phase.Furnish => Furnish(client, world, pos),
                 Phase.Enter => Enter(client, world, pos),
                 Phase.Close => Close(client, world, pos),
                 Phase.WaitDawn => WaitDawn(client, pos, nowUs),
@@ -297,6 +335,11 @@ namespace Orpheus.Net.Session
         }
 
         // ------------------------------------------------------------------ добыча
+
+        private BotPiles? _piles;
+
+        /// <summary>Куч добычи подобрано походом к ним (E2-1).</summary>
+        public int PilesCollected => _piles?.Collected ?? 0;
 
         private InputFrame Gather(NetClient client, ClientWorld world, WorldPos pos)
         {
@@ -309,6 +352,18 @@ namespace Orpheus.Net.Session
                 WoodAtGatherEnd = wood;
                 Stage = Phase.Clear;
                 return InputFrame.None;
+            }
+
+            // E2-1: добыча лежит кучей на тайле снятого объекта — подойти и подобрать, прежде чем искать следующую цель.
+            _piles ??= new BotPiles(_shape);
+            if (_piles.TrySeek(client, pos, item => item == Items.Stone || item == Items.Wood, out Input8 toPile))
+            {
+                if (toPile != Input8.None && TryDigObstacle(client, world, pos, toPile))
+                {
+                    return new InputFrame(Input8.None, InputButtons.Dig, 0, (byte)_digSlot);
+                }
+
+                return WalkFrames(pos, toPile);
             }
 
             TileCoord? target = FindGatherTarget(client, world, pos, stone < TargetStone, wood < TargetWood);
@@ -453,7 +508,7 @@ namespace Orpheus.Net.Session
             TileCoord? blocker = FindNaturalOnSite(world);
             if (blocker == null)
             {
-                Stage = Phase.Floor;
+                Stage = Phase.Craft; // E2-11: сначала сделать постройки-предметы рецептами, потом ставить
                 return InputFrame.None;
             }
 
@@ -480,12 +535,83 @@ namespace Orpheus.Net.Session
             return null;
         }
 
+        // ------------------------------------------------------------------ изготовление построек (E2-11)
+
+        /// <summary>
+        /// Сколько предметов-построек нужно комнате: пол 5 × 5 — под стенами тоже (E2-15: пол — нижний слой, предмет на ячейку
+        /// 0,5, 4 на тайл), стены периметра без двери, дверь.
+        /// </summary>
+        public const int NeedFloors = 4 * RoomSize * RoomSize;
+
+        /// <summary>Тайлов пола: вся площадка 5 × 5 (E2-15: стены ставятся поверх пола).</summary>
+        public const int FloorTiles = RoomSize * RoomSize;
+        /// <summary>
+        /// Стен-ячеек на периметр (E2-12): тонкая стена — внешние половины тайлов периметра, по 2 ячейки на тайл стороны
+        /// и 3 на угол; тайл двери — дверь (пара ячеек снизу).
+        /// </summary>
+        public const int NeedWalls = 4 * 3 + 2 * (4 * (RoomSize - 2) - 1);
+        public const int NeedDoors = 1;
+
+        private CraftDesk? _desk;
+        private int _craftFrame = -1000;
+
+        /// <summary>Заявок изготовления построек отправлено (E2-11).</summary>
+        public int CraftRequests { get; private set; }
+
+        /// <summary>Кадров заняло изготовление построек.</summary>
+        public int CraftTicks { get; private set; }
+
+        /// <summary>
+        /// E2-11: постройки — предметы. Бот делает пол, стены и дверь руками (рецепты <see cref="RecipeTable"/>, тот же путь, что
+        /// у окна изготовления, — <see cref="CraftDesk"/>), пока в сумке нет полного набора, потом ставит их из руки.
+        /// </summary>
+        private InputFrame CraftItems(NetClient client, ClientWorld world, WorldPos pos)
+        {
+            int floors = client.Inv.Count(Items.WoodFloor), walls = client.Inv.Count(Items.StoneWall), doors = client.Inv.Count(Items.Door);
+            if (floors >= NeedFloors && walls >= NeedWalls && doors >= NeedDoors)
+            {
+                CraftTicks = Ticks - GatherTicks;
+                Stage = Phase.Floor;
+                return InputFrame.None;
+            }
+
+            InputFrame? fight = ThreatFrame(client, pos);
+            if (fight != null)
+            {
+                return fight.Value;
+            }
+
+            // Очередь пуста и ответа давно нет — следующая заявка (первая или повтор после отказа).
+            _desk ??= new CraftDesk(client);
+            if (client.Craft.IsEmpty && _frame - _craftFrame > 45)
+            {
+                (byte recipe, int count) = walls < NeedWalls ? (RecipeTable.StoneWall, NeedWalls - walls)
+                    : floors < NeedFloors ? (RecipeTable.WoodFloor, NeedFloors - floors)
+                    : (RecipeTable.Door, NeedDoors - doors);
+                int output = RecipeTable.Get(recipe).ResultCount; // E2-12: стена — 2 ячейки за рецепт
+                count = (count + output - 1) / output;
+                CraftLine line = CraftDesk.LineOf(recipe, client.Inv, client.Craft, world.World, pos, stock: client.NearbyStock);
+                if (_desk.Make(line, count))
+                {
+                    _craftFrame = _frame;
+                    CraftRequests++;
+                }
+                else if (_frame - _craftFrame > 900)
+                {
+                    Stage = Phase.Fail;
+                    FailReason = $"изготовление: рецепт {recipe} × {count} — {line.State} (камень {client.Inv.Count(Items.Stone)}, древесина {client.Inv.Count(Items.Wood)})";
+                }
+            }
+
+            return HammerFrame(client);
+        }
+
         // ------------------------------------------------------------------ пол
 
         private InputFrame Floor(NetClient client, ClientWorld world, WorldPos pos)
         {
             CountFloors(world);
-            if (FloorsPlaced >= 9)
+            if (FloorsPlaced >= FloorTiles)
             {
                 Stage = Phase.Walls;
                 return InputFrame.None;
@@ -508,33 +634,61 @@ namespace Orpheus.Net.Session
                 return HammerFrame(client); // ряд только что отвергнут
             }
 
+            // E2-15: ряд пола — вся ширина площадки (под будущими стенами тоже), заявка — прямоугольник ячеек ряда тайлов.
             int h = RoomSize / 2;
-            int y = _center.Y - h + 1 + _floorRow % 3;
-            var from = Torus.Wrap(_shape, new TileCoord(_center.X - h + 1, y));
-            var to = Torus.Wrap(_shape, new TileCoord(_center.X + h - 1, y));
-            if (!PlaceArmed(FloorId.WoodFloor, from))
+            int y = _center.Y - h + FirstOpenFloorRow(world);
+            var from = Torus.Wrap(_shape, new TileCoord(_center.X - h, y));
+            var to = Torus.Wrap(_shape, new TileCoord(_center.X + h, y));
+            if (!PlaceArmed(BuildDefs.WoodFloorKey, from))
             {
                 return HammerFrame(client);
             }
 
-            ushort id = client.Place(from, to, FloorId.WoodFloor, pos);
+            // E2-11: тот же путь, что у игрока, — BuildHand, пол из руки (ряд пола — линией, как ведение с зажатой ЛКМ).
+            int floorSlot = BuildHand.SlotWith(client.Inv, Items.WoodFloor);
+            if (floorSlot < 0)
+            {
+                return HammerFrame(client); // пол ещё не на панели — HandSlot переложит
+            }
+
+            ushort id = Build(client).PlaceLine(from, to, pos, client.Inv, floorSlot);
             if (id != 0)
             {
-                _reqObj[id] = FloorId.WoodFloor;
+                _reqObj[id] = BuildDefs.WoodFloorKey;
                 _floorReq = id;
             }
 
             return HammerFrame(client);
         }
 
+        // Первый ряд площадки (0…RoomSize − 1), где пол лежит не целиком (E2-15: ряд с готовыми тайлами отвечал бы «занято»).
+        private int FirstOpenFloorRow(ClientWorld world)
+        {
+            int h = RoomSize / 2;
+            for (int dy = -h; dy <= h; dy++)
+            {
+                for (int dx = -h; dx <= h; dx++)
+                {
+                    var t = Torus.Wrap(_shape, new TileCoord(_center.X + dx, _center.Y + dy));
+                    if (world.World.GetFloor(t) != FloorId.WoodFloor || BuildLayers.FloorCellsAt(world.World, t) != BuildCells.Full)
+                    {
+                        return dy + h;
+                    }
+                }
+            }
+
+            return _floorRow % RoomSize;
+        }
+
         private void CountFloors(ClientWorld world)
         {
             int h = RoomSize / 2, n = 0;
-            for (int dy = -h + 1; dy <= h - 1; dy++)
+            for (int dy = -h; dy <= h; dy++)
             {
-                for (int dx = -h + 1; dx <= h - 1; dx++)
+                for (int dx = -h; dx <= h; dx++)
                 {
-                    if (world.World.GetFloor(Torus.Wrap(_shape, new TileCoord(_center.X + dx, _center.Y + dy))) == FloorId.WoodFloor)
+                    var t = Torus.Wrap(_shape, new TileCoord(_center.X + dx, _center.Y + dy));
+                    if (world.World.GetFloor(t) == FloorId.WoodFloor && BuildLayers.FloorCellsAt(world.World, t) == BuildCells.Full)
                     {
                         n++;
                     }
@@ -566,7 +720,7 @@ namespace Orpheus.Net.Session
             }
 
             TileCoord wall = WallAt(_wallsFrom);
-            if (world.World.GetObject(wall) == ObjectId.StoneWall)
+            if (WallDone(world, wall))
             {
                 _wallsFrom++; // уже стоит
                 return HammerFrame(client);
@@ -582,7 +736,7 @@ namespace Orpheus.Net.Session
             {
                 if (PlaceArmed(ObjectId.StoneWall, wall))
                 {
-                    ushort id = client.Place(wall, wall, ObjectId.StoneWall, pos);
+                    ushort id = PlaceWallCells(client, world, pos, wall);
                     if (id != 0)
                     {
                         _reqObj[id] = ObjectId.StoneWall;
@@ -649,7 +803,7 @@ namespace Orpheus.Net.Session
                     }
 
                     var t = Torus.Wrap(_shape, new TileCoord(_center.X + dx, _center.Y + dy));
-                    if (t != DoorTile && world.World.GetObject(t) == ObjectId.StoneWall)
+                    if (t != DoorTile && WallDone(world, t))
                     {
                         n++;
                     }
@@ -668,12 +822,56 @@ namespace Orpheus.Net.Session
 
         // ------------------------------------------------------------------ дверь, вход, закрытие
 
+        /// <summary>Факел у стены поставлен (E2-15: мебель с шагом 0,5 — в свободной половине тайла стены).</summary>
+        public bool TorchPlaced { get; private set; }
+
+        /// <summary>Тайл и четверть СЗ ячейки факела у западной стены: восточная половина тайла стены и западная — соседнего.</summary>
+        public TileCoord TorchTile => Torus.Wrap(_shape, new TileCoord(_center.X - RoomSize / 2, _center.Y));
+
+        private int _furnishFrom = -1;
+
+        /// <summary>
+        /// E2-15: факел (стартовый набор) у западной стены изнутри — со сдвигом на полтайла: СЗ ячейка — восточная половина тайла
+        /// стены (стена стоит в западной), якорь — соседний тайл. Факела нет или не встал за 3 с — дальше без него (комната и
+        /// ночь важнее).
+        /// </summary>
+        private InputFrame Furnish(NetClient client, ClientWorld world, WorldPos pos)
+        {
+            if (_furnishFrom < 0)
+            {
+                _furnishFrom = _frame;
+            }
+
+            TileCoord anchor = Torus.Wrap(_shape, new TileCoord(TorchTile.X + 1, TorchTile.Y));
+            if (ObjectId.IdOf(world.World.GetObject(anchor)) == ObjectId.Torch)
+            {
+                TorchPlaced = true;
+            }
+
+            if (TorchPlaced || client.Inv.Count(Items.Torch) == 0 || _frame - _furnishFrom > 180)
+            {
+                Stage = Phase.Enter;
+                return InputFrame.None;
+            }
+
+            if (InPlaceReach(pos, TorchTile) && PlaceArmed(ObjectId.Torch, TorchTile) && !_reqObj.ContainsValue(ObjectId.Torch))
+            {
+                ushort id = ClickBuild(client, world, pos, ObjectId.Torch, TorchTile, 1);
+                if (id != 0)
+                {
+                    _reqObj[id] = ObjectId.Torch;
+                }
+            }
+
+            return HammerFrame(client);
+        }
+
         private InputFrame Door(NetClient client, ClientWorld world, WorldPos pos)
         {
             TileCoord door = DoorTile;
             if (world.World.GetObject(door) == ObjectId.Door)
             {
-                Stage = Phase.Enter;
+                Stage = Phase.Furnish;
                 return InputFrame.None;
             }
 
@@ -681,7 +879,7 @@ namespace Orpheus.Net.Session
             {
                 if (PlaceArmed(ObjectId.Door, door))
                 {
-                    ushort id = client.Place(door, door, ObjectId.Door, pos);
+                    ushort id = ClickBuild(client, world, pos, ObjectId.Door, door, 2); // E2-12: ячейка снизу — дверь вдоль нижней стены
                     if (id != 0)
                     {
                         _reqObj[id] = ObjectId.Door;
@@ -703,10 +901,38 @@ namespace Orpheus.Net.Session
                 return InputFrame.None;
             }
 
+            // Снаружи периметра и не перед дверью (C-004: возродились у точки появления мира) — обход стен:
+            // над/под комнатой сначала вбок, потом по своему столбцу до ряда перед дверью, по нему — к двери.
+            // Жадный шаг «прямо к центру» упирался бы в свою же стену.
+            TileCoord door = DoorTile;
+            TileCoord anchor = AnchorOutside(door);
+            Int2 off = Torus.Delta(_shape, _center, me);
+            int h = RoomSize / 2;
+            if (Math.Max(Math.Abs(off.X), Math.Abs(off.Y)) > h && me != anchor)
+            {
+                TileCoord wp = anchor;
+                if (off.Y <= h)
+                {
+                    wp = Math.Abs(off.X) <= h
+                        ? Torus.Wrap(_shape, new TileCoord(_center.X + (off.X >= 0 ? h + 1 : -(h + 1)), me.Y))
+                        : Torus.Wrap(_shape, new TileCoord(me.X, _center.Y + h + 1));
+                }
+
+                InputFrame? fight = ThreatFrame(client, pos);
+                if (fight != null)
+                {
+                    return fight.Value;
+                }
+
+                // Копаем помехи (скалы, деревья) только вдали от стен: рядом с комнатой молот снёс бы свою же стену.
+                return Math.Max(Math.Abs(off.X), Math.Abs(off.Y)) > h + 1
+                    ? DigOrWalk(client, world, pos, wp)
+                    : WalkFrames(pos, StepDir(pos, TileCenter(wp)));
+            }
+
             // Враг на тайле проёма: ходьба упирается (выталкивание блокировано). F снаружи (chebyshev 1)
             // закрывает дверь и выталкивает врага; замок истёк — автооткрытие открывает проём, входим
             // (UDP Big, 1-026).
-            TileCoord door = DoorTile;
             if (pos == _lastPos && world.World.TryGetBuild(door, out BuildRecord rec) && rec.IsDoorOpen)
             {
                 if (++_enterStuckTicks > 45 && Cheb(me, door) == 1)
@@ -745,6 +971,12 @@ namespace Orpheus.Net.Session
 
             if (!rec.IsDoorOpen)
             {
+                if (!Inside(pos))
+                {
+                    Stage = Phase.Enter; // дверь закрылась, а мы снаружи (C-004): «закрыта» считается только изнутри
+                    return InputFrame.None;
+                }
+
                 DoorClosed = true; // закрыли мы или автозакрытие (30 тактов свободы тайла, `05` 2.1)
                 Stage = Phase.WaitDawn;
                 BuildTicks = Ticks - GatherTicks;
@@ -752,12 +984,12 @@ namespace Orpheus.Net.Session
             }
 
             // F — радиус chebyshev ≤ 1 от двери, тайл под нажавшим — отказ: встаём на тайл комнаты у проёма.
-            TileCoord near = Torus.Wrap(_shape, new TileCoord(door.X, door.Y + 1));
+            TileCoord near = Torus.Wrap(_shape, new TileCoord(door.X, door.Y - 1)); // C-004: было +1 — тайл СНАРУЖИ
             if (++_closeOpenTicks > 45)
             {
                 // F отвергается: враг на тайле двери, выталкивание (E,S,W,N) блокировано тайлом под нами.
                 // Уход в угол по диагонали — тайл у двери освобождается, врага выталкивает (UDP Big, 1-026).
-                near = Torus.Wrap(_shape, new TileCoord(door.X + 1, door.Y + 1));
+                near = Torus.Wrap(_shape, new TileCoord(door.X + 1, door.Y - 1));
             }
 
             client.CloseDoor(door); // каждый кадр: закрытие + замок; запрос не занимает руки (1-028)
@@ -778,8 +1010,19 @@ namespace Orpheus.Net.Session
             return HammerFrame(client);
         }
 
+        /// <summary>Свой тайл — внутри комнаты (пол 3 × 3 вокруг центра).</summary>
+        private bool Inside(WorldPos pos) => Cheb(Torus.TileOf(_shape, pos), _center) <= 1;
+
         private InputFrame WaitDawn(NetClient client, WorldPos pos, long nowUs)
         {
+            if (!Inside(pos))
+            {
+                // Ждать рассвета можно только в комнате (C-004): оказались снаружи — ко входу, дверь «не закрыта».
+                DoorClosed = false;
+                Stage = Phase.Enter;
+                return InputFrame.None;
+            }
+
             WorldClock clock = client.WorldTimeClock;
             if (clock.Valid && clock.TicksAt(nowUs) >= DayClock.DawnStartTick)
             {
@@ -928,8 +1171,42 @@ namespace Orpheus.Net.Session
             return byte.MaxValue;
         }
 
-        /// <summary>Ячейка сумки с молотом (постановка требует молот в руках кадра, 1-011); нет — 0.</summary>
-        private static byte HammerSlot(NetClient client)
+        /// <summary>
+        /// Ячейка панели «в руке» в фазах стройки (E2-11): предмет-постройка этапа (пол, стена, дверь). Его нет на панели, а в
+        /// сумке есть — заявка «переложить на панель» (раз в 30 кадров, общий <see cref="BuildHand.StockMove"/>); пока — молот.
+        /// </summary>
+        private byte HammerSlot(NetClient client)
+        {
+            byte item = Stage switch
+            {
+                Phase.Floor => Items.WoodFloor,
+                Phase.Walls => Items.StoneWall,
+                Phase.Door => Items.Door,
+                Phase.Furnish => Items.Torch,
+                _ => Items.None,
+            };
+            int hand = BuildHand.SlotWith(client.Inv, item);
+            if (hand >= 0)
+            {
+                return (byte)hand;
+            }
+
+            if (item != Items.None && _frame - _stockFrame > 30 && BuildHand.StockMove(client.Inv, item, out int from, out int to)
+                && client.RequestBagMove(from, to))
+            {
+                _stockFrame = _frame;
+                StockMoves++;
+            }
+
+            return ToolHammerSlot(client);
+        }
+
+        private int _stockFrame = -1000;
+
+        /// <summary>Заявок «переложить постройку на панель» (E2-11).</summary>
+        public int StockMoves { get; private set; }
+
+        private static byte ToolHammerSlot(NetClient client)
         {
             for (byte s = 0; s < Inventory.Slots; s++)
             {
@@ -962,6 +1239,101 @@ namespace Orpheus.Net.Session
         /// проверяет молот по <c>Inv.Held</c> кадра, который пришёл ПОСЛЕ запроса. Первый кадр на цели бот просто
         /// стоит с молотом — на следующем кадре <c>Held</c> сервера уже молот, и запрос проходит.
         /// </summary>
+        private BuildHand? _build;
+
+        /// <summary>«Молот» бота (E2-5) — тот же <see cref="BuildHand"/>, что у окна игрока.</summary>
+        private BuildHand Build(NetClient client) => _build ??= new BuildHand(client);
+
+        /// <summary>Хватает ли сумки на стену, дверь и пол (E2-5, после «рукой» BuildHand): метрика для журнала.</summary>
+        public int LocalRefusals { get; private set; }
+
+        /// <summary>
+        /// ЛКМ «молотом» по тайлу (E2-5): выбор постройки в ленте и щелчок — проверка теми же функциями ядра, что у сервера
+        /// и призрака игрока; можно — заявка (номер запроса), нельзя — 0 и тайл в cooldown, как после отказа сервера.
+        /// </summary>
+        /// <summary>
+        /// Ячейки тонкой стены тайла периметра (E2-12): внешняя половина — верх / низ / лево / право, угол — две стороны (3 ячейки).
+        /// </summary>
+        private byte WallCellsOf(TileCoord t)
+        {
+            int h = RoomSize / 2;
+            int dx = Torus.DeltaX(_shape, _center.X, t.X), dy = Torus.DeltaY(_shape, _center.Y, t.Y);
+            byte mask = 0;
+            mask |= dy == -h ? BuildCells.DoorNorth : (byte)0;
+            mask |= dy == h ? BuildCells.DoorSouth : (byte)0;
+            mask |= dx == -h ? BuildCells.DoorWest : (byte)0;
+            mask |= dx == h ? BuildCells.DoorEast : (byte)0;
+            return mask;
+        }
+
+        /// <summary>Тонкая стена тайла периметра стоит целиком (все её ячейки).</summary>
+        private bool WallDone(ClientWorld world, TileCoord t)
+        {
+            byte want = WallCellsOf(t);
+            return world.World.GetObject(t) == ObjectId.StoneWall && (BuildCells.MaskAt(world.World, t) & want) == want;
+        }
+
+        /// <summary>
+        /// Заявка на недостающие ячейки стены тайла (E2-12): пара ячеек вдоль стороны — одной линией (<see cref="BuildHand.PlaceLine(TileCoord, TileCoord, WorldPos, in Inventory, int, int, int)"/>),
+        /// иначе одна ячейка (<see cref="BuildHand.Click(WorldModel, WorldPos, in Inventory, int, bool, TileCoord, int)"/>). Проверка — та же, что у призрака.
+        /// </summary>
+        private ushort PlaceWallCells(NetClient client, ClientWorld world, WorldPos pos, TileCoord t)
+        {
+            byte have = world.World.GetObject(t) == ObjectId.StoneWall ? BuildCells.MaskAt(world.World, t) : (byte)0;
+            int missing = WallCellsOf(t) & ~have;
+            (int a, int b) = (missing & 3) == 3 ? (0, 1) : (missing & 12) == 12 ? (2, 3) : (missing & 5) == 5 ? (0, 2) : (missing & 10) == 10 ? (1, 3) : (-1, -1);
+            if (a < 0)
+            {
+                int q = 0;
+                while (q < 4 && (missing & (1 << q)) == 0)
+                {
+                    q++;
+                }
+
+                return ClickBuild(client, world, pos, ObjectId.StoneWall, t, q & 3);
+            }
+
+            BuildHand build = Build(client);
+            int slot = BuildHand.SlotWith(client.Inv, Items.StoneWall);
+            if (slot < 0)
+            {
+                return 0;
+            }
+
+            if (!BuildHand.Check(world.World, pos, client.Inv, slot, true, t, a).Ok || !BuildHand.Check(world.World, pos, client.Inv, slot, true, t, b).Ok
+                || client.Inv.CountIn(slot) < 2)
+            {
+                LocalRefusals++;
+                _armObj = 0;
+                _skipUntil[t] = _frame + RefusalCooldownFrames / 3;
+                return 0;
+            }
+
+            return build.PlaceLine(t, t, pos, client.Inv, slot, a, b);
+        }
+
+        private ushort ClickBuild(NetClient client, ClientWorld world, WorldPos pos, ushort key, TileCoord t, int quad = 0)
+        {
+            BuildHand build = Build(client);
+            int slot = BuildHand.SlotWith(client.Inv, BuildDefs.ItemOf(key));
+            if (slot < 0)
+            {
+                return 0; // предмет ещё не на панели (HandSlot переложит) — не отказ
+            }
+
+            int before = build.PlaceRequests;
+            BuildCheck chk = build.Click(world.World, pos, client.Inv, slot, true, t, quad);
+            if (chk.Ok && build.PlaceRequests > before)
+            {
+                return build.LastRequest;
+            }
+
+            LocalRefusals++;
+            _armObj = 0;
+            _skipUntil[t] = _frame + RefusalCooldownFrames / 3; // своя проверка — короткий cooldown: сумка/рука догоняют сервер
+            return 0;
+        }
+
         private bool PlaceArmed(ushort obj, TileCoord t)
         {
             if (_armObj == obj && _armTile == t && _frame > _armFrame)
@@ -979,18 +1351,9 @@ namespace Orpheus.Net.Session
         /// Кадр постановки: молот в руках (1-011, <c>`05` 1.3</c> — сервер требует молот и для постановки,
         /// отказ «нужен молот»).
         /// </summary>
-        private static InputFrame HammerFrame(NetClient client)
+        private InputFrame HammerFrame(NetClient client)
         {
-            byte slot = 0;
-            for (byte s = 0; s < Inventory.Slots; s++)
-            {
-                if (Items.DigToolOf(client.Inv.SlotAt(s)) == ToolKind.Hammer)
-                {
-                    slot = s;
-                    break;
-                }
-            }
-
+            byte slot = HammerSlot(client);
             return new InputFrame(Input8.None, 0, 0, slot);
         }
     }

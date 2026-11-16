@@ -497,6 +497,33 @@ namespace Orpheus.Net.Session
                     return;
                 }
 
+                if (type == MessageType.BagRequest && channel == NetChannel.Facts)
+                {
+                    BagRequestMessage bag = BagRequestMessage.Read(data);
+                    if (bag.From >= Inventory.Cells || bag.To >= Inventory.Cells)
+                    {
+                        OnChestBagRequest(p, bag); // E2-5: ячейки открытого сундука
+                    }
+                    else
+                    {
+                        OnBagRequest(p, bag); // E2-1
+                    }
+
+                    return;
+                }
+
+                if (type == MessageType.UseRequest && channel == NetChannel.Facts)
+                {
+                    OnUseRequest(p, UseRequestMessage.Read(data, _sim.Shape)); // E2-5
+                    return;
+                }
+
+                if (type == MessageType.CraftRequest && channel == NetChannel.Facts)
+                {
+                    OnCraftRequest(p, CraftRequestMessage.Read(data)); // E2-3
+                    return;
+                }
+
                 if (type == MessageType.PauseRequest && channel == NetChannel.Facts)
                 {
                     OnPauseRequest(p, PauseRequestMessage.Read(data)); // 0-036

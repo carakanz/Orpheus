@@ -1,0 +1,6 @@
+src/
+notes.json*
+.notes-*
+__pycache__/
+.gitignore
+README.md

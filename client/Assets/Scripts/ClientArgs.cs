@@ -77,6 +77,15 @@ namespace Orpheus.Client
         public int ShotPixelsX = 1920;
         public int ShotPixelsY = 1080;
 
+        /// <summary>
+        /// E1-11, лента кадров <c>--shot-walk НАПРАВЛЕНИЕ:КАДРОВ:ИНТЕРВАЛ[:РАЗБЕГ]</c> (вместе с <c>--screenshot</c>): персонаж
+        /// скриптом идёт в сторону (e, w, n, s, ne, nw, se, sw; stay — стоит), кадры каждые ИНТЕРВАЛ секунд после РАЗБЕГА
+        /// вырезаются вокруг персонажа (<c>--shot-crop ШxВ</c>) и склеиваются в одну картинку. 0 кадров — обычный снимок.
+        /// </summary>
+        public int WalkFrames;
+        public float WalkDirX, WalkDirY, WalkInterval = 0.15f, WalkLead;
+        public int CropX = 640, CropY = 400;
+
         /// <summary>Ключ генератора офлайна (<c>WorldGenModule.ForKey</c>): «v1» (как у сервера) или «stub».</summary>
         public string Gen = "v1";
 
@@ -145,6 +154,28 @@ namespace Orpheus.Client
         /// </summary>
         public bool PaintDemo;
 
+        /// <summary>E2-1, только для снимков без сервера: вокруг персонажа лежат кучи предметов всех значков (<see cref="PileView.AddDemo"/>).</summary>
+        public bool DemoPiles;
+
+        /// <summary>E2-2, только для снимков без сервера: показ интерфейса — <c>bag</c> (окно сумки открыто, предмет «в руке») или <c>hotbar</c> (панель и подсказка).</summary>
+        public string? UiDemo;
+
+        /// <summary>
+        /// E2-17, только для снимков без сервера: дом из тонких стен с мебелью, дверями и забором вокруг персонажа
+        /// (<see cref="global::Orpheus.Client.PaintDemo.Home"/>); слово — где стоит персонаж: <c>overview</c>, <c>south</c>, <c>north</c>,
+        /// <c>behind</c>, <c>door</c>, <c>camp</c>, <c>fence</c>, <c>torches</c> (C-017: обзор и 10 факелов), <c>room</c> (C-017: персонаж в комнате), <c>wall</c> (C-017: факел и валун у стены).
+        /// </summary>
+        public string? HomeDemo;
+
+        /// <summary>
+        /// C-018, только для снимков без сервера: пруд и кусты вокруг персонажа (<see cref="global::Orpheus.Client.PaintDemo.Wade"/>);
+        /// слово — <c>water</c> (персонаж в воде), <c>bush</c> (в кустах), <c>enemy</c> (враг-болванка в воде).
+        /// </summary>
+        public string? WadeDemo;
+
+        /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
+        public bool PaintForest;
+
         /// <summary>
         /// E1-8 (тон суток): такт суток мира (0…35 999), задающий время офлайн-снимков — у офлайна часы мира
         /// стартуют с 0 (Simulation.WorldTime), ключ задаёт сдвиг. В сети время присылает сервер, ключ игнорируется.
@@ -178,7 +209,37 @@ namespace Orpheus.Client
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--day-tick 0…35999]";
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|turn|cursor-place|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence|torches|room|wall] [--day-tick 0…35999]";
+
+        static bool TryParseWalk(string? text, ClientArgs a)
+        {
+            string[] p = (text ?? string.Empty).ToLowerInvariant().Split(':');
+            if (p.Length < 3 || p.Length > 4)
+            {
+                return false;
+            }
+
+            switch (p[0])
+            {
+                case "e": a.WalkDirX = 1f; a.WalkDirY = 0f; break;
+                case "w": a.WalkDirX = -1f; a.WalkDirY = 0f; break;
+                case "n": a.WalkDirX = 0f; a.WalkDirY = 1f; break;
+                case "s": a.WalkDirX = 0f; a.WalkDirY = -1f; break;
+                case "ne": a.WalkDirX = 1f; a.WalkDirY = 1f; break;
+                case "nw": a.WalkDirX = -1f; a.WalkDirY = 1f; break;
+                case "se": a.WalkDirX = 1f; a.WalkDirY = -1f; break;
+                case "sw": a.WalkDirX = -1f; a.WalkDirY = -1f; break;
+                case "stay": a.WalkDirX = 0f; a.WalkDirY = 0f; break;
+                default: return false;
+            }
+
+            a.WalkLead = 0f;
+            return int.TryParse(p[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.WalkFrames)
+                && a.WalkFrames >= 1 && a.WalkFrames <= 16
+                && float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out a.WalkInterval)
+                && a.WalkInterval > 0f && a.WalkInterval <= 5f
+                && (p.Length < 4 || (float.TryParse(p[3], NumberStyles.Float, CultureInfo.InvariantCulture, out a.WalkLead) && a.WalkLead >= 0f && a.WalkLead <= 30f));
+        }
 
         public static ClientArgs Parse(string[] args)
         {
@@ -394,8 +455,73 @@ namespace Orpheus.Client
                         }
 
                         break;
+                    case "--shot-walk":
+                        i++;
+                        if (!TryParseWalk(next, a))
+                        {
+                            a.Error = $"--shot-walk: нужно НАПРАВЛЕНИЕ:КАДРОВ:ИНТЕРВАЛ[:РАЗБЕГ] (e|w|n|s|ne|nw|se|sw|stay : 1…16 : секунды), дано '{next}'";
+                            a.WalkFrames = 0;
+                        }
+
+                        break;
+                    case "--shot-crop":
+                        i++;
+                        string[] crop = (next ?? string.Empty).ToLowerInvariant().Split('x');
+                        if (crop.Length != 2
+                            || !int.TryParse(crop[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.CropX)
+                            || !int.TryParse(crop[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out a.CropY)
+                            || a.CropX < 64 || a.CropY < 64)
+                        {
+                            a.Error = $"--shot-crop: нужно ШxВ в пикселях кадра (например 640x400), дано '{next}'";
+                            a.CropX = 640;
+                            a.CropY = 400;
+                        }
+
+                        break;
                     case "--paint-demo":
                         a.PaintDemo = true;
+                        break;
+                    case "--demo-piles":
+                        a.DemoPiles = true;
+                        break;
+                    case "--ui-demo":
+                        i++;
+                        if (!UI.UiDemo.IsMode(next))
+                        {
+                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, half, turn, cursor-place, ruler-wall или ruler-floor, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.UiDemo = next;
+                        }
+
+                        break;
+                    case "--home-demo":
+                        i++;
+                        if (!global::Orpheus.Client.PaintDemo.IsHomeMode(next))
+                        {
+                            a.Error = $"--home-demo: нужно overview, south, north, behind, door, camp, fence, torches, room или wall, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.HomeDemo = next;
+                        }
+
+                        break;
+                    case "--wade-demo":
+                        i++;
+                        if (!global::Orpheus.Client.PaintDemo.IsWadeMode(next))
+                        {
+                            a.Error = $"--wade-demo: нужно water, bush или enemy, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.WadeDemo = next;
+                        }
+
+                        break;
+                    case "--paint-forest":
+                        a.PaintForest = true;
                         break;
                     case "--day-tick":
                         i++;
@@ -403,6 +529,16 @@ namespace Orpheus.Client
                             || a.DayTick < 0 || a.DayTick >= 36_000)
                         {
                             a.Error = $"--day-tick: нужен такт суток 0…35999, дано '{next}'";
+                            a.DayTick = 0;
+                        }
+
+                        break;
+                    case "--shot-time":
+                        // E1-7: время суток словом (день, сумерки, ночь, рассвет) или долей суток 0…1 — то же, что --day-tick.
+                        i++;
+                        if (next == null || !DayTintView.TryParseTime(next, out a.DayTick))
+                        {
+                            a.Error = $"--shot-time: нужно день|сумерки|ночь|рассвет (day|dusk|night|dawn) или доля суток 0…1, дано '{next}'";
                             a.DayTick = 0;
                         }
 

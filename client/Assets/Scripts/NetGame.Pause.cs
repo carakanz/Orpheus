@@ -53,7 +53,7 @@ namespace Orpheus.Client
             {
                 ShowPause(null);
                 Keyboard? kb = Keyboard.current;
-                if (_args.NetSmokeSeconds == 0 && kb != null && (kb.escapeKey.wasPressedThisFrame || kb.qKey.wasPressedThisFrame))
+                if (_args.NetSmokeSeconds == 0 && kb != null && (kb.escapeKey.wasPressedThisFrame || (kb.qKey.wasPressedThisFrame && (kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed))))
                 {
                     Quit(0);
                 }
@@ -91,13 +91,13 @@ namespace Orpheus.Client
                     _pauseKey.Enable();
                 }
 
-                if (_pauseKey.WasPressedThisFrame())
+                if (_pauseKey.WasPressedThisFrame() && _ui?.EscapeUsed != true && !RulerTookEscape) // E2-2: Esc, закрывший окно сумки, паузу не ставит
                 {
                     c.RequestPause(!c.Paused);
                     Debug.Log(c.Paused ? "[net] «продолжить» отправлено" : "[net] «пауза» отправлена");
                 }
 
-                if (c.Paused && Keyboard.current?.qKey.wasPressedThisFrame == true)
+                if (c.Paused && Keyboard.current is { } pk && pk.qKey.wasPressedThisFrame && (pk.leftCtrlKey.isPressed || pk.rightCtrlKey.isPressed))
                 {
                     Quit(0);
                 }
@@ -152,7 +152,7 @@ namespace Orpheus.Client
                 trt.sizeDelta = new Vector2(1600f, 240f);
             }
 
-            string full = text + "\n<size=32>Esc / Start — продолжить, Q — выйти</size>";
+            string full = text + "\n<size=32>Esc / Start — продолжить, Ctrl+Q — выйти</size>";
             if (_pauseText != null && _pauseText.text != full)
             {
                 _pauseText.supportRichText = true;

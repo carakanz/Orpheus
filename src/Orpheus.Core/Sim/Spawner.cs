@@ -10,8 +10,9 @@ namespace Orpheus.Core.Sim
     /// включает сервер (<see cref="ServerHost"/>), клиент и предсказание молчат — появления приходят снимками.
     /// <para>
     /// 8.5 «Появление»: сервер обходит игроков по кругу; у игрока, чья окрестность 40 т ниже лимита
-    /// (день 5 / ночь 8 на игрока, группа с пересекающимися окрестностями ×(1 + 0,5(n − 1)) вверх до целого),
-    /// попытка раз в 8 с днём / 4 с ночью (линейно в сумерки): до 10 случайных тайлов в кольце 36–46 т по тору —
+    /// (ночь 8 на игрока, группа с пересекающимися окрестностями ×(1 + 0,5(n − 1)) вверх до целого),
+    /// попытка раз в 4 с — только в фазе «ночь» (C-006, слово Автора 15.11: днём, в сумерки и на рассвете
+    /// новых врагов нет; docs/02 8.5 с дневным появлением расходится — backlog [док]): до 10 случайных тайлов в кольце 36–46 т по тору —
     /// проходимый, не построенный пол игрока, не в замкнутой стенами области (заливка ≤ 256), свет построенных
     /// источников &lt; 0,5, не ближе 16 т к точке старта/Очагу, не ближе 36 т ни к одному игроку.
     /// Появившийся враг — «Интерес» 20 с: идёт шагом в сторону своего игрока (8.3).
@@ -23,7 +24,8 @@ namespace Orpheus.Core.Sim
     /// <para>
     /// 8.8 «Исчезновение»: враг с мозгом без цели исчезает, если 30 с подряд дальше 80 т от всех игроков
     /// (цель — серия прерывается: «идёт бой») или его чанк вышел из активной зоны сервера (9 × 9 у всех).
-    /// Без дропа и анимации; удаление — вне фаз, от хвоста списка (как трупы).
+    /// Без дропа и анимации; удаление — вне фаз, от хвоста списка (как трупы). C-006: на рассвете и днём враг
+    /// без цели уходит в пределах 1 с; в бою — по потере цели или через 30 с светлого времени, не посреди замаха.
     /// </para>
     /// <para>
     /// Детерминизм (11.5): выбор тайлов — <see cref="EnemyRng"/> от (номер игрока, такт, зерно мира); счётчики
@@ -42,12 +44,11 @@ namespace Orpheus.Core.Sim
         public const int SpawnRingMinTiles = 36;
         public const int SpawnRingMaxTiles = 46;
 
-        /// <summary>Лимит врагов в окрестности: день 5, ночь 8 (на игрока; группа — формулой).</summary>
-        public const int SpawnDayLimit = 5;
+        /// <summary>Лимит врагов в окрестности ночью: 8 на игрока (группа — формулой). Дневного лимита нет:
+        /// днём, в сумерки и на рассвете попыток нет вовсе (C-006, слово Автора 15.11).</summary>
         public const int SpawnNightLimit = 8;
 
-        /// <summary>Ритм попыток: день 8 с = 240 тактов, ночь 4 с = 120, линейно в сумерки/рассвет.</summary>
-        public const int SpawnAttemptDayTicks = 240;
+        /// <summary>Ритм попыток ночью: 4 с = 120 тактов. Вне фазы «ночь» попыток нет (C-006).</summary>
         public const int SpawnAttemptNightTicks = 120;
 
         /// <summary>Тайлов-кандидатов за попытку — не больше 10.</summary>
@@ -89,6 +90,26 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Сколько тактов подряд «дальше 80 т» до исчезновения: 30 с = 900.</summary>
         public const int DespawnFarTicks = 900;
+
+        // ---- C-006 «С рассветом враги уходят» ----
+
+        /// <summary>
+        /// Разброс ухода врагов без цели на рассвете и днём: враг исчезает на такте, где
+        /// (такт + номер) кратно 30, — каждый в пределах 1 с, не все в один кадр; детерминированно, без состояния.
+        /// </summary>
+        public const int DaylightDespawnStaggerTicks = 30;
+
+        /// <summary>
+        /// Враг в бою (есть цель) доигрывает: исчезает, когда потеряет цель, или когда с начала рассвета по часам
+        /// мира прошло 30 с (900 тактов часов) — тогда уходит и с целью (не посреди замаха).
+        /// </summary>
+        public const int DaylightFightTicks = 900;
+
+        /// <summary>Светлое время для врагов: рассвет и день (C-006).</summary>
+        public static bool IsDaylight(DayPhase phase) => phase == DayPhase.Dawn || phase == DayPhase.Day;
+
+        /// <summary>Тактов часов мира с начала рассвета (для рассвета и дня; ночью и в сумерки — смысла нет).</summary>
+        public static int TicksSinceDawn(int worldTime) => DayClock.Wrap(worldTime - DayClock.DawnStartTick);
 
         // ---- Состояние сессии сервера ----
 
@@ -191,11 +212,14 @@ namespace Orpheus.Core.Sim
         /// <summary>
         /// Исчезновение (8.8): враг с мозгом, живой, без цели — чанк вне активной зоны сразу; серия
         /// «дальше 80 т от всех игроков» 900 тактов подряд. Цель («идёт бой») прерывает серию; с целью — не
-        /// исчезает. Порядок от хвоста: <see cref="RemoveEntity"/> сдвигает список.
+        /// исчезает. C-006: на рассвете и днём без цели — в пределах 1 с, с целью — через 30 с светлого времени
+        /// (не посреди замаха). Порядок от хвоста: <see cref="RemoveEntity"/> сдвигает список.
         /// </summary>
         private void StepDespawn(long tick)
         {
             const long Far2 = (long)DespawnFarTiles * Torus.SubTilesPerTile * DespawnFarTiles * Torus.SubTilesPerTile;
+            bool daylight = IsDaylight(DayClock.PhaseOf(WorldTime));
+            int sinceDawn = TicksSinceDawn(WorldTime);
 
             for (int i = _entityCount - 1; i >= 0; i--)
             {
@@ -211,6 +235,18 @@ namespace Orpheus.Core.Sim
                 {
                     RemoveEntity(e.Id);
                     continue;
+                }
+
+                if (daylight)
+                {
+                    // C-006: с рассветом враги уходят. Посреди замаха — никогда (удар доигрывается);
+                    // без цели — в пределах 1 с (разброс по номеру); с целью — после 30 с светлого времени.
+                    if (e.AttackWindup == 0 &&
+                        (b.TargetId < 0 ? (tick + e.Id) % DaylightDespawnStaggerTicks == 0 : sinceDawn >= DaylightFightTicks))
+                    {
+                        RemoveEntity(e.Id);
+                        continue;
+                    }
                 }
 
                 if (_spawnPlayers == 0)
@@ -252,21 +288,24 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Попытка появления (8.5): раз в 240 тактов днём / 120 ночью (линейно в сумерки) — следующий игрок
+        /// Попытка появления (8.5, C-006): только в фазе «ночь», раз в 120 тактов — следующий игрок
         /// по кругу; если его окрестность 40 т ниже лимита группы — до 10 тайлов кольца 36–46 т, первый годный
         /// тайл → «Ближний» с «Интересом» на своего игрока. Архетип: «Стрелок» (1-008) не реализован —
         /// таблица 2:1 вырождается в 100 % «Ближний» (записано в решениях карточки).
         /// </summary>
         private void StepSpawnAttempt(long tick)
         {
-            int bg = DayClock.BackgroundX1024(WorldTime);
-            int interval = SpawnAttemptDayTicks - (SpawnAttemptDayTicks - SpawnAttemptNightTicks) * (1024 - bg) / 717;
+            if (DayClock.PhaseOf(WorldTime) != DayPhase.Night)
+            {
+                return; // C-006 (слово Автора 15.11): агрессивные враги появляются только ночью; сумерки — тоже нет
+            }
+
             if (tick < _spawnNextTry)
             {
                 return;
             }
 
-            _spawnNextTry = tick + interval;
+            _spawnNextTry = tick + SpawnAttemptNightTicks;
             if (_spawnPlayers == 0)
             {
                 return;
@@ -315,13 +354,13 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Лимит окрестности игрока <paramref name="pi"/>: база (фаза суток) × (1 + 0,5 × (n − 1)) для группы
+        /// Лимит окрестности игрока <paramref name="pi"/>: база (ночь, 8) × (1 + 0,5 × (n − 1)) для группы
         /// с пересекающимися окрестностями (дистанция &lt; 80 т), вверх до целого (8.5). Плотность биома — 1,0
         /// до генератора.
         /// </summary>
         private int SpawnLimitFor(int pi)
         {
-            int baseLimit = DayClock.PhaseOf(WorldTime) == DayPhase.Night ? SpawnNightLimit : SpawnDayLimit;
+            int baseLimit = SpawnNightLimit; // попытки бывают только ночью (C-006)
             const long Group2 = (long)SpawnNeighborhoodTiles * 2 * Torus.SubTilesPerTile * SpawnNeighborhoodTiles * 2 * Torus.SubTilesPerTile;
 
             int n = 1;
@@ -361,8 +400,8 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Годный тайл появления (8.5, docs/01 6): проходимый; не построенный пол (пол игрока); свет
-        /// построенных источников &lt; 0,5; ≥ 16 т от точки старта/Очага; ≥ 36 т от каждого игрока; не внутри
-        /// области, замкнутой стенами (заливка проходимых 4-соседей, лимит 256).
+        /// построенных источников &lt; 0,5; не в комнате с огнём (C-017, <see cref="RoomIndex"/>); ≥ 16 т от точки
+        /// старта/Очага; ≥ 36 т от каждого игрока; не внутри области, замкнутой стенами (заливка проходимых 4-соседей, лимит 256).
         /// </summary>
         public bool IsSpawnTileOk(TileCoord tile)
         {
@@ -371,14 +410,25 @@ namespace Orpheus.Core.Sim
                 return false;
             }
 
-            if (FloorId.IsBuilt(_world.GetFloor(tile)))
+            byte spawnFloor = _world.GetFloor(tile);
+            if (FloorId.IsBuilt(spawnFloor))
             {
                 return false; // пол, построенный игроком, — «дом», не место появления
+            }
+
+            if (TerrainSlow.FloorQ8(spawnFloor) != TerrainSlow.One)
+            {
+                return false; // C-018: вода проходима, но враг из воды не появляется
             }
 
             if (_world.Lights.SourceLightX1024(tile) >= SpawnLightLimitX1024)
             {
                 return false;
+            }
+
+            if (_world.Rooms.LitRoomInTile(tile))
+            {
+                return false; // C-017: комната, замкнутая стенами и дверями, с факелом или костром внутри
             }
 
             WorldPos center = EditRules.CenterOf(tile);

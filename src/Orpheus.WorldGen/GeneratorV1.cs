@@ -20,8 +20,15 @@ namespace Orpheus.WorldGen
     /// </summary>
     public sealed class GeneratorV1 : IWorldGenerator
     {
-        /// <summary>Версия генератора — пишется в снимок генерации (docs/07, 3.4).</summary>
-        public const int GeneratorVersion = MacroGenerator.GeneratorVersion;
+        /// <summary>
+        /// Версия генератора — пишется в снимок генерации (docs/07, 3.4). 4 — мир 1-017 (общая с макрокартой); 5 — E1-2:
+        /// вода, берег, обрывы, тропы, лес куртинами, сухая трава, без скальной массы гор. 6 — E1-6b: обрывы — плавные гряды
+        /// толщиной 2–3 тайла вокруг гор вместо линий уровней в один тайл. Макрокарта (этапы 1–3, 7) при
+        /// этом не менялась, её версия осталась (7 — E2-6: залежи пятнами — медь, россыпи валунов, ядра гранита; 8 — C-016:
+        /// горы-лабиринт — широкие скальные массивы с ущельями 2–3 тайла, тупиками и долинами вместо гряд 2–4 тайла)
+        /// <see cref="MacroGenerator.GeneratorVersion"/>.
+        /// </summary>
+        public const int GeneratorVersion = 8;
 
         /// <summary>Ключ сервера <c>--gen</c>.</summary>
         public const string Key = "v1";
@@ -54,6 +61,7 @@ namespace Orpheus.WorldGen
             TileStage.Run(t);
             HearthStage.StampCopper(t);
             ConnectStage.Run(t);
+            CliffStage.DropStubs(t);
             return t;
         }
 

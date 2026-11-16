@@ -1,0 +1,4 @@
+notes.json
+.notes-*.tmp
+notes.json.broken-*
+__pycache__/

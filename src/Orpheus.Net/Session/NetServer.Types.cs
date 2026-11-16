@@ -21,6 +21,13 @@ namespace Orpheus.Net.Session
             InGame,
         }
 
+        /// <summary>Куча, о которой игроку сказано (E2-1): номер и количество в последнем сообщении.</summary>
+        private struct KnownPile
+        {
+            public int Id;
+            public ushort Count;
+        }
+
         private sealed class Player
         {
             public int Peer;
@@ -92,6 +99,28 @@ namespace Orpheus.Net.Session
             public Inventory SentInv;
             public bool HasSentInv;
             public ushort InvVersion;
+
+            /// <summary>Кучи на земле, которые игрок знает (E2-1), по номеру; вторая — рабочая для сверки после такта.</summary>
+            public List<KnownPile> KnownPiles = new List<KnownPile>();
+            public List<KnownPile> KnownPilesNext = new List<KnownPile>();
+
+            /// <summary>Заявок на сумку (29) принято от игрока с прошлой рассылки снимков (лимит на такт, E2-1).</summary>
+            public int BagRequestsThisTick;
+
+            /// <summary>Очередь изготовления, отправленная игроку (E2-3), и признак «идёт»; <see cref="HasSentCraft"/> — слана хоть раз.</summary>
+            public CraftQueue SentCraft;
+            public bool SentCraftRunning;
+            public bool HasSentCraft;
+
+            /// <summary>Сводка «сундуки рядом», отправленная игроку (E2-10); <see cref="HasSentStock"/> — слана хоть раз.</summary>
+            public ChestStock SentStock = new ChestStock();
+            public bool HasSentStock;
+
+            /// <summary>Открытый игроком сундук (E2-5): тайл; отправленное содержимое (<see cref="ChestSent"/> — слано после открытия).</summary>
+            public bool ChestOpen;
+            public TileCoord ChestTile;
+            public Inventory SentChest;
+            public bool ChestSent;
 
             /// <summary>
             /// Опережение L из последнего нового пакета ввода, кадров (0-033, 2.7) — подсказка только для отчёта о запасе (им клиент

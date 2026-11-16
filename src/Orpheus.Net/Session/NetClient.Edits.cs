@@ -28,29 +28,22 @@ namespace Orpheus.Net.Session
         private TileCoord _digTile;
         private ushort _digObj;
         private byte _lastSlot; // ячейка быстрой панели последнего отправленного кадра (предмет в руках для предсказания)
-        private ushort _lootRequest; // запрос предсказанной добычи (0 — нет)
-        private Material _lootMaterial;
-        private int _lootCount;
-        private ushort _lootInvVersion; // версия сумки в момент предсказания: новая сводка сервера отменяет откат
 
-        // Траты и возвраты предсказаний (1-011): постановка — списание по бюджету линии; снос — возврат по рецепту.
-        // Отказ сервера по тайлу (нет бита в маске) — снятое предсказание обратно, если сводка сумки с тех пор не приходила.
+        // Траты предсказаний постановки (E2-11): по предмету-постройке из ячейки панели на тайл линии. Отказ сервера по тайлу
+        // (нет бита в маске) — предмет обратно в ячейку, если сводка сумки с тех пор не приходила (иначе в ней уже правда).
         private struct SpendEntry
         {
             public ushort Request;
             public byte LineIndex;
-            public Material Material1;
-            public Material Material2;
-            public int Count1;
-            public int Count2;
-
-            /// <summary>Предсказано списание (постановка): отказ — добавить. Иначе предсказан возврат: отказ — снять.</summary>
-            public bool WasSpend;
+            public byte Item;
+            public byte Cell;
             public ushort InvVersion;
+
+            // Предметов снято за эту запись (E2-12: тайл стены — по предмету на ячейку); 0 — один (прежние записи).
+            public byte Count;
         }
 
         private readonly System.Collections.Generic.List<SpendEntry> _spends = new System.Collections.Generic.List<SpendEntry>();
-        private readonly TileCoord[] _line = new TileCoord[EditRules.MaxLineTiles];
 
         /// <summary>Каждый ответ сервера на правку (после <see cref="ClientWorld.Resolve"/>).</summary>
         public Action<TileReplyMessage>? EditReplied { get; set; }
@@ -129,78 +122,22 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
-        /// «Поставить»: линия от <paramref name="from"/> до <paramref name="to"/> (до 32 тайлов), объект <paramref name="obj"/>
-        /// (пол-ключи 8…10 — построенный пол). Тайлы, которые по своему миру и позиции <paramref name="self"/> проходят проверку,
-        /// предсказываются сразу, стоимость списывается с локальной сумки по бюджету линии (1-011, <c>05</c> 1.4): где сумка
-        /// кончилась — предсказание останавливается, сервер ответит на эти тайлы «нет ресурсов». Возвращает номер запроса;
-        /// линия длиннее 32 или не в игре — 0.
+        /// «Поставить» (E2-11): линия от <paramref name="from"/> до <paramref name="to"/> (до 32 тайлов), постройка
+        /// <paramref name="obj"/> (ключ <see cref="BuildDefs"/>; пол — ключ пола) предметом из ячейки панели <paramref name="cell"/>.
+        /// Тайлы, которые по своему миру и позиции <paramref name="self"/> проходят проверку, предсказываются сразу, по предмету
+        /// из ячейки на тайл: где предметы кончились — предсказание останавливается, сервер ответит «нет ресурсов».
+        /// Возвращает номер запроса; линия длиннее 32, ячейка вне панели или не в игре — 0.
         /// </summary>
-        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self)
-        {
-            if (State != NetClientState.InGame || World == null)
-            {
-                return 0;
-            }
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell) =>
+            Place(from, to, obj, self, cell, EditRules.IsFloorKey(obj) && World != null ? BuildCells.WholeTilesQuad(World.Shape, from, to) : (byte)0); // E2-15: пол — тайлы целиком
 
-            int n = EditRules.Line(World.Shape, from, to, _line);
-            if (n < 0)
-            {
-                return 0;
-            }
-
-            ushort id = NextRequest();
-            bool floorKey = EditRules.IsFloorKey(obj);
-            BuildDefs.TryGet(obj, out BuildDef def); // IsPlaceable ⇒ def; смета и предсказание сходятся по таблице
-            var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
-            for (int i = 0; i < n; i++)
-            {
-                TileCoord t = _line[i];
-                if (EditRules.CheckPlaceTile(World.World, self, t, obj) != EditReply.Accepted)
-                {
-                    continue;
-                }
-
-                if (!inv.Spend(def.Material1, def.Count1, def.Material2, def.Count2))
-                {
-                    break; // «ресурсы кончились посреди линии» (`05` 1.4): остаток линии не предсказываем
-                }
-
-                byte floor = World.World.GetFloor(t);
-                var rec = new BuildRecord((ushort)EntityId, def.MaxIntegrity, 0, floor, 0);
-                var edit = floorKey
-                    ? new TileEdit(0, (byte)obj, ObjectId.Empty, rec) // пол: слой пола := ключ, объект пустой
-                    : new TileEdit(0, floor, obj, rec);
-                if (!World.Predict(id, i, t, edit))
-                {
-                    inv.Add(def.Material1, def.Count1); // чанка нет — предсказания нет, трата отменяется
-                    if (def.Count2 > 0)
-                    {
-                        inv.Add(def.Material2, def.Count2);
-                    }
-
-                    continue;
-                }
-
-                _spends.Add(new SpendEntry
-                {
-                    Request = id,
-                    LineIndex = (byte)i,
-                    Material1 = def.Material1,
-                    Material2 = def.Material2,
-                    Count1 = def.Count1,
-                    Count2 = def.Count2,
-                    WasSpend = true,
-                    InvVersion = InvVersion,
-                });
-            }
-
-            Inv = inv;
-            SendRequest(new TileRequestMessage
-            {
-                RequestId = id, Op = TileOp.Place, Frame = _input.LastFrame + 1, From = Torus.Wrap(World.Shape, from), To = Torus.Wrap(World.Shape, to), Obj = obj,
-            });
-            return id;
-        }
+        /// <summary>
+        /// «Поставить» с четвертями (E2-12, протокол 26): <paramref name="quad"/> — биты 0–1 ячейка 0,5 × 0,5 в тайле начала,
+        /// биты 2–3 — в тайле конца (<see cref="TileRequestMessage.Quad"/>). Стена, забор, дверь — ячейками
+        /// (<see cref="PlaceCells"/>), остальное — как <see cref="Place(TileCoord, TileCoord, ushort, WorldPos, byte)"/>.
+        /// </summary>
+        public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad) =>
+            PlacePlan(from, to, obj, self, cell, (byte)(quad & 31)); // E2-16: бит 4 — из меню изготовления // E2-15: план заявки — общий с сервером (NetClient.Cells.cs)
 
         /// <summary>
         /// F (1-012, протокол 19): закрыть дверь на тайле <paramref name="tile"/>. Предсказание — record-only
@@ -282,60 +219,12 @@ namespace Orpheus.Net.Session
                 return; // тайл уже не тот (пачка сервера) — предсказывать нечего, ответ придёт «пусто»
             }
 
-            // Снос построенного пола: слой пола возвращается природному из записи (1-011, `05` 1.3).
-            byte newFloor = World.World.GetFloor(_digTile);
-            bool hasRecord = World.World.TryGetBuild(_digTile, out BuildRecord rec);
-            if (FloorId.IsBuilt(newFloor) && hasRecord)
-            {
-                newFloor = rec.NaturalFloor;
-            }
+            // Снос по слоям (E2-15, как у сервера): верх или обломки — пол остаётся; верха нет — построенный пол.
+            BuildLayers.AfterDig(World.World, _digTile, out byte newFloor, out bool keep, out BuildRecord rest);
+            World.Predict(_digRequest, 0, _digTile, keep ? new TileEdit(0, newFloor, ObjectId.Empty, rest) : new TileEdit(0, newFloor, ObjectId.Empty));
 
-            World.Predict(_digRequest, 0, _digTile, new TileEdit(0, newFloor, ObjectId.Empty));
-
-            // Предсказание возврата сноса (1-011, `05` 1.3): неповреждённой — рецепт целиком, повреждённой —
-            // ⌊кол × прочность ÷ максимум⌋ по каждому материалу; обломки ранней расчистки — ничего; снос с флагом
-            // «урон последние 10 с» — сервер подменит правку обломками, возврата нет.
-            if (hasRecord && !rec.IsDebris && !rec.IsDamagedRecent && BuildDefs.TryGet(_digObj, out BuildDef def))
-            {
-                int k1 = BuildDefs.RefundOf(def.Count1, rec.Integrity, def.MaxIntegrity);
-                int k2 = def.Count2 > 0 ? BuildDefs.RefundOf(def.Count2, rec.Integrity, def.MaxIntegrity) : 0;
-                var inv = Inv;
-                if (k1 > 0)
-                {
-                    inv.Add(def.Material1, k1);
-                }
-
-                if (k2 > 0)
-                {
-                    inv.Add(def.Material2, k2);
-                }
-
-                Inv = inv;
-                _spends.Add(new SpendEntry
-                {
-                    Request = _digRequest,
-                    Material1 = def.Material1,
-                    Material2 = def.Material2,
-                    Count1 = k1,
-                    Count2 = k2,
-                    WasSpend = false,
-                    InvVersion = InvVersion,
-                });
-            }
-
-            // Предсказание добычи (1-010): тот же детерминированный бросок, что у сервера (зерно, тайл, объект);
-            // подтвердит сервер — сумка сервера (тип 26) это же число; откажет — откат по ответу.
-            int n = DigLoot.DropFor(_digObj, _digTile.X, _digTile.Y, Accept.WorldSeed, out Material material);
-            if (n > 0)
-            {
-                var inv = Inv; // Inventory — структура: правим копию и пишем обратно (1-010)
-                inv.Add(material, n);
-                Inv = inv;
-                _lootRequest = _digRequest;
-                _lootMaterial = material;
-                _lootCount = n;
-                _lootInvVersion = InvVersion;
-            }
+            // E2-1: возврат сноса и добыча копания падают кучами на землю (сервер пришлёт «кучи», тип 27) —
+            // сумка от них не меняется, предсказывать нечего. Подбор не предсказывается: ждём сумку сервера (тип 26).
         }
 
         private void OnTileReply(in TileReplyMessage m)
@@ -344,19 +233,6 @@ namespace Orpheus.Net.Session
             if (_digActive && m.RequestId == _digRequest)
             {
                 _digActive = false; // отказ до конца копания или ответ на докопанное — копание кончилось
-            }
-
-            if (_lootRequest == m.RequestId)
-            {
-                _lootRequest = 0;
-                if (m.Reply != EditReply.Accepted && InvVersion == _lootInvVersion)
-                {
-                    // Отказ (тайл увёл другой копающий, «пусто»): снятое предсказание обратно; сумка сервера
-                    // с тех пор не приходила (иначе в ней уже правда).
-                    var inv = Inv;
-                    inv.Spend(_lootMaterial, _lootCount);
-                    Inv = inv;
-                }
             }
 
             // Траты/возвраты предсказаний линии и сноса (1-011): тайл без бита в маске — предсказанное снимается;
@@ -376,21 +252,14 @@ namespace Orpheus.Net.Session
                 }
 
                 var inv = Inv;
-                if (e.WasSpend)
+                int units = e.Count == 0 ? 1 : e.Count;
+                if (inv.CountIn(e.Cell) == 0 || inv.ItemAt(e.Cell) == e.Item)
                 {
-                    inv.Add(e.Material1, e.Count1);
-                    if (e.Count2 > 0)
-                    {
-                        inv.Add(e.Material2, e.Count2);
-                    }
+                    inv.SetCell(e.Cell, e.Item, inv.CountIn(e.Cell) + units);
                 }
                 else
                 {
-                    inv.Spend(e.Material1, e.Count1);
-                    if (e.Count2 > 0)
-                    {
-                        inv.Spend(e.Material2, e.Count2);
-                    }
+                    inv.Add(e.Item, units);
                 }
 
                 Inv = inv;

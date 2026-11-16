@@ -81,7 +81,7 @@ namespace Orpheus.Core.Pathing
 
     /// <summary>
     /// Карта для поиска пути: стоимость входа в тайл (<see cref="PathCost.Blocked"/>, <see cref="PathCost.Normal"/>,
-    /// <see cref="PathCost.Slow"/>). Поиск спрашивает каждый тайл окна не больше одного раза.
+    /// <see cref="PathCost.Slow"/>). Поиск спрашивает каждый тайл окна не больше одного раза; у непроходимого — ещё и ячейки (<see cref="CellsOf"/>).
     /// </summary>
     public interface IPathTerrain
     {
@@ -93,5 +93,11 @@ namespace Orpheus.Core.Pathing
 
         /// <summary>Множитель стоимости тайла (свёрнутого) для режима; 0 — непроходим.</summary>
         byte CostOf(TileCoord tile, PathMode mode);
+
+        /// <summary>
+        /// Твёрдые ячейки 0,5 × 0,5 тайла (E2-12b; бит 1 — СЗ, 2 — СВ, 4 — ЮЗ, 8 — ЮВ; 15 — весь тайл), о котором
+        /// <see cref="CostOf"/> ответил «непроходим». Тонкая стена — её ячейки; остальное твёрдое — весь тайл.
+        /// </summary>
+        byte CellsOf(TileCoord tile, PathMode mode);
     }
 }

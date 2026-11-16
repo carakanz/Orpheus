@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using Orpheus.Core.Geometry;
+using Items = Orpheus.Core.Sim.Items;
 using Orpheus.Core.World;
 using UnityEngine;
 
@@ -15,7 +16,8 @@ namespace Orpheus.Client.Anim
     /// <list type="bullet">
     /// <item><c>--anim-shots &lt;папка&gt;</c>: время игры идёт ровно 1/60 с на кадр (<see cref="Time.captureDeltaTime"/>), в
     /// заданные миги кадр снимается, вырезается кусок вокруг действия и кладётся в ленту из 6 кадров:
-    /// <c>K-001_walk.png</c>, <c>_dodge</c>, <c>_swing_hit</c>, <c>_swing_dodge</c>, <c>_dig</c>, плюс общий <c>K-001_overview.png</c>.</item>
+    /// <c>K-001_walk.png</c>, <c>_dodge</c>, <c>_swing_hit</c>, <c>_swing_dodge</c>, <c>_dig</c>, плюс общий <c>K-001_overview.png</c>;
+    /// E2-7 — <c>E2-7_chop</c>, <c>_mine</c>, <c>_build</c>, <c>_pickup</c>, <c>_carry</c>, <c>_sword</c> (рубка, кирка по камню, стройка, подбор, несение, меч в руке).</item>
     /// <item><c>--anim-bench &lt;сек&gt;</c>: 8 персонажей (ходьба, увороты) и 40 врагов-болванок (замах с сектором по кругу) на
     /// экране при зуме ×1,0, без вертикальной синхронизации; в лог — средний fps и 1 % худших кадров, выход 0.</item>
     /// </list>
@@ -47,7 +49,28 @@ namespace Orpheus.Client.Anim
         ActorRig _victim = null!;
         ActorRig _digger = null!;
         Vector3 _tree;
+        TileCoord _treeTile;
         Vector3 _focus;
+
+        // E2-7: действия — рубка (_digger с топором у дерева), кирка у камня, стройка, несение, подбор, меч в руке.
+        ActorRig _miner = null!;
+        ActorRig _builder = null!;
+        ActorRig _carrier = null!;
+        ActorRig _picker = null!;
+        ActorRig _fencer = null!;
+
+        // C-012: удар мечом к прицелу в 4 стороны (восток, север, запад, юг) и контур зоны удара ядра — только в ленте снимков
+        // (отладка: края взмаха и сектора должны совпасть; в игре свой сектор не рисуется).
+        readonly ActorRig[] _aimFencers = new ActorRig[4];
+        readonly SectorView[] _aimSectors = new SectorView[4];
+        static readonly Vector2[] AimDirs = { Vector2.right, Vector2.up, Vector2.left, Vector2.down };
+        Vector3 _rock;
+        TileCoord _rockTile;
+        bool _rockReal;
+        int _builds = -1, _picks = -1;
+        const int ChopFrames = 54;  // 0,9 с на тайл — 2 замаха (такт ядра)
+        const int MineFrames = 75;  // 1,25 с — 3 замаха
+        const float ActionGap = 0.35f; // пауза между тайлами (ответ сервера)
         float _ortho = ShotsOrtho;
 
         // замер
@@ -70,7 +93,10 @@ namespace Orpheus.Client.Anim
             _g.Teleport(_g.TileCenter(new TileCoord(tree.X - 6, tree.Y)));
             _g.Character.gameObject.SetActive(false); // в показе свой персонаж не нужен — сцена из своих существ
             _tree = _g.Origin.ToUnity(_g.TileCenter(tree));
+            _treeTile = tree;
             _c = _tree + new Vector3(-6f, 0f, 0f);
+            _rockReal = FindRock(tree, out _rockTile);
+            _rock = _rockReal ? _g.Origin.ToUnity(_g.TileCenter(_rockTile)) : _c + new Vector3(1.5f, -3f, 0f);
             Debug.Log($"[anim] сцена у дерева {tree.X},{tree.Y} (лишних объектов рядом {clutter}), снимки → {_dir ?? "нет"}, замер {benchSec} с");
 
             _stage = new GameObject("K001 Stage").transform;
@@ -139,6 +165,42 @@ namespace Orpheus.Client.Anim
             return best;
         }
 
+        // E2-7: камень или руда поближе к дереву, у которого западный сосед свободен (там встанет шахтёр).
+        bool FindRock(TileCoord tree, out TileCoord rock)
+        {
+            WorldModel w = _g.World;
+            for (int r = 1; r <= 30; r++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    for (int dx = -r; dx <= r; dx++)
+                    {
+                        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r)
+                        {
+                            continue;
+                        }
+
+                        TileCoord t = Torus.Wrap(_g.Map, new TileCoord(tree.X + dx, tree.Y + dy));
+                        ushort id = ObjectId.IdOf(w.GetObject(t));
+                        if (id != ObjectId.Rock && id != ObjectId.Ore && id != ObjectId.Granite)
+                        {
+                            continue;
+                        }
+
+                        TileCoord west = Torus.Wrap(_g.Map, new TileCoord(t.X - 1, t.Y));
+                        if (w.GetObject(west) == ObjectId.Empty && !_g.Rules.IsBlocked(_g.Map, west))
+                        {
+                            rock = t;
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            rock = default;
+            return false;
+        }
+
         Transform Make(string name, Color color) => ActorFactory.Create(_stage, name, _sprite, color);
 
         void BuildShowcase()
@@ -148,6 +210,58 @@ namespace Orpheus.Client.Anim
             _dummy = new SwingActor(Make("Dummy", ActorFactory.EnemyTint), _sectorMat) { Axis = Vector2.left };
             _victim = new ActorRig(Make("Victim", Color.white));
             _digger = new ActorRig(Make("Digger", Color.white));
+            _digger.SetHeld(Items.StoneAxe);
+            _miner = new ActorRig(Make("Miner", Color.white));
+            _miner.SetHeld(Items.StonePickaxe);
+            _builder = new ActorRig(Make("Builder", Color.white));
+            _builder.SetHeld(Items.StoneWall);
+            _carrier = new ActorRig(Make("Carrier", Color.white));
+            _carrier.SetHeld(Items.Wood);
+            _picker = new ActorRig(Make("Picker", Color.white));
+            _picker.SetHeld(Items.StonePickaxe);
+            _fencer = new ActorRig(Make("Fencer", Color.white));
+            _fencer.SetHeld(Items.WoodenSword);
+            for (int i = 0; i < 4; i++)
+            {
+                _aimFencers[i] = new ActorRig(Make($"Fencer aim {i}", Color.white));
+                _aimFencers[i].SetHeld(Items.WoodenSword);
+                _aimSectors[i] = new SectorView(_stage, _sectorMat, $"Fencer aim {i} sector");
+            }
+        }
+
+        /// <summary>C-012: четыре мечника 2 × 2 (шаг 3,6 т — сектора 1,4 т не перекрываются): восток, север, запад, юг.</summary>
+        Vector3 AimFencerPos(int i) => AimHub + new Vector3(i % 2 * 3.6f, -(i / 2) * 3.6f, 0f);
+        Vector3 AimHub => _c + new Vector3(7f, -5f, 0f);
+
+        Vector3 MinerPos => _rock + new Vector3(-1f, 0f, 0f);
+        Vector3 BuilderPos => _c + new Vector3(3.5f, -3f, 0f);
+        Vector3 CarrierHome => _c + new Vector3(-5f, 6f, 0f);
+        Vector3 PickerPos => _c + new Vector3(3.5f, 6f, 0f);
+        Vector3 FencerPos => _c + new Vector3(-2f, -5.5f, 0f);
+
+        /// <summary>
+        /// E2-7: копание инструментом по сценарию — тайл за тайлом с паузой на ответ сервера; время копания идёт как счёт
+        /// кадров ядра, удар — в такт (тот же <see cref="ProceduralAnimator"/>, что в сети). Возвращает: был ли удар в кадре.
+        /// </summary>
+        static bool ToolDig(ActorRig rig, ActionKind kind, int frames, float t, float dt, Vector2 dir)
+        {
+            float digSec = frames / (float)ActionAnim.FramesPerSecond;
+            float cycle = digSec + ActionGap;
+            float e = t % cycle;
+            var s = new ActorInput { Held = rig.Held };
+            if (e < digSec + 0.12f) // после удара отдача, потом пауза
+            {
+                s.Digging = true;
+                s.DigDirX = dir.x;
+                s.DigDirY = dir.y;
+                s.Action = kind;
+                s.ActionFrames = frames;
+                s.ActionSec = Mathf.Min(e, digSec);
+            }
+
+            Pose p = rig.Animator.Step(dt, s);
+            rig.Apply(p);
+            return p.DigPokeNow;
         }
 
         Vector3 WalkerHome => _c + new Vector3(-5f, 3f, 0f);
@@ -228,16 +342,71 @@ namespace Orpheus.Client.Anim
 
             _victim.Apply(_victim.Animator.Step(dt, vs));
 
-            // Копание дерева к востоку.
+            // E2-7: рубка дерева к востоку топором — удар в такт копания, дерево вздрагивает, щепки.
             _digger.Root.position = DiggerPos;
-            var ds = new ActorInput { Digging = true, DigDirX = 1f, DigPeriod = 0.3f };
-            Pose dp = _digger.Animator.Step(dt, ds);
-            _digger.Apply(dp);
-            if (dp.DigPokeNow)
+            if (ToolDig(_digger, ActionKind.Chop, ChopFrames, _t, dt, Vector2.right))
             {
-                Vector2 at = (Vector2)_tree + new Vector2(-0.45f, 0f);
-                _sparks.Emit(at, new Vector2(-1f, 0.8f), AnimParams.DigDust, AnimParams.DigDustSpeed, AnimParams.DigDustLife, 55f, true,
-                    AnimParams.DustWood, AnimParams.DustWood, AnimParams.DustLight);
+                NetAnimation.Emit(_sparks, _tree, Vector2.left, ImpactLook.Wood);
+                LifeFx.HitTile(_treeTile, Vector2.right);
+            }
+
+            // E2-7: кирка по камню к востоку — искры и крошка.
+            _miner.Root.position = MinerPos;
+            if (ToolDig(_miner, ActionKind.Mine, MineFrames, _t + 0.2f, dt, Vector2.right))
+            {
+                NetAnimation.Emit(_sparks, _rock, Vector2.left, ImpactLook.Stone);
+            }
+
+            // E2-7: стройка — жест к месту постановки (вправо-вниз) раз в 1,1 с.
+            _builder.Root.position = BuilderPos;
+            int b = (int)(_t / 1.1f);
+            if (b != _builds)
+            {
+                _builds = b;
+                _builder.Animator.OnBuild(1f, -0.35f);
+            }
+
+            _builder.Apply(_builder.Animator.Step(dt, new ActorInput { Held = _builder.Held }));
+
+            // E2-7: несение — ходьба туда-обратно с бревном в руке.
+            float cu = _t % (2f * leg);
+            float cx = cu < leg ? cu * WalkSpeed : (2f * leg - cu) * WalkSpeed;
+            _carrier.Root.position = CarrierHome + new Vector3(cx * 0.75f, 0f, 0f);
+            _carrier.AnimateWalk(dt);
+
+            // E2-7: подбор — наклон к куче справа раз в 1,3 с.
+            _picker.Root.position = PickerPos;
+            int pk = (int)(_t / 1.3f);
+            if (pk != _picks)
+            {
+                _picks = pk;
+                _picker.Animator.OnPickup(0.6f, -0.4f);
+            }
+
+            _picker.Apply(_picker.Animator.Step(dt, new ActorInput { Held = _picker.Held }));
+
+            // E2-7: удар мечом — меч в руке следует фазе (замах вверх, удар вниз, отход).
+            _fencer.Root.position = FencerPos;
+            SwingPhase fp = PhaseAt(_t % SwingCycle, out float fq);
+            _fencer.Apply(_fencer.Animator.Step(dt, new ActorInput
+            {
+                Held = _fencer.Held, Swing = fp, SwingProgress = fq, SwingDirX = 1f, SwingDirY = 0f,
+            }));
+
+            // C-012: те же фазы, ось — прицел; контур — сектор ядра (досягаемость 1,4 т, дуга 120°) от точки существа.
+            float reach = Orpheus.Core.Combat.SwordStrike.ReachUnits / (float)Torus.SubTilesPerTile;
+            float halfArc = Orpheus.Core.Combat.SwordStrike.HalfArcSteps / 65536f * Mathf.PI * 2f;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 d = AimDirs[i];
+                _aimFencers[i].Root.position = AimFencerPos(i);
+                _aimFencers[i].Apply(_aimFencers[i].Animator.Step(dt, new ActorInput
+                {
+                    Held = _aimFencers[i].Held, Swing = fp, SwingProgress = fq, SwingDirX = d.x, SwingDirY = d.y,
+                }));
+                // Вершина — точка ядра (корень), а не ступни: SectorView сам опускает сектор на SectorGroundY — здесь это снято,
+                // чтобы контур был ровно зоной ядра, с которой сверяется кончик меча.
+                _aimSectors[i].Show(AimFencerPos(i) - new Vector3(0f, AnimParams.SectorGroundY, 0f), d, reach, halfArc, 0f, 0f, 1f);
             }
         }
 
@@ -343,6 +512,23 @@ namespace Orpheus.Client.Anim
                     new Shot { Name = "swing_dodge", Focus = () => DummyPos + new Vector3(-0.6f, 1.0f, 0f), Ortho = 2.6f,
                         Times = new[] { 6.10f, 6.24f, 6.30f, 6.40f, 6.48f, 6.64f }, CropW = 640, CropH = 620 },
                     new Shot { Name = "dig", Focus = () => (DiggerPos + _tree) * 0.5f, Ortho = ShotsOrtho, Times = Series(7.00f, 0.05f), CropW = 560, CropH = 560 },
+
+                    // E2-7: ленты действий (файлы E2-7_*.png): подъём, верх замаха, удар в такт, отдача.
+                    new Shot { Name = "E2-7_chop", Focus = () => (DiggerPos + _tree) * 0.5f, Ortho = ShotsOrtho,
+                        Times = new[] { 8.88f, 9.00f, 9.10f, 9.17f, 9.21f, 9.28f }, CropW = 560, CropH = 600 },
+                    new Shot { Name = "E2-7_mine", Focus = () => (MinerPos + _rock) * 0.5f, Ortho = ShotsOrtho,
+                        Times = new[] { 11.05f, 11.20f, 11.32f, 11.39f, 11.43f, 11.50f }, CropW = 560, CropH = 600 },
+                    new Shot { Name = "E2-7_build", Focus = () => BuilderPos + new Vector3(0.5f, 0f, 0f), Ortho = ShotsOrtho,
+                        Times = new[] { 12.10f, 12.16f, 12.22f, 12.27f, 12.33f, 12.42f }, CropW = 480, CropH = 560 },
+                    new Shot { Name = "E2-7_pickup", Focus = () => PickerPos, Ortho = ShotsOrtho,
+                        Times = new[] { 13.00f, 13.06f, 13.12f, 13.18f, 13.24f, 13.32f }, CropW = 420, CropH = 560 },
+                    new Shot { Name = "E2-7_carry", Focus = () => _carrier.Root.position, Ortho = ShotsOrtho, Times = Series(13.50f, 0.06f), CropW = 360, CropH = 520 },
+                    new Shot { Name = "E2-7_sword", Focus = () => FencerPos + new Vector3(0.4f, 0f, 0f), Ortho = ShotsOrtho,
+                        Times = new[] { 15.05f, 15.20f, 15.35f, 15.42f, 15.47f, 15.70f }, CropW = 480, CropH = 560 },
+
+                    // C-012: взмах к прицелу в 4 стороны с контуром зоны удара ядра (замах, середина удара, конец удара, отход).
+                    new Shot { Name = "C-012_sword_aim", Focus = () => AimHub + new Vector3(1.8f, -1.8f, 0f), Ortho = 4.6f,
+                        Times = new[] { 16.70f, 16.92f, 16.97f, 17.20f }, CropW = 900, CropH = 900 }, // после E2-7_sword (15,70), цикл 1,5 с
                 };
 
                 foreach (Shot s in shots)
@@ -352,13 +538,13 @@ namespace Orpheus.Client.Anim
 
                 _ortho = 5f;
                 _focus = _c + new Vector3(0f, 1.2f, 0f);
-                while (_t < 8.0f)
+                while (_t < 16.0f)
                 {
                     yield return null;
                 }
 
                 yield return new WaitForEndOfFrame();
-                Texture2D full = ScreenCapture.CaptureScreenshotAsTexture();
+                Texture2D full = CaptureFrame();
                 Save("K-001_overview.png", full);
                 UnityEngine.Object.Destroy(full);
                 Time.captureDeltaTime = 0f;
@@ -386,7 +572,7 @@ namespace Orpheus.Client.Anim
         IEnumerator Strip(Shot s)
         {
             _ortho = s.Ortho;
-            int w = Mathf.Min(s.CropW, Screen.width), h = Mathf.Min(s.CropH, Screen.height);
+            int w = s.CropW, h = s.CropH; // кадр CaptureFrame — не меньше 320×180; вырезка ограничивается ниже по его размеру
             const int gap = 4;
             var strip = new Texture2D(s.Times.Length * (w + gap) - gap, h, TextureFormat.RGB24, false);
             var fill = new Color[strip.width * strip.height];
@@ -397,6 +583,7 @@ namespace Orpheus.Client.Anim
             }
 
             strip.SetPixels(fill);
+            _focus = s.Focus(); // C-012: камера — на своё действие, даже если время кадра уже прошло (иначе снимался прошлый кадр)
             for (int i = 0; i < s.Times.Length; i++)
             {
                 // Камера — на действие уже в кадре до снимка.
@@ -407,15 +594,48 @@ namespace Orpheus.Client.Anim
                 }
 
                 yield return new WaitForEndOfFrame();
-                Texture2D frame = ScreenCapture.CaptureScreenshotAsTexture();
-                int x0 = (frame.width - w) / 2, y0 = (frame.height - h) / 2;
-                strip.SetPixels(i * (w + gap), 0, w, h, frame.GetPixels(x0, y0, w, h));
+                Texture2D frame = CaptureFrame();
+                int cw = Mathf.Min(w, frame.width), ch = Mathf.Min(h, frame.height);
+                int x0 = (frame.width - cw) / 2, y0 = (frame.height - ch) / 2;
+                strip.SetPixels(i * (w + gap) + (w - cw) / 2, (h - ch) / 2, cw, ch, frame.GetPixels(x0, y0, cw, ch));
                 UnityEngine.Object.Destroy(frame);
             }
 
             strip.Apply();
-            Save($"K-001_{s.Name}.png", strip);
+            Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
+        }
+
+        /// <summary>
+        /// Кадр камеры в текстуру размера экрана (C-010): ручная отрисовка в RenderTexture, как <c>ScreenshotRun.Capture</c>.
+        /// <see cref="ScreenCapture.CaptureScreenshotAsTexture()"/> в <c>-batchmode</c> (запуск через <c>run_hidden.ps1</c>)
+        /// возвращает null — лента падала NullReferenceException.
+        /// </summary>
+        Texture2D CaptureFrame()
+        {
+            int w = Screen.width >= 320 ? Screen.width : 1280, h = Screen.height >= 180 ? Screen.height : 720;
+            Camera cam = _g.Camera;
+            var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+            RenderTexture? prevTarget = cam.targetTexture;
+            RenderTexture? prevActive = RenderTexture.active;
+            try
+            {
+                WorldFx.BeforeManualRender(w, h); // тени, трава и тон — под размер кадра
+                cam.targetTexture = rt;
+                cam.Render();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+                tex.Apply();
+                return tex;
+            }
+            finally
+            {
+                cam.targetTexture = prevTarget;
+                RenderTexture.active = prevActive;
+                rt.Release();
+                UnityEngine.Object.Destroy(rt);
+            }
         }
 
         void Save(string file, Texture2D tex)
@@ -498,7 +718,7 @@ namespace Orpheus.Client.Anim
             if (_dir != null)
             {
                 yield return new WaitForEndOfFrame();
-                Texture2D full = ScreenCapture.CaptureScreenshotAsTexture();
+                Texture2D full = CaptureFrame();
                 Save("K-001_bench.png", full);
                 UnityEngine.Object.Destroy(full);
             }

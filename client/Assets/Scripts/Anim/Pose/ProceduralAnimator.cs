@@ -35,6 +35,18 @@ namespace Orpheus.Client.Anim
         public bool Digging;
         public float DigDirX, DigDirY;
         public float DigPeriod;
+
+        /// <summary>
+        /// E2-7: копание инструментом — анимация (рубка, кирка, молот; <see cref="ActionKind.None"/> или <see cref="ActionKind.Poke"/> —
+        /// прежний толчок), время от начала копания по счёту кадров ядра (секунды) и кадров нужно на тайл: удар — в такт ядра
+        /// (<see cref="ActionAnim.BeatPhase"/>). Направление — <see cref="DigDirX"/>/<see cref="DigDirY"/>.
+        /// </summary>
+        public ActionKind Action;
+        public float ActionSec;
+        public int ActionFrames;
+
+        /// <summary>E2-7: как держится предмет в руке (<see cref="HeldLook.None"/> — руки пусты).</summary>
+        public HeldLook Held;
     }
 
     /// <summary>Поза спрайта: сдвиг от опоры (тайлов), поворот, масштаб, зеркало, цвет-множитель, след уворота.</summary>
@@ -52,6 +64,15 @@ namespace Orpheus.Client.Anim
 
         /// <summary>В этом кадре толчок копания дошёл до тайла — выбросить пыль.</summary>
         public bool DigPokeNow;
+
+        /// <summary>E2-7: угол руки с предметом (см. <see cref="ActionAnim"/>: 0 — значок как нарисован, для взгляда вправо).</summary>
+        public float HandDeg;
+
+        /// <summary>E2-7: предмет поднят за голову — рисовать позади спрайта.</summary>
+        public bool HandBehind;
+
+        /// <summary>E2-7: рука вытянута от плеча — вперёд (по взгляду) и вверх, тайлов.</summary>
+        public float HandReachX, HandReachY;
 
         public static Pose Identity => new Pose { ScaleX = 1f, ScaleY = 1f, TintR = 1f, TintG = 1f, TintB = 1f, Alpha = 1f };
     }
@@ -75,6 +96,47 @@ namespace Orpheus.Client.Anim
         bool _wasDigging;
         float _ghostFade;   // 1 в рывке, гаснет после
         float _ghostDirX, _ghostDirY;
+
+        // E2-7: действие инструментом и жесты (стройка, подбор), рука с предметом.
+        float _actionPrevSec;
+        bool _wasAction;
+        GestureKind _gesture;
+        float _gestureAge;
+        float _gestureDirX, _gestureDirY;
+        float _handDeg = ActionAnim.CarryToolDeg;
+        bool _handInit;
+        bool _handWasDirect;
+        float _handOff;
+
+        enum GestureKind : byte
+        {
+            None,
+            Build,
+            Pickup,
+        }
+
+        /// <summary>E2-7: жест идёт (стройка или подбор).</summary>
+        public bool Gesturing => _gesture != GestureKind.None;
+
+        /// <summary>E2-7: поставил постройку — короткий жест рукой к цели (направление к призраку, экранные оси).</summary>
+        public void OnBuild(float dirX, float dirY)
+        {
+            Normalize(ref dirX, ref dirY);
+            _gesture = GestureKind.Build;
+            _gestureAge = 0f;
+            _gestureDirX = dirX;
+            _gestureDirY = dirY;
+        }
+
+        /// <summary>E2-7: подобрал кучу — короткий наклон к ней (направление к куче, экранные оси; ноль — куда смотрит).</summary>
+        public void OnPickup(float dirX, float dirY)
+        {
+            Normalize(ref dirX, ref dirY);
+            _gesture = GestureKind.Pickup;
+            _gestureAge = 0f;
+            _gestureDirX = dirX;
+            _gestureDirY = dirY;
+        }
 
         /// <summary>Смотрит вправо (после последнего кадра).</summary>
         public bool FacingRight => _facingRight;
@@ -109,6 +171,16 @@ namespace Orpheus.Client.Anim
             if (_hitAge < float.MaxValue)
             {
                 _hitAge += dt;
+            }
+
+            if (_gesture != GestureKind.None)
+            {
+                _gestureAge += dt;
+                float len = _gesture == GestureKind.Build ? ActionAnim.BuildSec : ActionAnim.PickupSec;
+                if (_gestureAge >= len || s.Swing != SwingPhase.None || s.Dashing)
+                {
+                    _gesture = GestureKind.None; // удар и уворот важнее жеста
+                }
             }
 
             Pose p = Pose.Identity;
@@ -153,12 +225,16 @@ namespace Orpheus.Client.Anim
             {
                 faceX = s.DashDirX;
             }
+            else if (_gesture != GestureKind.None && _gestureDirX != 0f)
+            {
+                faceX = _gestureDirX;
+            }
             else if (_speed > AnimParams.WalkMinSpeed && Math.Abs(s.VelX) > AnimParams.WalkMinSpeed)
             {
                 faceX = s.VelX;
             }
 
-            bool aimed = s.Swing != SwingPhase.None || s.Digging || s.Dashing;
+            bool aimed = s.Swing != SwingPhase.None || s.Digging || s.Dashing || _gesture != GestureKind.None;
             if (faceX != 0f && Math.Abs(faceX) > (aimed ? AnimParams.FacingDeadZone : 0f))
             {
                 _facingRight = faceX > 0f;
@@ -199,11 +275,98 @@ namespace Orpheus.Client.Anim
             // --- удар ---
             if (s.Swing != SwingPhase.None)
             {
-                SwingOffset(s.Swing, Clamp01(s.SwingProgress), s.SwingDirX, s.SwingDirY, t, ref p);
+                float lunge = s.Held == HeldLook.Sword ? ActionAnim.SwordLunge(s.SwingDirY) : AnimParams.StrikeLunge; // C-012
+                SwingOffset(s.Swing, Clamp01(s.SwingProgress), s.SwingDirX, s.SwingDirY, t, lunge, ref p);
             }
 
-            // --- копание ---
-            if (s.Digging)
+            // --- копание инструментом (E2-7): замах в такт ядра ---
+            float face = _facingRight ? 1f : -1f;
+            bool toolAction = s.Digging && (s.Action == ActionKind.Chop || s.Action == ActionKind.Mine || s.Action == ActionKind.Hammer);
+            float handTarget;
+            bool handDirect = false;
+            if (toolAction)
+            {
+                if (!_wasAction || s.ActionSec < _actionPrevSec)
+                {
+                    _actionPrevSec = 0f; // новое копание
+                }
+
+                float u = ActionAnim.BeatPhase(s.ActionSec, s.ActionFrames, out int beat);
+                ActionAnim.Swing sw = ActionAnim.ToolSwing(s.Action, u, beat == 0);
+                p.OffsetX += s.DigDirX * sw.Forward;
+                p.OffsetY += s.DigDirY * sw.Forward * 0.6f;
+                p.RotationDeg += -sw.LeanDeg * face;
+                p.ScaleY *= 1f - sw.Squash;
+                p.ScaleX *= 1f + sw.Squash * 0.5f;
+                handTarget = sw.HandDeg + ActionAnim.AimDeg(s.DigDirX, s.DigDirY) * ActionAnim.AimFollow;
+                handDirect = true;
+                p.DigPokeNow = ActionAnim.ImpactsBetween(_actionPrevSec, s.ActionSec, s.ActionFrames) > 0;
+                _actionPrevSec = s.ActionSec;
+                _wasAction = true;
+                _wasDigging = false;
+                _digTime = 0f;
+            }
+            else
+            {
+                _wasAction = false;
+                handTarget = ActionAnim.CarryDeg(s.Held, StepPhase, walk);
+            }
+
+            // --- жесты: стройка, подбор ---
+            if (_gesture != GestureKind.None && !toolAction)
+            {
+                bool build = _gesture == GestureKind.Build;
+                float len = build ? ActionAnim.BuildSec : ActionAnim.PickupSec;
+                float gu = _gestureAge / len;
+                ActionAnim.Swing g = build
+                    ? ActionAnim.BuildGesture(s.Held, gu, ActionAnim.AimDeg(_gestureDirX, _gestureDirY))
+                    : ActionAnim.PickupBend(gu);
+                p.OffsetX += face * g.Forward;
+                p.OffsetY -= build ? 0f : g.Forward;
+                p.RotationDeg += -g.LeanDeg * face;
+                p.ScaleY *= 1f - g.Squash;
+                p.ScaleX *= 1f + g.Squash * 0.4f;
+                handTarget = g.HandDeg;
+                handDirect = true;
+                p.HandReachX = g.ReachX;
+                p.HandReachY = g.ReachY;
+            }
+
+            // --- меч в руке следует фазе удара ---
+            if (s.Swing != SwingPhase.None && !toolAction)
+            {
+                float aimDeg = ActionAnim.AimDeg(s.SwingDirX, s.SwingDirY);
+                handTarget = s.Held == HeldLook.Sword // C-012: кончик меча — по дуге зоны удара ядра
+                    ? ActionAnim.SwordHandDeg(p, s.Swing, Clamp01(s.SwingProgress), aimDeg)
+                    : ActionAnim.SwordDeg(s.Swing, Clamp01(s.SwingProgress), aimDeg);
+                handDirect = true;
+            }
+
+            if (!_handInit || handDirect)
+            {
+                _handDeg = handTarget;
+                _handOff = 0f;
+                _handInit = true;
+            }
+            else
+            {
+                // Из действия — плавно: гаснет только разница в миг выхода, качание в такт шагу не запаздывает.
+                if (_handWasDirect)
+                {
+                    _handOff = _handDeg - handTarget;
+                }
+
+                _handOff *= (float)Math.Exp(-ActionAnim.HandBlend * dt);
+                _handDeg = handTarget + _handOff;
+            }
+
+            _handWasDirect = handDirect;
+
+            p.HandDeg = _handDeg;
+            p.HandBehind = _handDeg > ActionAnim.BehindDeg;
+
+            // --- копание (толчок без инструмента) ---
+            if (s.Digging && !toolAction)
             {
                 float period = Clamp(s.DigPeriod, AnimParams.DigPokeMinSec, AnimParams.DigPokeMaxSec);
                 float before = _wasDigging ? _digTime / period : -1f;
@@ -220,7 +383,7 @@ namespace Orpheus.Client.Anim
                 p.DigPokeNow = before >= 0f ? peakAfter > peakBefore : u >= AnimParams.DigThrustShare;
                 _wasDigging = true;
             }
-            else
+            else if (!toolAction)
             {
                 _wasDigging = false;
                 _digTime = 0f;
@@ -247,7 +410,7 @@ namespace Orpheus.Client.Anim
         }
 
         /// <summary>Замах: отклонение назад с приседанием и дрожью; удар — выпад вперёд; отход — плавный возврат.</summary>
-        static void SwingOffset(SwingPhase phase, float q, float dx, float dy, float t, ref Pose p)
+        static void SwingOffset(SwingPhase phase, float q, float dx, float dy, float t, float lungeLen, ref Pose p)
         {
             float back, lean, squash = 0f;
             switch (phase)
@@ -269,7 +432,7 @@ namespace Orpheus.Client.Anim
                 case SwingPhase.Strike:
                 {
                     float e = Math.Min(1f, q * 2f);
-                    back = Lerp(-AnimParams.WindupBack, AnimParams.StrikeLunge, e);
+                    back = Lerp(-AnimParams.WindupBack, lungeLen, e);
                     lean = Lerp(AnimParams.WindupLeanDeg, -AnimParams.StrikeLeanDeg, e);
                     squash = -0.06f * e; // вытягивается в выпаде
                     break;
@@ -277,7 +440,7 @@ namespace Orpheus.Client.Anim
                 default:
                 {
                     float e = q * q * (3f - 2f * q);
-                    back = AnimParams.StrikeLunge * (1f - e);
+                    back = lungeLen * (1f - e);
                     lean = -AnimParams.StrikeLeanDeg * (1f - e);
                     break;
                 }

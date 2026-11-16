@@ -4,7 +4,7 @@
     python tools/art_stage1.py collect [--raw ПАПКА]                   # скачать готовое в ПАПКА/<ключ>.png
     python tools/art_stage1.py list                                    # ключи набора
 
-Набор — art/style/sets/e19.json: стиль, камеры, негатив и список предметов (ключ, вид, размер, зерно, промпт).
+Набор — art/style/sets/e19.json (другой — --set ИМЯ, например a005 для пробы значков A-005): стиль, камеры, негатив и список предметов (ключ, вид, размер, зерно, промпт).
 Мак: ComfyUI http://192.168.88.252:8188, Z-Image base (z_image_bf16), 30 шагов, cfg 4 — граф тот же, что у
 сервера ассетов (space/docs/MAC_2D_SPEC.md), но со своим размером кадра: мелкие объекты — 768 px, это быстрее.
 Задания встают в конец очереди ComfyUI; модели не трогаются (никаких /free).
@@ -62,7 +62,8 @@ def load_set():
 
 
 def build_prompt(data, s):
-    return f"{data['style']}. {s['prompt']}. {data['camera'][s['kind']]}"
+    style = data["styles"][s["style"]] if s.get("style") else data["style"]   # свой стиль предмета — по имени
+    return f"{style}. {s['prompt']}. {data['camera'][s['kind']]}"
 
 
 def ledger_path(raw):
@@ -76,7 +77,9 @@ def load_ledger(raw):
 
 def save_ledger(raw, led):
     raw.mkdir(parents=True, exist_ok=True)
-    ledger_path(raw).write_text(json.dumps(led, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
+    tmp = ledger_path(raw).with_suffix(".tmp")   # через временный файл: при нехватке места старый учёт цел
+    tmp.write_text(json.dumps(led, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
+    tmp.replace(ledger_path(raw))
 
 
 def queue_len():
@@ -84,7 +87,7 @@ def queue_len():
     return len(q.get("queue_running") or []) + len(q.get("queue_pending") or [])
 
 
-def cmd_queue(keys, raw, force):
+def cmd_queue(keys, raw, force, front=False):
     data, subj = load_set()
     led = load_ledger(raw)
     for k in keys:
@@ -99,8 +102,12 @@ def cmd_queue(keys, raw, force):
             continue
         s = subj[k]
         prompt = build_prompt(data, s)
-        g = graph(prompt, data["negative"][s["kind"]], s["w"], s["h"], s["seed"], f"orpheus/e19_{k}")
-        pid = call("/prompt", {"prompt": g, "client_id": str(uuid.uuid4())})["prompt_id"]
+        neg = data["negative"][s["kind"]] + (", " + s["negative_extra"] if s.get("negative_extra") else "")   # свой негатив предмета
+        g = graph(prompt, neg, s["w"], s["h"], s["seed"], f"orpheus/{data['set']}_{k}")
+        body = {"prompt": g, "client_id": str(uuid.uuid4())}
+        if front:   # проба промпта — в начало своей же очереди
+            body["front"] = True
+        pid = call("/prompt", body)["prompt_id"]
         led[k] = {"pid": pid, "status": "queued", "seed": s["seed"], "w": s["w"], "h": s["h"], "prompt": prompt,
                   "queued": time.strftime("%Y-%m-%d %H:%M:%S")}
         save_ledger(raw, led)
@@ -142,7 +149,11 @@ def main():
     ap.add_argument("keys", nargs="*")
     ap.add_argument("--raw", default=str(ROOT / "build" / "art_e19" / "raw"))
     ap.add_argument("--force", action="store_true", help="перезаказать, даже если картинка уже есть")
+    ap.add_argument("--set", default="e19", help="набор art/style/sets/<ИМЯ>.json")
+    ap.add_argument("--front", action="store_true", help="в начало очереди (проба промпта)")
     a = ap.parse_args()
+    global SET
+    SET = ROOT / "art" / "style" / "sets" / f"{a.set}.json"
     raw = Path(a.raw)
     try:
         if a.cmd == "list":
@@ -150,7 +161,7 @@ def main():
             for k, s in subj.items():
                 print(f"{k:<22} {s['kind']:<7} {s['w']}x{s['h']} seed {s['seed']}")
         elif a.cmd == "queue":
-            cmd_queue(a.keys, raw, a.force)
+            cmd_queue(a.keys, raw, a.force, a.front)
         elif a.cmd == "collect":
             cmd_collect(raw)
         else:  # wait: ждать, пока всё поставленное не скачается (для фоновой команды)

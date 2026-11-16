@@ -948,6 +948,11 @@ namespace Orpheus.Server
                     log.Info(opened.Loaded?.Tick ?? 0, "save", "мир загружен", ("path", folder.Dir), ("ms", watch.Elapsed.TotalMilliseconds),
                         ("number", opened.Loaded?.Number ?? 0), ("tick", opened.Loaded?.Tick ?? 0),
                         ("chunks", opened.Loaded?.ChunkCount ?? 0), ("entities", opened.Loaded?.Entities.Length ?? 0));
+                    foreach (string note in opened.Loaded?.Notes ?? Array.Empty<string>())
+                    {
+                        // E2-1: сумка-счётчики старого сохранения не влезла в ячейки — остаток лежит на земле, не потерян.
+                        log.Info(opened.Loaded!.Tick, "save", "старая сумка: остаток на земле", ("what", note));
+                    }
                 }
 
                 WorldModel world = opened.World;
@@ -1027,7 +1032,7 @@ namespace Orpheus.Server
         /// <summary>
         /// Центр появления <c>--spawn-seam</c> (0-017, net-smoke шва): первый ряд (cy − 1) ставится у шва x = 0 — ряд
         /// появления x от W − 8 через 2 тайла, — на строке, где тайлы x ∈ [W − <see cref="SeamLaneBefore"/>,
-        /// <see cref="SeamLaneAfter"/>) проходимы: боты <c>shuttle</c> и игрок на ней ходят через шов без препятствий.
+        /// <see cref="SeamLaneAfter"/>) проходимы с обычной скоростью (C-018: не вода и не куст): боты <c>shuttle</c> и игрок на ней ходят через шов без препятствий.
         /// Строки ищутся от середины наружу (повторяемо для зерна); чистой нет — середина карты и предупреждение.
         /// </summary>
         public static TileCoord SeamSpawnCenter(Simulation sim, out bool clear)
@@ -1041,7 +1046,8 @@ namespace Orpheus.Server
                 clear = true;
                 for (int x = -SeamLaneBefore; x < SeamLaneAfter && clear; x++)
                 {
-                    clear = !sim.IsBlocked(shape, Torus.Wrap(shape, new TileCoord(x, row)));
+                    TileCoord lane = Torus.Wrap(shape, new TileCoord(x, row));
+                    clear = !sim.IsBlocked(shape, lane) && sim.SpeedQ8(shape, lane) == TerrainSlow.One; // C-018: вода и куст проходимы, но челнок в них медленнее
                 }
 
                 if (clear)

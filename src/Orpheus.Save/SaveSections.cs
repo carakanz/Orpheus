@@ -71,6 +71,15 @@ namespace Orpheus.Save
             /// Пишется только ненулевое — файлы с t = 0 байт в байт как до 1-014.
             /// </summary>
             public const int WorldTime = 10;
+
+            /// <summary>Следующий номер кучи на земле (E2-1, формат 7); нет поля — 1 (куч не было). Пишется, только если больше 1.</summary>
+            public const int NextPileId = 11;
+
+            /// <summary>
+            /// E2-14 (формат 13): мир из старого файла пересохранён до первого такта — повреждённые постройки ещё не найдены,
+            /// симуляция ищет их первым тактом после загрузки. Пишется только «да».
+            /// </summary>
+            public const int HealScan = 12;
         }
 
         /// <summary>Раздел ЧАНКИ: повторяющееся поле <see cref="Chunk"/> — вложенная запись чанка.</summary>
@@ -96,6 +105,25 @@ namespace Orpheus.Save
         public static class CreaturesField
         {
             public const int Entity = 1;
+
+            /// <summary>Куча на земле (E2-1, формат 7): запись <see cref="PileField"/>; по возрастанию номера.</summary>
+            public const int Pile = 2;
+
+            /// <summary>Сундук с содержимым (E2-5, формат 9): запись <see cref="ChestField"/>; по возрастанию (Y, X) тайла.
+            /// Пустой сундук записи не имеет.</summary>
+            public const int Chest = 3;
+
+            /// <summary>
+            /// Повреждённая постройка, которая восстанавливается (E2-14, формат 13): запись <see cref="HealField"/>; по порядку
+            /// списка симуляции (он задаёт очередь при пределе правок такта). У старых файлов нет — список собирается обходом мира.
+            /// </summary>
+            public const int Heal = 4;
+
+            /// <summary>
+            /// Истечение обломков или флага урона на тайле (E2-14, формат 13; замечание З2): запись <see cref="ExpireField"/>, по
+            /// порядку очереди симуляции. Нет (старые файлы) — флаги и обломки находит поиск первым тактом.
+            /// </summary>
+            public const int Expire = 5;
         }
 
         /// <summary>Поля записи сущности (минимально: то, что есть в такте 0-006; уворот — с формата 2, 0-029).</summary>
@@ -288,6 +316,16 @@ namespace Orpheus.Save
 
             /// <summary>Исчезновение: такт начала серии «дальше 80 т» (<c>Brain.FarSince</c>), 0 — не далёк.</summary>
             public const int BrainFarSince = 64;
+
+            /// <summary>Очередь изготовления (<c>Craft</c>, формат 8, E2-3): payload <c>CraftQueue.PayloadBytes</c> байт; пишется,
+            /// только если очередь не пуста. Нет поля (форматы 1–7 и пустая очередь) — очередь пустая.</summary>
+            public const int Craft = 65;
+
+            /// <summary>Точка возрождения у кровати (E2-5, формат 9): тайл X; пишется, только если назначена. Нет поля — у старта.</summary>
+            public const int BedX = 66;
+
+            /// <summary>Точка возрождения у кровати: тайл Y.</summary>
+            public const int BedY = 67;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>
@@ -352,6 +390,71 @@ namespace Orpheus.Save
 
             /// <summary>Удар: начало удара, y в 1/256 тайла.</summary>
             public const int MeleeOriginY = 22;
+
+            /// <summary>Точка возрождения у кровати (E2-5, формат 9): тайл X персонажа вне мира; нет поля — у старта.</summary>
+            public const int BedX = 23;
+
+            /// <summary>Точка возрождения у кровати: тайл Y.</summary>
+            public const int BedY = 24;
+        }
+
+        /// <summary>Поля записи сундука (E2-5, формат 9): тайл и ячейки (payload сумки, заняты первые 30 ячеек).</summary>
+        public static class ChestField
+        {
+            public const int X = 1;
+            public const int Y = 2;
+            public const int Cells = 3;
+        }
+
+        /// <summary>Поля записи восстановления постройки (E2-14, формат 13; <c>BuildHeal</c>).</summary>
+        public static class HealField
+        {
+            public const int X = 1;
+            public const int Y = 2;
+
+            /// <summary>Такт последнего урона.</summary>
+            public const int Hit = 3;
+
+            /// <summary>Такт, по который прибавка уже в мире (до начала — урон + 3 с).</summary>
+            public const int Last = 4;
+
+            /// <summary>Такт следующей записи прибавки в мир.</summary>
+            public const int Due = 5;
+
+            /// <summary>Остаток накопителя, [0; 3000).</summary>
+            public const int Acc = 6;
+        }
+
+        /// <summary>Поля записи истечения (E2-14, формат 13; <c>BuildExpiry</c>).</summary>
+        public static class ExpireField
+        {
+            public const int X = 1;
+            public const int Y = 2;
+
+            /// <summary>Такт истечения.</summary>
+            public const int End = 3;
+
+            /// <summary>Снять обломки (иначе — флаг).</summary>
+            public const int Debris = 4;
+
+            /// <summary>Флаг урона, который снять: 16 — «урон 10 с», 32 — «чинить нельзя».</summary>
+            public const int Clear = 5;
+        }
+
+        /// <summary>Поля записи кучи на земле (E2-1, формат 7).</summary>
+        public static class PileField
+        {
+            public const int Id = 1;
+            public const int Item = 2;
+            public const int Count = 3;
+            public const int X = 4;
+            public const int Y = 5;
+
+            /// <summary>Такт, на котором куча исчезнет.</summary>
+            public const int ExpireTick = 6;
+
+            /// <summary>Такт, с которого кучу можно подобрать.</summary>
+            public const int PickupTick = 7;
         }
 
         /// <summary>Схема записей раздела для <c>orpheus-save dump</c>: имена полей и вложенные схемы. null — схемы нет.</summary>
@@ -374,7 +477,8 @@ namespace Orpheus.Save
             .Field(WorldField.BaseSha256, "SHA-256 снимка генерации")
             .Field(WorldField.NextEntityId, "следующий номер сущности")
             .Field(WorldField.Replaces, "заменяет поколение")
-            .Field(WorldField.WorldTime, "время мира, тактов суток");
+            .Field(WorldField.WorldTime, "время мира, тактов суток")
+            .Field(WorldField.HealScan, "поиск повреждённых построек первым тактом");
 
         private static readonly RecordSchema ChunksSchema = new RecordSchema()
             .Field(ChunksField.Chunk, "чанк", new RecordSchema()
@@ -408,7 +512,35 @@ namespace Orpheus.Save
                 .Field(EntityField.MeleeAimRaw, "удар: ось")
                 .Field(EntityField.MeleeOriginX, "удар: x начала")
                 .Field(EntityField.MeleeOriginY, "удар: y начала")
-                .Field(EntityField.Inv, "сумка"));
+                .Field(EntityField.Inv, "сумка")
+                .Field(EntityField.Craft, "очередь изготовления")
+                .Field(EntityField.BedX, "кровать: x тайла")
+                .Field(EntityField.BedY, "кровать: y тайла"))
+            .Field(CreaturesField.Pile, "куча на земле", new RecordSchema()
+                .Field(PileField.Id, "номер")
+                .Field(PileField.Item, "предмет")
+                .Field(PileField.Count, "количество")
+                .Field(PileField.X, "x, 1/256 тайла")
+                .Field(PileField.Y, "y, 1/256 тайла")
+                .Field(PileField.ExpireTick, "исчезнет на такте")
+                .Field(PileField.PickupTick, "подбор с такта"))
+            .Field(CreaturesField.Chest, "сундук", new RecordSchema()
+                .Field(ChestField.X, "x тайла")
+                .Field(ChestField.Y, "y тайла")
+                .Field(ChestField.Cells, "ячейки"))
+            .Field(CreaturesField.Heal, "восстановление постройки", new RecordSchema()
+                .Field(HealField.X, "x тайла")
+                .Field(HealField.Y, "y тайла")
+                .Field(HealField.Hit, "такт урона")
+                .Field(HealField.Last, "в мире по такт")
+                .Field(HealField.Due, "запись на такте")
+                .Field(HealField.Acc, "остаток накопителя"))
+            .Field(CreaturesField.Expire, "истечение", new RecordSchema()
+                .Field(ExpireField.X, "x тайла")
+                .Field(ExpireField.Y, "y тайла")
+                .Field(ExpireField.End, "такт")
+                .Field(ExpireField.Debris, "обломки")
+                .Field(ExpireField.Clear, "флаг"));
 
         private static readonly RecordSchema CharactersSchema = new RecordSchema()
             .Field(CharactersField.Character, "персонаж", new RecordSchema()
@@ -433,7 +565,9 @@ namespace Orpheus.Save
                 .Field(CharacterField.MeleeResolved, "удар решён")
                 .Field(CharacterField.MeleeAimRaw, "удар: ось")
                 .Field(CharacterField.MeleeOriginX, "удар: x начала")
-                .Field(CharacterField.MeleeOriginY, "удар: y начала"));
+                .Field(CharacterField.MeleeOriginY, "удар: y начала")
+                .Field(CharacterField.BedX, "кровать: x тайла")
+                .Field(CharacterField.BedY, "кровать: y тайла"));
     }
 
     /// <summary>Имена полей записи и схемы вложенных записей (только для текстового вывода).</summary>

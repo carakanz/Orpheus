@@ -1,0 +1,602 @@
+{
+ "set": "a005",
+ "about": "A-005, проба стиля значков (15.11): форма как Factorio, цвет как Terraria; варианты A (без контура), B (тонкий контур), C (живописнее, блик). Заказ — tools/art_stage1.py --set a005, обработка — tools/art_icon_probe.py. Фон — зелёный «хромакей» для вырезания.",
+ "style": "highly detailed game inventory icon, almost photographic precise rendering, precise accurate shapes with true realistic proportions like Factorio item icons, instantly readable silhouette, clear readable material texture, rich saturated vivid fantasy colors like Terraria, realistic volume and soft shading, one key light from the upper left, no outline, no line art, clean digital painting",
+ "styles": {
+  "a": "highly detailed game inventory icon, almost photographic precise rendering, precise accurate shapes with true realistic proportions like Factorio item icons, instantly readable silhouette, clear readable material texture, rich saturated vivid fantasy colors like Terraria, realistic volume and soft shading, one key light from the upper left, no outline, no line art, clean digital painting",
+  "b": "highly detailed game inventory icon, almost photographic precise rendering, precise accurate shapes with true realistic proportions like Factorio item icons, instantly readable silhouette, clear readable material texture, rich saturated vivid fantasy colors like Terraria, realistic volume and soft shading, one key light from the upper left, a thin crisp dark brown outline of even weight around the outer silhouette only, clean digital painting",
+  "c": "detailed painterly game inventory icon, hand-painted brushwork, precise accurate shapes with true realistic proportions like Factorio item icons, instantly readable silhouette, clear readable material texture, rich saturated vivid fantasy colors like Terraria, extra saturated jewel-like colors, strong key light from the upper left, bright specular highlights on the lit edges and a soft warm glowing rim light, gentle color bounce in the shadows"
+ },
+ "camera": {
+  "icon_a": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
+  "icon_b": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
+  "icon_c": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
+  "icon_c2": "three-quarter view from above like a Factorio item icon, a single object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame",
+  "icon_b_floor": "high angle view from above, almost top-down, tilted only slightly toward the viewer, a single flat object centered in the frame, the whole object fully visible with empty margin around it, the object fills about two thirds of the frame, isolated on a plain solid flat pure bright green chroma key background, uniform background without gradient, no cast shadow, no ground, no floor, no table, no reflection, no text, no letters, no watermark, no border, no frame"
+ },
+ "negative": {
+  "icon_a": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, outline, line art, ink lines, cel shading, flat colors",
+  "icon_b": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, cel shading, flat colors",
+  "icon_c": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, dull colors, desaturated",
+  "icon_c2": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, dull colors, desaturated, halo, outer glow, glow on the background, light bleeding into the background",
+  "icon_b_floor": "cast shadow, drop shadow, floor, ground, table surface, scenery, several objects, duplicate, text, letters, watermark, frame, border, cropped, blurry, cartoon, chibi, toy, low detail, background gradient, vignette, green tint on the object, green reflections, thick outlines, bold lines, cel shading, flat colors"
+ },
+ "subjects": [
+  {
+   "key": "wood_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5101,
+   "prompt": "a single short chopped log of wood lying horizontally, rough dark brown bark with deep grooves, the cut end turned toward the viewer shows pale golden wood with clear growth rings, one small broken branch stub",
+   "style": "a"
+  },
+  {
+   "key": "stone_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5102,
+   "prompt": "a single rough chunk of grey stone, an angular block with sharp chipped facets and fractured edges, cool blue-grey rock with light top faces, a few small cracks and speckles",
+   "style": "a"
+  },
+  {
+   "key": "copper_ingot_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5113,
+   "prompt": "a single small copper ingot lying flat, the classic trapezoidal ingot bar shape: a long narrow rectangular bar with a flat top face, sloped side faces and sharp straight bevelled edges, about three times longer than wide, polished bright orange-red copper with a shiny metallic highlight along the top edges, the bar is small in the frame with a lot of empty background around it",
+   "style": "a",
+   "prompt_v1": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "seed_v1": 5103
+  },
+  {
+   "key": "copper_pickaxe_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5114,
+   "prompt": "a copper pickaxe, double-ended pick, two symmetric pointed spikes on a straight wooden handle, no hammer face, no axe blade, side view 3/4, the handle runs diagonally from the lower left to the upper right, light brown wood with a leather grip wrap near the end, the slender curved head of polished bright orange copper sits across the top of the handle with two equally long sharp points curving downward on both sides",
+   "style": "a",
+   "prompt_v1": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "seed_v1": 5104,
+   "negative_extra": "hammer, hammer head, flat striking face, axe, axe blade, hatchet, adze, single point, mallet"
+  },
+  {
+   "key": "stone_wall_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5105,
+   "prompt": "a single building block item: a cube-shaped section of a stone brick wall, neat rectangular grey cut stone bricks with mortar lines, visible top face and front face",
+   "style": "a"
+  },
+  {
+   "key": "workbench_a",
+   "kind": "icon_a",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5106,
+   "prompt": "a sturdy wooden workbench crafting table, a thick plank tabletop on four square legs, a small iron vise on the front edge, a hammer and a hand saw lying on the top, warm brown wood",
+   "style": "a"
+  },
+  {
+   "key": "wood_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5101,
+   "prompt": "a single short chopped log of wood lying horizontally, rough dark brown bark with deep grooves, the cut end turned toward the viewer shows pale golden wood with clear growth rings, one small broken branch stub",
+   "style": "b"
+  },
+  {
+   "key": "stone_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5102,
+   "prompt": "a single rough chunk of grey stone, an angular block with sharp chipped facets and fractured edges, cool blue-grey rock with light top faces, a few small cracks and speckles",
+   "style": "b"
+  },
+  {
+   "key": "copper_ingot_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5113,
+   "prompt": "a single small copper ingot lying flat, the classic trapezoidal ingot bar shape: a long narrow rectangular bar with a flat top face, sloped side faces and sharp straight bevelled edges, about three times longer than wide, polished bright orange-red copper with a shiny metallic highlight along the top edges, the bar is small in the frame with a lot of empty background around it",
+   "style": "b",
+   "prompt_v1": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "seed_v1": 5103
+  },
+  {
+   "key": "copper_pickaxe_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5114,
+   "prompt": "a copper pickaxe, double-ended pick, two symmetric pointed spikes on a straight wooden handle, no hammer face, no axe blade, side view 3/4, the handle runs diagonally from the lower left to the upper right, light brown wood with a leather grip wrap near the end, the slender curved head of polished bright orange copper sits across the top of the handle with two equally long sharp points curving downward on both sides",
+   "style": "b",
+   "prompt_v1": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "seed_v1": 5104,
+   "negative_extra": "hammer, hammer head, flat striking face, axe, axe blade, hatchet, adze, single point, mallet"
+  },
+  {
+   "key": "stone_wall_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5105,
+   "prompt": "a single building block item: a cube-shaped section of a stone brick wall, neat rectangular grey cut stone bricks with mortar lines, visible top face and front face",
+   "style": "b"
+  },
+  {
+   "key": "workbench_b",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5106,
+   "prompt": "a sturdy wooden workbench crafting table, a thick plank tabletop on four square legs, a small iron vise on the front edge, a hammer and a hand saw lying on the top, warm brown wood",
+   "style": "b"
+  },
+  {
+   "key": "wood_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5101,
+   "prompt": "a single short chopped log of wood lying horizontally, rough dark brown bark with deep grooves, the cut end turned toward the viewer shows pale golden wood with clear growth rings, one small broken branch stub",
+   "style": "c"
+  },
+  {
+   "key": "stone_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5102,
+   "prompt": "a single rough chunk of grey stone, an angular block with sharp chipped facets and fractured edges, cool blue-grey rock with light top faces, a few small cracks and speckles",
+   "style": "c"
+  },
+  {
+   "key": "copper_ingot_c",
+   "kind": "icon_c2",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5113,
+   "prompt": "a single small copper ingot lying flat, the classic trapezoidal ingot bar shape: a long narrow rectangular bar with a flat top face, sloped side faces and sharp straight bevelled edges, about three times longer than wide, polished bright orange-red copper with a shiny metallic highlight along the top edges, the bar is small in the frame with a lot of empty background around it",
+   "style": "c",
+   "prompt_v1": "a single copper ingot, a trapezoid bar of cast metal with bevelled edges, bright orange-red copper with shiny metallic highlights on the top face and a darker shaded front side",
+   "seed_v1": 5103
+  },
+  {
+   "key": "copper_pickaxe_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5114,
+   "prompt": "a copper pickaxe, double-ended pick, two symmetric pointed spikes on a straight wooden handle, no hammer face, no axe blade, side view 3/4, the handle runs diagonally from the lower left to the upper right, light brown wood with a leather grip wrap near the end, the slender curved head of polished bright orange copper sits across the top of the handle with two equally long sharp points curving downward on both sides",
+   "style": "c",
+   "prompt_v1": "a copper pickaxe lying diagonally from the lower left to the upper right, a straight light brown wooden handle with a leather grip wrap near the end, a curved double-pointed head of polished bright orange copper at the upper right",
+   "seed_v1": 5104,
+   "negative_extra": "hammer, hammer head, flat striking face, axe, axe blade, hatchet, adze, single point, mallet"
+  },
+  {
+   "key": "stone_wall_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5105,
+   "prompt": "a single building block item: a cube-shaped section of a stone brick wall, neat rectangular grey cut stone bricks with mortar lines, visible top face and front face",
+   "style": "c"
+  },
+  {
+   "key": "workbench_c",
+   "kind": "icon_c",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5106,
+   "prompt": "a sturdy wooden workbench crafting table, a thick plank tabletop on four square legs, a small iron vise on the front edge, a hammer and a hand saw lying on the top, warm brown wood",
+   "style": "c"
+  },
+  {
+   "key": "s_stone_pickaxe",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5201,
+   "prompt": "a primitive stone pickaxe, double-ended pick, two symmetric pointed spikes of knapped grey flint stone lashed with brown rawhide cord across the top of a straight wooden handle, no hammer face, no axe blade, side view 3/4, the handle runs diagonally from the lower left to the upper right, light brown wood, the slender stone head sits across the top of the handle with two equally long sharp points curving downward on both sides",
+   "style": "b",
+   "negative_extra": "hammer head, flat striking face, axe blade, hatchet, adze, single point, mallet"
+  },
+  {
+   "key": "s_stone_pickaxe_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5301,
+   "prompt": "a primitive stone pickaxe, double-ended pick, two symmetric pointed spikes of knapped grey flint stone lashed with brown rawhide cord across the top of a straight wooden handle, no hammer face, no axe blade, side view 3/4, the handle runs diagonally from the lower left to the upper right, light brown wood, the slender stone head sits across the top of the handle with two equally long sharp points curving downward on both sides",
+   "style": "b",
+   "negative_extra": "hammer head, flat striking face, axe blade, hatchet, adze, single point, mallet"
+  },
+  {
+   "key": "s_stone_axe",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5202,
+   "prompt": "a primitive stone axe, one wedge-shaped blade of knapped grey flint stone with a sharp chipped cutting edge, lashed with brown rawhide cord to the top of a straight light brown wooden handle, side view 3/4, the handle runs diagonally from the lower left to the upper right, the blade sticks out to one side only",
+   "style": "b",
+   "negative_extra": "pickaxe, pick, spike, two blades, double-headed axe, hammer"
+  },
+  {
+   "key": "s_stone_axe_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5302,
+   "prompt": "a primitive stone axe, one wedge-shaped blade of knapped grey flint stone with a sharp chipped cutting edge, lashed with brown rawhide cord to the top of a straight light brown wooden handle, side view 3/4, the handle runs diagonally from the lower left to the upper right, the blade sticks out to one side only",
+   "style": "b",
+   "negative_extra": "pickaxe, pick, spike, two blades, double-headed axe, hammer"
+  },
+  {
+   "key": "s_hammer",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5203,
+   "prompt": "a heavy builder's mallet, a big rectangular block head of grey stone with two flat ends, lashed with leather cord across the top of a straight light brown wooden handle, side view 3/4, the handle runs diagonally from the lower left to the upper right",
+   "style": "b",
+   "negative_extra": "pickaxe, spike, axe blade, claw, nails"
+  },
+  {
+   "key": "s_hammer_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5303,
+   "prompt": "a heavy builder's mallet, a big rectangular block head of grey stone with two flat ends, lashed with leather cord across the top of a straight light brown wooden handle, side view 3/4, the handle runs diagonally from the lower left to the upper right",
+   "style": "b",
+   "negative_extra": "pickaxe, spike, axe blade, claw, nails"
+  },
+  {
+   "key": "s_wooden_sword",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5204,
+   "prompt": "a simple wooden sword, a straight flat blade carved from light golden wood with a rounded point, a short wooden crossguard and a grip wrapped in brown leather, lying diagonally with the hilt at the lower left and the point at the upper right",
+   "style": "b",
+   "negative_extra": "metal blade, steel, iron, shiny metal"
+  },
+  {
+   "key": "s_simple_bow",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5205,
+   "prompt": "a simple wooden hunting bow, one smoothly curved stave of brown wood, a taut thin pale string, a leather grip wrap in the middle, standing upright, no arrow",
+   "style": "b",
+   "negative_extra": "arrow, crossbow, quiver, several bows"
+  },
+  {
+   "key": "s_simple_bow_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5305,
+   "prompt": "a simple wooden hunting bow, one smoothly curved stave of brown wood, a taut thin pale string, a leather grip wrap in the middle, standing upright, no arrow",
+   "style": "b",
+   "negative_extra": "arrow, crossbow, quiver, several bows"
+  },
+  {
+   "key": "s_torch",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5206,
+   "prompt": "a single hand torch, a short stick of brown wood with the top wrapped in dark resin-soaked cloth, a bright warm orange and yellow flame burning on top, standing upright slightly tilted",
+   "style": "b",
+   "negative_extra": "wall bracket, holder, candle, smoke"
+  },
+  {
+   "key": "s_resin",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5210,
+   "prompt": "a single lump of golden amber tree resin, a translucent glossy honey-orange drop-shaped blob with a few small bubbles inside and a bright highlight, a sticky drip running down one side",
+   "style": "b",
+   "negative_extra": "green object, green leaves, green grass"
+  },
+  {
+   "key": "s_fiber",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5211,
+   "prompt": "a small bundle of dry plant fiber, a loose bunch of long thin straw yellow and pale beige fibers tied in the middle with a twist of the same fiber, the ends fanning out",
+   "style": "b",
+   "negative_extra": "green object, green leaves, green grass, green fibers"
+  },
+  {
+   "key": "s_copper_ore",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5212,
+   "prompt": "a single rough chunk of copper ore, an angular piece of dark brown-grey rock with veins and nuggets of bright shiny metallic orange copper on its faces",
+   "style": "b",
+   "negative_extra": "green object, green leaves, green grass, malachite"
+  },
+  {
+   "key": "s_arrows",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5213,
+   "prompt": "a small bundle of three wooden arrows lying diagonally side by side, straight light wooden shafts, sharp grey stone arrowheads at the upper right, red and white feather fletching at the lower left",
+   "style": "b",
+   "negative_extra": "bow, quiver, target"
+  },
+  {
+   "key": "s_rope",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5214,
+   "prompt": "a coiled hank of thick twisted rope, tan brown hemp rope wound in a neat round coil with one loose end, clear twisted strand texture",
+   "style": "b",
+   "negative_extra": "knot board, hook, chain"
+  },
+  {
+   "key": "s_copper_axe",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5215,
+   "prompt": "a copper axe, one wedge-shaped blade of polished bright orange copper with a curved sharp cutting edge, mounted on the top of a straight light brown wooden handle with a leather grip wrap near the end, side view 3/4, the handle runs diagonally from the lower left to the upper right, the blade sticks out to one side only",
+   "style": "b",
+   "negative_extra": "pickaxe, pick, spike, two blades, double-headed axe, hammer"
+  },
+  {
+   "key": "s_copper_axe_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5315,
+   "prompt": "a copper axe, one wedge-shaped blade of polished bright orange copper with a curved sharp cutting edge, mounted on the top of a straight light brown wooden handle with a leather grip wrap near the end, side view 3/4, the handle runs diagonally from the lower left to the upper right, the blade sticks out to one side only",
+   "style": "b",
+   "negative_extra": "pickaxe, pick, spike, two blades, double-headed axe, hammer"
+  },
+  {
+   "key": "s_copper_sword",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5216,
+   "prompt": "a copper short sword, a straight double-edged blade of polished bright orange copper with a central ridge and a pointed tip, a copper crossguard, a grip wrapped in dark brown leather and a round pommel, lying diagonally with the hilt at the lower left and the point at the upper right",
+   "style": "b"
+  },
+  {
+   "key": "s_copper_bow",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5217,
+   "prompt": "a reinforced recurve bow, a curved stave of dark wood with polished bright orange copper fittings on both tips and on the grip, a taut thin pale string, standing upright, no arrow",
+   "style": "b",
+   "negative_extra": "arrow, crossbow, quiver, several bows"
+  },
+  {
+   "key": "s_meat",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5218,
+   "prompt": "a single raw meat drumstick, a thick chunk of glossy red raw meat with white fat marbling on a white bone that sticks out at one end",
+   "style": "b",
+   "negative_extra": "plate, knife, cooked, roasted"
+  },
+  {
+   "key": "s_roast_meat",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5218,
+   "prompt": "a single roasted meat drumstick, a thick chunk of juicy meat with a crispy golden-brown roasted crust and shiny drops of fat, on a white bone that sticks out at one end",
+   "style": "b",
+   "negative_extra": "plate, knife, raw meat, fire"
+  },
+  {
+   "key": "s_wood_floor",
+   "kind": "icon_b_floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5220,
+   "prompt": "a single square floor tile of wooden planks, a thin flat square made of five parallel warm brown wooden boards with visible wood grain and small iron nail heads, lying flat, very low, only a thin edge of thickness visible, a flat floor tile, not a box, not a wall",
+   "style": "b",
+   "negative_extra": "box, cube, crate, block, wall, tall, upright, table, legs, thick slab"
+  },
+  {
+   "key": "s_wood_floor_2",
+   "kind": "icon_b_floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5320,
+   "prompt": "a single square floor tile of wooden planks, a thin flat square made of five parallel warm brown wooden boards with visible wood grain and small iron nail heads, lying flat, very low, only a thin edge of thickness visible, a flat floor tile, not a box, not a wall",
+   "style": "b",
+   "negative_extra": "box, cube, crate, block, wall, tall, upright, table, legs, thick slab"
+  },
+  {
+   "key": "s_stone_floor",
+   "kind": "icon_b_floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5221,
+   "prompt": "a single square floor tile of stone paving, a thin flat square made of four smooth light grey and sandy beige stone flagstones with mortar seams, lying flat, very low, only a thin edge of thickness visible, a flat floor tile, not a block, not a wall",
+   "style": "b",
+   "negative_extra": "box, cube, crate, block, wall, tall, upright, table, legs, thick slab"
+  },
+  {
+   "key": "s_stone_floor_2",
+   "kind": "icon_b_floor",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5321,
+   "prompt": "a single square floor tile of stone paving, a thin flat square made of four smooth light grey and sandy beige stone flagstones with mortar seams, lying flat, very low, only a thin edge of thickness visible, a flat floor tile, not a block, not a wall",
+   "style": "b",
+   "negative_extra": "box, cube, crate, block, wall, tall, upright, table, legs, thick slab"
+  },
+  {
+   "key": "s_platform",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5222,
+   "prompt": "a short wooden pier section, a flat deck of brown wooden planks resting on four round wooden stilt posts that go down below it, the posts clearly visible under the deck, a low dock walkway piece seen from above at a three-quarter angle",
+   "style": "b",
+   "negative_extra": "water, sea, waves, railing, house, boat"
+  },
+  {
+   "key": "s_platform_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5322,
+   "prompt": "a short wooden pier section, a flat deck of brown wooden planks resting on four round wooden stilt posts that go down below it, the posts clearly visible under the deck, a low dock walkway piece seen from above at a three-quarter angle",
+   "style": "b",
+   "negative_extra": "water, sea, waves, railing, house, boat"
+  },
+  {
+   "key": "s_wood_wall",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5223,
+   "prompt": "a single upright section of a wooden wall, a vertical rectangular piece of wall built of thick horizontal brown logs stacked on top of each other, clearly taller than it is thick, the top face shows the cut ends and the thickness of the logs, visible front face and top face, standing upright like a piece of a house wall",
+   "style": "b",
+   "negative_extra": "floor, flat tile, roof, window, door, house, cabin"
+  },
+  {
+   "key": "s_wood_wall_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5323,
+   "prompt": "a single upright section of a wooden wall, a vertical rectangular piece of wall built of thick horizontal brown logs stacked on top of each other, clearly taller than it is thick, the top face shows the cut ends and the thickness of the logs, visible front face and top face, standing upright like a piece of a house wall",
+   "style": "b",
+   "negative_extra": "floor, flat tile, roof, window, door, house, cabin"
+  },
+  {
+   "key": "s_wood_fence",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5224,
+   "prompt": "a short section of a wooden fence, three upright pointed wooden posts connected by two horizontal rails, clear empty gaps between the posts and the rails, warm brown weathered wood, standing upright",
+   "style": "b",
+   "negative_extra": "solid wall, panel, gate, grass, ground"
+  },
+  {
+   "key": "s_wood_fence_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5324,
+   "prompt": "a short section of a wooden fence, three upright pointed wooden posts connected by two horizontal rails, clear empty gaps between the posts and the rails, warm brown weathered wood, standing upright",
+   "style": "b",
+   "negative_extra": "solid wall, panel, gate, grass, ground"
+  },
+  {
+   "key": "s_door",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5225,
+   "prompt": "a single closed wooden door standing upright in its frame, a tall rectangular door leaf of vertical brown planks with two black iron hinges and a round iron ring handle, set in a thick wooden door frame, front three-quarter view",
+   "style": "b",
+   "negative_extra": "wall, house, building, open door, window, steps"
+  },
+  {
+   "key": "s_door_2",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5325,
+   "prompt": "a single closed wooden door standing upright in its frame, a tall rectangular door leaf of vertical brown planks with two black iron hinges and a round iron ring handle, set in a thick wooden door frame, front three-quarter view",
+   "style": "b",
+   "negative_extra": "wall, house, building, open door, window, steps"
+  },
+  {
+   "key": "s_campfire",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5226,
+   "prompt": "a small campfire, a ring of grey stones around crossed burning logs, bright warm orange and yellow flames rising in the middle, a few glowing embers",
+   "style": "b",
+   "negative_extra": "smoke cloud, ground, grass, pot, spit"
+  },
+  {
+   "key": "s_chest",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5227,
+   "prompt": "a sturdy closed wooden treasure chest, a box of warm brown planks with a rounded lid, dark iron bands and corner fittings, a golden lock plate on the front",
+   "style": "b",
+   "negative_extra": "open chest, coins, gold pile"
+  },
+  {
+   "key": "s_bed",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5228,
+   "prompt": "a simple single wooden bed, a sturdy brown wooden frame with a headboard, a red wool blanket and a white pillow, seen from above at a three-quarter angle, the whole bed visible",
+   "style": "b",
+   "negative_extra": "room, wall, bedroom, rug, person"
+  },
+  {
+   "key": "s_platform_r",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5422,
+   "prompt": "a long narrow low wooden dock walkway section over water, a deck of brown wooden planks laid crosswise, the deck is about twice as long as wide, resting on six thin round wooden stilt posts with dark wet lower ends that stick down below the deck, seen from above at a three-quarter angle so the deck top is clearly visible, a pier piece, not a table, not a bench",
+   "style": "b",
+   "negative_extra": "water, sea, waves, railing, house, boat, table, bench, stairs, steps, stone base"
+  },
+  {
+   "key": "s_wood_wall_r",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5423,
+   "prompt": "a single upright section of a wooden house wall, a thick solid rectangular wall block as tall as it is wide, its front face made of long horizontal sawn brown planks with straight seams and a squared timber post at each corner, the flat top face shows the solid thickness of the wall about one third of its width, sturdy and blocky like the stone brick wall block, standing upright",
+   "style": "b",
+   "negative_extra": "floor, flat tile, roof, window, door, house, cabin, log pile, firewood stack, round log ends, stack of logs"
+  },
+  {
+   "key": "s_hammer_r",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5403,
+   "prompt": "a primitive stone sledgehammer lying diagonally, a long straight light brown wooden handle running from the lower left to the upper right, at the upper right end a rectangular block of grey stone with two flat ends sits across the handle, firmly lashed to it with crossed leather cord, the head and the handle form one connected object, the whole hammer fully visible including the end of the handle",
+   "style": "b",
+   "negative_extra": "pickaxe, spike, axe blade, claw, nails, round badge, medallion, circle background, disc, plate, emblem, coin, frame, cropped handle, floating head"
+  },
+  {
+   "key": "s_copper_ore_r",
+   "kind": "icon_b",
+   "w": 1024,
+   "h": 1024,
+   "seed": 5412,
+   "prompt": "a single rough chunk of copper ore floating alone, an angular piece of cool dark grey rock with sharp chipped facets, thick veins and bright shiny metallic orange copper nuggets sticking out of its faces, strong contrast between the grey rock and the glowing orange copper",
+   "style": "b",
+   "negative_extra": "green object, malachite, rounded square plate, tile, badge, card, frame, backdrop, beige background, app icon background, rust"
+  }
+ ]
+}

@@ -23,6 +23,20 @@ namespace Orpheus.Net.Session
         /// <summary>Персонаж № <paramref name="index"/> (копия).</summary>
         public CharacterRecord this[int index] => _list[index];
 
+        /// <summary>Кровать перенесла якорь (C-011): точка возрождения персонажей вне мира — на новый тайл.</summary>
+        public void MoveBed(Orpheus.Core.Geometry.TileCoord from, Orpheus.Core.Geometry.TileCoord to)
+        {
+            for (int i = 0; i < _list.Count; i++)
+            {
+                CharacterRecord r = _list[i];
+                if (r.EntityId <= 0 && r.HasBed && r.Bed == from)
+                {
+                    r.Bed = to;
+                    _list[i] = r;
+                }
+            }
+        }
+
         /// <summary>Сейчас в мире (с сущностью).</summary>
         public int InWorld
         {
@@ -68,10 +82,14 @@ namespace Orpheus.Net.Session
             {
                 if (roster._list[i].EntityId > 0)
                 {
+                    // E2-3: очередь изготовления сущности (ингредиенты из сумки уже сняты) после перезапуска не продолжается —
+                    // сворачивается с возвратом в сумку записи; не влезло — кучей у позиции персонажа, куча не исчезает.
+                    Inventory bag = saved[i].Inv;
+                    sim.RefundCraftQueueTo(saved[i].EntityId, ref bag);
                     roster.Park(i, sim);
                     // 1-004: сумка — из записи сохранения (в разделе «сущности» её нет; Park заносит сумку сущности,
                     // а та при восстановлении пустая — вернувшийся персонаж лишался меча).
-                    roster.SetInventory(i, saved[i].Inv);
+                    roster.SetInventory(i, bag);
                 }
             }
 
@@ -148,9 +166,16 @@ namespace Orpheus.Net.Session
             bool had = slot >= 0;
             if (had)
             {
+                // E2-3: очередь изготовления с персонажем из мира не уходит — ингредиенты возвращаются в сумку (не влезло —
+                // кучей у ног, не исчезает). Здесь, а не у вызывающих: любой путь ухода (выход, обрыв связи, вытеснение
+                // хозяина, загрузка сохранения) идёт через Park.
+                sim.RefundCraftQueue(r.EntityId);
+                slot = sim.SlotOf(r.EntityId);
                 Mover m = sim.Entities[slot].Mover;
                 r.Mover = m;
                 r.Inv = sim.Entities[slot].Inv; // сумка остаётся за ключом (1-002)
+                r.HasBed = sim.Entities[slot].HasBed; // E2-5: точка возрождения у кровати — тоже
+                r.Bed = sim.Entities[slot].Bed;
                 sim.RemoveEntity(r.EntityId);
             }
 

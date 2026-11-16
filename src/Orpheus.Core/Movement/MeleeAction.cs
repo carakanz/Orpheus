@@ -7,7 +7,9 @@ namespace Orpheus.Core.Movement
     /// <see cref="IdleResetFrames"/> кадров в покое — серия сначала. Нажатие за ≤ <see cref="BufferWindowFrames"/>
     /// кадров до конца отхода продолжает серию без паузы; удержание кнопки — повтор.
     /// <para>
-    /// Ось удара (<see cref="AimRaw"/>) фиксируется началом замаха, начало удара (<see cref="OriginX"/>,
+    /// Ось удара (<see cref="AimRaw"/>) — прицел кадра нажатия; пока кнопка удержана в замахе, ось идёт за прицелом,
+    /// окончательно фиксируется переходом «замах → удар»; следующий удар серии берёт прицел своего нажатия (C-012:
+    /// удар туда, куда смотрит мышь, `02` 1.1 «поворот к прицелу мгновенный»). Начало удара (<see cref="OriginX"/>,
     /// <see cref="OriginY"/>) — переходом «замах → удар» (как сектор врага фиксирован началом замаха, 1-001):
     /// сервер и предсказание считают удар по этим координатам, шов тора — в них же.
     /// </para>
@@ -67,7 +69,10 @@ namespace Orpheus.Core.Movement
         /// <summary>Текущий удар решён (урон нанесён): ставит решалка сервера, сбрасывает начало удара.</summary>
         public bool Resolved;
 
-        /// <summary>Ось удара, шагов угла u16: фиксирована началом замаха (прицел кадра нажатия).</summary>
+        /// <summary>
+        /// Ось удара, шагов угла u16: прицел кадра нажатия; в замахе с удержанной кнопкой — прицел текущего кадра; в отходе
+        /// нажатие буфера пишет сюда прицел следующего удара (C-012). Решалка читает ось только в фазе «удар».
+        /// </summary>
         public ushort AimRaw;
 
         /// <summary>Начало удара, X в 1/256 тайла: фиксировано началом фазы «удар».</summary>
@@ -123,9 +128,18 @@ namespace Orpheus.Core.Movement
             if (FramesLeft != 0)
             {
                 // Буфер: нажатие в окне последних 12 кадров отхода (`02` 1.2/3.2: за 0,2 с — серия, раньше — нет).
+                // C-012: прицел нажатия — ось следующего удара (раньше серия и удержание ЛКМ били по оси первого удара).
                 if (Phase == PhaseRecover && attackPressed && FramesLeft <= BufferWindowFrames)
                 {
                     Buffered = true;
+                    AimRaw = aimRaw;
+                }
+
+                // C-012: кнопка удержана в замахе — ось идёт за прицелом до перехода в удар (кадры без нажатия ось не трогают:
+                // прицел в них может быть пустым — боты, скрипты).
+                if (Phase == PhaseWindup && attackPressed)
+                {
+                    AimRaw = aimRaw;
                 }
 
                 return;
@@ -134,6 +148,11 @@ namespace Orpheus.Core.Movement
             switch (Phase)
             {
                 case PhaseWindup:
+                    if (attackPressed)
+                    {
+                        AimRaw = aimRaw; // C-012: последний кадр замаха с удержанием — ось удара
+                    }
+
                     Phase = PhaseStrike;
                     FramesLeft = StrikeFrames;
                     Resolved = false;
@@ -147,6 +166,11 @@ namespace Orpheus.Core.Movement
                 case PhaseRecover:
                     if (Buffered)
                     {
+                        if (attackPressed)
+                        {
+                            AimRaw = aimRaw; // C-012: удержание ЛКМ — ось нового замаха по прицелу этого кадра
+                        }
+
                         Buffered = false;
                         Index = (byte)((Index + 1) % SeriesSize);
                         Phase = PhaseWindup;

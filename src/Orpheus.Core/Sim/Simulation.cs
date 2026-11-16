@@ -97,7 +97,7 @@ namespace Orpheus.Core.Sim
         // Состояние двери — флаги её записи постройки (DoorOpen / DoorKeepOpen); список дверей —
         // производный индекс (в конструкторе по миру, дальше — регистрация в ApplyEditBatches и ленивое
         // снятие в StepDoors). Порядок обхода детерминирован (11.5): порядок списка + порядок сущностей.
-        public const int DoorAutoCloseTicks = 30; // дверь сама закроется через 1 с свободы тайла и соседей
+        public const int DoorAutoCloseTicks = 15; // C-014: дверь сама закроется через 0,5 с после того, как её хитбокс пуст
         public const int DoorLockTicks = 30;      // после F автооткрытие молчит 1 с
 
         // Индекс без потолка и с каноническим порядком (Y, X): мир с любым числом дверей даёт живой и
@@ -272,12 +272,7 @@ namespace Orpheus.Core.Sim
         /// <summary>Проходимость тайлов мира для движения (тот же делегат, что в такте).</summary>
         public TileSolid Solid => _solid;
 
-        // ---------- Сущности ----------
-
-
-
         // ---------- Ввод ----------
-
 
         /// <summary>Наибольшее число кадров ввода на такт у сетевого персонажа (<see cref="SetFramesAt"/>).</summary>
         public const int MaxFramesPerTick = 8;
@@ -392,8 +387,9 @@ namespace Orpheus.Core.Sim
             // свободы тайла и соседей); правки — в очередь, применятся фазой 5 этого же такта.
             StepDoors(tick);
 
-            // 5. Правки мира: одна пачка на чанк за такт.
+            StepHeal(tick); // 4.9 (E2-14): восстановление построек — правки в очередь; 5. правки мира: одна пачка на чанк за такт
             ApplyEditBatches(tick);
+            StepItems(tick); // 5.2 (E2-1): заявки на сумку, истечение куч, подбор — после правок (добыча уже на земле)
 
             // 5.5. Пути (1-007): поиски такта — после правок, по миру текущего такта; ровно PathMaxPerTick — детерминизм.
             _paths.RunTick(tick);
@@ -434,8 +430,11 @@ namespace Orpheus.Core.Sim
             public ChunkCoord Chunk;
             public ushort Index;
 
-            /// <summary>Снимаем обломки (иначе — флаг «урон последние 10 с»).</summary>
+            /// <summary>Снимаем обломки (иначе — флаги <see cref="Clear"/>).</summary>
             public bool Debris;
+
+            /// <summary>Какие флаги урона снять (не обломки): «урон последние 10 с» или «последние 3 с — чинить нельзя» (C-005).</summary>
+            public BuildFlags Clear;
         }
 
 

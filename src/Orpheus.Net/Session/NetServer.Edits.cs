@@ -46,6 +46,12 @@ namespace Orpheus.Net.Session
             public int DigProgress;
             public int DigFrames;
 
+            // Идущая починка (C-005, `05` 1.3: 0,5 с): запрос, тайл, кадров прошло.
+            public bool Repairing;
+            public ushort RepairRequest;
+            public TileCoord RepairTile;
+            public int RepairProgress;
+
             // Ждущий запрос копания (начало или конец) — действует с кадра PendingFrame (кадр запроса клиента).
             public bool HasPending;
             public TileOp PendingOp;
@@ -114,6 +120,12 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            if (m.Op == TileOp.Repair)
+            {
+                OnRepair(p, s, pos, m, held); // E2-5: починка (NetServer.Use.cs)
+                return;
+            }
+
             // Копание запрашивается с любым предметом в руках (1-010): «нужен топор», «нужна кирка: медная» — ответ CheckDig
             // строкой, а не молчание (карточка: отказ показывается строкой сервера). DigStop проходит всегда.
 
@@ -152,6 +164,8 @@ namespace Orpheus.Net.Session
                 Reply(p, s.DigRequest, EditReply.Interrupted, EditReply.Interrupted, 0);
                 s.Digging = false;
             }
+
+            StopRepair(p, s); // C-005: идущая починка — тоже «прервано»
         }
 
         /// <summary>Ждущий запрос копания вступает: конец — «прервано»; начало — прежнему «прервано», проверка, старт.</summary>
@@ -208,17 +222,26 @@ namespace Orpheus.Net.Session
 
         private void OnPlace(Player p, EditState s, WorldPos pos, in TileRequestMessage m, byte held)
         {
-            int n = EditRules.Line(_sim.Shape, m.From, m.To, _line);
-            if (n < 0 || !EditRules.IsPlaceable(m.Obj))
+            if (EditRules.Line(_sim.Shape, m.From, m.To, _line) < 0 || !EditRules.IsPlaceable(m.Obj))
             {
                 Reply(p, m.RequestId, EditReply.NotAllowed, EditReply.NotAllowed, 0);
                 return;
             }
 
-            // Молот в руках обязателен и для постановки (1-011, `05` 1.3 — «нужен молот» строка отказа).
-            if (Items.DigToolOf(held) != ToolKind.Hammer)
+            // E2-11: постройки — предметы. Молот не нужен: в ячейке панели заявки должен лежать предмет этой постройки
+            // (по предмету на тайл снимает такт — Simulation.PayPlacement; кончились посреди линии — «нет ресурсов»).
+            // Бесплатные объекты вне таблицы построек (ковёр, шипы — smoke и отладка) предмета не имеют: как до E2-11 — молотом.
+            int slot = _sim.SlotOf(p.EntityId);
+            byte item = BuildDefs.ItemOf(m.Obj);
+            if (item == Items.None && Items.DigToolOf(held) != ToolKind.Hammer)
             {
                 Reply(p, m.RequestId, EditReply.ToolRequired, EditReply.ToolRequired, 0);
+                return;
+            }
+
+            if (item != Items.None && !m.FromMenu && (slot < 0 || _sim.Entities[slot].Inv.ItemAt(m.Cell) != item))
+            {
+                Reply(p, m.RequestId, EditReply.NoResources, EditReply.NoResources, 0);
                 return;
             }
 
@@ -228,54 +251,7 @@ namespace Orpheus.Net.Session
                 return;
             }
 
-            EditReply first = EditReply.Accepted;
-            int queued = 0;
-            for (int i = 0; i < n; i++)
-            {
-                TileCoord t = _line[i];
-                EditReply check = EditRules.CheckPlaceTile(_sim.World, pos, t, m.Obj);
-                if (check == EditReply.Accepted && _hasDummy && EditRules.NeedsClearance(m.Obj) && EditRules.EnemyTooClose(_sim.Shape, _dummy.Position, t))
-                {
-                    check = EditReply.EnemyNear;
-                }
-
-                int tag = (m.RequestId << TagLineBits) | i;
-                byte floor = _sim.World.GetFloor(t);
-                bool floorKey = EditRules.IsFloorKey(m.Obj); // запрос «поставить пол»: слой пола := m.Obj, объект пустой
-                BuildRecord rec = new BuildRecord((ushort)p.EntityId,
-                    BuildDefs.TryGet(m.Obj, out BuildDef def) ? def.MaxIntegrity : BuildRecord.MaxIntegrity,
-                    0, floor, 0);
-                if (check == EditReply.Accepted &&
-                    !_sim.RequestPlayerEdit(t, floorKey ? (byte)m.Obj : floor, floorKey ? ObjectId.Empty : m.Obj,
-                        true, rec, p.EntityId, tag))
-                {
-                    check = EditReply.QueueFull; // очередь такта полна
-                }
-
-                if (check != EditReply.Accepted)
-                {
-                    if (first == EditReply.Accepted)
-                    {
-                        first = check;
-                    }
-
-                    continue;
-                }
-
-                queued++;
-            }
-
-            if (queued == 0)
-            {
-                Reply(p, m.RequestId, first, first, 0);
-                return;
-            }
-
-            int k = s.PendingCount++;
-            s.PendingId[k] = m.RequestId;
-            s.PendingMask[k] = 0;
-            s.PendingFirst[k] = first;
-            s.PendingLeft[k] = queued;
+            PlacePlan(p, s, pos, m); // E2-15: план заявки — общий с предсказанием клиента (NetServer.Cells.cs)
         }
 
         /// <summary>
@@ -322,6 +298,11 @@ namespace Orpheus.Net.Session
                 {
                     CompleteDig(p, s, pos, held);
                 }
+
+                if (s.Repairing)
+                {
+                    AdvanceRepair(p, s, slot, pos, held); // C-005: починка 0,5 с (NetServer.Use.cs)
+                }
             }
         }
 
@@ -330,20 +311,17 @@ namespace Orpheus.Net.Session
         {
             s.Digging = false;
             EditReply check = EditRules.CheckDig(_sim.World, pos, s.DigTile, DigTimes, held);
-            byte floor = _sim.World.GetFloor(s.DigTile);
             if (check == EditReply.Accepted && DigKeyOf(s.DigTile) != s.DigObj)
             {
                 check = EditReply.Empty; // тайл не тот, что в начале копания (3.7)
             }
 
-            // Снос построенного пола (1-011, `05` 1.3): слой пола возвращается природному из записи.
-            byte newFloor = FloorId.IsBuilt(floor) && _sim.World.TryGetBuild(s.DigTile, out BuildRecord rec)
-                ? rec.NaturalFloor
-                : floor;
+            // Снос по слоям (E2-15): верх или обломки — пол остаётся; верха нет — построенный пол, слой пола — природный из записи.
+            BuildLayers.AfterDig(_sim.World, s.DigTile, out byte newFloor, out bool keep, out BuildRecord rest);
             if (check == EditReply.Accepted &&
-                !_sim.RequestPlayerEdit(s.DigTile, newFloor, ObjectId.Empty, false, default, p.EntityId, TagDig | (s.DigRequest << TagLineBits)))
+                !_sim.RequestPlayerEdit(s.DigTile, newFloor, ObjectId.Empty, keep, rest, p.EntityId, TagDig | (s.DigRequest << TagLineBits)))
             {
-                check = EditReply.QueueFull;
+                check = QueueRefusal(p.EntityId);
             }
 
             if (check != EditReply.Accepted)
@@ -390,7 +368,9 @@ namespace Orpheus.Net.Session
 
                 if (reply == EditReply.Accepted)
                 {
-                    s!.PendingMask[k] |= 1u << (ev.Tag & ((1 << TagLineBits) - 1));
+                    // E2-12: правка тайла стены — несколько ячеек линии подряд (число − 1 — в битах TagCountShift).
+                    int count = ((ev.Tag >> TagCountShift) & 3) + 1;
+                    s!.PendingMask[k] |= ((1u << count) - 1) << (ev.Tag & ((1 << TagLineBits) - 1));
                 }
                 else if (s!.PendingFirst[k] == EditReply.Accepted)
                 {

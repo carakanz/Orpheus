@@ -57,6 +57,7 @@ namespace Orpheus.Client
                     _client = new NetClient(_link, LoopbackTransport.ServerPeer, _args.Name, NetModule.Version);
                     _client.SnapshotApplied = OnSnapshot;
                     _client.InventorySeen = OnInventory; // 1-002: зеркало своей сумки — серверная
+                    HookPiles(_client);
                 }
 
                 return;

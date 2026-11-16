@@ -101,8 +101,15 @@ namespace Orpheus.Core.World
         /// <summary>Костёр (`05` 101: 1 × 1, прочность 60; свет 4 / 8 — `01` 6; еда — `06` 10). Проходим (1-014).</summary>
         public const ushort Campfire = 26;
 
+        /// <summary>
+        /// Обрыв-граница (E1-2, план 1.2): твёрдый природный объект без строк копания — не ломается ничем, строить на нём
+        /// нельзя (природный: «сначала выкопай», а выкопать нельзя). Куда смотрит обрыв, в данных нет: клиент берёт по соседям
+        /// и уровню высоты (<c>ReliefMap.LevelAt</c>).
+        /// </summary>
+        public const ushort Cliff = 27;
+
         /// <summary>Наибольший описанный id.</summary>
-        public const ushort MaxKnownId = 26;
+        public const ushort MaxKnownId = 27;
 
         /// <summary>Размер таблицы свойств по сырому значению якоря: 0…0xFFF (id + поворот).</summary>
         public const int TableSize = 0x1000;
@@ -163,6 +170,7 @@ namespace Orpheus.Core.World
             Set(Stump, Properties.Solid | Properties.Natural);
             Set(Bush, Properties.Solid | Properties.Natural);
             Set(Granite, Properties.Solid | Properties.Natural);
+            Set(Cliff, Properties.Solid | Properties.Natural);
 
             return table;
 

@@ -595,6 +595,88 @@ namespace Orpheus.Tests
             }
         }
 
+        /// <summary>
+        /// C-003: предсказание бота появляется поздно (мир бота строится в фоне), когда кадры ввода уже в пути. Без сети UDP:
+        /// связка в памяти, RTT 80 мс. Установка по снимку с ack старше этих кадров давала правку на каждой сверке, пока
+        /// сервер их шагал; если предсказание появилось в паузе — правки шли сразу после её снятия (красный `Pause15s`
+        /// на генераторе v6). Теперь бот ждёт снимка, подтвердившего последний кадр без предсказания: правок 0.
+        /// </summary>
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void C003_NetBot_PredictionCreatedLate_FramesInFlight_NoCorrections(bool inPause)
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(Map, 42);
+            var sim = new Simulation(world, maxEntities: 8);
+            using LoopbackTransport st = LoopbackTransport.CreateServer(4);
+            var server = new NetServer(st, sim, i => ServerRun.SpawnPoint(Map, i), 4, NetModule.Version);
+            using ITransport ct = new NetSimTransport(LoopbackTransport.ConnectTo(st), NetSimSettings.FromRtt(80, 0, 0, 5));
+            var client = new NetClient(ct, LoopbackTransport.ServerPeer, "late", NetModule.Version);
+            long now = 0;
+            const long CreateAt = 2_000_000;
+            long inFlight = -1;
+            var bot = new NetBot(client, "wander", 0)
+            {
+                PredictionFactory = c =>
+                {
+                    if (now < CreateAt)
+                    {
+                        return null; // «мир ещё строится»
+                    }
+
+                    inFlight = c.HasSnapshot ? (int)(c.Frame - c.Latest.AckFrame) : -1;
+                    return new LocalPrediction(c.Shape, sim.Solid, new WorldPos(Map.WidthUnits / 2, Map.HeightUnits / 2));
+                },
+            };
+
+            double nextTick = 0;
+            long nextFrame = 3000;
+            for (; now < 6_000_000; now += 1000)
+            {
+                if (inPause && now == CreateAt - 100_000)
+                {
+                    server.SetPaused(true);
+                }
+
+                if (inPause && now == CreateAt + 1_000_000)
+                {
+                    server.SetPaused(false);
+                }
+
+                if (now >= nextTick)
+                {
+                    nextTick += TickUs;
+                    server.Poll(now);
+                    if (server.Paused)
+                    {
+                        server.SendPausedSnapshots();
+                    }
+                    else
+                    {
+                        sim.Step();
+                        server.SendSnapshots();
+                    }
+                }
+
+                if (now >= nextFrame)
+                {
+                    nextFrame += FrameUs;
+                    bot.Frame(now);
+                }
+            }
+
+            LocalPrediction? p = bot.Prediction;
+            Assert.NotNull(p);
+            _out.WriteLine($"пауза {inPause}: кадров в пути при создании {inFlight}, установок {p!.Initial}, сверок {p.Compared}, правок {p.Resynced}, " +
+                           $"наибольшее расхождение {p.MaxDevUnits} u, перенумераций {client.FrameRenumbers}");
+            Assert.True(inFlight >= 2, $"сценарий: в пути должно быть ≥ 2 кадров, а их {inFlight}");
+            Assert.True(p.Synced);
+            Assert.Equal(1, p.Initial);
+            Assert.True(p.Compared >= 60, $"сверок {p.Compared}");
+            Assert.Equal(0, p.Resynced);
+            Assert.Equal(0, p.MaxDevUnits);
+        }
+
         /// <summary>Часы клиента: остановка и пуск — оценка непрерывна, образцы в паузе не двигают часы, окно сдвинуто на паузу.</summary>
         [Fact]
         public void ClientClock_HoldRelease_Continuous_SamplesWhileHeldIgnored()
@@ -724,6 +806,11 @@ namespace Orpheus.Tests
                                $"кадров в паузе {b.PauseInputsSent}, правок всего {b.PredResynced}, после паузы {b.PredResyncedAfterPause}; перенумераций {b.FrameRenumbers}, " +
                                $"перестановок часов {b.ClockStepsForward}/{b.ClockStepsBack}/{b.ClockServerResets}, образцов в паузе {b.ClockSamplesWhileHeld}, " +
                                $"снято по снимку {b.PausesReleasedBySnapshot}, сверок {b.PredCompared}, > 0,5 т {b.PredOverHalfTile}");
+            }
+
+            foreach (string line in r.PauseLog)
+            {
+                _out.WriteLine(line); // C-003: что сервер применил в такте правки и когда у бота появилось предсказание
             }
 
             _out.WriteLine($"в игре {r.InGame}, отключений {r.Disconnects}, ≤ 0,5 тайла — {r.PredWithinHalfTile:P3}; сервер: тактов {result.Ticks} за {result.Seconds:F1} с");

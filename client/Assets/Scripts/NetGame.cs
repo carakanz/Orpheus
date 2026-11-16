@@ -85,6 +85,8 @@ namespace Orpheus.Client
         readonly Dictionary<int, GameObject> _ents = new Dictionary<int, GameObject>();
         readonly HashSet<int> _seen = new HashSet<int>();
         GameObject _entityRoot = null!;
+        PileView? _pileView; // E2-1: кучи на земле (сообщения 27 и 28)
+        UI.GameUi? _ui;      // E2-2: быстрая панель, окно сумки, полосы
         Sprite _heroSprite = null!;
 
         NetClient? _client;
@@ -146,6 +148,7 @@ namespace Orpheus.Client
 
             _heroSprite = _g.Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
             _entityRoot = new GameObject("Entities");
+            _pileView = new PileView(new GameObject("Piles").transform);
         }
 
         /// <summary>
@@ -207,6 +210,7 @@ namespace Orpheus.Client
             _client.HostToken = token; // до первого Poll: вход уходит, когда соединение установлено
             _client.SnapshotApplied = OnSnapshot;
             _client.InventorySeen = OnInventory; // 1-002: зеркало своей сумки — серверная
+            HookPiles(_client);
         }
 
         /// <summary>Свой сервер (0-024): запуск закончился → соединение; не поднялся или вышел во время игры → текст в окне.</summary>
@@ -357,6 +361,7 @@ namespace Orpheus.Client
 
             if (_view != null && state == NetClientState.InGame && !_fatal)
             {
+                UiFrame(); // E2-2: до чтения мыши миром — интерфейс забирает щелчки по себе
                 SendInput(now);
                 Render(now);
                 if (_screenshot == null && _args.ScreenshotPath != null)
@@ -403,6 +408,7 @@ namespace Orpheus.Client
             ClientWorld cw = _client!.World!;
             _world = cw.World;
             _localId = accept.EntityId;
+            _pileView?.Clear(); // E2-1: кучи нового входа сервер пришлёт заново
             WorldPos spawn = CenterOf(accept.MapWidth / 2, accept.MapHeight / 2);
             _origin = new FloatingOrigin(_map, Torus.ChunkOf(_map, spawn));
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
@@ -485,7 +491,26 @@ namespace Orpheus.Client
             // 1-002: прицел и ячейка — в каждый кадр ввода (журнал 2.4); в net-smoke кадр скриптованный, без мыши.
             ushort aim = _args.NetSmokeSeconds > 0 ? (ushort)0 : ComputeAim();
             byte slot = _args.NetSmokeSeconds > 0 ? SmokeMeleeSlot(now) : (byte)_slot;
-            if (_args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame())
+            bool dodgePress = _args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame() && !ShiftForWindow();
+            if (dodgePress && _args.NetSmokeSeconds == 0 && ShiftOnlyPressed() && RulerMayTakeShift())
+            {
+                _shiftDodgeHold = DodgeWaitFrames; // E2-13: Shift со стеной в руке ждёт ЛКМ (диагональ линейки) до 6 кадров
+                dodgePress = false;
+            }
+
+            if (_shiftDodgeHold > 0)
+            {
+                if (_ui != null && _ui.Ruler.Dragging)
+                {
+                    _shiftDodgeHold = 0; // нажал ЛКМ — Shift ушёл в диагональ линейки, уворота нет
+                }
+                else if (--_shiftDodgeHold == 0)
+                {
+                    dodgePress = true; // ЛКМ не нажали — обычный уворот (позже на 6 кадров)
+                }
+            }
+
+            if (dodgePress)
             {
                 _dodgeWait = DodgeWaitFrames; // 0-034: нажатие ждёт направления до 0,1 с
                 DodgePresses++;
@@ -537,20 +562,32 @@ namespace Orpheus.Client
             }
         }
 
-        /// <summary>Прицел (1-002, `02` 1.1 «Прицел»): угол от своего персонажа к курсору мыши, Angle16 (целый, ядро).</summary>
+        /// <summary>
+        /// Прицел (1-002, `02` 1.1 «Прицел»): угол от своего персонажа к курсору мыши, Angle16 (целый, ядро). C-012: от середины
+        /// видимого тела нарисованного персонажа (<see cref="Anim.AimMath"/>), а не от точки ядра — иначе луч уходил на север.
+        /// Мышь вне окна — прицел по последнему углу (`02` 1.1).
+        /// </summary>
         ushort ComputeAim()
         {
             Mouse? mouse = Mouse.current;
             if (mouse == null || _origin == null)
             {
-                return 0;
+                return _lastAim;
             }
 
             Vector3 screen = mouse.position.ReadValue();
+            if (screen.x < 0f || screen.y < 0f || screen.x > Screen.width || screen.y > Screen.height)
+            {
+                return _lastAim;
+            }
+
             Vector3 w = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
-            WorldPos c = _origin.FromUnity(w);
-            return Angle16.Atan2(c.Y - _localPos.Y, c.X - _localPos.X).Raw;
+            Vector3 me = _g.Character.position;
+            _lastAim = Anim.AimMath.AimRaw(me.x, me.y, w.x, w.y);
+            return _lastAim;
         }
+
+        ushort _lastAim;
 
         /// <summary>Кадр движения + прицел и ячейка быстрой панели (1-002).</summary>
         static InputFrame WithAimSlot(InputFrame f, ushort aim, byte slot) => new InputFrame(f.Direction, f.Buttons, aim, slot);
@@ -661,6 +698,7 @@ namespace Orpheus.Client
             _g.Character.gameObject.SetActive(true);
             _g.Character.position = _origin!.ToUnity(me) + new Vector3(dx / sub, -dy / sub, 0f);
             _g.Camera.transform.position = _g.Character.position + GameBoot.CameraOffset;
+            WorldFx.SetHero(_g.Character.position);
             _tint?.Update(_client!.WorldTimeClock.TicksAt(now)); // E1-8: фон тона — оценка часов мира (заголовок снимков + местный ход)
 
             // Чужие: набор — новейший снимок, позиция — RemoteInterpolation на время показа этого кадра.
@@ -681,7 +719,7 @@ namespace Orpheus.Client
                     GameObject go = GetEntity(id);
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
-                    _anim?.Remote(id, go.transform);
+                    _anim?.Remote(id, go.transform, snap.Entities[i]); // E2-7: предмет в руке и удар мечом чужих — из снимка
                 }
             }
 
@@ -694,6 +732,7 @@ namespace Orpheus.Client
             }
 
             _anim?.Frame(now, _pred!);
+            _pileView?.Frame(_origin!, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeFrame(me, dx, dy);
@@ -768,17 +807,49 @@ namespace Orpheus.Client
             sr.color = new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
             sr.sortingOrder = WorldView.ObjectOrder;
             sr.spriteSortPoint = SpriteSortPoint.Pivot;
+            WorldFx.AddActorShadow(root.transform, 0.8f); // E1-7: пятно-тень под существом
             _ents[id] = root;
             return root;
         }
 
         // E1-1 (план, шаг 1.1): колесо мыши — обзор от 40 до 96 тайлов в ширину, как офлайн; на геймпаде — плечи.
         // Ячейка быстрой панели (1-002, `02` 1.1): клавиши 1–8 или колесо с зажатым Alt — до окна панели (шаг 2.2).
+        /// <summary>
+        /// E2-4: Shift нажат, пока курсор над открытым окном (Shift+ЛКМ — «перекинуть») — в игру уворотом не уходит.
+        /// X и кнопка геймпада уворачиваются как раньше.
+        /// </summary>
+        int _shiftDodgeHold;
+
+        /// <summary>В этом кадре нажат Shift (а не X): уворот «Shift + направление».</summary>
+        static bool ShiftOnlyPressed()
+        {
+            Keyboard? kb = Keyboard.current;
+            return kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) && !kb.xKey.wasPressedThisFrame;
+        }
+
+        /// <summary>
+        /// E2-13 (проверка П, з. 2): Shift может уйти в диагональ линейки — в руке стена или забор, режим линейки, курсор над
+        /// миром. Тогда уворот по Shift ждёт до <see cref="DodgeWaitFrames"/> кадров: нажал ЛКМ — протягивание без уворота,
+        /// не нажал — уворот. X уворачивает сразу всегда.
+        /// </summary>
+        bool RulerMayTakeShift() =>
+            _ui != null && !_ui.PointerBlocked && _ui.Ruler.Mode == PlaceMode.Ruler && BuildRuler.KindOfItem(HandItem) == RulerKind.Line;
+
+        bool ShiftForWindow()
+        {
+            Keyboard? kb = Keyboard.current;
+            return _ui != null && (_ui.OverWindow || _ui.Ruler.Dragging) && kb != null && (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame); // E2-13: Shift при протягивании — диагональ, не уворот
+        }
+
         void UpdateZoom()
         {
             float scroll = _g.ZoomAxis.ReadValue<float>();
             Keyboard? kb = Keyboard.current;
             bool slotWheel = kb != null && (kb.leftAltKey.isPressed || kb.rightAltKey.isPressed);
+            if (_ui != null && _ui.OverWindow && !slotWheel)
+            {
+                scroll = 0f; // E2-4, C-008: колесо над интерфейсом (окна, нижняя панель, сферы, карта) обзор не меняет; Alt+колесо — ячейка, как было
+            }
             if (scroll > 0.01f)
             {
                 if (slotWheel) _slot = (_slot + 1) % InputFrame.MaxSlots;
@@ -1045,7 +1116,7 @@ namespace Orpheus.Client
             Quit(1);
         }
 
-        void QuitIfEscaped() => PauseFrame(); // 0-036: в игре Esc / Start — пауза, выход — Q в паузе; вне игры Esc и Q — выход (NetGame.Pause.cs)
+        void QuitIfEscaped() => PauseFrame(); // 0-036: в игре Esc / Start — пауза, выход — Ctrl+Q в паузе; вне игры Esc и Q — выход (NetGame.Pause.cs)
 
         void Quit(int code)
         {

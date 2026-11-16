@@ -49,6 +49,7 @@ namespace Orpheus.Net.Session
         public DigLineBot(MapShape shape, int halfLength = 48, int target = 1000)
         {
             _shape = shape;
+            _piles = new BotPiles(shape);
             HalfLength = halfLength;
             Target = target;
         }
@@ -66,7 +67,7 @@ namespace Orpheus.Net.Session
         public int Refused { get; private set; }
 
         /// <summary>Отказов по причине (индекс — <see cref="EditReply"/>, включая «нужен инструмент/ярус» — 1-010).</summary>
-        public int[] RefusedBy { get; } = new int[(int)EditReply.TierRequired + 1];
+        public int[] RefusedBy { get; } = new int[(int)EditReply.Dead + 1];
 
         /// <summary>Отказы строкой: «далеко 3, прервано 1».</summary>
         public string RefusalsText => string.Join(", ", Enumerable.Range(0, RefusedBy.Length).Where(i => RefusedBy[i] > 0)
@@ -81,8 +82,17 @@ namespace Orpheus.Net.Session
         /// <summary>Все снятые тайлы, чья добыча — камень (скалы в полосе, скалы вне полосы, гранит): сверка сумки (1-010).</summary>
         public List<(TileCoord Tile, ushort Raw)> StoneTiles { get; } = new List<(TileCoord, ushort)>();
 
-        /// <summary>Сняли <see cref="Target"/> скал.</summary>
-        public bool Done => RocksDug >= Target;
+        /// <summary>Сняли <see cref="Target"/> скал и подобрали добычу, лежащую рядом (E2-1).</summary>
+        public bool Done => RocksDug >= Target && _settled;
+
+        /// <summary>Куч добычи подобрано походом к ним (E2-1).</summary>
+        public int PilesCollected => _piles.Collected;
+
+        private readonly BotPiles _piles;
+
+        // Боту нужен камень (сверка сумки — по камню); за древесиной со срубленных помех он не возвращается.
+        private static readonly Func<byte, bool> IsStone = item => item == Items.Stone;
+        private bool _settled;
 
         private readonly Dictionary<ushort, TileCoord> _digTile = new Dictionary<ushort, TileCoord>();
         private readonly Dictionary<ushort, ushort> _digRaw = new Dictionary<ushort, ushort>(); // запрос → объект (для «каменной» свёрки сумки)
@@ -179,10 +189,30 @@ namespace Orpheus.Net.Session
             }
 
             // Что копать: сначала помеха по ходу, потом скалы в досягаемости (в полосе).
-            if (TryDig(client, world, pos, me, inBand))
+            if (RocksDug < Target && TryDig(client, world, pos, me, inBand))
             {
                 _stillFrames = 0;
                 return new InputFrame(Input8.None, InputButtons.Dig, 0, _slot);
+            }
+
+            // E2-1: добыча падает на землю и первые такты не подбирается. Копать нечего (всё в досягаемости снято, помехи
+            // по ходу нет) — дойти вдоль своей линии до кучи и дождаться подбора, потом дальше: пока бот копает соседние
+            // скалы, кучи «дозревают», стоять приходится мало. Со строки бот не сходит (иначе копал бы скалы чужих строк): в строке — только вдоль X (кучи своей
+            // тройки строк лежат не дальше 1,2 тайла от линии), при смене строки — только вдоль Y.
+            bool seek = _shifting
+                ? _piles.TrySeek(client, pos, IsStone, out Input8 toPile, BotPiles.AxisY, pos.X)
+                : _piles.TrySeek(client, pos, IsStone, out toPile, BotPiles.AxisX, yc);
+            if (seek)
+            {
+                _stillFrames = 0;
+                _lastPos = pos;
+                return new InputFrame(toPile);
+            }
+
+            if (RocksDug >= Target)
+            {
+                _settled = true; // скалы сняты, куч у линии нет — конец
+                return InputFrame.None;
             }
 
             Input8 move = _shifting

@@ -1,0 +1,70 @@
+using System;
+using System.IO;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
+using Orpheus.Net.Session;
+using Orpheus.Save;
+using Orpheus.WorldGen;
+using Xunit;
+
+namespace Orpheus.Tests
+{
+    /// <summary>
+    /// Разовый генератор файла формата 9 со стенами для теста E2-12 (запускается на коде task/E2-11, e84ebaa — до тонких
+    /// стен): плоский мир 256², зерно 1; игрок ставит по сети предметами из руки три деревянные и три каменные стены, три
+    /// забора и дверь (закрыта); одна каменная стена повреждена наполовину.
+    /// </summary>
+    public class MakeV9Walls
+    {
+        [Fact]
+        public void Make_Format9_Walls_File()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(256), 1);
+            byte[] baseBytes = WorldSnapshot.WriteBase(world);
+            using var rig = new EditTests.EditRig(world, _ => EditTests.TileCenter(128, 128));
+            NetClient c = rig.Join();
+            rig.Run(5);
+            var inv = rig.Sim.GetEntity(c.EntityId).Inv;
+            inv.SetCell(3, Items.WoodWall, 3);
+            inv.SetCell(4, Items.StoneWall, 3);
+            inv.SetCell(5, Items.WoodFence, 3);
+            inv.SetCell(6, Items.Door, 1);
+            Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
+            rig.Run(3);
+
+            WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
+            c.Place(new TileCoord(125, 127), new TileCoord(125, 129), ObjectId.WoodWall, self, 3);
+            rig.Run(4);
+            c.Place(new TileCoord(123, 127), new TileCoord(123, 129), ObjectId.StoneWall, self, 4);
+            rig.Run(4);
+            c.Place(new TileCoord(131, 127), new TileCoord(131, 129), ObjectId.WoodFence, self, 5);
+            rig.Run(4);
+            c.Place(new TileCoord(128, 131), new TileCoord(128, 131), ObjectId.Door, self, 6);
+            rig.Run(4);
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.Equal(ObjectId.WoodWall, ObjectId.IdOf(rig.Sim.World.GetObject(new TileCoord(125, 127 + i))));
+                Assert.Equal(ObjectId.StoneWall, ObjectId.IdOf(rig.Sim.World.GetObject(new TileCoord(123, 127 + i))));
+                Assert.Equal(ObjectId.WoodFence, ObjectId.IdOf(rig.Sim.World.GetObject(new TileCoord(131, 127 + i))));
+            }
+
+            Assert.Equal(ObjectId.Door, ObjectId.IdOf(rig.Sim.World.GetObject(new TileCoord(128, 131))));
+            Assert.True(rig.Sim.DamageBuilding(new TileCoord(123, 129), 150)); // 300 → 150
+            rig.Run(400); // флаги урона сняты, дверь закрыта
+
+            var chars = new[]
+            {
+                new CharacterRecord { IsHost = true, Name = "Орфей", EntityId = c.EntityId, Inv = rig.Sim.GetEntity(c.EntityId).Inv },
+            };
+
+            byte[] save = WorldSave.Build(WorldSave.Capture(rig.Sim, WorldSnapshot.StoredHash(baseBytes), "формат9-стены", chars), 4, 0);
+            Assert.Equal(9u, SaveContainer.Read(save).Header.FormatVersion);
+            string dir = Environment.GetEnvironmentVariable("V9_OUT")!;
+            File.WriteAllBytes(Path.Combine(dir, "format9_walls.save"), save);
+            File.WriteAllBytes(Path.Combine(dir, "format9_walls.base"), baseBytes);
+            File.WriteAllText(Path.Combine(dir, "format9_walls.hash.txt"), StateHash.Compute(rig.Sim).Total.ToString("x16"));
+        }
+    }
+}

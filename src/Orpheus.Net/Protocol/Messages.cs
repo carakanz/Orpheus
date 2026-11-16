@@ -99,6 +99,44 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: сумка персонажа — владельцу при входе и когда содержимое изменилось (1-002).</summary>
         Inventory = 26,
+
+        // E2-1, предметы на земле и ячейки сумки (docs/06 5.3, 5.5), канал 2. Протокол 21.
+
+        /// <summary>Сервер → клиент, канал 2: кучи на земле рядом — появились или изменили количество (E2-1).</summary>
+        Piles = 27,
+
+        /// <summary>Сервер → клиент, канал 2: куча исчезла — подобрана (кем), истекла или вышла из обзора (E2-1).</summary>
+        PileGone = 28,
+
+        /// <summary>Клиент → сервер, канал 2: заявка на операцию с ячейками сумки — переместить, разделить, выбросить (E2-1).</summary>
+        BagRequest = 29,
+
+        // E2-3, крафт (docs/06 3.5), канал 2. Протокол 22.
+
+        /// <summary>Клиент → сервер, канал 2: заявка изготовления — «рецепт × N» или отмена позиции очереди (E2-3).</summary>
+        CraftRequest = 30,
+
+        /// <summary>Сервер → клиент, канал 2: ответ на заявку изготовления — принято или причина отказа (E2-3).</summary>
+        CraftReply = 31,
+
+        /// <summary>Сервер → клиент, канал 2: очередь изготовления персонажа — владельцу, когда изменилась (E2-3).</summary>
+        CraftState = 32,
+
+        // E2-5, объекты с действием и сундук (docs/05 1.3, 7.3), канал 2. Протокол 23.
+
+        /// <summary>Клиент → сервер, канал 2: действие с объектом (F): открыть сундук, назначить кровать; закрыть сундук (E2-5).</summary>
+        UseRequest = 33,
+
+        /// <summary>Сервер → клиент, канал 2: ответ на действие — принято или причина (E2-5).</summary>
+        UseReply = 34,
+
+        /// <summary>Сервер → клиент, канал 2: содержимое открытого сундука или «закрыт» (E2-5).</summary>
+        ChestState = 35,
+
+        // E2-10, крафт из сундуков рядом (docs/06 3.5), канал 2. Протокол 24.
+
+        /// <summary>Сервер → клиент, канал 2: сколько каждого предмета в сундуках рядом — владельцу, когда изменилось (E2-10).</summary>
+        NearbyStock = 36,
     }
 
     /// <summary>
@@ -862,14 +900,14 @@ namespace Orpheus.Net.Protocol
     }
 
     /// <summary>
-    /// «Сумка» (1-002, тип 26; docs/06 0): сумка персонажа — сервер шлёт <b>владельцу</b> при входе
+    /// «Сумка» (1-002, тип 26; E2-1 — ячейками; docs/06 5.5): сумка персонажа — сервер шлёт <b>владельцу</b> при входе
     /// и когда содержимое изменилось (канал 2, надёжный). Предмет в руках для чужих сущностей —
     /// 8 бит в снимке (<see cref="SnapshotEntity.HeldItem"/>), целиком сумка чужому игроку не нужна.
-    /// Поля: тип 1 + сущность u32 + версия u16 + payload (выбранная 1 + ячейки 8 + счётчики u16 × 7).
+    /// Поля: тип 1 + сущность u32 + версия u16 + выбранная ячейка 1 + 40 ячеек × (предмет 1 + количество u16).
     /// </summary>
     public struct InventoryMessage
     {
-        /// <summary>Тип 1 + сущность 4 + версия 2 + payload 23.</summary>
+        /// <summary>Тип 1 + сущность 4 + версия 2 + payload 121.</summary>
         public const int Bytes = 1 + 4 + 2 + Inventory.PayloadBytes;
 
         public int EntityId;
@@ -886,14 +924,10 @@ namespace Orpheus.Net.Protocol
             w.WriteUInt32((uint)EntityId);
             w.WriteUInt16(Version);
             w.WriteByte(Bag.Selected);
-            for (int i = 0; i < Inventory.Slots; i++)
+            for (int i = 0; i < Inventory.Cells; i++)
             {
-                w.WriteByte(Bag.SlotAt(i));
-            }
-
-            for (int m = 0; m < (int)Material.Count; m++)
-            {
-                w.WriteUInt16((ushort)Bag.CountAt((Material)m));
+                w.WriteByte(Bag.ItemAt(i));
+                w.WriteUInt16((ushort)Bag.CountIn(i));
             }
 
             return w.BytesWritten;
@@ -910,14 +944,16 @@ namespace Orpheus.Net.Protocol
             }
 
             var bag = new Inventory();
-            for (int i = 0; i < Inventory.Slots; i++)
+            for (int i = 0; i < Inventory.Cells; i++)
             {
-                bag.SetSlotAt(i, r.ReadByte());
-            }
+                byte item = r.ReadByte();
+                int count = r.ReadUInt16();
+                if ((item == Items.None) != (count == 0) || count > Items.MaxStackOf(item))
+                {
+                    throw new ProtocolException($"Сумка: ячейка {i} — предмет {item} × {count}.");
+                }
 
-            for (int mt = 0; mt < (int)Material.Count; mt++)
-            {
-                bag.Add((Material)mt, r.ReadUInt16());
+                bag.SetCell(i, item, count);
             }
 
             bag.Select(selected);
@@ -927,6 +963,185 @@ namespace Orpheus.Net.Protocol
         }
 
         public override string ToString() => $"сумка #{EntityId} в{Version} {Bag}";
+    }
+
+    /// <summary>Куча на земле, как её видит клиент (E2-1): номер, предмет, количество, позиция в unit.</summary>
+    public struct NetPile
+    {
+        /// <summary>Номер 4 + предмет 1 + количество 2 + позиция 4 + 4.</summary>
+        public const int Bytes = 15;
+
+        public int Id;
+        public byte Item;
+        public ushort Count;
+        public WorldPos Position;
+
+        public override readonly string ToString() => $"куча #{Id} предмет {Item} × {Count} {Position}";
+    }
+
+    /// <summary>
+    /// «Кучи» (E2-1, тип 27, канал 2): кучи на земле в обзоре игрока — новые и те, у которых изменилось количество.
+    /// Поля: тип 1 + число 1 + на кучу — номер u32, предмет 1, количество u16 (≥ 1), позиция x, y u32 (unit).
+    /// </summary>
+    public struct PilesMessage
+    {
+        /// <summary>Куч в одном сообщении.</summary>
+        public const int MaxPiles = 48;
+
+        /// <summary>Наибольший размер: тип 1 + число 1 + 48 куч = 722 байта (влезает в один пакет).</summary>
+        public const int MaxBytes = 2 + MaxPiles * NetPile.Bytes;
+
+        public static int Write(Span<byte> dest, ReadOnlySpan<NetPile> piles)
+        {
+            if (piles.Length == 0 || piles.Length > MaxPiles)
+            {
+                throw new ArgumentOutOfRangeException(nameof(piles), piles.Length, $"Куч в сообщении — 1…{MaxPiles}.");
+            }
+
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Piles);
+            w.WriteByte((byte)piles.Length);
+            for (int i = 0; i < piles.Length; i++)
+            {
+                w.WriteUInt32((uint)piles[i].Id);
+                w.WriteByte(piles[i].Item);
+                w.WriteUInt16(piles[i].Count);
+                w.WriteUInt32((uint)piles[i].Position.X);
+                w.WriteUInt32((uint)piles[i].Position.Y);
+            }
+
+            return w.BytesWritten;
+        }
+
+        /// <summary>Прочитать в <paramref name="dest"/> (≥ <see cref="MaxPiles"/>); возвращает число куч.</summary>
+        public static int Read(ReadOnlySpan<byte> src, Span<NetPile> dest)
+        {
+            var r = Codec.Begin(src, MessageType.Piles);
+            int n = r.ReadByte();
+            if (n == 0 || n > MaxPiles || n > dest.Length)
+            {
+                throw new ProtocolException($"Кучи: число {n} вне 1…{MaxPiles}.");
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                var p = new NetPile { Id = (int)r.ReadUInt32(), Item = r.ReadByte(), Count = r.ReadUInt16() };
+                int x = (int)r.ReadUInt32();
+                int y = (int)r.ReadUInt32();
+                if (p.Id <= 0 || !Items.Exists(p.Item) || p.Count == 0)
+                {
+                    throw new ProtocolException($"Кучи: № {i} — номер {p.Id}, предмет {p.Item} × {p.Count}.");
+                }
+
+                p.Position = new WorldPos(x, y);
+                dest[i] = p;
+            }
+
+            r.ExpectEnd();
+            return n;
+        }
+    }
+
+    /// <summary>Почему куча исчезла у клиента (E2-1).</summary>
+    public enum PileGoneReason : byte
+    {
+        /// <summary>Подобрана целиком: <see cref="PileGoneMessage.Taker"/> — кто.</summary>
+        Picked = 0,
+
+        /// <summary>Истекло время жизни.</summary>
+        Expired = 1,
+
+        /// <summary>Вышла из обзора игрока (куча лежит, клиент её забывает).</summary>
+        OutOfView = 2,
+    }
+
+    /// <summary>
+    /// «Кучи нет» (E2-1, тип 28, канал 2): куча исчезла. Поля: тип 1 + номер u32 + причина 1 + кто поднял u32 (0 — никто).
+    /// </summary>
+    public struct PileGoneMessage
+    {
+        public const int Bytes = 1 + 4 + 1 + 4;
+
+        public int Id;
+        public PileGoneReason Reason;
+
+        /// <summary>Сущность, поднявшая кучу (для «прыжка» к игроку); 0 — не подбор.</summary>
+        public int Taker;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.PileGone);
+            w.WriteUInt32((uint)Id);
+            w.WriteByte((byte)Reason);
+            w.WriteUInt32((uint)Taker);
+            return w.BytesWritten;
+        }
+
+        public static PileGoneMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.PileGone);
+            var m = new PileGoneMessage { Id = (int)r.ReadUInt32() };
+            byte reason = r.ReadByte();
+            if (reason > (byte)PileGoneReason.OutOfView)
+            {
+                throw new ProtocolException($"Кучи нет: причина {reason}.");
+            }
+
+            m.Reason = (PileGoneReason)reason;
+            m.Taker = (int)r.ReadUInt32();
+            r.ExpectEnd();
+            return m;
+        }
+
+        public override string ToString() => $"кучи #{Id} нет: {Reason}, поднял #{Taker}";
+    }
+
+    /// <summary>
+    /// «Заявка на сумку» (E2-1, тип 29, канал 2; docs/06 5.5 «Перемещение предмета — запрос клиента»): операция,
+    /// ячейка-источник, ячейка-цель, количество. Поля: тип 1 + операция 1 + откуда 1 + куда 1 + количество u16.
+    /// Ответа нет: исполненная заявка меняет сумку, и сервер шлёт её целиком (тип 26).
+    /// </summary>
+    public struct BagRequestMessage
+    {
+        public const int Bytes = 1 + 1 + 1 + 1 + 2;
+
+        public BagOp Op;
+        public byte From;
+        public byte To;
+
+        /// <summary>Сколько (деление, выброс); у выброса 0 — вся стопка.</summary>
+        public ushort Count;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.BagRequest);
+            w.WriteByte((byte)Op);
+            w.WriteByte(From);
+            w.WriteByte(To);
+            w.WriteUInt16(Count);
+            return w.BytesWritten;
+        }
+
+        /// <summary>Ячеек в заявке: сумка (0…39) и открытый сундук (40…69; E2-5).</summary>
+        public const int MaxCell = Inventory.Cells + Simulation.ChestCells;
+
+        public static BagRequestMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.BagRequest);
+            var m = new BagRequestMessage { Op = (BagOp)r.ReadByte(), From = r.ReadByte(), To = r.ReadByte(), Count = r.ReadUInt16() };
+            r.ExpectEnd();
+            // E2-5: ячейки от Inventory.Cells — ячейки открытого сундука (их 30); какой сундук — помнит сервер.
+            if (m.Op < BagOp.Move || m.Op > BagOp.Drop || m.From >= MaxCell || m.To >= MaxCell)
+            {
+                throw new ProtocolException($"Заявка на сумку: операция {(byte)m.Op}, ячейки {m.From} → {m.To}.");
+            }
+
+            return m;
+        }
+
+        public override string ToString() => $"сумка: {Op} {From} → {To} × {Count}";
     }
 
     /// <summary>Общее для кодека: тип сообщения.</summary>
@@ -951,11 +1166,12 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
-        /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001) и 26 (сумка, 1-002; последний — Inventory); 15 не занят.
+        /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001), 26 (сумка, 1-002) и 27…29 (кучи и заявка на сумку, E2-1;
+        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; последний — NearbyStock); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.Inventory);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.NearbyStock);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)

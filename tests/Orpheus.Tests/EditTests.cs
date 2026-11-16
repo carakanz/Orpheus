@@ -97,7 +97,7 @@ namespace Orpheus.Tests
             var sim = new Simulation(Flat());
             int me = sim.AddEntity(TileCenter(100, 100));
             sim.AddEnemy(TileCenter(110, 100));
-            GiveMaterials(sim, me, 0, 2, 0); // стена стоит 2 камня (1-011)
+            GiveItemsSim(sim, me, Items.StoneWall, 8); // E2-11: стена — предмет (заявка без ячейки берёт любую); E2-12: запись без маски — весь тайл, 4 ячейки
             var events = new List<SimEvent>();
 
             EditResult Try(int x, int y, ushort obj)
@@ -129,7 +129,7 @@ namespace Orpheus.Tests
         {
             var sim = new Simulation(Flat());
             int me = sim.AddEntity(new WorldPos(10 * U + U * 7 / 10, 50 * U + U / 2)); // задевает тайл 11
-            GiveMaterials(sim, me, 0, 600, 0); // стены по 2 камня; «занято» — с возвратом (1-011)
+            GiveItemsSim(sim, me, Items.StoneWall, 300); // E2-11: стены-предметы; «занято» — с возвратом
             for (int y = 45; y <= 55; y++)
             {
                 sim.World.SetBaseTile(new TileCoord(13, y), FloorId.Grass, ObjectId.StoneWall);
@@ -333,23 +333,19 @@ namespace Orpheus.Tests
         private static readonly InputFrame HammerHold = new InputFrame(Input8.None, 0, 0, 2); // ячейка 2 — молот в руках (1-011)
         private static readonly InputFrame DigHammer = new InputFrame(Input8.None, InputButtons.Dig, 0, 2); // копать молотом (1-011)
 
-        /// <summary>Материалы в сумку существа на сервере (1-011): постановка стоит ресурсов.</summary>
-        private static void GiveMaterials(Simulation sim, int entityId, int wood, int stone, int resin = 0)
+        /// <summary>E2-11: предметы-постройки в сумку существа на сервере (с доукладкой, по ячейкам сумки).</summary>
+        private static void GiveItemsSim(Simulation sim, int entityId, byte item, int n)
         {
             var inv = sim.GetEntity(entityId).Inv;
-            inv.Add(Material.Wood, wood);
-            inv.Add(Material.Stone, stone);
-            inv.Add(Material.Resin, resin);
+            Assert.Equal(n, inv.Add(item, n));
             sim.SetInventory(entityId, inv);
         }
 
-        /// <summary>Материалы в сумку персонажа на сервере (1-011): постановка стоит ресурсов, сумка приходит сводкой (тип 26).</summary>
-        private static void GiveBuildKit(EditRig rig, NetClient c, int wood, int stone, int resin = 0)
+        /// <summary>E2-11: предметы-постройки в ячейку панели на сервере (постановка берёт предмет из руки, не материалы).</summary>
+        private static void GiveItems(EditRig rig, NetClient c, byte item, int n, int cell = 7)
         {
             var inv = rig.Sim.GetEntity(c.EntityId).Inv;
-            inv.Add(Material.Wood, wood);
-            inv.Add(Material.Stone, stone);
-            inv.Add(Material.Resin, resin);
+            Assert.True(inv.SetCell(cell, item, n));
             Assert.True(rig.Sim.SetInventory(c.EntityId, inv));
         }
 
@@ -407,11 +403,12 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Дерево топором (1-010): 18 кадров, добыча 3 древесины; клиент предсказывает сумку на своём завершении
-        /// до подтверждения сервера, сервер подтверждает сумкой (тип 26); мир сходится.
+        /// Дерево топором (1-010): 18 кадров, добыча 3 древесины. С E2-1 [док] добыча не падает в сумку и не
+        /// предсказывается: на тайле дерева появляется куча (клиент видит её сообщением 27), через 10 тактов
+        /// стоящий рядом её подбирает — сумка сервера (тип 26) приносит древесину; мир сходится.
         /// </summary>
         [Fact]
-        public void D01_S5_Dig_AxeOnTree_LootPredictedThenConfirmed()
+        public void D01_S5_Dig_AxeOnTree_LootDropsOnGround_ThenPickedUp()
         {
             WorldModel world = Flat();
             var tree = new TileCoord(301, 200);
@@ -426,18 +423,26 @@ namespace Orpheus.Tests
             rig.InputOf = _ => DigAxe; // кадр с ячейкой топора доходит раньше запроса — сервер валидирует DigStart топором
             rig.Run(2);
             c.StartDig(tree);
-            for (int t = 0; t < 24 && c.Inv.CountAt(Material.Wood) == 0; t++)
+            for (int t = 0; t < 24 && rig.Sim.Piles.Length == 0; t++)
             {
                 rig.Run(1);
             }
 
-            Assert.Equal(3, c.Inv.CountAt(Material.Wood)); // предсказание: детерминированный бросок посчитан на своём завершении
-            Assert.Empty(replies); // ответ сервера ещё не вернулся (RTT 100 мс) — предсказание опережает подтверждение
-            rig.Run(15); // подтверждение пришло
+            GroundPile pile = Assert.Single(rig.Sim.Piles.ToArray()); // добыча — кучей на тайле дерева
+            Assert.Equal(Items.Wood, pile.Item);
+            Assert.Equal(3, pile.Count);
+            Assert.Equal(tree, Torus.TileOf(rig.Sim.Shape, pile.Position));
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood)); // в сумку само не падает
+            Assert.Equal(0, c.Inv.CountAt(Material.Wood)); // и клиент добычу не предсказывает
+            rig.Run(8); // подтверждение и куча дошли
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(tree));
-            Assert.Equal(3, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood)); // сервер выдал добычу в сумку
-            Assert.Equal(3, c.Inv.CountAt(Material.Wood)); // сумка сервера (тип 26) совпала с предсказанием — без откатов
+            Assert.Equal(3, Assert.Single(c.Piles).Count);
+            rig.Run(Simulation.LootPickupDelayTicks + 8); // задержка подбора прошла — персонаж в тайле от кучи её поднял
+            Assert.Equal(0, rig.Sim.Piles.Length);
+            Assert.Empty(c.Piles);
+            Assert.Equal(3, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood));
+            Assert.Equal(3, c.Inv.CountAt(Material.Wood)); // сумка сервера (тип 26)
         }
 
         /// <summary>
@@ -476,11 +481,12 @@ namespace Orpheus.Tests
             rig.Run(25);
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(granite));
+            rig.Run(Simulation.LootPickupDelayTicks + 6); // E2-1: добыча упала кучей, через 10 тактов стоящий рядом её поднял
             int expected = DigLoot.DropFor(ObjectId.Granite, granite.X, granite.Y, world.Seed, out Material m);
             Assert.Equal(Material.Stone, m);
             Assert.InRange(expected, 1, 2);
             Assert.Equal(expected, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone));
-            Assert.Equal(expected, c.Inv.CountAt(Material.Stone)); // предсказание = сервер
+            Assert.Equal(expected, c.Inv.CountAt(Material.Stone)); // сумка сервера (тип 26)
         }
 
         /// <summary>
@@ -510,8 +516,9 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Двое копают одно дерево (1-010): правку принимает один — добыча ровно ему; второму «занято»,
-        /// сумка = сервер (предсказание добычи на завершении у проигравшего не оставляем — он не докапывал).
+        /// Двое копают одно дерево (1-010): правку принимает один, второму «занято»; добыча падает одна — кучей на
+        /// тайл дерева (E2-1 [док]: раньше — в сумку копавшего), и поднимает её целиком один из стоящих рядом —
+        /// тот, кто ближе к куче. Древесина не удваивается; сумки клиентов = сервер.
         /// </summary>
         [Fact]
         public void D01_S5_Dig_TwoDiggers_SameTree_LootExactlyOne()
@@ -536,10 +543,15 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Accepted, Assert.Single(ra).Reply);
             Assert.Equal(EditReply.Busy, Assert.Single(rb).Reply); // занял A
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(tree));
-            Assert.Equal(3, rig.Sim.GetEntity(a.EntityId).Inv.CountAt(Material.Wood)); // добыча — копавшему
-            Assert.Equal(0, rig.Sim.GetEntity(b.EntityId).Inv.CountAt(Material.Wood)); // второму — ничего
-            Assert.Equal(3, a.Inv.CountAt(Material.Wood));
-            Assert.Equal(0, b.Inv.CountAt(Material.Wood));
+            rig.Run(Simulation.LootPickupDelayTicks + 6); // куча полежала и подобрана
+            Assert.Equal(0, rig.Sim.Piles.Length);
+            Assert.Equal(2, rig.Sim.NextPileId); // куча была ровно одна
+            int wa = rig.Sim.GetEntity(a.EntityId).Inv.CountAt(Material.Wood);
+            int wb = rig.Sim.GetEntity(b.EntityId).Inv.CountAt(Material.Wood);
+            Assert.Equal(3, wa + wb); // добыча не удвоилась
+            Assert.True(wa == 3 || wb == 3, $"куча поделилась: {wa} и {wb}"); // целиком одному — ближнему к куче
+            Assert.Equal(wa, a.Inv.CountAt(Material.Wood));
+            Assert.Equal(wb, b.Inv.CountAt(Material.Wood));
         }
 
         /// <summary>
@@ -555,15 +567,15 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(5);
-            GiveBuildKit(rig, c, 0, 2, 0); // рецепт стены — 2 камня
+            GiveItems(rig, c, Items.StoneWall, 1); // E2-11: стена — предмет
             rig.InputOf = _ => HammerHold;
-            rig.Run(3); // сумка дошла, в руках молот
+            rig.Run(3); // сумка дошла
 
             var wall = new TileCoord(301, 200);
             c.Place(wall, wall, ObjectId.StoneWall, rig.Sim.GetEntity(c.EntityId).Mover.Position);
             rig.Run(5);
             Assert.Equal(ObjectId.StoneWall, rig.Sim.World.GetObject(wall));
-            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone)); // стоимость списана (1-011)
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.StoneWall)); // предмет снят (E2-11)
 
             int frames = rig.Server.DigTimes.FramesFor(ObjectId.StoneWall, ToolKind.Hammer, Items.TierStone);
             Assert.Equal(30, frames);
@@ -573,8 +585,9 @@ namespace Orpheus.Tests
             rig.Run(45);
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(wall));
-            Assert.Equal(2, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone)); // возврат полного рецепта
-            Assert.Equal(2, c.Inv.CountAt(Material.Stone));
+            Assert.Equal(1, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.StoneWall)); // E2-11: снос возвращает ровно один предмет
+            Assert.Equal(1, c.Inv.Count(Items.StoneWall));
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone)); // а не материалы
             Assert.False(rig.Sim.World.TryGetBuild(wall, out _));
         }
 
@@ -725,7 +738,8 @@ namespace Orpheus.Tests
             rig.Run(12);
             c.StartDig(new TileCoord(301, 200)); // пусто
             rig.Run(2);
-            rig.InputOf = _ => HammerHold; // постановка — молотом (1-011)
+            GiveItems(rig, c, Items.StoneWall, 5); // E2-11: стена — предмет на панели
+            rig.InputOf = _ => HammerHold;
             rig.Run(2);
             ushort far = c.Place(new TileCoord(307, 200), new TileCoord(307, 200), ObjectId.StoneWall, self); // 7 по оси
             rig.Run(2);
@@ -759,8 +773,8 @@ namespace Orpheus.Tests
             b.EditReplied = rb.Add;
             rig.Run(10);
             b.World!.RolledBack = (t, r) => flashes.Add((t, r));
-            GiveBuildKit(rig, a, 0, 4, 0); // стены по 2 камня; у обоих в руках молот (1-011)
-            GiveBuildKit(rig, b, 0, 4, 0);
+            GiveItems(rig, a, Items.StoneWall, 2); // E2-11: стены — предметы на панели
+            GiveItems(rig, b, Items.StoneWall, 2);
             rig.InputOf = _ => HammerHold;
             rig.Run(3);
             rig.InputOf = null;
@@ -781,9 +795,10 @@ namespace Orpheus.Tests
             Assert.Equal((wall, EditReply.Busy), Assert.Single(flashes));
             Assert.True(a.World!.SameAs(rig.Sim.World, ch));
             Assert.True(b.World.SameAs(rig.Sim.World, ch));
-            // 1-011 (`05` 1.4, `07` 3.13 п. 8): второму отказали после списания стоимости — сумка целая, на сервере и у клиента.
-            Assert.Equal(4, rig.Sim.GetEntity(b.EntityId).Inv.CountAt(Material.Stone));
-            Assert.Equal(4, b.Inv.CountAt(Material.Stone));
+            // 1-011 → E2-11 (`05` 1.4, `07` 3.13 п. 8): второму отказали после снятия предмета — предмет на месте, в той же ячейке,
+            // на сервере и у клиента (масса сохраняется).
+            Assert.Equal(2, rig.Sim.GetEntity(b.EntityId).Inv.CountIn(7));
+            Assert.Equal(2, b.Inv.CountIn(7));
 
             // Копание одной скалы обоими: правка одна, второму — «занято».
             ra.Clear();
@@ -818,7 +833,7 @@ namespace Orpheus.Tests
             rig.Run(40);
             var flashes = new List<(TileCoord, EditReply)>();
             c.World!.RolledBack = (t, r) => flashes.Add((t, r));
-            GiveBuildKit(rig, c, 0, 2, 0); // цена стены — 2 камня, в руках молот (1-011)
+            GiveItems(rig, c, Items.StoneWall, 1); // E2-11: стена — предмет на панели
             rig.InputOf = _ => HammerHold;
             rig.Run(15); // сумка и ячейка дошли при задержке (RTT до 200 мс)
             rig.InputOf = null;
@@ -864,21 +879,24 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(10);
-            GiveBuildKit(rig, c, 60, 24, 56); // стены, заборы, факелы по рецепту (1-011)
+            GiveItems(rig, c, Items.StoneWall, 22); // E2-11: стены, заборы, факелы — предметами на панели (E2-12: стена — 2 ячейки на тайл)
+            GiveItems(rig, c, Items.WoodFence, 8, 6);
+            GiveItems(rig, c, Items.Torch, 52, 5);
             rig.InputOf = _ => HammerHold; // молот в руках всё время: линии идут в следующих тактах (1-011)
             rig.Run(3);
 
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
-            c.Place(new TileCoord(296, 202), new TileCoord(306, 202), ObjectId.StoneWall, self); // мимо врага (299, 203)
-            c.Place(new TileCoord(302, 200), new TileCoord(305, 200), ObjectId.WoodFence, self); // через второго игрока
+            // E2-12: линии верхних ячеек тайлов (четверти 0 → 1): по 2 ячейки (2 бита ответа) на тайл.
+            c.Place(new TileCoord(296, 202), new TileCoord(306, 202), ObjectId.StoneWall, self, 7, 0b0100); // мимо врага (299, 203)
+            c.Place(new TileCoord(302, 200), new TileCoord(305, 200), ObjectId.WoodFence, self, 6, 0b0100); // через второго игрока
             rig.Run(3);
             Assert.Equal(2, replies.Count);
             uint m1 = replies[0].Mask;
             Assert.Equal(EditReply.Accepted, replies[0].Reply);
             Assert.Equal(EditReply.EnemyNear, replies[0].FirstRefusal);
-            Assert.Equal(0b111_1110_0011u, m1); // 296, 297 и 301…306; 298…300 — ближе 2 к врагу
+            Assert.Equal(0x3F_FC0Fu, m1); // 296, 297 и 301…306; 298…300 — ближе 2 к врагу
             Assert.Equal(EditReply.Occupied, replies[1].FirstRefusal);
-            Assert.Equal(0b1011u, replies[1].Mask); // 304 задевает второй игрок (радиус 0,4)
+            Assert.Equal(0b1100_1111u, replies[1].Mask); // верхние ячейки 304 задевает второй игрок (радиус 0,4)
             for (int x = 290; x < 310; x++)
             {
                 for (int y = 199; y <= 203; y++)
@@ -964,7 +982,7 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(10);
-            GiveBuildKit(rig, c, 0, 2, 0); // стена предсказывается по своей сумке (1-011)
+            GiveItems(rig, c, Items.StoneWall, 1); // стена предсказывается по своей сумке: предмет на панели (E2-11)
             rig.Run(2);
 
             // Копание идёт — персонаж пропал: «прервано».
@@ -1021,26 +1039,35 @@ namespace Orpheus.Tests
         public void D07_S2_10_GoldenBytes_TileRequest_TileReply()
         {
             MapShape map = MapShape.World(1024);
-            var req = new TileRequestMessage { RequestId = 0x0102, Op = TileOp.Place, Frame = 0x0A0B0C0D, From = new TileCoord(5, 6), To = new TileCoord(7, 8), Obj = ObjectId.WoodWall };
+            var req = new TileRequestMessage { RequestId = 0x0102, Op = TileOp.Place, Frame = 0x0A0B0C0D, From = new TileCoord(5, 6), To = new TileCoord(7, 8), Obj = ObjectId.WoodWall, Cell = 3, Quad = 0x0E };
             byte[] rb = NetTests.Encode(b => req.Write(b));
-            Assert.Equal("14 02 01 03 0d 0c 0b 0a 05 00 06 00 07 00 08 00 04 00", string.Join(" ", rb.Select(x => x.ToString("x2"))));
+            // Протокол 26 (E2-12): последний байт — четверти (ячейка 0,5 × 0,5 начала — биты 0–1, конца — 2–3).
+            Assert.Equal("14 02 01 03 0d 0c 0b 0a 05 00 06 00 07 00 08 00 04 00 03 0e", string.Join(" ", rb.Select(x => x.ToString("x2"))));
             Assert.Equal(TileRequestMessage.Bytes, rb.Length);
             TileRequestMessage back = TileRequestMessage.Read(rb, map);
             Assert.Equal(req.To, back.To);
             Assert.Equal(TileOp.Place, back.Op);
             Assert.Equal(0x0A0B0C0Du, back.Frame);
+            Assert.Equal(3, back.Cell); // протокол 25 (E2-11): ячейка панели, из которой берётся предмет-постройка
+            byte[] badCell = (byte[])rb.Clone();
+            badCell[18] = 40; // ячейка вне сумки (C-013, протокол 29: 0…39; было — вне панели 0…7)
+            Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(badCell, map));
+            Assert.Equal(0x0E, back.Quad);
+            byte[] badQuad = (byte[])rb.Clone();
+            badQuad[19] = 32; // четверти — 4 бита + бит 4 «из меню» (E2-16)
+            Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(badQuad, map));
 
             var rep = new TileReplyMessage { RequestId = 0x0102, Reply = EditReply.Accepted, FirstRefusal = EditReply.Occupied, Mask = 0x80000001 };
             byte[] pb = NetTests.Encode(b => rep.Write(b));
             Assert.Equal("15 02 01 00 04 01 00 00 80", string.Join(" ", pb.Select(x => x.ToString("x2"))));
             Assert.Equal(0x80000001u, TileReplyMessage.Read(pb).Mask);
 
-            // Протокол 19 (1-012): операция 4 «закрыть дверь» проходит, 5 — испорченная.
+            // Протокол 19 (1-012): операция 4 «закрыть дверь» проходит; с протокола 23 (E2-5) 5 — починка, 6 — испорченная.
             byte[] closeDoor = (byte[])rb.Clone();
             closeDoor[3] = (byte)TileOp.CloseDoor;
             Assert.Equal(TileOp.CloseDoor, TileRequestMessage.Read(closeDoor, map).Op);
             byte[] badOp = (byte[])rb.Clone();
-            badOp[3] = 5;
+            badOp[3] = 6;
             Assert.Throws<ProtocolException>(() => TileRequestMessage.Read(badOp, map));
             byte[] outside = (byte[])rb.Clone();
             outside[15] = 0x04; // y конца 1032
@@ -1049,16 +1076,18 @@ namespace Orpheus.Tests
             badMask[5] = 0; badMask[8] = 0; // «принято» без маски
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badMask));
 
-            // Протокол 18 (1-011): коды ответа 13 «обломки» и 14 «нет ресурсов» проходят, 15 — испорченный.
+            // Протокол 18 (1-011): коды ответа 13 «обломки» и 14 «нет ресурсов» проходят; 15 — «ты мёртв» (протокол 21), 16 — испорченный.
             var rep18 = new TileReplyMessage { RequestId = 7, Reply = EditReply.Debris, FirstRefusal = EditReply.NoResources, Mask = 0 };
             byte[] eb = NetTests.Encode(b => rep18.Write(b));
             TileReplyMessage back18 = TileReplyMessage.Read(eb);
             Assert.Equal(EditReply.Debris, back18.Reply);
             Assert.Equal(EditReply.NoResources, back18.FirstRefusal);
             byte[] badReply = (byte[])eb.Clone();
-            badReply[3] = 15;
+            badReply[3] = 19; // E2-15 (протокол 27): 19 — «мешает мебель», допустим
+            Assert.Equal(EditReply.FurnitureInTile, TileReplyMessage.Read(badReply).Reply);
+            badReply[3] = 22; // 21 — «сумка полна» (C-013, протокол 29); 20 — «нужен станок» (E2-16, протокол 28); 15 — «ты мёртв» (E2-1, протокол 21); 16–18 — «цело», «под ударом», «пауза» (E2-5, протокол 23); 19 — E2-15
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badReply));
-            Assert.Equal(20, NetModule.ProtocolVersion); // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014)
+            Assert.Equal(29, NetModule.ProtocolVersion); // C-013: 29; E2-16: 28 // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1), 22 — крафт: заявка 30, ответ 31, очередь 32 (E2-3), 23 — починка, действие 33–35, сундук (E2-5), 24 — сундуки рядом 36 (E2-10), 25 — ячейка панели в запросе постановки (E2-11), 26 — четверти в запросе постановки (E2-12), 27 — запись постройки 9 байт (E2-15), 28 — поворот, многоклеточная мебель, постановка из меню (E2-16)
         }
 
         // ---------- Строительство (1-011): палитра данными, полы, снос, обломки ----------
@@ -1082,7 +1111,7 @@ namespace Orpheus.Tests
             Assert.Equal(1, fence.Count1); Assert.Equal((ushort)45, fence.MaxIntegrity);
             Assert.True(BuildDefs.TryGet(ObjectId.Door, out BuildDef door));
             Assert.Equal(6, door.Count1); Assert.Equal((ushort)90, door.MaxIntegrity);
-            Assert.True(BuildDefs.TryGet(FloorId.WoodFloor, out BuildDef floor));
+            Assert.True(BuildDefs.TryGet(BuildDefs.WoodFloorKey, out BuildDef floor)); // E2-5: ключ пола — FloorKeyBase + id пола
             Assert.True(floor.IsFloor); Assert.Equal(1, floor.Count1); Assert.Equal(BuildRecord.MaxIntegrity, floor.MaxIntegrity);
             Assert.False(BuildDefs.TryGet(ObjectId.Carpet, out _)); // ковёр и шипы — бесплатные, вне таблицы
             Assert.False(BuildDefs.TryGet(0, out _));
@@ -1093,6 +1122,14 @@ namespace Orpheus.Tests
             Assert.Equal(0, BuildDefs.RefundOf(2, 149, 300)); // ниже половины — ноль
             Assert.Equal(2, BuildDefs.RefundOf(3, 200, 300)); // ⌊3 × ⅔⌋
             Assert.Equal(1, BuildDefs.RefundOf(1, 10, 10));
+
+            // E2-11: у каждой постройки свой предмет; предмет → ключ постройки обратно.
+            Assert.Equal(Items.Torch, torch.Item);
+            Assert.Equal(Items.StoneWall, stone.Item);
+            Assert.Equal(Items.WoodFloor, floor.Item);
+            Assert.True(BuildDefs.TryKeyOf(Items.WoodFloor, out ushort fk));
+            Assert.Equal(BuildDefs.WoodFloorKey, fk);
+            Assert.False(BuildDefs.TryKeyOf(Items.Hammer, out _));
         }
 
         /// <summary>
@@ -1117,18 +1154,20 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.ToolRequired, EditRules.CheckDig(w, c, floorTile, times, Items.StoneAxe));
             Assert.Equal(EditReply.Empty, EditRules.CheckDig(w, TileCenter(12, 10), grass, times, Items.Hammer)); // пустая трава
 
-            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, grass, FloorId.WoodFloor));
-            Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(w, c, water, FloorId.WoodFloor));
-            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, water, FloorId.Platform));
-            Assert.Equal(EditReply.NotAllowed, EditRules.CheckPlaceTile(w, c, grass, FloorId.Platform)); // настил — только над жидкостью
+            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, grass, BuildDefs.WoodFloorKey));
+            Assert.Equal(EditReply.NeedPlatform, EditRules.CheckPlaceTile(w, c, water, BuildDefs.WoodFloorKey));
+            Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, water, BuildDefs.PlatformKey));
+            Assert.Equal(EditReply.NotAllowed, EditRules.CheckPlaceTile(w, c, grass, BuildDefs.PlatformKey)); // настил — только над жидкостью
             Assert.Equal(EditReply.Accepted, EditRules.CheckPlaceTile(w, c, floorTile, ObjectId.StoneWall)); // стена на построенном полу
 
             // Обломки — через снос повреждённой постройки симуляцией (запись с флагом «обломки»).
             var sim = new Simulation(Flat());
             int me = sim.AddEntity(TileCenter(20, 20));
-            GiveMaterials(sim, me, 0, 4, 0);
+            var kit = sim.GetEntity(me).Inv;
+            kit.SetCell(7, Items.StoneWall, 2); // E2-11: стена — предмет
+            sim.SetInventory(me, kit);
             var wall = new TileCoord(20, 21);
-            sim.RequestPlayerEdit(wall, FloorId.Grass, ObjectId.StoneWall, true, BuildRecord.OfPlayer(1, FloorId.Grass), me, 1);
+            sim.RequestPlayerEdit(wall, FloorId.Grass, ObjectId.StoneWall, true, BuildRecord.OfPlayer(1, FloorId.Grass).WithCells(BuildCells.DoorNorth), me, 1); // E2-12: 2 ячейки — 2 предмета
             sim.Step();
             Assert.True(sim.DamageBuilding(wall, 65_536)); // урон больше полной прочности записи — снос в обломки
             sim.Step();
@@ -1153,12 +1192,12 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(5);
-            GiveBuildKit(rig, c, 10, 0, 0);
+            GiveItems(rig, c, Items.WoodFloor, 16); // E2-11: пол — предмет; E2-15: предмет на ячейку 0,5, тайл — 4
             rig.InputOf = _ => HammerHold;
             rig.Run(3);
 
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
-            c.Place(new TileCoord(301, 200), new TileCoord(303, 200), FloorId.WoodFloor, self);
+            c.Place(new TileCoord(301, 200), new TileCoord(303, 200), BuildDefs.WoodFloorKey, self);
             rig.Run(5);
             for (int x = 301; x <= 303; x++)
             {
@@ -1167,8 +1206,8 @@ namespace Orpheus.Tests
                 Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(t));
             }
 
-            Assert.Equal(7, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood)); // 3 × 1 дерево
-            Assert.Equal(7, c.Inv.CountAt(Material.Wood));
+            Assert.Equal(4, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodFloor)); // 3 тайла × 4 ячейки сняты (E2-11, E2-15)
+            Assert.Equal(4, c.Inv.Count(Items.WoodFloor));
             Assert.True(rig.Sim.World.TryGetBuild(new TileCoord(302, 200), out BuildRecord rec));
             Assert.Equal(FloorId.Grass, rec.NaturalFloor);
 
@@ -1181,8 +1220,8 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.Equal(FloorId.Grass, rig.Sim.World.GetFloor(new TileCoord(301, 200))); // природный из записи
             Assert.False(rig.Sim.World.TryGetBuild(new TileCoord(301, 200), out _));
-            Assert.Equal(8, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood)); // возврат рецепта
-            Assert.Equal(8, c.Inv.CountAt(Material.Wood));
+            Assert.Equal(8, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodFloor)); // снос возвращает предмет на ячейку пола: 4 (E2-11, E2-15)
+            Assert.Equal(8, c.Inv.Count(Items.WoodFloor));
             Assert.Equal(FloorId.WoodFloor, rig.Sim.World.GetFloor(new TileCoord(302, 200))); // соседний пол не тронут
         }
 
@@ -1196,11 +1235,11 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(5);
-            GiveBuildKit(rig, c, 4, 0, 0);
+            GiveItems(rig, c, Items.WoodFloor, 4);
             rig.InputOf = _ => HammerHold;
             rig.Run(3);
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
-            c.Place(new TileCoord(301, 200), new TileCoord(301, 200), FloorId.WoodFloor, self);
+            c.Place(new TileCoord(301, 200), new TileCoord(301, 200), BuildDefs.WoodFloorKey, self);
             rig.Run(5);
             Assert.Equal(FloorId.WoodFloor, rig.Sim.World.GetFloor(new TileCoord(301, 200)));
 
@@ -1226,7 +1265,7 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(5);
-            GiveBuildKit(rig, c, 0, 8, 0);
+            GiveItems(rig, c, Items.StoneWall, 4); // E2-11: стены — предметы
             rig.InputOf = _ => HammerHold;
             rig.Run(3);
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
@@ -1234,7 +1273,7 @@ namespace Orpheus.Tests
             var a = new TileCoord(301, 200);
             c.Place(a, a, ObjectId.StoneWall, self);
             rig.Run(5);
-            Assert.Equal(6, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone));
+            Assert.Equal(3, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.StoneWall));
             Assert.True(rig.Sim.DamageBuilding(a, 150)); // 300 → 150, флаг «урон последние 10 с»
             rig.Run(1);
             Assert.True(rig.Sim.World.TryGetBuild(a, out BuildRecord rec));
@@ -1249,8 +1288,8 @@ namespace Orpheus.Tests
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(a));
             Assert.True(rig.Sim.World.TryGetBuild(a, out rec));
             Assert.True(rec.IsDebris);
-            Assert.Equal(6, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone)); // без возврата
-            Assert.Equal(6, c.Inv.CountAt(Material.Stone));
+            Assert.Equal(3, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.StoneWall)); // без возврата: обломки (`05` 1.3)
+            Assert.Equal(3, c.Inv.Count(Items.StoneWall));
 
             replies.Clear();
             c.Place(a, a, ObjectId.StoneWall, self); // на обломки строить нельзя
@@ -1261,11 +1300,11 @@ namespace Orpheus.Tests
             Assert.False(rig.Sim.World.TryGetBuild(a, out _));
 
             var b = new TileCoord(299, 200); // смежный: досягаемость молота как у кирки
-            GiveBuildKit(rig, c, 4, 0, 0);
+            GiveItems(rig, c, Items.WoodWall, 2, 6);
             rig.Run(3);
             c.Place(b, b, ObjectId.WoodWall, self);
             rig.Run(5);
-            Assert.Equal(2, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood));
+            Assert.Equal(1, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodWall));
             rig.Sim.DamageBuilding(b, 60);
             rig.Run(1);
             replies.Clear();
@@ -1280,12 +1319,13 @@ namespace Orpheus.Tests
             rig.Run(45);
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.False(rig.Sim.World.TryGetBuild(b, out _));
-            Assert.Equal(2, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood)); // расчистка — без добычи
+            Assert.Equal(1, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.WoodWall)); // расчистка — без добычи
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Wood));
         }
 
         /// <summary>
-        /// Снос молотом повреждённой постройки после истечения флага (10 с) — не обломки: постройка снимается,
-        /// возврат ⌊кол × прочность ÷ максимум⌋ (стена 150/300 — 1 камень из 2).
+        /// Снос молотом повреждённой постройки после истечения флага (10 с) — не обломки: постройка снимается.
+        /// E2-11 (как в Terraria): возвращается предмет-стена целиком, а не доля материалов (до E2-11 — ⌊2 × 150/300⌋ = 1 камень).
         /// </summary>
         [Fact]
         public void D05_S1_3_Damaged_AfterFlag_Hammer_RefundByIntegrity()
@@ -1296,7 +1336,7 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(5);
-            GiveBuildKit(rig, c, 0, 6, 0);
+            GiveItems(rig, c, Items.StoneWall, 3);
             rig.InputOf = _ => HammerHold;
             rig.Run(3);
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
@@ -1305,9 +1345,9 @@ namespace Orpheus.Tests
             c.Place(a, a, ObjectId.StoneWall, self);
             rig.Run(5);
             rig.Sim.DamageBuilding(a, 150);
-            rig.Run(305); // флаг «урон последние 10 с» истёк, прочность осталась 150
+            rig.Run(305); // флаг «урон последние 10 с» истёк; E2-14: через 3 с восстановление — 7 ступеней по 9 (3 % от 300) за 7 с
             Assert.True(rig.Sim.World.TryGetBuild(a, out BuildRecord rec));
-            Assert.Equal(150, rec.Integrity);
+            Assert.Equal(150 + 7 * 9, rec.Integrity);
             Assert.False(rec.IsDamagedRecent);
 
             replies.Clear();
@@ -1316,12 +1356,12 @@ namespace Orpheus.Tests
             rig.Run(45);
             Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
             Assert.False(rig.Sim.World.TryGetBuild(a, out _)); // не обломки: флаг прошёл
-            Assert.Equal(5, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone)); // ⌊2 × 150/300⌋ = 1
-            Assert.Equal(5, c.Inv.CountAt(Material.Stone));
+            Assert.Equal(3, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.StoneWall)); // предмет вернулся (E2-11)
+            Assert.Equal(3, c.Inv.Count(Items.StoneWall));
         }
 
         /// <summary>
-        /// Линия стен при малой сумке (1-011, `05` 1.4 «ресурсы кончились посреди линии»): 5 стен, камня на 2 —
+        /// Линия стен при малой сумке (1-011 → E2-11, `05` 1.4 «ресурсы кончились посреди линии»): 5 стен, предметов-стен 2 —
         /// первые два «принято», остальные «нет ресурсов» (маска + FirstRefusal); у клиента предсказание тоже останавливается.
         /// </summary>
         [Fact]
@@ -1333,7 +1373,7 @@ namespace Orpheus.Tests
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
             rig.Run(5);
-            GiveBuildKit(rig, c, 0, 4, 0); // камня ровно на две стены
+            GiveItems(rig, c, Items.StoneWall, 2); // ровно две стены в руке
             rig.InputOf = _ => HammerHold;
             rig.Run(3);
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
@@ -1343,13 +1383,14 @@ namespace Orpheus.Tests
             TileReplyMessage r = Assert.Single(replies);
             Assert.Equal(EditReply.Accepted, r.Reply);
             Assert.Equal(EditReply.NoResources, r.FirstRefusal);
-            Assert.Equal(0x3u, r.Mask); // тайлы 0 и 1 встали
+            // E2-12: стена — ячейки 0,5 × 0,5, по предмету на ячейку: две стены — две верхние ячейки тайла 298 (ячейки 0 и 1 линии).
+            Assert.Equal(0x3u, r.Mask);
             Assert.Equal(ObjectId.StoneWall, rig.Sim.World.GetObject(new TileCoord(298, 200)));
-            Assert.Equal(ObjectId.StoneWall, rig.Sim.World.GetObject(new TileCoord(299, 200)));
-            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(new TileCoord(300, 200)));
-            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone));
-            Assert.Equal(0, c.Inv.CountAt(Material.Stone));
-            Assert.Equal(ObjectId.Empty, c.World!.World.GetObject(new TileCoord(300, 200))); // предсказание встало на границе сумки
+            Assert.Equal(BuildCells.DoorNorth, BuildCells.MaskAt(rig.Sim.World, new TileCoord(298, 200)));
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(new TileCoord(299, 200)));
+            Assert.Equal(0, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.StoneWall));
+            Assert.Equal(0, c.Inv.Count(Items.StoneWall));
+            Assert.Equal(ObjectId.Empty, c.World!.World.GetObject(new TileCoord(299, 200))); // предсказание встало на границе сумки
         }
 
         /// <summary>

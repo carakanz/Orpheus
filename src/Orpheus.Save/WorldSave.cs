@@ -19,9 +19,13 @@ namespace Orpheus.Save
         internal WorldSaveData(
             string name, ulong seed, MapShape shape, int generatorVersion, byte[] baseSha256, long tick, int nextEntityId,
             ChunkCoord[] coords, uint[] revisions, byte[]?[] compressed, byte[]?[] raw, SimEntity[] entities, CharacterRecord[] characters,
-            int worldTime)
+            int worldTime, GroundPile[] piles, int nextPileId, TileCoord[] chestTiles, Inventory[] chests)
         {
+            ChestTiles = chestTiles;
+            Chests = chests;
             Characters = characters;
+            Piles = piles;
+            NextPileId = nextPileId;
             Name = name;
             Seed = seed;
             Shape = shape;
@@ -63,14 +67,39 @@ namespace Orpheus.Save
 
         /// <summary>Персонажи мира — мировая часть (копии; формат 3, 0-035).</summary>
         public CharacterRecord[] Characters { get; }
+
+        /// <summary>Кучи на земле по номеру (копии; формат 7, E2-1).</summary>
+        public GroundPile[] Piles { get; }
+
+        /// <summary>Следующий номер кучи (формат 7).</summary>
+        public int NextPileId { get; }
+
+        /// <summary>Сундуки с содержимым (формат 9, E2-5): тайлы по возрастанию (Y, X) и содержимое в том же порядке.</summary>
+        public TileCoord[] ChestTiles { get; }
+        public Inventory[] Chests { get; }
+
+        /// <summary>Восстановление повреждённых построек (формат 13, E2-14) — по порядку списка симуляции.</summary>
+        public BuildHeal[] Heals { get; internal set; } = Array.Empty<BuildHeal>();
+
+        /// <summary>Повреждённые постройки старого мира ещё не найдены (E2-14: пересохранение до первого такта).</summary>
+        public bool HealScan { get; internal set; }
+
+        /// <summary>Очередь истечений обломков и флагов урона (формат 13, E2-14) — по порядку.</summary>
+        public BuildExpiry[] Expiries { get; internal set; } = Array.Empty<BuildExpiry>();
     }
 
     /// <summary>Загруженное из сохранения состояние такта (мир уже положен в <see cref="WorldModel"/>).</summary>
     public sealed class LoadedWorldState
     {
-        internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks, CharacterRecord[] characters, uint format, int worldTime)
+        internal LoadedWorldState(ulong number, long tick, string name, int nextEntityId, SimEntity[] entities, int chunks, CharacterRecord[] characters, uint format, int worldTime,
+            GroundPile[] piles, int nextPileId, string[] notes, TileCoord[] chestTiles, Inventory[] chests)
         {
+            ChestTiles = chestTiles;
+            Chests = chests;
             Characters = characters;
+            Piles = piles;
+            NextPileId = nextPileId;
+            Notes = notes;
             FormatVersion = format;
             Number = number;
             Tick = tick;
@@ -102,6 +131,31 @@ namespace Orpheus.Save
         /// </summary>
         public CharacterRecord[] Characters { get; }
 
+        /// <summary>Кучи на земле по номеру (формат 7, E2-1); у файлов до формата 7 — пусто.</summary>
+        public GroundPile[] Piles { get; }
+
+        /// <summary>Следующий номер кучи (формат 7); у старых файлов — 1 (плюс кучи остатка старых сумок).</summary>
+        public int NextPileId { get; }
+
+        /// <summary>
+        /// Строки для журнала сервера: что при чтении старого сохранения не влезло в ячейки сумки и положено на землю
+        /// (E2-1: перенос формата 6 → 7 ничего не теряет). Обычно пусто.
+        /// </summary>
+        public string[] Notes { get; }
+
+        /// <summary>Сундуки с содержимым (формат 9, E2-5); у старых файлов — пусто.</summary>
+        public TileCoord[] ChestTiles { get; }
+        public Inventory[] Chests { get; }
+
+        /// <summary>Восстановление повреждённых построек (формат 13, E2-14); у старых файлов — пусто (симуляция найдёт их сама).</summary>
+        public BuildHeal[] Heals { get; internal set; } = Array.Empty<BuildHeal>();
+
+        /// <summary>Повреждённые постройки ищутся первым тактом (E2-14): старый формат или поле МИР 12.</summary>
+        public bool HealScan { get; internal set; }
+
+        /// <summary>Очередь истечений обломков и флагов урона (формат 13, E2-14); у старых файлов — пусто (поиск первым тактом).</summary>
+        public BuildExpiry[] Expiries { get; internal set; } = Array.Empty<BuildExpiry>();
+
         /// <summary>Версия формата прочитанного файла.</summary>
         public uint FormatVersion { get; }
 
@@ -117,6 +171,10 @@ namespace Orpheus.Save
             }
 
             sim.Restore(Tick, Entities, NextEntityId, WorldTime);
+            sim.RestorePiles(Piles, NextPileId); // E2-1: кучи на земле (формат 7; у старых файлов — пусто)
+            sim.RestoreChests(ChestTiles, Chests); // E2-5: сундуки (формат 9; у старых файлов — пусто)
+            sim.RestoreExpiries(Expiries); // E2-14: обломки и флаги урона снимутся в срок и после загрузки
+            sim.RestoreHeals(Heals, scanWorld: HealScan); // E2-14: старый файл — повреждённые найдутся первым тактом
         }
     }
 
@@ -171,8 +229,40 @@ namespace Orpheus.Save
             return new WorldSaveData(
                 name ?? string.Empty, world.Seed, world.Shape, world.GeneratorVersion, (byte[])baseSha256.Clone(),
                 sim.Tick, sim.NextEntityId, coords, revisions, compressed, raw, sim.Entities.ToArray(),
-                characters != null ? (CharacterRecord[])characters.Clone() : Array.Empty<CharacterRecord>(),
-                sim.WorldTime);
+                LiveCharacters(sim, characters),
+                sim.WorldTime, sim.Piles.ToArray(), sim.NextPileId, sim.ChestTiles.ToArray(), sim.ChestContents.ToArray())
+            {
+                Heals = sim.Heals.ToArray(), // E2-14
+                HealScan = sim.HealScanPending,
+                Expiries = sim.CopyExpiries(),
+            };
+        }
+
+        /// <summary>
+        /// Копия записей персонажей на этот такт (C-005): у персонажа в мире сумка берётся из живой сущности
+        /// в момент снимка, а не из записи. Запись сумки в мире обновляет рассылка снимков (<c>NetServer.SendSnapshots</c>)
+        /// — раз в такт и не обязательно до сохранения; старая сумка (ещё с ингредиентами) рядом со свежей очередью
+        /// изготовления сущности дала бы при загрузке двойной возврат (<c>CharacterRoster.Restore</c>). Так сохранение
+        /// не зависит от порядка шагов цикла сервера.
+        /// </summary>
+        private static CharacterRecord[] LiveCharacters(Simulation sim, CharacterRecord[]? characters)
+        {
+            if (characters == null)
+            {
+                return Array.Empty<CharacterRecord>();
+            }
+
+            var copy = (CharacterRecord[])characters.Clone();
+            for (int i = 0; i < copy.Length; i++)
+            {
+                int slot = copy[i].EntityId > 0 ? sim.SlotOf(copy[i].EntityId) : -1;
+                if (slot >= 0 && sim.Entities[slot].IsCharacter)
+                {
+                    copy[i].Inv = sim.Entities[slot].Inv; // кровать персонажа в мире пишется у сущности (EntityField.BedX)
+                }
+            }
+
+            return copy;
         }
 
         /// <summary>
@@ -201,6 +291,16 @@ namespace Orpheus.Save
             if (replaces != 0)
             {
                 w.WriteUInt(SaveSections.WorldField.Replaces, replaces);
+            }
+
+            if (d.HealScan)
+            {
+                w.WriteBool(SaveSections.WorldField.HealScan, true); // E2-14: старый мир пересохранён до первого такта
+            }
+
+            if (d.NextPileId > 1)
+            {
+                w.WriteUInt(SaveSections.WorldField.NextPileId, (ulong)d.NextPileId); // E2-1: куч не было — поля нет
             }
 
             if (d.WorldTime != 0)
@@ -254,6 +354,21 @@ namespace Orpheus.Save
                 var bag = new byte[Inventory.PayloadBytes]; // сумка — всегда (1-004): StateHash её считает, round-trip обязан сходиться
                 x.Inv.WritePayload(bag);
                 e.WriteBytes(SaveSections.EntityField.Inv, bag);
+                if (!x.Craft.IsEmpty)
+                {
+                    // Очередь изготовления (формат 8, E2-3): ингредиенты уже сняты из сумки — без неё они пропали бы.
+                    var craft = new byte[CraftQueue.PayloadBytes];
+                    x.Craft.WritePayload(craft);
+                    e.WriteBytes(SaveSections.EntityField.Craft, craft);
+                }
+
+                if (x.HasBed)
+                {
+                    // Точка возрождения у кровати (формат 9, E2-5) — только назначенная.
+                    e.WriteUInt(SaveSections.EntityField.BedX, (ulong)x.Bed.X);
+                    e.WriteUInt(SaveSections.EntityField.BedY, (ulong)x.Bed.Y);
+                }
+
                 // Бой (формат 6, 1-007): StateHash считает здоровье/замах/регенерацию/отбрасывание/прицел — пишем всегда.
                 e.WriteInt(SaveSections.EntityField.Health, x.Health);
                 e.WriteInt(SaveSections.EntityField.MaxHealth, x.MaxHealth);
@@ -341,9 +456,75 @@ namespace Orpheus.Save
                     ch.WriteUInt(SaveSections.CharacterField.MeleeAimRaw, x.Mover.Melee.AimRaw);
                     ch.WriteInt(SaveSections.CharacterField.MeleeOriginX, x.Mover.Melee.OriginX);
                     ch.WriteInt(SaveSections.CharacterField.MeleeOriginY, x.Mover.Melee.OriginY);
+                    if (x.HasBed)
+                    {
+                        ch.WriteUInt(SaveSections.CharacterField.BedX, (ulong)x.Bed.X); // E2-5: кровать персонажа вне мира
+                        ch.WriteUInt(SaveSections.CharacterField.BedY, (ulong)x.Bed.Y);
+                    }
                 }
 
                 ch.EndRecord(mark);
+            }
+
+            // Кучи на земле (формат 7, E2-1) — в разделе СУЩЕСТВА после сущностей, по номеру.
+            for (int i = 0; i < d.Piles.Length; i++)
+            {
+                GroundPile gp = d.Piles[i];
+                int mark = e.BeginRecord(SaveSections.CreaturesField.Pile);
+                e.WriteUInt(SaveSections.PileField.Id, (ulong)(uint)gp.Id);
+                e.WriteUInt(SaveSections.PileField.Item, gp.Item);
+                e.WriteUInt(SaveSections.PileField.Count, gp.Count);
+                e.WriteInt(SaveSections.PileField.X, gp.Position.X);
+                e.WriteInt(SaveSections.PileField.Y, gp.Position.Y);
+                e.WriteInt(SaveSections.PileField.ExpireTick, gp.ExpireTick);
+                e.WriteInt(SaveSections.PileField.PickupTick, gp.PickupTick);
+                e.EndRecord(mark);
+            }
+
+            // Сундуки с содержимым (формат 9, E2-5) — после куч, по (Y, X) тайла; ячейки — payload сумки.
+            for (int i = 0; i < d.ChestTiles.Length; i++)
+            {
+                int mark = e.BeginRecord(SaveSections.CreaturesField.Chest);
+                e.WriteUInt(SaveSections.ChestField.X, (ulong)d.ChestTiles[i].X);
+                e.WriteUInt(SaveSections.ChestField.Y, (ulong)d.ChestTiles[i].Y);
+                var cells = new byte[Inventory.PayloadBytes];
+                d.Chests[i].WritePayload(cells);
+                e.WriteBytes(SaveSections.ChestField.Cells, cells);
+                e.EndRecord(mark);
+            }
+
+            // Восстановление построек (формат 13, E2-14) — после сундуков, по порядку списка симуляции.
+            for (int i = 0; i < d.Heals.Length; i++)
+            {
+                BuildHeal h = d.Heals[i];
+                int mark = e.BeginRecord(SaveSections.CreaturesField.Heal);
+                e.WriteUInt(SaveSections.HealField.X, (ulong)h.Tile.X);
+                e.WriteUInt(SaveSections.HealField.Y, (ulong)h.Tile.Y);
+                e.WriteInt(SaveSections.HealField.Hit, h.Hit);
+                e.WriteInt(SaveSections.HealField.Last, h.Last);
+                e.WriteInt(SaveSections.HealField.Due, h.Due);
+                e.WriteUInt(SaveSections.HealField.Acc, (ulong)h.Acc);
+                e.EndRecord(mark);
+            }
+
+            // Очередь истечений (формат 13, E2-14) — после восстановления, по порядку очереди.
+            for (int i = 0; i < d.Expiries.Length; i++)
+            {
+                BuildExpiry x = d.Expiries[i];
+                int mark = e.BeginRecord(SaveSections.CreaturesField.Expire);
+                e.WriteUInt(SaveSections.ExpireField.X, (ulong)x.Tile.X);
+                e.WriteUInt(SaveSections.ExpireField.Y, (ulong)x.Tile.Y);
+                e.WriteInt(SaveSections.ExpireField.End, x.EndTick);
+                if (x.Debris)
+                {
+                    e.WriteBool(SaveSections.ExpireField.Debris, true);
+                }
+                else
+                {
+                    e.WriteUInt(SaveSections.ExpireField.Clear, (ulong)x.Clear);
+                }
+
+                e.EndRecord(mark);
             }
 
             var header = new SaveHeader(SaveModule.FormatVersion, SaveModule.BuildVersion, number, d.Tick, dateUnixMs);
@@ -430,7 +611,9 @@ namespace Orpheus.Save
             int generatorVersion = 0;
             byte[] sha = Array.Empty<byte>();
             int nextId = 1;
+            int nextPileId = 1;
             int worldTime = 0;
+            bool healScan = file.Header.FormatVersion < 13; // E2-14: в старых файлах списка восстановления нет
             var r = new RecordReader(file.Section(SaveSections.World));
             while (r.Next())
             {
@@ -460,6 +643,12 @@ namespace Orpheus.Save
                     case SaveSections.WorldField.NextEntityId:
                         nextId = r.UIntAsInt();
                         break;
+                    case SaveSections.WorldField.NextPileId:
+                        nextPileId = r.UIntAsInt();
+                        break;
+                    case SaveSections.WorldField.HealScan:
+                        healScan |= r.Bool();
+                        break;
                     case SaveSections.WorldField.WorldTime:
                     {
                         // 1-014: такты суток; вне диапазона — грузим как 0 (часы перезапускаются с полного дня).
@@ -487,7 +676,8 @@ namespace Orpheus.Save
             var coords = new List<ChunkCoord>();
             var revisions = new List<uint>();
             var blobs = new List<byte[]>();
-            var copies = new List<byte[]>();
+            var copies = new List<byte[]?>();
+            int legacyWalls = 0; // E2-12: стен, заборов, дверей старых форматов, переведённых в ячейки
             var check = new Chunk();
             int total = shape.ChunksX * shape.ChunksY;
             r = new RecordReader(file.Section(SaveSections.Chunks));
@@ -555,24 +745,86 @@ namespace Orpheus.Save
                 }
 
                 byte[] blob = Chunk.Decompress(data);
+                bool widened = file.Header.FormatVersion < 11; // E2-15: записи построек 8 → 9 байт (байт слоёв — 0)
+                if (widened)
+                {
+                    blob = Chunk.WidenLegacyBlob(blob);
+                }
+
+                widened |= file.Header.FormatVersion < 12 && LegacyWalls.WidenFurniture(blob); // E2-16: кровать, верстак — многоклеточные
                 check.ReadBlob(blob); // проверка блока до того, как трогать мир
+                LegacyWalls.CheckWide(blob, index); // C-011: флаг Wide записи совпадает с предметом
+                bool converted = (file.Header.FormatVersion < 10 && LegacyWalls.Convert(blob, ref legacyWalls)) || widened; // E2-12
                 coords.Add(c);
                 revisions.Add(revision);
                 blobs.Add(blob);
-                copies.Add(data);
+                copies.Add(converted ? null : data);
             }
 
             // СУЩЕСТВА.
             var entities = new List<SimEntity>();
+            var piles = new List<GroundPile>();
+            var chestTiles = new List<TileCoord>();
+            var chests = new List<Inventory>();
+            var heals = new List<BuildHeal>();
+            var healTiles = new HashSet<TileCoord>();
+            var expiries = new List<BuildExpiry>();
+            var overflow = new int[ItemTable.Count];
+            var legacy = new LegacyOverflow();
             r = new RecordReader(file.Section(SaveSections.Creatures));
             while (r.Next())
             {
+                if (r.Field == SaveSections.CreaturesField.Pile)
+                {
+                    GroundPile gp = ReadPile(r.Record(), shape);
+                    if (piles.Count > 0 && gp.Id <= piles[piles.Count - 1].Id)
+                    {
+                        throw new InvalidDataException($"Куча #{gp.Id}: номер не больше предыдущего #{piles[piles.Count - 1].Id}.");
+                    }
+
+                    piles.Add(gp);
+                    continue;
+                }
+
+                if (r.Field == SaveSections.CreaturesField.Chest)
+                {
+                    (TileCoord tile, Inventory content) = ReadChest(r.Record(), shape);
+                    if (chestTiles.Count > 0 && ChestOrder(chestTiles[chestTiles.Count - 1]) >= ChestOrder(tile))
+                    {
+                        throw new InvalidDataException($"Сундук {tile}: порядок (Y, X) не растёт.");
+                    }
+
+                    chestTiles.Add(tile);
+                    chests.Add(content);
+                    continue;
+                }
+
+                if (r.Field == SaveSections.CreaturesField.Heal)
+                {
+                    BuildHeal h = ReadHeal(r.Record(), shape); // E2-14, формат 13
+                    if (!healTiles.Add(h.Tile))
+                    {
+                        throw new InvalidDataException($"Восстановление: тайл {h.Tile} дважды.");
+                    }
+
+                    heals.Add(h);
+                    continue;
+                }
+
+                if (r.Field == SaveSections.CreaturesField.Expire)
+                {
+                    expiries.Add(ReadExpire(r.Record(), shape)); // E2-14, формат 13
+                    continue;
+                }
+
                 if (r.Field != SaveSections.CreaturesField.Entity)
                 {
                     continue;
                 }
 
-                SimEntity e = ReadEntity(r.Record(), shape);
+                Array.Clear(overflow, 0, overflow.Length);
+                SimEntity e = ReadEntity(r.Record(), shape, overflow);
+                legacy.Take(overflow, e.Mover.Position, $"сущность #{e.Id}");
                 if (entities.Count > 0 && e.Id <= entities[entities.Count - 1].Id)
                 {
                     throw new InvalidDataException($"Сущность #{e.Id}: номер не больше предыдущего #{entities[entities.Count - 1].Id}.");
@@ -593,8 +845,15 @@ namespace Orpheus.Save
                         continue;
                     }
 
-                    CharacterRecord ch = ReadCharacter(r.Record(), shape, characters.Count);
+                    Array.Clear(overflow, 0, overflow.Length);
+                    CharacterRecord ch = ReadCharacter(r.Record(), shape, characters.Count, overflow);
                     CheckCharacter(ch, characters, entities);
+                    if (ch.EntityId == 0)
+                    {
+                        // Персонаж вне мира: остаток — на землю там, где он стоял. У персонажа в мире ту же сумку несёт
+                        // его сущность (остаток уже взят с неё) — второй раз не кладём.
+                        legacy.Take(overflow, ch.Mover.Position, $"персонаж «{ch.Name}»");
+                    }
                     characters.Add(ch);
                 }
             }
@@ -605,12 +864,240 @@ namespace Orpheus.Save
                 world.GetOrCreateChunk(coords[i]).Load(blobs[i], copies[i], revisions[i], changedSinceBase: true);
             }
 
+            // Остаток старых сумок (формат 4–6 → 7, E2-1): кучами на землю, без срока исчезновения — ничего не теряется.
+            nextPileId = Math.Max(nextPileId, piles.Count > 0 ? piles[piles.Count - 1].Id + 1 : 1);
+            string[] notes = legacy.ToPiles(piles, ref nextPileId, file.Header.WorldTick);
+            if (legacyWalls > 0)
+            {
+                notes = LegacyWalls.AddNote(notes, legacyWalls, file.Header.FormatVersion);
+            }
+
             return new LoadedWorldState(
                 file.Header.Number, file.Header.WorldTick, name, nextId, entities.ToArray(), coords.Count, characters.ToArray(),
-                file.Header.FormatVersion, worldTime);
+                file.Header.FormatVersion, worldTime, piles.ToArray(), nextPileId, notes, chestTiles.ToArray(), chests.ToArray())
+            {
+                Heals = heals.ToArray(),
+                HealScan = healScan,
+                Expiries = expiries.ToArray(),
+            };
         }
 
-        private static CharacterRecord ReadCharacter(RecordReader r, MapShape shape, int index)
+        /// <summary>Восстановление постройки (E2-14, формат 13): тайл на карте, такты, остаток накопителя в [0; 3000).</summary>
+        private static BuildHeal ReadHeal(RecordReader r, MapShape shape)
+        {
+            int x = -1, y = -1, acc = 0;
+            long hit = 0, last = 0, due = 0;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.HealField.X:
+                        x = r.UIntAsInt();
+                        break;
+                    case SaveSections.HealField.Y:
+                        y = r.UIntAsInt();
+                        break;
+                    case SaveSections.HealField.Hit:
+                        hit = r.Int();
+                        break;
+                    case SaveSections.HealField.Last:
+                        last = r.Int();
+                        break;
+                    case SaveSections.HealField.Due:
+                        due = r.Int();
+                        break;
+                    case SaveSections.HealField.Acc:
+                        acc = r.UIntAsInt(BuildDefs.HealDenominator - 1);
+                        break;
+                }
+            }
+
+            if ((uint)x >= (uint)shape.Width || (uint)y >= (uint)shape.Height || hit < 0 || hit > last || last >= due)
+            {
+                throw new InvalidDataException($"Восстановление ({x}, {y}): вне карты {shape} или такты {hit} / {last} → {due}.");
+            }
+
+            return new BuildHeal(new TileCoord(x, y), hit, last, due, acc);
+        }
+
+        /// <summary>Истечение (E2-14, формат 13): тайл на карте; обломки или один флаг урона (16 / 32).</summary>
+        private static BuildExpiry ReadExpire(RecordReader r, MapShape shape)
+        {
+            int x = -1, y = -1, clear = 0;
+            long end = -1;
+            bool debris = false;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.ExpireField.X:
+                        x = r.UIntAsInt();
+                        break;
+                    case SaveSections.ExpireField.Y:
+                        y = r.UIntAsInt();
+                        break;
+                    case SaveSections.ExpireField.End:
+                        end = r.Int();
+                        break;
+                    case SaveSections.ExpireField.Debris:
+                        debris = r.Bool();
+                        break;
+                    case SaveSections.ExpireField.Clear:
+                        clear = r.UIntAsInt(255);
+                        break;
+                }
+            }
+
+            bool flagOk = debris ? clear == 0 : clear == (int)BuildFlags.DamagedRecent || clear == (int)BuildFlags.RepairBlocked;
+            if ((uint)x >= (uint)shape.Width || (uint)y >= (uint)shape.Height || end < 0 || !flagOk)
+            {
+                throw new InvalidDataException($"Истечение ({x}, {y}): вне карты {shape}, такт {end} или флаг {clear}.");
+            }
+
+            return new BuildExpiry(new TileCoord(x, y), end, debris, (BuildFlags)clear);
+        }
+
+        private static long ChestOrder(TileCoord t) => ((long)t.Y << 32) | (uint)t.X;
+
+        /// <summary>Сундук (E2-5, формат 9): тайл на карте, ячейки — payload сумки; заняты только первые 30 ячеек.</summary>
+        private static (TileCoord, Inventory) ReadChest(RecordReader r, MapShape shape)
+        {
+            int x = -1, y = -1;
+            Inventory content = default;
+            bool hasCells = false;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.ChestField.X:
+                        x = r.UIntAsInt();
+                        break;
+                    case SaveSections.ChestField.Y:
+                        y = r.UIntAsInt();
+                        break;
+                    case SaveSections.ChestField.Cells:
+                        {
+                            ReadOnlySpan<byte> cells = r.Bytes();
+                            if (cells.Length != Inventory.PayloadBytes)
+                            {
+                                throw new InvalidDataException($"Сундук ({x}, {y}): ячейки {cells.Length} байт, ждали {Inventory.PayloadBytes}.");
+                            }
+
+                            content = Inventory.ReadPayload(cells, new int[ItemTable.Count]);
+                            hasCells = true;
+                        }
+
+                        break;
+                }
+            }
+
+            if ((uint)x >= (uint)shape.Width || (uint)y >= (uint)shape.Height || !hasCells)
+            {
+                throw new InvalidDataException($"Сундук ({x}, {y}): вне карты {shape} или без ячеек.");
+            }
+
+            for (int c = Simulation.ChestCells; c < Inventory.Cells; c++)
+            {
+                if (content.CountIn(c) != 0)
+                {
+                    throw new InvalidDataException($"Сундук ({x}, {y}): занята ячейка {c} (в сундуке {Simulation.ChestCells}).");
+                }
+            }
+
+            return (new TileCoord(x, y), content);
+        }
+
+        /// <summary>
+        /// Что не влезло в ячейки при чтении сумки-счётчиков старого сохранения (E2-1): копится по мере чтения сущностей
+        /// и персонажей, в конце превращается в кучи у их позиций и строки для журнала сервера.
+        /// </summary>
+        private sealed class LegacyOverflow
+        {
+            private readonly List<(WorldPos Pos, byte Item, int Count, string Who)> _items = new List<(WorldPos, byte, int, string)>();
+
+            public void Take(int[] overflow, WorldPos pos, string who)
+            {
+                for (int item = 0; item < overflow.Length; item++)
+                {
+                    if (overflow[item] > 0)
+                    {
+                        _items.Add((pos, (byte)item, overflow[item], who));
+                    }
+                }
+            }
+
+            public string[] ToPiles(List<GroundPile> piles, ref int nextPileId, long tick)
+            {
+                var notes = new string[_items.Count];
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    (WorldPos pos, byte item, int count, string who) = _items[i];
+                    int first = nextPileId;
+                    for (int left = count; left > 0;)
+                    {
+                        int n = Math.Min(left, Simulation.PileMaxCount);
+                        piles.Add(new GroundPile
+                        {
+                            Id = nextPileId++,
+                            Item = item,
+                            Count = (ushort)n,
+                            Position = pos,
+                            ExpireTick = Simulation.PileNeverExpires,
+                            PickupTick = tick,
+                        });
+                        left -= n;
+                    }
+
+                    notes[i] = $"{who}: старая сумка не влезла в {Inventory.Cells} ячеек — {ItemTable.Get(item).Key} × {count} положено на землю у {pos} (куча № {first}, не исчезает)";
+                }
+
+                return notes;
+            }
+        }
+
+        /// <summary>Куча на земле (E2-1, формат 7): предмет обязан быть в таблице, количество — 1…потолок кучи.</summary>
+        private static GroundPile ReadPile(RecordReader r, MapShape shape)
+        {
+            var p = new GroundPile();
+            int x = 0, y = 0;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.PileField.Id:
+                        p.Id = r.UIntAsInt();
+                        break;
+                    case SaveSections.PileField.Item:
+                        p.Item = (byte)r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.PileField.Count:
+                        p.Count = (ushort)r.UIntAsInt(Simulation.PileMaxCount);
+                        break;
+                    case SaveSections.PileField.X:
+                        x = r.IntAsInt();
+                        break;
+                    case SaveSections.PileField.Y:
+                        y = r.IntAsInt();
+                        break;
+                    case SaveSections.PileField.ExpireTick:
+                        p.ExpireTick = r.Int();
+                        break;
+                    case SaveSections.PileField.PickupTick:
+                        p.PickupTick = r.Int();
+                        break;
+                }
+            }
+
+            if (p.Id <= 0 || !ItemTable.Exists(p.Item) || p.Count == 0)
+            {
+                throw new InvalidDataException($"Куча #{p.Id}: предмет {p.Item} × {p.Count} — такого нет.");
+            }
+
+            p.Position = Torus.Wrap(shape, new WorldPos(x, y));
+            return p;
+        }
+
+        private static CharacterRecord ReadCharacter(RecordReader r, MapShape shape, int index, int[] overflow)
         {
             var c = new CharacterRecord { Name = string.Empty, Inv = Inventory.StartingKit() }; // сумки в формате 3 нет — стартовый набор (1-002)
             int x = 0;
@@ -620,10 +1107,17 @@ namespace Orpheus.Save
             int speed = MovementTick.BaseSpeedX10;
             Dodge dodge = default;
             MeleeAction melee = default;
+            int bedX = -1, bedY = -1; // кровать — формат 9 (E2-5)
             while (r.Next())
             {
                 switch (r.Field)
                 {
+                    case SaveSections.CharacterField.BedX:
+                        bedX = r.UIntAsInt(shape.Width - 1);
+                        break;
+                    case SaveSections.CharacterField.BedY:
+                        bedY = r.UIntAsInt(shape.Height - 1);
+                        break;
                     case SaveSections.CharacterField.Host:
                         c.IsHost = r.Bool();
                         break;
@@ -633,12 +1127,12 @@ namespace Orpheus.Save
                     case SaveSections.CharacterField.Inv:
                         {
                             ReadOnlySpan<byte> bag = r.Bytes();
-                            if (bag.Length != Inventory.PayloadBytes)
+                            if (bag.Length != Inventory.PayloadBytes && bag.Length != Inventory.LegacyPayloadBytes) // 23 байта — счётчики до формата 7 (E2-1)
                             {
-                                throw new InvalidDataException($"Персонаж № {index}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes}.");
+                                throw new InvalidDataException($"Персонаж № {index}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes} (или {Inventory.LegacyPayloadBytes} до формата 7).");
                             }
 
-                            c.Inv = Inventory.ReadPayload(bag);
+                            c.Inv = Inventory.ReadPayload(bag, overflow);
                         }
 
                         break;
@@ -714,6 +1208,8 @@ namespace Orpheus.Save
             }
 
             c.Mover = new Mover(new WorldPos(x, y), speed) { Carry = new Int2(carryX, carryY), Dodge = dodge, Melee = melee };
+            c.HasBed = bedX >= 0 && bedY >= 0;
+            c.Bed = c.HasBed ? new TileCoord(bedX, bedY) : default;
             return c;
         }
 
@@ -753,7 +1249,7 @@ namespace Orpheus.Save
             }
         }
 
-        private static SimEntity ReadEntity(RecordReader r, MapShape shape)
+        private static SimEntity ReadEntity(RecordReader r, MapShape shape, int[] overflow)
         {
             int id = 0;
             int kind = 0;
@@ -766,6 +1262,8 @@ namespace Orpheus.Save
             int buttons = 0;
             MeleeAction melee = default;
             Dodge dodge = default; // формат 1 полей уворота не пишет — уворот нулевой («ещё не было»)
+            CraftQueue craft = default; // очередь изготовления — формат 8 (E2-3); нет поля — пустая
+            int bedX = -1, bedY = -1; // кровать — формат 9 (E2-5); нет поля — у старта
             Inventory inv = default; // сумку в раздел сущностей пишет только формат 5 (1-004); в форматах 1–4 её нет
             EnemyBrain brain = default; // мозг (формат 6, 1-007): в форматах 1–5 поля нет — Archetype 0, враг стоит
             bool hasBrain = false;
@@ -846,14 +1344,39 @@ namespace Orpheus.Save
                     case SaveSections.EntityField.Inv:
                         {
                             ReadOnlySpan<byte> bag = r.Bytes();
-                            if (bag.Length != Inventory.PayloadBytes)
+                            if (bag.Length != Inventory.PayloadBytes && bag.Length != Inventory.LegacyPayloadBytes) // 23 байта — счётчики до формата 7 (E2-1)
                             {
-                                throw new InvalidDataException($"Сущность #{id}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes}.");
+                                throw new InvalidDataException($"Сущность #{id}: сумка {bag.Length} байт, ждали {Inventory.PayloadBytes} (или {Inventory.LegacyPayloadBytes} до формата 7).");
                             }
 
-                            inv = Inventory.ReadPayload(bag);
+                            inv = Inventory.ReadPayload(bag, overflow);
                         }
 
+                        break;
+                    case SaveSections.EntityField.Craft:
+                        {
+                            ReadOnlySpan<byte> q = r.Bytes();
+                            if (q.Length != CraftQueue.PayloadBytes)
+                            {
+                                throw new InvalidDataException($"Сущность #{id}: очередь изготовления {q.Length} байт, ждали {CraftQueue.PayloadBytes}.");
+                            }
+
+                            try
+                            {
+                                craft = CraftQueue.ReadPayload(q);
+                            }
+                            catch (ArgumentException ex)
+                            {
+                                throw new InvalidDataException($"Сущность #{id}: {ex.Message}", ex);
+                            }
+                        }
+
+                        break;
+                    case SaveSections.EntityField.BedX:
+                        bedX = r.UIntAsInt(shape.Width - 1);
+                        break;
+                    case SaveSections.EntityField.BedY:
+                        bedY = r.UIntAsInt(shape.Height - 1);
                         break;
                     case SaveSections.EntityField.BrainArchetype:
                         brain.Archetype = (byte)r.UIntAsInt(byte.MaxValue);
@@ -1007,6 +1530,9 @@ namespace Orpheus.Save
                 },
                 Input = InputFrame.FromCode((byte)direction, (ushort)buttons, (ushort)aimAngle, (byte)inputSlot),
                 Inv = inv,
+                Craft = craft,
+                HasBed = bedX >= 0 && bedY >= 0,
+                Bed = bedX >= 0 && bedY >= 0 ? new TileCoord(bedX, bedY) : default,
                 Brain = hasBrain ? brain : default,
                 Health = (short)health,
                 MaxHealth = (short)maxHealth,

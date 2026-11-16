@@ -31,6 +31,15 @@ namespace Orpheus.Core.Sim
         /// <summary>Сумка персонажа (1-002): панель, выбранная ячейка, материалы. У врагов — пустая.</summary>
         public Inventory Inv;
 
+        /// <summary>Очередь изготовления персонажа (E2-3): рецепты, чьи ингредиенты уже сняты из сумки. У врагов — пустая.</summary>
+        public CraftQueue Craft;
+
+        /// <summary>Назначена точка возрождения у кровати (E2-5, `05` 7.3); тайл — <see cref="Bed"/>.</summary>
+        public bool HasBed;
+
+        /// <summary>Тайл кровати — точки возрождения (значим при <see cref="HasBed"/>).</summary>
+        public TileCoord Bed;
+
         /// <summary>Здоровье сейчас (1-001, `02` 6.3). ≤ 0 — смерть; в вехе 1 не сохраняется (карточка, «Не трогать»).</summary>
         public short Health;
 

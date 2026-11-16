@@ -12,7 +12,7 @@ namespace Orpheus.Core.Sim
     /// <summary>
     /// P-002: partial Simulation - per-file code motion, no behavior change.
     /// </summary>
-    public sealed partial class Simulation
+    public sealed partial class Simulation : ITileCells, ITileSpeed
     {
         /// <summary>Целочисленный √ (метод по разрядам; детерминирован, без float).</summary>
         private static int ISqrt(long n)
@@ -46,6 +46,7 @@ namespace Orpheus.Core.Sim
         /// Выталкивание (1-007, 8.5 «толкаются»): пары персонаж↔враг-с-мозгом и враг↔враг-с-мозгом, центры
         /// ближе суммы радиусов (204) — разъезжаются по 2 тайла/с (68 единиц/такт на тело) вдоль оси.
         /// Заглушки (0-028) и персонаж↔персонаж не трогает. Порядок по номерам, целочисленно — детерминизм (11.5).
+        /// Сдвиг — с упором в твёрдое (E2-12), сквозь стену толпа не продавливает.
         /// </summary>
         private void StepSeparation()
         {
@@ -88,8 +89,11 @@ namespace Orpheus.Core.Sim
                     int dist = ISqrt(d2);
                     int px = d.X * PushUnitsPerTick / dist;
                     int py = d.Y * PushUnitsPerTick / dist;
-                    a.Mover.Position = Torus.Wrap(_shape, new WorldPos(a.Mover.Position.X - px, a.Mover.Position.Y - py));
-                    b.Mover.Position = Torus.Wrap(_shape, new WorldPos(b.Mover.Position.X + px, b.Mover.Position.Y + py));
+                    // E2-12: выталкивание — тем же шагом с упором в стены (Collision.Move), а не переносом позиции: толпа у
+                    // стены 0,5 вдавливала тело в ячейку стены, и из неё оно выходило на другую сторону (разбойники входили в дом).
+                    // В чистом поле итог тот же, что у прежнего переноса.
+                    a.Mover.Position = Collision.Move(_shape, a.Mover.Position, -px, -py, _solid);
+                    b.Mover.Position = Collision.Move(_shape, b.Mover.Position, px, py, _solid);
                 }
             }
         }
@@ -133,44 +137,94 @@ namespace Orpheus.Core.Sim
         /// <summary>
         /// Тайл мешает ходить (docs/05, 1.3): пол непроходим (лава, неизвестный) или объект непроходим;
         /// у «части» многотайлового объекта свойства — у якоря; дверь — по флагу записи постройки.
+        /// E2-15: есть хоть одна твёрдая ячейка (<see cref="SolidCells"/>) — в том числе свес мебели соседнего тайла.
         /// Несозданный чанк — пусто, проходим.
         /// </summary>
         public bool IsBlocked(MapShape map, TileCoord tile)
         {
             Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
+            return chunk != null && SolidCellsIn(chunk, map, tile) != 0;
+        }
+
+        /// <summary>
+        /// Твёрдые ячейки тайла 0,5 × 0,5 (E2-12, <see cref="ITileCells"/>): непроходимый пол — весь тайл; непроходимый объект —
+        /// его ячейки (<see cref="BuildLayers.OwnCells"/>: стена, забор, закрытая дверь — маска записи, мебель со сдвигом — свои
+        /// ячейки в тайле, прочее — весь тайл); плюс ячейки непроходимой мебели соседей, свешивающейся в тайл (E2-15).
+        /// Проходимый тайл — 0. Столкновения сервера, предсказания, ботов и путь врагов.
+        /// </summary>
+        public byte SolidCells(MapShape map, TileCoord tile)
+        {
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
+            return chunk == null ? BuildCells.Full : SolidCellsIn(chunk, map, tile);
+        }
+
+        private byte SolidCellsIn(Chunk chunk, in MapShape map, TileCoord tile)
+        {
+            int index = Chunk.IndexOf(tile.X, tile.Y);
+            if (!TerrainSlow.WalkFloor(chunk.GetFloor(index)))
+            {
+                return BuildCells.Full; // C-018: вода — проходима с замедлением (TerrainSlow), лава — нет
+            }
+
+            byte cells = 0;
+            ushort obj = chunk.GetObject(index);
+            if (obj != ObjectId.Empty && !TerrainSlow.WalkObject(obj)) // C-018: куст не твёрдый, замедляет
+            {
+                if (ObjectId.IsPart(obj))
+                {
+                    TileCoord anchor = _world.AnchorOf(tile);
+                    ushort a = _world.GetObject(anchor);
+                    _world.TryGetBuild(anchor, out BuildRecord ar);
+                    cells = ObjectId.IsPassable(a, ar.Flags) ? (byte)0 : BuildCells.Full;
+                }
+                else
+                {
+                    bool has = chunk.TryGetBuild(index, out BuildRecord record);
+                    if (!ObjectId.IsPassable(obj, record.Flags))
+                    {
+                        cells = BuildLayers.OwnCells(obj, has, record);
+                    }
+                }
+            }
+
+            if (cells == BuildCells.Full)
+            {
+                return cells;
+            }
+
+            return (byte)(cells | BuildLayers.OverhangAt(_world, Torus.Wrap(map, tile), solidOnly: true));
+        }
+
+        /// <summary>
+        /// Множитель скорости тайла в 1/256 (C-018, <see cref="ITileSpeed"/>): пол × объект по таблице <see cref="TerrainSlow"/>.
+        /// Несозданный чанк — обычный ход. Тот же ответ у сервера, предсказания клиента и ботов (одна <see cref="Solid"/>).
+        /// </summary>
+        public int SpeedQ8(MapShape map, TileCoord tile)
+        {
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(map, tile));
             if (chunk == null)
             {
-                return false;
+                return TerrainSlow.One;
             }
 
             int index = Chunk.IndexOf(tile.X, tile.Y);
-            if (!FloorId.IsPassable(chunk.GetFloor(index)))
-            {
-                return true;
-            }
+            return TerrainSlow.TileQ8(chunk.GetFloor(index), chunk.GetObject(index));
+        }
 
-            ushort obj = chunk.GetObject(index);
-            if (obj == ObjectId.Empty)
+        /// <summary>
+        /// Существо стоит «внутри твёрдого» (E2-12): на тайле закрытой двери/ворот (закрыли под ним правкой без выталкивания,
+        /// C-001) или центром в твёрдой ячейке. Свободная половина тайла тонкой стены — не «внутри».
+        /// </summary>
+        private bool InsideSolid(WorldPos p)
+        {
+            TileCoord t = Torus.Wrap(_shape, Torus.TileOf(_shape, p));
+            if (!IsBlocked(_shape, t))
             {
                 return false;
             }
 
-            BuildRecord record;
-            if (ObjectId.IsPart(obj))
-            {
-                TileCoord anchor = _world.AnchorOf(tile);
-                obj = _world.GetObject(anchor);
-                if (!_world.TryGetBuild(anchor, out record))
-                {
-                    record = default;
-                }
-            }
-            else if (!chunk.TryGetBuild(index, out record))
-            {
-                record = default;
-            }
-
-            return !ObjectId.IsPassable(obj, record.Flags);
+            ushort id = ObjectId.IdOf(_world.GetObject(t));
+            return id == ObjectId.Door || id == ObjectId.Gate || StrikeCellSolid(t, p);
         }
     }
 }

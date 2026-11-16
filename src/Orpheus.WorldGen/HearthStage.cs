@@ -9,7 +9,7 @@ namespace Orpheus.WorldGen
     /// <item>луга Ø 300: ячейки с d ≤ 150 — луга (как <c>one_world2</c> модели: <c>b[d &lt;= 150] = MEADOW</c>);</item>
     /// <item>лес в 200: нет ячейки леса с d ≤ 200 — штамп: круг r = 24 вокруг ячейки с наибольшей m среди 150 &lt; d ≤ 200
     /// (вне лугов Очага);</item>
-    /// <item>медь в 600: после этапа 11 залежей меди в 600 меньше 8 — штамп из 8 залежей (<see cref="StampCopper"/>);</item>
+    /// <item>медь в 600: после этапа 11 залежей меди в 600 меньше 20 — штамп-пятно радиуса 6 (E2-6) (<see cref="StampCopper"/>);</item>
     /// <item>озеро в 150 — не в вехе 1 (вода — этап 5, веха 2; допущение `[док]` 1-017); пещеры в 900 — на 1024² это весь мир,
     /// пещеры среза есть всегда (8 % по построению этапа 3), штамп не нужен.</item>
     /// </list>
@@ -32,15 +32,13 @@ namespace Orpheus.WorldGen
         /// <summary>Медь: не меньше <see cref="CopperNeeded"/> залежей в <see cref="CopperWithin"/> тайлов от Очага.</summary>
         public const int CopperWithin = 600;
 
-        public const int CopperNeeded = 8;
+        public const int CopperNeeded = 20;
 
-        /// <summary>Штамп меди: квадрат 11 × 11 расчищается, 8 залежей — по кругу через 4 тайла от центра (каждая — с чистыми соседями).</summary>
-        public const int CopperStampHalf = 5;
+        /// <summary>Штамп меди: квадрат 17 × 17 расчищается (вода — в песок), в нём ставится пятно радиуса <see cref="DepositStage.StampRadius"/>.</summary>
+        public const int CopperStampHalf = 8;
 
         /// <summary>Штамп меди без своих гор в 600 — на этом расстоянии от Очага.</summary>
         public const int CopperStampFallbackDistance = 300;
-
-        private static readonly int[] CopperOffsets = { -4, -4, 0, -4, 4, -4, -4, 0, 4, 0, -4, 4, 0, 4, 4, 4 };
 
         /// <summary>Этап 7 на макрокарте (луга у Очага, лес в 200). Возвращает true, если поставлен штамп леса.</summary>
         public static bool RunMacro(MacroWorld world)
@@ -182,15 +180,20 @@ namespace Orpheus.WorldGen
             {
                 for (int dx = -CopperStampHalf; dx <= CopperStampHalf; dx++)
                 {
-                    t.Objects[(((cy + dy) & mask) * w) + ((cx + dx) & mask)] = ObjectId.Empty;
+                    int j = (((cy + dy) & mask) * w) + ((cx + dx) & mask);
+                    t.Objects[j] = ObjectId.Empty;
+                    if (t.Floor[j] == FloorId.Water)
+                    {
+                        t.Floor[j] = FloorId.Sand; // штамп на озере — отмель (E1-2)
+                    }
                 }
             }
 
-            for (int k = 0; k < CopperOffsets.Length; k += 2)
-            {
-                t.Objects[(((cy + CopperOffsets[k + 1]) & mask) * w) + ((cx + CopperOffsets[k]) & mask)] = ObjectId.Ore;
-            }
-
+            // E2-6: штамп — такое же пятно, как у сетки залежей (неровный край, плотность убывает к краю).
+            ulong seed = map.Seed;
+            int placed = DepositStage.Place(t, DepositStage.EdgeField(w, seed), MacroGenerator.StageSeed(seed, TileStage.Stage),
+                cx & mask, cy & mask, DepositStage.StampRadius, DepositKind.Copper, forced: true);
+            t.Deposits.Add(new DepositPatch(cx & mask, cy & mask, DepositStage.StampRadius, DepositKind.Copper, placed, stamped: true));
             t.CopperStamp = new Orpheus.Core.Geometry.TileCoord(cx & mask, cy & mask);
             return true;
         }

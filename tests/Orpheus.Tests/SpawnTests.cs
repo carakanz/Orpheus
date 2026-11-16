@@ -10,8 +10,8 @@ namespace Orpheus.Tests
 {
     /// <summary>
     /// Карточка 1-009 «появление и исчезновение врагов, ночные коэффициенты» (docs/02 8.5, 8.6, 8.8;
-    /// docs/01 6 «Свет и появление врагов»): лимиты и ритм спавнера (день 5 / ночь 8, группа ×1,5 на
-    /// соседа), кольцо 36–46 т и запреты (пол игрока, свет ≥ 0,5, замкнутые области, 16 т от старта),
+    /// docs/01 6 «Свет и появление врагов»): лимиты и ритм спавнера (ночь 8, группа ×1,5 на соседа;
+    /// с C-006 появление только ночью), кольцо 36–46 т и запреты (пол игрока, свет ≥ 0,5, замкнутые области, 16 т от старта),
     /// «Интерес» 20 с, ночные множители (здоровье/удар ×1,25, зрение ×1,5), исчезновение (30 с дальше 80 т,
     /// чанк вне активной зоны, цель прерывает серию).
     /// </summary>
@@ -149,19 +149,8 @@ namespace Orpheus.Tests
 
         // ==================================================== 8.5 «Появление»: лимиты и ритм
 
-        /// <summary>День, одинокий игрок на открытом поле: за 2 минуты спавнер поднимает окрестность до лимита 5.</summary>
-        [Fact]
-        public void S09_S8_5_Day_Limit5_In2Minutes()
-        {
-            var sim = new Simulation(Flat(1301)) { SpawnEnabled = true };
-            Room(sim, 512, 512);
-            int p = sim.AddEntity(At(512, 512));
-            sim = Tank(sim, p);
-            sim = StepsPinned(sim, 3600, new[] { p }, new[] { At(512, 512) }); // 2 минуты
-
-            int n = EnemyIds(sim).Count;
-            Assert.InRange(n, 5, 9); // лимит 5 с дрейфом блуждания ±6 т; без лимита было бы 15 попыток
-        }
+        // C-006: дневного появления нет — прежний S09_S8_5_Day_Limit5_In2Minutes заменён
+        // C006NightOnlySpawnTests.C006_Day_TenMinutes_ZeroSpawns (лимит ночи — S09_S8_5_Night_Limit8).
 
         /// <summary>Ночь: лимит 8 на игрока; за ночь спавнер доходит до 8 (без группы).</summary>
         [Fact]
@@ -255,11 +244,13 @@ namespace Orpheus.Tests
             Assert.True(spawns >= 8, $"за ночь спавнов {spawns} — спавнер молчит");
         }
 
-        /// <summary>«Не на построенном полу»: кольцо 36–46 т застроено полом игрока — за день ни одного спавна.</summary>
+        /// <summary>«Не на построенном полу»: кольцо 36–46 т застроено полом игрока — за 2 мин ночи ни одного
+        /// спавна (C-006: сценарий перенесён на ночь — днём появления нет вовсе, проверка была бы пустой).</summary>
         [Fact]
         public void S09_S8_5_NoSpawn_OnBuiltFloor()
         {
             var sim = new Simulation(Flat(1301)) { SpawnEnabled = true };
+            sim.SetWorldTime(DayClock.NightStartTick);
             sim.AddEntity(At(512, 512));
             for (int x = 460; x <= 564; x++)
             {
@@ -481,6 +472,7 @@ namespace Orpheus.Tests
         public void S09_S8_8_Far90_Despawn_AtTick900()
         {
             var sim = new Simulation(Flat(1301)) { SpawnEnabled = true };
+            sim.SetWorldTime(DayClock.NightStartTick); // C-006: днём враг без цели уходит с рассветом — правило 8.8 проверяем ночью
             Room(sim, 30, 30);
             int p = sim.AddEntity(At(30, 30));
             sim = Tank(sim, p);
@@ -496,6 +488,7 @@ namespace Orpheus.Tests
         public void S09_S8_8_Far70_NoDespawn()
         {
             var sim = new Simulation(Flat(1301)) { SpawnEnabled = true };
+            sim.SetWorldTime(DayClock.NightStartTick); // C-006: днём враг без цели уходит с рассветом — правило 8.8 проверяем ночью
             Room(sim, 30, 30);
             int p = sim.AddEntity(At(30, 30));
             sim = Tank(sim, p);
@@ -512,6 +505,7 @@ namespace Orpheus.Tests
         public void S09_S8_8_WithTarget_Exempt_ThenDespawn()
         {
             var sim = new Simulation(Flat(1301)) { SpawnEnabled = true };
+            sim.SetWorldTime(DayClock.DuskStartTick); // C-006: днём с целью уходит через 30 с светлого времени; сумерки (1800 тактов, без появлений, множители ≈ ×1) ближе всего к прежнему дневному сценарию
             Room(sim, 512, 512);
             Room(sim, 608, 512); // цель после переноса тоже в комнате: спавненные враги её не бьют и не сносят
             int p = sim.AddEntity(At(512, 512));
@@ -552,6 +546,7 @@ namespace Orpheus.Tests
         public void S09_S8_8_ChunkOutsideZone_OneTick()
         {
             var sim = new Simulation(Flat(1301)) { SpawnEnabled = true };
+            sim.SetWorldTime(DayClock.NightStartTick); // C-006: днём враг без цели уходит с рассветом — правило 8.8 проверяем ночью
             sim.AddEntity(At(30, 30));
             int rogue = sim.AddMeleeRogue(At(330, 30));
             sim.Step();

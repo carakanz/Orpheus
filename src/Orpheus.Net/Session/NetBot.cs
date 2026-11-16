@@ -32,12 +32,15 @@ namespace Orpheus.Net.Session
         private SimBot? _bot;
         private DodgeBot? _dodge;
         private DigLineBot? _digLine;
+        private CraftChainBot? _craft;
         private BuildRoomBot? _build;
         private NightCampBot? _camp;
         private InputFrame _current;
         private LocalPrediction? _pred;
         private uint _reconciledTick;
         private bool _reconciledAny;
+        private bool _predLate;      // C-003: предсказание создано после первых кадров ввода — ждём, пока сервер их подтвердит
+        private uint _predLateFrame; // последний кадр, отправленный без предсказания
         private SeamWatch? _watch;
         private long _pollUs;
         private uint _lastMoveFrame;
@@ -87,6 +90,9 @@ namespace Orpheus.Net.Session
 
         /// <summary>Бот <c>dig_line</c> (0-028) — после входа; иначе null.</summary>
         public DigLineBot? DigLine => _digLine;
+
+        /// <summary>Сценарий <c>craft_chain</c> (E2-3; после входа); другой сценарий — null.</summary>
+        public CraftChainBot? CraftChain => _craft;
 
         /// <summary>Бот <c>build_room</c> (1-026, приёмка `08` 3.1 1.5) — после входа; иначе null.</summary>
         public BuildRoomBot? Builder => _build;
@@ -141,6 +147,16 @@ namespace Orpheus.Net.Session
                     Client.EditReplied = dig.OnReply;
                 }
             }
+            else if (_script == CraftChainBot.Name)
+            {
+                if (_craft == null && Client.HasSnapshot && Client.Latest.Self.Present)
+                {
+                    var craft = new CraftChainBot(Client.Shape, Client.Latest.Self.Position);
+                    _craft = craft;
+                    Client.EditReplied = craft.OnReply;
+                    Client.CraftReplied = craft.OnCraftReply;
+                }
+            }
             else if (_script == BuildRoomBot.Name)
             {
                 if (_build == null)
@@ -173,9 +189,23 @@ namespace Orpheus.Net.Session
             if (_pred == null && PredictionFactory != null)
             {
                 _pred = PredictionFactory(Client); // null — ещё не готово (мир строится), спросим в следующем кадре
+                if (_pred != null && Client.InputsSent > 0)
+                {
+                    // C-003: кадры ввода уже уходили без предсказания, часть — в пути (не подтверждена). Установка по снимку
+                    // с ack старше них поставила бы предсказание в точку «до этих кадров», а в кольце их нет — сервер их
+                    // шагнёт, и каждая сверка даст правку (в паузе — сразу после её снятия). Установку откладываем до
+                    // снимка, подтвердившего последний кадр без предсказания; до тех пор позиция бота — из снимков.
+                    _predLate = true;
+                    _predLateFrame = Client.Frame;
+                }
             }
 
-            if (_pred != null && Client.HasSnapshot && (!_reconciledAny || Client.Latest.Tick != _reconciledTick))
+            if (_predLate && Client.HasSnapshot && (int)(Client.Latest.AckFrame - _predLateFrame) >= 0)
+            {
+                _predLate = false;
+            }
+
+            if (_pred != null && !_predLate && Client.HasSnapshot && (!_reconciledAny || Client.Latest.Tick != _reconciledTick))
             {
                 _reconciledAny = true;
                 _reconciledTick = Client.Latest.Tick;
@@ -205,6 +235,12 @@ namespace Orpheus.Net.Session
                     WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
                         : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
                     _current = pos.HasValue ? _digLine.Next(Client, pos.Value) : InputFrame.None; // каждый кадр: кнопка копания — в кадрах
+                }
+                else if (_script == CraftChainBot.Name)
+                {
+                    WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
+                        : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
+                    _current = pos.HasValue && _craft != null ? _craft.Next(Client, pos.Value) : InputFrame.None; // E2-3: добыча, верстак, крафт
                 }
                 else if (_build != null)
                 {

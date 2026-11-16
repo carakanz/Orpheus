@@ -19,6 +19,10 @@ namespace Orpheus.Net.Protocol
         /// <summary>Закрыть дверь (1-012, F): тайл двери в From (To не используется) — сервер проверит радиус,
         /// замок и проём, смена состояния — record-only правка. Ответ — общий («принято»/причина).</summary>
         CloseDoor = 4,
+
+        /// <summary>Починить постройку (E2-5, `05` 1.3, протокол 23): тайл в From — цена по недостающей доле прочности, молот в руках.
+        /// Ответ — общий («принято»/причина: цело, под ударом, нет ресурсов…), предсказания нет.</summary>
+        Repair = 5,
     }
 
     /// <summary>
@@ -32,8 +36,8 @@ namespace Orpheus.Net.Protocol
     /// </summary>
     public struct TileRequestMessage
     {
-        /// <summary>Тип 1 + номер 2 + операция 1 + кадр 4 + начало x, y 2 + 2 + конец x, y 2 + 2 + объект 2.</summary>
-        public const int Bytes = 18;
+        /// <summary>Тип 1 + номер 2 + операция 1 + кадр 4 + начало x, y 2 + 2 + конец x, y 2 + 2 + объект 2 + ячейка 1 + четверти 1 (протокол 26).</summary>
+        public const int Bytes = 20;
 
         public ushort RequestId;
 
@@ -43,6 +47,29 @@ namespace Orpheus.Net.Protocol
         public TileCoord From;
         public TileCoord To;
         public ushort Obj;
+
+        /// <summary>
+        /// Постановка (E2-11, протокол 25): ячейка быстрой панели (0…7), из которой берётся предмет-постройка, — по предмету
+        /// на тайл линии. Остальные операции — 0 (не читается).
+        /// </summary>
+        public byte Cell;
+
+        /// <summary>
+        /// Четверти (E2-12, протокол 26): биты 0–1 — ячейка 0,5 × 0,5 в тайле <see cref="From"/> (бит 0 — восточная половина,
+        /// бит 1 — южная), биты 2–3 — в тайле <see cref="To"/>. Постановка стены и забора — линия ячеек от одной до другой;
+        /// двери — пара ячеек тайла по ячейке начала (<c>BuildCells.DoorMaskFor</c>). Иначе 0.
+        /// </summary>
+        public byte Quad;
+
+        /// <summary>
+        /// Бит 4 в <see cref="Quad"/> (E2-16, протокол 28): постановка из меню изготовления — предмет из любых ячеек сумки, не хватает —
+        /// изготовить на месте (<c>Simulation.CraftCell</c>); <see cref="Cell"/> не читается. Поворот мебели и двери — в битах 10–11
+        /// <see cref="Obj"/>.
+        /// </summary>
+        public const byte MenuFlag = 16;
+
+        /// <summary>Заявка из меню изготовления (<see cref="MenuFlag"/>).</summary>
+        public readonly bool FromMenu => (Quad & MenuFlag) != 0;
 
         public int Write(Span<byte> dest)
         {
@@ -56,6 +83,8 @@ namespace Orpheus.Net.Protocol
             w.WriteUInt16((ushort)To.X);
             w.WriteUInt16((ushort)To.Y);
             w.WriteUInt16(Obj);
+            w.WriteByte(Cell);
+            w.WriteByte(Quad);
             return w.BytesWritten;
         }
 
@@ -69,13 +98,26 @@ namespace Orpheus.Net.Protocol
             m.From = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.To = new TileCoord(r.ReadUInt16(), r.ReadUInt16());
             m.Obj = r.ReadUInt16();
+            m.Cell = r.ReadByte();
+            m.Quad = r.ReadByte();
             r.ExpectEnd();
-            if (op < (byte)TileOp.DigStart || op > (byte)TileOp.CloseDoor)
+            if (m.Quad > 31)
+            {
+                throw new ProtocolException($"Запрос правки: четверти {m.Quad}.");
+            }
+
+            if (op < (byte)TileOp.DigStart || op > (byte)TileOp.Repair)
             {
                 throw new ProtocolException($"Запрос правки: операция {op}.");
             }
 
             m.Op = (TileOp)op;
+            if (m.Op == TileOp.Place && m.Cell >= Orpheus.Core.Sim.Inventory.Cells)
+            {
+                // C-013 (протокол 29): любая ячейка сумки 0…39 — постройка «на курсоре», взятая из окна сумки (было: 0…7 панели).
+                throw new ProtocolException($"Запрос правки: ячейка {m.Cell} вне сумки.");
+            }
+
             if (m.From.X >= shape.Width || m.From.Y >= shape.Height || m.To.X >= shape.Width || m.To.Y >= shape.Height)
             {
                 throw new ProtocolException($"Запрос правки: тайл {m.From}–{m.To} вне карты {shape.Width}×{shape.Height}.");
@@ -84,7 +126,7 @@ namespace Orpheus.Net.Protocol
             return m;
         }
 
-        public override string ToString() => $"запрос {RequestId}: {Op} с кадра {Frame} {From}–{To} obj {Obj}";
+        public override string ToString() => $"запрос {RequestId}: {Op} с кадра {Frame} {From}–{To} obj {Obj} ячейка {Cell} четверти {Quad}";
     }
 
     /// <summary>
@@ -127,7 +169,7 @@ namespace Orpheus.Net.Protocol
             byte first = r.ReadByte();
             m.Mask = r.ReadUInt32();
             r.ExpectEnd();
-            if (reply > (byte)EditReply.NoResources || first > (byte)EditReply.NoResources)
+            if (reply > (byte)EditRules.MaxReply || first > (byte)EditRules.MaxReply)
             {
                 throw new ProtocolException($"Ответ на правку: код {reply} / {first}.");
             }

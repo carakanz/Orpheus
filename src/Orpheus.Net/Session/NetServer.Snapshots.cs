@@ -192,6 +192,7 @@ namespace Orpheus.Net.Session
             BroadcastPatches(); // правки такта — до окон: вошедшие в окно чанки уйдут уже с ревизией после такта (3.7)
             BroadcastCombatEvents(); // 1-001: смерть/возрождение такта — канал 2 всем в игре
             SendEditReplies(); // 0-028: «принято» / «отказ» по исходам такта
+            FollowAnchorMoves(); // C-011: окна сундуков и кровати вне мира — за перенесённой мебелью
             ReadOnlySpan<SimEntity> entities = _sim.Entities;
             uint tick = (uint)_sim.Tick;
             for (int p = 0; p < _players.Count; p++)
@@ -201,6 +202,16 @@ namespace Orpheus.Net.Session
                 {
                     SendSnapshotTo(pl, entities, tick);
                     int slot = _sim.SlotOf(pl.EntityId);
+                    pl.BagRequestsThisTick = 0; // лимит заявок на сумку — на такт (E2-1)
+                    if (slot >= 0)
+                    {
+                        SendPilesTo(pl, entities[slot].Mover.Position); // E2-1: кучи на земле в обзоре — разницей
+                        SendCraftTo(pl, entities[slot]); // E2-3: очередь изготовления — владельцу, когда изменилась
+                        SendStockTo(pl); // E2-10: сундуки рядом — владельцу, когда сводка изменилась
+                    }
+
+                    SendChestTo(pl, slot); // E2-5: открытый сундук — содержимое, если изменилось, или «закрыт»
+
                     if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))
                     {
                         SendInventoryTo(pl, entities[slot].Inv); // 1-002: сумка изменилась (копание, подбор, смена ячейки)

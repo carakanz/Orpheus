@@ -155,5 +155,48 @@ namespace Orpheus.Client.Anim
 
         /// <summary>Размер частицы, тайлов.</summary>
         public const float ParticleSize = 0.14f;
+
+        // ---------- предмет в руке (E2-7) ----------
+
+        /// <summary>Кисть руки от опоры спрайта (ступни), для взгляда вправо, тайлов (спрайт 1 × 1,5 т).</summary>
+        public const float HandX = 0.2f;
+        public const float HandY = 0.62f;
+
+        /// <summary>Масштаб значка в руке (значок 64 px = 0,5 т): инструмент — крупнее, предмет в ладони — мельче.</summary>
+        public const float ToolScale = 1.15f;
+
+        /// <summary>
+        /// C-012 (слово Автора: «радиус удара должен примерно совпадать с радиусом анимации»): меч крупнее прочих инструментов —
+        /// кончик в миг удара на ≈ 1,4 т от точки ядра, как досягаемость удара ядра (<c>Reach.SwordStrikeUnits</c> = 358 unit).
+        /// Считается по тому, что рисует <c>ActorRig</c> (<c>ActionAnim.HeldPoint</c>), тест — <c>AimMathTests.C012_SwordTip_*</c>.
+        /// </summary>
+        public const float SwordScale = 2.1f;
+        public const float ItemScale = 0.8f;
+
+        /// <summary>Центр значка инструмента от хвата (рукоять внизу слева значка), долей… тайла при масштабе 1.</summary>
+        public const float GripX = 0.09f;
+        public const float GripY = 0.1f;
+
+        /// <summary>Предмет в ладони — центр значка над кистью, тайлов при масштабе 1.</summary>
+        public const float PalmY = 0.06f;
+
+        /// <summary>C-010: подъём кисти при замахе за голову (тайлов): от угла руки <see cref="OverheadLiftFromDeg"/> до
+        /// <see cref="OverheadLiftFullDeg"/> кисть плавно уходит к макушке, чтобы предмет позади тела был виден над головой.</summary>
+        public const float OverheadLiftY = 0.55f;
+        public const float OverheadLiftFromDeg = 40f;
+        public const float OverheadLiftFullDeg = 105f;
+
+        // ---------- отклик удара по камню (E2-7) ----------
+
+        /// <summary>Искры удара киркой по камню и руде: число, скорость (т/с), жизнь (с).</summary>
+        public const int StoneSparks = 6;
+        public const float StoneSparkSpeed = 3.6f;
+        public const float StoneSparkLife = 0.22f;
+
+        /// <summary>Крошка камня (падает): число на удар.</summary>
+        public const int StoneCrumbs = 6;
+
+        /// <summary>Щепки на удар топором (вдобавок к листьям <c>LifeFx.HitTile</c>).</summary>
+        public const int WoodChips = 6;
     }
 }

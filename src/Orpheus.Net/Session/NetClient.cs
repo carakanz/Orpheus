@@ -159,8 +159,8 @@ namespace Orpheus.Net.Session
         public int EntityId => Accept.EntityId;
 
         /// <summary>
-        /// Своя сумка по последнему сообщению сервера (тип 26, 1-002) — для предмета в руках и предсказания добычи (1-010).
-        /// Локальные предсказания (<see cref="DigLoot"/>) меняют её до подтверждения; новая сводка сервера замещает целиком.
+        /// Своя сумка по последнему сообщению сервера (тип 26, 1-002; E2-1 — ячейками) — для предмета в руках.
+        /// Локальное предсказание — только трата на постановку (1-011); новая сводка сервера замещает целиком.
         /// </summary>
         public Inventory Inv { get; internal set; }
 
@@ -528,6 +528,28 @@ namespace Orpheus.Net.Session
                         }
 
                         break;
+                    case MessageType.Piles when State == NetClientState.InGame:
+                        OnPiles(data); // E2-1: кучи на земле
+                        break;
+                    case MessageType.CraftReply when State == NetClientState.InGame:
+                        OnCraftReply(CraftReplyMessage.Read(data)); // E2-3
+                        break;
+                    case MessageType.CraftState when State == NetClientState.InGame:
+                        OnCraftState(CraftStateMessage.Read(data)); // E2-3
+                        break;
+                    case MessageType.NearbyStock when State == NetClientState.InGame:
+                        NearbyStockMessage.Read(data, NearbyStock); // E2-10: сундуки рядом
+                        NearbyStockSeen++;
+                        break;
+                    case MessageType.UseReply when State == NetClientState.InGame:
+                        OnUseReply(UseReplyMessage.Read(data)); // E2-5
+                        break;
+                    case MessageType.ChestState when State == NetClientState.InGame:
+                        OnChestState(ChestStateMessage.Read(data)); // E2-5
+                        break;
+                    case MessageType.PileGone when State == NetClientState.InGame:
+                        OnPileGone(PileGoneMessage.Read(data)); // E2-1
+                        break;
                     case MessageType.TileReply when State == NetClientState.InGame:
                         OnTileReply(TileReplyMessage.Read(data)); // 0-028
                         break;
@@ -563,6 +585,7 @@ namespace Orpheus.Net.Session
         {
             Accept = m;
             Inv = default; // своя сумка придёт сообщением сразу за входом (1-002)
+            _piles.Clear(); // кучи сервер пришлёт заново (E2-1)
             InvVersion = 0;
             _layout = new SnapshotLayout(new MapShape(m.MapWidth, m.MapHeight, m.Wraps));
             ServerTick = m.ServerTick;

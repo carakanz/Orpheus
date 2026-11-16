@@ -61,6 +61,37 @@ namespace Orpheus.Core.World
 
         /// <summary>«нет ресурсов» (1-011, `05` 1.4 «Ресурсы кончились посреди линии»): стоимость тайла не списалась.</summary>
         NoResources = 14,
+
+        /// <summary>«ты мёртв» (C-004 + E2-1, протокол 21): запрос от персонажа-трупа (5 с до возрождения) — мёртвый не копает и не строит.
+        /// Раньше такой отказ уходил кодом «очередь полна».</summary>
+        Dead = 15,
+
+        /// <summary>«цело» (E2-5, протокол 23): чинить нечего — прочность полная.</summary>
+        Intact = 16,
+
+        /// <summary>«под ударом» (E2-5, `05` 1.3): постройку, недавно получавшую урон, чинить нельзя.</summary>
+        UnderAttack = 17,
+
+        /// <summary>«пауза» (E2-5): действие с объектом во время паузы мира.</summary>
+        Paused = 18,
+
+        /// <summary>
+        /// «мешает мебель» (E2-15, протокол 27): свободная половина тайла, где стоит мебель со сдвигом на полтайла (её тайл-якорь),
+        /// — стену туда не поставить (один объект на тайл); мебель ставят после стен.
+        /// </summary>
+        FurnitureInTile = 19,
+
+        /// <summary>
+        /// «нужен станок рядом» (E2-16, протокол 28): постановка из меню изготовления без готового предмета — рецепт постройки
+        /// требует станок (верстак, костёр), а его в радиусе крафта нет. Ничего не снято.
+        /// </summary>
+        NoStation = 20,
+
+        /// <summary>
+        /// «сумка полна» (C-013, протокол 29): постановка из меню с изготовлением, остаток от выхода рецепта (стена — 2, пол — 4)
+        /// некуда положить. Ничего не снято.
+        /// </summary>
+        BagFull = 21,
     }
 
     /// <summary>
@@ -107,6 +138,13 @@ namespace Orpheus.Core.World
                 case EditReply.TierRequired: return "нужен ярус инструмента";
                 case EditReply.Debris: return "обломки";
                 case EditReply.NoResources: return "нет ресурсов";
+                case EditReply.Dead: return "ты мёртв";
+                case EditReply.Intact: return "цело";
+                case EditReply.UnderAttack: return "под ударом";
+                case EditReply.Paused: return "пауза";
+                case EditReply.FurnitureInTile: return "мешает мебель — ставьте её после стен";
+                case EditReply.NoStation: return "нужен станок рядом";
+                case EditReply.BagFull: return "сумка полна — остатку некуда лечь";
                 default: return "нельзя";
             }
         }
@@ -147,6 +185,8 @@ namespace Orpheus.Core.World
                 case EditResult.Occupied: return EditReply.Occupied;
                 case EditResult.EnemyNear: return EditReply.EnemyNear;
                 case EditResult.NoResources: return EditReply.NoResources;
+                case EditResult.NoStation: return EditReply.NoStation;
+                case EditResult.BagFull: return EditReply.BagFull;
                 default: return EditReply.NotAllowed;
             }
         }
@@ -198,7 +238,13 @@ namespace Orpheus.Core.World
         {
             if (ObjectId.RotationOf(obj) != 0)
             {
-                return false;
+                // E2-16: поворот — у кровати, верстака, сундука (в объекте мира) и у двери (в заявке: ориентация пары ячеек).
+                if (ObjectId.IsPart(obj) || !(BuildLayers.IsRotatable(obj) || ObjectId.IdOf(obj) == ObjectId.Door))
+                {
+                    return false;
+                }
+
+                obj = ObjectId.IdOf(obj);
             }
 
             if (IsFloorKey(obj))
@@ -216,6 +262,9 @@ namespace Orpheus.Core.World
                 case ObjectId.Spikes:
                 case ObjectId.Door:
                 case ObjectId.Campfire:
+                case ObjectId.Workbench: // E2-3: верстак I; E2-16 — 2 × 2 тайла
+                case ObjectId.Chest:     // E2-5: сундук
+                case ObjectId.Bed:       // E2-5: кровать; E2-16 — 1 × 2 тайла
                     return true;
                 default:
                     return false;
@@ -309,6 +358,18 @@ namespace Orpheus.Core.World
                 return EditReply.NotAllowed;
             }
 
+            if (IsFloorKey(obj))
+            {
+                // E2-15: пол — нижний слой, весь тайл (свободные ячейки тайла; по ячейкам — BuildLayers.CheckFloor).
+                return BuildLayers.CheckFloor(world, center, tile, obj, BuildCells.Full, out _, out _);
+            }
+
+            if (BuildLayers.IsFurniture(obj))
+            {
+                // E2-15: мебель без сдвига — СЗ ячейка тайла (со сдвигом — BuildLayers.CheckFurniture).
+                return BuildLayers.CheckFurniture(world, center, obj, BuildCells.CellOf(Torus.Wrap(world.Shape, tile), 0, 0), out _, out _, out _);
+            }
+
             if (!InPlaceRadius(world.Shape, center, tile))
             {
                 return EditReply.OutOfReach;
@@ -328,29 +389,76 @@ namespace Orpheus.Core.World
             }
 
             byte floor = world.GetFloor(t);
-            if (IsFloorKey(obj))
-            {
-                if (world.TryGetBuild(t, out _))
-                {
-                    return EditReply.Busy; // под полом уже готовый построенный пол (запись без обломков)
-                }
-
-                bool liquid = floor == FloorId.Water || floor == FloorId.Lava;
-                if (obj == FloorId.Platform)
-                {
-                    return liquid ? EditReply.Accepted : EditReply.NotAllowed; // настил — только над жидкостью (`05` 1.3)
-                }
-
-                return liquid ? EditReply.NeedPlatform : FloorId.IsSolid(floor) ? EditReply.Accepted : EditReply.NotAllowed;
-            }
-
             if (floor == FloorId.Water || floor == FloorId.Lava)
             {
                 return EditReply.NeedPlatform;
             }
 
+            // E2-15: в тайл свешивается мебель соседа — целым тайлом не встать (стена и забор по ячейкам — BuildCells.CheckPlace).
+            if (!BuildCells.IsCellBuilding(obj) && BuildLayers.OverhangAt(world, t, solidOnly: false) != 0)
+            {
+                return EditReply.Busy;
+            }
+
             return EditReply.Accepted;
         }
+
+        /// <summary>Наибольший код ответа (проверка сообщений сети).</summary>
+        public const EditReply MaxReply = EditReply.BagFull;
+
+        /// <summary>Объекты с действием (F) — в этом радиусе от тайла персонажа по оси максимума: 3 тайла (E2-5).</summary>
+        public const int UseRadiusTiles = 3;
+
+        /// <summary>Тайл в радиусе действия (сундук, кровать): от тайла персонажа ≤ 3 по оси максимума, по тору.</summary>
+        public static bool InUseRadius(in MapShape map, WorldPos center, TileCoord tile)
+        {
+            Int2 d = Torus.Delta(map, Torus.TileOf(map, center), Torus.Wrap(map, tile));
+            return Math.Abs(d.X) <= UseRadiusTiles && Math.Abs(d.Y) <= UseRadiusTiles;
+        }
+
+        /// <summary>
+        /// Проверка починки (E2-5, `05` 1.3 «Починка»): радиус постановки, на тайле постройка с неполной прочностью,
+        /// не получавшая урон последние 3 с (флаг <see cref="BuildFlags.RepairBlocked"/>, C-005). Цена — по каждому материалу рецепта
+        /// ⌈количество × недостающая доля⌉ (<see cref="BuildDefs.RepairCostOf"/>); хватает ли — проверяет вызывающий
+        /// (<see cref="RepairAffordable"/>) и такт. Полы не чинятся (их не бьют).
+        /// </summary>
+        public static EditReply CheckRepair(WorldModel world, WorldPos center, TileCoord tile, out BuildDef def, out int cost1, out int cost2)
+        {
+            def = default;
+            cost1 = 0;
+            cost2 = 0;
+            if (!InPlaceRadius(world.Shape, center, tile))
+            {
+                return EditReply.OutOfReach;
+            }
+
+            TileCoord t = Torus.Wrap(world.Shape, tile);
+            ushort obj = world.GetObject(t);
+            if (obj == ObjectId.Empty || ObjectId.IsNatural(obj) || ObjectId.IsPart(obj)
+                || !world.TryGetBuild(t, out BuildRecord rec) || rec.IsDebris || !BuildDefs.TryGet(obj, out def))
+            {
+                return EditReply.Empty;
+            }
+
+            if (rec.Integrity >= def.MaxIntegrity)
+            {
+                return EditReply.Intact;
+            }
+
+            if (rec.IsRepairBlocked)
+            {
+                return EditReply.UnderAttack;
+            }
+
+            cost1 = BuildDefs.RepairCostOf(def.Count1, rec.Integrity, def.MaxIntegrity);
+            cost2 = def.Count2 > 0 ? BuildDefs.RepairCostOf(def.Count2, rec.Integrity, def.MaxIntegrity) : 0;
+            return EditReply.Accepted;
+        }
+
+        /// <summary>Хватает ли в сумке на починку с такой ценой.</summary>
+        public static bool RepairAffordable(in BuildDef def, int cost1, int cost2, in Sim.Inventory bag) =>
+            BuildDefs.Affordable(new BuildDef(def.Material1, cost1, def.Material2, cost2, def.MaxIntegrity, false, def.Item), bag)
+            || (cost1 <= 0 && cost2 <= 0);
 
         /// <summary>
         /// Тайлы линии от <paramref name="from"/> до <paramref name="to"/> (Брезенхэм по кратчайшему пути тора, концы включены) —

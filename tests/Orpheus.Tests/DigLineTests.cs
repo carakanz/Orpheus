@@ -38,9 +38,12 @@ namespace Orpheus.Tests
         /// <summary>
         /// 1-017: тот же бот в мире генератора v1 (по умолчанию сервера, <c>--gen v1</c>). Скал в полосе реже, на пути — деревья,
         /// кусты, гранит и залежи (они дольше), поэтому лимит тактов — вдвое больше.
+        /// E1-2: у шва нужна полоса без воды и обрывов (бот их не копает и не обходит; у зерна 1 на шве озеро). E2-6 (мир v7):
+        /// зерно 7 → 9 — в полосе зерна 7 теперь ядро гранита, каменной киркой бот его не берёт и встаёт;
+        /// <see cref="PickBand"/> такие полосы пропускает.
         /// </summary>
         [Fact]
-        public void D17_DigLine_GenV1_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Current, slack: 2);
+        public void D17_DigLine_GenV1_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Current, slack: 2, seed: 9);
 
         /// <summary>
         /// Ночной прогон: 1000 скал, у копающего RTT 100 мс (имитатор связи). Лимит тактов — вдвое: с 1-010 копание идёт
@@ -50,11 +53,11 @@ namespace Orpheus.Tests
         [Trait("Category", "Big")]
         public void D08_0_7_DigLine_Big_1000Rocks_Rtt100_ObserverBytesEqual_RestartLosesNothing() => Run(1000, rttMs: 100, WorldGenModule.Stub, slack: 2);
 
-        private void Run(int target, int rttMs, IWorldGenerator generator, int slack = 1)
+        private void Run(int target, int rttMs, IWorldGenerator generator, int slack = 1, ulong seed = 1)
         {
             var wall = Stopwatch.StartNew();
             MapShape shape = MapShape.World(1024);
-            WorldModel world = generator.Generate(shape, 1);
+            WorldModel world = generator.Generate(shape, seed);
             (int half, int y0, int rocks) = PickBand(world, target);
             _out.WriteLine($"полоса: x ∈ [−{half}, {half}] у шва, строки {y0}…{y0 + 127}, скал в полосе {rocks}");
             Assert.True(rocks >= target * 5 / 4, $"скал в лучшей полосе {rocks} < {target * 5 / 4}");
@@ -127,12 +130,28 @@ namespace Orpheus.Tests
                            $"тактов {digTicks} ({digTicks / 30.0:0.0} с игры)");
             Assert.True(bot.Done, $"бот снял {bot.RocksDug} из {target} за {digTicks} тактов");
 
-            // Приёмка 1-010: в сумке копающего — сумма детерминированных бросков добычи по всем снятым «каменным» тайлам; откатов нет.
+            // Приёмка 1-010 + E2-1 [док]: добыча — сумма детерминированных бросков по всем снятым «каменным» тайлам — падает
+            // на землю, бот её подбирает. Ничего не удвоилось: в сумке + на земле не больше бросков (кучи старше 10 мин
+            // исчезают); бот подобрал почти всё (≥ 90 %: остаются кучи за препятствиями и последние, ещё «падающие»).
             int stoneWanted = bot.StoneTiles.Sum(e => DigLoot.DropFor(e.Raw, e.Tile.X, e.Tile.Y, world.Seed, out _));
             Assert.True(stoneWanted >= bot.RocksDug, $"броски {stoneWanted} < снятых скал {bot.RocksDug} (скала даёт 1…2)");
-            Assert.Equal(stoneWanted, digger.Inv.CountAt(Material.Stone)); // своя сумка (предсказание + тип 26)
-            Assert.Equal(stoneWanted, rig.Sim.GetEntity(digger.EntityId).Inv.CountAt(Material.Stone)); // сумка сервера
-            Assert.Equal(0, digger.World!.PredictionsRolledBack); // предсказания добычи не откатывались
+            int stoneBag = rig.Sim.GetEntity(digger.EntityId).Inv.CountAt(Material.Stone); // сумка сервера
+            int stoneGround = 0;
+            foreach (GroundPile gp in rig.Sim.Piles)
+            {
+                stoneGround += gp.Item == Items.Stone ? gp.Count : 0;
+            }
+
+            _out.WriteLine($"камень: броски {stoneWanted}, в сумке {stoneBag}, на земле {stoneGround}, куч подобрано походом {bot.PilesCollected}");
+            Assert.Equal(stoneBag, digger.Inv.CountAt(Material.Stone)); // своя сумка = сумка сервера (тип 26)
+            Assert.True(stoneBag + stoneGround <= stoneWanted, $"камня больше бросков: сумка {stoneBag} + земля {stoneGround} > {stoneWanted}");
+            if (digTicks < Simulation.PileLifetimeTicks)
+            {
+                Assert.Equal(stoneWanted, stoneBag + stoneGround); // кучи ещё не истекали — сходится точно
+            }
+
+            Assert.True(stoneBag * 10 >= stoneWanted * 9, $"бот подобрал {stoneBag} из {stoneWanted} камня (< 90 %)");
+            Assert.Equal(0, digger.World!.PredictionsRolledBack); // предсказания копания не откатывались
 
             // У наблюдателя — все снятые скалы, чанки = сервер побайтно.
             int seen = bot.RockTiles.Count(t => observer.World!.World.FindChunk(Torus.ChunkOf(shape, t)) != null &&
@@ -190,7 +209,7 @@ namespace Orpheus.Tests
         /// Полоса у шва с наибольшим числом скал: полуширина 48…96 тайлов (окно наблюдателя на шве — ±96), 128 строк от границы чанков
         /// (4 чанка окна по высоте). Возвращает полуширину, первую строку и число скал (строки y0 … y0 + 126, как пройдёт бот).
         /// </summary>
-        private static (int half, int y0, int rocks) PickBand(WorldModel world, int target)
+        internal static (int half, int y0, int rocks) PickBand(WorldModel world, int target)
         {
             MapShape shape = world.Shape;
             (int, int, int) best = (0, 0, 0);
@@ -199,18 +218,22 @@ namespace Orpheus.Tests
                 for (int y0 = 0; y0 < shape.Height; y0 += Torus.ChunkSize)
                 {
                     int n = 0;
+                    bool barrier = false; // E1-2: полоса с водой или обрывом боту не годится — их не выкопать и не пройти
                     for (int y = y0; y < y0 + 126; y++)
                     {
-                        for (int x = -half; x <= half; x++)
+                        for (int x = -half - 6; x <= half + 6; x++)
                         {
-                            if (ObjectId.IdOf(world.GetObject(Torus.Wrap(shape, new TileCoord(x, y)))) == ObjectId.Rock)
+                            TileCoord t = Torus.Wrap(shape, new TileCoord(x, y));
+                            ushort id = ObjectId.IdOf(world.GetObject(t));
+                            barrier |= id == ObjectId.Cliff || world.GetFloor(t) == FloorId.Water;
+                            if (id == ObjectId.Rock && x >= -half && x <= half)
                             {
                                 n++;
                             }
                         }
                     }
 
-                    if (n > best.Item3)
+                    if (!barrier && n > best.Item3)
                     {
                         best = (half, y0, n);
                     }

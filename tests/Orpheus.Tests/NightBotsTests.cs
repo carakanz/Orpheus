@@ -119,7 +119,7 @@ namespace Orpheus.Tests
 
         private static string Diag(BuildRoomBot bot, long ticks) =>
             $"этап {bot.Stage}, тиков {ticks}, добыча {bot.GatherTicks} (камня {bot.StoneAtGatherEnd}, древесины {bot.WoodAtGatherEnd}, " +
-            $"скал {bot.RocksDug}, деревьев {bot.TreesChopped}), полов {bot.FloorsPlaced}/9, стен {bot.WallsPlaced}/15, " +
+            $"скал {bot.RocksDug}, деревьев {bot.TreesChopped}), полов {bot.FloorsPlaced}/{BuildRoomBot.FloorTiles}, стен {bot.WallsPlaced}/15, " +
             $"дверь поставлена {bot.DoorPlaced}, закрыта {bot.DoorClosed}, отказов правки {bot.Refused} [{bot.RefusalsText}], смертей {bot.Deaths}" +
             (bot.FailReason != null ? $", отказ: {bot.FailReason}" : string.Empty);
 
@@ -141,7 +141,7 @@ namespace Orpheus.Tests
             BuildRoomBot bot = BuildRig(rig, client);
 
             Assert.True(DriveToClosedDoor(rig, bot, 14000), Diag(bot, rig.Ticks));
-            Assert.Equal(9, bot.FloorsPlaced);
+            Assert.Equal(BuildRoomBot.FloorTiles, bot.FloorsPlaced); // E2-15: пол 5 × 5 под стенами
             Assert.Equal(15, bot.WallsPlaced);
             Assert.Equal(100, Hp(sim, client.EntityId));
             Assert.Equal(0, bot.Deaths);
@@ -341,31 +341,37 @@ namespace Orpheus.Tests
         [Trait("Category", "Big")]
         public void D08_3_1_BuildRoom_Udp_Rtt100_Night_Under_Walls()
         {
-            BotReport report = RunBuildRoomUdp();
+            var trace = new StrikeTrace(); // C-004: попадания по боту на стороне сервера — кто, откуда, через что
+            BotReport report = RunBuildRoomUdp(trace);
             string line = report.Bots.Single().BuildRoom ?? "(строки нет)";
             _out.WriteLine(line);
+            _out.WriteLine($"попаданий по боту за прогон (сервер): {trace.Hits}");
+            _out.WriteLine(trace.Text);
             Assert.Equal("InGame", report.Bots.Single().State);
             Assert.Contains("закрыта да", line);
             Assert.Contains("урон за дверью 0 кадров", line);
             Assert.Contains("смертей 0", line);
         }
 
-        /// <summary>Прогон вне метода-теста (xUnit1031: ожидание сервера — не в тесте; образец <c>NetTests.RunUdp</c>).</summary>
-        private static BotReport RunBuildRoomUdp()
+        /// <summary>Прогон вне метода-теста (xUnit1031: ожидание сервера — не в тесте; образец <c>NetTests.RunUdp</c>).
+        /// E2-6: зерно мира 42 → 11 — у старта зерна 42 всего 11 валунов в радиусе добычи бота (до 22 камня при нужных 30),
+        /// у зерна 11 — 28 валунов и 54 дерева. Проверки те же.</summary>
+        private static BotReport RunBuildRoomUdp(StrikeTrace trace, int seconds = 800)
         {
             int port = FreeUdpPort();
             ServerOptions so = ServerOptions.Parse(new[]
             {
-                "--create", "--seed", "42", "--size", "1024", "--port", port.ToString(),
+                "--create", "--seed", "11", "--size", "1024", "--port", port.ToString(),
                 "--debug-day-scale", "30",
             });
+            so.AfterTick = trace.AfterTick;
             using var stopServer = new CancellationTokenSource();
             Task<ServerResult> server = Task.Run(() => ServerRun.Run(so, null, stopServer.Token));
 
             var bo = BotOptions.Parse(new[]
             {
                 "--connect", $"127.0.0.1:{port}", "--count", "1", "--script", BuildRoomBot.Name,
-                "--rtt", "100", "--loss", "0", "--seconds", "800", "--seed", "7",
+                "--rtt", "100", "--loss", "0", "--seconds", seconds.ToString(), "--seed", "7",
             });
             BotReport report;
             try
