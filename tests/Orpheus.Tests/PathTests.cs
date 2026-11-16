@@ -420,7 +420,7 @@ namespace Orpheus.Tests
             _out.WriteLine("поиски подряд, по одному: " + direct);
             PathBench.Report noFill = bench.RunDirect(bench.Requests.Length, new PathFinder(enclosureFillLimit: 0));
             _out.WriteLine("то же без проверки замкнутой области: " + noFill);
-            PathBench.Report sched = bench.RunScheduler(1000, new StopwatchClock());
+            PathBench.Report sched = bench.RunScheduler(1000, new ThreadCpuClock()); // P-003: бюджет — время поиска, не стены
             _out.WriteLine("такты, 40 запросов за такт, бюджет 40 и 3 мс: " + sched);
 
             Assert.Equal(direct.Found + direct.Edge + direct.Partial + direct.Enclosed, sched.Completed);
@@ -446,7 +446,7 @@ namespace Orpheus.Tests
             bench.RunDirect(2000, new PathFinder());
             PathBench.Report direct = bench.RunDirect(bench.Requests.Length, new PathFinder());
             _out.WriteLine("тонкие дома, поиски подряд: " + direct);
-            PathBench.Report sched = bench.RunScheduler(1000, new StopwatchClock());
+            PathBench.Report sched = bench.RunScheduler(1000, new ThreadCpuClock()); // P-003: бюджет — время поиска, не стены
             _out.WriteLine("тонкие дома, такты, 40 запросов за такт, бюджет 40 и 3 мс: " + sched);
             Assert.Equal(direct.Found + direct.Edge + direct.Partial + direct.Enclosed, sched.Completed);
 #if !DEBUG
@@ -628,6 +628,78 @@ namespace Orpheus.Tests
         public long Timestamp => Stopwatch.GetTimestamp();
 
         public long Frequency => Stopwatch.Frequency;
+    }
+
+    /// <summary>
+    /// P-003 (Big, случай 13.11 «бенчмарк тактов под нагрузкой»): бюджет планировщика — ВРЕМЯ ПОИСКА за такт,
+    /// не настенное (07 2.4: «не больше 3 мс времени поиска»). <see cref="StopwatchClock"/> засчитывает и
+    /// вытеснение нити планировщиком ОС: под `-All` стены идут вперёд, пока идёт поиск, и предел 3 мс
+    /// кончается после первых поисков такта → очередь растёт → красные «наибольшее ожидание 5 тактов» и
+    /// «среднее за такт ≤ 3000 мкс» (каждый такт впритык к пределу) без всякого дефекта продукта.
+    /// Эти часы — процессорное время текущей нити (QueryThreadCycleTime — такты ТСР, отданные этой нити):
+    /// вытеснение их не двигает, замедление поиска — двигает. Пороги те же (3 мс за такт, 5 тактов),
+    /// проверка остаётся годной: реальное замедление (поиск медленнее, бюджет меньше, лимит поисков меньше)
+    /// по-прежнему красное. Калибровка «циклы/секунда»: спин отрезками ~1 мс, берётся наибольшее
+    /// отношение — чистый отрезок даёт точную скорость ТСР; вытесненные отрезки относятся ниже
+    /// и отбрасываются. Windows-only (машина разработки и прогоны — Windows).
+    /// </summary>
+    internal sealed class ThreadCpuClock : IMonotonicClock
+    {
+        private readonly long _cyclesPerSecond;
+
+        public ThreadCpuClock()
+        {
+            long bestNum = 0;
+            long bestDen = 1;
+            for (int i = 0; i < 20; i++)
+            {
+                long q0 = Stopwatch.GetTimestamp();
+                Cycles(out long c0);
+                long target = q0 + Math.Max(1, Stopwatch.Frequency / 1000); // спин ~1 мс.
+                while (Stopwatch.GetTimestamp() < target)
+                {
+                }
+
+                long q1 = Stopwatch.GetTimestamp();
+                Cycles(out long c1);
+                long dq = q1 - q0;
+                long dc = c1 - c0;
+                if (dq > 0 && dc * bestDen > bestNum * dq)
+                {
+                    bestNum = dc;
+                    bestDen = dq;
+                }
+            }
+
+            _cyclesPerSecond = bestNum > 0 ? bestNum * Stopwatch.Frequency / bestDen : 1_000_000_000;
+        }
+
+        public long Timestamp
+        {
+            get
+            {
+                Cycles(out long c);
+                return c;
+            }
+        }
+
+        public long Frequency => _cyclesPerSecond;
+
+        private static void Cycles(out long cycles)
+        {
+            if (!QueryThreadCycleTime(GetCurrentThread(), out ulong cy))
+            {
+                throw new System.ComponentModel.Win32Exception(System.Runtime.InteropServices.Marshal.GetLastWin32Error());
+            }
+
+            cycles = (long)cy;
+        }
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        private static extern IntPtr GetCurrentThread();
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool QueryThreadCycleTime(IntPtr threadHandle, out ulong cycleTime);
     }
 
     /// <summary>
