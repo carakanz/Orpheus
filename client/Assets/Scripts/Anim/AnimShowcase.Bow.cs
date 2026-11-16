@@ -2,6 +2,7 @@
 using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
+using Orpheus.Core.World;
 using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using UnityEngine;
@@ -29,12 +30,68 @@ namespace Orpheus.Client.Anim
         bool _stuckShot;
         float _hitAt = -1f;
 
-        Vector3 ArcherPos => _tree + new Vector3(3f, -4f, 0f);
+        // Своё дерево лучников (не то, что рубит дровосек): восточнее его ствола — лучник в дерево, южнее на 3 т — лучник по цели.
+        Vector3 _bowTree;
+        bool _bowTreeFound;
+
+        Vector3 ArcherPos => _bowTree + new Vector3(4.5f, -3f, 0f);
         Vector3 BowTargetPos => ArcherPos + new Vector3(7f, 0f, 0f);
-        Vector3 Archer2Pos => _tree + new Vector3(5f, 0.6f, 0f);
+        Vector3 Archer2Pos => _bowTree + new Vector3(4.5f, 0f, 0f);
+
+        /// <summary>Дерево в 8…30 т от дерева сцены, у которого к востоку 12 × 5 тайлов меньше всего объектов.</summary>
+        void FindBowTree()
+        {
+            WorldModel w = _g.World;
+            TileCoord best = new TileCoord(_treeTile.X, _treeTile.Y + 14);
+            int clutter = int.MaxValue;
+            for (int dy = -30; dy <= 30; dy++)
+            {
+                for (int dx = -30; dx <= 30; dx++)
+                {
+                    if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) < 8)
+                    {
+                        continue; // мимо сцены K-001 / C-012
+                    }
+
+                    TileCoord t = Torus.Wrap(_g.Map, new TileCoord(_treeTile.X + dx, _treeTile.Y + dy));
+                    if (ObjectId.IdOf(w.GetObject(t)) != ObjectId.Tree)
+                    {
+                        continue;
+                    }
+
+                    int n = 0;
+                    for (int y = -1; y <= 4 && n < clutter; y++)
+                    {
+                        for (int x = 1; x <= 13; x++)
+                        {
+                            TileCoord q = Torus.Wrap(_g.Map, new TileCoord(t.X + x, t.Y + y)); // ядро: y вниз — южнее
+                            if (w.GetObject(q) != ObjectId.Empty)
+                            {
+                                n++;
+                            }
+                        }
+                    }
+
+                    if (n < clutter)
+                    {
+                        clutter = n;
+                        best = t;
+                    }
+                }
+            }
+
+            _bowTree = _g.Origin.ToUnity(_g.TileCenter(best));
+            _bowTreeFound = true;
+            Debug.Log($"[anim] дерево лучников {best.X},{best.Y} (объектов к востоку {clutter})");
+        }
 
         void BuildBow()
         {
+            if (!_bowTreeFound)
+            {
+                FindBowTree();
+            }
+
             _archer = new ActorRig(Make("Archer", Color.white));
             _archer.SetHeld(Items.SimpleBow);
             _archer2 = new ActorRig(Make("Archer stuck", Color.white));
@@ -90,7 +147,7 @@ namespace Orpheus.Client.Anim
             a.Apply(a.Animator.Step(dt, s));
 
             // Лучник 2: в ствол дерева, половина натяжения.
-            Vector3 trunk = _tree + new Vector3(0f, AimMath.BodyCenterY, 0f);
+            Vector3 trunk = _bowTree + new Vector3(0f, AimMath.BodyCenterY, 0f);
             Vector2 axis2 = ((Vector2)(trunk - (Archer2Pos + new Vector3(0f, AimMath.BodyCenterY, 0f)))).normalized;
             var s2 = new ActorInput { Held = a2.Held, DrawDirX = axis2.x, DrawDirY = axis2.y };
             if (_t >= StuckDraw && _t < StuckRelease)
@@ -106,7 +163,7 @@ namespace Orpheus.Client.Anim
                 if (!_stuckShot)
                 {
                     _stuckShot = true;
-                    Fire(Archer2Pos, trunk, 24, Items.CopperBow, nowUs, _tree, false);
+                    Fire(Archer2Pos, trunk, 24, Items.CopperBow, nowUs, _bowTree, false);
                 }
             }
 
@@ -155,14 +212,14 @@ namespace Orpheus.Client.Anim
         Shot[] BowShots() => new[]
         {
             // натяжение крупно: покой, четверть, половина, полное (дрожь), выстрел, отдача
-            new Shot { Name = "E3-2_draw", Focus = () => ArcherPos + new Vector3(0.6f, 0.2f, 0f), Ortho = ShotsOrtho,
+            new Shot { Name = "E3-2_draw", Focus = () => ArcherPos + new Vector3(0.25f, 0.3f, 0f), Ortho = ShotsOrtho,
                 Times = new[] { 18.10f, 18.40f, 18.55f, 18.90f, 19.03f, 19.12f }, CropW = 440, CropH = 560 },
             // выстрел целиком: кольцо силы у курсора на цели, вылет, полёт со следом, попадание
-            new Shot { Name = "E3-2_shot", Focus = () => (ArcherPos + BowTargetPos) * 0.5f, Ortho = 3.2f,
-                Times = new[] { 20.70f, 21.02f, 21.08f, 21.14f, 21.20f, 21.30f }, CropW = 1500, CropH = 300 },
+            new Shot { Name = "E3-2_shot", Focus = () => (ArcherPos + BowTargetPos) * 0.5f + new Vector3(0f, 0.3f, 0f), Ortho = 4f,
+                Times = new[] { 20.70f, 21.05f, 21.13f, 21.24f }, CropW = 1100, CropH = 330 },
             // в дерево: натяжение, вылет, полёт, втыкание, дрожь, висит
-            new Shot { Name = "E3-2_stuck", Focus = () => (Archer2Pos + _tree) * 0.5f, Ortho = ShotsOrtho,
-                Times = new[] { 22.45f, 22.53f, 22.60f, 22.68f, 22.75f, 23.40f }, CropW = 900, CropH = 520 },
+            new Shot { Name = "E3-2_stuck", Focus = () => (Archer2Pos + _bowTree) * 0.5f + new Vector3(0f, 0.5f, 0f), Ortho = 3f,
+                Times = new[] { 22.45f, 22.56f, 22.66f, 22.75f, 23.40f }, CropW = 1000, CropH = 460 },
         };
     }
 }

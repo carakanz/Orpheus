@@ -497,8 +497,8 @@ namespace Orpheus.Client.Anim
             return new Swing
             {
                 HandDeg = tremble,
-                LeanDeg = -7f * power * ease,
-                Forward = -0.07f * power * ease,
+                LeanDeg = -10f * power * ease,
+                Forward = -0.1f * power * ease,
                 Squash = 0.035f * power * ease,
                 ReachX = BowReach * ease,
                 ReachY = 0f,
@@ -513,8 +513,8 @@ namespace Orpheus.Client.Anim
             return new Swing
             {
                 HandDeg = 10f * kick,
-                LeanDeg = -7f * (1f - Smooth(u)) + 3f * kick,
-                Forward = -0.07f * (1f - Smooth(u)) + 0.04f * kick,
+                LeanDeg = -10f * (1f - Smooth(u)) + 3f * kick,
+                Forward = -0.1f * (1f - Smooth(u)) + 0.04f * kick,
                 Squash = 0f,
                 ReachX = BowReach * (1f - u * u),
                 ReachY = 0.02f * kick,

@@ -28,6 +28,9 @@ namespace Orpheus.Client
         public const float WobbleDeg = 9f;
         public const float WobbleSec = 0.35f;
 
+        /// <summary>Воткнувшаяся стрела уходит в преграду, тайлов (точка ядра — последняя свободная перед ней, до 1/8 т от грани).</summary>
+        public const float StuckEmbedTiles = 0.35f;
+
         /// <summary>Кольцо силы у курсора: радиус полного, тайлов.</summary>
         public const float RingTiles = 0.55f;
 
@@ -104,7 +107,7 @@ namespace Orpheus.Client
                 a.Root.transform.position = pos;
                 a.Root.transform.rotation = Quaternion.Euler(0f, 0f, deg);
                 // наконечник — в точке ядра (воткнувшаяся — чуть в преграде)
-                a.Body.transform.localPosition = new Vector3(arrived && f.Reason == ProjectileEnd.Wall ? -ArrowTiles * 0.38f : -ArrowTiles * 0.5f, 0f, 0f);
+                a.Body.transform.localPosition = new Vector3(arrived && f.Reason == ProjectileEnd.Wall ? -ArrowTiles * 0.5f + StuckEmbedTiles : -ArrowTiles * 0.5f, 0f, 0f);
                 a.Trail.enabled = trail > 0.05f;
                 a.Trail.transform.localPosition = new Vector3(-ArrowTiles * 0.6f - trail * 0.5f, 0f, 0f);
                 a.Trail.transform.localScale = new Vector3(trail / (32f / 32f), 1f, 1f);
