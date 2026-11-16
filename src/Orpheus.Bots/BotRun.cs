@@ -259,7 +259,7 @@ namespace Orpheus.Bots
             IServerInstance? server = null;
             if (o.LaunchServer != null)
             {
-                server = new PcServerLauncher(o.LaunchServer).Start(o.Launch);
+                server = new PcServerLauncher(o.LaunchServer, hiddenDesktop: true).Start(o.Launch); // C-022: боты — инструмент, сервер на скрытом столе
                 UseEndpoint(o, server.Endpoint);
                 console?.WriteLine($"server pid={server.Endpoint.ProcessId} port={server.Endpoint.Port} ready={server.ReadySeconds.ToString("0.000", CultureInfo.InvariantCulture)}");
                 console?.Flush();

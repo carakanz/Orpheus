@@ -76,7 +76,7 @@ namespace Orpheus.Tests
         [Fact]
         public void D07_S2_13_9_Launcher_SingleThenOpen_FriendJoins_NoRestart()
         {
-            var launcher = new PcServerLauncher(ServerExe);
+            var launcher = new PcServerLauncher(ServerExe, hiddenDesktop: true);
             var launch = NewLaunch(ServerMode.Single, grace: 60);
             IServerInstance server = launcher.Start(launch);
             _serverPids.Add(server.Endpoint.ProcessId);
@@ -490,14 +490,15 @@ namespace Orpheus.Tests
             }
         }
 
-        /// <summary>Дочерний процесс теста: строки stdout в очередь; снимается только он сам (не дерево).</summary>
+        /// <summary>Дочерний процесс теста: строки stdout в очередь; снимается только он сам (не дерево).
+        /// C-022: на невидимом рабочем столе (<see cref="HiddenProcess"/>), его сервер (<c>--launch</c>) — там же.</summary>
         private sealed class Child : IDisposable
         {
-            private readonly Process _p;
+            private readonly HiddenProcess _p;
             private readonly BlockingCollection<string> _lines = new BlockingCollection<string>();
             private readonly List<string> _seen = new List<string>();
 
-            private Child(Process p)
+            private Child(HiddenProcess p)
             {
                 _p = p;
             }
@@ -506,41 +507,22 @@ namespace Orpheus.Tests
 
             public static Child Start(string exe, IEnumerable<string> args)
             {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = exe,
-                    WorkingDirectory = AppContext.BaseDirectory,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = new UTF8Encoding(false),
-                    StandardErrorEncoding = new UTF8Encoding(false),
-                };
-                foreach (string a in args)
-                {
-                    psi.ArgumentList.Add(a);
-                }
-
-                var p = new Process { StartInfo = psi };
-                var c = new Child(p);
-                p.OutputDataReceived += (_, e) =>
-                {
-                    if (e.Data != null)
+                var c = new Child(HiddenProcess.Start(exe, args, AppContext.BaseDirectory));
+                c._p.BeginReadLines(
+                    line =>
                     {
-                        c._lines.Add(e.Data);
-                    }
-                };
-                p.ErrorDataReceived += (_, e) =>
-                {
-                    if (e.Data != null)
+                        if (line != null)
+                        {
+                            c._lines.Add(line);
+                        }
+                    },
+                    line =>
                     {
-                        c._lines.Add("stderr: " + e.Data);
-                    }
-                };
-                p.Start();
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
+                        if (line != null)
+                        {
+                            c._lines.Add("stderr: " + line);
+                        }
+                    });
                 return c;
             }
 
