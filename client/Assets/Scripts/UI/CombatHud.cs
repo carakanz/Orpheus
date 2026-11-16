@@ -105,8 +105,9 @@ namespace Orpheus.Client.UI
                     continue;
                 }
 
-                Vector3 w = toUnity(n.At) + new Vector3(CombatFeed.LaneOffset(n.Lane), HudLayout.DamageLift + CombatFeed.LaneLift(n.Lane) + CombatFeed.Rise(age), 0f);
-                ShowNumber(_root.FromWorld(w), n, age);
+                Vector3 w = toUnity(n.At) + new Vector3(0f, HudLayout.DamageLift + CombatFeed.Rise(age), 0f);
+                Vector2 lane = new Vector2(CombatFeed.LaneSide(n.Lane) * HudLayout.DamageLaneX, (n.Lane > 0 ? 1 : 0) * HudLayout.DamageLaneY);
+                ShowNumber(_root.FromWorld(w) + lane, n, age);
             }
 
             for (int i = _numbersUsed; i < _numbers.Count; i++)

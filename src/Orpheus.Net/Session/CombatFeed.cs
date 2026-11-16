@@ -199,11 +199,8 @@ namespace Orpheus.Net.Session
             return pop * (strong ? StrongScale : 1f);
         }
 
-        /// <summary>Сдвиг дорожки вбок, тайлов: 0, вправо, влево (цифра шириной ~1 тайл — соседние не налезают).</summary>
-        public static float LaneOffset(int lane) => lane == 1 ? 0.65f : lane == 2 ? -0.65f : 0f;
-
-        /// <summary>Подъём дорожки, тайлов: следующая цифра начинается чуть выше.</summary>
-        public static float LaneLift(int lane) => 0.3f * lane;
+        /// <summary>Сторона дорожки: 0 — по центру, 1 — вправо, −1 — влево (шаг — <c>HudLayout.DamageLaneX</c>, единицы холста).</summary>
+        public static int LaneSide(int lane) => lane == 1 ? 1 : lane == 2 ? -1 : 0;
 
         // ---------- полоска врага ----------
 

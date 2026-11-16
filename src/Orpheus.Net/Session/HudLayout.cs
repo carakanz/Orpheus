@@ -126,6 +126,9 @@ namespace Orpheus.Net.Session
         public const int DamageFont = 30;
         public const float DamageLift = 1.2f;
 
+        /// <summary>Дорожки цифр одного существа, единицы холста (не зависят от обзора): шаг вбок шире цифры «10», шаг вверх.</summary>
+        public const float DamageLaneX = 46f, DamageLaneY = 18f;
+
         /// <summary>Экран смерти: кегль заголовка «Вы погибли», строк причины и таймера; середина заголовка — доля высоты холста (выше середины: свой персонаж лежит в центре экрана).</summary>
         public const int DeathTitleFont = 84, DeathLineFont = 30;
         public const float DeathTitleY = 0.74f, DeathLineGap = 14f;
