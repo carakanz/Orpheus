@@ -430,6 +430,7 @@ namespace Orpheus.Client
             _remote = new RemoteInterpolation(_map);
             _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
             _anim = new Anim.NetAnimation(_g, _client, _origin, _world, _entityRoot.transform);
+            HookCombat(_client); // E3-1: урон цифрами, смерть и возрождение на экране
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height}, такт {accept.ServerTick}; " +
                       $"мир — чанки от сервера (генератора у клиента нет), пришло уже {cw.ChunksReceived}");
             _g.Character.gameObject.SetActive(true);
@@ -720,6 +721,10 @@ namespace Orpheus.Client
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
                     _anim?.Remote(id, go.transform, snap.Entities[i]); // E2-7: предмет в руке и удар мечом чужих — из снимка
+                    if (_anim != null && _anim.Gone(id, snap.Entities[i].Kind))
+                    {
+                        _seen.Remove(id); // E3-1: труп врага растворился — не рисуется до удаления сервером
+                    }
                 }
             }
 
@@ -732,6 +737,7 @@ namespace Orpheus.Client
             }
 
             _anim?.Frame(now, _pred!);
+            CombatFrame(); // E3-1: цифры урона, полоски врагов, экран смерти
             _pileView?.Frame(_origin!, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
             if (_args.NetSmokeSeconds > 0)
             {

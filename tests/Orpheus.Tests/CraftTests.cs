@@ -769,7 +769,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_Net_GoldenBytes_CraftRequest_Reply_State()
         {
-            Assert.Equal(29, NetModule.ProtocolVersion); // C-013: 29; E2-16: 28
+            Assert.Equal(30, NetModule.ProtocolVersion); // E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[64];
 
             int n = new CraftRequestMessage { Op = CraftOp.Make, Arg = RecipeTable.CopperPickaxe, Count = 0x0102 }.Write(buf);
@@ -820,7 +820,7 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => CraftStateMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             Assert.True(Codec.IsKnown(30) && Codec.IsKnown(31) && Codec.IsKnown(32));
-            Assert.False(Codec.IsKnown(37)); // E2-5: 33–35 заняты (действие, ответ, сундук); E2-10: 36 — сундуки рядом
+            Assert.False(Codec.IsKnown(38)); // E3-1: 37 — урон; E2-5: 33–35 заняты (действие, ответ, сундук); E2-10: 36 — сундуки рядом
         }
 
         private static void Give(EditTests.EditRig rig, NetClient c, params (byte Item, int Count)[] items)

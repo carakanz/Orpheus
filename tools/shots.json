@@ -157,6 +157,12 @@
     { "name": "C-017_wall_night", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "night", "args": ["--home-demo", "wall"] },
     { "name": "C-017_wall_morning", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "time": "0.05", "args": ["--home-demo", "wall"] },
     { "name": "C-017_piles_evening", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "time": "0.58", "args": ["--paint-demo", "--demo-piles", "--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
-    { "name": "C-017_mountain_evening", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 64, "time": "0.58" }
+    { "name": "C-017_mountain_evening", "seed": "0xE50007", "size": 1024, "tile": [770, 480], "width": 64, "time": "0.58" },
+    { "name": "E3-1_hit", "comment": "E3-1: --ui-demo combat-hit|combat-hurt|combat-kill|combat-death|combat-respawn - enemy dummies around the character, the script feeds CombatFeed with the same messages the server sends (damage 37, death 24, respawn 25): own hits on a rogue (yellow 10, 10, big 13 = series finisher), another player hit (white), enemy health bars, an elite bar with a name; hurt - red numbers on the character; kill - the rogue falls and dissolves (strip); death - dark screen, You died, killer, respawn timer; respawn - fade out and the respawn note.", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-hit"] },
+    { "name": "E3-1_hit_2160", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-hit"], "frame": { "width": 3840, "height": 2160 } },
+    { "name": "E3-1_hurt", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-hurt"] },
+    { "name": "E3-1_kill_strip", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-kill", "--shot-walk", "stay:6:0.3:0", "--shot-crop", "640x400"] },
+    { "name": "E3-1_death", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-death"] },
+    { "name": "E3-1_respawn", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-respawn"] }
   ]
 }
