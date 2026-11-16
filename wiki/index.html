@@ -352,7 +352,7 @@ const FILTER={enemy:'act',boss:'act',item:'category',ore:'kind',biome:'act'};
 function listView(kind){
   let items=L(kind); const ff=FILTER[kind]; const fv=S.filter[kind]; let mf=null; if(MFILTER[kind]) [items,mf]=mfilter(kind,items);
   const vals=ff?[...new Set(items.map(o=>o[ff]).filter(v=>v!=null))].sort():[];
-  if(fv!=null) items=items.filter(o=>String(o[ff])===String(fv));
+  if(ff&&fv!=null) items=items.filter(o=>String(o[ff])===String(fv));
   const sel=S.sel&&S.sel.kind===kind&&L(kind).some(o=>o.id===S.sel.id)?S.sel.id:(items[0]||{}).id;
   const short=v=>{ const s=txt(v); return s.length>110?s.slice(0,107)+'…':s; };
   const filters=mf?mf:vals.length>1?$('div',{class:'filters'},'Показать:',$('button',{type:'button','aria-pressed':String(fv==null),onclick:()=>{S.filter[kind]=null;render();}},'все'),vals.map(v=>$('button',{type:'button','aria-pressed':String(String(fv)===String(v)),onclick:()=>{S.filter[kind]=v;render();}},ff==='act'?'акт '+v:v))):null;

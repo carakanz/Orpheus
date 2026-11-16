@@ -16,7 +16,7 @@ for c in cands:
         'id': c['id'], 'name': c['rus'], 'eng': c['eng'], 'aliases': [c['eng']],
         'act': t['act'], 'tier': t['tier'], 'archetype': t['archetype'], 'archetypeName': t.get('archetype_name') or None,
         'role': t['role'], 'nightOnly': bool(t.get('night_only')), 'sizeTiles': t['size_tiles'],
-        'biomes': t['biomes'], 'description': t['description'], 'imageSubject': t['image_subject'],
+        'biomes': [BN.get(x, x) for x in t['biomes']], 'description': t['description'], 'imageSubject': t['image_subject'],
         'facts': {'тип': c['type'], 'размер': ', '.join(c['size']) or '—', 'CR': c['cr'], 'среда': ', '.join(c['habitats']) or '—'},
         'variants': [f"{v['rus']} (CR {v['cr']})" for v in c['variants']] if len(c['variants']) > 1 else None,
         'sources': [v['url'] for v in c['variants']],
@@ -41,5 +41,5 @@ json.dump({'candidates': out, 'notes': notes}, open(os.path.join(ROOT, 'wiki', '
 dist = lambda f: dict(collections.Counter(x for o in out for x in ([o[f]] if not isinstance(o[f], list) else o[f])).most_common())
 print('в вики', len(out))
 print('акты', dist('act')); print('ярусы', dist('tier'))
-print('биомы', {BN.get(k, k): v for k, v in dist('biomes').items()})
+print('биомы', dist('biomes'))
 print('архетипы', dist('archetype'))
