@@ -30,6 +30,7 @@ namespace Orpheus.Tests
     /// (512 байта), и обрыв физически не попадает в середину файла — приёмка ничего бы не проверяла.
     /// </para>
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public sealed class SaveKillTests : IDisposable
     {
         private const ulong Seed = 0x0404;

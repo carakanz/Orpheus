@@ -20,10 +20,15 @@ namespace Orpheus.Bots
         private readonly long[] _inputs0;
         private readonly long[] _inputsLast;
         private readonly int[] _frames;
-        private readonly long[] _resyncLast;
         private readonly long[] _resyncAtResume;
         private readonly bool[] _hadPred;
         private readonly long[] _resyncSeen;
+        // P-003 (Pause15s: «сдвигов в паузе 57» в `-All`): база замера держится, пока поток снимков
+        // идёт (кадр за кадром снимок новее) — под нагрузкой «в пути» идут секунды до-паузного мира,
+        // 0,5 с запаса не хватает. Замер начинается событием: снимок такта паузы пришёл и поток встал.
+        private readonly uint[] _snapTick;
+        private readonly bool[] _settleSnap;
+        private readonly bool[] _resumePending;
         private bool _requested;
         private bool _released;
 
@@ -39,7 +44,6 @@ namespace Orpheus.Bots
             _inputs0 = new long[n];
             _inputsLast = new long[n];
             _frames = new int[n];
-            _resyncLast = new long[n];
             _resyncAtResume = new long[n];
             for (int i = 0; i < n; i++)
             {
@@ -48,22 +52,34 @@ namespace Orpheus.Bots
 
             _hadPred = new bool[n];
             _resyncSeen = new long[n];
+            _snapTick = new uint[n];
+            _settleSnap = new bool[n];
+            _resumePending = new bool[n];
             Log = new System.Collections.Generic.List<string>();
             MovedFrames = new long[n];
             InputsInPause = new long[n];
+            MeasuredFrames = new long[n];
+            ResyncWindowFrames = new long[n];
         }
 
         /// <summary>
-        /// Кадров ботов в паузе, где снимок или предсказание сдвинулись от позиции на входе в паузу. Первые
-        /// <see cref="SettleFrames"/> кадров паузы — не в счёт: снимок, бывший в пути, мог прийти после «пауза» (другой канал).
+        /// Кадров ботов в паузе, где снимок или предсказание сдвинулись от позиции на входе в паузу. База замера
+        /// держится, пока применяется новый снимок (поток «допаузного» мира в пути) и пока не пройдены
+        /// <see cref="SettleFrames"/> кадров; замер начинается, когда снимок такта паузы применён и поток встал (P-003).
         /// </summary>
         public long[] MovedFrames { get; }
 
-        /// <summary>Кадров ботов (60 Гц) от входа в паузу, пока позиция на входе уточняется: 0,5 с.</summary>
+        /// <summary>Кадров ботов (60 Гц) минимального запаса после входа в паузу, пока позиция на входе уточняется: 0,5 с.</summary>
         public const int SettleFrames = 30;
 
         /// <summary>Кадров ввода, отправленных ботом в паузе (после того как он о ней узнал).</summary>
         public long[] InputsInPause { get; }
+
+        /// <summary>Кадров замера в паузе (база установлена: поток снимков встал): 0 — пауза не «встала», сдвиги не замерялись (P-003).</summary>
+        public long[] MeasuredFrames { get; }
+
+        /// <summary>Кадров окна «после паузы» (от первого снимка новее такта паузы до конца прогона): 0 — окно не открылось (P-003).</summary>
+        public long[] ResyncWindowFrames { get; }
 
         /// <summary>Правок предсказания после снятия паузы (до конца прогона); пауза не снималась — −1.</summary>
         public long ResyncedAfter(int i) => _resyncAtResume[i] < 0 ? -1 : (_bots[i].Prediction?.Resynced ?? 0) - _resyncAtResume[i];
@@ -130,6 +146,12 @@ namespace Orpheus.Bots
                 LocalPrediction? p = _bots[i].Prediction;
                 WorldPos self = c.HasSnapshot ? c.Latest.Self.Position : default;
                 WorldPos pred = p?.Position ?? default;
+                bool snapAdvanced = c.HasSnapshot && (int)(c.Latest.Tick - _snapTick[i]) > 0;
+                if (c.HasSnapshot)
+                {
+                    _snapTick[i] = c.Latest.Tick;
+                }
+
                 if (p != null && !_hadPred[i])
                 {
                     _hadPred[i] = true;
@@ -147,26 +169,49 @@ namespace Orpheus.Bots
                     if (!_was[i])
                     {
                         _frames[i] = 0;
+                        _settleSnap[i] = false;
                         _inputs0[i] = c.InputsSent;
                     }
 
-                    if (_frames[i]++ < SettleFrames)
+                    if (!_settleSnap[i] && c.HasSnapshot && (int)(c.Latest.Tick - c.PauseTick) >= 0)
                     {
+                        _settleSnap[i] = true; // снимок такта паузы применён: дальше сервер не шагает
+                    }
+
+                    if (!_settleSnap[i] || snapAdvanced || _frames[i] < SettleFrames)
+                    {
+                        _frames[i]++;
                         _self0[i] = self;
                         _pred0[i] = pred;
                     }
-                    else if (self != _self0[i] || pred != _pred0[i])
+                    else
                     {
-                        MovedFrames[i]++;
+                        _frames[i]++;
+                        MeasuredFrames[i]++;
+                        if (self != _self0[i] || pred != _pred0[i])
+                        {
+                            MovedFrames[i]++;
+                        }
                     }
 
                     _inputsLast[i] = c.InputsSent;
-                    _resyncLast[i] = p?.Resynced ?? 0;
                 }
                 else if (_was[i])
                 {
                     InputsInPause[i] += _inputsLast[i] - _inputs0[i];
-                    _resyncAtResume[i] = _resyncLast[i]; // с последнего кадра паузы: правка в кадре снятия — уже «после»
+                    _resumePending[i] = true; // P-003: окно «после» открывается чистым снимком после паузы
+                }
+                else if (_resumePending[i] && snapAdvanced && (int)(c.Latest.Tick - c.PauseTick) > 0)
+                {
+                    // P-003: правки сверки с первым снимком, догнавшим паузу, — не «правки игры после паузы»;
+                    // окно считается от применения этого снимка.
+                    _resumePending[i] = false;
+                    _resyncAtResume[i] = p?.Resynced ?? 0;
+                }
+
+                if (!_resumePending[i] && _resyncAtResume[i] >= 0 && !c.Paused)
+                {
+                    ResyncWindowFrames[i]++;
                 }
 
                 _was[i] = c.Paused;

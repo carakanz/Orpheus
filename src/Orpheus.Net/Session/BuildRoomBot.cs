@@ -217,6 +217,13 @@ namespace Orpheus.Net.Session
         /// <summary>Отказы правки по кодам (<see cref="EditReply"/>) — диагноз приёмки.</summary>
         public string RefusalsText => string.Join(", ", _refused.Select(kv => kv.Key + " ×" + kv.Value));
 
+        private bool? _doorSeen; // состояние двери в мире клиента прошлым тиком (диагностика P-003: D08_3_1 «закрыта нет»)
+        private string _doorTrace = "";
+
+        /// <summary>Переходы состояния двери (наблюдение клиента): [тN:откр/закр/нет этап] — диагноз, закрывается ли
+        /// дверь вовсе, или открыта весь прогон, или хлопает (автооткрытие/отбрасывание).</summary>
+        public string DoorTrace => _doorTrace.Length == 0 ? "переходов нет" : _doorTrace;
+
         /// <summary>Кадр ввода (30 Гц): копать, идти, ставить или стоять. <paramref name="pos"/> — позиция своя
         /// (предсказание NetBot или снимок), <paramref name="nowUs"/> — часы NetBot (для часов мира, 1-014).</summary>
         public InputFrame Next(NetClient client, WorldPos pos, long nowUs)
@@ -231,8 +238,9 @@ namespace Orpheus.Net.Session
 
             if (Ticks > MaxTicks)
             {
-                Stage = Phase.Fail;
+                // Этап пишется ДО перехода в Fail: иначе «этап Fail» — самоссылка, фаза терялась (P-003).
                 FailReason = $"лимит {MaxTicks} тиков: этап {Stage}, полов {FloorsPlaced}/{FloorTiles}, стен {WallsPlaced}/15, дверь {(DoorPlaced ? "поставлена" : "нет")}";
+                Stage = Phase.Fail;
                 return InputFrame.None;
             }
 
@@ -272,6 +280,18 @@ namespace Orpheus.Net.Session
                 }
             }
             _prevHealth = self.Health;
+
+            // Диагностика P-003 (D08_3_1 «закрыта нет»): каждое состояние двери в мире клиента — в трассу.
+            bool? doorOpen = world.World.TryGetBuild(DoorTile, out BuildRecord drec) ? drec.IsDoorOpen : (bool?)null;
+            if (doorOpen != _doorSeen)
+            {
+                if (_doorTrace.Length < 900)
+                {
+                    _doorTrace += $"[т{Ticks}:{(doorOpen == null ? "нет" : doorOpen.Value ? "откр" : "закр")} {Stage}] ";
+                }
+
+                _doorSeen = doorOpen;
+            }
 
             // C-004: самооборона и на добыче/стройке. Сутки ×30 — ночь приходит посреди стройки; без меча
             // разбойник забивал строителя за 9 ударов (трасса сервера, такты 1028–1292), и «комнату» достраивал труп.

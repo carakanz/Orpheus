@@ -84,14 +84,20 @@ namespace Orpheus.Bots
         /// <inheritdoc cref="Pauses"/>
         public string PausedBy { get; set; } = string.Empty;
 
-        /// <summary>Кадров в паузе, где снимок или предсказание сдвинулись (после 0,5 с от входа в паузу).</summary>
+        /// <summary>Кадров в паузе, где снимок или предсказание сдвинулись (базаустановлена: снимок такта паузы применён, поток встал; P-003).</summary>
         public long PauseMovedFrames { get; set; }
+
+        /// <summary>Кадров замера в паузе (поток снимков стоит): 0 — сдвиги не замерялись, тест неинформативен (P-003).</summary>
+        public long PauseMeasuredFrames { get; set; }
 
         /// <summary>Кадров ввода, ушедших в паузе (после того как бот о ней узнал).</summary>
         public long PauseInputsSent { get; set; }
 
-        /// <summary>Правок предсказания после снятия паузы; пауза не снималась — −1.</summary>
+        /// <summary>Правок предсказания после снятия паузы (окно — от первого снимка новее такта паузы, P-003); пауза не снималась — −1.</summary>
         public long PredResyncedAfterPause { get; set; } = -1;
+
+        /// <summary>Кадров окна «после паузы»: 0 — чистый снимок после паузы не пришёл, правки не замерялись (P-003).</summary>
+        public long PredResyncWindowFrames { get; set; }
 
         /// <summary>Образцов часов, пропущенных в паузе; пауз, снятых по снимку раньше сообщения; устаревших «пауза».</summary>
         public long ClockSamplesWhileHeld { get; set; }
@@ -243,6 +249,10 @@ namespace Orpheus.Bots
         /// <summary>Кадров ввода в секунду (docs/07, 2.4).</summary>
         public const int FrameRate = 60;
 
+        /// <summary>P-003: щедрый лимит на вход всех ботов до того, как потечёт окно <c>--seconds</c>
+        /// (старт сервера + генерация карты под нагрузкой параллельных классов xUnit).</summary>
+        public const double EntryGraceSeconds = 30;
+
         public static BotReport Run(BotOptions o, TextWriter? console, CancellationToken stop = default)
         {
             // «Игра хоста» (0-024): сервер — дочерним процессом лаунчера или найденный по файлу-замку.
@@ -328,10 +338,16 @@ namespace Orpheus.Bots
             bool openSent = false;
             bool openReported = false;
             BotPause? pause = o.PauseAt >= 0 ? new BotPause(bots, o.PauseAt, o.PauseFor) : null; // 0-036
+            // P-003 (D00_Net_Udp_BotsLogIn): --seconds — время в игре, а не wall-clock от старта цикла.
+            // Короткие прогоны (3 с) шли бок о бок со стартом сервера: под нагрузкой `-All` генерация карты
+            // 1024 и вход не влезали в 3 с → InGame < Count. Окно отсчитывается от мига, когда все в игре;
+            // вход ждём щедро (EntryGraceSeconds) — вход за лимитом это и есть настоящий отказ, он станет красным.
+            double allInAt = -1;
+            double windowEnd = o.Seconds + EntryGraceSeconds;
             using (var clock = new PcTickClock(FrameRate))
             {
                 double nextStatus = 10;
-                while (watch.Elapsed.TotalSeconds < o.Seconds && !stop.IsCancellationRequested)
+                while (watch.Elapsed.TotalSeconds < windowEnd && !stop.IsCancellationRequested)
                 {
                     long now = watch.Elapsed.Ticks / (TimeSpan.TicksPerMillisecond / 1000);
                     o.OnFrame?.Invoke(now);
@@ -351,6 +367,25 @@ namespace Orpheus.Bots
                     if (!anyAlive)
                     {
                         break;
+                    }
+
+                    if (allInAt < 0)
+                    {
+                        bool allIn = true;
+                        for (int i = 0; i < bots.Length; i++)
+                        {
+                            if (bots[i].Client.State != NetClientState.InGame)
+                            {
+                                allIn = false;
+                                break;
+                            }
+                        }
+
+                        if (allIn)
+                        {
+                            allInAt = watch.Elapsed.TotalSeconds;
+                            windowEnd = allInAt + o.Seconds;
+                        }
                     }
 
                     pause?.Frame(watch.Elapsed.TotalSeconds);
@@ -453,8 +488,10 @@ namespace Orpheus.Bots
                     PausedSeconds = c.PausedTotalUs / 1e6,
                     PausedBy = c.PausedBy,
                     PauseMovedFrames = pause?.MovedFrames[i] ?? 0,
+                    PauseMeasuredFrames = pause?.MeasuredFrames[i] ?? 0,
                     PauseInputsSent = pause?.InputsInPause[i] ?? 0,
                     PredResyncedAfterPause = pause?.ResyncedAfter(i) ?? -1,
+                    PredResyncWindowFrames = pause?.ResyncWindowFrames[i] ?? 0,
                     ClockSamplesWhileHeld = c.Clock.SamplesWhileHeld,
                     PausesReleasedBySnapshot = c.PausesReleasedBySnapshot,
                     PausesStale = c.PausesStale,
@@ -489,6 +526,7 @@ namespace Orpheus.Bots
                                    $"стройка {build.BuildTicks} тиков, урон за дверью {build.DamageThroughDoor} кадров, смертей {build.Deaths}, рассвет {(build.DawnReached ? "дождались" : "нет")}, ударов {build.AttacksIssued}" +
                                    $"{(build.FailReason != null ? $", отказ: {build.FailReason}" : "")}" +
                                    $"; отказов {build.Refused} ({build.RefusalsText})" +
+                                   $"; дверь: {build.DoorTrace}" +
                                    $"{(build.DamageThroughDoor > 0 ? $"; попадания: {build.DamageDetail}" : "")}";
                 }
 
@@ -819,8 +857,10 @@ namespace Orpheus.Bots
                 w.WriteNumber("pausedSeconds", Math.Round(b.PausedSeconds, 3));
                 w.WriteString("pausedBy", b.PausedBy);
                 w.WriteNumber("pauseMovedFrames", b.PauseMovedFrames);
+                w.WriteNumber("pauseMeasuredFrames", b.PauseMeasuredFrames);
                 w.WriteNumber("pauseInputsSent", b.PauseInputsSent);
                 w.WriteNumber("predResyncedAfterPause", b.PredResyncedAfterPause);
+                w.WriteNumber("predResyncWindowFrames", b.PredResyncWindowFrames);
                 w.WriteNumber("clockSamplesWhileHeld", b.ClockSamplesWhileHeld);
                 w.WriteNumber("pausesReleasedBySnapshot", b.PausesReleasedBySnapshot);
                 w.WriteNumber("pausesStale", b.PausesStale);

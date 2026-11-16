@@ -29,6 +29,7 @@ namespace Orpheus.Tests
     /// бинд на все адреса вызывает окно брандмауэра Windows (ручная проверка Автора). Свои процессы снимаются в
     /// <c>finally</c> по номеру — только свои.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class HostProcessTests : IDisposable
     {
         private const string OpenAddress = "127.0.0.2";
@@ -83,8 +84,28 @@ namespace Orpheus.Tests
             NetClient? friend = null;
             try
             {
-                _out.WriteLine($"сервер готов за {server.ReadySeconds:0.000} с (1024², создание мира), порт {server.Endpoint.Port}");
-                Assert.True(server.ReadySeconds <= 5, $"старт {server.ReadySeconds:0.00} с > 5 с (1.9 п. 4)");
+                _out.WriteLine($"лаунчер: сервер готов за {server.ReadySeconds:0.000} с wall-clock (создание процесса + загрузка рантайма), порт {server.Endpoint.Port}");
+                // P-003 (6 падений в `-All`): правило 1.9 п. 4 — секунды ОТ ЗАПУСКА ПРОЦЕССА до готовности, их
+                // меряет сам сервер (лог «готов: принимаю подключения», поле sinceProcessStartSec). Wall-clock
+                // лаунчера включает создание процесса ОС и планировщик — под `-All` это шум, он печатается для
+                // справки; проверка идёт по числу самого процесса, порог 5 с не ослаблен.
+                double readyInProc = -1;
+                SpinWait.SpinUntil(() =>
+                {
+                    foreach (JsonElement e in ReadLog())
+                    {
+                        if (Msg(e) == "готов: принимаю подключения")
+                        {
+                            readyInProc = e.GetProperty("data").GetProperty("sinceProcessStartSec").GetDouble();
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }, 10_000);
+                Assert.True(readyInProc >= 0, "в логе сервера нет строки готовности с sinceProcessStartSec");
+                _out.WriteLine($"сервер: готов за {readyInProc:0.000} с от запуска процесса (1024², создание мира)");
+                Assert.True(readyInProc <= 5, $"старт {readyInProc:0.00} с > 5 с от запуска процесса (1.9 п. 4)");
                 AssertListening(server.Endpoint.Port, a => IPAddress.IsLoopback(a), "до «Открыть для друзей» — только петля");
                 using (Process sp = Process.GetProcessById(server.Endpoint.ProcessId))
                 {
