@@ -6,7 +6,7 @@
 
 | Тест | Класс | Случаи | Последнее | Примечание |
 | --- | --- | --- | --- | --- |
-| `D00_Net_Udp_BotsLogIn_Snapshots30Hz_VersionMismatchRejected` | NetTests | 10 | 13.11 (E1-1 трижды, P-002), 14.11 (E1-8 ci; C-003 ci) | боты не входят за 6 с под нагрузкой; >3-го случая → чинить в P-003 |
+| `D00_Net_Udp_BotsLogIn_Snapshots30Hz_VersionMismatchRejected` | NetTests | 10 | 13.11 (E1-1 трижды, P-002), 14.11 (E1-8 ci; C-003 ci) | **Починен 16.11 (P-003):** `--seconds` — время в игре от мига «все в игре» (вход ждём ≤ 30 с), раньше 3-секундное окно стартовало wall-clock вместе с сервером и вход не влезал под нагрузкой. Регресс-тест `D01_Net_Udp_SlowLink_EntryDoesNotEatGameWindow` (RTT 2 с: на старом коде красный, на новом зелёный) |
 | `D07_S7_4_ServerRun_HostCrashed_ServerRestarted_HostAndFriendsSamePlace` | ReturnTests | 6 | 13.11 (1-026), 14.11 (E1-8 ci) | в журнале — `HostCrashed_SamePlace`; «уход игрока не сохранён» под нагрузкой |
 | `D00_Net_Udp_Big_TwoBots60s_Rtt100_Loss1_NoDisconnects` | NetTests | 3 | 13.11 (1-026) | UDP под нагрузкой; боты 0 с в игре |
 | `D08_S3_0_2_RunSeam_Udp_Big_Rtt100_Sigma10_Loss1_LapPerAxisExact_ObserverNoSeamJump` | RunSeamTests | 4 | 13.11 (1-026) | ~9 мин, UDP Big; в этот раз — NullReference (BotRun.WatchText :659) при пустом прогоне |

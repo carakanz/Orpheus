@@ -243,6 +243,10 @@ namespace Orpheus.Bots
         /// <summary>Кадров ввода в секунду (docs/07, 2.4).</summary>
         public const int FrameRate = 60;
 
+        /// <summary>P-003: щедрый лимит на вход всех ботов до того, как потечёт окно <c>--seconds</c>
+        /// (старт сервера + генерация карты под нагрузкой параллельных классов xUnit).</summary>
+        public const double EntryGraceSeconds = 30;
+
         public static BotReport Run(BotOptions o, TextWriter? console, CancellationToken stop = default)
         {
             // «Игра хоста» (0-024): сервер — дочерним процессом лаунчера или найденный по файлу-замку.
@@ -328,10 +332,16 @@ namespace Orpheus.Bots
             bool openSent = false;
             bool openReported = false;
             BotPause? pause = o.PauseAt >= 0 ? new BotPause(bots, o.PauseAt, o.PauseFor) : null; // 0-036
+            // P-003 (D00_Net_Udp_BotsLogIn): --seconds — время в игре, а не wall-clock от старта цикла.
+            // Короткие прогоны (3 с) шли бок о бок со стартом сервера: под нагрузкой `-All` генерация карты
+            // 1024 и вход не влезали в 3 с → InGame < Count. Окно отсчитывается от мига, когда все в игре;
+            // вход ждём щедро (EntryGraceSeconds) — вход за лимитом это и есть настоящий отказ, он станет красным.
+            double allInAt = -1;
+            double windowEnd = o.Seconds + EntryGraceSeconds;
             using (var clock = new PcTickClock(FrameRate))
             {
                 double nextStatus = 10;
-                while (watch.Elapsed.TotalSeconds < o.Seconds && !stop.IsCancellationRequested)
+                while (watch.Elapsed.TotalSeconds < windowEnd && !stop.IsCancellationRequested)
                 {
                     long now = watch.Elapsed.Ticks / (TimeSpan.TicksPerMillisecond / 1000);
                     o.OnFrame?.Invoke(now);
@@ -351,6 +361,25 @@ namespace Orpheus.Bots
                     if (!anyAlive)
                     {
                         break;
+                    }
+
+                    if (allInAt < 0)
+                    {
+                        bool allIn = true;
+                        for (int i = 0; i < bots.Length; i++)
+                        {
+                            if (bots[i].Client.State != NetClientState.InGame)
+                            {
+                                allIn = false;
+                                break;
+                            }
+                        }
+
+                        if (allIn)
+                        {
+                            allInAt = watch.Elapsed.TotalSeconds;
+                            windowEnd = allInAt + o.Seconds;
+                        }
                     }
 
                     pause?.Frame(watch.Elapsed.TotalSeconds);

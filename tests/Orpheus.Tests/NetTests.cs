@@ -1650,6 +1650,27 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// P-003 (D00_Net_Udp_BotsLogIn): <c>--seconds</c> — время в игре, вход не съедает окно.
+        /// Сервер (карта 1024) стартует вместе с ботами, и под нагрузкой параллельных классов xUnit вход
+        /// не влезал в 3 с — InGame &lt; Count (10 падений в <c>-All</c>). Здесь связь искусственно
+        /// медленная (RTT 2000 мс): вход стоит ~4 с wall-clock, а проверки обязаны быть зелёными —
+        /// окно отсчитывается от мига входа (фикс в <c>BotRun.RunBots</c>).
+        /// </summary>
+        [Fact]
+        public void D01_Net_Udp_SlowLink_EntryDoesNotEatGameWindow()
+        {
+            UdpRun run = RunUdp(bots: 2, seconds: 3, rttMs: 2000, lossPercent: 0, extra: o2 => { });
+            BotReport r = run.Report;
+            Assert.Equal(2, r.InGame);
+            Assert.Equal(0, r.Disconnects);
+            foreach (BotStats b in r.Bots)
+            {
+                _out.WriteLine($"бот {b.Index}: #{b.EntityId}, {b.SecondsInGame:F1} с в игре из окна 3 с");
+                Assert.True(b.SecondsInGame >= 2.9, $"{b.SecondsInGame:F2} с в игре — окно отсчитано не от входа");
+            }
+        }
+
+        /// <summary>
         /// Карточка 0-008, приёмка: 2 бота × 60 с, RTT 100 мс, потеря 1 % по UDP 127.0.0.1 — 0 отключений;
         /// позиция в снимке против сервера в том же такте ≤ 0,5 тайла. Ночной прогон: <c>tools\ci.cmd -All -TimeLimitSec 0</c>.
         /// <para>
