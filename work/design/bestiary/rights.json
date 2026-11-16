@@ -1,0 +1,3280 @@
+{
+ "pi": [
+  {
+   "url": "myconid-sprout-mm",
+   "eng": "Myconid Sprout",
+   "rus": "Росток миконида",
+   "source": "MM",
+   "cr": "0",
+   "type": "Растение",
+   "reason": "микониды (D&D)"
+  },
+  {
+   "url": "modron-monodrone-mm",
+   "eng": "Modron Monodrone",
+   "rus": "Модрон монодрон",
+   "source": "MM",
+   "cr": "1/8",
+   "type": "Конструкт",
+   "reason": "модроны (Planescape)"
+  },
+  {
+   "url": "slaad-tadpole-mm",
+   "eng": "Slaad Tadpole",
+   "rus": "Слаад головастик",
+   "source": "MM",
+   "cr": "1/8",
+   "type": "Аберрация",
+   "reason": "слаады (PI)"
+  },
+  {
+   "url": "flumph-mm",
+   "eng": "Flumph",
+   "rus": "Фламф",
+   "source": "MM",
+   "cr": "1/8",
+   "type": "Аберрация",
+   "reason": "флампф (D&D)"
+  },
+  {
+   "url": "aarakocra-skirmisher-mm",
+   "eng": "Aarakocra Skirmisher",
+   "rus": "Ааракокра застрельщик",
+   "source": "MM",
+   "cr": "1/4",
+   "type": "Элементаль",
+   "reason": "ааракокры (D&D)"
+  },
+  {
+   "url": "kenku-mm",
+   "eng": "Kenku",
+   "rus": "Кенку",
+   "source": "MM",
+   "cr": "1/4",
+   "type": "Монстр",
+   "reason": "кенку (D&D)"
+  },
+  {
+   "url": "kuo-toa-mm",
+   "eng": "Kuo-toa",
+   "rus": "Куо-тоа",
+   "source": "MM",
+   "cr": "1/4",
+   "type": "Аберрация",
+   "reason": "кво-тоа (PI)"
+  },
+  {
+   "url": "modron-duodrone-mm",
+   "eng": "Modron Duodrone",
+   "rus": "Модрон дуодрон",
+   "source": "MM",
+   "cr": "1/4",
+   "type": "Конструкт",
+   "reason": "модроны (Planescape)"
+  },
+  {
+   "url": "myconid-adult-mm",
+   "eng": "Myconid Adult",
+   "rus": "Взрослый миконид",
+   "source": "MM",
+   "cr": "1/2",
+   "type": "Растение",
+   "reason": "микониды (D&D)"
+  },
+  {
+   "url": "gas-spore-fungus-mm",
+   "eng": "Gas Spore Fungus",
+   "rus": "Газовая спора",
+   "source": "MM",
+   "cr": "1/2",
+   "type": "Растение",
+   "reason": "бехолдер и родня (PI, OGL 1.0a)"
+  },
+  {
+   "url": "modron-tridrone-mm",
+   "eng": "Modron Tridrone",
+   "rus": "Модрон тридрон",
+   "source": "MM",
+   "cr": "1/2",
+   "type": "Конструкт",
+   "reason": "модроны (Planescape)"
+  },
+  {
+   "url": "kuo-toa-whip-mm",
+   "eng": "Kuo-toa Whip",
+   "rus": "Куо-тоа кнут",
+   "source": "MM",
+   "cr": "1",
+   "type": "Аберрация",
+   "reason": "кво-тоа (PI)"
+  },
+  {
+   "url": "modron-quadrone-mm",
+   "eng": "Modron Quadrone",
+   "rus": "Модрон квадрон",
+   "source": "MM",
+   "cr": "1",
+   "type": "Конструкт",
+   "reason": "модроны (Planescape)"
+  },
+  {
+   "url": "thri-kreen-marauder-mm",
+   "eng": "Thri-kreen Marauder",
+   "rus": "Три-крин мародёр",
+   "source": "MM",
+   "cr": "1",
+   "type": "Монстр",
+   "reason": "три-крины (D&D)"
+  },
+  {
+   "url": "yuan-ti-infiltrator-mm",
+   "eng": "Yuan-ti Infiltrator",
+   "rus": "Юань-ти лазутчик",
+   "source": "MM",
+   "cr": "1",
+   "type": "Монстр",
+   "reason": "юань-ти (PI)"
+  },
+  {
+   "url": "myconid-sovereign-mm",
+   "eng": "Myconid Sovereign",
+   "rus": "Верховный миконид",
+   "source": "MM",
+   "cr": "2",
+   "type": "Растение",
+   "reason": "микониды (D&D)"
+  },
+  {
+   "url": "githzerai-monk-mm",
+   "eng": "Githzerai Monk",
+   "rus": "Гитцерай монах",
+   "source": "MM",
+   "cr": "2",
+   "type": "Аберрация (гит)",
+   "reason": "гит: гитьянки и гитзерай (PI)"
+  },
+  {
+   "url": "quaggoth-mm",
+   "eng": "Quaggoth",
+   "rus": "Кваггот",
+   "source": "MM",
+   "cr": "2",
+   "type": "Монстр",
+   "reason": "квагготы (D&D)"
+  },
+  {
+   "url": "modron-pentadrone-mm",
+   "eng": "Modron Pentadrone",
+   "rus": "Модрон пентадрон",
+   "source": "MM",
+   "cr": "2",
+   "type": "Конструкт",
+   "reason": "модроны (Planescape)"
+  },
+  {
+   "url": "nothic-mm",
+   "eng": "Nothic",
+   "rus": "Нотик",
+   "source": "MM",
+   "cr": "2",
+   "type": "Аберрация",
+   "reason": "нотик (D&D)"
+  },
+  {
+   "url": "intellect-devourer-mm",
+   "eng": "Intellect Devourer",
+   "rus": "Пожиратель интеллекта",
+   "source": "MM",
+   "cr": "2",
+   "type": "Аберрация",
+   "reason": "иллитид / свежеватель разума и его мозг (PI)"
+  },
+  {
+   "url": "carrion-crawler-mm",
+   "eng": "Carrion Crawler",
+   "rus": "Ползающий падальщик",
+   "source": "MM",
+   "cr": "2",
+   "type": "Монстр",
+   "reason": "ползающий падальщик (PI)"
+  },
+  {
+   "url": "githyanki-warrior-mm",
+   "eng": "Githyanki Warrior",
+   "rus": "Гитьянки воин",
+   "source": "MM",
+   "cr": "3",
+   "type": "Аберрация (гит)",
+   "reason": "гит: гитьянки и гитзерай (PI)"
+  },
+  {
+   "url": "grell-mm",
+   "eng": "Grell",
+   "rus": "Грелл",
+   "source": "MM",
+   "cr": "3",
+   "type": "Аберрация",
+   "reason": "грелл (D&D)"
+  },
+  {
+   "url": "quaggoth-thonot-mm",
+   "eng": "Quaggoth Thonot",
+   "rus": "Кваггот тонот",
+   "source": "MM",
+   "cr": "3",
+   "type": "Монстр",
+   "reason": "квагготы (D&D)"
+  },
+  {
+   "url": "hook-horror-mm",
+   "eng": "Hook Horror",
+   "rus": "Крюкастый ужас",
+   "source": "MM",
+   "cr": "3",
+   "type": "Монстр",
+   "reason": "крючкастый ужас (D&D)"
+  },
+  {
+   "url": "kuo-toa-monitor-mm",
+   "eng": "Kuo-toa Monitor",
+   "rus": "Куо-тоа наставник",
+   "source": "MM",
+   "cr": "3",
+   "type": "Аберрация",
+   "reason": "кво-тоа (PI)"
+  },
+  {
+   "url": "spectator-mm",
+   "eng": "Spectator",
+   "rus": "Наблюдатель",
+   "source": "MM",
+   "cr": "3",
+   "type": "Аберрация (бехолдер)",
+   "reason": "бехолдер и родня (PI, OGL 1.0a)"
+  },
+  {
+   "url": "owlbear-mm",
+   "eng": "Owlbear",
+   "rus": "Совомед",
+   "source": "MM",
+   "cr": "3",
+   "type": "Монстр",
+   "reason": "совомедведь: назван Автором как лицензионный (хотя есть в SRD)"
+  },
+  {
+   "url": "displacer-beast-mm",
+   "eng": "Displacer Beast",
+   "rus": "Ускользающий зверь",
+   "source": "MM",
+   "cr": "3",
+   "type": "Монстр",
+   "reason": "смещающий зверь (PI)"
+  },
+  {
+   "url": "yuan-ti-malison-type-1-mm",
+   "eng": "Yuan-ti Malison (Type 1)",
+   "rus": "Юань-ти проклинатель (тип 1)",
+   "source": "MM",
+   "cr": "3",
+   "type": "Монстр",
+   "reason": "юань-ти (PI)"
+  },
+  {
+   "url": "yuan-ti-malison-type-2-mm",
+   "eng": "Yuan-ti Malison (Type 2)",
+   "rus": "Юань-ти проклинатель (тип 2)",
+   "source": "MM",
+   "cr": "3",
+   "type": "Монстр",
+   "reason": "юань-ти (PI)"
+  },
+  {
+   "url": "yuan-ti-malison-type-3-mm",
+   "eng": "Yuan-ti Malison (Type 3)",
+   "rus": "Юань-ти проклинатель (тип 3)",
+   "source": "MM",
+   "cr": "3",
+   "type": "Монстр",
+   "reason": "юань-ти (PI)"
+  },
+  {
+   "url": "aarakocra-aeromancer-mm",
+   "eng": "Aarakocra Aeromancer",
+   "rus": "Ааракокра аэромант",
+   "source": "MM",
+   "cr": "4",
+   "type": "Элементаль",
+   "reason": "ааракокры (D&D)"
+  },
+  {
+   "url": "gnoll-fang-of-yeenoghu-mm",
+   "eng": "Gnoll Fang of Yeenoghu",
+   "rus": "Гнолл клык Йеногу",
+   "source": "MM",
+   "cr": "4",
+   "type": "Исчадие",
+   "reason": "гноллы Йеногу: именной демон-лорд D&D"
+  },
+  {
+   "url": "flameskull-mm",
+   "eng": "Flameskull",
+   "rus": "Пылающий череп",
+   "source": "MM",
+   "cr": "4",
+   "type": "Нежить",
+   "reason": "пылающий череп (D&D)"
+  },
+  {
+   "url": "helmed-horror-mm",
+   "eng": "Helmed Horror",
+   "rus": "Шлемоносный ужас",
+   "source": "MM",
+   "cr": "4",
+   "type": "Конструкт",
+   "reason": "шлемоносный ужас (D&D)"
+  },
+  {
+   "url": "umber-hulk-mm",
+   "eng": "Umber Hulk",
+   "rus": "Бурый громила",
+   "source": "MM",
+   "cr": "5",
+   "type": "Монстр",
+   "reason": "умбер-хульк (PI)"
+  },
+  {
+   "url": "vampire-mind-flayer-rhw",
+   "eng": "Vampire Mind Flayer",
+   "rus": "Вампир-иллитид",
+   "source": "RHW",
+   "cr": "5",
+   "type": "Нежить",
+   "reason": "иллитид / свежеватель разума и его мозг (PI)"
+  },
+  {
+   "url": "beholder-zombie-mm",
+   "eng": "Beholder Zombie",
+   "rus": "Зомби бехолдер",
+   "source": "MM",
+   "cr": "5",
+   "type": "Нежить",
+   "reason": "бехолдер и родня (PI, OGL 1.0a)"
+  },
+  {
+   "url": "red-slaad-mm",
+   "eng": "Red Slaad",
+   "rus": "Красный слаад",
+   "source": "MM",
+   "cr": "5",
+   "type": "Аберрация",
+   "reason": "слаады (PI)"
+  },
+  {
+   "url": "mezzoloth-mm",
+   "eng": "Mezzoloth",
+   "rus": "Меззолот",
+   "source": "MM",
+   "cr": "5",
+   "type": "Исчадие (юголот)",
+   "reason": "юголоты (D&D)"
+  },
+  {
+   "url": "galeb-duhr-mm",
+   "eng": "Galeb Duhr",
+   "rus": "Галеб дур",
+   "source": "MM",
+   "cr": "6",
+   "type": "Элементаль",
+   "reason": "галеб дур (D&D)"
+  },
+  {
+   "url": "githzerai-zerth-mm",
+   "eng": "Githzerai Zerth",
+   "rus": "Гитцерай зерт",
+   "source": "MM",
+   "cr": "6",
+   "type": "Аберрация (гит)",
+   "reason": "гит: гитьянки и гитзерай (PI)"
+  },
+  {
+   "url": "kuo-toa-archpriest-mm",
+   "eng": "Kuo-toa Archpriest",
+   "rus": "Куо-тоа архисвященник",
+   "source": "MM",
+   "cr": "6",
+   "type": "Аберрация",
+   "reason": "кво-тоа (PI)"
+  },
+  {
+   "url": "mind-flayer-mm",
+   "eng": "Mind Flayer",
+   "rus": "Иллитид",
+   "source": "MM",
+   "cr": "7",
+   "type": "Аберрация",
+   "reason": "иллитид / свежеватель разума и его мозг (PI)"
+  },
+  {
+   "url": "primeval-owlbear-mm",
+   "eng": "Primeval Owlbear",
+   "rus": "Первобытный совомед",
+   "source": "MM",
+   "cr": "7",
+   "type": "Монстр",
+   "reason": "совомедведь: назван Автором как лицензионный (хотя есть в SRD)"
+  },
+  {
+   "url": "blue-slaad-mm",
+   "eng": "Blue Slaad",
+   "rus": "Синий слаад",
+   "source": "MM",
+   "cr": "7",
+   "type": "Аберрация",
+   "reason": "слаады (PI)"
+  },
+  {
+   "url": "yuan-ti-abomination-mm",
+   "eng": "Yuan-ti Abomination",
+   "rus": "Юань-ти абоминация",
+   "source": "MM",
+   "cr": "7",
+   "type": "Монстр",
+   "reason": "юань-ти (PI)"
+  },
+  {
+   "url": "githyanki-knight-mm",
+   "eng": "Githyanki Knight",
+   "rus": "Гитьянки рыцарь",
+   "source": "MM",
+   "cr": "8",
+   "type": "Аберрация (гит)",
+   "reason": "гит: гитьянки и гитзерай (PI)"
+  },
+  {
+   "url": "gnoll-demoniac-mm",
+   "eng": "Gnoll Demoniac",
+   "rus": "Гнолл демоньяк",
+   "source": "MM",
+   "cr": "8",
+   "type": "Исчадие",
+   "reason": "гноллы Йеногу: именной демон-лорд D&D"
+  },
+  {
+   "url": "green-slaad-mm",
+   "eng": "Green Slaad",
+   "rus": "Зелёный слаад",
+   "source": "MM",
+   "cr": "8",
+   "type": "Аберрация",
+   "reason": "слаады (PI)"
+  },
+  {
+   "url": "thri-kreen-psion-mm",
+   "eng": "Thri-kreen Psion",
+   "rus": "Три-крин псионик",
+   "source": "MM",
+   "cr": "8",
+   "type": "Монстр",
+   "reason": "три-крины (D&D)"
+  },
+  {
+   "url": "nycaloth-mm",
+   "eng": "Nycaloth",
+   "rus": "Никалот",
+   "source": "MM",
+   "cr": "9",
+   "type": "Исчадие (юголот)",
+   "reason": "юголоты (D&D)"
+  },
+  {
+   "url": "gray-slaad-mm",
+   "eng": "Gray Slaad",
+   "rus": "Серый слаад",
+   "source": "MM",
+   "cr": "9",
+   "type": "Аберрация",
+   "reason": "слаады (PI)"
+  },
+  {
+   "url": "yochlol-mm",
+   "eng": "Yochlol",
+   "rus": "Йоклол",
+   "source": "MM",
+   "cr": "10",
+   "type": "Исчадие (демон)",
+   "reason": "йоклол (D&D, Ллос)"
+  },
+  {
+   "url": "death-slaad-mm",
+   "eng": "Death Slaad",
+   "rus": "Слаад смерти",
+   "source": "MM",
+   "cr": "10",
+   "type": "Аберрация",
+   "reason": "слаады (PI)"
+  },
+  {
+   "url": "mind-flayer-arcanist-mm",
+   "eng": "Mind Flayer Arcanist",
+   "rus": "Иллитид арканист",
+   "source": "MM",
+   "cr": "11",
+   "type": "Аберрация",
+   "reason": "иллитид / свежеватель разума и его мозг (PI)"
+  },
+  {
+   "url": "arcanaloth-mm",
+   "eng": "Arcanaloth",
+   "rus": "Арканалот",
+   "source": "MM",
+   "cr": "12",
+   "type": "Исчадие (юголот)",
+   "reason": "юголоты (D&D)"
+  },
+  {
+   "url": "githzerai-psion-mm",
+   "eng": "Githzerai Psion",
+   "rus": "Гитцерай псионик",
+   "source": "MM",
+   "cr": "12",
+   "type": "Аберрация (гит)",
+   "reason": "гит: гитьянки и гитзерай (PI)"
+  },
+  {
+   "url": "beholder-mm",
+   "eng": "Beholder",
+   "rus": "Бехолдер",
+   "source": "MM",
+   "cr": "13",
+   "type": "Аберрация",
+   "reason": "бехолдер и родня (PI, OGL 1.0a)"
+  },
+  {
+   "url": "ultroloth-mm",
+   "eng": "Ultroloth",
+   "rus": "Ультролот",
+   "source": "MM",
+   "cr": "13",
+   "type": "Исчадие (юголот)",
+   "reason": "юголоты (D&D)"
+  },
+  {
+   "url": "death-tyrant-mm",
+   "eng": "Death Tyrant",
+   "rus": "Тиран смерти",
+   "source": "MM",
+   "cr": "14",
+   "type": "Нежить (бехолдер)",
+   "reason": "бехолдер и родня (PI, OGL 1.0a)"
+  },
+  {
+   "url": "githyanki-dracomancer-mm",
+   "eng": "Githyanki Dracomancer",
+   "rus": "Гитьянки дракомант",
+   "source": "MM",
+   "cr": "16",
+   "type": "Аберрация (гит)",
+   "reason": "гит: гитьянки и гитзерай (PI)"
+  },
+  {
+   "url": "gulthias-blight-mm",
+   "eng": "Gulthias Blight",
+   "rus": "Зараза Галтиас",
+   "source": "MM",
+   "cr": "16",
+   "type": "Растение",
+   "reason": "именное дерево D&D"
+  },
+  {
+   "url": "blob-of-annihilation-mm",
+   "eng": "Blob of Annihilation",
+   "rus": "Капля аннигиляции",
+   "source": "MM",
+   "cr": "23",
+   "type": "Слизь (титан)",
+   "reason": "сфера уничтожения D&D"
+  }
+ ],
+ "doubt": [
+  {
+   "url": "larva-mm",
+   "eng": "Larva",
+   "rus": "Ларва",
+   "source": "MM",
+   "cr": "0",
+   "type": "Исчадие",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: lower planes"
+   ]
+  },
+  {
+   "url": "crawling-claw-mm",
+   "eng": "Crawling Claw",
+   "rus": "Ползающая рука",
+   "source": "MM",
+   "cr": "0",
+   "type": "Нежить",
+   "reason": "ползающая рука: D&D, но образ общий",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "twig-blight-mm",
+   "eng": "Twig Blight",
+   "rus": "Ветвистая зараза",
+   "source": "MM",
+   "cr": "1/8",
+   "type": "Растение",
+   "reason": "растения-заразы D&D (не SRD)",
+   "habitats": [
+    "лес"
+   ]
+  },
+  {
+   "url": "manes-mm",
+   "eng": "Manes",
+   "rus": "Мэйн",
+   "source": "MM",
+   "cr": "1/8",
+   "type": "Исчадие (демон)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: abyss"
+   ]
+  },
+  {
+   "url": "bullywug-warrior-mm",
+   "eng": "Bullywug Warrior",
+   "rus": "Жаболюд воин",
+   "source": "MM",
+   "cr": "1/4",
+   "type": "Фея",
+   "reason": "буллиуги придуманы D&D, в SRD нет",
+   "habitats": [
+    "болота"
+   ]
+  },
+  {
+   "url": "needle-blight-mm",
+   "eng": "Needle Blight",
+   "rus": "Игольчатая зараза",
+   "source": "MM",
+   "cr": "1/4",
+   "type": "Растение",
+   "reason": "растения-заразы D&D (не SRD)",
+   "habitats": [
+    "болота"
+   ]
+  },
+  {
+   "url": "troglodyte-mm",
+   "eng": "Troglodyte",
+   "rus": "Троглодит",
+   "source": "MM",
+   "cr": "1/4",
+   "type": "Монстр",
+   "reason": "троглодиты D&D (не SRD), слово общее",
+   "habitats": [
+    "подземье"
+   ]
+  },
+  {
+   "url": "vine-blight-mm",
+   "eng": "Vine Blight",
+   "rus": "Вьющаяся зараза",
+   "source": "MM",
+   "cr": "1/2",
+   "type": "Растение",
+   "reason": "растения-заразы D&D (не SRD)",
+   "habitats": [
+    "болота"
+   ]
+  },
+  {
+   "url": "piercer-mm",
+   "eng": "Piercer",
+   "rus": "Пронзатель",
+   "source": "MM",
+   "cr": "1/2",
+   "type": "Аберрация",
+   "reason": "пронзатель придуман D&D, в SRD нет",
+   "habitats": [
+    "подземье"
+   ]
+  },
+  {
+   "url": "jackalwere-mm",
+   "eng": "Jackalwere",
+   "rus": "Шакалвер",
+   "source": "MM",
+   "cr": "1/2",
+   "type": "Исчадие",
+   "reason": "шакал-оборотень D&D, в SRD нет",
+   "habitats": [
+    "пустыня",
+    "луга"
+   ]
+  },
+  {
+   "url": "faerie-dragon-youth-mm",
+   "eng": "Faerie Dragon Youth",
+   "rus": "Молодой волшебный дракончик",
+   "source": "MM",
+   "cr": "1",
+   "type": "Дракон",
+   "reason": "фейский дракон D&D, в SRD нет",
+   "habitats": [
+    "лес"
+   ]
+  },
+  {
+   "url": "ogrillon-ogre-mm",
+   "eng": "Ogrillon Ogre",
+   "rus": "Огриллон",
+   "source": "MM",
+   "cr": "1",
+   "type": "Великан",
+   "reason": "огриллон D&D, в SRD нет",
+   "habitats": [
+    "арктика",
+    "пустыня",
+    "лес",
+    "луга",
+    "холмы",
+    "горы",
+    "болота",
+    "подземье"
+   ]
+  },
+  {
+   "url": "psychic-gray-ooze-mm",
+   "eng": "Psychic Gray Ooze",
+   "rus": "Психическая серая слизь",
+   "source": "MM",
+   "cr": "1",
+   "type": "Слизь",
+   "reason": "новый вариант 2024 от SRD-существа: проверить",
+   "habitats": [
+    "подземье"
+   ]
+  },
+  {
+   "url": "swarm-of-larvae-mm",
+   "eng": "Swarm of Larvae",
+   "rus": "Рой ларв",
+   "source": "MM",
+   "cr": "1",
+   "type": "Рой средних исчадий",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: lower planes"
+   ]
+  },
+  {
+   "url": "manes-vaporspawn-mm",
+   "eng": "Manes Vaporspawn",
+   "rus": "Тошнотворный мэйн",
+   "source": "MM",
+   "cr": "1",
+   "type": "Исчадие (демон)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: abyss"
+   ]
+  },
+  {
+   "url": "empyrean-iota-mm",
+   "eng": "Empyrean Iota",
+   "rus": "Эмпирей йота",
+   "source": "MM",
+   "cr": "1",
+   "type": "Небожитель (титан)",
+   "reason": "эмпирей D&D, в SRD нет",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "faerie-dragon-adult-mm",
+   "eng": "Faerie Dragon Adult",
+   "rus": "Взрослый волшебный дракончик",
+   "source": "MM",
+   "cr": "2",
+   "type": "Дракон",
+   "reason": "фейский дракон D&D, в SRD нет",
+   "habitats": [
+    "лес"
+   ]
+  },
+  {
+   "url": "spined-devil-mm",
+   "eng": "Spined Devil",
+   "rus": "Игольчатый дьявол",
+   "source": "MM",
+   "cr": "2",
+   "type": "Исчадие (дьявол)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: nine hells"
+   ]
+  },
+  {
+   "url": "bearded-devil-mm",
+   "eng": "Bearded Devil",
+   "rus": "Бородатый дьявол",
+   "source": "MM",
+   "cr": "3",
+   "type": "Исчадие (дьявол)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: nine hells"
+   ]
+  },
+  {
+   "url": "water-weird-mm",
+   "eng": "Water Weird",
+   "rus": "Водная аномалия",
+   "source": "MM",
+   "cr": "3",
+   "type": "Элементаль",
+   "reason": "водная странность D&D, в SRD нет",
+   "habitats": [
+    "побережье",
+    "город"
+   ]
+  },
+  {
+   "url": "swarm-of-lemures-mm",
+   "eng": "Swarm of Lemures",
+   "rus": "Рой лемуров",
+   "source": "MM",
+   "cr": "3",
+   "type": "Рой средних исчадий (дьявол)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: nine hells"
+   ]
+  },
+  {
+   "url": "swarm-of-crawling-claws-mm",
+   "eng": "Swarm of Crawling Claws",
+   "rus": "Рой ползающих рук",
+   "source": "MM",
+   "cr": "3",
+   "type": "Рой крошечной нежити",
+   "reason": "ползающая рука: D&D, но образ общий",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "bullywug-bog-sage-mm",
+   "eng": "Bullywug Bog Sage",
+   "rus": "Жаболюд болотный мудрец",
+   "source": "MM",
+   "cr": "4",
+   "type": "Фея",
+   "reason": "буллиуги придуманы D&D, в SRD нет",
+   "habitats": [
+    "болота"
+   ]
+  },
+  {
+   "url": "bone-naga-mm",
+   "eng": "Bone Naga",
+   "rus": "Костяная нага",
+   "source": "MM",
+   "cr": "4",
+   "type": "Нежить",
+   "reason": "костяная нага: вариант D&D",
+   "habitats": [
+    "подземье"
+   ]
+  },
+  {
+   "url": "juvenile-shadow-dragon-mm",
+   "eng": "Juvenile Shadow Dragon",
+   "rus": "Молодой теневой дракон",
+   "source": "MM",
+   "cr": "4",
+   "type": "Дракон",
+   "reason": "теневой дракон D&D, в SRD нет",
+   "habitats": [
+    "план: shadowfell",
+    "подземье"
+   ]
+  },
+  {
+   "url": "swarm-of-dretches-mm",
+   "eng": "Swarm of Dretches",
+   "rus": "Рой дретчей",
+   "source": "MM",
+   "cr": "4",
+   "type": "Рой маленьких исчадий (демон)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: abyss"
+   ]
+  },
+  {
+   "url": "shadow-demon-mm",
+   "eng": "Shadow Demon",
+   "rus": "Теневой демон",
+   "source": "MM",
+   "cr": "4",
+   "type": "Исчадие (демон)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: abyss"
+   ]
+  },
+  {
+   "url": "barlgura-mm",
+   "eng": "Barlgura",
+   "rus": "Барлгура",
+   "source": "MM",
+   "cr": "5",
+   "type": "Исчадие (демон)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: abyss"
+   ]
+  },
+  {
+   "url": "xorn-mm",
+   "eng": "Xorn",
+   "rus": "Зорн",
+   "source": "MM",
+   "cr": "5",
+   "type": "Элементаль",
+   "reason": "в SRD 5.2 (CC-BY), но в карточке назван среди PI: нужен ответ Автора",
+   "habitats": [
+    "план: elemental plane of earth",
+    "подземье"
+   ]
+  },
+  {
+   "url": "cambion-mm",
+   "eng": "Cambion",
+   "rus": "Камбион",
+   "source": "MM",
+   "cr": "5",
+   "type": "Исчадие",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "barbed-devil-mm",
+   "eng": "Barbed Devil",
+   "rus": "Шипастый дьявол",
+   "source": "MM",
+   "cr": "5",
+   "type": "Исчадие (дьявол)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: nine hells"
+   ]
+  },
+  {
+   "url": "chasme-mm",
+   "eng": "Chasme",
+   "rus": "Чазм",
+   "source": "MM",
+   "cr": "6",
+   "type": "Исчадие (демон)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: abyss"
+   ]
+  },
+  {
+   "url": "tree-blight-mm",
+   "eng": "Tree Blight",
+   "rus": "Древесная зараза",
+   "source": "MM",
+   "cr": "7",
+   "type": "Растение",
+   "reason": "растения-заразы D&D (не SRD)",
+   "habitats": [
+    "болота"
+   ]
+  },
+  {
+   "url": "grick-ancient-mm",
+   "eng": "Grick Ancient",
+   "rus": "Древний грик",
+   "source": "MM",
+   "cr": "7",
+   "type": "Аберрация",
+   "reason": "новый вариант 2024 от SRD-существа: проверить",
+   "habitats": [
+    "лес",
+    "подземье"
+   ]
+  },
+  {
+   "url": "violet-fungus-necrohulk-mm",
+   "eng": "Violet Fungus Necrohulk",
+   "rus": "Лиловый некрогромила",
+   "source": "MM",
+   "cr": "7",
+   "type": "Растение",
+   "reason": "новый вариант 2024 от SRD-существа: проверить",
+   "habitats": [
+    "подземье"
+   ]
+  },
+  {
+   "url": "nightgaunt-rhw",
+   "eng": "Nightgaunt",
+   "rus": "Найтгаунт",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Аберрация",
+   "reason": "мифы Лавкрафта: тексты в общественном достоянии, но марки Chaosium",
+   "habitats": [
+    "горы",
+    "подземье"
+   ]
+  },
+  {
+   "url": "mi-go-rhw",
+   "eng": "Mi-Go",
+   "rus": "Ми-го",
+   "source": "RHW",
+   "cr": "9",
+   "type": "Аберрация",
+   "reason": "мифы Лавкрафта: тексты в общественном достоянии, но марки Chaosium",
+   "habitats": [
+    "лес",
+    "холмы",
+    "горы",
+    "подземье"
+   ]
+  },
+  {
+   "url": "death-knight-aspirant-mm",
+   "eng": "Death Knight Aspirant",
+   "rus": "Рыцарь смерти претендент",
+   "source": "MM",
+   "cr": "11",
+   "type": "Нежить",
+   "reason": "рыцарь смерти D&D (Сот), в SRD нет",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "shoggoth-rhw",
+   "eng": "Shoggoth",
+   "rus": "Шоггот",
+   "source": "RHW",
+   "cr": "11",
+   "type": "Аберрация",
+   "reason": "мифы Лавкрафта: тексты в общественном достоянии, но марки Chaosium",
+   "habitats": [
+    "арктика",
+    "побережье",
+    "болота",
+    "подземье"
+   ]
+  },
+  {
+   "url": "gug-rhw",
+   "eng": "Gug",
+   "rus": "Гуг",
+   "source": "RHW",
+   "cr": "12",
+   "type": "Аберрация",
+   "reason": "мифы Лавкрафта: тексты в общественном достоянии, но марки Chaosium",
+   "habitats": [
+    "подземье"
+   ]
+  },
+  {
+   "url": "shadow-dragon-mm",
+   "eng": "Shadow Dragon",
+   "rus": "Теневой дракон",
+   "source": "MM",
+   "cr": "13",
+   "type": "Дракон",
+   "reason": "теневой дракон D&D, в SRD нет",
+   "habitats": [
+    "план: shadowfell",
+    "подземье"
+   ]
+  },
+  {
+   "url": "elder-thing-rhw",
+   "eng": "Elder Thing",
+   "rus": "Древняя сущность",
+   "source": "RHW",
+   "cr": "14",
+   "type": "Аберрация",
+   "reason": "мифы Лавкрафта: тексты в общественном достоянии, но марки Chaosium",
+   "habitats": [
+    "горы",
+    "подземье"
+   ]
+  },
+  {
+   "url": "yithian-rhw",
+   "eng": "Yithian",
+   "rus": "Йитианец",
+   "source": "RHW",
+   "cr": "15",
+   "type": "Аберрация",
+   "reason": "мифы Лавкрафта: тексты в общественном достоянии, но марки Chaosium",
+   "habitats": [
+    "пустыня",
+    "подземье",
+    "город"
+   ]
+  },
+  {
+   "url": "goristro-mm",
+   "eng": "Goristro",
+   "rus": "Гористо",
+   "source": "MM",
+   "cr": "17",
+   "type": "Исчадие (демон)",
+   "reason": "исчадия по космологии D&D (не SRD); сами слова «демон/дьявол» общие",
+   "habitats": [
+    "план: abyss"
+   ]
+  },
+  {
+   "url": "dracolich-mm",
+   "eng": "Dracolich",
+   "rus": "Драколич",
+   "source": "MM",
+   "cr": "17",
+   "type": "Нежить",
+   "reason": "драколич D&D, в SRD нет",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "death-knight-mm",
+   "eng": "Death Knight",
+   "rus": "Рыцарь смерти",
+   "source": "MM",
+   "cr": "17",
+   "type": "Нежить",
+   "reason": "рыцарь смерти D&D (Сот), в SRD нет",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "demilich-mm",
+   "eng": "Demilich",
+   "rus": "Демилич",
+   "source": "MM",
+   "cr": "18",
+   "type": "Нежить",
+   "reason": "демилич D&D, в SRD нет",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "animal-lord-mm",
+   "eng": "Animal Lord",
+   "rus": "Владыка зверей",
+   "source": "MM",
+   "cr": "20",
+   "type": "Небожитель",
+   "reason": "новые существа MM 2024 вне SRD: оригинальность не проверена",
+   "habitats": [
+    "план: beastland"
+   ]
+  },
+  {
+   "url": "arch-hag-mm",
+   "eng": "Arch-hag",
+   "rus": "Архикарга",
+   "source": "MM",
+   "cr": "21",
+   "type": "Фея",
+   "reason": "новые существа MM 2024 вне SRD: оригинальность не проверена",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "elemental-cataclysm-mm",
+   "eng": "Elemental Cataclysm",
+   "rus": "Стихийный катаклизм",
+   "source": "MM",
+   "cr": "22",
+   "type": "Элементаль (титан)",
+   "reason": "новые существа MM 2024 вне SRD: оригинальность не проверена",
+   "habitats": [
+    "план: elemental chaos"
+   ]
+  },
+  {
+   "url": "empyrean-mm",
+   "eng": "Empyrean",
+   "rus": "Эмпирей",
+   "source": "MM",
+   "cr": "23",
+   "type": "Небожитель (титан)",
+   "reason": "эмпирей D&D, в SRD нет",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "colossus-mm",
+   "eng": "Colossus",
+   "rus": "Колосс",
+   "source": "MM",
+   "cr": "25",
+   "type": "Конструкт (титан)",
+   "reason": "новые существа MM 2024 вне SRD: оригинальность не проверена",
+   "habitats": [
+    "любая"
+   ]
+  },
+  {
+   "url": "cthulhu-rhw",
+   "eng": "Cthulhu",
+   "rus": "Ктулху",
+   "source": "RHW",
+   "cr": "25",
+   "type": "Аберрация",
+   "reason": "мифы Лавкрафта: тексты в общественном достоянии, но марки Chaosium",
+   "habitats": []
+  }
+ ],
+ "out_of_scope": [
+  {
+   "url": "behemoth-uavo",
+   "eng": "Behemoth",
+   "rus": "Бегемот",
+   "source": "UAVO",
+   "cr": "0",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "hound-pug",
+   "eng": "Hound",
+   "rus": "Гончая",
+   "source": "PUG",
+   "cr": "0",
+   "type": "Зверь",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "insectoid-uavo",
+   "eng": "Insectoid",
+   "rus": "Инсектоид",
+   "source": "UAVO",
+   "cr": "0",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "fleshling-construct-ghpg",
+   "eng": "Fleshling Construct",
+   "rus": "Конструкт из плоти",
+   "source": "GHPG",
+   "cr": "0",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "leviathan-uavo",
+   "eng": "Leviathan",
+   "rus": "Левиафан",
+   "source": "UAVO",
+   "cr": "0",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "villager-vtmbbb",
+   "eng": "Villager",
+   "rus": "Селянин",
+   "source": "VTMBBB",
+   "cr": "1/8",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "demonglass-goblin-feq",
+   "eng": "Demonglass Goblin",
+   "rus": "Гоблин демонического стекла",
+   "source": "FEQ",
+   "cr": "1/4",
+   "type": "Гуманоид (гоблиноид)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "drow-of-lolth-fraif",
+   "eng": "Drow of Lolth",
+   "rus": "Дроу Лолс",
+   "source": "FRAIF",
+   "cr": "1/4",
+   "type": "Гуманоид (эльф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "noggle-ransacker-lfl",
+   "eng": "Noggle Ransacker",
+   "rus": "Ноггл-мародёр",
+   "source": "LFL",
+   "cr": "1/4",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "phaerimm-hatchling-fraif",
+   "eng": "Phaerimm Hatchling",
+   "rus": "Фаэримм детёныш",
+   "source": "FRAIF",
+   "cr": "1/4",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "highland-wolf-vtmbbb",
+   "eng": "Highland Wolf",
+   "rus": "Высокогорный волк",
+   "source": "VTMBBB",
+   "cr": "1/2",
+   "type": "Зверь",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "boromar-smuggler-efa",
+   "eng": "Boromar Smuggler",
+   "rus": "Контрабандист Дома Боромар",
+   "source": "EFA",
+   "cr": "1/2",
+   "type": "Гуманоид (полурослик)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "death-s-head-rhw",
+   "eng": "Death's Head",
+   "rus": "Мёртвая голова",
+   "source": "RHW",
+   "cr": "1/2",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "blackcrown-spellsword-feq",
+   "eng": "Blackcrown Spellsword",
+   "rus": "Мечник-заклинатель Черной короны",
+   "source": "FEQ",
+   "cr": "1/2",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "sarcopike-drp",
+   "eng": "Sarcopike",
+   "rus": "Саркопайк",
+   "source": "DRP",
+   "cr": "1/2",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "bodytaker-podling-rhw",
+   "eng": "Bodytaker Podling",
+   "rus": "Стручок-двойник похитителя тел",
+   "source": "RHW",
+   "cr": "1/2",
+   "type": "Растение",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "vulkoori-stingblade-efa",
+   "eng": "Vulkoori Stingblade",
+   "rus": "Убийца Вулкоора",
+   "source": "EFA",
+   "cr": "1/2",
+   "type": "Гуманоид (эльф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "aberrant-death-s-head-rhw",
+   "eng": "Aberrant Death's Head",
+   "rus": "Аберрантная мёртвая голова",
+   "source": "RHW",
+   "cr": "1",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "boneless-rhw",
+   "eng": "Boneless",
+   "rus": "Бескостный",
+   "source": "RHW",
+   "cr": "1",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "deep-dragon-wyrmling-fraif",
+   "eng": "Deep Dragon Wyrmling",
+   "rus": "Глубинный дракон вирмлинг",
+   "source": "FRAIF",
+   "cr": "1",
+   "type": "Дракон",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "tarkanan-ruffian-efa",
+   "eng": "Tarkanan Ruffian",
+   "rus": "Головорез Дома Тарканан",
+   "source": "EFA",
+   "cr": "1",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "zhentilar-soldier-fraif",
+   "eng": "Zhentilar Soldier",
+   "rus": "Жентилар-солдат",
+   "source": "FRAIF",
+   "cr": "1",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "groundling-grunt-au",
+   "eng": "Groundling Grunt",
+   "rus": "Землерой-громила",
+   "source": "AU",
+   "cr": "1",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "fiendish-icon-abh",
+   "eng": "Fiendish Icon",
+   "rus": "Инфернальный идол",
+   "source": "ABH",
+   "cr": "1",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "daask-raider-efa",
+   "eng": "Daask Raider",
+   "rus": "Налётчик Дааска",
+   "source": "EFA",
+   "cr": "1",
+   "type": "Гуманоид (гнолл)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "noggle-wild-mage-lfl",
+   "eng": "Noggle Wild Mage",
+   "rus": "Ноггл дикой магии",
+   "source": "LFL",
+   "cr": "1",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "petrifying-death-s-head-rhw",
+   "eng": "Petrifying Death's Head",
+   "rus": "Окаменяющая мёртвая голова",
+   "source": "RHW",
+   "cr": "1",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "swarm-of-zombie-limbs-rhw",
+   "eng": "Swarm of Zombie Limbs",
+   "rus": "Рой конечностей зомби",
+   "source": "RHW",
+   "cr": "1",
+   "type": "Рой крошечной нежити",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "villager-militia-vtmbbb",
+   "eng": "Villager Militia",
+   "rus": "Сельский ополченец",
+   "source": "VTMBBB",
+   "cr": "1",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "carrionette-rhw",
+   "eng": "Carrionette",
+   "rus": "Трупонетка",
+   "source": "RHW",
+   "cr": "1",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "aranea-fraif",
+   "eng": "Aranea",
+   "rus": "Аранея",
+   "source": "FRAIF",
+   "cr": "2",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "wereraven-rhw",
+   "eng": "Wereraven",
+   "rus": "Верворон",
+   "source": "RHW",
+   "cr": "2",
+   "type": "Монстр (оборотень)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "gremishka-rhw",
+   "eng": "Gremishka",
+   "rus": "Гремишка",
+   "source": "RHW",
+   "cr": "2",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "spirit-dragon-wyrmling-fraif",
+   "eng": "Spirit Dragon Wyrmling",
+   "rus": "Духовный дракон вирмлинг",
+   "source": "FRAIF",
+   "cr": "2",
+   "type": "Дракон",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "vulkoori-venom-priest-efa",
+   "eng": "Vulkoori Venom Priest",
+   "rus": "Жрец-отравитель Вулкоора",
+   "source": "EFA",
+   "cr": "2",
+   "type": "Гуманоид (эльф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "trapper-vtmbbb",
+   "eng": "Trapper",
+   "rus": "Зверолов",
+   "source": "VTMBBB",
+   "cr": "2",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "groundling-slayer-au",
+   "eng": "Groundling Slayer",
+   "rus": "Землерой-ликвидатор",
+   "source": "AU",
+   "cr": "2",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "groundling-stalker-au",
+   "eng": "Groundling Stalker",
+   "rus": "Землерой-охотник",
+   "source": "AU",
+   "cr": "2",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "nimblewright-steed-fraif",
+   "eng": "Nimblewright Steed",
+   "rus": "Нимблрайт-скакун",
+   "source": "FRAIF",
+   "cr": "2",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "swarm-of-infesting-insects-rhw",
+   "eng": "Swarm of Infesting Insects",
+   "rus": "Рой паразитирующих насекомых",
+   "source": "RHW",
+   "cr": "2",
+   "type": "Рой крошечных зверей",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "emerald-claw-knight-efa",
+   "eng": "Emerald Claw Knight",
+   "rus": "Рыцарь Ордена Изумрудного Когтя",
+   "source": "EFA",
+   "cr": "2",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "phaerimm-scout-nf",
+   "eng": "Phaerimm Scout",
+   "rus": "Фаэримм-разведчик",
+   "source": "NF",
+   "cr": "2",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "quickstone-gargoyle-feq",
+   "eng": "Quickstone Gargoyle",
+   "rus": "Быстрокаменная гаргулья",
+   "source": "FEQ",
+   "cr": "3",
+   "type": "Элементаль (перевёртыш)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "waxwork-rhw",
+   "eng": "Waxwork",
+   "rus": "Восковой двойник",
+   "source": "RHW",
+   "cr": "3",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "gennifer-weathermay-foxgrove-rhw",
+   "eng": "Gennifer Weathermay-Foxgrove",
+   "rus": "Дженнифер Уэзермей-Фоксгроув",
+   "source": "RHW",
+   "cr": "3",
+   "type": "Гуманоид (человек, оборотень)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "harvester-devil-abh",
+   "eng": "Harvester Devil",
+   "rus": "Дьявол-жнец",
+   "source": "ABH",
+   "cr": "3",
+   "type": "Исчадие (дьявол)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "laurie-weathermay-foxgrove-rhw",
+   "eng": "Laurie Weathermay-Foxgrove",
+   "rus": "Лори Уэзермей-Фоксгроув",
+   "source": "RHW",
+   "cr": "3",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "brain-in-a-jar-rhw",
+   "eng": "Brain in a Jar",
+   "rus": "Мозг в банке",
+   "source": "RHW",
+   "cr": "3",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "nimblewright-guard-fraif",
+   "eng": "Nimblewright Guard",
+   "rus": "Нимблрайт-страж",
+   "source": "FRAIF",
+   "cr": "3",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "monster-hunter-vtmbbb",
+   "eng": "Monster Hunter",
+   "rus": "Охотник на монстров",
+   "source": "VTMBBB",
+   "cr": "3",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "carrion-stalker-rhw",
+   "eng": "Carrion Stalker",
+   "rus": "Падальщик-преследователь",
+   "source": "RHW",
+   "cr": "3",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "sivis-scribe-efa",
+   "eng": "Sivis Scribe",
+   "rus": "Писец Дома Сивис",
+   "source": "EFA",
+   "cr": "3",
+   "type": "Гуманоид (гном)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "swarm-of-ravenous-insects-rhw",
+   "eng": "Swarm of Ravenous Insects",
+   "rus": "Прожорливый рой насекомых",
+   "source": "RHW",
+   "cr": "3",
+   "type": "Рой крошечных зверей",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ghallanda-troubleshooter-efa",
+   "eng": "Ghallanda Troubleshooter",
+   "rus": "Решала дома Гхалланда",
+   "source": "EFA",
+   "cr": "3",
+   "type": "Гуманоид (полурослик)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "swarm-of-sarcopikes-drp",
+   "eng": "Swarm of Sarcopikes",
+   "rus": "Рой саркопайков",
+   "source": "DRP",
+   "cr": "3",
+   "type": "Рой крошечных монстров",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "mist-wanderer-rhw",
+   "eng": "Mist Wanderer",
+   "rus": "Скиталец Туманов",
+   "source": "RHW",
+   "cr": "3",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "medani-inquisitive-efa",
+   "eng": "Medani Inquisitive",
+   "rus": "Сыщик Дома Медани",
+   "source": "EFA",
+   "cr": "3",
+   "type": "Гуманоид (хоравар)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "mist-horror-rhw",
+   "eng": "Mist Horror",
+   "rus": "Ужас Туманов",
+   "source": "RHW",
+   "cr": "3",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "death-s-head-tree-rhw",
+   "eng": "Death's Head Tree",
+   "rus": "Дерево мёртвых голов",
+   "source": "RHW",
+   "cr": "4",
+   "type": "Растение",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "dolguul-feq",
+   "eng": "Dolguul",
+   "rus": "Долгул",
+   "source": "FEQ",
+   "cr": "4",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "zhentilar-paladin-of-bane-fraif",
+   "eng": "Zhentilar Paladin of Bane",
+   "rus": "Жентилар-паладин Бэйна",
+   "source": "FRAIF",
+   "cr": "4",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "zombie-plague-spreader-rhw",
+   "eng": "Zombie Plague Spreader",
+   "rus": "Зомби разносчик чумы",
+   "source": "RHW",
+   "cr": "4",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "cannith-artificer-efa",
+   "eng": "Cannith Artificer",
+   "rus": "Изобретатель Дома Каннит",
+   "source": "EFA",
+   "cr": "4",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "orien-enforcer-efa",
+   "eng": "Orien Enforcer",
+   "rus": "Каратель Дома Ориен",
+   "source": "EFA",
+   "cr": "4",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "emerald-claw-commander-efa",
+   "eng": "Emerald Claw Commander",
+   "rus": "Командир Изумрудного Когтя",
+   "source": "EFA",
+   "cr": "4",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "caldron-magen-nf",
+   "eng": "Caldron Magen",
+   "rus": "Котловой маген",
+   "source": "NF",
+   "cr": "4",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "jorasco-medic-efa",
+   "eng": "Jorasco Medic",
+   "rus": "Медик дома Джораско",
+   "source": "EFA",
+   "cr": "4",
+   "type": "Гуманоид (полурослик)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "merrow-doublespeaker-lfl",
+   "eng": "Merrow Doublespeaker",
+   "rus": "Мерроу-двуличник",
+   "source": "LFL",
+   "cr": "4",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "vadalis-heir-efa",
+   "eng": "Vadalis Heir",
+   "rus": "Наследник Дома Вадалис",
+   "source": "EFA",
+   "cr": "4",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "lyrandar-scion-efa",
+   "eng": "Lyrandar Scion",
+   "rus": "Наследник Дома Лирандар",
+   "source": "EFA",
+   "cr": "4",
+   "type": "Гуманоид (хоравар)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "rusted-berserker-fraif",
+   "eng": "Rusted Berserker",
+   "rus": "Ржавый берсеркер",
+   "source": "FRAIF",
+   "cr": "4",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "strahd-skeleton-rhw",
+   "eng": "Strahd Skeleton",
+   "rus": "Скелет Страда",
+   "source": "RHW",
+   "cr": "4",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "darkenbeast-au",
+   "eng": "Darkenbeast",
+   "rus": "Темнозверь",
+   "source": "AU",
+   "cr": "4",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "whipskeen-horror-ghmg",
+   "eng": "Whipskeen Horror",
+   "rus": "Щупальцекожий ужас",
+   "source": "GHMG",
+   "cr": "4",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "amorphous-horror-ghmg",
+   "eng": "Amorphous Horror",
+   "rus": "Аморфный Ужас",
+   "source": "GHMG",
+   "cr": "5",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "gantii-kaas-feq",
+   "eng": "Gantii'kaas",
+   "rus": "Гантии'каас",
+   "source": "FEQ",
+   "cr": "5",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "demonglass-gargoyle-feq",
+   "eng": "Demonglass Gargoyle",
+   "rus": "Гаргулья демонического стекла",
+   "source": "FEQ",
+   "cr": "5",
+   "type": "Исчадие",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "drow-elite-warrior-of-lolth-fraif",
+   "eng": "Drow Elite Warrior of Lolth",
+   "rus": "Дроу элитный воин Ллос",
+   "source": "FRAIF",
+   "cr": "5",
+   "type": "Гуманоид (эльф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ivana-boritsi-rhw",
+   "eng": "Ivana Boritsi",
+   "rus": "Ивана Боритси",
+   "source": "RHW",
+   "cr": "5",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ivan-dilisnya-rhw",
+   "eng": "Ivan Dilisnya",
+   "rus": "Иван Дилисния",
+   "source": "RHW",
+   "cr": "5",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "lupine-vtmbbb",
+   "eng": "Lupine",
+   "rus": "Люпин",
+   "source": "VTMBBB",
+   "cr": "5",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "merrow-haranguer-lfl",
+   "eng": "Merrow Haranguer",
+   "rus": "Мерроу-подстрекатель",
+   "source": "LFL",
+   "cr": "5",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "young-deep-dragon-fraif",
+   "eng": "Young Deep Dragon",
+   "rus": "Молодой глубинный дракон",
+   "source": "FRAIF",
+   "cr": "5",
+   "type": "Дракон",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "rudolph-van-richten-rhw",
+   "eng": "Rudolph van Richten",
+   "rus": "Рудольф ван Рихтен",
+   "source": "RHW",
+   "cr": "5",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "kundarak-warden-efa",
+   "eng": "Kundarak Warden",
+   "rus": "Страж Кундарака",
+   "source": "EFA",
+   "cr": "5",
+   "type": "Гуманоид (дварф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "spellguard-au",
+   "eng": "Spellguard",
+   "rus": "Чаростраж",
+   "source": "AU",
+   "cr": "5",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "lorwyn-giant-lfl",
+   "eng": "Lorwyn Giant",
+   "rus": "Великан Лорвина",
+   "source": "LFL",
+   "cr": "6",
+   "type": "Великан",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "gallows-speaker-rhw",
+   "eng": "Gallows Speaker",
+   "rus": "Глашатай-висельник",
+   "source": "RHW",
+   "cr": "6",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "priest-of-osybus-rhw",
+   "eng": "Priest of Osybus",
+   "rus": "Жрец Осибуса",
+   "source": "RHW",
+   "cr": "6",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "zombie-clot-rhw",
+   "eng": "Zombie Clot",
+   "rus": "Зомби-сгусток",
+   "source": "RHW",
+   "cr": "6",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "eldritch-eddy-nf",
+   "eng": "Eldritch Eddy",
+   "rus": "Мистический вихрь",
+   "source": "NF",
+   "cr": "6",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "tharashk-hunter-efa",
+   "eng": "Tharashk Hunter",
+   "rus": "Охотник Дома Тарашк",
+   "source": "EFA",
+   "cr": "6",
+   "type": "Гуманоид (человек, орк)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "sentinel-marshal-efa",
+   "eng": "Sentinel Marshal",
+   "rus": "Страж-маршал",
+   "source": "EFA",
+   "cr": "6",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "wilfred-godefroy-rhw",
+   "eng": "Wilfred Godefroy",
+   "rus": "Уилфред Годфруа",
+   "source": "RHW",
+   "cr": "6",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "shadow-marked-agent-efa",
+   "eng": "Shadow-Marked Agent",
+   "rus": "Агент с меткой тени",
+   "source": "EFA",
+   "cr": "7",
+   "type": "Гуманоид (эльф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "viktra-mordenheim-rhw",
+   "eng": "Viktra Mordenheim",
+   "rus": "Виктра Морденхайм",
+   "source": "RHW",
+   "cr": "7",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "incarnation-of-transience-lfl",
+   "eng": "Incarnation of Transience",
+   "rus": "Воплощение бренности",
+   "source": "LFL",
+   "cr": "7",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "drow-mage-of-lolth-fraif",
+   "eng": "Drow Mage of Lolth",
+   "rus": "Дроу маг Ллос",
+   "source": "FRAIF",
+   "cr": "7",
+   "type": "Гуманоид (эльф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "dreaming-dark-infiltrator-efa",
+   "eng": "Dreaming Dark Infiltrator",
+   "rus": "Инфильтратор Грёзной Тьмы",
+   "source": "EFA",
+   "cr": "7",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "cultist-of-bhaal-fraif",
+   "eng": "Cultist of Bhaal",
+   "rus": "Культист Баала",
+   "source": "FRAIF",
+   "cr": "7",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "necrichor-rhw",
+   "eng": "Necrichor",
+   "rus": "Некрихор",
+   "source": "RHW",
+   "cr": "7",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "nimblewright-hulk-fraif",
+   "eng": "Nimblewright Hulk",
+   "rus": "Нимблрайт-громила",
+   "source": "FRAIF",
+   "cr": "7",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "bodytaker-plant-rhw",
+   "eng": "Bodytaker Plant",
+   "rus": "Растение-похититель тел",
+   "source": "RHW",
+   "cr": "7",
+   "type": "Растение",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "phaerimm-agent-fraif",
+   "eng": "Phaerimm Agent",
+   "rus": "Агент фаэриммов",
+   "source": "FRAIF",
+   "cr": "8",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "relentless-slasher-rhw",
+   "eng": "Relentless Slasher",
+   "rus": "Безжалостный рубака",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Исчадие",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "breggan-blackcrown-feq",
+   "eng": "Breggan Blackcrown",
+   "rus": "Брегган Черная корона",
+   "source": "FEQ",
+   "cr": "8",
+   "type": "Гуманоид (человек, колдун)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "vampire-nosferatu-rhw",
+   "eng": "Vampire Nosferatu",
+   "rus": "Вампир-носферату",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "shadowmoor-giant-lfl",
+   "eng": "Shadowmoor Giant",
+   "rus": "Великан Тенеборья",
+   "source": "LFL",
+   "cr": "8",
+   "type": "Великан",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "drow-priestess-of-lolth-fraif",
+   "eng": "Drow Priestess of Lolth",
+   "rus": "Дроу жрица Ллос",
+   "source": "FRAIF",
+   "cr": "8",
+   "type": "Гуманоид (эльф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "terran-magen-nf",
+   "eng": "Terran Magen",
+   "rus": "Земляной магин",
+   "source": "NF",
+   "cr": "8",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "inquisitor-of-the-sword-rhw",
+   "eng": "Inquisitor of the Sword",
+   "rus": "Инквизитор Меча",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "inquisitor-of-the-mind-fire-rhw",
+   "eng": "Inquisitor of the Mind Fire",
+   "rus": "Инквизитор Огня Разума",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "inquisitor-of-the-tome-rhw",
+   "eng": "Inquisitor of the Tome",
+   "rus": "Инквизитор Тома",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "karas-chembryl-fraif",
+   "eng": "Karas Chembryl",
+   "rus": "Карас Чембриль",
+   "source": "FRAIF",
+   "cr": "8",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "mother-lorinda-rhw",
+   "eng": "Mother Lorinda",
+   "rus": "Матушка Лоринда",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "young-spirit-dragon-fraif",
+   "eng": "Young Spirit Dragon",
+   "rus": "Молодой духовный дракон",
+   "source": "FRAIF",
+   "cr": "8",
+   "type": "Дракон",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "unspeakable-horror-rhw",
+   "eng": "Unspeakable Horror",
+   "rus": "Невыразимый ужас",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "werewyvern-fraif",
+   "eng": "Werewyvern",
+   "rus": "Оборотень-виверна",
+   "source": "FRAIF",
+   "cr": "8",
+   "type": "Дракон (оборотень)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "boromar-underboss-efa",
+   "eng": "Boromar Underboss",
+   "rus": "Подручный Боромаров",
+   "source": "EFA",
+   "cr": "8",
+   "type": "Гуманоид (полурослик)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ez-d-avenir-rhw",
+   "eng": "Ez d'Avenir",
+   "rus": "Эз д'Авенир",
+   "source": "RHW",
+   "cr": "8",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "daask-bruiser",
+   "eng": "Daask Bruiser",
+   "rus": "Громила Дааска",
+   "source": "EFA",
+   "cr": "9",
+   "type": "Гуманоид (гнолл)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "daask-bruiser-efa",
+   "eng": "Daask Bruiser",
+   "rus": "Громила Дааска",
+   "source": "EFA",
+   "cr": "9",
+   "type": "Гуманоид (гнолл)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "mirror-haunt-drp",
+   "eng": "Mirror Haunt",
+   "rus": "Зеркальный призрак",
+   "source": "DRP",
+   "cr": "9",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "shifting-hulk-ghmg",
+   "eng": "Shifting Hulk",
+   "rus": "Изменчивый громила",
+   "source": "GHMG",
+   "cr": "9",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "cultist-of-bane-fraif",
+   "eng": "Cultist of Bane",
+   "rus": "Культист Бейна",
+   "source": "FRAIF",
+   "cr": "9",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "rusted-behemoth-fraif",
+   "eng": "Rusted Behemoth",
+   "rus": "Ржавый исполин",
+   "source": "FRAIF",
+   "cr": "9",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "saidra-d-honaire-rhw",
+   "eng": "Saidra d'Honaire",
+   "rus": "Сейдра д'Онер",
+   "source": "RHW",
+   "cr": "9",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "umbragen-shadow-walker-efa",
+   "eng": "Umbragen Shadow Walker",
+   "rus": "Теневой странник умбрагенов",
+   "source": "EFA",
+   "cr": "9",
+   "type": "Гуманоид (эльф)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "vampire-warden-abh",
+   "eng": "Vampire Warden",
+   "rus": "Вампир-смотритель",
+   "source": "ABH",
+   "cr": "10",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "incarnation-of-vibrance-lfl",
+   "eng": "Incarnation of Vibrance",
+   "rus": "Воплощение яркости",
+   "source": "LFL",
+   "cr": "10",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "queen-forfallen-fraif",
+   "eng": "Queen Forfallen",
+   "rus": "Королева Покинутых",
+   "source": "FRAIF",
+   "cr": "10",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "madam-eva-rhw",
+   "eng": "Madam Eva",
+   "rus": "Мадам Ева",
+   "source": "RHW",
+   "cr": "10",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "relentless-nightmare-rhw",
+   "eng": "Relentless Nightmare",
+   "rus": "Безжалостный кошмар",
+   "source": "RHW",
+   "cr": "11",
+   "type": "Исчадие",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "adult-deep-dragon-fraif",
+   "eng": "Adult Deep Dragon",
+   "rus": "Взрослый глубинный дракон",
+   "source": "FRAIF",
+   "cr": "11",
+   "type": "Дракон",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "beast-of-malar-fraif",
+   "eng": "Beast of Malar",
+   "rus": "Зверь Малара",
+   "source": "FRAIF",
+   "cr": "11",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "dreaming-dark-mindkiller-efa",
+   "eng": "Dreaming Dark Mindkiller",
+   "rus": "Истребитель разума Грёзной Тьмы",
+   "source": "EFA",
+   "cr": "11",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "cultist-of-myrkul-fraif",
+   "eng": "Cultist of Myrkul",
+   "rus": "Культист Миркула",
+   "source": "FRAIF",
+   "cr": "11",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "tarkanan-marauder-efa",
+   "eng": "Tarkanan Marauder",
+   "rus": "Мародёр Таркана",
+   "source": "EFA",
+   "cr": "11",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "chakuna-rhw",
+   "eng": "Chakuna",
+   "rus": "Чакуна",
+   "source": "RHW",
+   "cr": "11",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "relentless-juggernaut-rhw",
+   "eng": "Relentless Juggernaut",
+   "rus": "Безжалостный джаггернаут",
+   "source": "RHW",
+   "cr": "12",
+   "type": "Исчадие",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "vladeska-drakov-rhw",
+   "eng": "Vladeska Drakov",
+   "rus": "Владеска Драков",
+   "source": "RHW",
+   "cr": "12",
+   "type": "Гуманоид (человек)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "speaker-devil-abh",
+   "eng": "Speaker Devil",
+   "rus": "Дьявол оратор",
+   "source": "ABH",
+   "cr": "12",
+   "type": "Исчадие (дьявол)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "mordenheim-s-monster-rhw",
+   "eng": "Mordenheim's Monster",
+   "rus": "Монстр Морденхейма",
+   "source": "RHW",
+   "cr": "12",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "spore-of-moander-fraif",
+   "eng": "Spore of Moander",
+   "rus": "Спора Моандера",
+   "source": "FRAIF",
+   "cr": "12",
+   "type": "Растение",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "manshoon-fraif",
+   "eng": "Manshoon",
+   "rus": "Мэншун",
+   "source": "FRAIF",
+   "cr": "13",
+   "type": "Гуманоид (человек, волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ebonbane-rhw",
+   "eng": "Ebonbane",
+   "rus": "Эбонбейн",
+   "source": "RHW",
+   "cr": "13",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "abveku-aud",
+   "eng": "Abveku",
+   "rus": "Абвеку",
+   "source": "AUD",
+   "cr": "14",
+   "type": "Исчадие (демон)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "vampire-infernalist-abh",
+   "eng": "Vampire Infernalist",
+   "rus": "Вампир-инферналист",
+   "source": "ABH",
+   "cr": "14",
+   "type": "Нежить (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "phaerimm-elder-nf",
+   "eng": "Phaerimm Elder",
+   "rus": "Древний фаэримм",
+   "source": "NF",
+   "cr": "14",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "rusted-wyrm-fraif",
+   "eng": "Rusted Wyrm",
+   "rus": "Ржавый змей",
+   "source": "FRAIF",
+   "cr": "14",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "hazlik-rhw",
+   "eng": "Hazlik",
+   "rus": "Хазлик",
+   "source": "RHW",
+   "cr": "14",
+   "type": "Гуманоид (человек, волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "harkon-lukas-rhw",
+   "eng": "Harkon Lukas",
+   "rus": "Харкон Лукас",
+   "source": "RHW",
+   "cr": "14",
+   "type": "Монстр (оборотень)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "evoker-archmage-au",
+   "eng": "Evoker Archmage",
+   "rus": "Архимаг-воплотитель",
+   "source": "AU",
+   "cr": "15",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "illusionist-archmage-au",
+   "eng": "Illusionist Archmage",
+   "rus": "Архимаг-иллюзионист",
+   "source": "AU",
+   "cr": "15",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "necromancer-archmage-au",
+   "eng": "Necromancer Archmage",
+   "rus": "Архимаг-некромант",
+   "source": "AU",
+   "cr": "15",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "abjurer-archmage-au",
+   "eng": "Abjurer Archmage",
+   "rus": "Архимаг-оградитель",
+   "source": "AU",
+   "cr": "15",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "enchanter-archmage-au",
+   "eng": "Enchanter Archmage",
+   "rus": "Архимаг-очарователь",
+   "source": "AU",
+   "cr": "15",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "transmuter-archmage-au",
+   "eng": "Transmuter Archmage",
+   "rus": "Архимаг-преобразователь",
+   "source": "AU",
+   "cr": "15",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "conjurer-archmage-au",
+   "eng": "Conjurer Archmage",
+   "rus": "Архимаг-призыватель",
+   "source": "AU",
+   "cr": "15",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "diviner-archmage-au",
+   "eng": "Diviner Archmage",
+   "rus": "Архимаг-прорицатель",
+   "source": "AU",
+   "cr": "15",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "adult-spirit-dragon-fraif",
+   "eng": "Adult Spirit Dragon",
+   "rus": "Взрослый духовный дракон",
+   "source": "FRAIF",
+   "cr": "15",
+   "type": "Дракон",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ramya-vasavadan-rhw",
+   "eng": "Ramya Vasavadan",
+   "rus": "Рамья Васавадан",
+   "source": "RHW",
+   "cr": "15",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "strahd-von-zarovich-rhw",
+   "eng": "Strahd von Zarovich",
+   "rus": "Страд фон Зарович",
+   "source": "RHW",
+   "cr": "15",
+   "type": "Нежить (вампир)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "gore-drinker-drp",
+   "eng": "Gore Drinker",
+   "rus": "Кровоглот",
+   "source": "DRP",
+   "cr": "16",
+   "type": "Конструкт",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "dead-three-scion-fraif",
+   "eng": "Dead Three Scion",
+   "rus": "Отпрыск Троицы мертвых",
+   "source": "FRAIF",
+   "cr": "16",
+   "type": "Гуманоид",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ankhtepot-rhw",
+   "eng": "Ankhtepot",
+   "rus": "Анхтепот",
+   "source": "RHW",
+   "cr": "17",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "venger-au",
+   "eng": "Venger",
+   "rus": "Венгер",
+   "source": "AU",
+   "cr": "17",
+   "type": "Исчадие",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "xelnene-thrul-aud",
+   "eng": "Xelnene Thrul",
+   "rus": "Кселнена Трул",
+   "source": "AUD",
+   "cr": "17",
+   "type": "Гуманоид (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "sarrukh-tyrant-aud",
+   "eng": "Sarrukh Tyrant",
+   "rus": "Тиран-саррух",
+   "source": "AUD",
+   "cr": "17",
+   "type": "Монстр",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "baelnorn-au",
+   "eng": "Baelnorn",
+   "rus": "Бэльнорн",
+   "source": "AU",
+   "cr": "18",
+   "type": "Нежить (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "arisen-sarrukh-aud",
+   "eng": "Arisen Sarrukh",
+   "rus": "Восставший саррух",
+   "source": "AUD",
+   "cr": "18",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ancient-deep-dragon-fraif",
+   "eng": "Ancient Deep Dragon",
+   "rus": "Древний глубинный дракон",
+   "source": "FRAIF",
+   "cr": "18",
+   "type": "Дракон",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "zlan-fraif",
+   "eng": "Zlan",
+   "rus": "Злан",
+   "source": "FRAIF",
+   "cr": "18",
+   "type": "Нежить (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "rendelith-aud",
+   "eng": "Rendelith",
+   "rus": "Ренделит",
+   "source": "AUD",
+   "cr": "18",
+   "type": "Исчадие (демон)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "lord-soth-of-sithicus-rhw",
+   "eng": "Lord Soth of Sithicus",
+   "rus": "Лорд Сот из Ситикуса",
+   "source": "RHW",
+   "cr": "19",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "lesser-star-spawn-emissary-rhw",
+   "eng": "Lesser Star Spawn Emissary",
+   "rus": "Младший эмиссар порождения звёзд",
+   "source": "RHW",
+   "cr": "19",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "taisus-au",
+   "eng": "Taisus",
+   "rus": "Тайсус",
+   "source": "AU",
+   "cr": "19",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "merchant-of-misthaven-feq",
+   "eng": "Merchant of Misthaven",
+   "rus": "Торговец Туманного Рая",
+   "source": "FEQ",
+   "cr": "20",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "valindra-shadowmantle-fraif",
+   "eng": "Valindra Shadowmantle",
+   "rus": "Валиндра Тенёмантия",
+   "source": "FRAIF",
+   "cr": "21",
+   "type": "Нежить (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "greater-star-spawn-emissary-rhw",
+   "eng": "Greater Star Spawn Emissary",
+   "rus": "Высший Эмиссар порождения звезд",
+   "source": "RHW",
+   "cr": "21",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "ancient-spirit-dragon-fraif",
+   "eng": "Ancient Spirit Dragon",
+   "rus": "Древний духовный дракон",
+   "source": "FRAIF",
+   "cr": "22",
+   "type": "Дракон",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "sammaster-dracolich-form-fraif",
+   "eng": "Sammaster (Dracolich Form)",
+   "rus": "Саммастер (форма драколича)",
+   "source": "FRAIF",
+   "cr": "22",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "sammaster-lich-form-fraif",
+   "eng": "Sammaster (Lich Form)",
+   "rus": "Саммастер (форма лича)",
+   "source": "FRAIF",
+   "cr": "22",
+   "type": "Нежить (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "azalin-rex-rhw",
+   "eng": "Azalin Rex",
+   "rus": "Азалин Рекс",
+   "source": "RHW",
+   "cr": "23",
+   "type": "Нежить",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "king-grayfinger-feq",
+   "eng": "King Grayfinger",
+   "rus": "Король Серый Палец",
+   "source": "FEQ",
+   "cr": "23",
+   "type": "Фея",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "orlassk-feq",
+   "eng": "Orlassk",
+   "rus": "Орласск",
+   "source": "FEQ",
+   "cr": "23",
+   "type": "Аберрация",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  },
+  {
+   "url": "szass-tam-aud",
+   "eng": "Szass Tam",
+   "rus": "Сзасс Тэм",
+   "source": "AUD",
+   "cr": "23",
+   "type": "Нежить (волшебник)",
+   "reason": "книга сеттинга / именной персонаж / сторонний или UA-источник"
+  }
+ ],
+ "not_mob": [
+  {
+   "url": "avatar-of-death-dmg",
+   "eng": "Avatar of Death",
+   "rus": "Аватар смерти",
+   "source": "DMG",
+   "cr": "0",
+   "type": "Нежить"
+  },
+  {
+   "url": "battle-familiar-au",
+   "eng": "Battle Familiar",
+   "rus": "Боевой фамильяр",
+   "source": "AU",
+   "cr": "0",
+   "type": "Небожитель, Фея, Исчадие (по вашему выбору)"
+  },
+  {
+   "url": "giant-insect-phb",
+   "eng": "Giant Insect",
+   "rus": "Гигантское насекомое",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Зверь"
+  },
+  {
+   "url": "homunculus-servant-efa",
+   "eng": "Homunculus Servant",
+   "rus": "Гомункул слуга",
+   "source": "EFA",
+   "cr": "0",
+   "type": "Конструкт"
+  },
+  {
+   "url": "aberrant-spirit-phb",
+   "eng": "Aberrant Spirit",
+   "rus": "Дух аберрации",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Аберрация"
+  },
+  {
+   "url": "dinosaur-spirit-au",
+   "eng": "Dinosaur Spirit",
+   "rus": "Дух динозавра",
+   "source": "AU",
+   "cr": "0",
+   "type": "Зверь (динозавр)"
+  },
+  {
+   "url": "draconic-spirit-phb",
+   "eng": "Draconic Spirit",
+   "rus": "Дух дракона",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Дракон"
+  },
+  {
+   "url": "bestial-spirit-phb",
+   "eng": "Bestial Spirit",
+   "rus": "Дух зверя",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Зверь"
+  },
+  {
+   "url": "fiendish-spirit-phb",
+   "eng": "Fiendish Spirit",
+   "rus": "Дух исчадия",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Исчадие"
+  },
+  {
+   "url": "construct-spirit-phb",
+   "eng": "Construct Spirit",
+   "rus": "Дух конструкта",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Конструкт"
+  },
+  {
+   "url": "sea-serpent-spirit-ghpg",
+   "eng": "Sea Serpent Spirit",
+   "rus": "Дух морского зверя",
+   "source": "GHPG",
+   "cr": "0",
+   "type": "Монстр"
+  },
+  {
+   "url": "celestial-spirit-phb",
+   "eng": "Celestial Spirit",
+   "rus": "Дух небожителя",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Небожитель"
+  },
+  {
+   "url": "undead-spirit-phb",
+   "eng": "Undead Spirit",
+   "rus": "Дух нежити",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Нежить"
+  },
+  {
+   "url": "psionic-spirit-uapu",
+   "eng": "Psionic Spirit",
+   "rus": "Дух псионики",
+   "source": "UAPU",
+   "cr": "0",
+   "type": "Аберрация"
+  },
+  {
+   "url": "plant-spirit-au",
+   "eng": "Plant Spirit",
+   "rus": "Дух растения",
+   "source": "AU",
+   "cr": "0",
+   "type": "Растение"
+  },
+  {
+   "url": "plant-spirit-ghpg",
+   "eng": "Plant Spirit",
+   "rus": "Дух растения",
+   "source": "GHPG",
+   "cr": "0",
+   "type": "Растение"
+  },
+  {
+   "url": "fey-spirit-phb",
+   "eng": "Fey Spirit",
+   "rus": "Дух феи",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Фея"
+  },
+  {
+   "url": "elemental-spirit-phb",
+   "eng": "Elemental Spirit",
+   "rus": "Дух элементаля",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Элементаль"
+  },
+  {
+   "url": "beast-of-the-sea-phb",
+   "eng": "Beast of the Sea",
+   "rus": "Морской зверь",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Зверь"
+  },
+  {
+   "url": "beast-of-the-land-phb",
+   "eng": "Beast of the Land",
+   "rus": "Наземный зверь",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Зверь"
+  },
+  {
+   "url": "beast-of-the-sky-phb",
+   "eng": "Beast of the Sky",
+   "rus": "Небесный зверь",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Зверь"
+  },
+  {
+   "url": "animated-object-phb",
+   "eng": "Animated Object",
+   "rus": "Оживлённый предмет",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Конструкт"
+  },
+  {
+   "url": "reanimated-companion-rhw",
+   "eng": "Reanimated Companion",
+   "rus": "Оживленный спутник",
+   "source": "RHW",
+   "cr": "0",
+   "type": "Нежить"
+  },
+  {
+   "url": "primal-striker-ghpg",
+   "eng": "Primal Striker",
+   "rus": "Первобытный охотник",
+   "source": "GHPG",
+   "cr": "0",
+   "type": "Зверь"
+  },
+  {
+   "url": "primal-guardian-ghpg",
+   "eng": "Primal Guardian",
+   "rus": "Первобытный страж",
+   "source": "GHPG",
+   "cr": "0",
+   "type": "Зверь"
+  },
+  {
+   "url": "otherworldly-steed-phb",
+   "eng": "Otherworldly Steed",
+   "rus": "Потусторонний скакун",
+   "source": "PHB",
+   "cr": "0",
+   "type": "Небожитель"
+  },
+  {
+   "url": "reanimated-companion-uahs",
+   "eng": "Reanimated Companion",
+   "rus": "Реанимированный спутник",
+   "source": "UAHS",
+   "cr": "0",
+   "type": "Нежить"
+  },
+  {
+   "url": "vestige-companion-au",
+   "eng": "Vestige Companion",
+   "rus": "Реликт-спутник",
+   "source": "AU",
+   "cr": "0",
+   "type": "Небожитель"
+  },
+  {
+   "url": "homunculus-servant-uaa",
+   "eng": "Homunculus Servant",
+   "rus": "Слуга гомункул",
+   "source": "UAA",
+   "cr": "0",
+   "type": "Конструкт"
+  },
+  {
+   "url": "purple-dragon-companion-uafrs",
+   "eng": "Purple Dragon Companion",
+   "rus": "Спутник пурпурный дракон",
+   "source": "UAFRS",
+   "cr": "0",
+   "type": "Дракон"
+  },
+  {
+   "url": "vestige-companion-uams",
+   "eng": "Vestige Companion",
+   "rus": "Спутник-реликт",
+   "source": "UAMS",
+   "cr": "0",
+   "type": "Небожитель"
+  },
+  {
+   "url": "steel-defender-efa",
+   "eng": "Steel Defender",
+   "rus": "Стальной защитник",
+   "source": "EFA",
+   "cr": "0",
+   "type": "Конструкт"
+  },
+  {
+   "url": "steel-defender-uaa",
+   "eng": "Steel Defender",
+   "rus": "Стальной защитник",
+   "source": "UAA",
+   "cr": "0",
+   "type": "Конструкт"
+  },
+  {
+   "url": "flying-wonder-fraif",
+   "eng": "Flying Wonder",
+   "rus": "Летающее чудо",
+   "source": "FRAIF",
+   "cr": "0",
+   "type": "Конструкт"
+  },
+  {
+   "url": "domestic-wonder-fraif",
+   "eng": "Domestic Wonder",
+   "rus": "Механическое чудо",
+   "source": "FRAIF",
+   "cr": "0",
+   "type": "Конструкт"
+  },
+  {
+   "url": "troll-limb-mm",
+   "eng": "Troll Limb",
+   "rus": "Конечность тролля",
+   "source": "MM",
+   "cr": "1/2",
+   "type": "Великан"
+  },
+  {
+   "url": "living-thunderwave-au",
+   "eng": "Living Thunderwave",
+   "rus": "Живая волна грома",
+   "source": "AU",
+   "cr": "1",
+   "type": "Конструкт"
+  },
+  {
+   "url": "myconid-spore-servant-mm",
+   "eng": "Myconid Spore Servant",
+   "rus": "Споровой слуга миконидов",
+   "source": "MM",
+   "cr": "1",
+   "type": "Растение"
+  },
+  {
+   "url": "sphinx-of-wonder-mm",
+   "eng": "Sphinx of Wonder",
+   "rus": "Сфинкс чудес",
+   "source": "MM",
+   "cr": "1",
+   "type": "Небожитель"
+  },
+  {
+   "url": "vampire-familiar-mm",
+   "eng": "Vampire Familiar",
+   "rus": "Фамильяр вампира",
+   "source": "MM",
+   "cr": "3",
+   "type": "Гуманоид"
+  },
+  {
+   "url": "living-vitriolic-sphere-au",
+   "eng": "Living Vitriolic Sphere",
+   "rus": "Живой едкий шар",
+   "source": "AU",
+   "cr": "5",
+   "type": "Конструкт"
+  },
+  {
+   "url": "living-cone-of-cold-au",
+   "eng": "Living Cone of Cold",
+   "rus": "Живой конус холода",
+   "source": "AU",
+   "cr": "7",
+   "type": "Конструкт"
+  }
+ ]
+}

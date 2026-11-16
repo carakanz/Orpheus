@@ -1,0 +1,10529 @@
+[
+ {
+  "id": "bst_baboon",
+  "eng": "Baboon",
+  "rus": "Бабуин",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Baboon",
+    "rus": "Бабуин",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/baboon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_badger",
+  "eng": "Badger",
+  "rus": "Барсук",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Badger",
+    "rus": "Барсук",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/badger-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_shrieker_fungus",
+  "eng": "Shrieker Fungus",
+  "rus": "Визгун",
+  "type": "Растение",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Shrieker Fungus",
+    "rus": "Визгун",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/shrieker-fungus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_raven",
+  "eng": "Raven",
+  "rus": "Ворон",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Raven",
+    "rus": "Ворон",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/raven-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_fly",
+  "eng": "Giant Fly",
+  "rus": "Гигантская муха",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "DMG"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Fly",
+    "rus": "Гигантская муха",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/giant-fly-dmg"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_fire_beetle",
+  "eng": "Giant Fire Beetle",
+  "rus": "Гигантский огненный жук",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Fire Beetle",
+    "rus": "Гигантский огненный жук",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/giant-fire-beetle-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hyena",
+  "eng": "Hyena",
+  "rus": "Гиена",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hyena",
+    "rus": "Гиена",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/hyena-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_homunculus",
+  "eng": "Homunculus",
+  "rus": "Гомункул",
+  "type": "Конструкт",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Homunculus",
+    "rus": "Гомункул",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/homunculus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_vulture",
+  "eng": "Vulture",
+  "rus": "Гриф",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Vulture",
+    "rus": "Гриф",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/vulture-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_goat",
+  "eng": "Goat",
+  "rus": "Козёл",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "горы",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Goat",
+    "rus": "Козёл",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/goat-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cat",
+  "eng": "Cat",
+  "rus": "Кошка",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "город",
+   "лес",
+   "луга",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cat",
+    "rus": "Кошка",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/cat-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_crab",
+  "eng": "Crab",
+  "rus": "Краб",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Crab",
+    "rus": "Краб",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/crab-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_rat",
+  "eng": "Rat",
+  "rus": "Крыса",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Rat",
+    "rus": "Крыса",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/rat-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_weasel",
+  "eng": "Weasel",
+  "rus": "Куница",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Weasel",
+    "rus": "Куница",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/weasel-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_lemure",
+  "eng": "Lemure",
+  "rus": "Лемур",
+  "type": "Исчадие (дьявол)",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "план: nine hells"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Lemure",
+    "rus": "Лемур",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/lemure-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bat",
+  "eng": "Bat",
+  "rus": "Летучая мышь",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "город",
+   "горы",
+   "лес",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bat",
+    "rus": "Летучая мышь",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/bat-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_frog",
+  "eng": "Frog",
+  "rus": "Лягушка",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Frog",
+    "rus": "Лягушка",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/frog-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_seahorse",
+  "eng": "Seahorse",
+  "rus": "Морской конёк",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Seahorse",
+    "rus": "Морской конёк",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/seahorse-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_commoner",
+  "eng": "Commoner",
+  "rus": "Обыватель",
+  "type": "Гуманоид",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Commoner",
+    "rus": "Обыватель",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/commoner-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_deer",
+  "eng": "Deer",
+  "rus": "Олень",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Deer",
+    "rus": "Олень",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/deer-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_eagle",
+  "eng": "Eagle",
+  "rus": "Орёл",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "побережье",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Eagle",
+    "rus": "Орёл",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/eagle-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_octopus",
+  "eng": "Octopus",
+  "rus": "Осьминог",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Octopus",
+    "rus": "Осьминог",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/octopus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_spider",
+  "eng": "Spider",
+  "rus": "Паук",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес",
+   "подземье",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Spider",
+    "rus": "Паук",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/spider-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_piranha",
+  "eng": "Piranha",
+  "rus": "Пиранья",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Piranha",
+    "rus": "Пиранья",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/piranha-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_awakened_shrub",
+  "eng": "Awakened Shrub",
+  "rus": "Пробуждённый куст",
+  "type": "Растение",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Awakened Shrub",
+    "rus": "Пробуждённый куст",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/awakened-shrub-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_scorpion",
+  "eng": "Scorpion",
+  "rus": "Скорпион",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Scorpion",
+    "rus": "Скорпион",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/scorpion-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_owl",
+  "eng": "Owl",
+  "rus": "Сова",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "арктика",
+   "лес",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Owl",
+    "rus": "Сова",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/owl-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_jackal",
+  "eng": "Jackal",
+  "rus": "Шакал",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "луга",
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Jackal",
+    "rus": "Шакал",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/jackal-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hawk",
+  "eng": "Hawk",
+  "rus": "Ястреб",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "арктика",
+   "горы",
+   "лес",
+   "луга",
+   "побережье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hawk",
+    "rus": "Ястреб",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/hawk-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_lizard",
+  "eng": "Lizard",
+  "rus": "Ящерица",
+  "type": "Зверь",
+  "cr": "0",
+  "crMin": 0.0,
+  "crMax": 0.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "побережье",
+   "подземье",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Lizard",
+    "rus": "Ящерица",
+    "cr": "0",
+    "url": "https://new.ttg.club/bestiary/lizard-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bandit",
+  "eng": "Bandit",
+  "rus": "Бандит",
+  "type": "Гуманоид",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bandit",
+    "rus": "Бандит",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/bandit-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_noble",
+  "eng": "Noble",
+  "rus": "Благородный",
+  "type": "Гуманоид",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Noble",
+    "rus": "Благородный",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/noble-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_camel",
+  "eng": "Camel",
+  "rus": "Верблюд",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Camel",
+    "rus": "Верблюд",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/camel-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_warrior_infantry",
+  "eng": "Warrior Infantry",
+  "rus": "Воин пехотинец",
+  "type": "Гуманоид",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Warrior Infantry",
+    "rus": "Воин пехотинец",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/warrior-infantry-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_rat",
+  "eng": "Giant Rat",
+  "rus": "Гигантская крыса",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Rat",
+    "rus": "Гигантская крыса",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/giant-rat-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_weasel",
+  "eng": "Giant Weasel",
+  "rus": "Гигантская куница",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Weasel",
+    "rus": "Гигантская куница",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/giant-weasel-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_crab",
+  "eng": "Giant Crab",
+  "rus": "Гигантский краб",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Crab",
+    "rus": "Гигантский краб",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/giant-crab-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_goblin_minion",
+  "eng": "Goblin Minion",
+  "rus": "Гоблин прислужник",
+  "type": "Фея (гоблиноид)",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: acheron",
+   "план: feywild",
+   "подземье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Goblin Minion",
+    "rus": "Гоблин прислужник",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/goblin-minion-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_kobold_warrior",
+  "eng": "Kobold Warrior",
+  "rus": "Кобольд воин",
+  "type": "Дракон",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "арктика",
+   "болота",
+   "город",
+   "горы",
+   "лес",
+   "побережье",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Kobold Warrior",
+    "rus": "Кобольд воин",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/kobold-warrior-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_blood_hawk",
+  "eng": "Blood Hawk",
+  "rus": "Кровавый ястреб",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "арктика",
+   "горы",
+   "лес",
+   "луга",
+   "побережье",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Blood Hawk",
+    "rus": "Кровавый ястреб",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/blood-hawk-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_stirge",
+  "eng": "Stirge",
+  "rus": "Кровопийца",
+  "type": "Монстр",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "горы",
+   "лес",
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Stirge",
+    "rus": "Кровопийца",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/stirge-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cultist",
+  "eng": "Cultist",
+  "rus": "Культист",
+  "type": "Гуманоид",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cultist",
+    "rus": "Культист",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/cultist-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_flying_snake",
+  "eng": "Flying Snake",
+  "rus": "Летающая змея",
+  "type": "Монстр",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Flying Snake",
+    "rus": "Летающая змея",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/flying-snake-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mastiff",
+  "eng": "Mastiff",
+  "rus": "Мастифф",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "лес",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mastiff",
+    "rus": "Мастифф",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/mastiff-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_merfolk_skirmisher",
+  "eng": "Merfolk Skirmisher",
+  "rus": "Мерфолк застрельщик",
+  "type": "Элементаль",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Merfolk Skirmisher",
+    "rus": "Мерфолк застрельщик",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/merfolk-skirmisher-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mule",
+  "eng": "Mule",
+  "rus": "Мул",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mule",
+    "rus": "Мул",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/mule-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pony",
+  "eng": "Pony",
+  "rus": "Пони",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pony",
+    "rus": "Пони",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/pony-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_guard",
+  "eng": "Guard",
+  "rus": "Стражник",
+  "type": "Гуманоид",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Guard",
+    "rus": "Стражник",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/guard-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_venomous_snake",
+  "eng": "Venomous Snake",
+  "rus": "Ядовитая змея",
+  "type": "Зверь",
+  "cr": "1/8",
+  "crMin": 0.125,
+  "crMax": 0.125,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "луга",
+   "побережье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Venomous Snake",
+    "rus": "Ядовитая змея",
+    "cr": "1/8",
+    "url": "https://new.ttg.club/bestiary/venomous-snake-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_wolf",
+  "eng": "Wolf",
+  "rus": "Волк",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Wolf",
+    "rus": "Волк",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/wolf-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_bat",
+  "eng": "Giant Bat",
+  "rus": "Гигантская летучая мышь",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Bat",
+    "rus": "Гигантская летучая мышь",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/giant-bat-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_frog",
+  "eng": "Giant Frog",
+  "rus": "Гигантская лягушка",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "побережье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Frog",
+    "rus": "Гигантская лягушка",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/giant-frog-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_centipede",
+  "eng": "Giant Centipede",
+  "rus": "Гигантская многоножка",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Centipede",
+    "rus": "Гигантская многоножка",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/giant-centipede-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_owl",
+  "eng": "Giant Owl",
+  "rus": "Гигантская сова",
+  "type": "Небожитель",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Owl",
+    "rus": "Гигантская сова",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/giant-owl-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_venomous_snake",
+  "eng": "Giant Venomous Snake",
+  "rus": "Гигантская ядовитая змея",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "луга",
+   "побережье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Venomous Snake",
+    "rus": "Гигантская ядовитая змея",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/giant-venomous-snake-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_lizard",
+  "eng": "Giant Lizard",
+  "rus": "Гигантская ящерица",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "побережье",
+   "подземье",
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Lizard",
+    "rus": "Гигантская ящерица",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/giant-lizard-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_badger",
+  "eng": "Giant Badger",
+  "rus": "Гигантский барсук",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Badger",
+    "rus": "Гигантский барсук",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/giant-badger-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_wolf_spider",
+  "eng": "Giant Wolf Spider",
+  "rus": "Гигантский паук-волк",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "побережье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Wolf Spider",
+    "rus": "Гигантский паук-волк",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/giant-wolf-spider-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_goblin_warrior",
+  "eng": "Goblin Warrior",
+  "rus": "Гоблин воин",
+  "type": "Фея (гоблиноид)",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: acheron",
+   "план: feywild",
+   "подземье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Goblin Warrior",
+    "rus": "Гоблин воин",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/goblin-warrior-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_grimlock",
+  "eng": "Grimlock",
+  "rus": "Гримлок",
+  "type": "Аберрация",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Grimlock",
+    "rus": "Гримлок",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/grimlock-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mud_mephit",
+  "eng": "Mud Mephit",
+  "rus": "Грязевой мефит",
+  "type": "Элементаль",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: elemental plane of air",
+   "план: elemental plane of earth",
+   "план: elemental plane of fire",
+   "план: elemental plane of water"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mud Mephit",
+    "rus": "Грязевой мефит",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/mud-mephit-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_dretch",
+  "eng": "Dretch",
+  "rus": "Дретч",
+  "type": "Исчадие (демон)",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: abyss"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Dretch",
+    "rus": "Дретч",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/dretch-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_smoke_mephit",
+  "eng": "Smoke Mephit",
+  "rus": "Дымовой мефит",
+  "type": "Элементаль",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: elemental plane of air",
+   "план: elemental plane of earth",
+   "план: elemental plane of fire",
+   "план: elemental plane of water"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Smoke Mephit",
+    "rus": "Дымовой мефит",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/smoke-mephit-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_riding_horse",
+  "eng": "Riding Horse",
+  "rus": "Ездовая лошадь",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город",
+   "луга"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Riding Horse",
+    "rus": "Ездовая лошадь",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/riding-horse-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_zombie",
+  "eng": "Zombie",
+  "rus": "Зомби",
+  "type": "Нежить",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "любая",
+   "план: shadowfell",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Zombie",
+    "rus": "Зомби",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/zombie-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_boar",
+  "eng": "Boar",
+  "rus": "Кабан",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Boar",
+    "rus": "Кабан",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/boar-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_winged_kobold",
+  "eng": "Winged Kobold",
+  "rus": "Крылатый кобольд",
+  "type": "Дракон",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "арктика",
+   "болота",
+   "город",
+   "горы",
+   "лес",
+   "побережье",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Winged Kobold",
+    "rus": "Крылатый кобольд",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/winged-kobold-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_violet_fungus",
+  "eng": "Violet Fungus",
+  "rus": "Лиловый гриб",
+  "type": "Растение",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Violet Fungus",
+    "rus": "Лиловый гриб",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/violet-fungus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_elk",
+  "eng": "Elk",
+  "rus": "Лось",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "луга"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Elk",
+    "rus": "Лось",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/elk-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_blink_dog",
+  "eng": "Blink Dog",
+  "rus": "Мерцающий пёс",
+  "type": "Фея",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "план: feywild"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Blink Dog",
+    "rus": "Мерцающий пёс",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/blink-dog-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_animated_broom",
+  "eng": "Animated Broom",
+  "rus": "Оживлённая метла",
+  "type": "Конструкт",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Animated Broom",
+    "rus": "Оживлённая метла",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/animated-broom-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_animated_flying_sword",
+  "eng": "Animated Flying Sword",
+  "rus": "Оживлённый меч",
+  "type": "Конструкт",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Animated Flying Sword",
+    "rus": "Оживлённый меч",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/animated-flying-sword-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_panther",
+  "eng": "Panther",
+  "rus": "Пантера",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Panther",
+    "rus": "Пантера",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/panther-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_steam_mephit",
+  "eng": "Steam Mephit",
+  "rus": "Паровой мефит",
+  "type": "Элементаль",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: elemental plane of air",
+   "план: elemental plane of earth",
+   "план: elemental plane of fire",
+   "план: elemental plane of water"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Steam Mephit",
+    "rus": "Паровой мефит",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/steam-mephit-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pixie",
+  "eng": "Pixie",
+  "rus": "Пикси",
+  "type": "Фея",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "лес",
+   "план: feywild"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pixie",
+    "rus": "Пикси",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/pixie-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pseudodragon",
+  "eng": "Pseudodragon",
+  "rus": "Псевдодракон",
+  "type": "Дракон",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "город",
+   "горы",
+   "побережье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pseudodragon",
+    "rus": "Псевдодракон",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/pseudodragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pteranodon",
+  "eng": "Pteranodon",
+  "rus": "Птеранодон",
+  "type": "Зверь (динозавр)",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "побережье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pteranodon",
+    "rus": "Птеранодон",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/pteranodon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_swarm_of_ravens",
+  "eng": "Swarm of Ravens",
+  "rus": "Рой воронов",
+  "type": "Рой крошечных зверей",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Swarm of Ravens",
+    "rus": "Рой воронов",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/swarm-of-ravens-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_swarm_of_rats",
+  "eng": "Swarm of Rats",
+  "rus": "Рой крыс",
+  "type": "Рой крошечных зверей",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Swarm of Rats",
+    "rus": "Рой крыс",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/swarm-of-rats-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_swarm_of_bats",
+  "eng": "Swarm of Bats",
+  "rus": "Рой летучих мышей",
+  "type": "Рой крошечных зверей",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "город",
+   "горы",
+   "лес",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Swarm of Bats",
+    "rus": "Рой летучих мышей",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/swarm-of-bats-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_priest_acolyte",
+  "eng": "Priest Acolyte",
+  "rus": "Священник послушник",
+  "type": "Гуманоид (жрец)",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Priest Acolyte",
+    "rus": "Священник послушник",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/priest-acolyte-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_skeleton",
+  "eng": "Skeleton",
+  "rus": "Скелет",
+  "type": "Нежить",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "план: shadowfell",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Skeleton",
+    "rus": "Скелет",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/skeleton-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_sprite",
+  "eng": "Sprite",
+  "rus": "Спрайт",
+  "type": "Фея",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "лес",
+   "план: feywild"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Sprite",
+    "rus": "Спрайт",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/sprite-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_axe_beak",
+  "eng": "Axe Beak",
+  "rus": "Топороклюв",
+  "type": "Монстр",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "луга",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Axe Beak",
+    "rus": "Топороклюв",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/axe-beak-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_constrictor_snake",
+  "eng": "Constrictor Snake",
+  "rus": "Удав",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "под водой",
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Constrictor Snake",
+    "rus": "Удав",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/constrictor-snake-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_draft_horse",
+  "eng": "Draft Horse",
+  "rus": "Упряжная лошадь",
+  "type": "Зверь",
+  "cr": "1/4",
+  "crMin": 0.25,
+  "crMax": 0.25,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Draft Horse",
+    "rus": "Упряжная лошадь",
+    "cr": "1/4",
+    "url": "https://new.ttg.club/bestiary/draft-horse-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_warhorse",
+  "eng": "Warhorse",
+  "rus": "Боевая лошадь",
+  "type": "Зверь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Warhorse",
+    "rus": "Боевая лошадь",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/warhorse-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_tough",
+  "eng": "Tough",
+  "rus": "Бугай",
+  "type": "Гуманоид",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Tough",
+    "rus": "Бугай",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/tough-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_worg",
+  "eng": "Worg",
+  "rus": "Ворг",
+  "type": "Фея",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: feywild",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Worg",
+    "rus": "Ворг",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/worg-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_wasp",
+  "eng": "Giant Wasp",
+  "rus": "Гигантская оса",
+  "type": "Зверь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "лес",
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Wasp",
+    "rus": "Гигантская оса",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/giant-wasp-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_goat",
+  "eng": "Giant Goat",
+  "rus": "Гигантский козёл",
+  "type": "Зверь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Goat",
+    "rus": "Гигантский козёл",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/giant-goat-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_seahorse",
+  "eng": "Giant Seahorse",
+  "rus": "Гигантский морской конек",
+  "type": "Зверь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Seahorse",
+    "rus": "Гигантский морской конек",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/giant-seahorse-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_gnoll_warrior",
+  "eng": "Gnoll Warrior",
+  "rus": "Гнолл воин",
+  "type": "Исчадие",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gnoll Warrior",
+    "rus": "Гнолл воин",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/gnoll-warrior-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_performer",
+  "eng": "Performer",
+  "rus": "Исполнитель",
+  "type": "Гуманоид",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Performer",
+    "rus": "Исполнитель",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/performer-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_crocodile",
+  "eng": "Crocodile",
+  "rus": "Крокодил",
+  "type": "Зверь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "побережье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Crocodile",
+    "rus": "Крокодил",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/crocodile-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cockatrice",
+  "eng": "Cockatrice",
+  "rus": "Куролиск",
+  "type": "Монстр",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cockatrice",
+    "rus": "Куролиск",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/cockatrice-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ice_mephit",
+  "eng": "Ice Mephit",
+  "rus": "Ледяной мефит",
+  "type": "Элементаль",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: elemental plane of air",
+   "план: elemental plane of earth",
+   "план: elemental plane of fire",
+   "план: elemental plane of water"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ice Mephit",
+    "rus": "Ледяной мефит",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/ice-mephit-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_magmin",
+  "eng": "Magmin",
+  "rus": "Магмин",
+  "type": "Элементаль",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: elemental plane of fire"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Magmin",
+    "rus": "Магмин",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/magmin-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_magma_mephit",
+  "eng": "Magma Mephit",
+  "rus": "Магмовый мефит",
+  "type": "Элементаль",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: elemental plane of air",
+   "план: elemental plane of earth",
+   "план: elemental plane of fire",
+   "план: elemental plane of water"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Magma Mephit",
+    "rus": "Магмовый мефит",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/magma-mephit-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ape",
+  "eng": "Ape",
+  "rus": "Обезьяна",
+  "type": "Зверь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ape",
+    "rus": "Обезьяна",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/ape-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_dust_mephit",
+  "eng": "Dust Mephit",
+  "rus": "Пылевой мефит",
+  "type": "Элементаль",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: elemental plane of air",
+   "план: elemental plane of earth",
+   "план: elemental plane of fire",
+   "план: elemental plane of water"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Dust Mephit",
+    "rus": "Пылевой мефит",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/dust-mephit-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_scout",
+  "eng": "Scout",
+  "rus": "Разведчик",
+  "type": "Гуманоид",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Scout",
+    "rus": "Разведчик",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/scout-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_rust_monster",
+  "eng": "Rust Monster",
+  "rus": "Ржавник",
+  "type": "Монстр",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Rust Monster",
+    "rus": "Ржавник",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/rust-monster-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_reef_shark",
+  "eng": "Reef Shark",
+  "rus": "Рифовая акула",
+  "type": "Зверь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Reef Shark",
+    "rus": "Рифовая акула",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/reef-shark-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_swarm_of_insects",
+  "eng": "Swarm of Insects",
+  "rus": "Рой насекомых",
+  "type": "Рой крошечных зверей",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес",
+   "луга",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Swarm of Insects",
+    "rus": "Рой насекомых",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/swarm-of-insects-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_satyr",
+  "eng": "Satyr",
+  "rus": "Сатир",
+  "type": "Фея",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "план: feywild"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Satyr",
+    "rus": "Сатир",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/satyr-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_sahuagin_warrior",
+  "eng": "Sahuagin Warrior",
+  "rus": "Сахуагин воин",
+  "type": "Исчадие",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Sahuagin Warrior",
+    "rus": "Сахуагин воин",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/sahuagin-warrior-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_gray_ooze",
+  "eng": "Gray Ooze",
+  "rus": "Серая слизь",
+  "type": "Слизь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gray Ooze",
+    "rus": "Серая слизь",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/gray-ooze-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_warhorse_skeleton",
+  "eng": "Warhorse Skeleton",
+  "rus": "Скелет боевого коня",
+  "type": "Нежить",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город",
+   "план: shadowfell",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Warhorse Skeleton",
+    "rus": "Скелет боевого коня",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/warhorse-skeleton-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_darkmantle",
+  "eng": "Darkmantle",
+  "rus": "Тёмная мантия",
+  "type": "Аберрация",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Darkmantle",
+    "rus": "Тёмная мантия",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/darkmantle-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_shadow",
+  "eng": "Shadow",
+  "rus": "Тень",
+  "type": "Нежить",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "план: shadowfell",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Shadow",
+    "rus": "Тень",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/shadow-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hobgoblin_warrior",
+  "eng": "Hobgoblin Warrior",
+  "rus": "Хобгоблин воин",
+  "type": "Фея (гоблиноид)",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "лес",
+   "луга",
+   "план: acheron",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hobgoblin Warrior",
+    "rus": "Хобгоблин воин",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/hobgoblin-warrior-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_black_bear",
+  "eng": "Black Bear",
+  "rus": "Чёрный медведь",
+  "type": "Зверь",
+  "cr": "1/2",
+  "crMin": 0.5,
+  "crMax": 0.5,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Black Bear",
+    "rus": "Чёрный медведь",
+    "cr": "1/2",
+    "url": "https://new.ttg.club/bestiary/black-bear-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bugbear_warrior",
+  "eng": "Bugbear Warrior",
+  "rus": "Багбир воин",
+  "type": "Фея (гоблиноид)",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: feywild",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bugbear Warrior",
+    "rus": "Багбир воин",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/bugbear-warrior-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_imp",
+  "eng": "Imp",
+  "rus": "Бес",
+  "type": "Исчадие (дьявол)",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Imp",
+    "rus": "Бес",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/imp-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_brown_bear",
+  "eng": "Brown Bear",
+  "rus": "Бурый медведь",
+  "type": "Зверь",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "горы",
+   "лес",
+   "луга",
+   "побережье",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Brown Bear",
+    "rus": "Бурый медведь",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/brown-bear-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_brass_dragon",
+  "eng": "Brass Dragon",
+  "rus": "Латунный дракон",
+  "type": "Дракон (металлический)",
+  "cr": "1–20",
+  "crMin": 1.0,
+  "crMax": 20.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Brass Dragon Wyrmling",
+    "rus": "Вирмлинг латунный дракон",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/brass-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Brass Dragon",
+    "rus": "Молодой латунный дракон",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/young-brass-dragon-mm"
+   },
+   {
+    "eng": "Adult Brass Dragon",
+    "rus": "Взрослый латунный дракон",
+    "cr": "13",
+    "url": "https://new.ttg.club/bestiary/adult-brass-dragon-mm"
+   },
+   {
+    "eng": "Ancient Brass Dragon",
+    "rus": "Древний латунный дракон",
+    "cr": "20",
+    "url": "https://new.ttg.club/bestiary/ancient-brass-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_copper_dragon",
+  "eng": "Copper Dragon",
+  "rus": "Медный дракон",
+  "type": "Дракон (металлический)",
+  "cr": "1–21",
+  "crMin": 1.0,
+  "crMax": 21.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Copper Dragon Wyrmling",
+    "rus": "Вирмлинг медный дракон",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/copper-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Copper Dragon",
+    "rus": "Молодой медный дракон",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/young-copper-dragon-mm"
+   },
+   {
+    "eng": "Adult Copper Dragon",
+    "rus": "Взрослый медный дракон",
+    "cr": "14",
+    "url": "https://new.ttg.club/bestiary/adult-copper-dragon-mm"
+   },
+   {
+    "eng": "Ancient Copper Dragon",
+    "rus": "Древний медный дракон",
+    "cr": "21",
+    "url": "https://new.ttg.club/bestiary/ancient-copper-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_harpy",
+  "eng": "Harpy",
+  "rus": "Гарпия",
+  "type": "Монстр",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "лес",
+   "побережье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Harpy",
+    "rus": "Гарпия",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/harpy-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_hyena",
+  "eng": "Giant Hyena",
+  "rus": "Гигантская гиена",
+  "type": "Зверь",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Hyena",
+    "rus": "Гигантская гиена",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/giant-hyena-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_toad",
+  "eng": "Giant Toad",
+  "rus": "Гигантская жаба",
+  "type": "Зверь",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "побережье",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Toad",
+    "rus": "Гигантская жаба",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/giant-toad-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_vulture",
+  "eng": "Giant Vulture",
+  "rus": "Гигантский гриф",
+  "type": "Монстр",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Vulture",
+    "rus": "Гигантский гриф",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/giant-vulture-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_eagle",
+  "eng": "Giant Eagle",
+  "rus": "Гигантский орёл",
+  "type": "Небожитель",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "побережье",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Eagle",
+    "rus": "Гигантский орёл",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/giant-eagle-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_octopus",
+  "eng": "Giant Octopus",
+  "rus": "Гигантский осьминог",
+  "type": "Зверь",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Octopus",
+    "rus": "Гигантский осьминог",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/giant-octopus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_spider",
+  "eng": "Giant Spider",
+  "rus": "Гигантский паук",
+  "type": "Зверь",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес",
+   "подземье",
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Spider",
+    "rus": "Гигантский паук",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/giant-spider-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hippogriff",
+  "eng": "Hippogriff",
+  "rus": "Гиппогриф",
+  "type": "Монстр",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hippogriff",
+    "rus": "Гиппогриф",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/hippogriff-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_goblin_boss",
+  "eng": "Goblin Boss",
+  "rus": "Гоблин босс",
+  "type": "Фея (гоблиноид)",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: acheron",
+   "план: feywild",
+   "подземье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Goblin Boss",
+    "rus": "Гоблин босс",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/goblin-boss-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_dryad",
+  "eng": "Dryad",
+  "rus": "Дриада",
+  "type": "Фея",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Dryad",
+    "rus": "Дриада",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/dryad-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_quasit",
+  "eng": "Quasit",
+  "rus": "Квазит",
+  "type": "Исчадие (демон)",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "план: abyss"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Quasit",
+    "rus": "Квазит",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/quasit-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_lion",
+  "eng": "Lion",
+  "rus": "Лев",
+  "type": "Зверь",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Lion",
+    "rus": "Лев",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/lion-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_dire_wolf",
+  "eng": "Dire Wolf",
+  "rus": "Лютый волк",
+  "type": "Зверь",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Dire Wolf",
+    "rus": "Лютый волк",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/dire-wolf-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_animated_armor",
+  "eng": "Animated Armor",
+  "rus": "Оживлённый доспех",
+  "type": "Конструкт",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Animated Armor",
+    "rus": "Оживлённый доспех",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/animated-armor-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_death_dog",
+  "eng": "Death Dog",
+  "rus": "Пёс смерти",
+  "type": "Монстр",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Death Dog",
+    "rus": "Пёс смерти",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/death-dog-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pirate",
+  "eng": "Pirate",
+  "rus": "Пират",
+  "type": "Гуманоид",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pirate",
+    "rus": "Пират",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/pirate-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_scarecrow",
+  "eng": "Scarecrow",
+  "rus": "Пугало",
+  "type": "Конструкт",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Scarecrow",
+    "rus": "Пугало",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/scarecrow-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_swarm_of_piranhas",
+  "eng": "Swarm of Piranhas",
+  "rus": "Рой пираний",
+  "type": "Рой крошечных зверей",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Swarm of Piranhas",
+    "rus": "Рой пираний",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/swarm-of-piranhas-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_salamander_fire_snake",
+  "eng": "Salamander Fire Snake",
+  "rus": "Саламандра огненная змея",
+  "type": "Элементаль",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "план: elemental plane of fire",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Salamander Fire Snake",
+    "rus": "Саламандра огненная змея",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/salamander-fire-snake-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_specter",
+  "eng": "Specter",
+  "rus": "Спектр",
+  "type": "Нежить",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Specter",
+    "rus": "Спектр",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/specter-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_tiger",
+  "eng": "Tiger",
+  "rus": "Тигр",
+  "type": "Зверь",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Tiger",
+    "rus": "Тигр",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/tiger-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ghoul",
+  "eng": "Ghoul",
+  "rus": "Упырь",
+  "type": "Нежить",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ghoul",
+    "rus": "Упырь",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/ghoul-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_lacedon_ghoul",
+  "eng": "Lacedon Ghoul",
+  "rus": "Упырь утопец",
+  "type": "Нежить",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Lacedon Ghoul",
+    "rus": "Упырь утопец",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/lacedon-ghoul-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_spy",
+  "eng": "Spy",
+  "rus": "Шпион",
+  "type": "Гуманоид",
+  "cr": "1",
+  "crMin": 1.0,
+  "crMax": 1.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Spy",
+    "rus": "Шпион",
+    "cr": "1",
+    "url": "https://new.ttg.club/bestiary/spy-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_allosaurus",
+  "eng": "Allosaurus",
+  "rus": "Аллозавр",
+  "type": "Зверь (динозавр)",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "луга"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Allosaurus",
+    "rus": "Аллозавр",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/allosaurus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ankheg",
+  "eng": "Ankheg",
+  "rus": "Анхег",
+  "type": "Монстр",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ankheg",
+    "rus": "Анхег",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/ankheg-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bandit_captain",
+  "eng": "Bandit Captain",
+  "rus": "Бандит капитан",
+  "type": "Гуманоид",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bandit Captain",
+    "rus": "Бандит капитан",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/bandit-captain-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_polar_bear",
+  "eng": "Polar Bear",
+  "rus": "Белый медведь",
+  "type": "Зверь",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Polar Bear",
+    "rus": "Белый медведь",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/polar-bear-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_berserker",
+  "eng": "Berserker",
+  "rus": "Берсерк",
+  "type": "Гуманоид",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Berserker",
+    "rus": "Берсерк",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/berserker-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_will_o_wisp",
+  "eng": "Will-o'-Wisp",
+  "rus": "Блуждающий огонёк",
+  "type": "Нежить",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Will-o'-Wisp",
+    "rus": "Блуждающий огонёк",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/will-o-wisp-dmg"
+   }
+  ]
+ },
+ {
+  "id": "bst_gibbering_mouther",
+  "eng": "Gibbering Mouther",
+  "rus": "Бормочущий ротовик",
+  "type": "Аберрация",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gibbering Mouther",
+    "rus": "Бормочущий ротовик",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/gibbering-mouther-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_wererat",
+  "eng": "Wererat",
+  "rus": "Веркрыса",
+  "type": "Монстр (оборотень)",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город",
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Wererat",
+    "rus": "Веркрыса",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/wererat-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_white_dragon",
+  "eng": "White Dragon",
+  "rus": "Белый дракон",
+  "type": "Дракон",
+  "cr": "2–20",
+  "crMin": 2.0,
+  "crMax": 20.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "арктика"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "White Dragon Wyrmling",
+    "rus": "Вирмлинг белый дракон",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/white-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young White Dragon",
+    "rus": "Молодой белый дракон",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/young-white-dragon-mm"
+   },
+   {
+    "eng": "Adult White Dragon",
+    "rus": "Взрослый белый дракон",
+    "cr": "13",
+    "url": "https://new.ttg.club/bestiary/adult-white-dragon-mm"
+   },
+   {
+    "eng": "Ancient White Dragon",
+    "rus": "Древний белый дракон",
+    "cr": "20",
+    "url": "https://new.ttg.club/bestiary/ancient-white-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bronze_dragon",
+  "eng": "Bronze Dragon",
+  "rus": "Бронзовый дракон",
+  "type": "Дракон (металлический)",
+  "cr": "2–22",
+  "crMin": 2.0,
+  "crMax": 22.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "побережье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bronze Dragon Wyrmling",
+    "rus": "Вирмлинг бронзовый дракон",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/bronze-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Bronze Dragon",
+    "rus": "Молодой бронзовый дракон",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/young-bronze-dragon-mm"
+   },
+   {
+    "eng": "Adult Bronze Dragon",
+    "rus": "Взрослый бронзовый дракон",
+    "cr": "15",
+    "url": "https://new.ttg.club/bestiary/adult-bronze-dragon-mm"
+   },
+   {
+    "eng": "Ancient Bronze Dragon",
+    "rus": "Древний бронзовый дракон",
+    "cr": "22",
+    "url": "https://new.ttg.club/bestiary/ancient-bronze-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_green_dragon",
+  "eng": "Green Dragon",
+  "rus": "Зелёный дракон",
+  "type": "Дракон (цветной)",
+  "cr": "2–22",
+  "crMin": 2.0,
+  "crMax": 22.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Green Dragon Wyrmling",
+    "rus": "Вирмлинг зелёный дракон",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/green-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Green Dragon",
+    "rus": "Молодой зелёный дракон",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/young-green-dragon-mm"
+   },
+   {
+    "eng": "Adult Green Dragon",
+    "rus": "Взрослый зелёный дракон",
+    "cr": "15",
+    "url": "https://new.ttg.club/bestiary/adult-green-dragon-mm"
+   },
+   {
+    "eng": "Ancient Green Dragon",
+    "rus": "Древний зелёный дракон",
+    "cr": "22",
+    "url": "https://new.ttg.club/bestiary/ancient-green-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_silver_dragon",
+  "eng": "Silver Dragon",
+  "rus": "Серебряный дракон",
+  "type": "Дракон (металлический)",
+  "cr": "2–23",
+  "crMin": 2.0,
+  "crMax": 23.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "город",
+   "горы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Silver Dragon Wyrmling",
+    "rus": "Вирмлинг серебряный дракон",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/silver-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Silver Dragon",
+    "rus": "Молодой серебряный дракон",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/young-silver-dragon-mm"
+   },
+   {
+    "eng": "Adult Silver Dragon",
+    "rus": "Взрослый серебряный дракон",
+    "cr": "16",
+    "url": "https://new.ttg.club/bestiary/adult-silver-dragon-mm"
+   },
+   {
+    "eng": "Ancient Silver Dragon",
+    "rus": "Древний серебряный дракон",
+    "cr": "23",
+    "url": "https://new.ttg.club/bestiary/ancient-silver-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_black_dragon",
+  "eng": "Black Dragon",
+  "rus": "Чёрный дракон",
+  "type": "Дракон (цветной)",
+  "cr": "2–21",
+  "crMin": 2.0,
+  "crMax": 21.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "болота"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Black Dragon Wyrmling",
+    "rus": "Вирмлинг чёрный дракон",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/black-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Black Dragon",
+    "rus": "Молодой чёрный дракон",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/young-black-dragon-mm"
+   },
+   {
+    "eng": "Adult Black Dragon",
+    "rus": "Взрослый чёрный дракон",
+    "cr": "14",
+    "url": "https://new.ttg.club/bestiary/adult-black-dragon-mm"
+   },
+   {
+    "eng": "Ancient Black Dragon",
+    "rus": "Древний чёрный дракон",
+    "cr": "21",
+    "url": "https://new.ttg.club/bestiary/ancient-black-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_merrow",
+  "eng": "Merrow",
+  "rus": "Водянник",
+  "type": "Монстр",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Merrow",
+    "rus": "Водянник",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/merrow-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ghast",
+  "eng": "Ghast",
+  "rus": "Вурдалак",
+  "type": "Нежить",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ghast",
+    "rus": "Вурдалак",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/ghast-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_gargoyle",
+  "eng": "Gargoyle",
+  "rus": "Гаргулья",
+  "type": "Элементаль",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "план: arborea",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gargoyle",
+    "rus": "Гаргулья",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/gargoyle-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_boar",
+  "eng": "Giant Boar",
+  "rus": "Гигантский кабан",
+  "type": "Зверь",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Boar",
+    "rus": "Гигантский кабан",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/giant-boar-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_elk",
+  "eng": "Giant Elk",
+  "rus": "Гигантский лось",
+  "type": "Небожитель",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Elk",
+    "rus": "Гигантский лось",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/giant-elk-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_constrictor_snake",
+  "eng": "Giant Constrictor Snake",
+  "rus": "Гигантский удав",
+  "type": "Зверь",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "подземье",
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Constrictor Snake",
+    "rus": "Гигантский удав",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/giant-constrictor-snake-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_gnoll_pack_lord",
+  "eng": "Gnoll Pack Lord",
+  "rus": "Гнолл вождь стаи",
+  "type": "Исчадие",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gnoll Pack Lord",
+    "rus": "Гнолл вождь стаи",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/gnoll-pack-lord-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_grick",
+  "eng": "Grick",
+  "rus": "Грик",
+  "type": "Аберрация",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Grick",
+    "rus": "Грик",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/grick-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_griffon",
+  "eng": "Griffon",
+  "rus": "Грифон",
+  "type": "Монстр",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "горы",
+   "луга",
+   "побережье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Griffon",
+    "rus": "Грифон",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/griffon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_druid",
+  "eng": "Druid",
+  "rus": "Друид",
+  "type": "Гуманоид",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Druid",
+    "rus": "Друид",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/druid-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_gelatinous_cube",
+  "eng": "Gelatinous Cube",
+  "rus": "Желатиновый куб",
+  "type": "Слизь",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gelatinous Cube",
+    "rus": "Желатиновый куб",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/gelatinous-cube-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ochre_jelly",
+  "eng": "Ochre Jelly",
+  "rus": "Золотистое желе",
+  "type": "Слизь",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ochre Jelly",
+    "rus": "Золотистое желе",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/ochre-jelly-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ogre_zombie",
+  "eng": "Ogre Zombie",
+  "rus": "Зомби огр",
+  "type": "Нежить",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город",
+   "план: shadowfell",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ogre Zombie",
+    "rus": "Зомби огр",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/ogre-zombie-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_centaur_trooper",
+  "eng": "Centaur Trooper",
+  "rus": "Кентавр воин",
+  "type": "Фея",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: feywild"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Centaur Trooper",
+    "rus": "Кентавр воин",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/centaur-trooper-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cultist_fanatic",
+  "eng": "Cultist Fanatic",
+  "rus": "Культист фанатик",
+  "type": "Гуманоид",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cultist Fanatic",
+    "rus": "Культист фанатик",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/cultist-fanatic-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_lizardfolk_geomancer",
+  "eng": "Lizardfolk Geomancer",
+  "rus": "Людоящер геомант",
+  "type": "Элементаль",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Lizardfolk Geomancer",
+    "rus": "Людоящер геомант",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/lizardfolk-geomancer-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mage_apprentice",
+  "eng": "Mage Apprentice",
+  "rus": "Маг ученик",
+  "type": "Гуманоид (волшебник)",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mage Apprentice",
+    "rus": "Маг ученик",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/mage-apprentice-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mimic",
+  "eng": "Mimic",
+  "rus": "Мимик",
+  "type": "Монстр",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mimic",
+    "rus": "Мимик",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/mimic-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_sea_hag",
+  "eng": "Sea Hag",
+  "rus": "Морская карга",
+  "type": "Фея",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Sea Hag",
+    "rus": "Морская карга",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/sea-hag-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_rhinoceros",
+  "eng": "Rhinoceros",
+  "rus": "Носорог",
+  "type": "Зверь",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Rhinoceros",
+    "rus": "Носорог",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/rhinoceros-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ogre",
+  "eng": "Ogre",
+  "rus": "Огр",
+  "type": "Великан",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "болота",
+   "горы",
+   "лес",
+   "луга",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ogre",
+    "rus": "Огр",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/ogre-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_animated_rug_of_smothering",
+  "eng": "Animated Rug of Smothering",
+  "rus": "Оживлённый ковёр",
+  "type": "Конструкт",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Animated Rug of Smothering",
+    "rus": "Оживлённый ковёр",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/animated-rug-of-smothering-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hunter_shark",
+  "eng": "Hunter Shark",
+  "rus": "Охотничья акула",
+  "type": "Зверь",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hunter Shark",
+    "rus": "Охотничья акула",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/hunter-shark-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pegasus",
+  "eng": "Pegasus",
+  "rus": "Пегас",
+  "type": "Небожитель",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: upper planes",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pegasus",
+    "rus": "Пегас",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/pegasus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_peryton",
+  "eng": "Peryton",
+  "rus": "Перитон",
+  "type": "Монстр",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Peryton",
+    "rus": "Перитон",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/peryton-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_plesiosaurus",
+  "eng": "Plesiosaurus",
+  "rus": "Плезиозавр",
+  "type": "Зверь (динозавр)",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Plesiosaurus",
+    "rus": "Плезиозавр",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/plesiosaurus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_poltergeist",
+  "eng": "Poltergeist",
+  "rus": "Полтергейст",
+  "type": "Нежить",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Poltergeist",
+    "rus": "Полтергейст",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/poltergeist-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_awakened_tree",
+  "eng": "Awakened Tree",
+  "rus": "Пробуждённое дерево",
+  "type": "Растение",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Awakened Tree",
+    "rus": "Пробуждённое дерево",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/awakened-tree-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_swarm_of_stirges",
+  "eng": "Swarm of Stirges",
+  "rus": "Рой кровопийц",
+  "type": "Рой крошечных монстров",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "горы",
+   "лес",
+   "луга",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Swarm of Stirges",
+    "rus": "Рой кровопийц",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/swarm-of-stirges-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_swarm_of_venomous_snakes",
+  "eng": "Swarm of Venomous Snakes",
+  "rus": "Рой ядовитых змей",
+  "type": "Рой крошечных зверей",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "луга",
+   "побережье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Swarm of Venomous Snakes",
+    "rus": "Рой ядовитых змей",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/swarm-of-venomous-snakes-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_saber_toothed_tiger",
+  "eng": "Saber-Toothed Tiger",
+  "rus": "Саблезубый тигр",
+  "type": "Зверь",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "горы",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Saber-Toothed Tiger",
+    "rus": "Саблезубый тигр",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/saber-toothed-tiger-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_sahuagin_priest",
+  "eng": "Sahuagin Priest",
+  "rus": "Сахуагин жрец",
+  "type": "Исчадие",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Sahuagin Priest",
+    "rus": "Сахуагин жрец",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/sahuagin-priest-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_priest",
+  "eng": "Priest",
+  "rus": "Священник",
+  "type": "Гуманоид (жрец)",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Priest",
+    "rus": "Священник",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/priest-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_minotaur_skeleton",
+  "eng": "Minotaur Skeleton",
+  "rus": "Скелет минотавра",
+  "type": "Нежить",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город",
+   "план: shadowfell",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Minotaur Skeleton",
+    "rus": "Скелет минотавра",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/minotaur-skeleton-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bulette_pup",
+  "eng": "Bulette Pup",
+  "rus": "Щенок панцирницы",
+  "type": "Монстр",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bulette Pup",
+    "rus": "Щенок панцирницы",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/bulette-pup-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_azer_sentinel",
+  "eng": "Azer Sentinel",
+  "rus": "Эйзер защитник",
+  "type": "Элементаль",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "план: elemental plane of fire"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Azer Sentinel",
+    "rus": "Эйзер защитник",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/azer-sentinel-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ettercap",
+  "eng": "Ettercap",
+  "rus": "Эттеркап",
+  "type": "Монстр",
+  "cr": "2",
+  "crMin": 2.0,
+  "crMax": 2.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ettercap",
+    "rus": "Эттеркап",
+    "cr": "2",
+    "url": "https://new.ttg.club/bestiary/ettercap-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hell_hound",
+  "eng": "Hell Hound",
+  "rus": "Адская гончая",
+  "type": "Исчадие",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "план: lower planes",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hell Hound",
+    "rus": "Адская гончая",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/hell-hound-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ankylosaurus",
+  "eng": "Ankylosaurus",
+  "rus": "Анкилозавр",
+  "type": "Зверь (динозавр)",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "луга"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ankylosaurus",
+    "rus": "Анкилозавр",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/ankylosaurus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bugbear_stalker",
+  "eng": "Bugbear Stalker",
+  "rus": "Багбир охотник",
+  "type": "Фея (гоблиноид)",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: feywild",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bugbear Stalker",
+    "rus": "Багбир охотник",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/bugbear-stalker-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_basilisk",
+  "eng": "Basilisk",
+  "rus": "Василиск",
+  "type": "Монстр",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Basilisk",
+    "rus": "Василиск",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/basilisk-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_werewolf",
+  "eng": "Werewolf",
+  "rus": "Верволк",
+  "type": "Монстр (оборотень)",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Werewolf",
+    "rus": "Верволк",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/werewolf-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_gold_dragon",
+  "eng": "Gold Dragon",
+  "rus": "Золотой дракон",
+  "type": "Дракон (металлический)",
+  "cr": "3–24",
+  "crMin": 3.0,
+  "crMax": 24.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "лес",
+   "луга"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gold Dragon Wyrmling",
+    "rus": "Вирмлинг золотой дракон",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/gold-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Gold Dragon",
+    "rus": "Молодой золотой дракон",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/young-gold-dragon-mm"
+   },
+   {
+    "eng": "Adult Gold Dragon",
+    "rus": "Взрослый золотой дракон",
+    "cr": "17",
+    "url": "https://new.ttg.club/bestiary/adult-gold-dragon-mm"
+   },
+   {
+    "eng": "Ancient Gold Dragon",
+    "rus": "Древний золотой дракон",
+    "cr": "24",
+    "url": "https://new.ttg.club/bestiary/ancient-gold-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_blue_dragon",
+  "eng": "Blue Dragon",
+  "rus": "Синий дракон",
+  "type": "Дракон (цветной)",
+  "cr": "3–23",
+  "crMin": 3.0,
+  "crMax": 23.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "побережье",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Blue Dragon Wyrmling",
+    "rus": "Вирмлинг синий дракон",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/blue-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Blue Dragon",
+    "rus": "Молодой синий дракон",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/young-blue-dragon-mm"
+   },
+   {
+    "eng": "Adult Blue Dragon",
+    "rus": "Взрослый синий дракон",
+    "cr": "16",
+    "url": "https://new.ttg.club/bestiary/adult-blue-dragon-mm"
+   },
+   {
+    "eng": "Ancient Blue Dragon",
+    "rus": "Древний синий дракон",
+    "cr": "23",
+    "url": "https://new.ttg.club/bestiary/ancient-blue-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_warrior_veteran",
+  "eng": "Warrior Veteran",
+  "rus": "Воин ветеран",
+  "type": "Гуманоид",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Warrior Veteran",
+    "rus": "Воин ветеран",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/warrior-veteran-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_scorpion",
+  "eng": "Giant Scorpion",
+  "rus": "Гигантский скорпион",
+  "type": "Зверь",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Scorpion",
+    "rus": "Гигантский скорпион",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/giant-scorpion-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_goblin_hexer",
+  "eng": "Goblin Hexer",
+  "rus": "Гоблин буяг",
+  "type": "Фея (гоблиноид)",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: acheron",
+   "план: feywild",
+   "подземье",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Goblin Hexer",
+    "rus": "Гоблин буяг",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/goblin-hexer-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_swanmay",
+  "eng": "Swanmay",
+  "rus": "Дева-лебедь",
+  "type": "Фея",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "FRAIF"
+  ],
+  "variants": [
+   {
+    "eng": "Swanmay",
+    "rus": "Дева-лебедь",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/swanmay-fraif"
+   }
+  ]
+ },
+ {
+  "id": "bst_doppelganger",
+  "eng": "Doppelganger",
+  "rus": "Доппельгангер",
+  "type": "Монстр",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Doppelganger",
+    "rus": "Доппельгангер",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/doppelganger-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_green_hag",
+  "eng": "Green Hag",
+  "rus": "Зелёная карга",
+  "type": "Фея",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Green Hag",
+    "rus": "Зелёная карга",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/green-hag-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_winter_wolf",
+  "eng": "Winter Wolf",
+  "rus": "Зимний волк",
+  "type": "Монстр",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Winter Wolf",
+    "rus": "Зимний волк",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/winter-wolf-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_yeti",
+  "eng": "Yeti",
+  "rus": "Йети",
+  "type": "Монстр",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Yeti",
+    "rus": "Йети",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/yeti-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_killer_whale",
+  "eng": "Killer Whale",
+  "rus": "Косатка",
+  "type": "Зверь",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Killer Whale",
+    "rus": "Косатка",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/killer-whale-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_nightmare",
+  "eng": "Nightmare",
+  "rus": "Кошмар",
+  "type": "Исчадие",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: lower planes"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Nightmare",
+    "rus": "Кошмар",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/nightmare-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_manticore",
+  "eng": "Manticore",
+  "rus": "Мантикора",
+  "type": "Монстр",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "горы",
+   "луга",
+   "побережье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Manticore",
+    "rus": "Мантикора",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/manticore-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_minotaur_of_baphomet",
+  "eng": "Minotaur of Baphomet",
+  "rus": "Минотавр Бафомета",
+  "type": "Монстр",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Minotaur of Baphomet",
+    "rus": "Минотавр Бафомета",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/minotaur-of-baphomet-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mummy",
+  "eng": "Mummy",
+  "rus": "Мумия",
+  "type": "Нежить",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mummy",
+    "rus": "Мумия",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/mummy-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_polar_serpent",
+  "eng": "Polar Serpent",
+  "rus": "Полярный змей",
+  "type": "Элементаль",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "FRAIF"
+  ],
+  "variants": [
+   {
+    "eng": "Polar Serpent",
+    "rus": "Полярный змей",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/polar-serpent-fraif"
+   }
+  ]
+ },
+ {
+  "id": "bst_flaming_skeleton",
+  "eng": "Flaming Skeleton",
+  "rus": "Пылающий скелет",
+  "type": "Нежить",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "план: shadowfell",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Flaming Skeleton",
+    "rus": "Пылающий скелет",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/flaming-skeleton-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_scout_captain",
+  "eng": "Scout Captain",
+  "rus": "Разведчик капитан",
+  "type": "Гуманоид",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Scout Captain",
+    "rus": "Разведчик капитан",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/scout-captain-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_knight",
+  "eng": "Knight",
+  "rus": "Рыцарь",
+  "type": "Гуманоид",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Knight",
+    "rus": "Рыцарь",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/knight-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_wight",
+  "eng": "Wight",
+  "rus": "Умертвие",
+  "type": "Нежить",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "план: shadowfell",
+   "подземье",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Wight",
+    "rus": "Умертвие",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/wight-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_phase_spider",
+  "eng": "Phase Spider",
+  "rus": "Фазовый паук",
+  "type": "Монстр",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город",
+   "лес",
+   "луга",
+   "план: ethereal plane",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Phase Spider",
+    "rus": "Фазовый паук",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/phase-spider-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hobgoblin_captain",
+  "eng": "Hobgoblin Captain",
+  "rus": "Хобгоблин капитан",
+  "type": "Фея (гоблиноид)",
+  "cr": "3",
+  "crMin": 3.0,
+  "crMax": 3.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "лес",
+   "луга",
+   "план: acheron",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hobgoblin Captain",
+    "rus": "Хобгоблин капитан",
+    "cr": "3",
+    "url": "https://new.ttg.club/bestiary/hobgoblin-captain-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_archelon",
+  "eng": "Archelon",
+  "rus": "Архелон",
+  "type": "Зверь (динозавр)",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Archelon",
+    "rus": "Архелон",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/archelon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_banshee",
+  "eng": "Banshee",
+  "rus": "Банши",
+  "type": "Нежить",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Banshee",
+    "rus": "Банши",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/banshee-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hippopotamus",
+  "eng": "Hippopotamus",
+  "rus": "Бегемот",
+  "type": "Зверь",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "лес",
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hippopotamus",
+    "rus": "Бегемот",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/hippopotamus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_tough_boss",
+  "eng": "Tough Boss",
+  "rus": "Бугай босс",
+  "type": "Гуманоид",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Tough Boss",
+    "rus": "Бугай босс",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/tough-boss-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_wereboar",
+  "eng": "Wereboar",
+  "rus": "Веркабан",
+  "type": "Монстр (оборотень)",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Wereboar",
+    "rus": "Веркабан",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/wereboar-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_weretiger",
+  "eng": "Weretiger",
+  "rus": "Вертигр",
+  "type": "Монстр (оборотень)",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город",
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Weretiger",
+    "rus": "Вертигр",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/weretiger-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_red_dragon",
+  "eng": "Red Dragon",
+  "rus": "Красный дракон",
+  "type": "Дракон (цветной)",
+  "cr": "4–24",
+  "crMin": 4.0,
+  "crMax": 24.0,
+  "size": [
+   "Средний",
+   "Большой",
+   "Огромный",
+   "Громадный"
+  ],
+  "habitats": [
+   "горы",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Red Dragon Wyrmling",
+    "rus": "Вирмлинг красный дракон",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/red-dragon-wyrmling-mm"
+   },
+   {
+    "eng": "Young Red Dragon",
+    "rus": "Молодой красный дракон",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/young-red-dragon-mm"
+   },
+   {
+    "eng": "Adult Red Dragon",
+    "rus": "Взрослый красный дракон",
+    "cr": "17",
+    "url": "https://new.ttg.club/bestiary/adult-red-dragon-mm"
+   },
+   {
+    "eng": "Ancient Red Dragon",
+    "rus": "Древний красный дракон",
+    "cr": "24",
+    "url": "https://new.ttg.club/bestiary/ancient-red-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_incubus",
+  "eng": "Incubus",
+  "rus": "Инкуб",
+  "type": "Исчадие",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "план: lower planes"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Incubus",
+    "rus": "Инкуб",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/incubus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_couatl",
+  "eng": "Couatl",
+  "rus": "Коатль",
+  "type": "Небожитель",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "лес",
+   "луга",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Couatl",
+    "rus": "Коатль",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/couatl-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_lamia",
+  "eng": "Lamia",
+  "rus": "Ламия",
+  "type": "Исчадие",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Lamia",
+    "rus": "Ламия",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/lamia-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_lizardfolk_sovereign",
+  "eng": "Lizardfolk Sovereign",
+  "rus": "Людоящер вождь",
+  "type": "Элементаль",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Lizardfolk Sovereign",
+    "rus": "Людоящер вождь",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/lizardfolk-sovereign-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ghost",
+  "eng": "Ghost",
+  "rus": "Привидение",
+  "type": "Нежить",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ghost",
+    "rus": "Привидение",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/ghost-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_elephant",
+  "eng": "Elephant",
+  "rus": "Слон",
+  "type": "Зверь",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Elephant",
+    "rus": "Слон",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/elephant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_guard_captain",
+  "eng": "Guard Captain",
+  "rus": "Стражник капитан",
+  "type": "Гуманоид",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Guard Captain",
+    "rus": "Стражник капитан",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/guard-captain-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_strigoi",
+  "eng": "Strigoi",
+  "rus": "Стригой",
+  "type": "Монстр",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [],
+  "srd52": false,
+  "source": [
+   "RHW"
+  ],
+  "variants": [
+   {
+    "eng": "Strigoi",
+    "rus": "Стригой",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/strigoi-rhw"
+   }
+  ]
+ },
+ {
+  "id": "bst_succubus",
+  "eng": "Succubus",
+  "rus": "Суккуб",
+  "type": "Исчадие",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "план: lower planes"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Succubus",
+    "rus": "Суккуб",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/succubus-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_black_pudding",
+  "eng": "Black Pudding",
+  "rus": "Чёрная слизь",
+  "type": "Слизь",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Black Pudding",
+    "rus": "Чёрная слизь",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/black-pudding-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_chuul",
+  "eng": "Chuul",
+  "rus": "Чуул",
+  "type": "Аберрация",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "побережье",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Chuul",
+    "rus": "Чуул",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/chuul-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ettin",
+  "eng": "Ettin",
+  "rus": "Эттин",
+  "type": "Великан",
+  "cr": "4",
+  "crMin": 4.0,
+  "crMax": 4.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "подземье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ettin",
+    "rus": "Эттин",
+    "cr": "4",
+    "url": "https://new.ttg.club/bestiary/ettin-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_roper",
+  "eng": "Roper",
+  "rus": "Верёвочник",
+  "type": "Аберрация",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Roper",
+    "rus": "Верёвочник",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/roper-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_werebear",
+  "eng": "Werebear",
+  "rus": "Вермедведь",
+  "type": "Монстр (оборотень)",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "арктика",
+   "лес",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Werebear",
+    "rus": "Вермедведь",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/werebear-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_shark",
+  "eng": "Giant Shark",
+  "rus": "Гигантская акула",
+  "type": "Зверь",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Shark",
+    "rus": "Гигантская акула",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/giant-shark-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_crocodile",
+  "eng": "Giant Crocodile",
+  "rus": "Гигантский крокодил",
+  "type": "Зверь",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "болота",
+   "побережье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Crocodile",
+    "rus": "Гигантский крокодил",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/giant-crocodile-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_axe_beak",
+  "eng": "Giant Axe Beak",
+  "rus": "Гигантский топороклюв",
+  "type": "Монстр",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "арктика",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Axe Beak",
+    "rus": "Гигантский топороклюв",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/giant-axe-beak-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_gladiator",
+  "eng": "Gladiator",
+  "rus": "Гладиатор",
+  "type": "Гуманоид",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gladiator",
+    "rus": "Гладиатор",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/gladiator-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_gorgon",
+  "eng": "Gorgon",
+  "rus": "Горгона",
+  "type": "Конструкт",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Gorgon",
+    "rus": "Горгона",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/gorgon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_unicorn",
+  "eng": "Unicorn",
+  "rus": "Единорог",
+  "type": "Небожитель",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "план: feywild"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Unicorn",
+    "rus": "Единорог",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/unicorn-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_young_remorhaz",
+  "eng": "Young Remorhaz",
+  "rus": "Молодой ремораз",
+  "type": "Монстр",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Young Remorhaz",
+    "rus": "Молодой ремораз",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/young-remorhaz-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_flesh_golem",
+  "eng": "Flesh Golem",
+  "rus": "Мясной голем",
+  "type": "Конструкт",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Flesh Golem",
+    "rus": "Мясной голем",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/flesh-golem-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_night_hag",
+  "eng": "Night Hag",
+  "rus": "Ночная карга",
+  "type": "Исчадие",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "план: lower planes"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Night Hag",
+    "rus": "Ночная карга",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/night-hag-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_otyugh",
+  "eng": "Otyugh",
+  "rus": "Отидж",
+  "type": "Аберрация",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Otyugh",
+    "rus": "Отидж",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/otyugh-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bulette",
+  "eng": "Bulette",
+  "rus": "Панцирница",
+  "type": "Монстр",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bulette",
+    "rus": "Панцирница",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/bulette-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pixie_wonderbringer",
+  "eng": "Pixie Wonderbringer",
+  "rus": "Пикси чудотворец",
+  "type": "Фея",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Крошечный"
+  ],
+  "habitats": [
+   "лес",
+   "план: feywild"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pixie Wonderbringer",
+    "rus": "Пикси чудотворец",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/pixie-wonderbringer-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_shambling_mound",
+  "eng": "Shambling Mound",
+  "rus": "Ползающая насыпь",
+  "type": "Растение",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Shambling Mound",
+    "rus": "Ползающая насыпь",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/shambling-mound-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_half_dragon",
+  "eng": "Half-Dragon",
+  "rus": "Полудракон",
+  "type": "Дракон",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Half-Dragon",
+    "rus": "Полудракон",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/half-dragon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_vampire_spawn",
+  "eng": "Vampire Spawn",
+  "rus": "Порождение вампира",
+  "type": "Нежить",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Vampire Spawn",
+    "rus": "Порождение вампира",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/vampire-spawn-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_wraith",
+  "eng": "Wraith",
+  "rus": "Призрак",
+  "type": "Нежить",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "план: shadowfell",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Wraith",
+    "rus": "Призрак",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/wraith-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_revenant",
+  "eng": "Revenant",
+  "rus": "Ревенант",
+  "type": "Нежить",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Revenant",
+    "rus": "Ревенант",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/revenant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_salamander",
+  "eng": "Salamander",
+  "rus": "Саламандра",
+  "type": "Элементаль",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: elemental plane of fire",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Salamander",
+    "rus": "Саламандра",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/salamander-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_sahuagin_baron",
+  "eng": "Sahuagin Baron",
+  "rus": "Сахуагин барон",
+  "type": "Исчадие",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Sahuagin Baron",
+    "rus": "Сахуагин барон",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/sahuagin-baron-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_triceratops",
+  "eng": "Triceratops",
+  "rus": "Трицератопс",
+  "type": "Зверь (динозавр)",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Triceratops",
+    "rus": "Трицератопс",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/triceratops-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_troll",
+  "eng": "Troll",
+  "rus": "Тролль",
+  "type": "Великан",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "арктика",
+   "болота",
+   "лес",
+   "подземье",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Troll",
+    "rus": "Тролль",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/troll-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hill_giant",
+  "eng": "Hill Giant",
+  "rus": "Холмовой великан",
+  "type": "Великан",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hill Giant",
+    "rus": "Холмовой великан",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/hill-giant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_water_elemental",
+  "eng": "Water Elemental",
+  "rus": "Элементаль воды",
+  "type": "Элементаль",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "болота",
+   "план: elemental plane of water",
+   "побережье",
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Water Elemental",
+    "rus": "Элементаль воды",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/water-elemental-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_air_elemental",
+  "eng": "Air Elemental",
+  "rus": "Элементаль воздуха",
+  "type": "Элементаль",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "план: elemental plane of water",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Air Elemental",
+    "rus": "Элементаль воздуха",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/air-elemental-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_earth_elemental",
+  "eng": "Earth Elemental",
+  "rus": "Элементаль земли",
+  "type": "Элементаль",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "план: elemental plane of earth",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Earth Elemental",
+    "rus": "Элементаль земли",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/earth-elemental-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_fire_elemental",
+  "eng": "Fire Elemental",
+  "rus": "Элементаль огня",
+  "type": "Элементаль",
+  "cr": "5",
+  "crMin": 5.0,
+  "crMax": 5.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: elemental plane of fire",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Fire Elemental",
+    "rus": "Элементаль огня",
+    "cr": "5",
+    "url": "https://new.ttg.club/bestiary/fire-elemental-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_wyvern",
+  "eng": "Wyvern",
+  "rus": "Виверна",
+  "type": "Дракон",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Wyvern",
+    "rus": "Виверна",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/wyvern-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_vrock",
+  "eng": "Vrock",
+  "rus": "Врок",
+  "type": "Исчадие (демон)",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: abyss"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Vrock",
+    "rus": "Врок",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/vrock-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ghast_gravecaller",
+  "eng": "Ghast Gravecaller",
+  "rus": "Вурдалак могильщик",
+  "type": "Нежить",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ghast Gravecaller",
+    "rus": "Вурдалак могильщик",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/ghast-gravecaller-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_squid",
+  "eng": "Giant Squid",
+  "rus": "Гигантский кальмар",
+  "type": "Зверь",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "под водой",
+   "подземье",
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Squid",
+    "rus": "Гигантский кальмар",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/giant-squid-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_drider",
+  "eng": "Drider",
+  "rus": "Драук",
+  "type": "Монстр",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Drider",
+    "rus": "Драук",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/drider-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_performer_maestro",
+  "eng": "Performer Maestro",
+  "rus": "Исполнитель маэстро",
+  "type": "Гуманоид",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Performer Maestro",
+    "rus": "Исполнитель маэстро",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/performer-maestro-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mage",
+  "eng": "Mage",
+  "rus": "Маг",
+  "type": "Гуманоид (волшебник)",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mage",
+    "rus": "Маг",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/mage-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mammoth",
+  "eng": "Mammoth",
+  "rus": "Мамонт",
+  "type": "Зверь",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "арктика"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mammoth",
+    "rus": "Мамонт",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/mammoth-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_medusa",
+  "eng": "Medusa",
+  "rus": "Медуза",
+  "type": "Монстр",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Medusa",
+    "rus": "Медуза",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/medusa-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_merfolk_wavebender",
+  "eng": "Merfolk Wavebender",
+  "rus": "Мерфолк волновод",
+  "type": "Элементаль",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Merfolk Wavebender",
+    "rus": "Мерфолк волновод",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/merfolk-wavebender-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_invisible_stalker",
+  "eng": "Invisible Stalker",
+  "rus": "Невидимый охотник",
+  "type": "Элементаль",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Invisible Stalker",
+    "rus": "Невидимый охотник",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/invisible-stalker-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pirate_captain",
+  "eng": "Pirate Captain",
+  "rus": "Пират капитан",
+  "type": "Гуманоид",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pirate Captain",
+    "rus": "Пират капитан",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/pirate-captain-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_satyr_revelmaster",
+  "eng": "Satyr Revelmaster",
+  "rus": "Сатир мастер кутежа",
+  "type": "Фея",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "лес",
+   "план: feywild"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Satyr Revelmaster",
+    "rus": "Сатир мастер кутежа",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/satyr-revelmaster-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_chimera",
+  "eng": "Chimera",
+  "rus": "Химера",
+  "type": "Монстр",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Chimera",
+    "rus": "Химера",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/chimera-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hobgoblin_warlord",
+  "eng": "Hobgoblin Warlord",
+  "rus": "Хобгоблин полководец",
+  "type": "Фея (гоблиноид)",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "лес",
+   "луга",
+   "план: acheron",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hobgoblin Warlord",
+    "rus": "Хобгоблин полководец",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/hobgoblin-warlord-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cyclops_sentry",
+  "eng": "Cyclops Sentry",
+  "rus": "Циклоп часовой",
+  "type": "Великан",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "побережье",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cyclops Sentry",
+    "rus": "Циклоп часовой",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/cyclops-sentry-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_azer_pyromancer",
+  "eng": "Azer Pyromancer",
+  "rus": "Эйзер пиромант",
+  "type": "Элементаль",
+  "cr": "6",
+  "crMin": 6.0,
+  "crMax": 6.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "горы",
+   "план: elemental plane of fire"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Azer Pyromancer",
+    "rus": "Эйзер пиромант",
+    "cr": "6",
+    "url": "https://new.ttg.club/bestiary/azer-pyromancer-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bandit_deceiver",
+  "eng": "Bandit Deceiver",
+  "rus": "Бандит обманщик",
+  "type": "Гуманоид",
+  "cr": "7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bandit Deceiver",
+    "rus": "Бандит обманщик",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/bandit-deceiver-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_giant_ape",
+  "eng": "Giant Ape",
+  "rus": "Гигантская обезьяна",
+  "type": "Зверь",
+  "cr": "7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Giant Ape",
+    "rus": "Гигантская обезьяна",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/giant-ape-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_stone_giant",
+  "eng": "Stone Giant",
+  "rus": "Каменный великан",
+  "type": "Великан",
+  "cr": "7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "горы",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Stone Giant",
+    "rus": "Каменный великан",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/stone-giant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_centaur_warden",
+  "eng": "Centaur Warden",
+  "rus": "Кентавр хранитель",
+  "type": "Фея",
+  "cr": "7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: feywild"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Centaur Warden",
+    "rus": "Кентавр хранитель",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/centaur-warden-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_oni",
+  "eng": "Oni",
+  "rus": "Они",
+  "type": "Исчадие",
+  "cr": "7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город",
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Oni",
+    "rus": "Они",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/oni-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_graveyard_revenant",
+  "eng": "Graveyard Revenant",
+  "rus": "Ревенант кладбище",
+  "type": "Нежить",
+  "cr": "7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Graveyard Revenant",
+    "rus": "Ревенант кладбище",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/graveyard-revenant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_shield_guardian",
+  "eng": "Shield Guardian",
+  "rus": "Щитостраж",
+  "type": "Конструкт",
+  "cr": "7",
+  "crMin": 7.0,
+  "crMax": 7.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Shield Guardian",
+    "rus": "Щитостраж",
+    "cr": "7",
+    "url": "https://new.ttg.club/bestiary/shield-guardian-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_assassin",
+  "eng": "Assassin",
+  "rus": "Ассасин",
+  "type": "Гуманоид",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Assassin",
+    "rus": "Ассасин",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/assassin-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_berserker_commander",
+  "eng": "Berserker Commander",
+  "rus": "Берсерк командир",
+  "type": "Гуманоид",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Berserker Commander",
+    "rus": "Берсерк командир",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/berserker-commander-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_vampire_nightbringer",
+  "eng": "Vampire Nightbringer",
+  "rus": "Вампир вестник ночи",
+  "type": "Нежить",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Vampire Nightbringer",
+    "rus": "Вампир вестник ночи",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/vampire-nightbringer-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hydra",
+  "eng": "Hydra",
+  "rus": "Гидра",
+  "type": "Монстр",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "болота",
+   "побережье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hydra",
+    "rus": "Гидра",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/hydra-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_spirit_naga",
+  "eng": "Spirit Naga",
+  "rus": "Духовная нага",
+  "type": "Исчадие",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: lower planes",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Spirit Naga",
+    "rus": "Духовная нага",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/spirit-naga-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_chain_devil",
+  "eng": "Chain Devil",
+  "rus": "Дьявол цепей",
+  "type": "Исчадие (дьявол)",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "план: nine hells"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Chain Devil",
+    "rus": "Дьявол цепей",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/chain-devil-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_aberrant_cultist",
+  "eng": "Aberrant Cultist",
+  "rus": "Культист аберрации",
+  "type": "Гуманоид",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Aberrant Cultist",
+    "rus": "Культист аберрации",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/aberrant-cultist-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_fiend_cultist",
+  "eng": "Fiend Cultist",
+  "rus": "Культист исчадия",
+  "type": "Гуманоид",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Fiend Cultist",
+    "rus": "Культист исчадия",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/fiend-cultist-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_death_cultist",
+  "eng": "Death Cultist",
+  "rus": "Культист смерти",
+  "type": "Гуманоид",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Death Cultist",
+    "rus": "Культист смерти",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/death-cultist-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_elemental_cultist",
+  "eng": "Elemental Cultist",
+  "rus": "Культист стихии",
+  "type": "Гуманоид",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Elemental Cultist",
+    "rus": "Культист стихии",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/elemental-cultist-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cockatrice_regent",
+  "eng": "Cockatrice Regent",
+  "rus": "Куролиск регент",
+  "type": "Монстр",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cockatrice Regent",
+    "rus": "Куролиск регент",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/cockatrice-regent-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_frost_giant",
+  "eng": "Frost Giant",
+  "rus": "Морозный великан",
+  "type": "Великан",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "арктика",
+   "горы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Frost Giant",
+    "rus": "Морозный великан",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/frost-giant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cloaker",
+  "eng": "Cloaker",
+  "rus": "Плащевик",
+  "type": "Аберрация",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cloaker",
+    "rus": "Плащевик",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/cloaker-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_sphinx_of_secrets",
+  "eng": "Sphinx of Secrets",
+  "rus": "Сфинкс тайн",
+  "type": "Небожитель",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: upper planes",
+   "пустыня"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Sphinx of Secrets",
+    "rus": "Сфинкс тайн",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/sphinx-of-secrets-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_tyrannosaurus_rex",
+  "eng": "Tyrannosaurus Rex",
+  "rus": "Тираннозавр Рекс",
+  "type": "Зверь (динозавр)",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "луга"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Tyrannosaurus Rex",
+    "rus": "Тираннозавр Рекс",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/tyrannosaurus-rex-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_fomorian",
+  "eng": "Fomorian",
+  "rus": "Фомор",
+  "type": "Великан",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Fomorian",
+    "rus": "Фомор",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/fomorian-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_hezrou",
+  "eng": "Hezrou",
+  "rus": "Хезроу",
+  "type": "Исчадие (демон)",
+  "cr": "8",
+  "crMin": 8.0,
+  "crMax": 8.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: abyss"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Hezrou",
+    "rus": "Хезроу",
+    "cr": "8",
+    "url": "https://new.ttg.club/bestiary/hezrou-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_glabrezu",
+  "eng": "Glabrezu",
+  "rus": "Глабрезу",
+  "type": "Исчадие (демон)",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: abyss"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Glabrezu",
+    "rus": "Глабрезу",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/glabrezu-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_clay_golem",
+  "eng": "Clay Golem",
+  "rus": "Глиняный голем",
+  "type": "Конструкт",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Clay Golem",
+    "rus": "Глиняный голем",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/clay-golem-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bone_devil",
+  "eng": "Bone Devil",
+  "rus": "Костяной дьявол",
+  "type": "Исчадие (дьявол)",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: nine hells"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bone Devil",
+    "rus": "Костяной дьявол",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/bone-devil-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_brazen_gorgon",
+  "eng": "Brazen Gorgon",
+  "rus": "Медная горгона",
+  "type": "Конструкт",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Brazen Gorgon",
+    "rus": "Медная горгона",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/brazen-gorgon-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cloud_giant",
+  "eng": "Cloud Giant",
+  "rus": "Облачный великан",
+  "type": "Великан",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "горы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cloud Giant",
+    "rus": "Облачный великан",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/cloud-giant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_fire_giant",
+  "eng": "Fire Giant",
+  "rus": "Огненный великан",
+  "type": "Великан",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "горы",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Fire Giant",
+    "rus": "Огненный великан",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/fire-giant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_abominable_yeti",
+  "eng": "Abominable Yeti",
+  "rus": "Отвратительный йети",
+  "type": "Монстр",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "арктика"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Abominable Yeti",
+    "rus": "Отвратительный йети",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/abominable-yeti-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_treant",
+  "eng": "Treant",
+  "rus": "Трент",
+  "type": "Растение",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "лес"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Treant",
+    "rus": "Трент",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/treant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_jiangshi",
+  "eng": "Jiangshi",
+  "rus": "Цзянши",
+  "type": "Нежить",
+  "cr": "9",
+  "crMin": 9.0,
+  "crMax": 9.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "RHW"
+  ],
+  "variants": [
+   {
+    "eng": "Jiangshi",
+    "rus": "Цзянши",
+    "cr": "9",
+    "url": "https://new.ttg.club/bestiary/jiangshi-rhw"
+   }
+  ]
+ },
+ {
+  "id": "bst_aboleth",
+  "eng": "Aboleth",
+  "rus": "Аболет",
+  "type": "Аберрация",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "под водой",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Aboleth",
+    "rus": "Аболет",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/aboleth-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_warrior_commander",
+  "eng": "Warrior Commander",
+  "rus": "Воин командир",
+  "type": "Гуманоид",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Warrior Commander",
+    "rus": "Воин командир",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/warrior-commander-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_dullahan",
+  "eng": "Dullahan",
+  "rus": "Дуллахан",
+  "type": "Нежить",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "луга",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "RHW"
+  ],
+  "variants": [
+   {
+    "eng": "Dullahan",
+    "rus": "Дуллахан",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/dullahan-rhw"
+   }
+  ]
+ },
+ {
+  "id": "bst_deva",
+  "eng": "Deva",
+  "rus": "Дэв",
+  "type": "Небожитель (ангел)",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "план: upper planes"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Deva",
+    "rus": "Дэв",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/deva-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_performer_legend",
+  "eng": "Performer Legend",
+  "rus": "Исполнитель легенда",
+  "type": "Гуманоид",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Performer Legend",
+    "rus": "Исполнитель легенда",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/performer-legend-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_stone_golem",
+  "eng": "Stone Golem",
+  "rus": "Каменный голем",
+  "type": "Конструкт",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Stone Golem",
+    "rus": "Каменный голем",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/stone-golem-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cultist_hierophant",
+  "eng": "Cultist Hierophant",
+  "rus": "Культист иерофант",
+  "type": "Гуманоид",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cultist Hierophant",
+    "rus": "Культист иерофант",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/cultist-hierophant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_dire_worg",
+  "eng": "Dire Worg",
+  "rus": "Лютый ворг",
+  "type": "Фея",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "лес",
+   "луга",
+   "план: feywild",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Dire Worg",
+    "rus": "Лютый ворг",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/dire-worg-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_guardian_naga",
+  "eng": "Guardian Naga",
+  "rus": "Нага стражник",
+  "type": "Небожитель",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "лес",
+   "план: upper planes",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Guardian Naga",
+    "rus": "Нага стражник",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/guardian-naga-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_noble_prodigy",
+  "eng": "Noble Prodigy",
+  "rus": "Одарённый благородный",
+  "type": "Гуманоид",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Noble Prodigy",
+    "rus": "Одарённый благородный",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/noble-prodigy-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_haunting_revenant",
+  "eng": "Haunting Revenant",
+  "rus": "Ревенант-обитель",
+  "type": "Нежить",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Громадный"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Haunting Revenant",
+    "rus": "Ревенант-обитель",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/haunting-revenant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_cyclops_oracle",
+  "eng": "Cyclops Oracle",
+  "rus": "Циклоп оракул",
+  "type": "Великан",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "горы",
+   "луга",
+   "побережье",
+   "подземье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Cyclops Oracle",
+    "rus": "Циклоп оракул",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/cyclops-oracle-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_spy_master",
+  "eng": "Spy Master",
+  "rus": "Шпион мастер",
+  "type": "Гуманоид",
+  "cr": "10",
+  "crMin": 10.0,
+  "crMax": 10.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Spy Master",
+    "rus": "Шпион мастер",
+    "cr": "10",
+    "url": "https://new.ttg.club/bestiary/spy-master-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_bandit_crime_lord",
+  "eng": "Bandit Crime Lord",
+  "rus": "Бандит криминальный лорд",
+  "type": "Гуманоид",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Bandit Crime Lord",
+    "rus": "Бандит криминальный лорд",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/bandit-crime-lord-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_behir",
+  "eng": "Behir",
+  "rus": "Бехир",
+  "type": "Монстр",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Behir",
+    "rus": "Бехир",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/behir-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_dao",
+  "eng": "Dao",
+  "rus": "Дао",
+  "type": "Элементаль (гений)",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: elemental plane of earth",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Dao",
+    "rus": "Дао",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/dao-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_djinni",
+  "eng": "Djinni",
+  "rus": "Джинн",
+  "type": "Элементаль (гений)",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: elemental plane of air",
+   "побережье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Djinni",
+    "rus": "Джинн",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/djinni-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_efreeti",
+  "eng": "Efreeti",
+  "rus": "Ифрит",
+  "type": "Элементаль (гений)",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: elemental plane of fire",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Efreeti",
+    "rus": "Ифрит",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/efreeti-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_marid",
+  "eng": "Marid",
+  "rus": "Марид",
+  "type": "Элементаль (гений)",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: elemental plane of water",
+   "побережье",
+   "под водой"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Marid",
+    "rus": "Марид",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/marid-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_remorhaz",
+  "eng": "Remorhaz",
+  "rus": "Ремораз",
+  "type": "Монстр",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "арктика"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Remorhaz",
+    "rus": "Ремораз",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/remorhaz-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_horned_devil",
+  "eng": "Horned Devil",
+  "rus": "Рогатый дьявол",
+  "type": "Исчадие (дьявол)",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: nine hells"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Horned Devil",
+    "rus": "Рогатый дьявол",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/horned-devil-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_roc",
+  "eng": "Roc",
+  "rus": "Рух",
+  "type": "Монстр",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Громадный"
+  ],
+  "habitats": [
+   "арктика",
+   "горы",
+   "побережье",
+   "пустыня",
+   "холмы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Roc",
+    "rus": "Рух",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/roc-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_sphinx_of_lore",
+  "eng": "Sphinx of Lore",
+  "rus": "Сфинкс знаний",
+  "type": "Небожитель",
+  "cr": "11",
+  "crMin": 11.0,
+  "crMax": 11.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: upper planes",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Sphinx of Lore",
+    "rus": "Сфинкс знаний",
+    "cr": "11",
+    "url": "https://new.ttg.club/bestiary/sphinx-of-lore-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_archmage",
+  "eng": "Archmage",
+  "rus": "Архимаг",
+  "type": "Гуманоид (волшебник)",
+  "cr": "12",
+  "crMin": 12.0,
+  "crMax": 12.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Archmage",
+    "rus": "Архимаг",
+    "cr": "12",
+    "url": "https://new.ttg.club/bestiary/archmage-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_archpriest",
+  "eng": "Archpriest",
+  "rus": "Архисвященник",
+  "type": "Гуманоид (жрец)",
+  "cr": "12",
+  "crMin": 12.0,
+  "crMax": 12.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Archpriest",
+    "rus": "Архисвященник",
+    "cr": "12",
+    "url": "https://new.ttg.club/bestiary/archpriest-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pirate_admiral",
+  "eng": "Pirate Admiral",
+  "rus": "Пират адмирал",
+  "type": "Гуманоид",
+  "cr": "12",
+  "crMin": 12.0,
+  "crMax": 12.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pirate Admiral",
+    "rus": "Пират адмирал",
+    "cr": "12",
+    "url": "https://new.ttg.club/bestiary/pirate-admiral-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_questing_knight",
+  "eng": "Questing Knight",
+  "rus": "Странствующий рыцарь",
+  "type": "Гуманоид",
+  "cr": "12",
+  "crMin": 12.0,
+  "crMax": 12.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Questing Knight",
+    "rus": "Странствующий рыцарь",
+    "cr": "12",
+    "url": "https://new.ttg.club/bestiary/questing-knight-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_erinyes",
+  "eng": "Erinyes",
+  "rus": "Эриния",
+  "type": "Исчадие (дьявол)",
+  "cr": "12",
+  "crMin": 12.0,
+  "crMax": 12.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "план: nine hells"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Erinyes",
+    "rus": "Эриния",
+    "cr": "12",
+    "url": "https://new.ttg.club/bestiary/erinyes-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_vampire",
+  "eng": "Vampire",
+  "rus": "Вампир",
+  "type": "Нежить",
+  "cr": "13",
+  "crMin": 13.0,
+  "crMax": 13.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Vampire",
+    "rus": "Вампир",
+    "cr": "13",
+    "url": "https://new.ttg.club/bestiary/vampire-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_loup_garou",
+  "eng": "Loup Garou",
+  "rus": "Лу-гару",
+  "type": "Монстр (оборотень)",
+  "cr": "13",
+  "crMin": 13.0,
+  "crMax": 13.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "болота",
+   "город",
+   "лес"
+  ],
+  "srd52": false,
+  "source": [
+   "RHW"
+  ],
+  "variants": [
+   {
+    "eng": "Loup Garou",
+    "rus": "Лу-гару",
+    "cr": "13",
+    "url": "https://new.ttg.club/bestiary/loup-garou-rhw"
+   }
+  ]
+ },
+ {
+  "id": "bst_nalfeshnee",
+  "eng": "Nalfeshnee",
+  "rus": "Нальфешни",
+  "type": "Исчадие (демон)",
+  "cr": "13",
+  "crMin": 13.0,
+  "crMax": 13.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: abyss"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Nalfeshnee",
+    "rus": "Нальфешни",
+    "cr": "13",
+    "url": "https://new.ttg.club/bestiary/nalfeshnee-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_rakshasa",
+  "eng": "Rakshasa",
+  "rus": "Ракшаса",
+  "type": "Исчадие",
+  "cr": "13",
+  "crMin": 13.0,
+  "crMax": 13.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "город",
+   "план: nine hells"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Rakshasa",
+    "rus": "Ракшаса",
+    "cr": "13",
+    "url": "https://new.ttg.club/bestiary/rakshasa-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_storm_giant",
+  "eng": "Storm Giant",
+  "rus": "Штормовой великан",
+  "type": "Великан",
+  "cr": "13",
+  "crMin": 13.0,
+  "crMax": 13.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "арктика",
+   "горы"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Storm Giant",
+    "rus": "Штормовой великан",
+    "cr": "13",
+    "url": "https://new.ttg.club/bestiary/storm-giant-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_ice_devil",
+  "eng": "Ice Devil",
+  "rus": "Ледяной дьявол",
+  "type": "Исчадие (дьявол)",
+  "cr": "14",
+  "crMin": 14.0,
+  "crMax": 14.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: nine hells"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Ice Devil",
+    "rus": "Ледяной дьявол",
+    "cr": "14",
+    "url": "https://new.ttg.club/bestiary/ice-devil-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_vampire_umbral_lord",
+  "eng": "Vampire Umbral Lord",
+  "rus": "Вампир повелитель тени",
+  "type": "Нежить",
+  "cr": "15",
+  "crMin": 15.0,
+  "crMax": 15.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "город",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Vampire Umbral Lord",
+    "rus": "Вампир повелитель тени",
+    "cr": "15",
+    "url": "https://new.ttg.club/bestiary/vampire-umbral-lord-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_mummy_lord",
+  "eng": "Mummy Lord",
+  "rus": "Лорд мумия",
+  "type": "Нежить (жрец)",
+  "cr": "15",
+  "crMin": 15.0,
+  "crMax": 15.0,
+  "size": [
+   "Маленький"
+  ],
+  "habitats": [
+   "болота",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Mummy Lord",
+    "rus": "Лорд мумия",
+    "cr": "15",
+    "url": "https://new.ttg.club/bestiary/mummy-lord-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_purple_worm",
+  "eng": "Purple Worm",
+  "rus": "Пурпурный червь",
+  "type": "Монстр",
+  "cr": "15",
+  "crMin": 15.0,
+  "crMax": 15.0,
+  "size": [
+   "Громадный"
+  ],
+  "habitats": [
+   "подземье",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Purple Worm",
+    "rus": "Пурпурный червь",
+    "cr": "15",
+    "url": "https://new.ttg.club/bestiary/purple-worm-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_salamander_inferno_master",
+  "eng": "Salamander Inferno Master",
+  "rus": "Саламандра мастер инферно",
+  "type": "Элементаль",
+  "cr": "15",
+  "crMin": 15.0,
+  "crMax": 15.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: elemental plane of fire",
+   "подземье"
+  ],
+  "srd52": false,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Salamander Inferno Master",
+    "rus": "Саламандра мастер инферно",
+    "cr": "15",
+    "url": "https://new.ttg.club/bestiary/salamander-inferno-master-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_iron_golem",
+  "eng": "Iron Golem",
+  "rus": "Железный голем",
+  "type": "Конструкт",
+  "cr": "16",
+  "crMin": 16.0,
+  "crMax": 16.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Iron Golem",
+    "rus": "Железный голем",
+    "cr": "16",
+    "url": "https://new.ttg.club/bestiary/iron-golem-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_marilith",
+  "eng": "Marilith",
+  "rus": "Марилит",
+  "type": "Исчадие (демон)",
+  "cr": "16",
+  "crMin": 16.0,
+  "crMax": 16.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: abyss"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Marilith",
+    "rus": "Марилит",
+    "cr": "16",
+    "url": "https://new.ttg.club/bestiary/marilith-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_planetar",
+  "eng": "Planetar",
+  "rus": "Планетар",
+  "type": "Небожитель (ангел)",
+  "cr": "16",
+  "crMin": 16.0,
+  "crMax": 16.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: upper planes"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Planetar",
+    "rus": "Планетар",
+    "cr": "16",
+    "url": "https://new.ttg.club/bestiary/planetar-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_dragon_turtle",
+  "eng": "Dragon Turtle",
+  "rus": "Дракочерепаха",
+  "type": "Дракон",
+  "cr": "17",
+  "crMin": 17.0,
+  "crMax": 17.0,
+  "size": [
+   "Громадный"
+  ],
+  "habitats": [
+   "побережье",
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Dragon Turtle",
+    "rus": "Дракочерепаха",
+    "cr": "17",
+    "url": "https://new.ttg.club/bestiary/dragon-turtle-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_sphinx_of_valor",
+  "eng": "Sphinx of Valor",
+  "rus": "Сфинкс доблести",
+  "type": "Небожитель",
+  "cr": "17",
+  "crMin": 17.0,
+  "crMax": 17.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: upper planes",
+   "пустыня"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Sphinx of Valor",
+    "rus": "Сфинкс доблести",
+    "cr": "17",
+    "url": "https://new.ttg.club/bestiary/sphinx-of-valor-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_balor",
+  "eng": "Balor",
+  "rus": "Балор",
+  "type": "Исчадие (демон)",
+  "cr": "19",
+  "crMin": 19.0,
+  "crMax": 19.0,
+  "size": [
+   "Огромный"
+  ],
+  "habitats": [
+   "план: abyss"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Balor",
+    "rus": "Балор",
+    "cr": "19",
+    "url": "https://new.ttg.club/bestiary/balor-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_pit_fiend",
+  "eng": "Pit Fiend",
+  "rus": "Исчадие пропасти",
+  "type": "Исчадие (дьявол)",
+  "cr": "20",
+  "crMin": 20.0,
+  "crMax": 20.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: nine hells"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Pit Fiend",
+    "rus": "Исчадие пропасти",
+    "cr": "20",
+    "url": "https://new.ttg.club/bestiary/pit-fiend-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_lich",
+  "eng": "Lich",
+  "rus": "Лич",
+  "type": "Нежить (волшебник)",
+  "cr": "21",
+  "crMin": 21.0,
+  "crMax": 21.0,
+  "size": [
+   "Средний"
+  ],
+  "habitats": [
+   "любая"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Lich",
+    "rus": "Лич",
+    "cr": "21",
+    "url": "https://new.ttg.club/bestiary/lich-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_solar",
+  "eng": "Solar",
+  "rus": "Солар",
+  "type": "Небожитель (ангел)",
+  "cr": "21",
+  "crMin": 21.0,
+  "crMax": 21.0,
+  "size": [
+   "Большой"
+  ],
+  "habitats": [
+   "план: upper planes"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Solar",
+    "rus": "Солар",
+    "cr": "21",
+    "url": "https://new.ttg.club/bestiary/solar-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_kraken",
+  "eng": "Kraken",
+  "rus": "Кракен",
+  "type": "Монстр (титан)",
+  "cr": "23",
+  "crMin": 23.0,
+  "crMax": 23.0,
+  "size": [
+   "Громадный"
+  ],
+  "habitats": [
+   "под водой"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Kraken",
+    "rus": "Кракен",
+    "cr": "23",
+    "url": "https://new.ttg.club/bestiary/kraken-mm"
+   }
+  ]
+ },
+ {
+  "id": "bst_tarrasque",
+  "eng": "Tarrasque",
+  "rus": "Тарраск",
+  "type": "Монстр (титан)",
+  "cr": "30",
+  "crMin": 30.0,
+  "crMax": 30.0,
+  "size": [
+   "Громадный"
+  ],
+  "habitats": [
+   "город"
+  ],
+  "srd52": true,
+  "source": [
+   "MM"
+  ],
+  "variants": [
+   {
+    "eng": "Tarrasque",
+    "rus": "Тарраск",
+    "cr": "30",
+    "url": "https://new.ttg.club/bestiary/tarrasque-mm"
+   }
+  ]
+ }
+]
