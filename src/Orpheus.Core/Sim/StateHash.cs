@@ -135,6 +135,33 @@ namespace Orpheus.Core.Sim
                 r = new StateHashResult(r.Tick, hh.Value, r.World);
             }
 
+            if (sim.NextProjectileId != 1)
+            {
+                // Снаряды (E3-2) — только если хоть один был выпущен (эталоны без стрельбы не меняются).
+                var hp = new Hasher64(r.Total);
+                ReadOnlySpan<Orpheus.Core.Combat.Projectile> ps = sim.Projectiles;
+                hp.Add(sim.NextProjectileId);
+                hp.Add(ps.Length);
+                for (int i = 0; i < ps.Length; i++)
+                {
+                    hp.Add(ps[i].Id);
+                    hp.Add(ps[i].Owner);
+                    hp.Add(ps[i].Hostile ? 1 : 0);
+                    hp.Add(ps[i].Kind);
+                    hp.Add(ps[i].Damage);
+                    hp.Add(ps[i].DropItem);
+                    hp.Add(ps[i].SpawnTick);
+                    hp.Add(ps[i].Origin.X);
+                    hp.Add(ps[i].Origin.Y);
+                    hp.Add(ps[i].AimRaw);
+                    hp.Add(ps[i].SpeedX256);
+                    hp.Add(ps[i].RangeUnits);
+                    hp.Add(ps[i].Age);
+                }
+
+                r = new StateHashResult(r.Tick, hp.Value, r.World);
+            }
+
             if (sim.NextPileId == 1)
             {
                 return r; // куч не было ни разу — хэш тот же, что до E2-1 (эталоны сценариев без добычи не меняются)
@@ -222,6 +249,20 @@ namespace Orpheus.Core.Sim
             h.Add(e.Mover.Melee.AimRaw);
             h.Add(e.Mover.Melee.OriginX);
             h.Add(e.Mover.Melee.OriginY);
+            if (e.Mover.Bow.Phase != 0 || e.Mover.Bow.ShotDraw != 0)
+            {
+                // Лук (E3-2) — только у стрелявших/натягивающих: эталоны без лука не меняются.
+                h.Add(e.Mover.Bow.Phase);
+                h.Add(e.Mover.Bow.Frames);
+                h.Add(e.Mover.Bow.Released ? 1 : 0);
+                h.Add(e.Mover.Bow.AimRaw);
+                h.Add(e.Mover.Bow.Fired ? 1 : 0);
+                h.Add(e.Mover.Bow.ShotDraw);
+                h.Add(e.Mover.Bow.ShotAim);
+                h.Add(e.Mover.Bow.ShotX);
+                h.Add(e.Mover.Bow.ShotY);
+            }
+
             h.Add(e.Health);
             h.Add(e.MaxHealth);
             h.Add(e.Armor);

@@ -289,6 +289,7 @@ namespace Orpheus.Core.Sim
             long tick = Tick + 1;
             _eventCount = 0;
             _eventsOverflow = false;
+            BeginProjectileTick(); // E3-2: буферы выстрелов и остановок такта
 
             // 0. Истечения (1-011): обломки (10 с) и флаг «урон последние 10 с» — правки в очередь этого же такта.
             StepExpiry(tick);
@@ -353,6 +354,11 @@ namespace Orpheus.Core.Sim
 
                 if (frames < 0)
                 {
+                    if (BowFrames30(i))
+                    {
+                        continue; // E3-2: лук у сущности на вводе 30 Гц — два кадра такта
+                    }
+
                     _entities[i].Mover.Step(_shape, _entities[i].Input.Direction, _solid);
                     continue;
                 }
@@ -363,7 +369,11 @@ namespace Orpheus.Core.Sim
                     _entities[i].Input = f;
                     ApplySlot(ref _entities[i], f.Slot); // ячейка меняется в том же кадре, что и предсказание клиента (1-002)
                     bool swing = f.AttackPressed && Items.KindOf(_entities[i].Inv.Held) == Items.KindMelee; // удар — с ближним оружием в руках (1-004)
-                    _entities[i].Mover.StepFrame(_shape, f.Direction, f.DodgePressed, swing, f.Angle16, _solid); // с уворотом (0-029) и мечом (1-004)
+                    _entities[i].Mover.StepFrame(_shape, f.Direction, f.DodgePressed, swing, f.Angle16, BowInputOf(i, f), _solid); // с уворотом (0-029), мечом (1-004), луком (E3-2)
+                    if (_entities[i].Mover.Bow.Fired)
+                    {
+                        FireBow(i); // E3-2: выстрел кадра — снаряд и стрела из сумки
+                    }
                 }
 
                 _frameCount[i] = -1;
@@ -376,6 +386,9 @@ namespace Orpheus.Core.Sim
             // 4. Бой (1-001): таймеры здоровья, атаки врагов, смерть и возрождение — после движения,
             // сетка подхватывает teleport возрождения ниже.
             StepCombat(tick);
+
+            // 4.2. Снаряды (E3-2): полёт, препятствия, попадания — после боя такта, по номеру снаряда.
+            StepProjectiles(tick);
 
             // Сетка по чанкам: перешедшие границу чанка переносятся (4.4).
             for (int i = 0; i < _entityCount; i++)
