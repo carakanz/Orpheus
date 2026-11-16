@@ -2348,6 +2348,1298 @@
    "description": "Двухметровый автоматон в виде воина-арбалетчика, способный заряять стрелы из сжатого воздуха и огня. Он может призывать временных конструктов-щитов и менять оружие: от арбалета до дробовика. Держит позицию, прикрывая союзников или сам себя.",
    "image_subject": "Bipedal bronze automaton warrior, full body, holding a large mechanical crossbow, shoulder-mounted cannon, intricate gearwork on legs, standing combat pose, ancient military design, glowing red eye sensor, menacing stance.",
    "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Bipedal bronze automaton warrior, full body, holding a large mechanical crossbow, shoulder-mounted cannon, intricate gearwork on legs, standing combat pose, ancient military design, glowing red eye sensor, menacing stance, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_drifting_bonfire": {
+   "id": "aon_drifting_bonfire",
+   "name_ru": "Странствующий костёр",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Пламя, питающееся эфиром разрушенных механизмов, парит в воздухе, оставляя шлейф пепла. Оно не имеет формы, но излучает жар, который плавит бронзу игрока. Лучше отступать и ждать, пока оно погаснет, или бить по источнику энергии — ядру из раскалённого железа.",
+   "image_subject": "Amorphous ball of blue and orange fire, swirling smoke, floating core of molten iron, wisps of steam, hovering in mid-air, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Amorphous ball of blue and orange fire, swirling smoke, floating core of molten iron, wisps of steam, hovering in mid-air, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_lifeleech_ooze": {
+   "id": "aon_lifeleech_ooze",
+   "name_ru": "Жизнепияв",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "leech",
+   "archetype_name": "",
+   "role": [
+    "прилипала"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Мутная жижа, в которой плавают обломки бронзовых шестерёнок и кости. Она прилипает к ногам, вытягивая здоровье и оставляя следы ржавчины. Нужно быстро оторваться или сжечь её, иначе она затянет в себя.",
+   "image_subject": "Translucent greenish slime blob, embedded bronze gears, bone fragments, viscous texture, dripping liquid, crawling on the ground, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent greenish slime blob, embedded bronze gears, bone fragments, viscous texture, dripping liquid, crawling on the ground, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_wayward_warp": {
+   "id": "aon_wayward_warp",
+   "name_ru": "Блуждающий разлом",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "phaser",
+   "archetype_name": "",
+   "role": [
+    "мерцающий"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Искривление пространства, где древние механизмы сошли с ума. Оно мерцает, становясь неуязвимым, и бьёт искажёнными лучами света. Драться можно только в момент, когда оно материализуется, используя тяжёлое оружие.",
+   "image_subject": "Distorted space rift, swirling purple and white light, fractured glass-like shards, floating geometric shapes, unstable aura, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Distorted space rift, swirling purple and white light, fractured glass-like shards, floating geometric shapes, unstable aura, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_crystalline_ooze": {
+   "id": "aon_crystalline_ooze",
+   "name_ru": "Кристальная жижа",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Сгусток кварца и бронзы, который медленно ползёт, оставляя за собой острые кристаллы. Его тело твёрдое, как скала, и отражает урон. Нужно бить по слабым точкам — трещинам в кристаллической структуре.",
+   "image_subject": "Solid crystal blob, bronze inclusions, sharp quartz spikes, metallic sheen, slow crawling pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Solid crystal blob, bronze inclusions, sharp quartz spikes, metallic sheen, slow crawling pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_hardlight_havoc": {
+   "id": "aon_hardlight_havoc",
+   "name_ru": "Гардиан света",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "ближний"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Автоматон из сгущённого света и бронзы, созданный для защиты артефактов. Его удары оставляют ожоги и ломают щиты. Он не знает пощады и всегда атакует первым.",
+   "image_subject": "Humanoid construct, solid light body, bronze armor plates, glowing core, aggressive stance, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid construct, solid light body, bronze armor plates, glowing core, aggressive stance, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_boneflayer": {
+   "id": "aon_boneflayer",
+   "name_ru": "Костолом",
+   "biomes": [
+    "mechanicus",
+    "pregate"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "ближний"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Робот, собранный из костей и ржавого железа, с двумя огромными молотами. Он ломает кости игроков и создаёт облака пыли. Нужно держать дистанцию или использовать лёгкое оружие, чтобы не застрять в его ударе.",
+   "image_subject": "Robotic figure, bone and iron construction, two large hammers, rusted joints, menacing pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Robotic figure, bone and iron construction, two large hammers, rusted joints, menacing pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_demolition_class_assassin_robot": {
+   "id": "aon_demolition_class_assassin_robot",
+   "name_ru": "Ассасин-разрушитель",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "быстрый"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Лёгкий автоматон с клинками из сгущённого эфира. Он быстро перемещается, нанося точные удары в слабые места. Сложно попасть по нему, нужно использовать ловушки или медленное оружие.",
+   "image_subject": "Sleek robotic assassin, ethereal blades, bronze and silver plating, crouched ready stance, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Sleek robotic assassin, ethereal blades, bronze and silver plating, crouched ready stance, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_robotic_advanced_war_machine": {
+   "id": "aon_robotic_advanced_war_machine",
+   "name_ru": "Войско-машина",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 3.0,
+   "description": "Огромный боевой колосс на гусеницах, покрытый бронзой и сталью. Он стреляет снарядами и давит всё на своём пути. У него много здоровья, нужно атаковать по открытым шестерням и трубам пара.",
+   "image_subject": "Massive war machine, bronze and steel armor, large cannon, steam vents, treads, imposing stance, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Massive war machine, bronze and steel armor, large cannon, steam vents, treads, imposing stance, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_glass_serpent": {
+   "id": "aon_glass_serpent",
+   "name_ru": "Хрустальное Змие",
+   "biomes": [
+    "mechanicus",
+    "lava"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "shifter",
+   "archetype_name": "",
+   "role": [
+    "страж",
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 3.0,
+   "description": "Массивный автоматон из прозрачного вулканического стекла с видимыми внутри медными шестернями. Он медленно ползёт по земле или парит в воздухе, меняя форму тела для манёвра. Удары его хвоста разбивают броню, а при разрушении стеклянной оболочки изнутри вырывается пар.",
+   "image_subject": "Huge translucent glass serpent with internal copper gears, segmented body, coiled pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Huge translucent glass serpent with internal copper gears, segmented body, coiled pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_living_wildfire": {
+   "id": "aon_living_wildfire",
+   "name_ru": "Огненный Жнец",
+   "biomes": [
+    "mechanicus",
+    "desert"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "aura",
+   "archetype_name": "",
+   "role": [
+    "стрелок",
+    "поддержка"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Сгусток пламени, удерживаемый в форме гуманоида магнетическими кольцами из закалённой стали. Он испускает волну жара, плавящую лёгкую броню, и стреляет сгустками раскалённой руды. Движется плавно, как дым, оставляя за собой горящий след.",
+   "image_subject": "Medium humanoid flame entity encased in steel magnetic rings, glowing core, casting pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Medium humanoid flame entity encased in steel magnetic rings, glowing core, casting pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_security_sharpshooter": {
+   "id": "aon_security_sharpshooter",
+   "name_ru": "Страж-Снайпер",
+   "biomes": [
+    "mechanicus",
+    "city"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "ranged",
+   "archetype_name": "",
+   "role": [
+    "стрелок",
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Бронированный автоматон в виде воина-арбалетчика с оптическим прицелом из полированного кристалла. Стреляет медными болтами, пробивающими щиты, и может временно замирать, скрываясь в тенях механизмов. Требует точного попадания в суставы для остановки.",
+   "image_subject": "Medium humanoid bronze automaton archer with crystal scope, detailed gears, aiming pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Medium humanoid bronze automaton archer with crystal scope, detailed gears, aiming pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_augerwing": {
+   "id": "aon_augerwing",
+   "name_ru": "Шнекокрыл",
+   "biomes": [
+    "mechanicus",
+    "mountain"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "быстрый",
+    "летун"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Летающее создание с крыльями-барабанами, которые вращаются с высокой скоростью, создавая разрежение воздуха. Оно ныряет в атаку, используя шнековые лапы для крепления к стенам и потолкам. Уязвимо к огню, который заклинивает его механизмы.",
+   "image_subject": "Medium flying beast with rotating drum wings, drill talons, diving pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Medium flying beast with rotating drum wings, drill talons, diving pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_large_elemental": {
+   "id": "aon_large_elemental",
+   "name_ru": "Каменный Голем",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "танк",
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Гигантская фигура, слепленная из базальта и скреплённая железными скобами. Внутри его груди горит уголь, питающий магнитные поля, которые отталкивают стрелы. Медленный, но почти неуязвимый для обычного оружия, пока не будет разрушен источник энергии.",
+   "image_subject": "Large basalt golem with iron bands, glowing coal core, standing pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large basalt golem with iron bands, glowing coal core, standing pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_djinni": {
+   "id": "aon_djinni",
+   "name_ru": "Воздушный Вихрь",
+   "biomes": [
+    "mechanicus",
+    "glacier"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "быстрый"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Сгусток холодного воздуха, управляемый древним механизмом из серебра. Он создаёт смертоносные воздушные ножи и может телепортироваться на короткие расстояния, используя вихри. Боец должен атаковать быстро, пока вихрь не рассеялся.",
+   "image_subject": "Medium swirling air entity with silver mechanical core, ghostly form, casting pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Medium swirling air entity with silver mechanical core, ghostly form, casting pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_ghul": {
+   "id": "aon_ghul",
+   "name_ru": "Железный Мясник",
+   "biomes": [
+    "mechanicus",
+    "swamp"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "shifter",
+   "archetype_name": "",
+   "role": [
+    "засадник",
+    "быстрый"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Разложение плоти, сдерживаемое коррозией и ржавчиной, придающее форму хищника. Он маскируется под обломки механизмов, а при атаке раскрывает пасть с шипами. Его кислотные выделения разъедают оружие, поэтому лучше использовать дистанцию.",
+   "image_subject": "Medium humanoid creature made of rusted metal and rotting flesh, crouching pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Medium humanoid creature made of rusted metal and rotting flesh, crouching pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_harpy_jasmine": {
+   "id": "aon_harpy_jasmine",
+   "name_ru": "Цветочный Жнец",
+   "biomes": [
+    "mechanicus",
+    "enchanted_forest"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "summoner",
+   "archetype_name": "",
+   "role": [
+    "призыватель",
+    "стрелок"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Гибрид растения и механизма с лепестками, которые двигаются как лезвия. Она стреляет семенами, прорастающими в шипастые ловушки, и призывает рой механических пчёл. Цветы на её теле светятся, указывая на готовность к атаке.",
+   "image_subject": "Medium humanoid plant-automaton with petal blades, glowing flowers, summoning pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Medium humanoid plant-automaton with petal blades, glowing flowers, summoning pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_shadow_mastiff": {
+   "id": "aon_shadow_mastiff",
+   "name_ru": "Теневой Гончий",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "засада",
+    "летун"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Автоматон-пёс, чья бронзовая шкура покрыта чернильными прорезями, из которых сочится тьма. Он не издаёт звуков, передвигаясь по воздуху на невидимых силовых полях, и атакует молниеносными рывками. Сражайся с ним, отступая к укрытиям, так как его удары пробивают лёгкую броню.",
+   "image_subject": "Large bronze robotic dog with jagged black void slits glowing faintly, articulated gear joints, hovering slightly above ground, aggressive posture, sharp metal teeth, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large bronze robotic dog with jagged black void slits glowing faintly, articulated gear joints, hovering slightly above ground, aggressive posture, sharp metal teeth, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_sky_fisher": {
+   "id": "aon_sky_fisher",
+   "name_ru": "Небесный Рыболов",
+   "biomes": [
+    "mechanicus",
+    "mountain"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "летун",
+    "стрелок"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Гигантский механизм-птица с крыльями из переплетающихся латунных пластин и центральным оптическим прицелом вместо глаза. Он зависает в воздухе, выстреливая сжатым воздухом или огненными зарядами из грудного ствола. Уклоняйся от его вертикальных атак, бив по открытым шестерням на шее.",
+   "image_subject": "Large brass mechanical bird with intricate wing gears, central camera lens eye, chest-mounted cannon, perched on invisible air currents, sharp metal beak, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large brass mechanical bird with intricate wing gears, central camera lens eye, chest-mounted cannon, perched on invisible air currents, sharp metal beak, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_juvenile_solar_wisp": {
+   "id": "aon_juvenile_solar_wisp",
+   "name_ru": "Юный Солнечный Дух",
+   "biomes": [
+    "mechanicus",
+    "lava"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "летающий"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Парящий сгусток расплавленного золота, удерживаемый в форме вращающимися миниатюрными шестернями внутри. Он испускает ослепительный свет и стреляет концентрированными солнечными лучами. Его ядро хрупко, но вспышки света временно ослепляют игрока.",
+   "image_subject": "Small floating sphere of molten gold held by tiny internal gears, emitting bright light, no face, hovering, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small floating sphere of molten gold held by tiny internal gears, emitting bright light, no face, hovering, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_threshwolf": {
+   "id": "aon_threshwolf",
+   "name_ru": "Ворота-Волк",
+   "biomes": [
+    "mechanicus",
+    "forest"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "танк",
+    "ближний"
+   ],
+   "night_only": false,
+   "size_tiles": 3.0,
+   "description": "Тяжёлый боевой автоматон в форме волка, покрытый толстой бронзой и украшенный символами защиты. Он медленно наступает, поглощая урон и тараня игрока с огромной силой. Используй его медлительность, чтобы уклоняться и бить по суставам задних лап.",
+   "image_subject": "Huge bronze mechanical wolf with thick armor plates, heavy gear joints, standing aggressively, glowing red eyes, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Huge bronze mechanical wolf with thick armor plates, heavy gear joints, standing aggressively, glowing red eyes, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_tumbletooth_swarm": {
+   "id": "aon_tumbletooth_swarm",
+   "name_ru": "Рой Зубов",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "swarm",
+   "archetype_name": "",
+   "role": [
+    "рой"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Облако мелких вращающихся металлических шестерёнок и осколков, образующих единый рой. Они кусают и царапают, накладывая эффект кровотечения. Разбей рой взрывным зарядом или огнём, так как отдельные частицы легко уничтожаются.",
+   "image_subject": "Swarm of small spinning bronze gears and metal shards forming a cloud, sharp edges, chaotic motion, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Swarm of small spinning bronze gears and metal shards forming a cloud, sharp edges, chaotic motion, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_void_slime": {
+   "id": "aon_void_slime",
+   "name_ru": "Пустотная Слизь",
+   "biomes": [
+    "mechanicus",
+    "basin"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "leech",
+   "archetype_name": "",
+   "role": [
+    "прилипала",
+    "заклинатель"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Густая тёмная жидкость, в которой плавутают чернеющие шестерни. Она прилипает к ногам, замедляя игрока и вытягивая здоровье. Отряхни её быстрыми движениями или сжигай, пока она не поглотила тебя целиком.",
+   "image_subject": "Large dark viscous slime blob with floating black gears inside, dripping, amorphous shape, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large dark viscous slime blob with floating black gears inside, dripping, amorphous shape, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_faceless": {
+   "id": "aon_faceless",
+   "name_ru": "Безликий",
+   "biomes": [
+    "mechanicus",
+    "pregate"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "phaser",
+   "archetype_name": "",
+   "role": [
+    "мерцающий",
+    "заклинатель"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Прозрачная фигура человека, состоящая из полупрозрачного стекла и тонких металлических каркасов. Он мерцает, становясь неуязвимым, и стреляет энергетическими разрядами. Атакуй только в моменты, когда он становится плотным и видимым.",
+   "image_subject": "Translucent humanoid figure made of glass and thin metal frame, no face, hovering, glowing faintly, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent humanoid figure made of glass and thin metal frame, no face, hovering, glowing faintly, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_flayer_leech": {
+   "id": "aon_flayer_leech",
+   "name_ru": "Сдирающий Пиявка",
+   "biomes": [
+    "mechanicus",
+    "swamp"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "leech",
+   "archetype_name": "",
+   "role": [
+    "прилипала"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Маленький механический паразит с крючками из отработанной бронзы. Он прыгает на спину игрока, накладывая дебафф снижения брони. Стряхни его ударом по себе или используй взрывчатку.",
+   "image_subject": "Tiny mechanical leech with bronze hooks, segmented body, clinging posture, sharp metal teeth, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tiny mechanical leech with bronze hooks, segmented body, clinging posture, sharp metal teeth, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_juvenile_star_tardigrade": {
+   "id": "aon_juvenile_star_tardigrade",
+   "name_ru": "Медный Мох",
+   "biomes": [
+    "mechanicus",
+    "basin"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "phaser",
+   "archetype_name": "Мерцающий",
+   "role": [
+    "рой"
+   ],
+   "night_only": false,
+   "size_tiles": 0.5,
+   "description": "Рой крошечных бронзовых шариков, покрытых микроскопическими шестерёнками, которые мерцают, меняя плотность. Они прилипают к доспехам игрока, медленно перегревая его бронзу и вызывая обжиги. Лёгкий удар отбрасывает их, но они быстро восстанавливают целостность за счёт окружающей механической энергии.",
+   "image_subject": "Cluster of tiny bronze spheres with intricate gear patterns, semi-translucent metallic skin, glowing amber cores, hovering in a loose swarm, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Cluster of tiny bronze spheres with intricate gear patterns, semi-translucent metallic skin, glowing amber cores, hovering in a loose swarm, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_electronic_figment": {
+   "id": "aon_electronic_figment",
+   "name_ru": "Эфирный Призрак",
+   "biomes": [
+    "mechanicus",
+    "pregate"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "phaser",
+   "archetype_name": "Мерцающий",
+   "role": [
+    "заклинатель"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Полупрозрачная фигура, состоящая из вихрящихся струй пара и света, исходящего от древних пифосов. Он не имеет физической формы, поэтому физические удары проходят сквозь него, но он испускает волны статического разряда, замедляющие движение. Разрушается только при попадании артефактами, очищающими от проклятий, или магическими атаками.",
+   "image_subject": "Translucent humanoid silhouette made of swirling steam and golden light, faint geometric patterns floating within the mist, arms extended forward, ghostly appearance, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent humanoid silhouette made of swirling steam and golden light, faint geometric patterns floating within the mist, arms extended forward, ghostly appearance, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_protection_class_security_robot": {
+   "id": "aon_protection_class_security_robot",
+   "name_ru": "Страж Очага",
+   "biomes": [
+    "mechanicus",
+    "outpost"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "shieldbearer",
+   "archetype_name": "Щитоносец",
+   "role": [
+    "страж",
+    "танк"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Гигантский автоматон из тёмной бронзы с массивным круглым щитом, покрытым рунными гравировками. Его движения медленны, но щит отражает большинство физических атак и отбрасывает стрелы. Уязвим в момент, когда он поворачивается, чтобы нанести удар своим тяжёлым молотом, или при попадании в шестерёнки на спине.",
+   "image_subject": "Large bronze golem with a massive circular shield covered in engraved runes, heavy riveted armor plates, glowing orange eyes, holding a heavy hammer, standing in a defensive pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large bronze golem with a massive circular shield covered in engraved runes, heavy riveted armor plates, glowing orange eyes, holding a heavy hammer, standing in a defensive pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_animated_tech_armor": {
+   "id": "aon_animated_tech_armor",
+   "name_ru": "Дух Бронзы",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "Ближний",
+   "role": [
+    "одиночка",
+    "вор"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Пустой набор доспехов, оживлённый древней магией, который охотится за игроками, чтобы украсть их экипировку. Он атакует быстрыми ударами кулаков и пытается схватить предметы. Если игрок уклоняется, броня начинает излучать пар, временно ослепляя противника. Разбивается при получении критического урона по шлему.",
+   "image_subject": "Floating set of ancient bronze armor with no body inside, glowing blue runes on the chestplate, tattered cloth remnants attached to the legs, fists clenched in an aggressive stance, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Floating set of ancient bronze armor with no body inside, glowing blue runes on the chestplate, tattered cloth remnants attached to the legs, fists clenched in an aggressive stance, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_elder_psychic_fungus": {
+   "id": "aon_elder_psychic_fungus",
+   "name_ru": "Шепчущий Гриб",
+   "biomes": [
+    "mechanicus",
+    "swamp"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "Заклинатель",
+   "role": [
+    "заклинатель",
+    "поддержка"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Огромный гриб с шляпкой, напоминающей медный колокол, который вибрирует, издавая гипнотический гул. Он не атакует физически, но его спорами заражаются союзники, заставляя их атаковать игрока. Разрушение шляпки прекращает эффект, но из стебля вырываются мелкие шипы, причиняющие урон. Требует осторожности из-за площади действия.",
+   "image_subject": "Large mushroom with a bell-shaped copper cap, glowing purple spores drifting from the underside, thick textured stem with metallic veins, standing in a dark environment, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large mushroom with a bell-shaped copper cap, glowing purple spores drifting from the underside, thick textured stem with metallic veins, standing in a dark environment, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_digital_ghost_vidgamer": {
+   "id": "aon_digital_ghost_vidgamer",
+   "name_ru": "Пифийский Призрак",
+   "biomes": [
+    "mechanicus",
+    "pregate"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "phaser",
+   "archetype_name": "Мерцающий",
+   "role": [
+    "летун",
+    "заклинатель"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Призрак, запертый в древнем механизме-орфеоне, который проигрывает искажённые мелодии, нарушающие концентрацию игрока. Он парит в воздухе и стреляет сгустками звуковой энергии, которые замедляют. Физические атаки не работают, пока он не застрянет в своей проекции; тогда его можно разрушить.",
+   "image_subject": "Spectral figure emerging from a broken bronze lyre, body made of shimmering golden light and musical notes, translucent hands reaching out, floating in mid-air, ethereal glow, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Spectral figure emerging from a broken bronze lyre, body made of shimmering golden light and musical notes, translucent hands reaching out, floating in mid-air, ethereal glow, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_irradiated_undead_flyer": {
+   "id": "aon_irradiated_undead_flyer",
+   "name_ru": "Гнилой Жук",
+   "biomes": [
+    "mechanicus",
+    "basin"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "swarm",
+   "archetype_name": "Рой (особь)",
+   "role": [
+    "рой",
+    "летун"
+   ],
+   "night_only": false,
+   "size_tiles": 0.5,
+   "description": "Маленький мертвый жук, оживлённый токсичными испарениями из разбитых пифосов. Он летает роем, нанося урон отравлением при касании. Индивидуально слаб, но их много, и они отвлекают игрока. Умирают от огня или сильного удара, рассыпаясь в пепел и ядовитую пыль.",
+   "image_subject": "Small insect-like creature with rusted bronze wings, glowing green toxic veins on its body, skeletal structure visible, flying in a erratic pattern, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small insect-like creature with rusted bronze wings, glowing green toxic veins on its body, skeletal structure visible, flying in a erratic pattern, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_executive_protection_agent": {
+   "id": "aon_executive_protection_agent",
+   "name_ru": "Наёмник Гефеста",
+   "biomes": [
+    "mechanicus",
+    "city"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "ranged",
+   "archetype_name": "Стрелок",
+   "role": [
+    "стрелок",
+    "одиночка"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Автоматон-наёмник в латной броне, вооружённый арбалетом, заряжаемым сжатым паром. Он стреляет с большой точностью и использует дымовые шашки, чтобы спрятаться и перезарядиться. Днём он патрулирует, ночью становится агрессивнее. Его броня защищает от стрел, но он уязвим к огню и молниям.",
+   "image_subject": "Humanoid robot in segmented bronze plate armor, holding a large crossbow with a steam-powered mechanism, visor glowing red, standing in a ready-to-shoot stance, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Humanoid robot in segmented bronze plate armor, holding a large crossbow with a steam-powered mechanism, visor glowing red, standing in a ready-to-shoot stance, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_entropy_slug": {
+   "id": "aon_entropy_slug",
+   "name_ru": "Глиняный слизень",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "aura",
+   "archetype_name": "",
+   "role": [
+    "засада"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Бронзовая слизь, покрытая ржавчиной и трещинами, из которых сочится чёрная смола. Она медленно ползёт по полу, оставляя след, разъедающий металл и камень. Держитесь подальше от её шлейфа, так как урон от энтропии накапливается с каждым шагом.",
+   "image_subject": "Giant bronze slug creature, corroded metallic skin, leaking black oil, segmented body, glowing orange core, crawling pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Giant bronze slug creature, corroded metallic skin, leaking black oil, segmented body, glowing orange core, crawling pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_janni": {
+   "id": "aon_janni",
+   "name_ru": "Дух-механик",
+   "biomes": [
+    "mechanicus",
+    "crossroads"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Бесформенный сгусток пара и вращающихся шестерёнок, не имеющий постоянного тела. Он проецирует иллюзии и выпускает сгустки перегретого пара, ослепляя и обжигая врагов. Бейте его, когда он материализуется, иначе вы будете драться с призраком.",
+   "image_subject": "Translucent steam ghost, internal rotating gears, mechanical arms, glowing blue eyes, floating posture, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent steam ghost, internal rotating gears, mechanical arms, glowing blue eyes, floating posture, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_glitch_dog": {
+   "id": "aon_glitch_dog",
+   "name_ru": "Сбойный пёс",
+   "biomes": [
+    "mechanicus",
+    "city"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Сломанный автоматон в форме пса, чья бронзовая броня дёргается и искрит от перегрузки. Он атакует рывками, исчезая и появляясь в непредсказуемых местах. Используйте щит, чтобы парировать его быстрые удары, пока он не перезагрузился.",
+   "image_subject": "Bronze mechanical dog, glitching visual effect, sparking wires, sharp metal teeth, aggressive stance, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Bronze mechanical dog, glitching visual effect, sparking wires, sharp metal teeth, aggressive stance, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_holofang": {
+   "id": "aon_holofang",
+   "name_ru": "Иллюзорный акула",
+   "biomes": [
+    "mechanicus",
+    "lake"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "ambusher",
+   "archetype_name": "",
+   "role": [
+    "засада"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Прозрачная голографическая проекция акулы, питающаяся кинетической энергией воды. Она невидима, пока не нанесёт удар, оставляя лишь рябь на поверхности. Слушайте звук ломающегося стекла, чтобы уклониться от её невидимых челюстей.",
+   "image_subject": "Translucent holographic shark, blue light refraction, mechanical jaw structure, sharp teeth, swimming pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent holographic shark, blue light refraction, mechanical jaw structure, sharp teeth, swimming pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_tsukumogami": {
+   "id": "aon_tsukumogami",
+   "name_ru": "Дух-орудие",
+   "biomes": [
+    "mechanicus",
+    "forest"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "shifter",
+   "archetype_name": "",
+   "role": [
+    "оборотень"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Древний инструмент, обретший жизнь и злобу. Он принимает форму молота, пилы или кувалды, меняя своё оружие в зависимости от ситуации. Бейте его, когда он в форме молота, так как в форме пилы он быстрее, но слабее.",
+   "image_subject": "Living giant hammer, wooden handle, bronze head, glowing runes, menacing posture, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Living giant hammer, wooden handle, bronze head, glowing runes, menacing posture, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_slasher": {
+   "id": "aon_slasher",
+   "name_ru": "Метательный дракон",
+   "biomes": [
+    "mechanicus",
+    "desert"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "ranged",
+   "archetype_name": "",
+   "role": [
+    "стрелок"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Маленький дракон из бронзы и обсидиана, стреляющий раскалёнными осколками. Он держит дистанцию, используя свои крылья для манёвра. Разрушайте его крылья, чтобы заставить его приземлиться и стать уязвимым.",
+   "image_subject": "Small bronze dragon, obsidian scales, mechanical wings, holding molten shard, flying pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small bronze dragon, obsidian scales, mechanical wings, holding molten shard, flying pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_cinder": {
+   "id": "aon_cinder",
+   "name_ru": "Уголёк",
+   "biomes": [
+    "lava",
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "swarm",
+   "archetype_name": "",
+   "role": [
+    "рой"
+   ],
+   "night_only": false,
+   "size_tiles": 0.5,
+   "description": "Маленький сгусток раскалённого шлака, вращающийся на магнитном поле. Он взрывается при контакте, покрывая землю горящим маслом. Не дайте ему подойти слишком близко, иначе вы окажетесь в пожаре.",
+   "image_subject": "Small glowing coal ball, rotating gears inside, sparks flying, aggressive posture, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small glowing coal ball, rotating gears inside, sparks flying, aggressive posture, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_wight_scientist": {
+   "id": "aon_wight_scientist",
+   "name_ru": "Учёный-нежить",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "support",
+   "archetype_name": "",
+   "role": [
+    "поддержка"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Мумифицированный учёный, чей мозг заменён на простейший автоматон. Он не атакует напрямую, а усиливает других врагов, повышая их скорость и урон. Приоритетно уничтожайте его, чтобы ослабить всю группу.",
+   "image_subject": "Mummified scientist, brass brain implant, tattered robes, holding glowing orb, standing pose, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Mummified scientist, brass brain implant, tattered robes, holding glowing orb, standing pose, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_electrovore_nuclear_mummy": {
+   "id": "aon_electrovore_nuclear_mummy",
+   "name_ru": "Вольт-Мумия",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "летающий",
+    "заклинатель"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Летающий обломок древнего автомата, обёрнутый в пропитанные током бинты из медной фольги. Излучает статическое поле, замедляющее игрока, и стреляет сгустками конденсированной энергии из глазниц. Уязвим к заземлению и ударам сзади, где нарушена герметичность корпуса.",
+   "image_subject": "Floating mummy-like construct wrapped in copper foil bandages, glowing blue electrical arcs crackling from eye sockets, small brass gears exposed on chest, tattered bronze armor fragments, hovering in mid-air, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Floating mummy-like construct wrapped in copper foil bandages, glowing blue electrical arcs crackling from eye sockets, small brass gears exposed on chest, tattered bronze armor fragments, hovering in mid-air, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_heart_elemental": {
+   "id": "aon_heart_elemental",
+   "name_ru": "Сердце-Камень",
+   "biomes": [
+    "mechanicus",
+    "lava"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "tank",
+   "archetype_name": "",
+   "role": [
+    "танк",
+    "страж"
+   ],
+   "night_only": false,
+   "size_tiles": 3.0,
+   "description": "Гигантская каменная глыба с пульсирующим магматическим ядром, заключённым в бронзовые решётки. Медленно ползёт, разбивая препятствия, и испускает волны жара, плавящие лёгкую броню. Атакует тяжёлыми ударом, создающим трещины в земле, которые наносят урон.",
+   "image_subject": "Huge rocky golem body with jagged stone plates, central chest cavity glowing with molten orange lava, intricate bronze mechanical struts holding the core, thick stone limbs, standing firmly on ground, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Huge rocky golem body with jagged stone plates, central chest cavity glowing with molten orange lava, intricate bronze mechanical struts holding the core, thick stone limbs, standing firmly on ground, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_juvenile_glass_serpent": {
+   "id": "aon_juvenile_glass_serpent",
+   "name_ru": "Стеклозмей",
+   "biomes": [
+    "mechanicus",
+    "lake"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "быстрый",
+    "засада"
+   ],
+   "night_only": true,
+   "size_tiles": 2.0,
+   "description": "Прозрачная змея из закалённого стекла с внутренними шестерёнками, видимыми сквозь чешую. Движется бесшумно по воде и камням, атакуя быстрыми уколами, которые оставляют ядовитые осколки. Разбивается при сильном ударе, но осколки продолжают причинять урон.",
+   "image_subject": "Long serpentine creature made of transparent glass, internal golden gears visible through the body, sharp crystalline spikes along the spine, coiled tail, head raised with glowing green eyes, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Long serpentine creature made of transparent glass, internal golden gears visible through the body, sharp crystalline spikes along the spine, coiled tail, head raised with glowing green eyes, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_hardlight_mascot": {
+   "id": "aon_hardlight_mascot",
+   "name_ru": "Свето-Дух",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "phaser",
+   "archetype_name": "",
+   "role": [
+    "мерцающий",
+    "поддержка"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Призрачная проекция в форме дружелюбного зверька, собранная из сгущённого света и эфирных цепей. Способна проходить сквозь стены и временно становиться неуязвимой. Поддерживает других автоматов, восстанавливая их целостность, но исчезает при прямом попадании по ядру.",
+   "image_subject": "Small humanoid figure made of solidified white light, translucent edges, faint geometric patterns floating around it, simple animal-like face with large eyes, floating slightly above ground, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small humanoid figure made of solidified white light, translucent edges, faint geometric patterns floating around it, simple animal-like face with large eyes, floating slightly above ground, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_line_class_soldier_robot": {
+   "id": "aon_line_class_soldier_robot",
+   "name_ru": "Бронзовый Страж",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "ближний",
+    "вожак"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Двухметровый автоматон в тяжёлой бронзе, вооружённый длинным копьём и щитом с шипами. Двигается по чётким маршрутам, но быстро перестраивается при обнаружении игрока. Использует щит для блокировки атак и наносит сильные удары копьём, пробивающие лёгкую броню.",
+   "image_subject": "Tall bronze robot soldier, heavy articulated armor plates, holding a long spear with a bronze tip and a round spiked shield, glowing red eye visor, standing in a defensive stance, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tall bronze robot soldier, heavy articulated armor plates, holding a long spear with a bronze tip and a round spiked shield, glowing red eye visor, standing in a defensive stance, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_rendworm": {
+   "id": "aon_rendworm",
+   "name_ru": "Разрывной Червь",
+   "biomes": [
+    "mechanicus",
+    "tundra"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "burrower",
+   "archetype_name": "",
+   "role": [
+    "роющий",
+    "рой"
+   ],
+   "night_only": true,
+   "size_tiles": 0.5,
+   "description": "Маленький, но очень быстрый червь из твёрдого металла, покрытый острыми зубцами. Выпрыгивает из-под земли, кусает игрока и снова зарывается, оставляя на месте появления ловушку-пружину. Часто встречается стаями, создавая хаос на поле боя.",
+   "image_subject": "Tiny metallic worm with segmented body, sharp jagged teeth visible in open mouth, small mechanical claws, dark iron color with rust spots, emerging from a hole in the ground, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tiny metallic worm with segmented body, sharp jagged teeth visible in open mouth, small mechanical claws, dark iron color with rust spots, emerging from a hole in the ground, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_robotic_tactical_war_machine": {
+   "id": "aon_robotic_tactical_war_machine",
+   "name_ru": "Вой-Дрон",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "ranged",
+   "archetype_name": "",
+   "role": [
+    "стрелок",
+    "летающий"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Летающая платформа с четырьмя вращающимися пропеллерами из латуни и пушкой, стреляющей сжатым паром. Держит дистанцию, маневрируя в воздухе, и стреляет очередями, отбрасывающими игрока. Уязвим к оглушению, которое останавливает его пропеллеры.",
+   "image_subject": "Flying robotic platform with four brass propellers, central cannon barrel pointing forward, small glowing blue energy core, angular metallic body, hovering in the air, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Flying robotic platform with four brass propellers, central cannon barrel pointing forward, small glowing blue energy core, angular metallic body, hovering in the air, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_dread_empathnid": {
+   "id": "aon_dread_empathnid",
+   "name_ru": "Страх-Паук",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "III",
+   "tier": "3",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "заклинатель",
+    "чаровник"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Паукоподобный автоматон, излучающий психотропные волны через вибрирующие пластины на спине. Вызывает у игрока страх, снижая точность и скорость. Атакует слабыми уколами, но его аура делает бой опасным даже на расстоянии. Уничтожается разрушением вибрирующих пластин.",
+   "image_subject": "Spider-like robot with eight jointed legs, metallic exoskeleton, large vibrating plates on its back emitting faint purple waves, multiple red sensor eyes, crouching low, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Spider-like robot with eight jointed legs, metallic exoskeleton, large vibrating plates on its back emitting faint purple waves, multiple red sensor eyes, crouching low, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_fouled_brine_shark": {
+   "id": "aon_fouled_brine_shark",
+   "name_ru": "Свинцовая Акула",
+   "biomes": [
+    "mechanicus",
+    "lake"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "melee",
+   "archetype_name": "",
+   "role": [
+    "стрелок"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Этот хищник плавает в отравленных водах Механикуса, его чешуя испещрена трещинами, из которых сочится ядовитая ртуть. Вблизи он наносит рваные раны, а при приближении игрока выплевывает облако едкого пара, заставляя отступать. Держись на расстоянии и бей по светящимся жабрам на спине.",
+   "image_subject": "Large aquatic predator with corroded bronze plating, glowing toxic green veins, jagged metal fins, heavy armored snout, swimming pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large aquatic predator with corroded bronze plating, glowing toxic green veins, jagged metal fins, heavy armored snout, swimming pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_radiation_crawler": {
+   "id": "aon_radiation_crawler",
+   "name_ru": "Гадюка Гексаспектра",
+   "biomes": [
+    "mechanicus",
+    "lava"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "aura",
+   "archetype_name": "",
+   "role": [
+    "засада"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Шестеренчатый рептилоид, питающийся остаточной энергией древних механизмов. Он медленно ползает, оставляя за собой след, который наносит урон отравлением. Если его не убить быстро, он активирует ауру, ускоряя себя и снижая скорость игрока.",
+   "image_subject": "Low-slung quadruped construct made of brass gears and copper plates, glowing yellow core, segmented tail, crawling pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Low-slung quadruped construct made of brass gears and copper plates, glowing yellow core, segmented tail, crawling pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_space_goblin_junker": {
+   "id": "aon_space_goblin_junker",
+   "name_ru": "Ломбард-Гоблин",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "ranged",
+   "archetype_name": "",
+   "role": [
+    "вор"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Хитрый автоматон-собиратель, склеенный из старых деталей и обмотанный проводами. Он стреляет сжатым воздухом из самодельной пушки и крадет ресурсы, если игрок отвлекается. Ночью в Механикусе их стаи становятся особенно агрессивными.",
+   "image_subject": "Small humanoid goblin-like construct, patchwork leather and rusted metal armor, holding a crude pneumatic crossbow, crouching pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small humanoid goblin-like construct, patchwork leather and rusted metal armor, holding a crude pneumatic crossbow, crouching pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_bodysnatcher_slime": {
+   "id": "aon_bodysnatcher_slime",
+   "name_ru": "Глина-Хищник",
+   "biomes": [
+    "swamp",
+    "mechanicus"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "leech",
+   "archetype_name": "",
+   "role": [
+    "прилипала"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Жидкое образование, состоящее из вязкой глины и ржавых шестеренок. При контакте оно обволакивает игрока, снижая скорость и нанося урон. Нужно отбиваться мечом, чтобы разрушить его структуру, прежде чем оно полностью вас поглотит.",
+   "image_subject": "Amorphous blob of grey clay mixed with small bronze gears, viscous texture, no distinct face, spreading pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Amorphous blob of grey clay mixed with small bronze gears, viscous texture, no distinct face, spreading pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_cerebric_fungus": {
+   "id": "aon_cerebric_fungus",
+   "name_ru": "Шепчущий Гриб",
+   "biomes": [
+    "forest",
+    "enchanted_forest"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "caster",
+   "archetype_name": "",
+   "role": [
+    "чаровник"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Гигантский гриб с пульсирующими фиолетовыми спорами, которые вызывают галлюцинации. Он стоит на месте, но испускает волну онемения, замедляющую атаки игрока. Осторожно: его споры могут временно ослепить.",
+   "image_subject": "Large mushroom with a broad cap covered in glowing purple spores, thick stalk, organic texture, stationary pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Large mushroom with a broad cap covered in glowing purple spores, thick stalk, organic texture, stationary pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_hellhound": {
+   "id": "aon_hellhound",
+   "name_ru": "Огненный Пёс",
+   "biomes": [
+    "lava",
+    "mountain"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "стая"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Собака, выкованная из вулканического стекла и раскаленного железа. Она бегает очень быстро и атакует группами. Её дыхание поджигает траву и наносит урон от огня. Лучше не давать ей окружить.",
+   "image_subject": "Lean canine with body made of glowing red obsidian shards, smoke rising from eyes, running pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Lean canine with body made of glowing red obsidian shards, smoke rising from eyes, running pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_mephit": {
+   "id": "aon_mephit",
+   "name_ru": "Дымный Дух",
+   "biomes": [
+    "cave",
+    "mechanicus"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "стрелок"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Полупрозрачное существо, состоящее из горящего дыма и пепла. Оно парит в воздухе и бросает искры, которые взрываются при контакте с поверхностью. Его трудно задеть обычным оружием, нужно использовать холод или воду.",
+   "image_subject": "Translucent wisp of dark smoke and embers, humanoid shape, floating pose, glowing orange core, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Translucent wisp of dark smoke and embers, humanoid shape, floating pose, glowing orange core, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_nanobot_mimic": {
+   "id": "aon_nanobot_mimic",
+   "name_ru": "Мимик-Сборщик",
+   "biomes": [
+    "mechanicus",
+    "city"
+   ],
+   "act": "II",
+   "tier": "2",
+   "archetype": "trapper",
+   "archetype_name": "",
+   "role": [
+    "засада"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Коробка из полированной бронзы, которая выглядит как сундук с сокровищами. Когда игрок подходит, крышка открывается, и изнутри выезжает коготь. Он наносит мощный удар и затем прячется обратно, ожидая следующего жертву.",
+   "image_subject": "Bronze chest with intricate gear engravings, lid slightly open revealing a sharp metal claw, static pose, full body.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Bronze chest with intricate gear engravings, lid slightly open revealing a sharp metal claw, static pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_incapacitator": {
+   "id": "aon_incapacitator",
+   "name_ru": "Оглушитель",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "turret",
+   "archetype_name": "",
+   "role": [
+    "ловца"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Бронзовый автоматон-штурвал с вращающимися шипами, закрепленный на стене. Он не атакует в упор, а запускает в игрока сжимающиеся кольца из закаленной стали, наносящие эффект оглушения. Разрубать его лучше до того, как он успеет активировать второй цикл сжатия.",
+   "image_subject": "Bronze mechanical turret with rotating spiked wheel, mounted on stone wall, intricate gear details, steam vents, static pose, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Bronze mechanical turret with rotating spiked wheel, mounted on stone wall, intricate gear details, steam vents, static pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_tangler": {
+   "id": "aon_tangler",
+   "name_ru": "Запутыватель",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "trapper",
+   "archetype_name": "",
+   "role": [
+    "ловца"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Слизень из вязкой ртутной смеси, заключенный в стеклянный колпак на длинном гибком стебле. При приближении игрока он выбрасывает липкие нити, сковывающие движения, после чего медленно тянет жертву к центру, чтобы перемолоть в своих шестернях. Удары по стеблю ослабляют хватку.",
+   "image_subject": "Glass sphere containing mercury liquid, attached to long flexible metallic stem, sticky tendrils extending, industrial aesthetic, crouching pose, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Glass sphere containing mercury liquid, attached to long flexible metallic stem, sticky tendrils extending, industrial aesthetic, crouching pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_troll_polyp": {
+   "id": "aon_troll_polyp",
+   "name_ru": "Полу-Троль",
+   "biomes": [
+    "mechanicus",
+    "cave"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "splitter",
+   "archetype_name": "",
+   "role": [
+    "роя"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Гигантский комок плоти и бронзовых пружин, напоминающий тролля, но лишенный головы. При получении урона он делится на два более мелких, но быстрых существа. Битва с ним опасна из-за хаотичного толкания и способности прилипать к ногам игрока.",
+   "image_subject": "Headless blob of flesh and bronze springs, tentacle-like limbs, exposed gears, splitting posture, dark industrial material, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Headless blob of flesh and bronze springs, tentacle-like limbs, exposed gears, splitting posture, dark industrial material, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_necropede": {
+   "id": "aon_necropede",
+   "name_ru": "Некро-жук",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "swarm",
+   "archetype_name": "",
+   "role": [
+    "роя"
+   ],
+   "night_only": true,
+   "size_tiles": 1.0,
+   "description": "Рой мелких жуков с хитиновыми панцирями, усиленными вставками из черной стали. Они атакуют стеной, перегрызая оружие и броню. Отдельная особь слаба, но их масса и способность вгрызаться в щели делают их опасными для одиночек.",
+   "image_subject": "Swarm of small beetles with black steel plates, mandibles, segmented bodies, aggressive posture, dark metallic texture, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Swarm of small beetles with black steel plates, mandibles, segmented bodies, aggressive posture, dark metallic texture, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_scout_drones": {
+   "id": "aon_scout_drones",
+   "name_ru": "Разведчики",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "1",
+   "archetype": "flyer",
+   "archetype_name": "",
+   "role": [
+    "летающий"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Легкие бронзовые летательные аппараты на паровых винтах, оснащенные камерами-глазами. Они не наносят большого урона, но постоянно кружат над игроком, подсвечивая его для других врагов и мешая скрыться в тени. Ломать их лучше метательным оружием.",
+   "image_subject": "Small bronze flying machine with steam propellers, single optical lens, delicate frame, hovering pose, intricate mechanical details, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small bronze flying machine with steam propellers, single optical lens, delicate frame, hovering pose, intricate mechanical details, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_electrovore": {
+   "id": "aon_electrovore",
+   "name_ru": "Электровор",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "быстрый"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Маленький летучий автоматон, питающийся статическим зарядом. Он быстро подлетает к игроку и кусает, разряжая накопленный ток, что вызывает кратковременный паралич. Избегать его лучше, двигаясь зигзагом, так как он не умеет резких поворотов.",
+   "image_subject": "Small insect-like robot with electric coils, sharp beak, hovering wings, glowing blue energy core, aggressive dive pose, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Small insect-like robot with electric coils, sharp beak, hovering wings, glowing blue energy core, aggressive dive pose, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_unspooled_vestige": {
+   "id": "aon_unspooled_vestige",
+   "name_ru": "Размотанный Остаток",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "shifter",
+   "archetype_name": "",
+   "role": [
+    "оборотень"
+   ],
+   "night_only": false,
+   "size_tiles": 2.0,
+   "description": "Бывший автоматон, чья внутренняя структура распалась в клубок проводов и шестерен. Он периодически меняет форму: то становится высоким и медленным, то расползается по земле, становясь плоским и быстрым. В плоской форме он неуязвим для ударов сверху.",
+   "image_subject": "Tangled mass of wires and gears, shifting shape, partially humanoid, exposed core, chaotic movement pose, rusted bronze material, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Tangled mass of wires and gears, shifting shape, partially humanoid, exposed core, chaotic movement pose, rusted bronze material, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "aon_vent_viper": {
+   "id": "aon_vent_viper",
+   "name_ru": "Вентиляционная Гадюка",
+   "biomes": [
+    "mechanicus"
+   ],
+   "act": "III",
+   "tier": "2",
+   "archetype": "ambusher",
+   "archetype_name": "",
+   "role": [
+    "засада"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Гибкий механизм, похожий на змею, живущий в вентиляционных шахтах. Он поджидает игрока в темноте и бросается из-за угла, нанося урон паром из своих жабр. После атаки он отползает в вентиляцию, требуя от игрока поиска и выкуривания.",
+   "image_subject": "Mechanical snake with segmented bronze body, steam vents on sides, coiled posture, emerging from shadow, intricate piping details, full body",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Mechanical snake with segmented bronze body, steam vents on sides, coiled posture, emerging from shadow, intricate piping details, full body, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
   }
  },
  "failed": {}
