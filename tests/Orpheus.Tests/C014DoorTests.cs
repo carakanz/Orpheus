@@ -24,10 +24,12 @@ namespace Orpheus.Tests
 
         private static WorldPos In(int tx, int ty, int sx, int sy) => new WorldPos(tx * U + sx, ty * U + sy);
 
-        private static Simulation ThinDoor(bool open)
+        private static Simulation ThinDoor(bool open) => ThinDoor(BuildCells.DoorSouth, open);
+
+        private static Simulation ThinDoor(byte mask, bool open)
         {
             var sim = new Simulation(Flat());
-            BuildRecord rec = BuildRecord.OfPlayer(1, FloorId.Grass).WithCells(BuildCells.DoorSouth);
+            BuildRecord rec = BuildRecord.OfPlayer(1, FloorId.Grass).WithCells(mask);
             if (open)
             {
                 rec = rec.WithFlags(BuildFlags.DoorOpen);
@@ -36,7 +38,7 @@ namespace Orpheus.Tests
             Assert.True(sim.RequestEdit(Door, FloorId.Grass, ObjectId.Door, rec));
             sim.Step();
             Assert.Equal(ObjectId.Door, sim.World.GetObject(Door));
-            Assert.Equal(BuildCells.DoorSouth, BuildCells.MaskAt(sim.World, Door));
+            Assert.Equal(mask, BuildCells.MaskAt(sim.World, Door));
             return sim;
         }
 
@@ -46,8 +48,10 @@ namespace Orpheus.Tests
             return rec.IsDoorOpen;
         }
 
-        private static bool InHitbox(Simulation sim, int id) =>
-            Collision.CircleOverlapsCells(sim.World.Shape, sim.Entities[sim.SlotOf(id)].Mover.Position, Door, BuildCells.DoorSouth);
+        private static bool InHitbox(Simulation sim, int id) => InHitbox(sim, id, BuildCells.DoorSouth);
+
+        private static bool InHitbox(Simulation sim, int id, byte mask) =>
+            Collision.CircleOverlapsCells(sim.World.Shape, sim.Entities[sim.SlotOf(id)].Mover.Position, Door, mask);
 
         /// <summary>Шагов до закрытия (не больше <paramref name="max"/>; не закрылась — −1).</summary>
         private static int StepsUntilClosed(Simulation sim, int max)
@@ -173,6 +177,60 @@ namespace Orpheus.Tests
             int me2 = sim2.AddEnemy(In(DoorX, DoorY, U / 2, U / 2 - Collision.RadiusUnits));
             Assert.False(InHitbox(sim2, me2));
             Assert.True(StepsUntilClosed(sim2, 3 * Simulation.DoorAutoCloseTicks) > 0, "касание без пересечения держит дверь");
+        }
+
+        /// <summary>Ориентация (C-020, хвост П C-014): для каждой из четырёх масок тонкой двери существо в её
+        /// ячейках держит дверь открытой; стоящий в противоположной половине тайла (вне ячеек) — не держит:
+        /// закрылась за ≤ 16 тактов и остаётся закрытой. Ловит мутацию «ориентация игнорируется (всегда южная
+        /// пара)»: под ней на не-южных масках стоящий вне ячеек «занимает» хитбокс и дверь не закрывается.</summary>
+        [Theory]
+        [InlineData(BuildCells.DoorNorth, 128, 64, 128, 236)]   // круг в северной паре; юг тайла — вне (y − 102 = 134 ≥ 128)
+        [InlineData(BuildCells.DoorSouth, 128, 192, 128, 20)]   // южная пара; север тайла — вне (y + 102 = 122 < 128)
+        [InlineData(BuildCells.DoorWest, 64, 128, 236, 128)]    // западная колонка; восток тайла — вне (x − 102 = 134 ≥ 128)
+        [InlineData(BuildCells.DoorEast, 192, 128, 20, 128)]    // восточная колонка; запад тайла — вне (x + 102 = 122 < 128)
+        public void C020_Orientation_In_Cells_Holds_Open_Opposite_Half_Closes(byte mask, int inX, int inY, int outX, int outY)
+        {
+            Simulation sim = ThinDoor(mask, open: true);
+            int me = sim.AddEntity(In(DoorX, DoorY, inX, inY));
+            Assert.True(InHitbox(sim, me, mask), $"в ячейках маски {mask}?");
+            Assert.Equal(-1, StepsUntilClosed(sim, 4 * Simulation.DoorAutoCloseTicks));
+
+            Simulation sim2 = ThinDoor(mask, open: true);
+            int me2 = sim2.AddEntity(In(DoorX, DoorY, outX, outY));
+            Assert.False(InHitbox(sim2, me2, mask), $"вне ячеек маски {mask}?");
+            int steps = StepsUntilClosed(sim2, 3 * Simulation.DoorAutoCloseTicks);
+            Assert.True(steps > 0 && steps <= CloseTicks + 1, $"закрылась за {steps} (маска {mask})");
+            for (int t = 0; t < 4 * Simulation.DoorAutoCloseTicks; t++)
+            {
+                sim2.Step();
+                Assert.False(IsOpen(sim2), $"открылась от стояния в противоположной половине (маска {mask})");
+            }
+        }
+
+        /// <summary>Открытие от соседнего тайла считает направление к <b>центру ячеек</b> двери, а не к центру
+        /// тайла (C-020, хвост П C-014; покрывает `DoorHitboxCenter`): южная дверь (центр ячеек y = 192),
+        /// западный сосед (круг до проёма не дотягивается: dx = 128 &gt; 102) шагает на юг. Стартовав с y = 136
+        /// и шагнув ≈ 51 unit (y = 187), существо смещается к центру ячеек (+5) и от центра тайла (−59):
+        /// под мутацией «центр хитбокса = центр тайла» дверь остаётся закрытой.</summary>
+        [Fact]
+        public void C020_Open_From_Neighbor_Uses_Hitbox_Center()
+        {
+            Simulation sim = ThinDoor(BuildCells.DoorSouth, open: false);
+            int me = sim.AddEntity(In(DoorX - 1, DoorY, U / 2, 136));
+            Assert.False(InHitbox(sim, me), "круг уже в проёме");
+            sim.SetInput(me, new InputFrame(Input8.South));
+
+            int openedAt = -1;
+            for (int t = 1; t <= 10 && openedAt < 0; t++)
+            {
+                sim.Step();
+                if (IsOpen(sim))
+                {
+                    openedAt = t;
+                }
+            }
+
+            Assert.True(openedAt > 0, "шаг на юг из западного тайла не открыл дверь — скаляр считается к центру тайла, а не к центру ячеек");
         }
     }
 }
