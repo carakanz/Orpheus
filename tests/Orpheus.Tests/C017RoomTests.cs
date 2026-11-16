@@ -274,6 +274,29 @@ namespace Orpheus.Tests
             Assert.Equal(RoomIndex.LitRoom, Label(w, 103, 103)); // а комната с факелом — по-прежнему комната
         }
 
+        /// <summary>
+        /// Свет не проходит через угол двух стен, сходящихся по диагонали (<see cref="LightSight"/>, шаг луча по диагонали
+        /// через угол двух ячеек-стен закрыт): факел в тайле (98, 98), две одиночные ячейки стены (201, 202) и (202, 201)
+        /// (сетка ячеек 0,5) касаются углом на пути луча к ячейке (203, 203) тайла (101, 101) — там темно. Рядом с факелом
+        /// — полный свет; свет ядра (враги, без стен) через угол проходит.
+        /// </summary>
+        [Fact]
+        public void L04_Light_Stops_At_Diagonal_Wall_Corner()
+        {
+            var sim = new Simulation(Flat());
+            PutCell(sim, 201, 202); // ячейка стены: тайл (100, 101), восточная половина, северная половина ячейки
+            PutCell(sim, 202, 201); // ячейка стены: тайл (101, 100) — касается первой углом
+            Assert.True(sim.RequestEdit(new TileCoord(98, 98), FloorId.Grass, ObjectId.Torch));
+            sim.Step();
+            WorldModel w = sim.World;
+            ushort[] grid = w.Sight.GridOf(Torus.ChunkOf(w.Shape, new TileCoord(98, 98)));
+            int At(int cx, int cy) => grid[(cy & 63) * 64 + (cx & 63)];
+
+            Assert.Equal(1024, At(2 * 99 + 1, 2 * 99 + 1)); // рядом с факелом — полный свет
+            Assert.Equal(0, At(2 * 101 + 1, 2 * 101 + 1));  // за углом двух стен по диагонали — темно
+            Assert.True(w.Lights.SourceLightX1024(new TileCoord(101, 101)) > 0); // свет ядра стен не видит
+        }
+
         /// <summary>Тень от огня не длиннее пути до стены: от середины тайла 102 на запад до ячейки стены 200 — 8 четвертей.</summary>
         [Fact]
         public void L03_FreeRun_Stops_At_Wall()
