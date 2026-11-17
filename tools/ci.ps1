@@ -5,15 +5,19 @@
 # ночной прогон гоняет всё, кроме Soak: tools\ci.cmd -All -TimeLimitSec 0.
 # Soak ([Trait("Category", "Soak")]: долгие прогоны в реальном времени, например 4 круга run_seam по UDP, ~12 мин)
 # не входят ни в CI, ни в -All; только они — tools\ci.cmd -Soak -TimeLimitSec 0 (перед приёмкой вехи).
+# Таймаут шага (C-026): шаг, висящий дольше -StepTimeoutSec (по умолчанию 3600 с), — ребёнок снимается, код 258, шаг красный.
+# Тест-гард: tools\ci.ps1 -SelfTest — EOF по stdin, таймаут шага, экранирование Join-CmdLine (секунды, без dotnet).
 #
 # Кодировка: консоль переводится в UTF-8, поэтому перенаправление (tools\ci.cmd > log.txt 2>&1)
 # и -LogFile дают UTF-8 без BOM — кириллица в логе CI читается без подбора кодировки.
 param(
     [string]$Configuration = 'Debug',
     [int]$TimeLimitSec = 60,
+    [int]$StepTimeoutSec = 3600,
     [string]$LogFile = '',
     [switch]$All,
-    [switch]$Soak
+    [switch]$Soak,
+    [switch]$SelfTest
 )
 
 $ErrorActionPreference = 'Stop'
@@ -48,6 +52,9 @@ public static class HiddenCi
         public short wShowWindow, cbReserved2; public IntPtr lpReserved2, hStdInput, hStdOutput, hStdError;
     }
 
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct STARTUPINFOEX { public STARTUPINFO Info; public IntPtr lpAttributeList; }
+
     [StructLayout(LayoutKind.Sequential)]
     struct PROCESS_INFORMATION { public IntPtr hProcess, hThread; public int dwProcessId, dwThreadId; }
 
@@ -69,9 +76,32 @@ public static class HiddenCi
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool SetHandleInformation(IntPtr h, int mask, int flags);
 
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    // C-026: STARTUPINFOEX + список ручек — схема HiddenProcess.cs (C-022): наследуются ровно
+    // три трубы; conhost не получает лишних ручек, и EOF по stdin доходит до ребёнка.
+    [DllImport("kernel32.dll", EntryPoint = "CreateProcessW", CharSet = CharSet.Unicode, SetLastError = true)]
     static extern bool CreateProcess(string app, StringBuilder cmd, IntPtr pa, IntPtr ta, bool inherit,
-        uint flags, IntPtr env, string cwd, ref STARTUPINFO si, out PROCESS_INFORMATION pi);
+        uint flags, IntPtr env, string cwd, ref STARTUPINFOEX si, out PROCESS_INFORMATION pi);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool InitializeProcThreadAttributeList(IntPtr attrs, int count, int group, ref IntPtr size);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool UpdateProcThreadAttribute(IntPtr attrs, int flags, IntPtr attr, IntPtr value, IntPtr size, IntPtr prev, IntPtr prevSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern void DeleteProcThreadAttributeList(IntPtr attrs);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern IntPtr CreateJobObject(IntPtr attrs, string name);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool TerminateJobObject(IntPtr job, uint exitCode);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern uint ResumeThread(IntPtr thread);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern uint WaitForSingleObject(IntPtr h, uint ms);
@@ -106,7 +136,9 @@ public static class HiddenCi
     }
 
     // Запуск exe на скрытом столе; stdout/stderr — трубы UTF-8. Код возврата процесса.
-    public static int Run(string exe, string args, string cwd, string desktop, string[] extraEnv, out string stdout, out string stdErr)
+    // timeoutMs > 0 — таймаут шага (C-026): по истечении ребёнок снимается TerminateProcess(258)
+    // + пометка в stderr; 0 — без лимита.
+    public static int Run(string exe, string args, string cwd, string desktop, string[] extraEnv, int timeoutMs, out string stdout, out string stdErr)
     {
         stdout = ""; stdErr = "";
         const uint GenericAll = 0x10000000;
@@ -130,15 +162,45 @@ public static class HiddenCi
                 stdErr = "hidden: CreatePipe, ошибка " + Marshal.GetLastWin32Error();
                 return 1;
             }
-            SetHandleInformation(inR.DangerousGetHandle(), HandleFlagInherit, 0);   // ребёнку — только inW/outW/errW
+            // Схема наследования (C-026): ребёнку достаются inR (как stdin через STARTF_USESTDHANDLES —
+            // он обязан быть наследуемым, иначе у ребёнка stdin битый) и записывающие концы outW/errW.
+            // Записывающий конец stdin inW ребёнку НЕ отдаём и закрываем у себя сразу после запуска —
+            // тогда пишущих копий не остаётся и читающий stdin ребёнок получает EOF (C-025 П з. 1:
+            // в старом коде inW наследовался, EOF не наступал никогда, «cmd /c more» висел).
+            SetHandleInformation(inW.DangerousGetHandle(), HandleFlagInherit, 0);
             SetHandleInformation(outR.DangerousGetHandle(), HandleFlagInherit, 0);
             SetHandleInformation(errR.DangerousGetHandle(), HandleFlagInherit, 0);
 
-            STARTUPINFO si = new STARTUPINFO();
-            si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
-            si.lpDesktop = "WinSta0\\" + desktop;
-            si.dwFlags = 0x100; // STARTF_USESTDHANDLES
-            si.hStdInput = inR.DangerousGetHandle(); si.hStdOutput = outW.DangerousGetHandle(); si.hStdError = errW.DangerousGetHandle();
+            // Схема (C-026, по образцу HiddenProcess.cs): STARTUPINFOEX + PROC_THREAD_ATTRIBUTE_HANDLE_LIST —
+            // ребёнку (и его conhost) наследуются ровно inR/outW/errW. Записывающий конец stdin inW
+            // ребёнку не отдаём и закрываем у себя сразу после запуска — пишущих копий не остаётся,
+            // читающий stdin ребёнок получает EOF. Без списка ручек (plain STARTUPINFO) conhost
+            // таскал лишние ручки, и EOF по stdin к ребёнку не приходил никогда (C-025 П з. 1:
+            // зависший шаг вешал ночной прогон).
+            STARTUPINFOEX siex = new STARTUPINFOEX();
+            siex.Info.cb = Marshal.SizeOf(typeof(STARTUPINFOEX));
+            siex.Info.lpDesktop = "WinSta0\\" + desktop;
+            siex.Info.dwFlags = 0x100 | 0x01; // STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW
+            siex.Info.wShowWindow = 0;        // SW_HIDE
+            siex.Info.hStdInput = inR.DangerousGetHandle(); siex.Info.hStdOutput = outW.DangerousGetHandle(); siex.Info.hStdError = errW.DangerousGetHandle();
+
+            IntPtr handles = Marshal.AllocHGlobal(IntPtr.Size * 3);
+            Marshal.WriteIntPtr(handles, 0, inR.DangerousGetHandle());
+            Marshal.WriteIntPtr(handles, IntPtr.Size, outW.DangerousGetHandle());
+            Marshal.WriteIntPtr(handles, IntPtr.Size * 2, errW.DangerousGetHandle());
+            IntPtr attrSize = IntPtr.Zero; IntPtr attrs = IntPtr.Zero;
+            InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref attrSize);
+            attrs = Marshal.AllocHGlobal(attrSize);
+            if (!InitializeProcThreadAttributeList(attrs, 1, 0, ref attrSize)
+                || !UpdateProcThreadAttribute(attrs, 0, (IntPtr)0x00020002, handles, (IntPtr)(IntPtr.Size * 3), IntPtr.Zero, IntPtr.Zero))
+            {
+                if (attrs != IntPtr.Zero) { DeleteProcThreadAttributeList(attrs); Marshal.FreeHGlobal(attrs); }
+                Marshal.FreeHGlobal(handles);
+                inR.Dispose(); inW.Dispose(); outR.Dispose(); outW.Dispose(); errR.Dispose(); errW.Dispose();
+                stdErr = "hidden: ProcThreadAttributeList, ошибка " + Marshal.GetLastWin32Error();
+                return 1;
+            }
+            siex.lpAttributeList = attrs;
 
             PROCESS_INFORMATION pi;
             var cmd = new StringBuilder(exe + " " + args);
@@ -147,15 +209,24 @@ public static class HiddenCi
             // Юникодный блок + CREATE_UNICODE_ENVIRONMENT в этой сборке получает отказ 577.
             byte[] env = EnvBlock(extraEnv);
             GCHandle gh = GCHandle.Alloc(env, GCHandleType.Pinned);
-            bool ok = CreateProcess(null, cmd, IntPtr.Zero, IntPtr.Zero, true, CreateNoWindow, gh.AddrOfPinnedObject(), cwd, ref si, out pi);
+            // ребёнок в объекте-задании (CreateSuspended + Assign + Resume): по таймауту снимаем
+            // всё дерево (dotnet → MSBuild → testhost), как HiddenProcess.Kill(entireProcessTree).
+            IntPtr job = CreateJobObject(IntPtr.Zero, null);
+            bool ok = CreateProcess(null, cmd, IntPtr.Zero, IntPtr.Zero, true,
+                CreateNoWindow | 0x00000004 | 0x00080000, // NO_WINDOW | SUSPENDED | EXTENDED_STARTUPINFO_PRESENT
+                gh.AddrOfPinnedObject(), cwd, ref siex, out pi);
             gh.Free();
+            DeleteProcThreadAttributeList(attrs); Marshal.FreeHGlobal(attrs); Marshal.FreeHGlobal(handles);
             if (!ok)
             {
                 int e = Marshal.GetLastWin32Error();
+                if (job != IntPtr.Zero) CloseHandle(job);
                 inR.Dispose(); inW.Dispose(); outR.Dispose(); outW.Dispose(); errR.Dispose(); errW.Dispose();
                 stdErr = "hidden: CreateProcess " + exe + ", ошибка " + e;
                 return 1;
             }
+            if (job != IntPtr.Zero) AssignProcessToJobObject(job, pi.hProcess);
+            ResumeThread(pi.hThread);
             inW.Dispose(); // stdin ребёнка — EOF
             outW.Dispose(); errW.Dispose(); // свои копии труб вывода закрыть, иначе EOF не наступит никогда
 
@@ -166,10 +237,18 @@ public static class HiddenCi
             var eTask = Task.Run(() => Drain(errR, eSb));
 
             int code;
-            if (WaitForSingleObject(pi.hProcess, 0xFFFFFFFF) != 0)
+            // C-025 П з. 1: INFINITE вешал прогон намертво на зависшем ребёнке — таймаут шага.
+            uint wr = WaitForSingleObject(pi.hProcess, timeoutMs > 0 ? (uint)timeoutMs : 0xFFFFFFFF);
+            if (wr != 0)
             {
+                // 0x102 = WAIT_TIMEOUT: ребёнок (или читающий stdin, у которого нет EOF) не должен
+                // вешать ночной прогон без надзора — снимаем, шаг красный. Job снимает всё дерево
+                // (dotnet → MSBuild → testhost), как HiddenProcess.Kill(entireProcessTree).
+                if (job != IntPtr.Zero) TerminateJobObject(job, 258);
                 TerminateProcess(pi.hProcess, 258);
                 WaitForSingleObject(pi.hProcess, 5000);
+                if (wr == 0x102)
+                    lock (eSb) eSb.Append("hidden: шаг превысил таймаут " + (timeoutMs / 1000) + " с — ребёнок снят\n");
                 code = 258;
             }
             else
@@ -179,12 +258,14 @@ public static class HiddenCi
             }
             // Потомок с наследуемой трубой (осиротевший тестовый сервер) не должен вешать CI:
             // грейс 60 с на договоривание, дальше берём прочитанное.
-            if (!oTask.Wait(60000) || !eTask.Wait(60000))
+            // C-025 П з. 2: грейс параллельный (худший случай 60 с на шаг, а не 120).
+            if (!Task.WaitAll(new Task[] { oTask, eTask }, 60000))
                 eSb.Append("hidden: поток удерживается потомком, хвост вывода не дочитан\n");
             lock (oSb) stdout = oSb.ToString();
             lock (eSb) stdErr = eSb.ToString();
 
             CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
+            if (job != IntPtr.Zero) CloseHandle(job);
             inR.Dispose();
             return code;
         }
@@ -226,8 +307,23 @@ function Write-Line([string]$text, [string]$color = 'Gray') {
 }
 
 function Join-CmdLine([string[]]$argv) {
-    # CreateProcessW принимает одной строкой; аргументы с пробелами/кавычками — в кавычки.
-    ($argv | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' '
+    # CreateProcessW принимает одной строкой; правила разбора аргументов MSVC/CRT (C-025 П з. 6):
+    # n слэшей перед кавычкой → 2n+1 слэшей + " (иначе чётная пачка «съедает» кавычку парсером);
+    # хвостовые слэши кавычаемого аргумента удваиваются (не «съедают» закрывающую кавычку);
+    # аргумент с пробелами/кавычками — в кавычки.
+    ($argv | ForEach-Object {
+        if ($_ -notmatch '[\s"]') { $_; return }
+        $sb = New-Object System.Text.StringBuilder
+        $slashes = 0
+        foreach ($ch in $_.ToCharArray()) {
+            if ($ch -eq '\') { $slashes++; continue }
+            if ($ch -eq '"') { [void]$sb.Append('\' * (2 * $slashes + 1) + '"'); $slashes = 0; continue }
+            if ($slashes -gt 0) { [void]$sb.Append('\' * $slashes); $slashes = 0 }
+            [void]$sb.Append($ch)
+        }
+        [void]$sb.Append('\' * (2 * $slashes))
+        '"' + $sb.ToString() + '"'
+    }) -join ' '
 }
 
 function Invoke-Step([string]$name, [string]$color, [string[]]$dotnetArgs) {
@@ -244,7 +340,7 @@ function Invoke-Step([string]$name, [string]$color, [string[]]$dotnetArgs) {
     # (conhost) на столе Автора. Гасим их в env-блоке ребёнка.
     $env_ = @('DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1', 'MSBUILDUSESERVER=0')
     $code = 1; $stdOut = ''; $stdErr = ''
-    try { $code = [HiddenCi]::Run('dotnet', (Join-CmdLine $dotnetArgs), $root, 'OrpheusHidden', $env_, [ref]$stdOut, [ref]$stdErr) }
+    try { $code = [HiddenCi]::Run('dotnet', (Join-CmdLine $dotnetArgs), $root, 'OrpheusHidden', $env_, [int]$StepTimeoutSec * 1000, [ref]$stdOut, [ref]$stdErr) }
     catch { $code = 1; $stdErr = "hidden: " + $_.Exception.Message }
     $ErrorActionPreference = $prev
     foreach ($line in ($stdOut -split "`r?`n")) { Write-Line "   $line" }
@@ -256,6 +352,51 @@ function Invoke-Step([string]$name, [string]$color, [string[]]$dotnetArgs) {
     }
     Write-Line "== $name — ок, $sec с" 'Green'
 }
+
+function Invoke-SelfTest {
+    # C-026 тест-гард: экранирование Join-CmdLine, EOF по stdin, таймаут шага.
+    # Гоняет только HiddenCi на cmd/powershell (без dotnet): ~10 с. Возвращает число падений.
+    $script:selfFail = 0
+    function Check([bool]$ok, [string]$what) {
+        if ($ok) { Write-Host "  [selftest] ок: $what" -ForegroundColor Green }
+        else { Write-Host "  [selftest] FAIL: $what" -ForegroundColor Red; $script:selfFail = $script:selfFail + 1 }
+    }
+
+    # таблицы Join-CmdLine: аргумент → ожидаемая строка (правила MSVC, см. функцию)
+    $cases = @(
+        ,@('plain', 'plain')
+        ,@('a b', '"a b"')
+        ,@('a"b', '"a\"b"')
+        ,@('a\"b', '"a\\\"b"')
+        ,@('a b"c', '"a b\"c"')
+        ,@('dir \', '"dir \\"')
+        ,@('a\ b', '"a\ b"')
+    )
+    foreach ($c in $cases) {
+        $got = Join-CmdLine @($c[0])
+        Check ($got -ceq $c[1]) ("Join-CmdLine: '" + $c[0] + "' → '" + $got + "'")
+    }
+
+    # stdin — закрытая труба: читающий обязан получить EOF и выйти, не висеть.
+    # Читатель — powershell ReadToEnd (один процесс, без консоли-зависимостей): stdin битый
+    # (не продублировался) → читает CONIN$ → висит → гард красный. (cmd /c more для гарда не годится:
+    # современный more.com после EOF открывает CONIN$ и ждёт клавишу — свойство more, не канализации.)
+    $stdOut = ''; $stdErr = ''
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $code = [HiddenCi]::Run('powershell', '-NoProfile -Command "[Console]::In.ReadToEnd() | Out-Null"', $root, 'OrpheusHidden', @(), 60000, [ref]$stdOut, [ref]$stdErr)
+    $sec = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+    Check ($code -eq 0 -and $sec -lt 30) "читающий stdin (powershell ReadToEnd) вышел по EOF: код $code, $sec с"
+
+    # зависший ребёнок (одним процессом, без сирот) — снимается таймаутом шага
+    $stdOut = ''; $stdErr = ''
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $code = [HiddenCi]::Run('powershell', '-NoProfile -Command Start-Sleep 59', $root, 'OrpheusHidden', @(), 5000, [ref]$stdOut, [ref]$stdErr)
+    $sec = [math]::Round($sw.Elapsed.TotalSeconds, 1)
+    Check ($code -eq 258 -and $sec -ge 4 -and $sec -le 20 -and $stdErr -match 'таймаут') "зависший ребёнок снят таймаутом: код $code, $sec с"
+
+    return $script:selfFail
+}
+if ($SelfTest) { exit (Invoke-SelfTest) }
 
 Invoke-Step 'build' 'Cyan' @('build', $sln, '-c', $Configuration, '--nologo', '-v', 'minimal')
 $testArgs = @('test', $sln, '-c', $Configuration, '--no-build', '--nologo', '-v', 'minimal')
