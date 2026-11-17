@@ -1,0 +1,4620 @@
+{
+ "pi": [
+  {
+   "src": "SF2e",
+   "name": "Mechanizer Saboteur",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/5-mechanizer-saboteur",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Veskarium Paratrooper",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/29-veskarium-paratrooper",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Groggy Corsair",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/36-groggy-corsair",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Kitthaine Kitar",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/42-kitthaine-kitar",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Phantom Gef",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/45-phantom-gef",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Reculobutapus",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/46-reculobutapus",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Xoalat",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/48-xoalat",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Zo!",
+   "level": 19.0,
+   "url": "https://2e.aonsrd.com/creatures/50-zo",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Zitteroc",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/69-zitteroc",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Zalyop",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/70-zalyop",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Apari",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/75-apari",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Arqsheth",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/78-arqsheth",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Vracinea",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/81-vracinea",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Vorthuul",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/82-vorthuul",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Veolisk",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/84-veolisk",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Trawler",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/87-trawler",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Terror Of Ukulam",
+   "level": 22.0,
+   "url": "https://2e.aonsrd.com/creatures/90-terror-of-ukulam",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Skarak",
+   "level": 13.0,
+   "url": "https://2e.aonsrd.com/creatures/109-skarak",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ranonek",
+   "level": 12.0,
+   "url": "https://2e.aonsrd.com/creatures/135-ranonek",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Quyu",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/136-quyu",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Othinni",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/creatures/145-othinni",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Oscriss",
+   "level": 20.0,
+   "url": "https://2e.aonsrd.com/creatures/148-oscriss",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Oma",
+   "level": 16.0,
+   "url": "https://2e.aonsrd.com/creatures/152-oma",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Obrhinnshee",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/153-obrhinnshee",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Nihili",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/165-nihili",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Lumocantha",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/171-lumocantha",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ksarik",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/175-ksarik",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Kaukariki",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/178-kaukariki",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Karkono",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/179-karkono",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Asteray",
+   "level": 12.0,
+   "url": "https://2e.aonsrd.com/creatures/180-asteray",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Atlapak",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/181-atlapak",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Bloodbrother",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/182-bloodbrother",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Caypin",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/183-caypin",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Cerebinite",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/184-cerebinite",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Coposirix",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/187-coposirix",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Corchaaz",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/188-corchaaz",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Crest-Eater",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/194-crest-eater",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Diatha",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/201-diatha",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Draiclipsed",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/219-draiclipsed",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dreamer",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/223-dreamer",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dredgelit",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/224-dredgelit",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Emvermod",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/243-emvermod",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Finitrium Fatebender",
+   "level": 15.0,
+   "url": "https://2e.aonsrd.com/creatures/247-finitrium-fatebender",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hesper",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/264-hesper",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ignurso",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/265-ignurso",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Illumantula",
+   "level": 25.0,
+   "url": "https://2e.aonsrd.com/creatures/266-illumantula",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Itaka The Ever-Craving",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/273-itaka-the-ever-craving",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Skreechree",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/276-skreechree",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Coshyco Villager",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/278-coshyco-villager",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Yorun",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/279-yorun",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Golden Coshyco",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/282-golden-coshyco",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Arnyn",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/284-arnyn",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sursurn",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/285-sursurn",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Acsie Servitor",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/286-acsie-servitor",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Acsie Enforcer",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/289-acsie-enforcer",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "The Harvest",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/294-the-harvest",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Mosaic Soul",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/296-mosaic-soul",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Narzor Ravnik",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/301-narzor-ravnik",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Missy Moon",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/307-missy-moon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "False Apari",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/309-false-apari",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Cave Khefak",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/311-cave-khefak",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Devourer Cultist",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/317-devourer-cultist",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Brekk, Devourer Longtooth",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/319-brekk-devourer-longtooth",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sihedron Drone",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/320-sihedron-drone",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Braantu",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/323-braantu",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Biran Smux",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/324-biran-smux",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Bronco",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/327-bronco",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Priest Of Lissala",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/329-priest-of-lissala",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Exkruvite",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/331-exkruvite",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Nodocite Blaster",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/332-nodocite-blaster",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Tade",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/333-tade",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Gremmik Integrated",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/334-gremmik-integrated",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "The Caretaker",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/335-the-caretaker",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Livaruza",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/357-livaruza",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dajagal",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/359-dajagal",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Pyet",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/361-pyet",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Atraxid Profiteer",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/362-atraxid-profiteer",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ravenous Szynegator Swarms",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/365-ravenous-szynegator-swarms",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Szandite Cryshard Swarm",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/366-szandite-cryshard-swarm",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hive-minded Prisoner",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/367-hive-minded-prisoner",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Khorlet",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/368-khorlet",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Steward Grunts",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/369-steward-grunts",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Szandite Stalker",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/370-szandite-stalker",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Crested Darrok",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/371-crested-darrok",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sardus Endling",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/373-sardus-endling",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Mannoq Beast",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/374-mannoq-beast",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sapling Oracle Of Oras",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/375-sapling-oracle-of-oras",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Shiptreek Crew",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/376-shiptreek-crew",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Vedzax",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/377-vedzax",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Subranox",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/378-subranox",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Glibraiax",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/379-glibraiax",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ubiat",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/456-ubiat",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Anacite Wingbot",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/2-anacite-wingbot",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Anacite Protector",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/3-anacite-protector",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sworn Blade Of Shields",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/10-sworn-blade-of-shields",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sworn Blade Of Sigils",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/11-sworn-blade-of-sigils",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jinsul Lookout",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/12-jinsul-lookout",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Warlord Hura",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/13-warlord-hura",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Botnib",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/19-botnib",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Corpse Fleet Expendable",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/24-corpse-fleet-expendable",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Corpse Fleet Junior Officer",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/25-corpse-fleet-junior-officer",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Juvenile Tashtari",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/26-juvenile-tashtari",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Aeon Guard Trooper",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/28-aeon-guard-trooper",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Excuba",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/32-excuba",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Thermatrod",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/33-thermatrod",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Aeon Guard Trooper",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/51-aeon-guard-trooper",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sihedron Guard Thunderstriker",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/52-sihedron-guard-thunderstriker",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Pachinyam",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/53-pachinyam",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Aeon Guard Commander",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/54-aeon-guard-commander",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sihedron Guard Specialist",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/55-sihedron-guard-specialist",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Akata",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/56-akata",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Omnipath",
+   "level": 18.0,
+   "url": "https://2e.aonsrd.com/creatures/59-omnipath",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Emissar Angel",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/60-emissar-angel",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Pachinyam Swarm",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/61-pachinyam-swarm",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Proog",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/62-proog",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Barachius Angel",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/64-barachius-angel",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Squox Biotech Zombie",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/67-squox-biotech-zombie",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Crest-Eater Necrograft Zombie",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/68-crest-eater-necrograft-zombie",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Xenowarden Greenhorn",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/71-xenowarden-greenhorn",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Xenowarden Rootsworn",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/72-xenowarden-rootsworn",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Xenowarden Biohulk",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/73-xenowarden-biohulk",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Yearling Arabuk",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/76-yearling-arabuk",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Arabuk",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/77-arabuk",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Proog Swarm",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/88-proog-swarm",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Thermatrod Caldera",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/89-thermatrod-caldera",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Athraxer",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/91-athraxer",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Szynegator Swarm",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/92-szynegator-swarm",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Emganat",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/93-emganat",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Bastorox",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/94-bastorox",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Thresher Lord",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/95-thresher-lord",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Supenga Pup",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/96-supenga-pup",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Supenga Titan",
+   "level": 15.0,
+   "url": "https://2e.aonsrd.com/creatures/97-supenga-titan",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Squox",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/98-squox",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Trained Squox",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/99-trained-squox",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Iridia",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/100-iridia",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Wyspiria",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/101-wyspiria",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Diaspora Worm",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/102-diaspora-worm",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Surnoch",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/104-surnoch",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Diaspora Worm Sage",
+   "level": 17.0,
+   "url": "https://2e.aonsrd.com/creatures/105-diaspora-worm-sage",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Skreeling",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/107-skreeling",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Skreesire",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/108-skreesire",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Spined Renkroda",
+   "level": 12.0,
+   "url": "https://2e.aonsrd.com/creatures/124-spined-renkroda",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Whiptail Renkroda",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/125-whiptail-renkroda",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Whiskered Renkroda",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/126-whiskered-renkroda",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Temporai",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/creatures/137-temporai",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Erabryth",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/138-erabryth",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Paradox 17",
+   "level": 22.0,
+   "url": "https://2e.aonsrd.com/creatures/143-paradox-17",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Orocoran",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/149-orocoran",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ulgaazan Nyssholora",
+   "level": 17.0,
+   "url": "https://2e.aonsrd.com/creatures/154-ulgaazan-nyssholora",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Nyssholora",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/155-nyssholora",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Juvenile Nyssholora",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/156-juvenile-nyssholora",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sterieid",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/157-sterieid",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Heliad",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/158-heliad",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Gwereiad",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/159-gwereiad",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sterieid Queen",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/160-sterieid-queen",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Heliad Queen",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/creatures/161-heliad-queen",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Gwereiad Queen",
+   "level": 18.0,
+   "url": "https://2e.aonsrd.com/creatures/162-gwereiad-queen",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Noquasar Spark",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/163-noquasar-spark",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Enraged Noquasar",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/164-enraged-noquasar",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Liberoba Midwife",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/168-liberoba-midwife",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Presulea Midwife",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/169-presulea-midwife",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Necrovite",
+   "level": 13.0,
+   "url": "https://2e.aonsrd.com/creatures/172-necrovite",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Tashtari",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/173-tashtari",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Tashtari Alpha",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/174-tashtari-alpha",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Khefak",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/creatures/176-khefak",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Thasteron Khefak",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/177-thasteron-khefak",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Corpse Fleet Infantry",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/189-corpse-fleet-infantry",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Corpse Fleet Officer",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/190-corpse-fleet-officer",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Corpse Fleet Recruiter",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/191-corpse-fleet-recruiter",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Corzad",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/192-corzad",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Corzador",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/193-corzador",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Typodaemon",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/195-typodaemon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Civusdaemon",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/196-civusdaemon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jygyk",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/197-jygyk",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Daipex",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/198-daipex",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Wahtunshna",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/199-wahtunshna",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Deprimogon",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/200-deprimogon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Alloid",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/203-alloid",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Deh-nolo",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/creatures/204-deh-nolo",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Haeshi-Shaa (Haeshi Form)",
+   "level": 12.0,
+   "url": "https://2e.aonsrd.com/creatures/205-haeshi-shaa-haeshi-form",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Haeshi-Shaa (Shaa Form)",
+   "level": 16.0,
+   "url": "https://2e.aonsrd.com/creatures/206-haeshi-shaa-shaa-form",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Young Abysium Dragon",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/207-young-abysium-dragon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Adult Abysium Dragon",
+   "level": 13.0,
+   "url": "https://2e.aonsrd.com/creatures/208-adult-abysium-dragon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ancient Abysium Dragon",
+   "level": 18.0,
+   "url": "https://2e.aonsrd.com/creatures/209-ancient-abysium-dragon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Young Host Dragon",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/216-young-host-dragon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Adult Host Dragon",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/217-adult-host-dragon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ancient Host Dragon",
+   "level": 16.0,
+   "url": "https://2e.aonsrd.com/creatures/218-ancient-host-dragon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Driftdead Returned",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/225-driftdead-returned",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Driftdead Crasher",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/226-driftdead-crasher",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Driftdead Amalgam",
+   "level": 13.0,
+   "url": "https://2e.aonsrd.com/creatures/227-driftdead-amalgam",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Cyanoscum",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/230-cyanoscum",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Tregalxi",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/232-tregalxi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Flarysca",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/234-flarysca",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Tergaiator",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/237-tergaiator",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Elindrian Acolyte",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/238-elindrian-acolyte",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Elindrian Celebrant",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/239-elindrian-celebrant",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Elindrian Queen",
+   "level": 18.0,
+   "url": "https://2e.aonsrd.com/creatures/240-elindrian-queen",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Koruvi Endling",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/244-koruvi-endling",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jinchori Endling",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/245-jinchori-endling",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Rivarin Endling",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/246-rivarin-endling",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Free Captain Knave",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/249-free-captain-knave",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Free Captain Gunner",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/250-free-captain-gunner",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Free Captain",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/251-free-captain",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Garaggakal",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/252-garaggakal",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Garaggakal Polymath",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/creatures/253-garaggakal-polymath",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hellknight Armiger",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/261-hellknight-armiger",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hellknight Signifer",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/262-hellknight-signifer",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hellknight Degradant",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/263-hellknight-degradant",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jinsul Trooper",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/creatures/270-jinsul-trooper",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jinsul Warblooded",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/271-jinsul-warblooded",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jinsul Pontiff",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/272-jinsul-pontiff",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Cacodaemon",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/283-cacodaemon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Disteadaemon",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/creatures/291-disteadaemon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Grabzit",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/292-grabzit",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Driftdead Returned",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/295-driftdead-returned",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hestramo",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/298-hestramo",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Driftdead Composite",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/305-driftdead-composite",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jabali Spelunker",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/315-jabali-spelunker",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sihedron Surveyor",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/321-sihedron-surveyor",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sihedron Enforcer",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/322-sihedron-enforcer",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Lesser Kurshudi",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/325-lesser-kurshudi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Lieutenant Cal Gaolius",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/326-lieutenant-cal-gaolius",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sihedron Commander",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/328-sihedron-commander",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dominus Xaria Exkruv",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/creatures/330-dominus-xaria-exkruv",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Thaumacyte",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/346-thaumacyte",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF2e",
+   "name": "Starstone Sentry",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/355-starstone-sentry",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Starstone Guardian",
+   "level": 13.0,
+   "url": "https://2e.aonsrd.com/creatures/356-starstone-guardian",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Symbiotic Oma",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/422-symbiotic-oma",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Aanung-an",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Aanung-an&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Acrochor",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Acrochor&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Aeon Guard",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Aeon%20Guard&Family=Aeon%20Guard",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Aeon Stone Network",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Aeon%20Stone%20Network&Family=None",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Agathion, Mustyotal",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mustyotal&Family=Agathion",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Aglian Collective",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Aglian%20Collective&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Akata",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Akata&Family=Akata",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Alkainan",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Alkainan&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Anacite Quantifier",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Anacite%20Quantifier&Family=None",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Anacite, Anacite Laborer",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Anacite%20Laborer&Family=Anacite",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Anacite, Anacite Wingbot",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Anacite%20Wingbot&Family=Anacite",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Anacite, Monitor",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Monitor&Family=Anacite",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Anassanoi",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Anassanoi&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Angel, Barachius",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Barachius&Family=Angel",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Animated Armor, Animated Lashunta Mind Mail III",
+   "level": 16,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Animated%20Lashunta%20Mind%20Mail%20III&Family=Animated%20Armor",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Apari, Apari Constituent",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Apari%20Constituent&Family=Apari",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Arabuk",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Arabuk&Family=Arabuk",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Arquand Gazelle",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Arquand%20Gazelle&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Assassins, Deadeye",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Deadeye&Family=Assassins",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Assassins, Specter",
+   "level": 18,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Specter&Family=Assassins",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Astriapi, Astriapi Defender",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Astriapi%20Defender&Family=Astriapi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Atlapak, Juvenile",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Juvenile&Family=Atlapak",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Azata, Avigwyr",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Avigwyr&Family=Azata",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Azer",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Azer&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Balrodd",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Balrodd&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Barathu, Barathu (Early Stage)",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Barathu%20(Early%20Stage)&Family=Barathu",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Barro",
+   "level": 0,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Barro&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Bear (Uplifted), Uplifted Bear Avenger",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Uplifted%20Bear%20Avenger&Family=Bear%20(Uplifted)",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Bloodbrother",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Bloodbrother&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Bolida, Bolida Overseer",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Bolida%20Overseer&Family=Bolida",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Bone Trooper, Bone Trooper Captain",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Bone%20Trooper%20Captain&Family=Bone%20Trooper",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Bounty Hunters, Bounty Hunter",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Bounty%20Hunter&Family=Bounty%20Hunters",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Bounty Hunters, Recovery Agent",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Recovery%20Agent&Family=Bounty%20Hunters",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Brenneri, Brenneri Sage",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Brenneri%20Sage&Family=Brenneri",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Bryrvath",
+   "level": 15,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Bryrvath&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Calecor",
+   "level": 17,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Calecor&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Caypin",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Caypin&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Celebrities, Performer",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Performer&Family=Celebrities",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Celebrities, Vidgamer",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Vidgamer&Family=Celebrities",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Charlatans, Con Artist",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Con%20Artist&Family=Charlatans",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Charlatans, Grifter",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Grifter&Family=Charlatans",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Cherubic Squire",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Cherubic%20Squire&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Chomurk",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Chomurk&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Comanide",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Comanide&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Contemplative, Contemplative Mentor",
+   "level": 18,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Contemplative%20Mentor&Family=Contemplative",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Copaxi, Special Ops",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Special%20Ops&Family=Copaxi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Corpsefolk, Corpsefolk Operative",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Corpsefolk%20Operative&Family=Corpsefolk",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Crimson Helminth",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Crimson%20Helminth&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Cultists, Cult Killer",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Cult%20Killer&Family=Cultists",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Cynogerm",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Cynogerm&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Daemon, Alorbidaemon",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Alorbidaemon&Family=Daemon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Daemon, Despondaemon",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Despondaemon&Family=Daemon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Damai",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Damai&Family=Damai",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Damiaran Maggot",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Damiaran%20Maggot&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Defrex",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Defrex&Family=Defrex",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Deh-Nolo",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Deh-Nolo&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Demon, Pluprex",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Pluprex&Family=Demon",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Dessamar, Dessamar Imago",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Dessamar%20Imago&Family=Dessamar",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Devil, Endbringer Devil (Dhalochar)",
+   "level": 19,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Endbringer%20Devil%20(Dhalochar)&Family=Devil",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Devil, Gambling (Magadaz)",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gambling%20(Magadaz)&Family=Devil",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Devil, Mannequin (Oidranoth)",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mannequin%20(Oidranoth)&Family=Devil",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Devil, Warmonger Devil (Levaloch)",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Warmonger%20Devil%20(Levaloch)&Family=Devil",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Diaspora Wyrm, Diaspora Wyrm Saga",
+   "level": 17,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Diaspora%20Wyrm%20Saga&Family=Diaspora%20Wyrm",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Diatha, Diatha Elder",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Diatha%20Elder&Family=Diatha",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Diplomats, Emissary",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Emissary&Family=Diplomats",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Diplomats, Plenipotentiary",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Plenipotentiary&Family=Diplomats",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Directive 9 Operatives, Directive 9 Assassin",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Directive%209%20Assassin&Family=Directive%209%20Operatives",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Directive 9 Operatives, Directive 9 Muscle",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Directive%209%20Muscle&Family=Directive%209%20Operatives",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Dirindi, Dirindi Monster Hunter",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Dirindi%20Monster%20Hunter&Family=Dirindi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Draelik",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Draelik&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Dragon (Metallic), Adult Silver Dragon",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Adult%20Silver%20Dragon&Family=Dragon%20(Metallic)",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Dragon (Starmetal), Mature Adult Horacalcum Dragon",
+   "level": 15,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mature%20Adult%20Horacalcum%20Dragon&Family=Dragon%20(Starmetal)",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Dragonkin",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Dragonkin&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Drakogor",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Drakogor&Family=Drakogor",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Dreamer",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Dreamer&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Drift Architects, Interfacer",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Interfacer&Family=Drift%20Architects",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Drift Architects, Programmer",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Programmer&Family=Drift%20Architects",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Drift Mote",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Drift%20Mote&Family=None",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Drift Native, Time Eater",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Time%20Eater&Family=Drift%20Native",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Drift Saboteur",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Drift%20Saboteur&Family=None",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Driftdead",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Driftdead&Family=Driftdead",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Driftlure",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Driftlure&Family=None",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Dromada",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Dromada&Family=Dromada",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Drow, Drow Enforcer",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Drow%20Enforcer&Family=Drow",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Dycepskian, Reptoid Host",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Reptoid%20Host&Family=Dycepskian",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Elebrian",
+   "level": 0,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Elebrian&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Electrovore Colony Troop",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Electrovore%20Colony%20Troop&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ellicoth",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ellicoth&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Embri",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Embri&Family=Embri",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Emergency Workers, Elite Rescuer",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Elite%20Rescuer&Family=Emergency%20Workers",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Emergency Workers, Hazard Professional",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hazard%20Professional&Family=Emergency%20Workers",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Endiffian",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Endiffian&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Entu Colony, Nelentu",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Nelentu&Family=Entu%20Colony",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Epokasite, Fixer",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Fixer&Family=Epokasite",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Equinoxian, Equinoxian Apastra",
+   "level": 15,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Equinoxian%20Apastra&Family=Equinoxian",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Espraksa",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Espraksa&Family=Espraksa",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Eyeswide Headscanner",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Eyeswide%20Headscanner&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ferran",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ferran&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Former Military, Officer",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Officer&Family=Former%20Military",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Former Military, Spec-ops Veteran",
+   "level": 16,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Spec-ops%20Veteran&Family=Former%20Military",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Formian, Formian Queen",
+   "level": 17,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Formian%20Queen&Family=Formian",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Formian, Formian Warrior",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Formian%20Warrior&Family=Formian",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Free Captains, Free Captain",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Free%20Captain&Family=Free%20Captains",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Free Captains, Space Pirate",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Space%20Pirate&Family=Free%20Captains",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Frujai, Frujai Soldier",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Frujai%20Soldier&Family=Frujai",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Fulmivar",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Fulmivar&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Garaggakal",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Garaggakal&Family=Garaggakal",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gatecrasher",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gatecrasher&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Genereaver",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Genereaver&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ghigorda",
+   "level": 18,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ghigorda&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ghoran, Ghoran World-Tamer",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ghoran%20World-Tamer&Family=Ghoran",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Glaiad",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Glaiad&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gnarefuroid",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gnarefuroid&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gravite",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gravite&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gray Bounder",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gray%20Bounder&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gray Shell",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gray%20Shell&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gremlin, Drikluz",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Drikluz&Family=Gremlin",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gremlin, Hobkins Gremlin Malefactor",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hobkins%20Gremlin%20Malefactor&Family=Gremlin",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gremlin, Vaigruuk",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Vaigruuk&Family=Gremlin",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Grioth",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Grioth&Family=Grioth",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Guides, Captains Club Guide",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Captains%20Club%20Guide&Family=Guides",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Guides, Personal Concierge",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Personal%20Concierge&Family=Guides",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Haan",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Haan&Family=Haan",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hadrogaan, Hyper-analyst",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hyper-analyst&Family=Hadrogaan",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Haeshi-Shaa, Haeshi-Shaa (Haeshi Form)",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Haeshi-Shaa%20(Haeshi%20Form)&Family=Haeshi-Shaa",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hanakan, Hanakan Attendant",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hanakan%20Attendant&Family=Hanakan",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hellknights, Hellknight Armiger",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hellknight%20Armiger&Family=Hellknights",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hellknights, Hellknight Signifier",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hellknight%20Signifier&Family=Hellknights",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hinkhetxi",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hinkhetxi&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hobbe Hound",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hobbe%20Hound&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hobgoblin, Hobgoblin Lieutenant",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hobgoblin%20Lieutenant&Family=Hobgoblin",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hortus",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hortus&Family=Hortus",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Huitz’plina, Youngling",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Youngling&Family=Huitz’plina",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ignurso, Burrower",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Burrower&Family=Ignurso",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ihonva",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ihonva&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ijtikri, Ijtikri Commando",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ijtikri%20Commando&Family=Ijtikri",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ikeshti, Ikeshti Rivener",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ikeshti%20Rivener&Family=Ikeshti",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Immolsivix",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Immolsivix&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Inevitable, Anhamut",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Anhamut&Family=Inevitable",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Infiltration Robot, Monitor-class",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Monitor-class&Family=Infiltration%20Robot",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Infiltrators, Hacker",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hacker&Family=Infiltrators",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Infiltrators, Spy",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Spy&Family=Infiltrators",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Investigators, Detective",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Detective&Family=Investigators",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Investigators, Psychic Seer",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Psychic%20Seer&Family=Investigators",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Irokiroi, Oshirokiroi",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Oshirokiroi&Family=Irokiroi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Itmi Vruh, Reminiscent",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Reminiscent&Family=Itmi%20Vruh",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ixtangi",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ixtangi&Family=Ixtangi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Izalguun, Izalguun Hunter",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Izalguun%20Hunter&Family=Izalguun",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Jakkerant",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Jakkerant&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Jinsul, Jinsul Warrior",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Jinsul%20Warrior&Family=Jinsul",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Jubsnuth",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Jubsnuth&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Jububnan, Traveler",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Traveler&Family=Jububnan",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kaarkog",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kaarkog&Family=Kaarkog",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kaion",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kaion&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kaion, Multipole",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Multipole&Family=Kaion",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kalo, Kalo Sharkhunter",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kalo%20Sharkhunter&Family=Kalo",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kathrepi Shade",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kathrepi%20Shade&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kaukariki",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kaukariki&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kayal",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kayal&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Khefak",
+   "level": 0.3333333333333333,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Khefak&Family=Khefak",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Khulan, Ascendant",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ascendant&Family=Khulan",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kiirinta, Guard",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Guard&Family=Kiirinta",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kish",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kish&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Klikharp, Mount",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mount&Family=Klikharp",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Kothama, Kothama Ascendant",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Kothama%20Ascendant&Family=Kothama",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ksarik",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ksarik&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Lacunal Collector",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Lacunal%20Collector&Family=Lacunal%20Collector",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Lawless One",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Lawless%20One&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Limina",
+   "level": 16,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Limina&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Lucandrian, Albedo Lucandrian",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Albedo%20Lucandrian&Family=Lucandrian",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Luminix",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Luminix&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Lumocantha",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Lumocantha&Family=Lumocantha",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Lurker in Light",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Lurker%20in%20Light&Family=Lurker%20in%20Light",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Mahadatari",
+   "level": 19,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mahadatari&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Maraquoi, Maraquoi Hunter",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Maraquoi%20Hunter&Family=Maraquoi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Marwaul",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Marwaul&Family=Marwaul",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Medical Staff, Emt",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Emt&Family=Medical%20Staff",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Medical Staff, Psychic Healer",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Psychic%20Healer&Family=Medical%20Staff",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Megalonyxa",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Megalonyxa&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Memetic Zenith",
+   "level": 15,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Memetic%20Zenith&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Mercenaries, Mercenary Rookie",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mercenary%20Rookie&Family=Mercenaries",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Miasma Fly, Cryllapede",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Cryllapede&Family=Miasma%20Fly",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Mindshroud Ray",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mindshroud%20Ray&Family=Mindshroud%20Ray",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Mordagast, Butcher",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Butcher&Family=Mordagast",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Morlamaw",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Morlamaw&Family=Morlamaw",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Mosaic Soul",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mosaic%20Soul&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Moyishuu",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Moyishuu&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Muneen",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Muneen&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Murzzilat, Bantling",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Bantling&Family=Murzzilat",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Necrovite",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Necrovite&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Neotophet",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Neotophet&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Nihili, Nihili Captain",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Nihili%20Captain&Family=Nihili",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Nuar, Nuar Specialist",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Nuar%20Specialist&Family=Nuar",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Nyssholora, Adult Nyssholora",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Adult%20Nyssholora&Family=Nyssholora",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Obfuchsia",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Obfuchsia&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Odheo",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Odheo&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Oma",
+   "level": 16,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Oma&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Oni, Ja Noi",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ja%20Noi&Family=Oni",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Onkushi",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Onkushi&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Orc, Orc Technician",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Orc%20Technician&Family=Orc",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Orocoran",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Orocoran&Family=Orocoran",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Osharu",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Osharu&Family=Osharu",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Osifern, Enigma",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Enigma&Family=Osifern",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ossiworm Agent",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ossiworm%20Agent&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Pahtra, Pahtra Stalker",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Pahtra%20Stalker&Family=Pahtra",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Paraforan",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Paraforan&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Paralith",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Paralith&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Phentomite",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Phentomite&Family=Phentomite",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Planar Scion, Prismeni",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Planar%20Scion,%20Prismeni&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Planar Scion, Ganzi",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ganzi&Family=Planar%20Scion",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Planar Scion, Suli",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Suli&Family=Planar%20Scion",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Planashar",
+   "level": 17,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Planashar&Family=Planashar",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Plasmalisk",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Plasmalisk&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Program Creature, Lurking Spyware",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Lurking%20Spyware&Family=Program%20Creature",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Program Creature, Unwitting Subroutine",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Unwitting%20Subroutine&Family=Program%20Creature",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Protean, Durgastr",
+   "level": 16,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Durgastr&Family=Protean",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Protean, Xiritix",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Xiritix&Family=Protean",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Protocite Speaker",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Protocite%20Speaker&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Psacynoid, Custodian",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Custodian&Family=Psacynoid",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Psychemental, Panic",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Panic&Family=Psychemental",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Psychopomp, Erabryth",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Erabryth&Family=Psychopomp",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Pyric Heliacus",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Pyric%20Heliacus&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Quorlu",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Quorlu&Family=Quorlu",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Quyu",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Quyu&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Rageshkor, Rock",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Rock&Family=Rageshkor",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ravai",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ravai&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ravenous Drake, Feral",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Feral&Family=Ravenous%20Drake",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Raxilite, Raxilite Researcher",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Raxilite%20Researcher&Family=Raxilite",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Rebuilt",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Rebuilt&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Reklan",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Reklan&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Religious Figures, Divine Avatar",
+   "level": 20,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Divine%20Avatar&Family=Religious%20Figures",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Religious Figures, Prophet",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Prophet&Family=Religious%20Figures",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Renkroda, Whiskered",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Whiskered&Family=Renkroda",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Reptoid",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Reptoid&Family=Reptoid",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Rheonnaghan",
+   "level": 15,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Rheonnaghan&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Riftstalker",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Riftstalker&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Robot (Security), Observer-Class Security Robot",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Observer-Class%20Security%20Robot&Family=Robot%20(Security)",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Robot, Azlanti Battle Robot",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Azlanti%20Battle%20Robot&Family=Robot",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Ryphorian, Ryphorian Technician",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ryphorian%20Technician&Family=Ryphorian",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Sarcesian, Sarcesian Cybercommando",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Sarcesian%20Cybercommando&Family=Sarcesian",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Sazaron, Sazaron Sage",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Sazaron%20Sage&Family=Sazaron",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Scholars, Field Biologist",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Field%20Biologist&Family=Scholars",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Scholars, Scholar Of Magic",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Scholar%20Of%20Magic&Family=Scholars",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Scrawler",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Scrawler&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Security Forces, Detective",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Detective&Family=Security%20Forces",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Security Forces, Security Specialist",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Security%20Specialist&Family=Security%20Forces",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Selamid",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Selamid&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Seprevoi",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Seprevoi&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Shatori, Shatori Analyst",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shatori%20Analyst&Family=Shatori",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Shimreen",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shimreen&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Shimreen, Shimreen Worker",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shimreen%20Worker&Family=Shimreen",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Shipmind",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shipmind&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Shobhad, Shobhad Warleader",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shobhad%20Warleader&Family=Shobhad",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Shotalashu, Feral Shotalashu",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Feral%20Shotalashu&Family=Shotalashu",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Siktempora, Wanderlust",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Wanderlust&Family=Siktempora",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Sivv Warmaster",
+   "level": 17,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Sivv%20Warmaster&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Skathoil",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Skathoil&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Skittermander, Skittermander Whelp",
+   "level": 0.3333333333333333,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Skittermander%20Whelp&Family=Skittermander",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Skreesire",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Skreesire&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Skreesire",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Skreesire&Family=Skreesire",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Sombrian, Lumyr",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Lumyr&Family=Sombrian",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Songtwisted",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Songtwisted&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Spathinae, Spathinae Guard",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Spathinae%20Guard&Family=Spathinae",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Spectra, Excuba",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Excuba&Family=Spectra",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Spectra, Nacrea",
+   "level": 16,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Nacrea&Family=Spectra",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Spectra, Wyspiria",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Wyspiria&Family=Spectra",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Sports Figures, Brutaris Lock-back",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Brutaris%20Lock-back&Family=Sports%20Figures",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Sports Figures, Parabolas Revivalist",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Parabolas%20Revivalist&Family=Sports%20Figures",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Squox, Trained Squox",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Trained%20Squox&Family=Squox",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Starmetal Eater, Horacalcum Eater",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Horacalcum%20Eater&Family=Starmetal%20Eater",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Stelezorn",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Stelezorn&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Stewards, Data Analyst",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Data%20Analyst&Family=Stewards",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Stewards, Overwatch Captain",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Overwatch%20Captain&Family=Stewards",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Street Gangs, Gang Machinist",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gang%20Machinist&Family=Street%20Gangs",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Street Gangs, Gang Tough",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gang%20Tough&Family=Street%20Gangs",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Stridermander, Stridermander Tyrant",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Stridermander%20Tyrant&Family=Stridermander",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Supenga, Pup",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Pup&Family=Supenga",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Surnoch",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Surnoch&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Survivalists, Mysterious Hermit",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mysterious%20Hermit&Family=Survivalists",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Survivalists, Trophy Hunter",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Trophy%20Hunter&Family=Survivalists",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Symbiend, Damoritosh's Arm Host",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Damoritosh's%20Arm%20Host&Family=Symbiend",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Talrepi Recombinator",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Talrepi%20Recombinator&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Tashtari",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Tashtari&Family=Tashtari",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Telia",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Telia&Family=Telia",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Thastertoad",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Thastertoad&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Antecursor",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Antecursor&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Ceretoram",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Ceretoram&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Dissolver",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Dissolver&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Dredger",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Dredger&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Escutchide",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Escutchide&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Molitera",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Molitera&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Pyschovox",
+   "level": 12,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Pyschovox&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Revulsor",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Revulsor&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Swarm Dredger (Troop)",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Swarm%20Dredger%20(Troop)&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Swarm Thresher Lord",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Swarm%20Thresher%20Lord&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "The Swarm, Vorphoma",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Vorphoma&Family=The%20Swarm",
+   "reason": "фракция / мир / организация Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Thermatrod",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Thermatrod&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Thermatrod",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Thermatrod&Family=Thermatrod",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Thieves, Mugger",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mugger&Family=Thieves",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Thieves, Pickpocket",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Pickpocket&Family=Thieves",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Trinir",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Trinir&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Tromlin, Bloodseeker Trooper",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Bloodseeker%20Trooper&Family=Tromlin",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Trox",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Trox&Family=Trox",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Tryziarka, Explorer",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Explorer&Family=Tryziarka",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Tyrants, Colveare Hierarch",
+   "level": 14,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Colveare%20Hierarch&Family=Tyrants",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Tyrants, Singularity Accelerationist",
+   "level": 7,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Singularity%20Accelerationist&Family=Tyrants",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Urog",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Urog&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Utesra, Phylarch",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Phylarch&Family=Utesra",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Varculak, Varculak Marauder",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Varculak%20Marauder&Family=Varculak",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Varratana",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Varratana&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Vasporan, Broodling",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Broodling&Family=Vasporan",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Velstrac, Anchorite",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Anchorite&Family=Velstrac",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Velstrac, Heretic",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Heretic&Family=Velstrac",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Velstrac, Sexton",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Sexton&Family=Velstrac",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Verthani, Verthani Pure One",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Verthani%20Pure%20One&Family=Verthani",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Vlaka, Vlaka Handler",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Vlaka%20Handler&Family=Vlaka",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Vorthuul",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Vorthuul&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Wetzelt",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Wetzelt&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Woioko",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Woioko&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Wolliped",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Wolliped&Family=Wolliped",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Worlanisi, Fortunaut",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Fortunaut&Family=Worlanisi",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Wrikreechee",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Wrikreechee&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Wysp",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Wysp&Family=Wysp",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Xaarb",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Xaarb&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Xararian",
+   "level": 18,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Xararian&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Yaruk",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Yaruk&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Yrgytchee",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Yrgytchee&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  },
+  {
+   "src": "SF1e",
+   "name": "Zernivian",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Zernivian&Family=None",
+   "reason": "собственное имя, вид или роль из сеттинга Paizo (PI / Reserved Material) — по умолчанию не берём"
+  }
+ ],
+ "doubt": [
+  {
+   "src": "SF2e",
+   "name": "Retail Employee of the Month",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/creatures/297-retail-employee-of-the-month",
+   "reason": "шуточный НИП приключения"
+  },
+  {
+   "src": "SF2e",
+   "name": "Retail Phantasm",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/299-retail-phantasm",
+   "reason": "шуточный НИП приключения"
+  },
+  {
+   "src": "SF2e",
+   "name": "Admin Employee of the Month",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/300-admin-employee-of-the-month",
+   "reason": "шуточный НИП приключения"
+  },
+  {
+   "src": "SF2e",
+   "name": "Techno Graveknight",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/363-techno-graveknight",
+   "reason": "graveknight — термин Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Faltering Sapient Green Orb",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/20-faltering-sapient-green-orb",
+   "reason": "разумные сферы — образ Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sapient Purple Orb",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/112-sapient-purple-orb",
+   "reason": "разумные сферы — образ Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sapient Green Orb",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/creatures/113-sapient-green-orb",
+   "reason": "разумные сферы — образ Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Young Akashic Dragon",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/creatures/210-young-akashic-dragon",
+   "reason": "акашический дракон — Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Adult Akashic Dragon",
+   "level": 12.0,
+   "url": "https://2e.aonsrd.com/creatures/211-adult-akashic-dragon",
+   "reason": "акашический дракон — Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ancient Akashic Dragon",
+   "level": 17.0,
+   "url": "https://2e.aonsrd.com/creatures/212-ancient-akashic-dragon",
+   "reason": "акашический дракон — Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Young Cosmic Dragon",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/creatures/213-young-cosmic-dragon",
+   "reason": "космический дракон — вид драконов Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Adult Cosmic Dragon",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/creatures/214-adult-cosmic-dragon",
+   "reason": "космический дракон — вид драконов Paizo"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ancient Cosmic Dragon",
+   "level": 19.0,
+   "url": "https://2e.aonsrd.com/creatures/215-ancient-cosmic-dragon",
+   "reason": "космический дракон — вид драконов Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Brain Collector",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Brain%20Collector&Family=None",
+   "reason": "аналог ми-го у Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hound of Tindalos, Thing from Beyond Time",
+   "level": 17,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Thing%20from%20Beyond%20Time&Family=Hound%20of%20Tindalos",
+   "reason": "мифы Лавкрафта"
+  },
+  {
+   "src": "SF1e",
+   "name": "Hungerer From The Dark",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Hungerer%20From%20The%20Dark&Family=None",
+   "reason": "лавкрафтовский образ Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Living Apocalypse",
+   "level": 20,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Living%20Apocalypse&Family=None",
+   "reason": "оригинальный ооз Paizo; название описательное"
+  },
+  {
+   "src": "SF1e",
+   "name": "Mi-Go, Mi-Go High Priest",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mi-Go%20High%20Priest&Family=Mi-Go",
+   "reason": "мифы Лавкрафта (марки Chaosium)"
+  },
+  {
+   "src": "SF1e",
+   "name": "Mohrg",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Mohrg&Family=None",
+   "reason": "мохрг — придуман Paizo/D&D 3.5"
+  },
+  {
+   "src": "SF1e",
+   "name": "Planar Scion, Tiefling",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Tiefling&Family=Planar%20Scion",
+   "reason": "тифлинг — термин D&D"
+  },
+  {
+   "src": "SF1e",
+   "name": "Sapient Purple Orb, Luminant",
+   "level": 11,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Luminant&Family=Sapient%20Purple%20Orb",
+   "reason": "разумные сферы — образ Paizo"
+  },
+  {
+   "src": "SF1e",
+   "name": "Shantak",
+   "level": 8,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shantak&Family=None",
+   "reason": "мифы Лавкрафта"
+  },
+  {
+   "src": "SF1e",
+   "name": "Thoqqua",
+   "level": 2,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Thoqqua&Family=None",
+   "reason": "существо из D&D (не SRD 5.2)"
+  },
+  {
+   "src": "SF1e",
+   "name": "Yithian, Yithian Elder",
+   "level": 13,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Yithian%20Elder&Family=Yithian",
+   "reason": "мифы Лавкрафта"
+  }
+ ],
+ "not_mob": [
+  {
+   "src": "SF2e",
+   "name": "Agent Z",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/creatures/14-agent-z"
+  },
+  {
+   "src": "SF2e",
+   "name": "Stillward Sentinel",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/creatures/280-stillward-sentinel"
+  },
+  {
+   "src": "SF2e",
+   "name": "Palivhar Crystallized",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/creatures/380-palivhar-crystallized"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sanimus Slayn",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/creatures/49-sanimus-slayn"
+  },
+  {
+   "src": "SF2e",
+   "name": "Cyanoscum Bloom",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/creatures/231-cyanoscum-bloom"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sovereign Harrier",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/382-sovereign-harrier"
+  },
+  {
+   "src": "SF2e",
+   "name": "Vanguard Comet",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/383-vanguard-comet"
+  },
+  {
+   "src": "SF2e",
+   "name": "Vanguard Monitor",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/384-vanguard-monitor"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sovereign Dominator",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/385-sovereign-dominator"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sihedron Apostle",
+   "level": 13.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/386-sihedron-apostle"
+  },
+  {
+   "src": "SF2e",
+   "name": "Klokworx Nexus",
+   "level": 16.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/387-klokworx-nexus"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dutybound Necrofighter",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/388-dutybound-necrofighter"
+  },
+  {
+   "src": "SF2e",
+   "name": "Barrow Dirgesinger",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/389-barrow-dirgesinger"
+  },
+  {
+   "src": "SF2e",
+   "name": "Soul Harvest Necrofighter",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/390-soul-harvest-necrofighter"
+  },
+  {
+   "src": "SF2e",
+   "name": "Barrow Eulogy",
+   "level": 9.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/391-barrow-eulogy"
+  },
+  {
+   "src": "SF2e",
+   "name": "Barrow Cenotaph",
+   "level": 18.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/392-barrow-cenotaph"
+  },
+  {
+   "src": "SF2e",
+   "name": "Raider Trident",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/393-raider-trident"
+  },
+  {
+   "src": "SF2e",
+   "name": "Raider Rustbringer",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/394-raider-rustbringer"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dread Buccaneer",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/395-dread-buccaneer"
+  },
+  {
+   "src": "SF2e",
+   "name": "Raider Heartbreaker",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/396-raider-heartbreaker"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dread Dominator",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/397-dread-dominator"
+  },
+  {
+   "src": "SF2e",
+   "name": "Pentacorn",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/398-pentacorn"
+  },
+  {
+   "src": "SF2e",
+   "name": "Raider Starcrusher",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/399-raider-starcrusher"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jolly Roger",
+   "level": 12.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/400-jolly-roger"
+  },
+  {
+   "src": "SF2e",
+   "name": "Starsplitter",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/401-starsplitter"
+  },
+  {
+   "src": "SF2e",
+   "name": "Infernex Burning Nail",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/402-infernex-burning-nail"
+  },
+  {
+   "src": "SF2e",
+   "name": "Infernex Stalwart",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/403-infernex-stalwart"
+  },
+  {
+   "src": "SF2e",
+   "name": "Infernex Justiciar",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/404-infernex-justiciar"
+  },
+  {
+   "src": "SF2e",
+   "name": "Infernex Citadel",
+   "level": 16.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/405-infernex-citadel"
+  },
+  {
+   "src": "SF2e",
+   "name": "Inheritorworks Surestrike",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/406-inheritorworks-surestrike"
+  },
+  {
+   "src": "SF2e",
+   "name": "Inheritorworks Brightsword",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/407-inheritorworks-brightsword"
+  },
+  {
+   "src": "SF2e",
+   "name": "Inheritorworks Shieldcraft",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/408-inheritorworks-shieldcraft"
+  },
+  {
+   "src": "SF2e",
+   "name": "Inheritorworks Cathedralship",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/409-inheritorworks-cathedralship"
+  },
+  {
+   "src": "SF2e",
+   "name": "Atech Gold Spacer Truck",
+   "level": -1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/410-atech-gold-spacer-truck"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ringworks Sentinel",
+   "level": 0.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/411-ringworks-sentinel"
+  },
+  {
+   "src": "SF2e",
+   "name": "Yolaku Canopyskipper",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/412-yolaku-canopyskipper"
+  },
+  {
+   "src": "SF2e",
+   "name": "Kevolari Wanderlust",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/413-kevolari-wanderlust"
+  },
+  {
+   "src": "SF2e",
+   "name": "Skyfire Star Dragon",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/414-skyfire-star-dragon"
+  },
+  {
+   "src": "SF2e",
+   "name": "SFS Moonhopper",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/415-sfs-moonhopper"
+  },
+  {
+   "src": "SF2e",
+   "name": "Aspis Moonlighter",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/416-aspis-moonlighter"
+  },
+  {
+   "src": "SF2e",
+   "name": "Idaran Cantripper",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/417-idaran-cantripper"
+  },
+  {
+   "src": "SF2e",
+   "name": "Skyfire Galactic Dragon",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/418-skyfire-galactic-dragon"
+  },
+  {
+   "src": "SF2e",
+   "name": "Skyfire Trident",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/419-skyfire-trident"
+  },
+  {
+   "src": "SF2e",
+   "name": "Opulus Drift Cruiser",
+   "level": 12.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/420-opulus-drift-cruiser"
+  },
+  {
+   "src": "SF2e",
+   "name": "AAC Vigilance",
+   "level": 12.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/421-aac-vigilance"
+  },
+  {
+   "src": "SF2e",
+   "name": "Atech Gold Bazaar",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/423-atech-gold-bazaar"
+  },
+  {
+   "src": "SF2e",
+   "name": "Bastion Driller",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/424-bastion-driller"
+  },
+  {
+   "src": "SF2e",
+   "name": "Ringworks Scout",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/425-ringworks-scout"
+  },
+  {
+   "src": "SF2e",
+   "name": "Steward Ambassador",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/426-steward-ambassador"
+  },
+  {
+   "src": "SF2e",
+   "name": "Steward Sentinel",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/427-steward-sentinel"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hivebound Clustership",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/428-hivebound-clustership"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hivebound Propagator",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/429-hivebound-propagator"
+  },
+  {
+   "src": "SF2e",
+   "name": "Converted Dreadnought",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/430-converted-dreadnought"
+  },
+  {
+   "src": "SF2e",
+   "name": "Hivebound Behemoth",
+   "level": 17.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/431-hivebound-behemoth"
+  },
+  {
+   "src": "SF2e",
+   "name": "BMC Mauler",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/432-bmc-mauler"
+  },
+  {
+   "src": "SF2e",
+   "name": "Norikama Dropship",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/433-norikama-dropship"
+  },
+  {
+   "src": "SF2e",
+   "name": "BMC Devastator",
+   "level": 13.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/434-bmc-devastator"
+  },
+  {
+   "src": "SF2e",
+   "name": "Vindicas Tyrant",
+   "level": 19.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/435-vindicas-tyrant"
+  },
+  {
+   "src": "SF2e",
+   "name": "UC Pod",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/436-uc-pod"
+  },
+  {
+   "src": "SF2e",
+   "name": "UC Bloom",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/437-uc-bloom"
+  },
+  {
+   "src": "SF2e",
+   "name": "UC Gardenship",
+   "level": 8.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/438-uc-gardenship"
+  },
+  {
+   "src": "SF2e",
+   "name": "UC Arkship",
+   "level": 11.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/439-uc-arkship"
+  },
+  {
+   "src": "SF2e",
+   "name": "BD Freighter",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/440-bd-freighter"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dashadz Wayfarer",
+   "level": 6.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/441-dashadz-wayfarer"
+  },
+  {
+   "src": "SF2e",
+   "name": "Sword-class Attack Vessel",
+   "level": 2.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/442-sword-class-attack-vessel"
+  },
+  {
+   "src": "SF2e",
+   "name": "Harpoon-class Blockade Vessel",
+   "level": 4.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/443-harpoon-class-blockade-vessel"
+  },
+  {
+   "src": "SF2e",
+   "name": "Flint-class Mining Vessel",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/444-flint-class-mining-vessel"
+  },
+  {
+   "src": "SF2e",
+   "name": "Cloak-class Ambassador Vessel",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/445-cloak-class-ambassador-vessel"
+  },
+  {
+   "src": "SF2e",
+   "name": "SC Jackknife",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/446-sc-jackknife"
+  },
+  {
+   "src": "SF2e",
+   "name": "SC Vaultship",
+   "level": 7.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/447-sc-vaultship"
+  },
+  {
+   "src": "SF2e",
+   "name": "Long-haul Freighter",
+   "level": 1.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/448-long-haul-freighter"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dominion Derelict",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/449-dominion-derelict"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jinsul Breacher",
+   "level": 3.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/450-jinsul-breacher"
+  },
+  {
+   "src": "SF2e",
+   "name": "Jinsul Carrier",
+   "level": 5.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/451-jinsul-carrier"
+  },
+  {
+   "src": "SF2e",
+   "name": "Shadari Voidbringer",
+   "level": 10.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/452-shadari-voidbringer"
+  },
+  {
+   "src": "SF2e",
+   "name": "Dominion Seeder",
+   "level": 13.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/453-dominion-seeder"
+  },
+  {
+   "src": "SF2e",
+   "name": "Alghollthu Warshell",
+   "level": 14.0,
+   "url": "https://2e.aonsrd.com/tactical-starship-combat/ships/454-alghollthu-warshell"
+  },
+  {
+   "src": "SF1e",
+   "name": "Astral Devourer",
+   "level": 9,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Astral%20Devourer&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Blinking Telelith",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Blinking%20Telelith&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Celestaur Bull",
+   "level": 15,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Celestaur%20Bull&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Derelict Shade",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Derelict%20Shade&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Fire Whale Starship",
+   "level": 0.25,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Fire%20Whale%20Starship&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Gigantic Elemental",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Gigantic%20Elemental&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Immense Elemental",
+   "level": 0.5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Immense%20Elemental&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Photonic Anomaly",
+   "level": 5,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Photonic%20Anomaly&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Shard Diver",
+   "level": 1,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Shard%20Diver&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Swarm Altipheron",
+   "level": 3,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Swarm%20Altipheron&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Swarm Fleetfury",
+   "level": 0.3333333333333333,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Swarm%20Fleetfury&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Swarm Horaspa",
+   "level": 4,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Swarm%20Horaspa&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Titanic Elemental",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Titanic%20Elemental&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Void Devil (Volocoth)",
+   "level": 6,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Void%20Devil%20(Volocoth)&Family=Starship"
+  },
+  {
+   "src": "SF1e",
+   "name": "Zoaphorix",
+   "level": 10,
+   "url": "https://www.aonsrd.com/AlienDisplay.aspx?ItemName=Zoaphorix&Family=Starship"
+  }
+ ]
+}
