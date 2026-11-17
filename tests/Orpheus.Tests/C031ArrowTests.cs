@@ -414,6 +414,37 @@ namespace Orpheus.Tests
             Assert.Contains(loaded.Piles.ToArray(), p => p.Id == young && p.Aim == 54321 && p.Kind == GroundPile.KindArrowGround);
         }
 
+        /// <summary>
+        /// Настоящий файл формата 13 (код main 45fce53, генератор <c>Golden/format13_arrows.make.cs.txt</c>): кучи стрел E3-2
+        /// (50 %), выброшенная кирка, древесина. Читается, хэш генератора тот же, все кучи — обычные (вид 0, сливаются как
+        /// прежде); пересохранение в 14 — тот же хэш.
+        /// </summary>
+        [Fact]
+        public void C031_Save_Format13_RealFile_ArrowPilesStayPlain()
+        {
+            byte[] v13 = System.IO.File.ReadAllBytes(System.IO.Path.Combine(AppContext.BaseDirectory, "Golden", "format13_arrows.save"));
+            byte[] baseBytes = System.IO.File.ReadAllBytes(System.IO.Path.Combine(AppContext.BaseDirectory, "Golden", "format13_arrows.base"));
+            Assert.Equal(13u, SaveContainer.Read(v13).Header.FormatVersion);
+            Simulation sim = SaveFixtures.Load(baseBytes, v13);
+            string hash = StateHash.Compute(sim).Total.ToString("x16");
+            Assert.Equal("5c1e87344ea8d510", hash); // хэш генератора после загрузки (код 45fce53)
+            Assert.Equal(4, sim.Piles.Length);
+            int arrows = 0;
+            foreach (GroundPile p in sim.Piles)
+            {
+                Assert.Equal(GroundPile.KindPlain, p.Kind);
+                Assert.Equal(0, p.Aim);
+                arrows += p.Item == Items.Arrows ? p.Count : 0;
+            }
+
+            Assert.Equal(8, arrows);
+            Assert.Equal(0, sim.StuckArrowCount);
+
+            byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат13→14"), 8, 0);
+            Assert.Equal(14u, SaveContainer.Read(again).Header.FormatVersion);
+            Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total.ToString("x16"));
+        }
+
         // -------------------------------------------------------- клиент
 
         /// <summary>
