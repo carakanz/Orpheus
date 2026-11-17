@@ -118,7 +118,7 @@ namespace Orpheus.Client.Anim
             _hand.localRotation = Quaternion.Euler(0f, 0f, p.HandDeg * sign);
             _hand.localScale = new Vector3(k * sign, k, 1f);
             _handSr.sortingOrder = p.HandBehind ? order - 1 : order + 1;
-            _handSr.color = new Color(p.TintR, p.TintG, p.TintB, _baseColor.a * p.Alpha);
+            _handSr.color = new Color(p.TintR, p.TintG, p.TintB, p.HideHand ? 0f : _baseColor.a * p.Alpha); // C-030: лёжа — без предмета
         }
 
         public Transform Root => _root;
@@ -147,6 +147,19 @@ namespace Orpheus.Client.Anim
             return _vel;
         }
 
+        /// <summary>
+        /// C-030 (сцена снимков <c>--bed-demo</c>): поза «лежит в кровати» поверх дыхания — <see cref="RestAnim"/>; до центра
+        /// кровати (<paramref name="toBedX"/>, <paramref name="toBedY"/>) от корня, порядок — <paramref name="sortY"/>.
+        /// </summary>
+        public void AnimateRest(float dt, float age, int rotation, float toBedX, float toBedY, float sortY)
+        {
+            MeasureVelocity(dt);
+            Pose p = RestAnim.Apply(Animator.Step(dt, new ActorInput { Held = _look }), age, rotation, toBedX, toBedY);
+            p.SortY = sortY;
+            p.HasSortY = true;
+            Apply(p);
+        }
+
         /// <summary>Только ходьба по измеренной скорости (офлайн, чужие без уворота).</summary>
         public void AnimateWalk(float dt)
         {
@@ -162,7 +175,7 @@ namespace Orpheus.Client.Anim
         Transform? _shadow;
         bool _shadowLooked;
 
-        void ApplyWade(int order)
+        void ApplyWade(int order, float cover)
         {
             float dt = Mathf.Min(Time.deltaTime, 0.1f);
             WadeFx.Ground g = WadeFx.At(_root.position);
@@ -173,7 +186,7 @@ namespace Orpheus.Client.Anim
                 _baseSprite = _sr.sprite;
             }
 
-            float cut = Mathf.Max(_sink, _hide);
+            float cut = Mathf.Max(Mathf.Max(_sink, _hide), cover); // C-030: лёжа — низ под одеялом
             if (_baseSprite != null)
             {
                 // Обрез — в точках листа, шагом 2 (кэш спрайтов мал); опускание — в воде.
@@ -191,7 +204,7 @@ namespace Orpheus.Client.Anim
 
             if (_shadow != null)
             {
-                bool dry = _sink < 0.05f; // тени в воде нет
+                bool dry = _sink < 0.05f && cover <= 0f; // тени в воде нет; C-030: лёжа в кровати — тоже
                 if (_shadow.gameObject.activeSelf != dry)
                 {
                     _shadow.gameObject.SetActive(dry);
@@ -243,13 +256,13 @@ namespace Orpheus.Client.Anim
             _sprite.localScale = new Vector3(p.ScaleX, p.ScaleY, 1f);
             _sr.flipX = p.FlipX;
             // E1-7: существо сортируется с объектами «с высотой» по нижней кромке (ноги — опора спрайта без сдвига позы).
-            int order = WorldView.SortOrderAt(_root.position.y + _basePos.y);
+            int order = p.HasSortY ? WorldView.SortOrderAt(p.SortY) : WorldView.SortOrderAt(_root.position.y + _basePos.y); // C-030: лёжа — над кроватью
             _sr.sortingOrder = order;
             // E1-11: существо приминает траву под ногами и задевает деревья рядом (только вид).
             LifeFx.Touch(_lifeId, new Vector2(_root.position.x, _root.position.y + _basePos.y));
             _sr.color = new Color(_baseColor.r * p.TintR, _baseColor.g * p.TintG, _baseColor.b * p.TintB, _baseColor.a * p.Alpha);
             ApplyHand(p, order);
-            ApplyWade(order);
+            ApplyWade(order, p.Cover);
 
             for (int i = 0; i < _ghosts.Length; i++)
             {

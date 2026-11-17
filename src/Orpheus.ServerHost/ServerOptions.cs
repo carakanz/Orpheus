@@ -55,6 +55,7 @@ namespace Orpheus.Server
             "              [--debug-freeze <такт>:<мс>[,<такт>:<мс>...]] [--dummy [--dummy-wait <кадры>]]\n" +
             "              [--debug-enemies N (1-007: N разбойников у точки появления; не с --record/--replay)]\n" +
             "              [--debug-door (1-012: закрытая дверь в 4 т к востоку от появления — проход net-smoke)]\n" +
+            "              [--debug-bed (C-030: двуспальная кровать к югу от появления — net-smoke ложится по F)]\n" +
             "              [--no-spawn (1-009: выключить спавнер и исчезновение — сценарные прогоны ботов: run_seam, часы)]\n" +
             "              [--metrics <сек> (метрики такта в лог, 0 — только итог; по умолчанию 10)] [--report <json>]";
 
@@ -176,6 +177,12 @@ namespace Orpheus.Server
         /// Серверная правка (без запроса) — стоимость не списывается.
         /// </summary>
         public bool DebugDoor { get; set; }
+
+        /// <summary>
+        /// <c>--debug-bed</c> (C-030): двуспальная кровать 2 × 2 к югу от точки появления № 0 (якорь (cx − 8, cy + 1)) —
+        /// net-smoke ложится в неё по F. Серверная правка (без запроса) — стоимость не списывается.
+        /// </summary>
+        public bool DebugBed { get; set; }
 
         /// <summary>
         /// <c>--debug-day-scale N</c> (1-014): часы мира идут в N раз быстрее (1 — обычно; 30 → сутки за 40 с) —
@@ -313,6 +320,9 @@ namespace Orpheus.Server
                         break;
                     case "--debug-door":
                         o.DebugDoor = true;
+                        break;
+                    case "--debug-bed":
+                        o.DebugBed = true;
                         break;
                     case "--debug-day-scale":
                         o.DebugDayScale = ParseInt(a, Value(args, ref i));

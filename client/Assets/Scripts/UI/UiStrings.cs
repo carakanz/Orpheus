@@ -354,12 +354,12 @@ namespace Orpheus.Client.UI
         {
             Orpheus.Net.Session.UseKind.Door => "F — закрыть дверь",
             // C-013: «F — верстак не нужно» — у станков действия F нет (ObjectUse.KindOf), подсказки тоже.
-            Orpheus.Net.Session.UseKind.Chest => "F — сундук",
-            Orpheus.Net.Session.UseKind.Bed => "F — кровать",
+            Orpheus.Net.Session.UseKind.Chest => "F / ПКМ — сундук", // C-030: ПКМ по сундуку и кровати — как F
+            Orpheus.Net.Session.UseKind.Bed => "F / ПКМ — лечь в кровать", // C-030
             _ => string.Empty,
         };
 
-        public const string BedSet = "Кровать: здесь вы возродитесь";
+        public const string BedSet = "Точка возрождения установлена"; // C-030 (было «Кровать: здесь вы возродитесь»)
 
         /// <summary>Отказ сервера на действие с объектом.</summary>
         public static string UseRefusal(string reason) => $"Нельзя: {reason}";

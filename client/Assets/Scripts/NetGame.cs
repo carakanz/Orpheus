@@ -433,6 +433,7 @@ namespace Orpheus.Client
             _remote = new RemoteInterpolation(_map);
             _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
             _anim = new Anim.NetAnimation(_g, _client, _origin, _world, _entityRoot.transform);
+            _anim.Rest = _rest; // C-030: лечь в кровать — поза своего персонажа
             HookCombat(_client); // E3-1: урон цифрами, смерть и возрождение на экране
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height}, такт {accept.ServerTick}; " +
                       $"мир — чанки от сервера (генератора у клиента нет), пришло уже {cw.ChunksReceived}");
@@ -1123,6 +1124,20 @@ namespace Orpheus.Client
                     if (!_smokeDoorOpenSeen || !_smokeDoorPassed || !_smokeDoorClosedSeen)
                     {
                         Fail($"[smoke] FAILED: {doorLine} (нужно: открыта, пройден, закрылась — да)");
+                        return;
+                    }
+                }
+
+                // C-030: «лечь в кровать» (--smoke-bed): F нашёл кровать, сервер принял, персонаж лёг (поза в кадрах), бег поднял.
+                if (_args.NetSmokeBed)
+                {
+                    int restFrames = _anim?.RestFrames ?? 0;
+                    string bedLine = $"кровать (C-030): F {(_smokeBedAsked ? "да" : "нет")}, лёг {_rest.Lay}, кадров позы {restFrames}, " +
+                                     $"встал {(_smokeBedWoke ? "да" : "нет")}";
+                    Debug.Log("[smoke] " + bedLine);
+                    if (!_smokeBedAsked || _rest.Lay < 1 || restFrames < 1 || !_smokeBedWoke)
+                    {
+                        Fail($"[smoke] FAILED: {bedLine} (нужно: F да, лёг ≥ 1, кадров позы ≥ 1, встал да)");
                         return;
                     }
                 }

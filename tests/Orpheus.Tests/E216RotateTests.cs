@@ -76,16 +76,20 @@ namespace Orpheus.Tests
 
         // ------------------------------------------------ поворот и размер
 
-        /// <summary>Размеры по повороту: кровать 2 × 4 ячейки (90° — 4 × 2), верстак 4 × 4, сундук 2 × 2; факел не поворачивается.</summary>
+        /// <summary>
+        /// Размеры по повороту: кровать — двуспальная 4 × 4 ячейки при любом повороте (C-030; в E2-16 была 2 × 4, 90° — 4 × 2),
+        /// верстак 4 × 4, сундук 2 × 2; факел не поворачивается.
+        /// </summary>
         [Fact]
         public void E216_Sizes_By_Rotation()
         {
-            BuildLayers.SizeOf(Bed(0), out int w, out int h);
-            Assert.Equal((2, 4), (w, h));
-            BuildLayers.SizeOf(Bed(1), out w, out h);
-            Assert.Equal((4, 2), (w, h));
-            BuildLayers.SizeOf(Bed(2), out w, out h);
-            Assert.Equal((2, 4), (w, h));
+            for (int r = 0; r < 4; r++)
+            {
+                BuildLayers.SizeOf(Bed(r), out int bw, out int bh);
+                Assert.Equal((4, 4), (bw, bh));
+            }
+
+            int w, h;
             BuildLayers.SizeOf(BuildLayers.Turned(ObjectId.Workbench, 3), out w, out h);
             Assert.Equal((4, 4), (w, h));
             BuildLayers.SizeOf(BuildLayers.Turned(ObjectId.Chest, 1), out w, out h);
@@ -99,8 +103,9 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Кровать 1 × 2: поворот 0 — тайл и южный сосед твёрдые, восточный свободен; 90° — тайл и восточный, южный свободен.
-        /// Поворот сохраняется в объекте мира; запись — флаг Wide; снос по второму тайлу бьёт по якорю.
+        /// C-030: кровать двуспальная 2 × 2 тайла при любом повороте — якорь, южный, восточный и юго-восточный тайлы твёрдые
+        /// целиком, дальше свободно. Поворот сохраняется в объекте мира (вид); запись — флаг Wide; хвосты ведут к якорю; центр —
+        /// середина 2 × 2; сундук в любой хвост — «занято». (E2-16: была 1 × 2, поворот менял занятые тайлы.)
         /// </summary>
         [Theory]
         [InlineData(0)]
@@ -116,32 +121,39 @@ namespace Orpheus.Tests
             Assert.Equal(Bed(rot), sim.World.GetObject(t));
             Assert.True(sim.World.TryGetBuild(t, out BuildRecord rec));
             Assert.True((rec.Flags & (byte)BuildFlags.Wide) != 0);
-            bool along = (rot & 1) == 0;
-            var south = new TileCoord(102, 101);
-            var east = new TileCoord(103, 100);
+            var tails = new[] { new TileCoord(102, 101), new TileCoord(103, 100), new TileCoord(103, 101) };
             Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, t));
-            Assert.Equal(along ? BuildCells.Full : 0, sim.SolidCells(sim.Shape, south));
-            Assert.Equal(along ? 0 : BuildCells.Full, sim.SolidCells(sim.Shape, east));
-            TileCoord second = along ? south : east;
-            Assert.Equal(ObjectId.Empty, sim.World.GetObject(second)); // объект — только в якоре
-            Assert.True(BuildLayers.TryTopOfCell(sim.World, BuildCells.CellOf(second, 0, 0), out TileCoord top));
-            Assert.Equal(t, top);
-            WorldPos c = BuildLayers.CenterAt(sim.World, t);
-            Assert.Equal(along ? At(102, 100).X : At(102, 100).X + U / 2, c.X);
-            Assert.Equal(along ? At(102, 100).Y + U / 2 : At(102, 100).Y, c.Y);
-            // Сундук во второй тайл — «занято».
             var plan = new PlannedEdit[EditRules.MaxLineTiles];
-            BuildPlanner.Plan(sim.World, sim.GetEntity(me).Mover.Position, ObjectId.Chest, second, second, 0, (ushort)me, plan);
-            Assert.Equal(EditReply.Busy, plan[0].Check);
+            foreach (TileCoord second in tails)
+            {
+                Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, second));
+                Assert.Equal(ObjectId.Empty, sim.World.GetObject(second)); // объект — только в якоре
+                Assert.True(BuildLayers.TryTopOfCell(sim.World, BuildCells.CellOf(second, 1, 1), out TileCoord top));
+                Assert.Equal(t, top);
+                // Сундук в хвост — «занято».
+                BuildPlanner.Plan(sim.World, sim.GetEntity(me).Mover.Position, ObjectId.Chest, second, second, 0, (ushort)me, plan);
+                Assert.Equal(EditReply.Busy, plan[0].Check);
+            }
+
+            foreach (TileCoord free in new[] { new TileCoord(104, 100), new TileCoord(102, 102), new TileCoord(101, 100), new TileCoord(102, 99) })
+            {
+                Assert.Equal(0, sim.SolidCells(sim.Shape, free));
+            }
+
+            WorldPos c = BuildLayers.CenterAt(sim.World, t);
+            Assert.Equal(At(102, 100).X + U / 2, c.X);
+            Assert.Equal(At(102, 100).Y + U / 2, c.Y);
         }
 
         /// <summary>
-        /// Путь врагов видит повёрнутую кровать: в стене проём 2 тайла (ряды 50–51). Кровать вдоль проёма (поворот 0, тайлы 50/50
-        /// и 50/51) закрывает его — пути нет; поперёк (90°, тайлы 49/50 и 50/50) закрывает только ряд 50 — путь есть.
+        /// Путь врагов видит кровать: в стене проём 2 тайла (ряды 50–51). C-030: двуспальная 2 × 2 в проёме (якорь 49/50 — тайлы
+        /// 49–50 × 50–51) закрывает его при любом повороте — пути нет; та же кровать севернее и западнее (48/47 — тайлы 48–49 × 47–48, у стены
+        /// снаружи проёма) проём не трогает — путь есть. (E2-16: кровать 1 × 2 — вдоль закрывала, поперёк нет.)
         /// </summary>
         [Theory]
         [InlineData(0, false)]
-        [InlineData(1, true)]
+        [InlineData(1, false)]
+        [InlineData(4, true)]
         public void E216_Path_Sees_Rotated_Bed(int rot, bool passable)
         {
             var sim = new Simulation(Flat());
@@ -155,7 +167,8 @@ namespace Orpheus.Tests
             }
 
             sim.Step();
-            TileCoord at = rot == 0 ? new TileCoord(50, 50) : new TileCoord(49, 50);
+            TileCoord at = rot < 4 ? new TileCoord(49, 50) : new TileCoord(48, 47);
+            rot &= 3;
             Assert.Equal(1, Place(sim, me, Bed(rot), at, at, 0));
             var terrain = new SimulationPathTerrain(sim);
             var finder = new PathFinder(enclosureFillLimit: 0);

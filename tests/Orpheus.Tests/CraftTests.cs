@@ -769,7 +769,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_Net_GoldenBytes_CraftRequest_Reply_State()
         {
-            Assert.Equal(31, NetModule.ProtocolVersion); // E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
+            Assert.Equal(32, NetModule.ProtocolVersion); // C-030: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[64];
 
             int n = new CraftRequestMessage { Op = CraftOp.Make, Arg = RecipeTable.CopperPickaxe, Count = 0x0102 }.Write(buf);
