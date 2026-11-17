@@ -393,7 +393,7 @@ namespace Orpheus.Tests
                     Assert.Equal(Material.Stone, ma);
                     Assert.Equal(3, DigLoot.DropFor(ObjectId.Tree, x, y, 7, out Material mw));
                     Assert.Equal(Material.Wood, mw);
-                    Assert.InRange(DigLoot.DropFor(ObjectId.Ore, x, y, 7, out Material mo), 2, 3);
+                    Assert.InRange(DigLoot.DropFor(ObjectId.Ore, x, y, 7, out Material mo), 2, 4); // C-028: 2…4
                     Assert.Equal(Material.Copper, mo);
                     Assert.Equal(0, DigLoot.DropFor(ObjectId.StoneWall, x, y, 7, out _)); // постройки — возврат материала за 1-011
                 }

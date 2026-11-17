@@ -54,7 +54,7 @@ namespace Orpheus.Tests
             Assert.True(DigLoot.TryGetDrop(ObjectId.Granite, out _, out min, out max));
             Assert.Equal((4, 8), (min, max));
             Assert.True(DigLoot.TryGetDrop(ObjectId.Ore, out _, out min, out max));
-            Assert.Equal((2, 3), (min, max)); // медь не менялась
+            Assert.Equal((2, 4), (min, max)); // C-028, слово Автора: медь — несколько с тайла (было 2…3)
         }
 
         private static (TileCoord[] Tiles, byte[] Needed) Targets(WorldModel w, WorldPos pos, TileCoord aim, byte held = Items.StonePickaxe)

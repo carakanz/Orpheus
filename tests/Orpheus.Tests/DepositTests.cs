@@ -408,7 +408,7 @@ namespace Orpheus.Tests
                 (ObjectId.Stump, Material.Wood, 1, 1),
                 (ObjectId.Rock, Material.Stone, 4, 8), // C-028: ×4 (BRIEF 11n) [док] к `06` 1.4
                 (ObjectId.Granite, Material.Stone, 4, 8),
-                (ObjectId.Ore, Material.Copper, 2, 3),
+                (ObjectId.Ore, Material.Copper, 2, 4), // C-028: 2…4
                 (ObjectId.Bush, Material.Fiber, 1, 1),
             };
             foreach (var row in rows)

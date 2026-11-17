@@ -104,7 +104,7 @@ namespace Orpheus.Tests
 
             // Цепочка: дерево и камень добыты, верстак стоит настоящим объектом мира, руда добыта и переплавлена.
             Assert.True(bot.TreesCut >= 1 && bot.RocksDug >= 1, bot.Summary);
-            Assert.True(bot.OresDug >= CraftChainBot.NeedOre / 3, bot.Summary); // залежь даёт 2–3 руды
+            Assert.True(bot.OresDug >= CraftChainBot.NeedOre / 4, bot.Summary); // залежь даёт 2–4 руды (C-028; было 2–3)
             Assert.NotNull(bot.BenchTile);
             Assert.Equal(ObjectId.Workbench, ObjectId.IdOf(o.Sim.World.GetObject(bot.BenchTile!.Value)));
             Assert.True(o.Sim.World.TryGetBuild(bot.BenchTile.Value, out BuildRecord rec));

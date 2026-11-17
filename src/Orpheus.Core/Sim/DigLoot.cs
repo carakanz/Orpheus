@@ -33,7 +33,8 @@ namespace Orpheus.Core.Sim
             // C-028 (слово Автора 17.11, BRIEF 11n: «камня должно выпадать в 4 раза больше»): скала и гранит — 4…8 (было 1…2) [док] к `06` 1.4.
             [ObjectId.Rock] = new Drop { Material = Material.Stone, Min = 1 * StoneDropMul, Max = 2 * StoneDropMul },
             [ObjectId.Granite] = new Drop { Material = Material.Stone, Min = 1 * StoneDropMul, Max = 2 * StoneDropMul },
-            [ObjectId.Ore] = new Drop { Material = Material.Copper, Min = 2, Max = 3 },
+            // C-028 (дополнение Автора: «медь должна быть как и камень — несколько с 1 и биться за несколько ударов»): 2…4 (было 2…3) [док].
+            [ObjectId.Ore] = new Drop { Material = Material.Copper, Min = 2, Max = 4 },
             [ObjectId.Tree] = new Drop { Material = Material.Wood, Min = 3, Max = 3 },
             [ObjectId.Stump] = new Drop { Material = Material.Wood, Min = 1, Max = 1 },
             [ObjectId.Bush] = new Drop { Material = Material.Fiber, Min = 1, Max = 1 },
