@@ -87,7 +87,7 @@ namespace Orpheus.Client
 
         static TuftRule Flowers(int shape, Color32 tint) => new TuftRule
         {
-            Min = 1, Max = 3, Chance = 0.8f, Clump = 0.6f, Shape = shape, SizeMin = 0.32f, SizeMax = 0.5f, Tint = tint, Tone = 0.06f,
+            Min = 2, Max = 4, Chance = 0.95f, Clump = 0.5f, Shape = shape, SizeMin = 0.42f, SizeMax = 0.62f, Tint = tint, Tone = 0.06f,
         };
 
         /// <summary>Пятна растений по слоям (числа предварительные): первая подошедшая строка на тайл.</summary>
@@ -96,9 +96,9 @@ namespace Orpheus.Client
             // Луг: подсолнухи, поляны цветов (цвет пятна — свой шум), высокая трава.
             new MicroRule { Ground = GroundTable.Grass, Scale = 11f, Noise = 401, From = 0.74f,
                 Rule = new TuftRule { Min = 1, Max = 2, Chance = 0.75f, Shape = ShapeSunflower, SizeMin = 0.8f, SizeMax = 1.05f, Tone = 0.05f } },
-            new MicroRule { Ground = GroundTable.Grass, Scale = 9f, Noise = 409, From = 0.66f, Rule = Flowers(ShapePoppy, new Color32(255, 255, 255, 255)) },
-            new MicroRule { Ground = GroundTable.Grass, Scale = 13f, Noise = 419, From = 0.62f,
-                Rule = new TuftRule { Min = 2, Max = 3, Shape = ShapeTall, SizeMin = 0.6f, SizeMax = 0.9f, Tint = new Color32(150, 196, 84, 255) } },
+            new MicroRule { Ground = GroundTable.Grass, Scale = 9f, Noise = 409, From = 0.6f, Rule = Flowers(ShapePoppy, new Color32(255, 255, 255, 255)) },
+            new MicroRule { Ground = GroundTable.Grass, Scale = 13f, Noise = 419, From = 0.68f,
+                Rule = new TuftRule { Min = 1, Max = 2, Shape = ShapeTall, SizeMin = 0.6f, SizeMax = 0.85f, Tint = new Color32(184, 214, 104, 255) } },
             new MicroRule { Ground = GroundTable.DryGrass, Scale = 11f, Noise = 401, From = 0.7f,
                 Rule = new TuftRule { Min = 1, Max = 2, Chance = 0.7f, Shape = ShapeSunflower, SizeMin = 0.8f, SizeMax = 1.05f, Tone = 0.05f } },
             new MicroRule { Ground = GroundTable.DryGrass, Scale = 9f, Noise = 409, From = 0.66f, Rule = Flowers(ShapeButtercup, new Color32(255, 255, 255, 255)) },
@@ -564,10 +564,10 @@ namespace Orpheus.Client
             }
 
             // Цветы: 3–4 стебля разной высоты с головками своего цвета.
-            Bloom(px, w, ShapePoppy, R, new Color(0.92f, 0.20f, 0.16f), new Color(0.20f, 0.12f, 0.10f), 6.5f);
-            Bloom(px, w, ShapeCornflower, R, new Color(0.34f, 0.50f, 0.96f), new Color(0.22f, 0.24f, 0.55f), 5.5f);
-            Bloom(px, w, ShapeDaisy, R, new Color(0.98f, 0.97f, 0.94f), new Color(0.98f, 0.80f, 0.20f), 6f);
-            Bloom(px, w, ShapeButtercup, R, new Color(1f, 0.86f, 0.18f), new Color(0.95f, 0.62f, 0.10f), 5f);
+            Bloom(px, w, ShapePoppy, R, new Color(0.92f, 0.20f, 0.16f), new Color(0.20f, 0.12f, 0.10f), 9f);
+            Bloom(px, w, ShapeCornflower, R, new Color(0.34f, 0.50f, 0.96f), new Color(0.22f, 0.24f, 0.55f), 8f);
+            Bloom(px, w, ShapeDaisy, R, new Color(0.98f, 0.97f, 0.94f), new Color(0.98f, 0.80f, 0.20f), 8.5f);
+            Bloom(px, w, ShapeButtercup, R, new Color(1f, 0.86f, 0.18f), new Color(0.95f, 0.62f, 0.10f), 7.5f);
 
             // Подсолнух: высокий стебель, два листа, крупная жёлтая корзинка с тёмной серединой.
             Blade(px, w, ShapeSunflower, 32f, 4f, 33f, 46f, 1.5f, 4.2f, Stem);
