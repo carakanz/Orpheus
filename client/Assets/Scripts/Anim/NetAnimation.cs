@@ -64,6 +64,21 @@ namespace Orpheus.Client.Anim
             public float Age;
         }
 
+        // E3-2: выстрел чужого — миг и ось (натяжения чужих в снимке нет: видна отдача по событию выстрела).
+        readonly Dictionary<int, RemoteShot> _remoteShots = new Dictionary<int, RemoteShot>();
+
+        struct RemoteShot
+        {
+            public float At;
+            public Vector2 Dir;
+        }
+
+        void OnShot(ProjectileMessage m)
+        {
+            AimMath.AxisOf(m.AimRaw, out float ax, out float ay);
+            _remoteShots[m.Owner] = new RemoteShot { At = Time.time, Dir = new Vector2(ax, ay) };
+        }
+
         /// <summary>E2-7: ударов инструментом своего показано (отклик: дерево — встряска и щепки, камень — искры и крошка).</summary>
         public long ImpactsShown { get; private set; }
 
@@ -88,6 +103,7 @@ namespace Orpheus.Client.Anim
             _sparks = new Sparks(entityRoot);
             client.SwingStarted = OnSwing;
             client.MeleeResolved = OnResult;
+            client.Projectiles.ShotSeen = OnShot; // E3-2: отдача выстрела у чужих
         }
 
         /// <summary>
@@ -108,6 +124,16 @@ namespace Orpheus.Client.Anim
             rig.SetHeld(e.HeldItem);
             var s = new ActorInput { VelX = v.x, VelY = v.y, Held = rig.Held };
             RemoteSwing(id, e.Melee, dt, rig, ref s);
+            if (_remoteShots.TryGetValue(id, out RemoteShot shot))
+            {
+                float since = Time.time - shot.At;
+                if (since < ActionAnim.BowRecoilSec)
+                {
+                    s.ShotSec = Mathf.Max(1e-4f, since);
+                    s.DrawDirX = shot.Dir.x;
+                    s.DrawDirY = shot.Dir.y;
+                }
+            }
             if (v.magnitude > AnimParams.RemoteDashSpeed)
             {
                 Vector2 d = v.normalized;
@@ -302,6 +328,25 @@ namespace Orpheus.Client.Anim
                 s.SwingProgress = selfQ;
                 s.SwingDirX = selfAxis.x;
                 s.SwingDirY = selfAxis.y;
+            }
+
+            // E3-2: лук — фаза из предсказания: натяжение (сила, ось — прицел), отход — отдача выстрела.
+            BowAction bow = pred.Bow;
+            if (bow.Phase == BowAction.PhaseDraw)
+            {
+                AimMath.AxisOf(bow.AimRaw, out float bx, out float by);
+                s.Drawing = true;
+                s.DrawPower = BowAction.PowerQ8(bow.Frames) / 256f;
+                s.DrawSec = bow.Frames * FrameSec;
+                s.DrawDirX = bx;
+                s.DrawDirY = by;
+            }
+            else if (bow.Phase == BowAction.PhaseRecover)
+            {
+                AimMath.AxisOf(bow.ShotAim, out float bx, out float by);
+                s.ShotSec = Mathf.Max(1e-4f, (BowAction.RecoverFrames - bow.Frames) * FrameSec);
+                s.DrawDirX = bx;
+                s.DrawDirY = by;
             }
 
             // E2-7: предмет в руке — по своему счёту (ячейка последнего кадра).

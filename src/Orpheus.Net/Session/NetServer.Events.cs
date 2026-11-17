@@ -179,5 +179,53 @@ namespace Orpheus.Net.Session
 
             CombatEventsSent++;
         }
+
+        /// <summary>Сообщений «снаряд» отправлено (E3-2; на получателя — одно сообщение).</summary>
+        public long ProjectileMessagesSent { get; private set; }
+
+        /// <summary>
+        /// Снаряды такта (E3-2, `02` 4.4): выстрелы, затем концы — сообщение «снаряд» (38) каналом 2: стрелку и игрокам в окне (выстрел — 56 т от точки выстрела, конец — 96 т от точки конца), отказ — только стрелку. Полёт
+        /// между ними клиент считает сам; летящие до входа игрока снаряды он не видит (короткоживущие, ≤ 1,7 с).
+        /// </summary>
+        private void BroadcastProjectiles()
+        {
+            ReadOnlySpan<Projectile> shots = _sim.ShotsThisTick;
+            ReadOnlySpan<ProjectileStop> stops = _sim.StopsThisTick;
+            for (int k = 0; k < shots.Length + stops.Length; k++)
+            {
+                bool shot = k < shots.Length;
+                ProjectileMessage m = shot ? ProjectileMessage.ShotOf(shots[k]) : ProjectileMessage.StopOf(stops[k - shots.Length]);
+                int len = m.Write(_buf);
+                bool ownerOnly = !shot && m.Reason == ProjectileEnd.Refused;
+                int reach = (shot ? DamageViewTiles : DamageViewTiles + Projectiles.StopViewExtraTiles) * Torus.SubTilesPerTile;
+                for (int p = 0; p < _players.Count; p++)
+                {
+                    Player pl = _players[p];
+                    if (pl.State != PlayerState.InGame)
+                    {
+                        continue;
+                    }
+
+                    if (pl.EntityId != m.Owner)
+                    {
+                        // П E3-2, п. 7: как «урон» — стрелку всегда, остальным — в окне от точки выстрела / конца.
+                        int ps = _sim.SlotOf(pl.EntityId);
+                        if (ownerOnly || ps < 0)
+                        {
+                            continue;
+                        }
+
+                        Int2 d = Torus.Delta(_sim.Shape, _sim.Entities[ps].Mover.Position, m.Position);
+                        if (Math.Abs(d.X) > reach || Math.Abs(d.Y) > reach)
+                        {
+                            continue;
+                        }
+                    }
+
+                    _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                    ProjectileMessagesSent++;
+                }
+            }
+        }
     }
 }

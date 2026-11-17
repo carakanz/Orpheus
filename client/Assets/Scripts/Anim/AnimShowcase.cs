@@ -23,7 +23,7 @@ namespace Orpheus.Client.Anim
     /// </list>
     /// Нужен вывод на экран — запускать без <c>-batchmode -nographics</c>.
     /// </summary>
-    public sealed class AnimShowcase
+    public sealed partial class AnimShowcase
     {
         const float WalkSpeed = 6f;     // т/с, базовая скорость (`02` 2.1)
         const float DashSpeed = 12f;    // 3 т за 0,25 с (`02` 2.2)
@@ -408,6 +408,8 @@ namespace Orpheus.Client.Anim
                 // чтобы контур был ровно зоной ядра, с которой сверяется кончик меча.
                 _aimSectors[i].Show(AimFencerPos(i) - new Vector3(0f, AnimParams.SectorGroundY, 0f), d, reach, halfArc, 0f, 0f, 1f);
             }
+
+            BowFrame(dt); // E3-2: лучники, стрелы, кольцо силы
         }
 
         static SwingPhase PhaseAt(float su, out float q)
@@ -536,6 +538,11 @@ namespace Orpheus.Client.Anim
                     yield return Strip(s);
                 }
 
+                foreach (Shot s in BowShots()) // E3-2: лук — после C-012 (с 18 с)
+                {
+                    yield return Strip(s);
+                }
+
                 _ortho = 5f;
                 _focus = _c + new Vector3(0f, 1.2f, 0f);
                 while (_t < 16.0f)
@@ -602,7 +609,8 @@ namespace Orpheus.Client.Anim
             }
 
             strip.Apply();
-            Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
+            Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ||
+                 s.Name.StartsWith("E3-2", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
         }
 

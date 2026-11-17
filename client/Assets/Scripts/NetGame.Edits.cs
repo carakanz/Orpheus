@@ -533,6 +533,30 @@ namespace Orpheus.Client
             // 1-004 (`02` 1.2 «удержание ЛКМ — повтор»): с ближним оружием в руках ЛКМ — удар,
             // бит стоит на всех кадрах удержания (ядро берёт нажатие битом кадра).
             ushort attack = Items.KindOf(held) == Items.KindMelee && mouse.leftButton.isPressed ? InputButtons.Attack : (ushort)0;
+
+            // E3-2 (`02` 1.2 «с луком — натяжение»): с луком ЛКМ — бит удара на всех кадрах удержания (ядро натягивает,
+            // отпускание — выстрел); копания нет. Стрел нет — натяжения нет, подсказка «нет стрел».
+            if (Items.KindOf(held) == Items.KindRanged)
+            {
+                c.StopDig();
+                if (!mouse.leftButton.isPressed)
+                {
+                    return 0;
+                }
+
+                if (_bag.Count(Items.Arrows) == 0)
+                {
+                    if (mouse.leftButton.wasPressedThisFrame)
+                    {
+                        _lastRefusal = "нет стрел";
+                        _lastRefusalUntilUs = now + FlashUs;
+                    }
+
+                    return 0;
+                }
+
+                return InputButtons.Attack;
+            }
             if (!mouse.leftButton.isPressed)
             {
                 c.StopDig(); // отпустил до конца — «копать: конец»; докопанное своим счётом ждёт ответа

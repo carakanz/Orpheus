@@ -86,6 +86,7 @@ namespace Orpheus.Client
         readonly HashSet<int> _seen = new HashSet<int>();
         GameObject _entityRoot = null!;
         PileView? _pileView; // E2-1: кучи на земле (сообщения 27 и 28)
+        ArrowView? _arrowView; // E3-2: стрелы (сообщение 38 и свои предсказанные), прицел натяжения
         UI.GameUi? _ui;      // E2-2: быстрая панель, окно сумки, полосы
         Sprite _heroSprite = null!;
 
@@ -149,6 +150,7 @@ namespace Orpheus.Client
             _heroSprite = _g.Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
             _entityRoot = new GameObject("Entities");
             _pileView = new PileView(new GameObject("Piles").transform);
+            _arrowView = new ArrowView(new GameObject("Arrows").transform); // E3-2: стрелы и прицел натяжения
         }
 
         /// <summary>
@@ -409,6 +411,7 @@ namespace Orpheus.Client
             _world = cw.World;
             _localId = accept.EntityId;
             _pileView?.Clear(); // E2-1: кучи нового входа сервер пришлёт заново
+            _client.Projectiles.Clear(); // E3-2: стрелы прежнего входа
             WorldPos spawn = CenterOf(accept.MapWidth / 2, accept.MapHeight / 2);
             _origin = new FloatingOrigin(_map, Torus.ChunkOf(_map, spawn));
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
@@ -545,6 +548,7 @@ namespace Orpheus.Client
                 // 1-004: удар предсказывается только с ближним оружием в руках — предмет берётся по ячейке этого
                 // кадра, как сервер в такте (ячейка и кнопки применяются в одном кадре, 1-002).
                 _pred!.HeldItem = HeldItemAt(frame.Slot);
+                _pred.HasArrows = _bag.Count(Items.Arrows) > 0; // E3-2: гейт натяжения — как в такте сервера
                 if (frame.AttackPressed)
                 {
                     AttacksSent++;
@@ -552,6 +556,11 @@ namespace Orpheus.Client
 
                 c.SendFrame(frame);
                 _pred!.Sent(c.Frame, frame);
+                while (_pred.TryTakeShot(out BowAction shot))
+                {
+                    c.Projectiles.AddPredicted(shot, _pred.HeldItem, now); // E3-2: своя стрела — сразу по отпусканию
+                    ShotsPredicted++;
+                }
 
                 // 1-004 (net-smoke): замахы предсказания — входы в фазу замаха (в серии фаза не бывает покоем).
                 byte phase = _pred.Melee.Phase;
@@ -589,6 +598,27 @@ namespace Orpheus.Client
         }
 
         ushort _lastAim;
+
+        /// <summary>Точка плоскости земли под курсором (E3-2: прицел натяжения); мыши нет или она вне окна — null.</summary>
+        Vector3? CursorPoint()
+        {
+            Mouse? mouse = Mouse.current;
+            if (mouse == null)
+            {
+                return null;
+            }
+
+            Vector3 screen = mouse.position.ReadValue();
+            if (screen.x < 0f || screen.y < 0f || screen.x > Screen.width || screen.y > Screen.height)
+            {
+                return null;
+            }
+
+            return _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
+        }
+
+        /// <summary>Своих выстрелов нарисовано по предсказанию (E3-2).</summary>
+        public long ShotsPredicted { get; private set; }
 
         /// <summary>Кадр движения + прицел и ячейка быстрой панели (1-002).</summary>
         static InputFrame WithAimSlot(InputFrame f, ushort aim, byte slot) => new InputFrame(f.Direction, f.Buttons, aim, slot);
@@ -739,6 +769,8 @@ namespace Orpheus.Client
             _anim?.Frame(now, _pred!);
             CombatFrame(); // E3-1: цифры урона, полоски врагов, экран смерти
             _pileView?.Frame(_origin!, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
+            _arrowView?.Frame(_client!.Projectiles, now, _origin!, _pred!.Bow, _g.Character.position,
+                _args.NetSmokeSeconds > 0 ? null : CursorPoint()); // E3-2: стрелы и кольцо силы у курсора
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeFrame(me, dx, dy);

@@ -183,3 +183,9 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 ## Бой на экране (E3-1)
 - Net/Protocol/Messages.cs: DamageMessage (37), DeathMessage (24, + RespawnTicks, FlagAtBed). Net/Session/CombatFeed.cs: DamageTone · DamageNumber · CombatFeed (OnDamage / OnDeath / OnRespawn / Expire · Rise / Alpha / Scale / LaneOffset / LaneLift · BarVisible · RespawnLeft / Fade / RespawnNote). HudLayout: EnemyBar*, Damage*, Death*.
 - client: UI/CombatHud.cs (EnemyMark, Frame, CreateOverlay) · NetGame.Combat.cs (HookCombat, OnDamage, OnDeath, CombatFrame) · Anim/Pose/DeathAnim.cs · NetAnimation (Gone, OnRemoteHit, поза трупа в Remote) · UI/UiDemo.Combat.cs (--ui-demo combat-*). Тесты — tests/E31CombatFeedTests.cs.
+## Лук и снаряды (E3-2)
+- Movement/BowAction.cs: BowInput.Of (вход кадра) · BowAction.StepFrame · PowerQ8 · TakeShot · CancelByDash. Mover.Bow, StepFrame(…, bowInput, solid), FrameSpeedX10 (60 %).
+- Combat/Projectile.cs: BowDef (DamageAt, SpeedX256At), Projectiles (таблица луков, константы, TryGetBow), ProjectileEnd, Projectile (PositionAt/PositionAtTravel).
+- Sim/Simulation.Projectiles.cs: ProjectileStop · SpawnProjectile (общий, и для врагов) · FireBow · BowInputOf · BowFrames30 · StepProjectiles (фаза 4.2) · FlyOneTick · ProjectileVictim · Stop (куча 50 %). Буферы ShotsThisTick / StopsThisTick.
+- Net: Protocol/ProjectileMessages.cs (38), NetServer.Events.BroadcastProjectiles, Session/ClientProjectiles.cs (полёт на клиенте, подмена предсказанной), LocalPrediction.HasArrows/Bow/TryTakeShot, NetServer.Threats (BowInput в копиях Mover).
+- Клиент: ArrowView.cs (стрелы, след, кольцо силы), NetGame (бит удара с луком в NetGame.Edits, «нет стрел», AddPredicted, CursorPoint), ActionAnim.BowDraw/BowRelease, ProceduralAnimator (слой лука), NetAnimation (свой лук из предсказания, отдача чужих OnShot), Anim/AnimShowcase.Bow.cs (ленты E3-2_*).

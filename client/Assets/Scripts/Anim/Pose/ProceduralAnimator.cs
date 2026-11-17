@@ -47,6 +47,17 @@ namespace Orpheus.Client.Anim
 
         /// <summary>E2-7: как держится предмет в руке (<see cref="HeldLook.None"/> — руки пусты).</summary>
         public HeldLook Held;
+
+        /// <summary>
+        /// E3-2: лук натягивается (<see cref="DrawPower"/> 0…1 — доля от 0,2 до 0,6 с, <see cref="DrawSec"/> — с начала натяжения),
+        /// ось — <see cref="DrawDirX"/>/<see cref="DrawDirY"/> (единичная, экран). <see cref="ShotSec"/> &gt; 0 — секунд с выстрела
+        /// (отдача), 0 — выстрела не было.
+        /// </summary>
+        public bool Drawing;
+        public float DrawPower;
+        public float DrawSec;
+        public float DrawDirX, DrawDirY;
+        public float ShotSec;
     }
 
     /// <summary>Поза спрайта: сдвиг от опоры (тайлов), поворот, масштаб, зеркало, цвет-множитель, след уворота.</summary>
@@ -213,9 +224,14 @@ namespace Orpheus.Client.Anim
 
             // --- направление: удар, копание, рывок, затем движение ---
             float faceX = 0f;
+            bool shooting = s.Drawing || (s.ShotSec > 0f && s.ShotSec < ActionAnim.BowRecoilSec);
             if (s.Swing != SwingPhase.None)
             {
                 faceX = s.SwingDirX;
+            }
+            else if (shooting)
+            {
+                faceX = s.DrawDirX; // E3-2: при натяжении и выстреле — к прицелу (`02` 1.2)
             }
             else if (s.Digging)
             {
@@ -234,7 +250,7 @@ namespace Orpheus.Client.Anim
                 faceX = s.VelX;
             }
 
-            bool aimed = s.Swing != SwingPhase.None || s.Digging || s.Dashing || _gesture != GestureKind.None;
+            bool aimed = s.Swing != SwingPhase.None || shooting || s.Digging || s.Dashing || _gesture != GestureKind.None;
             if (faceX != 0f && Math.Abs(faceX) > (aimed ? AnimParams.FacingDeadZone : 0f))
             {
                 _facingRight = faceX > 0f;
@@ -340,6 +356,23 @@ namespace Orpheus.Client.Anim
                     ? ActionAnim.SwordHandDeg(p, s.Swing, Clamp01(s.SwingProgress), aimDeg)
                     : ActionAnim.SwordDeg(s.Swing, Clamp01(s.SwingProgress), aimDeg);
                 handDirect = true;
+            }
+
+            // --- лук (E3-2): натяжение — лук к прицелу, корпус откинут назад по силе; выстрел — короткая отдача ---
+            if (shooting && !toolAction && s.Swing == SwingPhase.None)
+            {
+                ActionAnim.Swing b = s.Drawing
+                    ? ActionAnim.BowDraw(s.DrawPower, s.DrawSec)
+                    : ActionAnim.BowRelease(s.ShotSec / ActionAnim.BowRecoilSec);
+                p.OffsetX += s.DrawDirX * b.Forward;
+                p.OffsetY += s.DrawDirY * b.Forward * 0.6f;
+                p.RotationDeg += -b.LeanDeg * face;
+                p.ScaleY *= 1f - b.Squash;
+                p.ScaleX *= 1f + b.Squash * 0.5f;
+                handTarget = ActionAnim.AimDeg(s.DrawDirX, s.DrawDirY) + b.HandDeg;
+                handDirect = true;
+                p.HandReachX = b.ReachX;
+                p.HandReachY = b.ReachY;
             }
 
             if (!_handInit || handDirect)
