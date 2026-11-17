@@ -78,7 +78,7 @@ namespace Orpheus.Client
         public const byte Grass = 5;
         public const byte Forest = 6;
 
-        /// <summary>C-027: сосновый бор (рыжая хвоя) и тёмный ельник (мох) — та же картинка подстилки, свой тон.</summary>
+        /// <summary>C-027: сосновый бор (травяной пол темнее луга, хвоя — мелкими пятнами пучков) и тёмный ельник (мох — картинка подстилки, свой тон).</summary>
         public const byte Pine = 7;
         public const byte Spruce = 8;
         public const byte Rocky = 9;
@@ -96,7 +96,7 @@ namespace Orpheus.Client
             new GroundLayer("ground_drygrass", new Color32(200, 172, 80, 255), new Color(0.93f, 0.86f, 0.78f), 0.70f, 1f, 0.6f),
             new GroundLayer("ground_grass", new Color32(112, 170, 44, 255), new Color(0.86f, 0.86f, 0.80f), 0.68f, 1f, 0.5f),
             new GroundLayer("ground_forest", new Color32(84, 92, 44, 255), Color.white, 1f, 0.5f),
-            new GroundLayer("ground_forest", new Color32(128, 96, 52, 255), new Color(1.04f, 0.94f, 0.80f), 0.70f, 0.5f, 0.8f),
+            new GroundLayer("ground_grass", new Color32(96, 120, 52, 255), new Color(0.80f, 0.78f, 0.60f), 0.62f, 1f, 0.55f), // C-027 (П): бор — травяной пол, темнее и теплее луга (не рыжие поля хвои); хвоя — пучками
             new GroundLayer("ground_forest", new Color32(40, 64, 44, 255), new Color(0.62f, 0.80f, 0.70f), 0.85f, 0.5f, 0.9f),
             new GroundLayer("ground_rocky", new Color32(176, 168, 150, 255)),
         };

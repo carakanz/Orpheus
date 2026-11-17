@@ -64,7 +64,7 @@ namespace Orpheus.Client
             new TuftRule { Ground = GroundTable.DryGrass, Min = 1, Max = 2, Chance = 0.7f, Clump = 0.5f, Shape = 0, Shapes = 4, SizeMin = 0.25f, SizeMax = 0.5f, Tint = new Color32(228, 198, 98, 255) },
             new TuftRule { Ground = GroundTable.Forest, Min = 1, Max = 1, Chance = 0.22f, Shape = ShapeFern, SizeMin = 0.4f, SizeMax = 0.62f, Tint = new Color32(112, 152, 66, 255) },
             // C-027: бор — редкая сухая трава по хвое; ельник — густой тёмный папоротник.
-            new TuftRule { Ground = GroundTable.Pine, Min = 1, Max = 2, Chance = 0.3f, Clump = 0.6f, Shape = 0, Shapes = 4, SizeMin = 0.25f, SizeMax = 0.45f, Tint = new Color32(200, 184, 104, 255) },
+            new TuftRule { Ground = GroundTable.Pine, Min = 1, Max = 3, Chance = 0.7f, Clump = 0.8f, Shape = 0, Shapes = 4, SizeMin = 0.28f, SizeMax = 0.5f, Tint = new Color32(150, 186, 84, 255) },
             new TuftRule { Ground = GroundTable.Spruce, Min = 1, Max = 2, Chance = 0.5f, Clump = 0.8f, Shape = ShapeFern, SizeMin = 0.45f, SizeMax = 0.75f, Tint = new Color32(78, 128, 74, 255) },
         };
 
@@ -96,7 +96,7 @@ namespace Orpheus.Client
             // Луг: подсолнухи, поляны цветов (цвет пятна — свой шум), высокая трава.
             new MicroRule { Ground = GroundTable.Grass, Scale = 11f, Noise = 401, From = 0.74f,
                 Rule = new TuftRule { Min = 1, Max = 2, Chance = 0.75f, Shape = ShapeSunflower, SizeMin = 0.8f, SizeMax = 1.05f, Tone = 0.05f } },
-            new MicroRule { Ground = GroundTable.Grass, Scale = 9f, Noise = 409, From = 0.6f, Rule = Flowers(ShapePoppy, new Color32(255, 255, 255, 255)) },
+            new MicroRule { Ground = GroundTable.Grass, Scale = 5f, Noise = 409, From = 0.66f, Rule = Flowers(ShapePoppy, new Color32(255, 255, 255, 255)) },
             new MicroRule { Ground = GroundTable.Grass, Scale = 13f, Noise = 419, From = 0.68f,
                 Rule = new TuftRule { Min = 1, Max = 2, Shape = ShapeTall, SizeMin = 0.6f, SizeMax = 0.85f, Tint = new Color32(184, 214, 104, 255) } },
             new MicroRule { Ground = GroundTable.DryGrass, Scale = 11f, Noise = 401, From = 0.7f,
@@ -106,6 +106,9 @@ namespace Orpheus.Client
             new MicroRule { Ground = GroundTable.Forest, Scale = 8f, Noise = 431, From = 0.68f, Rule = Flowers(ShapeDaisy, new Color32(255, 255, 255, 255)) },
             new MicroRule { Ground = GroundTable.Forest, Scale = 10f, Noise = 433, From = 0.6f,
                 Rule = new TuftRule { Min = 1, Max = 2, Shape = ShapeFern, SizeMin = 0.5f, SizeMax = 0.75f, Tint = new Color32(104, 150, 64, 255) } },
+            // Бор: хвоя и сухая трава мелкими пятнами (~4 тайла) по травяному полу.
+            new MicroRule { Ground = GroundTable.Pine, Scale = 4f, Noise = 451, From = 0.6f,
+                Rule = new TuftRule { Min = 2, Max = 3, Shape = 0, Shapes = 4, SizeMin = 0.25f, SizeMax = 0.42f, Tint = new Color32(204, 162, 92, 255) } },
             // Ельник: заросли папоротника.
             new MicroRule { Ground = GroundTable.Spruce, Scale = 9f, Noise = 437, From = 0.58f,
                 Rule = new TuftRule { Min = 2, Max = 3, Shape = ShapeFern, SizeMin = 0.6f, SizeMax = 0.9f, Tint = new Color32(70, 120, 70, 255) } },
@@ -113,6 +116,9 @@ namespace Orpheus.Client
 
         /// <summary>Цвета полян цветов на лугу — по второму шуму: маки, васильки, ромашки, лютики.</summary>
         static readonly int[] MeadowFlowers = { ShapePoppy, ShapeCornflower, ShapeDaisy, ShapeButtercup };
+
+        /// <summary>Знак «цветы вперемешку» вместо формы: вид пучка — шум цвета (~8 тайлов) плюс разброс по хэшу пучка.</summary>
+        const int MixedFlowers = -2;
 
         /// <summary>Камыш в отмели у берега (C-027): пятнами, на воде, соседней с сушей.</summary>
         public static readonly TuftRule WaterReed = new TuftRule
@@ -133,7 +139,7 @@ namespace Orpheus.Client
 
                 if (m.Rule.Shape == ShapePoppy && layer == GroundTable.Grass)
                 {
-                    shape = MeadowFlowers[Mathf.Min(3, (int)(ObjectTable.Smooth(tx / 23f, ty / 23f, 443) * 4f))];
+                    shape = MixedFlowers; // C-027 (П): вид — на каждый пучок, пятна мелкие и смешанные (Tile)
                 }
 
                 return m.Rule;
@@ -374,6 +380,11 @@ namespace Orpheus.Client
                 float fx = 0.08f + 0.84f * GroundAtlas.Hash(tx, ty, 317 + s);
                 float fy = (k + 0.1f + 0.8f * GroundAtlas.Hash(tx, ty, 331 + s)) * slot; // от верхнего края тайла вниз
                 int shape = shapeOverride >= 0 ? shapeOverride : rule.Shape + (int)(GroundAtlas.Hash(tx, ty, 337 + s) * rule.Shapes);
+                if (shapeOverride == MixedFlowers)
+                {
+                    float c = ObjectTable.Smooth(tx / 8f, ty / 8f, 443) * 4f + (GroundAtlas.Hash(tx, ty, 371 + s) - 0.5f) * 2.2f;
+                    shape = MeadowFlowers[Mathf.Clamp((int)c, 0, 3)];
+                }
                 if (rule.Shapes > 1 && GroundAtlas.Hash(tx, ty, 359 + s) < 0.06f)
                 {
                     shape = ShapeSeed; // изредка — метёлка

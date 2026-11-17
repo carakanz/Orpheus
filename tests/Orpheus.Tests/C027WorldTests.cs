@@ -174,7 +174,7 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// 30 зёрен: в лесу три вида пола (дубрава, бор, ельник), каждый ≥ 12 % подстилки леса; кластерами (≥ 95 % тайлов
-        /// подстилки с 4 соседями той же подстилки или не-подстилкой); ельник гуще бора.
+        /// подстилки с 4 соседями той же подстилки или не-подстилкой); ельник гуще бора; бор выше дубравы по рельефу.
         /// </summary>
         [Fact]
         public void C027_30Seeds_ForestKinds_Clustered_OwnDensity()
@@ -183,6 +183,7 @@ namespace Orpheus.Tests
             {
                 var floors = new long[3];
                 var trees = new long[3];
+                var height = new long[3];
                 long same = 0, total = 0;
                 for (int y = 0; y < W; y++)
                 {
@@ -197,6 +198,7 @@ namespace Orpheus.Tests
 
                         floors[k]++;
                         trees[k] += t.Objects[i] == ObjectId.Tree ? 1 : 0;
+                        height[k] += t.Relief.HeightAt(x, y);
                         total++;
                         bool ok = true;
                         for (int d = 0; d < 4; d++)
@@ -220,6 +222,10 @@ namespace Orpheus.Tests
 
                 Assert.True(same * 100 >= total * 95, line);
                 Assert.True(trees[2] * floors[1] > trees[1] * floors[2], line); // ельник гуще бора
+
+                // Бор — выше по рельефу: средняя высота его подстилки выше, чем у дубравы, на ≥ 5 % шкалы (зона по высоте).
+                long hOak = height[0] / floors[0], hPine = height[1] / floors[1];
+                Assert.True(hPine - hOak >= Orpheus.WorldGen.LatticeNoise.One / 20, line + $"; высота дубравы {hOak}, бора {hPine}");
             }
         }
 

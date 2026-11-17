@@ -449,6 +449,23 @@ namespace Orpheus.Tests
             Assert.True(hits > 0, "забор между бойцами — удар проходит");
         }
 
+        /// <summary>C-027: глубокая вода между бойцами — не преграда удара (запрещено только ходить, `02` 4.2).</summary>
+        [Fact]
+        public void C027_DeepWater_DoesNotBlockStrike()
+        {
+            var s = new SwordSim(clearLine: false);
+            s.Sim.World.SetBaseTile(new TileCoord(21, 32), FloorId.DeepWater, ObjectId.Empty);
+            Assert.True(s.Sim.IsBlocked(s.Sim.Shape, new TileCoord(21, 32))); // ходить нельзя
+            int hits = 0;
+            for (int t = 1; t <= 40 && hits == 0; t++)
+            {
+                s.Tick(out var now);
+                hits += now.Count;
+            }
+
+            Assert.True(hits > 0, "глубокая вода между бойцами — удар проходит");
+        }
+
         /// <summary>Стена между бойцами глушит удар (docs 02 3.4, приёмка 1-004).</summary>
         [Fact]
         public void D02_S3_4_Wall_BlocksStrikeLine()

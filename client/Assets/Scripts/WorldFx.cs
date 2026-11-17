@@ -283,12 +283,18 @@ namespace Orpheus.Client
             return $"тени огня и существ {(t1 - t0) * f / frames:0.000} мс/кадр, сетка света {(t2 - t1) * f / fills:0.00} мс/пересборка";
         }
 
-        /// <summary>C-017: замер кадра снимка (<c>ORPH_SHOT_BENCH</c>) — камера теней рисуется каждый кадр, как в игре.</summary>
+        /// <summary>C-017: замер кадра снимка (<c>ORPH_SHOT_BENCH</c>) — камера теней (и маски силуэта, C-027) рисуется каждый кадр, как в игре.</summary>
         public static void BenchShadows()
         {
             if (_ready && _shadowCam != null)
             {
                 _shadowCam.Render();
+            }
+
+            if (_ready && _maskCam != null)
+            {
+                TagHero();
+                _maskCam.Render(); // C-027: и камера маски силуэта — её цена входит в кадр
             }
         }
 
