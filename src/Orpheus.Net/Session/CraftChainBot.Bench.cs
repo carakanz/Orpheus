@@ -104,6 +104,15 @@ namespace Orpheus.Net.Session
             // Тот же путь, что у окна крафта (CraftDesk): строка рецепта по данным клиента → кнопка «сделать».
             // Очередь пуста и ответа давно нет — заявка (первая или повтор); пока очередь идёт — стоим у верстака.
             _desk ??= new CraftDesk(client);
+
+            // C-028: верстак (2 тайла шириной) поставлен в 2 тайлах — его середина бывает дальше радиуса крафта (3 т), и бот вечно
+            // стоял с «станок далеко» (всплыло на зерне 2 после взмахов кирки: бот пришёл к месту постановки иначе). Подойти к нему.
+            if (_hasBench && CraftRules.StationCheck(world.World, pos, CraftStation.Workbench) == CraftReply.StationFar)
+            {
+                Int2 d = Torus.Delta(_shape, pos, BuildLayers.CenterAt(world.World, _bench));
+                return new InputFrame(new Input8(Math.Sign(d.X), Math.Sign(d.Y)), 0, 0, _slot);
+            }
+
             if (count > 0 && client.Craft.IsEmpty && _frame - _craftFrame > 90)
             {
                 CraftLine line = CraftDesk.LineOf(recipe, client.Inv, client.Craft, world.World, pos, stock: client.NearbyStock);

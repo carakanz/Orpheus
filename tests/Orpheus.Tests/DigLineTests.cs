@@ -152,7 +152,18 @@ namespace Orpheus.Tests
                 Assert.Equal(stoneWanted, stoneBag + stoneGround); // кучи ещё не истекали — сходится точно
             }
 
-            Assert.True(stoneBag * 10 >= stoneWanted * 9, $"бот подобрал {stoneBag} из {stoneWanted} камня (< 90 %)");
+            // C-028 [док]: камня ×4 — 1000 скал дают ~6000 камня, больше сумки (40 ячеек × 99): мерило «≥ 90 %» — от того, что
+            // влезает (ячейки без других предметов × стопка камня), а не от всех бросков.
+            Inventory bag = rig.Sim.GetEntity(digger.EntityId).Inv;
+            int stoneRoom = 0;
+            for (int cell = 0; cell < Inventory.Cells; cell++)
+            {
+                byte item = bag.ItemAt(cell);
+                stoneRoom += item == Items.None || item == Items.Stone ? ItemTable.MaxStackOf(Items.Stone) : 0;
+            }
+
+            int stoneReachable = Math.Min(stoneWanted, stoneRoom);
+            Assert.True(stoneBag * 10 >= stoneReachable * 9, $"бот подобрал {stoneBag} из {stoneReachable} камня (бросков {stoneWanted}, место в сумке {stoneRoom}; < 90 %)");
             Assert.Equal(0, digger.World!.PredictionsRolledBack); // предсказания копания не откатывались
 
             // У наблюдателя — все снятые скалы, чанки = сервер побайтно.
