@@ -166,6 +166,10 @@ namespace Orpheus.Core.World
                     int d = ISqrt(d2);
                     int v = d2 <= inner2 ? DayClock.LightScale : DayClock.LightScale * (r - d) / (r - r0);
 
+                    // На торе оборот координат дублируется: окном 3 × 3 в Rebuild и маской сетки ниже
+                    // (idx & (ChunkSize−1)) — мутация «убрать Wrap» тесты не краснит. Оставлен как
+                    // страховка для формы без оборота; на плоской карте (_shape.Wraps == false) он
+                    // тождествен, а выход за край отсекают проверки выше. Не удалять (замечание П 1-014).
                     TileCoord t = Torus.Wrap(_shape, new TileCoord(tx, ty));
                     if (!Torus.ChunkOf(_shape, t).Equals(center))
                     {
