@@ -74,5 +74,47 @@ namespace Orpheus.Tests
             Assert.Equal(1, BuildPlanner.Plan(sim.World, sim.GetEntity(me).Mover.Position, ObjectId.Door, fence, fence, 0, (ushort)me, plan));
             Assert.Equal(EditReply.Busy, plan[0].Check);
         }
+
+        // План двери на тайл: ответ проверки.
+        private static EditReply DoorCheck(Simulation sim, int me, TileCoord t)
+        {
+            var plan = new PlannedEdit[EditRules.MaxLineTiles];
+            Assert.Equal(1, BuildPlanner.Plan(sim.World, sim.GetEntity(me).Mover.Position, ObjectId.Door, t, t, 0, (ushort)me, plan));
+            return plan[0].Check;
+        }
+
+        /// <summary>
+        /// П C-029: угол стены из 3 ячеек — в сумку 3; в ячейки двери свешивается мебель — «занято»; стена под ударом (10 с) —
+        /// «под ударом» (иначе замена вернула бы повреждённую стену целиком в обход «снос под ударом — обломки»).
+        /// </summary>
+        [Fact]
+        public void C029_Door_Over_Corner_Overhang_And_Damaged_Wall()
+        {
+            var sim = new Simulation(Flat());
+            int me = Me(sim, 101, 103, (Items.StoneWall, 10), (Items.Door, 3), (Items.Chest, 1));
+            var corner = new TileCoord(100, 100);
+            Assert.Equal(1, Place(sim, me, ObjectId.StoneWall, corner, corner, 0 | (1 << 2))); // северная пара
+            Assert.Equal(1, Place(sim, me, ObjectId.StoneWall, corner, corner, 2 | (2 << 2))); // + юго-западная
+            Assert.Equal(3, BuildCells.Count(BuildLayers.TopCellsAt(sim.World, corner)));
+            int before = sim.GetEntity(me).Inv.Count(Items.StoneWall);
+            Assert.Equal(1, Place(sim, me, ObjectId.Door, corner, corner, 0));
+            Assert.Equal(ObjectId.Door, ObjectId.IdOf(sim.World.GetObject(corner)));
+            Assert.Equal(before + 3, sim.GetEntity(me).Inv.Count(Items.StoneWall));
+
+            // Стена в восточной половине тайла 104/100, сундук из тайла 103/100 свешивается в его западную половину.
+            var wall = new TileCoord(104, 100);
+            Assert.Equal(1, Place(sim, me, ObjectId.StoneWall, wall, wall, 1 | (3 << 2)));
+            Assert.Equal(1, Place(sim, me, ObjectId.Chest, new TileCoord(103, 100), new TileCoord(103, 100), 1));
+            Assert.NotEqual(0, BuildLayers.OverhangAt(sim.World, wall, solidOnly: false));
+            Assert.Equal(EditReply.Busy, DoorCheck(sim, me, wall));
+
+            // Стена под ударом.
+            var hit = new TileCoord(100, 106);
+            Assert.Equal(1, Place(sim, me, ObjectId.StoneWall, hit, hit, 0 | (1 << 2)));
+            Assert.Equal(EditReply.Accepted, DoorCheck(sim, me, hit));
+            Assert.True(sim.DamageBuilding(hit, 5));
+            sim.Step(); // урон и флаг «под ударом» — правкой такта
+            Assert.Equal(EditReply.UnderAttack, DoorCheck(sim, me, hit));
+        }
     }
 }

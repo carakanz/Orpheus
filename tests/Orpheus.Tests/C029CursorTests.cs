@@ -82,8 +82,8 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Верстак 2 × 2 тайла со сдвигом на полтайла: молотом по любой ячейке его следа (и по нарисованной высоте — двум
-        /// ячейкам севернее) цель — якорь, копание принято. Раньше 3 тайла из 4 отвечали «пусто».
+        /// Верстак 2 × 2 тайла со сдвигом на полтайла: молотом по любой ячейке его следа (и по нарисованной высоте — ячейке
+        /// севернее) цель — якорь, копание принято. Раньше 3 тайла из 4 отвечали «пусто».
         /// </summary>
         [Fact]
         public void C029_Workbench_Demolish_From_Any_Cell()
@@ -97,7 +97,7 @@ namespace Orpheus.Tests
             WorldPos self = sim.GetEntity(me).Mover.Position;
             var times = new DigTimes();
             TileCoord nw = BuildCells.CellAt(sim.Shape, new WorldPos(Node(p).X - 2 * BuildCells.CellUnits, Node(p).Y - 2 * BuildCells.CellUnits));
-            for (int cy = -2; cy < 4; cy++)
+            for (int cy = -1; cy < 4; cy++)
             {
                 for (int cx = 0; cx < 4; cx++)
                 {
@@ -109,8 +109,8 @@ namespace Orpheus.Tests
                 }
             }
 
-            // Три ячейки севернее — уже мимо.
-            var far = new WorldPos((nw.X * BuildCells.CellUnits) + BuildCells.CellUnits / 2, (nw.Y - 3) * BuildCells.CellUnits + BuildCells.CellUnits / 2);
+            // Две ячейки севернее — уже мимо (там пол и обломки перед мебелью снимаются молотом, П C-029).
+            var far = new WorldPos((nw.X * BuildCells.CellUnits) + BuildCells.CellUnits / 2, (nw.Y - 2) * BuildCells.CellUnits + BuildCells.CellUnits / 2);
             Assert.NotEqual(anchor, BuildCursor.Target(sim.World, sim.Shape, far, 0, out _));
         }
 

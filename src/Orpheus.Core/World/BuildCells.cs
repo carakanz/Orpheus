@@ -243,6 +243,11 @@ namespace Orpheus.Core.World
                     return EditReply.Busy;
                 }
 
+                if (wrec.IsDamagedRecent)
+                {
+                    return EditReply.UnderAttack; // стена под ударом: замена вернула бы её целиком в обход «снос под ударом — обломки»
+                }
+
                 mask = want;
                 add = want;
                 return EditReply.Accepted;
