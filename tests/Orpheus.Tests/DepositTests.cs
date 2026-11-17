@@ -406,8 +406,8 @@ namespace Orpheus.Tests
             {
                 (ObjectId.Tree, Material.Wood, 3, 3),
                 (ObjectId.Stump, Material.Wood, 1, 1),
-                (ObjectId.Rock, Material.Stone, 1, 2),
-                (ObjectId.Granite, Material.Stone, 1, 2),
+                (ObjectId.Rock, Material.Stone, 4, 8), // C-028: ×4 (BRIEF 11n) [док] к `06` 1.4
+                (ObjectId.Granite, Material.Stone, 4, 8),
                 (ObjectId.Ore, Material.Copper, 2, 3),
                 (ObjectId.Bush, Material.Fiber, 1, 1),
             };

@@ -205,6 +205,32 @@ namespace Orpheus.Core.World
         }
 
         /// <summary>
+        /// C-028: ударов киркой на объект при модификаторе 100 инструментом нужного яруса (каменная кирка по скале — 3,
+        /// <i>прикидка</i>, BRIEF 11n «на 1 камень нужно несколько ударов»).
+        /// </summary>
+        public const int StrikeHitsBase = 3;
+
+        /// <summary>
+        /// C-028: ударов взмаха (<see cref="PickStrike"/>) до снятия объекта инструментом <paramref name="tool"/> яруса
+        /// <paramref name="tier"/>: ⌈<see cref="StrikeHitsBase"/> × модификатор ÷ (100 &lt;&lt; min(2, ярус − нужный))⌉, не меньше 1
+        /// (скала: каменная 3, медная 2; залежь — 6 / 3; гранит медной — 5). Коды отказа — как у <see cref="FramesFor"/>
+        /// (0, <see cref="NeedTool"/>, <see cref="NeedTier"/>). База кадров на удары не влияет (0 — всё неразрушимо, как и время).
+        /// </summary>
+        public int HitsFor(ushort raw, ToolKind tool, byte tier)
+        {
+            int frames = FramesFor(raw, tool, tier); // те же отказы: часть, база 0, нет строки, ярус ниже
+            if (frames <= 0)
+            {
+                return frames;
+            }
+
+            int slot = Slot(ObjectId.IdOf(raw), tool);
+            int speed = 100 << Math.Min(TierSpeedupCap, Math.Max(0, tier - _reqTier[slot]));
+            long num = (long)StrikeHitsBase * _modifiers[slot];
+            return Math.Max(1, (int)((num + speed - 1) / speed));
+        }
+
+        /// <summary>
         /// Кадров «своим инструментом своего яруса» (калибровка, тесты, боты): первым инструментом по порядку
         /// <see cref="ToolKind"/> с подходящей строкой. 0 — нельзя (как в 0-034).
         /// </summary>

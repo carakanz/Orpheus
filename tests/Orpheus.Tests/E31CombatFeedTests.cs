@@ -51,7 +51,7 @@ namespace Orpheus.Tests
             DeathMessage m = DeathMessage.Read(buf.AsSpan(0, n));
             Assert.Equal(150, m.RespawnTicks);
             Assert.True(m.AtBed);
-            Assert.Equal(31, NetModule.ProtocolVersion); // E3-2: 31 (снаряд, тип 38); E3-1: 30
+            Assert.Equal(32, NetModule.ProtocolVersion); // C-028: 32 (взмах, тип 39); // E3-2: 31 (снаряд, тип 38); E3-1: 30
             Assert.True(Codec.IsKnown((byte)MessageType.Damage));
             Assert.Equal(MessageType.Projectile, (MessageType)((byte)MessageType.Damage + 1));
         }

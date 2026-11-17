@@ -46,6 +46,9 @@ namespace Orpheus.Net.Session
             public int DigProgress;
             public int DigFrames;
 
+            // C-028: идущее действие — взмах кирки (PickStrike), а не копание тайла по времени.
+            public bool DigStrike;
+
             // Идущая починка (C-005, `05` 1.3: 0,5 с): запрос, тайл, кадров прошло.
             public bool Repairing;
             public ushort RepairRequest;
@@ -189,6 +192,26 @@ namespace Orpheus.Net.Session
                 s.Digging = false;
             }
 
+            // C-028: кирка к пустому или природному тайлу — взмах (удар по сектору), не копание по времени.
+            if (PickStrike.IsStrike(_sim.World, s.PendingTile, held))
+            {
+                EditReply strike = PickStrike.Check(_sim.World, pos, s.PendingTile, DigTimes, held);
+                if (strike != EditReply.Accepted)
+                {
+                    Reply(p, s.PendingRequest, strike, strike, 0);
+                    return;
+                }
+
+                s.Digging = true;
+                s.DigStrike = true;
+                s.DigRequest = s.PendingRequest;
+                s.DigTile = s.PendingTile;
+                s.DigObj = ObjectId.Empty;
+                s.DigFrames = PickStrike.SwingFrames;
+                s.DigProgress = 0;
+                return;
+            }
+
             EditReply check = EditRules.CheckDig(_sim.World, pos, s.PendingTile, DigTimes, held);
             if (check != EditReply.Accepted)
             {
@@ -197,6 +220,7 @@ namespace Orpheus.Net.Session
             }
 
             s.Digging = true;
+            s.DigStrike = false;
             s.DigRequest = s.PendingRequest;
             s.DigTile = s.PendingTile;
             s.DigObj = DigKeyOf(s.PendingTile); // объект тайла; пол/обломки — id пола (молот, 1-011)
@@ -285,18 +309,26 @@ namespace Orpheus.Net.Session
 
             WorldPos pos = _sim.Entities[slot].Mover.Position;
             byte held = _sim.Entities[slot].Inv.Held; // предмет в руках такта — им и копаем (1-010)
-            int digFrames = s.Digging ? DigTimes.FramesFor(s.DigObj, Items.DigToolOf(held), Items.TierOf(held)) : 0;
+            int digFrames = DigFramesOf(s, held);
             // Сменил предмет в руках — время считается заново им; не тем инструментом (≤ 0) — прогресс стоит.
             for (int i = 0; i < frames; i++)
             {
                 if (s.HasPending && (int)(_frameNum[i] - s.PendingFrame) >= 0)
                 {
                     ApplyPendingDig(p, s, pos, held);
+                    digFrames = DigFramesOf(s, held); // C-028: новое действие (взмах или копание) — его время
                 }
 
                 if (s.Digging && digFrames > 0 && InputButtons.DigHeld(_frameBuf[i]) && ++s.DigProgress >= digFrames)
                 {
-                    CompleteDig(p, s, pos, held);
+                    if (s.DigStrike)
+                    {
+                        Strike(p, s, pos, held); // C-028: удар взмаха (NetServer.Strike.cs)
+                    }
+                    else
+                    {
+                        CompleteDig(p, s, pos, held);
+                    }
                 }
 
                 if (s.Repairing)
@@ -353,6 +385,12 @@ namespace Orpheus.Net.Session
 
                 EditReply reply = EditRules.FromResult(ev.Result);
                 ushort id = (ushort)((ev.Tag >> TagLineBits) & 0xFFFF);
+                if ((ev.Tag & TagStrike) != 0)
+                {
+                    OnStrikeEdit(p, id, ev.Tag & ((1 << TagLineBits) - 1), reply); // C-028: ответ — один на взмах, FlushStrikes
+                    continue;
+                }
+
                 if ((ev.Tag & TagDig) != 0)
                 {
                     Reply(p, id, reply, reply, reply == EditReply.Accepted ? 1u : 0u);
@@ -391,6 +429,8 @@ namespace Orpheus.Net.Session
                 s.PendingFirst[k] = s.PendingFirst[last];
                 s.PendingLeft[k] = s.PendingLeft[last];
             }
+
+            FlushStrikes(); // C-028: ответы и «взмах» по ударам такта
         }
 
         private void Reply(Player p, ushort id, EditReply reply, EditReply first, uint mask)

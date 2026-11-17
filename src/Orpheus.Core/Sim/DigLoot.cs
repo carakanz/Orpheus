@@ -17,6 +17,9 @@ namespace Orpheus.Core.Sim
     /// </summary>
     public static class DigLoot
     {
+        /// <summary>C-028: множитель камня со скалы и гранита (BRIEF 11n, «в 4 раза больше»): 1…2 → 4…8.</summary>
+        public const int StoneDropMul = 4;
+
         private sealed class Drop
         {
             public Material Material;
@@ -27,8 +30,9 @@ namespace Orpheus.Core.Sim
         private static readonly Dictionary<ushort, Drop> _drops = new()
         {
             // (прикидка карточки 1-010; `01` 5: скала — камень, залежь — руда, дерево — древесина.)
-            [ObjectId.Rock] = new Drop { Material = Material.Stone, Min = 1, Max = 2 },
-            [ObjectId.Granite] = new Drop { Material = Material.Stone, Min = 1, Max = 2 },
+            // C-028 (слово Автора 17.11, BRIEF 11n: «камня должно выпадать в 4 раза больше»): скала и гранит — 4…8 (было 1…2) [док] к `06` 1.4.
+            [ObjectId.Rock] = new Drop { Material = Material.Stone, Min = 1 * StoneDropMul, Max = 2 * StoneDropMul },
+            [ObjectId.Granite] = new Drop { Material = Material.Stone, Min = 1 * StoneDropMul, Max = 2 * StoneDropMul },
             [ObjectId.Ore] = new Drop { Material = Material.Copper, Min = 2, Max = 3 },
             [ObjectId.Tree] = new Drop { Material = Material.Wood, Min = 3, Max = 3 },
             [ObjectId.Stump] = new Drop { Material = Material.Wood, Min = 1, Max = 1 },
