@@ -128,6 +128,51 @@ namespace Orpheus.Client.UI
         public const string CraftKeyInv = "Q · C · Esc";
         public const string CraftOnlyAvailable = "Только доступные";
 
+        /// <summary>
+        /// C-029: подсказка ингредиента — название, описание; базовый — «Где взять:» и строки источников («?» — не открыто),
+        /// небазовый — «ЛКМ — открыть рецепт».
+        /// </summary>
+        public static string IngredientTip(byte item, string description, bool isBase, List<string>? where)
+        {
+            var sb = new System.Text.StringBuilder(ItemName(item));
+            if (description.Length > 0)
+            {
+                sb.Append('
+').Append(description);
+            }
+
+            if (!isBase)
+            {
+                sb.Append("
+ЛКМ — открыть рецепт");
+            }
+            else
+            {
+                sb.Append("
+Где взять:");
+                if (where == null || where.Count == 0)
+                {
+                    sb.Append(" ?");
+                }
+                else
+                {
+                    foreach (string w in where)
+                    {
+                        sb.Append("
+  ").Append(w);
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>C-029: остаток ингредиента после изготовления (красным у значка).</summary>
+        public static string IngredientLeft(int left) => $"→{left}";
+
+        /// <summary>C-029: пипетка не по постройке (трава, валун, дерево).</summary>
+        public const string PipetteNothing = "Пипетка: здесь нет постройки";
+
         /// <summary>C-029: постройка уже есть в сумке — из меню ставится она, не изготавливается новая.</summary>
         public static string ReadyInBag(int n) => $"В сумке: {n} — ставится из сумки";
         public const string CraftFlat = "Все рецепты раздела";
@@ -306,9 +351,9 @@ namespace Orpheus.Client.UI
         public static string PlaceHint(int inHand) => $"ЛКМ — поставить, зажать — подряд (в руке {inHand})";
 
         /// <summary>E2-13: подпись режима постановки у панели.</summary>
-        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (Tab или значок у панели — поштучно)" : "Поштучно   (Tab или значок у панели — линейка)"; // E2-16: R — поворот
+        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (Tab — поштучно, G — пипетка)" : "Поштучно   (Tab — линейка, G — пипетка)"; // E2-16: R — поворот; C-029: G / средняя кнопка — пипетка
 
-        /// <summary>C-015: подсказка значка режима у быстрой панели (линейка / зигзаг).</summary>
+        /// <summary>C-015: подсказка значка режима у быстрой панели (линейка / шахматка).</summary>
         public static string PlaceModeTip(bool ruler) => ruler
             ? "Линейка: зажать ЛКМ и протянуть — стены и заборы линией, пол прямоугольником\nЩелчок или Tab — поштучно"
             : "Поштучно: щелчок — одна постройка, зажать — по ячейкам под курсором\nЩелчок или Tab — линейка";

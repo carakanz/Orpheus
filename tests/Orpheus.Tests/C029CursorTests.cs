@@ -133,5 +133,29 @@ namespace Orpheus.Tests
             Assert.Equal(new TileCoord(102, 101), BuildCursor.Target(sim.World, sim.Shape, Cell(204, 203), ObjectId.StoneWall, out int q));
             Assert.Equal(2, q);
         }
+
+        /// <summary>
+        /// Пипетка: стена — предмет той же стены (деревянная ≠ каменная), повёрнутый верстак — верстак с поворотом,
+        /// построенный пол без верха — его предмет, валун и трава — ничего.
+        /// </summary>
+        [Fact]
+        public void C029_Pipette_Item_Of_Building()
+        {
+            var sim = new Simulation(Flat());
+            int me = Me(sim, 100, 100, (Items.StoneWall, 2), (Items.WoodWall, 2), (Items.Workbench, 1), (Items.WoodFloor, 4));
+            Assert.Equal(1, Place(sim, me, ObjectId.StoneWall, new TileCoord(101, 101), 0));
+            Assert.Equal(1, Place(sim, me, ObjectId.WoodWall, new TileCoord(102, 101), 0));
+            Assert.Equal(1, Place(sim, me, BuildLayers.Turned(ObjectId.Workbench, 1), new TileCoord(104, 104), 0));
+            Assert.Equal(1, Place(sim, me, BuildDefs.FloorKey(FloorId.WoodFloor), new TileCoord(98, 98), 0));
+            Assert.Equal(Items.StoneWall, BuildCursor.PipetteItem(sim.World, new TileCoord(101, 101), out _));
+            Assert.Equal(Items.WoodWall, BuildCursor.PipetteItem(sim.World, new TileCoord(102, 101), out _));
+            Assert.True(BuildLayers.TryFurnitureAt(sim.World, new TileCoord(105, 105), out TileCoord bench));
+            Assert.Equal(Items.Workbench, BuildCursor.PipetteItem(sim.World, bench, out int rot));
+            Assert.Equal(1, rot);
+            Assert.Equal(Items.WoodFloor, BuildCursor.PipetteItem(sim.World, new TileCoord(98, 98), out _));
+            Assert.Equal(Items.None, BuildCursor.PipetteItem(sim.World, new TileCoord(90, 90), out _));
+            sim.World.SetBaseTile(new TileCoord(91, 90), FloorId.Grass, ObjectId.Rock);
+            Assert.Equal(Items.None, BuildCursor.PipetteItem(sim.World, new TileCoord(91, 90), out _));
+        }
     }
 }

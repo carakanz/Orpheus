@@ -226,6 +226,41 @@ namespace Orpheus.Client
         /// <summary>Esc этого кадра занят линейкой: идёт протягивание или его только что отменили.</summary>
         bool RulerTookEscape => (_ui?.Ruler.Dragging ?? false) || _rulerCancelFrame == Time.frameCount || _menuCancelFrame == Time.frameCount || FromMenu;
 
+        /// <summary>
+        /// Пипетка (C-029, «скопировать предмет»): средняя кнопка мыши или G по постройке под курсором — такая же постройка в руку
+        /// (<see cref="UI.GameUi.Pipette"/>: из сумки, нет — изготовить на месте), с её поворотом. Цель — как у молота
+        /// (<see cref="BuildCursor.Target"/> без постройки: якорь, нарисованная высота). Не постройка — строка «нечего копировать».
+        /// </summary>
+        void PipetteKeys(Mouse mouse, long now)
+        {
+            bool press = mouse.middleButton.wasPressedThisFrame || Keyboard.current?.gKey.wasPressedThisFrame == true;
+            if (!press || _ui == null || _world == null || _origin == null)
+            {
+                return;
+            }
+
+            Vector3 screen = mouse.position.ReadValue();
+            Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
+            TileCoord at = BuildCursor.Target(_world, _map, _origin.FromUnity(v), 0, out _);
+            byte item = BuildCursor.PipetteItem(_world, at, out int rotation);
+            if (item == Items.None)
+            {
+                _lastRefusal = UI.UiStrings.PipetteNothing;
+                _lastRefusalUntilUs = now + FlashUs;
+                return;
+            }
+
+            _ui.Ruler.Cancel();
+            _ui.Pipette(item);
+            _menuSlot = HeldCell;
+            if (BuildHand.IsBuildItem(item, out ushort key) && Turnable(key))
+            {
+                _turns[item] = rotation & 3;
+            }
+
+            Debug.Log($"[build] пипетка: {item} (поворот {rotation * 90}°)");
+        }
+
         /// <summary>Тайл под курсором мыши (нет мыши или мира — null).</summary>
         TileCoord? CursorTile()
         {
@@ -511,6 +546,7 @@ namespace Orpheus.Client
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
+            PipetteKeys(mouse, now); // C-029: средняя кнопка / G — пипетка
             TurnAndMenuKeys(HandItem); // E2-16: R — поворот, Tab — линейка, Esc / ПКМ — убрать постройку из меню
             byte held = HandItem;      // E2-16: постройка из меню — как в руке
             if ((BuildHand.IsHammer(held) || BuildHand.IsBuildItem(held)) && _ui != null && _world != null)

@@ -1,4 +1,5 @@
 using Orpheus.Core.Geometry;
+using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 
 namespace Orpheus.Net.Session
@@ -82,6 +83,32 @@ namespace Orpheus.Net.Session
 
             anchor = default;
             return false;
+        }
+
+        /// <summary>
+        /// Пипетка (C-029, слово Автора 17.11: «нужна возможность нажать скопировать предмет. Тогда выберется тот же самый
+        /// предмет для постройки. Актуально со стенами»): предмет-постройка того, что стоит в тайле <paramref name="anchor"/>
+        /// (якорь из <see cref="Target"/> без постройки в руке) — верх тайла (стена того же материала, дверь, мебель с её
+        /// поворотом в <paramref name="rotation"/>), а без верха — построенный пол. Природное и пусто — <see cref="Items.None"/>.
+        /// </summary>
+        public static byte PipetteItem(WorldModel world, TileCoord anchor, out int rotation)
+        {
+            rotation = 0;
+            TileCoord t = Torus.Wrap(world.Shape, anchor);
+            ushort obj = world.GetObject(t);
+            if (obj != ObjectId.Empty)
+            {
+                if (ObjectId.IsNatural(obj) || ObjectId.IsPart(obj) || !BuildDefs.TryGet(obj, out BuildDef top) || top.Item == Items.None)
+                {
+                    return Items.None;
+                }
+
+                rotation = BuildLayers.IsRotatable(obj) ? ObjectId.RotationOf(obj) : 0;
+                return top.Item;
+            }
+
+            byte floor = world.GetFloor(t);
+            return FloorId.IsBuilt(floor) && BuildDefs.TryGet(BuildDefs.FloorKey(floor), out BuildDef f) ? f.Item : Items.None;
         }
     }
 }

@@ -580,6 +580,10 @@ namespace Orpheus.Client.UI
             {
                 tip = RecipeTip(_craft.RecipeInCell(hit.Index), bag, craft.Stock);
             }
+            else if (hit.Part == CraftPart.Ingredient && CraftOpen && _craft.Recipe > 0)
+            {
+                tip = IngredientTip(RecipeTable.Get(_craft.Recipe).IngredientItem(hit.Index)); // C-029
+            }
             else if (hit.Part == CraftPart.Button && CraftOpen)
             {
                 tip = RecipeTip(_craft.Recipe, bag, craft.Stock) + "\n"
@@ -623,6 +627,16 @@ namespace Orpheus.Client.UI
             _map.Frame(craft.World, craft.Position, MapSnapshot, MapSelf);
         }
 
+        /// <summary>C-029: что открыл игрок (биомы, враги) — для «где взять» в подсказке ингредиента; ведёт клей клиента.</summary>
+        public Discovery Known { get; set; } = new Discovery();
+
+        // C-029: подсказка ингредиента — название, описание; небазовый — «ЛКМ — открыть рецепт», базовый — где взять («?» — не открыто).
+        string IngredientTip(byte item)
+        {
+            bool isBase = ItemSources.IsBase(item);
+            return UiStrings.IngredientTip(item, ItemSources.Description(item), isBase, isBase ? ItemSources.Where(item, Known) : null);
+        }
+
         // Подсказка значка рецепта: название, «есть / нужно», станок, что мешает.
         string? RecipeTip(int recipe, in Inventory bag, ChestStock? stock)
         {
@@ -663,6 +677,19 @@ namespace Orpheus.Client.UI
                     break;
                 case CraftPart.Button:
                     Arm(_craft.Recipe); // C-013: кнопок нет — крупный значок тоже только выбирает
+                    break;
+                case CraftPart.Ingredient:
+                    if (_craft.Recipe > 0)
+                    {
+                        // C-029: ЛКМ по небазовому ингредиенту — открыть его рецепт (раздел, подраздел, выбран «в руку»).
+                        byte item = RecipeTable.Get(_craft.Recipe).IngredientItem(hit.Index);
+                        int recipe = ItemSources.IsBase(item) ? 0 : CraftRules.RecipeFor(item);
+                        if (recipe > 0 && _craft.ShowRecipe(recipe, _lines))
+                        {
+                            Arm(recipe);
+                        }
+                    }
+
                     break;
                 case CraftPart.Queue:
                     if (!dead)
