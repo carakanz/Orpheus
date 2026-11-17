@@ -21,10 +21,7 @@ namespace Orpheus.WorldGen
             Relief = ReliefMap.Create(WorldSize, macro.Map.Seed);
         }
 
-        /// <summary>Пометка <see cref="Marks"/>: тайл на тропе (объектов нет, пол — земля; обрыв здесь прерывается).</summary>
-        public const byte MarkTrail = 1;
-
-        /// <summary>Пометка <see cref="Marks"/>: проход в линии обрыва — объектов нет, пол — земля.</summary>
+        /// <summary>Пометка <see cref="Marks"/>: проход в линии обрыва — объектов нет, пол — как у биома (C-027: не земля).</summary>
         public const byte MarkClear = 2;
 
         /// <summary>Пометка <see cref="Marks"/> (C-016, v8): тайл в 2 от скалы массива — объектов и залежей нет, пол прежний (ущелья не заваливаются).</summary>
@@ -36,7 +33,7 @@ namespace Orpheus.WorldGen
         /// <summary>Расстояние до воды по 4 сторонам: 0 — вода, 1…3 — берег, <see cref="WaterStage.ShoreFar"/> — дальше.</summary>
         public byte[] Shore { get; }
 
-        /// <summary>Пометки генератора на тайл (<see cref="MarkTrail"/>, <see cref="MarkClear"/>); в мир не пишутся.</summary>
+        /// <summary>Пометки генератора на тайл (<see cref="MarkClear"/>, <see cref="MarkGorge"/>); в мир не пишутся.</summary>
         public byte[] Marks { get; }
 
         /// <summary>Этап 12: сколько сегментов обрыва убрано и сколько тайлов воды стало бродом.</summary>
@@ -60,6 +57,12 @@ namespace Orpheus.WorldGen
 
         /// <summary>Пятна залежей (E2-6): сетка <see cref="DepositStage"/> и штамп меди у Очага.</summary>
         public System.Collections.Generic.List<DepositPatch> Deposits { get; } = new System.Collections.Generic.List<DepositPatch>();
+
+        /// <summary>C-027: центры выходов меди у старта (<see cref="HearthStage.StampNearCopper"/>).</summary>
+        public Orpheus.Core.Geometry.TileCoord[] NearCopper { get; set; } = Array.Empty<Orpheus.Core.Geometry.TileCoord>();
+
+        /// <summary>C-027: тайлов глубокой воды (<see cref="WaterStage.MarkDeep"/>).</summary>
+        public int DeepTiles { get; set; }
 
         /// <summary>Этап 7: центр штампа меди (null — своей меди хватило).</summary>
         public TileCoord? CopperStamp { get; set; }
@@ -139,8 +142,7 @@ namespace Orpheus.WorldGen
         }
 
         /// <summary>
-        /// Этап 11 по макрокарте (после этапа 7): биом тайлов, затем вода и берег (<see cref="WaterStage"/>), тропы
-        /// (<see cref="TrailStage"/>), обрывы (<see cref="CliffStage"/>), пол и объекты (<see cref="FloraStage"/>), залежи пятнами (<see cref="DepositStage"/>).
+        /// Этап 11 по макрокарте (после этапа 7): биом тайлов, затем вода и берег (<see cref="WaterStage"/>), обрывы (<see cref="CliffStage"/>), пол и объекты (<see cref="FloraStage"/>), залежи пятнами (<see cref="DepositStage"/>).
         /// </summary>
         public static void Run(TileWorld t)
         {
@@ -157,8 +159,7 @@ namespace Orpheus.WorldGen
                 }
             }
 
-            WaterStage.Run(t);
-            TrailStage.Run(t);
+            WaterStage.Run(t); // C-027 (v9): троп (TrailStage, полосы земли) больше нет — слово Автора 17.11
             CliffStage.Run(t);
             FloraStage.Run(t);
             DepositStage.Run(t);

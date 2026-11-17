@@ -306,7 +306,10 @@ namespace Orpheus.WorldGen
                         if (t.Objects[j] == ObjectId.Cliff)
                         {
                             t.Objects[j] = ObjectId.Empty;
-                            t.Floor[j] = FloorId.Dirt;
+                            if (t.Floor[j] == FloorId.Empty)
+                            {
+                                t.Floor[j] = FloorId.Dirt; // C-027: под скалой — пол биома, полосу земли не кладём
+                            }
                         }
                     }
                 }

@@ -120,13 +120,32 @@ namespace Orpheus.Client
 
         public static readonly ObjectLook[] Looks =
         {
-            // Лес (лесная подстилка): дуб и сосна рощами, изредка осенний дуб.
+            // C-027 (слово Автора 17.11 «Леса разбей на несколько разных видов по типам деревьев»): вид леса — пол генератора v9.
+            // Дубрава (лесная подстилка): дубы, рощицами осенний дуб.
             new ObjectLook
             {
                 Id = ObjectId.Tree, Ground = GroundTable.Forest, Patch = 9f,
-                Variants = new[] { V("tree_oak_a", 3), V("tree_oak_b", 3), V("tree_oak_autumn", 0.5f), V("tree_pine_a", 3), V("tree_pine_b", 3) },
-                ScaleMin = 0.85f, ScaleMax = 1.15f, Jitter = 0.2f, Flip = true, Tall = true,
+                Variants = new[] { V("tree_oak_a", 3), V("tree_oak_b", 3), V("tree_oak_autumn", 0.7f) },
+                ScaleMin = 0.9f, ScaleMax = 1.2f, Jitter = 0.2f, Flip = true, Tall = true,
                 Sway = 0.028f, LeavesMin = 6, LeavesMax = 10,
+            },
+            // Сосновый бор (рыжая хвоя): сосны, светлее и теплее, выше.
+            new ObjectLook
+            {
+                Id = ObjectId.Tree, Ground = GroundTable.Pine, Patch = 9f,
+                Variants = new[] { V("tree_pine_a", 3), V("tree_pine_b", 3) },
+                Tint = new Color32(255, 246, 214, 255),
+                ScaleMin = 0.95f, ScaleMax = 1.25f, Jitter = 0.25f, Flip = true, Tall = true,
+                Sway = 0.022f, LeavesMin = 3, LeavesMax = 6,
+            },
+            // Тёмный ельник (мох): тёмные холодные ели (сосна и кипарис с тоном), плотнее.
+            new ObjectLook
+            {
+                Id = ObjectId.Tree, Ground = GroundTable.Spruce, Patch = 6f,
+                Variants = new[] { V("tree_pine_a", 3), V("tree_pine_b", 3), V("tree_cypress_a", 2), V("tree_cypress_b", 2) },
+                Tint = new Color32(150, 178, 168, 255),
+                ScaleMin = 0.9f, ScaleMax = 1.2f, Jitter = 0.15f, Flip = true, Tall = true,
+                Sway = 0.02f, LeavesMin = 3, LeavesMax = 6,
             },
             // Луг и всё остальное: олива и кипарис, изредка осенний дуб.
             new ObjectLook

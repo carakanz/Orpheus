@@ -391,24 +391,21 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Тайл прерывает линию удара (`02` 3.4): как <see cref="IsBlocked"/> для ходьбы, но
-        /// деревянный забор — преграда для ходьбы, для удара нет (забор бьётся, приёмка 1-004).
+        /// Тайл прерывает линию удара (`02` 3.4): как <see cref="IsBlocked"/> для ходьбы, но деревянный забор — преграда для
+        /// ходьбы, для удара нет (забор бьётся, приёмка 1-004); глубокая вода без объекта — тоже (C-027: только не ходят, `02` 4.2).
         /// </summary>
         private bool StrikeTileBlocked(TileCoord tile)
         {
-            if (IsBlocked(_shape, tile))
+            if (!IsBlocked(_shape, tile))
             {
-                Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_shape, tile));
-                if (chunk != null &&
-                    ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(tile.X, tile.Y))) == ObjectId.WoodFence)
-                {
-                    return false; // забор — линия удара проходит (`02` 3.1:157)
-                }
-
-                return true;
+                return false;
             }
 
-            return false;
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_shape, tile));
+            int index = Chunk.IndexOf(tile.X, tile.Y);
+            ushort obj = chunk == null ? ObjectId.Empty : chunk.GetObject(index);
+            return chunk == null || (ObjectId.IdOf(obj) != ObjectId.WoodFence // забор — линия удара проходит (`02` 3.1:157)
+                && !(obj == ObjectId.Empty && chunk.GetFloor(index) == FloorId.DeepWater && BuildLayers.OverhangAt(_world, tile, solidOnly: true) == 0));
         }
 
         /// <summary>Точка <paramref name="p"/> лежит в твёрдой ячейке 0,5 × 0,5 тайла <paramref name="tile"/> (E2-12, <see cref="SolidCells"/>).</summary>

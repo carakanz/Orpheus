@@ -160,7 +160,7 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Тяжёлый: настоящий мир (генератор v8 — горы-лабиринт, 1024², зерно <see cref="RealSeed"/>), старт у Очага, задержка сети 100 мс.
+        /// Тяжёлый: настоящий мир (генератор v8 — горы-лабиринт, с C-027 — v9: глубина, без троп, медь у старта; 1024², зерно <see cref="RealSeed"/>), старт у Очага, задержка сети 100 мс.
         /// </summary>
         [Fact]
         [Trait("Category", "Big")]
@@ -168,7 +168,7 @@ namespace Orpheus.Tests
         {
             MapShape shape = MapShape.World(1024);
             WorldModel world = WorldGenModule.Current.Generate(shape, RealSeed);
-            Assert.Equal(8, world.GeneratorVersion);
+            Assert.Equal(9, world.GeneratorVersion); // C-027: v9 (имя теста — с v8, история)
             Outcome o = Run(world, ServerRun.SpawnPoint(shape, 0), limitTicks: 60_000, rttMs: 100);
             AssertChain(o);
         }

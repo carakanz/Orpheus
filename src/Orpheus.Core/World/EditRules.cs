@@ -389,7 +389,7 @@ namespace Orpheus.Core.World
             }
 
             byte floor = world.GetFloor(t);
-            if (floor == FloorId.Water || floor == FloorId.Lava)
+            if (FloorId.IsLiquid(floor))
             {
                 return EditReply.NeedPlatform;
             }

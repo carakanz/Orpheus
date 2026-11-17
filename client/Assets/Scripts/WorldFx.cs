@@ -12,12 +12,32 @@ namespace Orpheus.Client
     /// Текстура ложится на землю один раз большим квадратом перед основной камерой (<see cref="WorldView.ShadowOrder"/>).</item>
     /// <item><b>Персонаж за кроной.</b> Шейдеру объектов каждый кадр отдаётся место своего персонажа: кроны перед ним
     /// становятся полупрозрачными в круге <see cref="HeroFadeRadius"/>.</item>
+    /// <item><b>Персонаж за горой</b> (C-027): гора не прозрачна — спрайты своего персонажа (слой <see cref="HeroLayer"/>) рисует
+    /// ещё одна камера в маску, и шейдер объектов кладёт по маске силуэт поверх горы, которая стоит перед персонажем.</item>
     /// </list>
     /// </summary>
     public static class WorldFx
     {
         /// <summary>Слой Unity для теней: основная камера его не видит, камера теней видит только его.</summary>
         public const int ShadowLayer = 31;
+
+        /// <summary>C-027: слой спрайтов своего персонажа — их видят основная камера и камера маски силуэта.</summary>
+        public const int HeroLayer = 30;
+
+        /// <summary>C-027: силуэт персонажа за горой — заливка (цвет, сила) и контур (предварительно).</summary>
+        public static readonly Vector4 SilhouetteFill = new Vector4(0.30f, 0.42f, 0.62f, 0.62f);
+        public static readonly Vector4 SilhouetteLine = new Vector4(0.92f, 0.96f, 1f, 0.95f);
+
+        static readonly int HeroMaskId = Shader.PropertyToID("_OrphHeroMask");
+        static readonly int HeroRectId = Shader.PropertyToID("_OrphHeroRect");
+        static readonly int HeroTexelId = Shader.PropertyToID("_OrphHeroTexel");
+        static readonly int HeroFillId = Shader.PropertyToID("_OrphHeroFill");
+        static readonly int HeroLineId = Shader.PropertyToID("_OrphHeroLine");
+        static Camera? _maskCam;
+        static RenderTexture? _maskRt;
+        static Transform? _hero;
+        static Texture2D? _noMask;
+        static readonly System.Collections.Generic.List<Renderer> HeroRenderers = new System.Collections.Generic.List<Renderer>();
 
         /// <summary>Радиус круга вокруг своего персонажа, в котором кроны перед ним полупрозрачны, тайлов.</summary>
         public const float HeroFadeRadius = 1.7f;
@@ -65,6 +85,20 @@ namespace Orpheus.Client
             _ready = false;
             Shader.SetGlobalVector(HeroId, Vector4.zero);
             Shader.SetGlobalVector(HeroFadeId, new Vector4(HeroFadeAlpha, 0f, 0f, 0f));
+            // C-027: без камеры маски — пустая маска (силуэта нет).
+            if (_noMask == null)
+            {
+                _noMask = new Texture2D(1, 1, TextureFormat.RGBA32, false, true) { name = "NoHeroMask" };
+                _noMask.SetPixel(0, 0, Color.clear);
+                _noMask.Apply();
+            }
+
+            _hero = hero;
+            Shader.SetGlobalTexture(HeroMaskId, _noMask);
+            Shader.SetGlobalVector(HeroRectId, Vector4.zero);
+            Shader.SetGlobalVector(HeroTexelId, Vector4.zero);
+            Shader.SetGlobalVector(HeroFillId, SilhouetteFill);
+            Shader.SetGlobalVector(HeroLineId, SilhouetteLine);
             // C-017: без слоя тона (notint) сетки света нет — «снаружи, без огня»; солнце — как днём, пока часы не придут.
             if (_noGrid == null)
             {
@@ -107,6 +141,22 @@ namespace Orpheus.Client
                 _shadowCam.useOcclusionCulling = false;
                 Overlay(main, "ShadowComposite", new Material(set.ShadowCompositeShader) { name = "ShadowComposite" }, WorldView.ShadowOrder);
                 AddActorShadow(hero, 0.8f);
+            }
+
+            if (!Off("nosilhouette"))
+            {
+                var mgo = new GameObject("HeroMaskCamera");
+                _maskCam = mgo.AddComponent<Camera>();
+                _maskCam.orthographic = true;
+                _maskCam.clearFlags = CameraClearFlags.SolidColor;
+                _maskCam.backgroundColor = Color.clear;
+                _maskCam.cullingMask = 1 << HeroLayer;
+                _maskCam.depth = main.depth - 9f;
+                _maskCam.allowHDR = false;
+                _maskCam.allowMSAA = false;
+                _maskCam.nearClipPlane = main.nearClipPlane;
+                _maskCam.farClipPlane = main.farClipPlane;
+                _maskCam.useOcclusionCulling = false;
             }
 
             _ready = true;
@@ -161,6 +211,24 @@ namespace Orpheus.Client
             _view?.FlushFire(6);
         }
 
+        // C-027: спрайты своего персонажа (тело, призраки уворота, предмет в руке) — в слой маски; тень (слой 31) не трогаем.
+        static void TagHero()
+        {
+            if (_hero == null)
+            {
+                return;
+            }
+
+            _hero.GetComponentsInChildren(true, HeroRenderers);
+            foreach (Renderer r in HeroRenderers)
+            {
+                if (r is SpriteRenderer && r.gameObject.layer != ShadowLayer && r.gameObject.layer != HeroLayer)
+                {
+                    r.gameObject.layer = HeroLayer;
+                }
+            }
+        }
+
         /// <summary>
         /// Перед ручной отрисовкой основной камеры в текстуру w × h (снимок, замер): камера теней встаёт под этот кадр и
         /// рисуется сразу — снимок не зависит от размера окна.
@@ -181,6 +249,11 @@ namespace Orpheus.Client
             if (_shadowCam != null)
             {
                 _shadowCam.Render();
+            }
+
+            if (_maskCam != null)
+            {
+                _maskCam.Render();
             }
         }
 
@@ -210,18 +283,25 @@ namespace Orpheus.Client
             return $"тени огня и существ {(t1 - t0) * f / frames:0.000} мс/кадр, сетка света {(t2 - t1) * f / fills:0.00} мс/пересборка";
         }
 
-        /// <summary>C-017: замер кадра снимка (<c>ORPH_SHOT_BENCH</c>) — камера теней рисуется каждый кадр, как в игре.</summary>
+        /// <summary>C-017: замер кадра снимка (<c>ORPH_SHOT_BENCH</c>) — камера теней (и маски силуэта, C-027) рисуется каждый кадр, как в игре.</summary>
         public static void BenchShadows()
         {
             if (_ready && _shadowCam != null)
             {
                 _shadowCam.Render();
             }
+
+            if (_ready && _maskCam != null)
+            {
+                TagHero();
+                _maskCam.Render(); // C-027: и камера маски силуэта — её цена входит в кадр
+            }
         }
 
         static void Sync(float aspect, int pixelHeight)
         {
             Camera main = _main!;
+            SyncMask(main, aspect, pixelHeight);
             if (_shadowCam == null)
             {
                 return;
@@ -267,6 +347,49 @@ namespace Orpheus.Client
             _shadowCam.aspect = aspect;
             float halfW = half * aspect;
             Shader.SetGlobalVector(ShadowRectId, new Vector4(p.x - halfW, p.y - half, 0.5f / halfW, 0.5f / half));
+        }
+
+        // C-027: камера маски силуэта — обзор основной, половина разрешения (как тени), прямоугольник — в шейдер объектов.
+        static void SyncMask(Camera main, float aspect, int pixelHeight)
+        {
+            if (_maskCam == null)
+            {
+                return;
+            }
+
+            TagHero();
+            int h = Mathf.Clamp(pixelHeight / 2, 270, 1080);
+            int w = Mathf.Max(16, Mathf.RoundToInt(h * aspect));
+            if (_maskRt == null || _maskRt.width != w || _maskRt.height != h)
+            {
+                if (_maskRt != null)
+                {
+                    _maskCam.targetTexture = null;
+                    _maskRt.Release();
+                    UnityEngine.Object.Destroy(_maskRt);
+                }
+
+                _maskRt = new RenderTexture(w, h, 16, RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear)
+                {
+                    name = "HeroMask",
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp,
+                    useMipMap = false,
+                };
+                _maskRt.Create();
+                _maskCam.targetTexture = _maskRt;
+                Shader.SetGlobalTexture(HeroMaskId, _maskRt);
+                Shader.SetGlobalVector(HeroTexelId, new Vector4(1f / w, 1f / h, 0f, 0f));
+            }
+
+            float half = main.orthographicSize;
+            Vector3 p = main.transform.position;
+            _maskCam.transform.position = p;
+            _maskCam.transform.rotation = main.transform.rotation;
+            _maskCam.orthographicSize = half;
+            _maskCam.aspect = aspect;
+            float halfW = half * aspect;
+            Shader.SetGlobalVector(HeroRectId, new Vector4(p.x - halfW, p.y - half, 0.5f / halfW, 0.5f / half));
         }
     }
 }

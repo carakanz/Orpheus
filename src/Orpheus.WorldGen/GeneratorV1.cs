@@ -25,10 +25,11 @@ namespace Orpheus.WorldGen
         /// вода, берег, обрывы, тропы, лес куртинами, сухая трава, без скальной массы гор. 6 — E1-6b: обрывы — плавные гряды
         /// толщиной 2–3 тайла вокруг гор вместо линий уровней в один тайл. Макрокарта (этапы 1–3, 7) при
         /// этом не менялась, её версия осталась (7 — E2-6: залежи пятнами — медь, россыпи валунов, ядра гранита; 8 — C-016:
-        /// горы-лабиринт — широкие скальные массивы с ущельями 2–3 тайла, тупиками и долинами вместо гряд 2–4 тайла)
+        /// горы-лабиринт — широкие скальные массивы с ущельями 2–3 тайла, тупиками и долинами вместо гряд 2–4 тайла; 9 — C-027:
+        /// глубокая вода <see cref="FloorId.DeepWater"/> непроходима, троп нет, виды лесов — свой пол, 2–3 выхода меди в 140 от Очага)
         /// <see cref="MacroGenerator.GeneratorVersion"/>.
         /// </summary>
-        public const int GeneratorVersion = 8;
+        public const int GeneratorVersion = 9;
 
         /// <summary>Ключ сервера <c>--gen</c>.</summary>
         public const string Key = "v1";
@@ -60,8 +61,10 @@ namespace Orpheus.WorldGen
             t.ForestStamped = HearthStage.RunMacro(macro);
             TileStage.Run(t);
             HearthStage.StampCopper(t);
+            HearthStage.StampNearCopper(t);
             ConnectStage.Run(t);
             CliffStage.DropStubs(t);
+            WaterStage.MarkDeep(t);
             return t;
         }
 

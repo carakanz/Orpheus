@@ -294,11 +294,12 @@ namespace Orpheus.Tests
             Assert.Equal(35, r.Sim.GetEntity(enemy).Health);
         }
 
-        /// <summary>Забор, открытая дверь, вода, куст — стрела пролетает (`02` 4.2; C-018) и попадает.</summary>
+        /// <summary>Забор, открытая дверь, вода (и глубокая, C-027), куст — стрела пролетает (`02` 4.2; C-018) и попадает.</summary>
         [Theory]
         [InlineData(ObjectId.WoodFence, FloorId.Grass)]
         [InlineData(ObjectId.Door, FloorId.Grass)]
         [InlineData(ObjectId.Empty, FloorId.Water)]
+        [InlineData(ObjectId.Empty, FloorId.DeepWater)] // C-027: глубину не переходят, но стрела над ней летит
         [InlineData(ObjectId.Bush, FloorId.Grass)]
         public void E32_FenceOpenDoorWaterBush_DoNotStop(ushort obj, byte floor)
         {

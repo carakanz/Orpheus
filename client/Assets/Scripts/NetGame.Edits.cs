@@ -905,7 +905,7 @@ namespace Orpheus.Client
                     }
 
                     byte floor = chunk.GetFloor(index);
-                    if (floor == FloorId.Water || floor == FloorId.Lava || _netRules!.IsBlocked(_map, t) || RemoteNear(t, 3))
+                    if (FloorId.IsLiquid(floor) || _netRules!.IsBlocked(_map, t) || RemoteNear(t, 3))
                     {
                         continue;
                     }
