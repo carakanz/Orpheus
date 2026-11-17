@@ -29,26 +29,37 @@ namespace Orpheus.Tests
 
         private static byte In(bool pressed, bool arrows = true) => BowInput.Of(true, pressed, arrows);
 
-        /// <summary>Натяжение 0,6 с (36 кадров) и отпускание: выстрел полной силы в кадре отпускания, отход 12 кадров, бег 60 %.</summary>
+        /// <summary>
+        /// Натяжение 0,6 с (36 кадров): C-031 — при зажатой ЛКМ выстрел полной силы сам в 36-м кадре (раньше натяжение
+        /// держалось до отпускания); отпускание раньше — выстрел в кадре отпускания с набранной силой; отход 12 кадров, бег 60 %.
+        /// </summary>
         [Fact]
         public void E32_Bow_FullDraw_FiresOnRelease_Recover12()
         {
             var b = new BowAction();
-            for (int f = 0; f < 50; f++)
+            for (int f = 0; f < BowAction.FullDrawFrames - 1; f++)
             {
                 b.StepFrame(In(true), 1234, 0, 0);
                 Assert.Equal(BowAction.PhaseDraw, b.Phase);
                 Assert.False(b.Fired);
             }
 
-            Assert.Equal(BowAction.FullDrawFrames, b.Frames); // натяжение держится сколько угодно, сила не растёт
+            Assert.Equal(BowAction.FullDrawFrames - 1, b.Frames);
             Assert.Equal(BowAction.DrawSpeedX1000, b.SpeedX1000);
-            b.StepFrame(In(false), 999, 77, 88);
+            b.StepFrame(In(true), 1234, 77, 88); // 36-й кадр — выстрел сам
             Assert.True(b.Fired);
             Assert.Equal(BowAction.FullDrawFrames, b.ShotDraw);
             Assert.Equal(1234, b.ShotAim); // ось — прицел последнего кадра с зажатой ЛКМ
             Assert.Equal(77, b.ShotX);
             Assert.Equal(256, BowAction.PowerQ8(b.ShotDraw));
+
+            var early = new BowAction();
+            for (int f = 0; f < 20; f++)
+                early.StepFrame(In(true), 1234, 0, 0);
+            early.StepFrame(In(false), 999, 5, 6);
+            Assert.True(early.Fired);
+            Assert.Equal(20, early.ShotDraw);
+            Assert.Equal(1234, early.ShotAim);
             Assert.True(b.TakeShot());
             Assert.False(b.TakeShot());
             int recover = 0;
@@ -113,7 +124,7 @@ namespace Orpheus.Tests
         {
             var free = Mover.At(Map, At(10, 10));
             var draw = Mover.At(Map, At(10, 20));
-            for (int f = 0; f < 60; f++)
+            for (int f = 0; f < BowAction.FullDrawFrames - 1; f++) // C-031: дальше — выстрел сам и отход на полной скорости
             {
                 free.StepFrame(Map, Input8.East, false, false, 0, 0, Collision.Empty);
                 draw.StepFrame(Map, Input8.East, false, false, 0, In(true), Collision.Empty);
@@ -283,11 +294,12 @@ namespace Orpheus.Tests
             Assert.Equal(35, r.Sim.GetEntity(enemy).Health);
         }
 
-        /// <summary>Забор, открытая дверь, вода, куст — стрела пролетает (`02` 4.2; C-018) и попадает.</summary>
+        /// <summary>Забор, открытая дверь, вода (и глубокая, C-027), куст — стрела пролетает (`02` 4.2; C-018) и попадает.</summary>
         [Theory]
         [InlineData(ObjectId.WoodFence, FloorId.Grass)]
         [InlineData(ObjectId.Door, FloorId.Grass)]
         [InlineData(ObjectId.Empty, FloorId.Water)]
+        [InlineData(ObjectId.Empty, FloorId.DeepWater)] // C-027: глубину не переходят, но стрела над ней летит
         [InlineData(ObjectId.Bush, FloorId.Grass)]
         public void E32_FenceOpenDoorWaterBush_DoNotStop(ushort obj, byte floor)
         {
@@ -393,9 +405,12 @@ namespace Orpheus.Tests
             Assert.Equal(r.Char, r.Damage[0].Victim);
         }
 
-        /// <summary>Приёмка `02` 4.6 п. 2: 100 стрел в стену — у стены лежит 40–60 (шанс 50 %), стрелы кучами перед стеной.</summary>
+        /// <summary>
+        /// Приёмка `02` 4.6 п. 2, пересмотрена C-031 (`BRIEF` 11n): 100 стрел в стену — у стены лежат все 100, каждая — сама
+        /// стрела-предмет (1 штука, вид «в преграде») в точке своей остановки перед стеной (было: 40–60, шанс 50 %, кучами).
+        /// </summary>
         [Fact]
-        public void E32_Accept_100ShotsIntoWall_40to60Remain()
+        public void E32_Accept_100ShotsIntoWall_AllRemain_C031()
         {
             var r = new Range();
             r.Build(13, 32, ObjectId.StoneWall, BuildRecord.OfPlayer(1, FloorId.Grass));
@@ -420,6 +435,8 @@ namespace Orpheus.Tests
                 if (p.Item == Items.Arrows)
                 {
                     onGround += p.Count;
+                    Assert.Equal(1, p.Count);
+                    Assert.Equal(GroundPile.KindArrowWall, p.Kind);
                     Assert.Equal(new TileCoord(12, 32), Torus.TileOf(Map, p.Position));
                 }
             }
@@ -429,7 +446,7 @@ namespace Orpheus.Tests
                 if (s.Dropped)
                     dropped++;
             Assert.Equal(dropped, onGround);
-            Assert.InRange(onGround, 40, 60);
+            Assert.Equal(100, onGround);
         }
 
         /// <summary>Детерминизм: два прогона с одним вводом — один хэш состояния по тактам; стрельба меняет хэш (стрелы и лук в нём).</summary>
@@ -481,7 +498,7 @@ namespace Orpheus.Tests
             Assert.Equal(GoldenHash, StateHash.Compute(r.Sim).Total);
         }
 
-        private const ulong GoldenHash = 2109277538302106159UL;
+        private const ulong GoldenHash = 7982884849753425172UL; // C-031: стрелы остаются всегда (вид и ось в хэше); E3-2: 2109277538302106159
 
         // -------------------------------------------------------- П E3-2: стык стен углом, туннелирование, куча при попадании, уворот, отказ
 

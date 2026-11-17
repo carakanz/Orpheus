@@ -10,6 +10,9 @@ namespace Orpheus.WorldGen
     /// <item>лес в 200: нет ячейки леса с d ≤ 200 — штамп: круг r = 24 вокруг ячейки с наибольшей m среди 150 &lt; d ≤ 200
     /// (вне лугов Очага);</item>
     /// <item>медь в 600: после этапа 11 залежей меди в 600 меньше 20 — штамп-пятно радиуса 6 (E2-6) (<see cref="StampCopper"/>);</item>
+    /// <item>медь у старта (C-027, v9; слово Автора 17.11 «Я не нашел ни 1 куска меди»): 2–3 выхода меди на лугу в
+    /// <see cref="NearCopperMin"/>…<see cref="NearCopperMax"/> тайлах от Очага, в разные стороны, на поляне без деревьев
+    /// (<see cref="StampNearCopper"/>);</item>
     /// <item>озеро в 150 — не в вехе 1 (вода — этап 5, веха 2; допущение `[док]` 1-017); пещеры в 900 — на 1024² это весь мир,
     /// пещеры среза есть всегда (8 % по построению этапа 3), штамп не нужен.</item>
     /// </list>
@@ -39,6 +42,23 @@ namespace Orpheus.WorldGen
 
         /// <summary>Штамп меди без своих гор в 600 — на этом расстоянии от Очага.</summary>
         public const int CopperStampFallbackDistance = 300;
+
+        /// <summary>C-027: выходы меди у старта — от и до стольких тайлов от Очага (предварительно; в 150 — слово карточки).</summary>
+        public const int NearCopperMin = 80;
+
+        public const int NearCopperMax = 140;
+
+        /// <summary>C-027: радиус пятна выхода меди (край ± <see cref="DepositStage.EdgeJagTiles"/>) и поляны вокруг него.</summary>
+        public const int NearCopperRadius = 4;
+
+        public const int NearCopperClear = 9;
+
+        /// <summary>Поток хэшей выходов меди у старта (зерно этапа 7).</summary>
+        private const int StreamNearCopper = 70;
+
+        // 8 направлений, длина ×1000 (диагональ — 707).
+        private static readonly int[] NearDx = { 1000, 707, 0, -707, -1000, -707, 0, 707 };
+        private static readonly int[] NearDy = { 0, 707, 1000, 707, 0, -707, -1000, -707 };
 
         /// <summary>Этап 7 на макрокарте (луга у Очага, лес в 200). Возвращает true, если поставлен штамп леса.</summary>
         public static bool RunMacro(MacroWorld world)
@@ -135,6 +155,54 @@ namespace Orpheus.WorldGen
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// Выходы меди у старта (C-027, после <see cref="StampCopper"/>): 2 или 3 пятна радиуса <see cref="NearCopperRadius"/> в
+        /// <see cref="NearCopperMin"/>…<see cref="NearCopperMax"/> тайлах от Очага, направления разнесены (из 8, по хэшу зерна);
+        /// вокруг — поляна радиуса <see cref="NearCopperClear"/> без деревьев, кустов и валунов (залежь видна издали и подходима
+        /// со всех сторон). В 150 от Очага нет воды и обрывов, поэтому пятно всегда на суше. Возвращает центры пятен.
+        /// </summary>
+        public static Orpheus.Core.Geometry.TileCoord[] StampNearCopper(TileWorld t)
+        {
+            int w = t.WorldSize;
+            int mask = w - 1;
+            int half = w >> 1;
+            ulong seed = t.Macro.Map.Seed;
+            ulong h = Orpheus.Core.Rng.SplitMix64.Hash(StreamNearCopper, 0, MacroGenerator.StageSeed(seed, Stage));
+            int count = 2 + (int)(h & 1);
+            int first = (int)((h >> 1) & 7);
+            int step = count == 2 ? 4 : 3;
+            int span = Math.Max(1, Math.Min(NearCopperMax, half - NearCopperClear - 2) - NearCopperMin + 1);
+            FieldNoise edge = DepositStage.EdgeField(w, seed);
+            ulong tileSeed = MacroGenerator.StageSeed(seed, TileStage.Stage);
+            var centers = new Orpheus.Core.Geometry.TileCoord[count];
+            for (int k = 0; k < count; k++)
+            {
+                int dir = (first + (k * step)) & 7;
+                int dist = NearCopperMin + (int)((h >> (8 + (k * 8))) & 0xFF) % span;
+                int cx = (half + (NearDx[dir] * dist / 1000)) & mask;
+                int cy = (half + (NearDy[dir] * dist / 1000)) & mask;
+                int r2 = NearCopperClear * NearCopperClear;
+                for (int dy = -NearCopperClear; dy <= NearCopperClear; dy++)
+                {
+                    for (int dx = -NearCopperClear; dx <= NearCopperClear; dx++)
+                    {
+                        int j = (((cy + dy) & mask) * w) + ((cx + dx) & mask);
+                        ushort o = t.Objects[j];
+                        if ((dx * dx) + (dy * dy) <= r2 && o != ObjectId.Cliff && o != ObjectId.Ore)
+                        {
+                            t.Objects[j] = ObjectId.Empty;
+                        }
+                    }
+                }
+
+                DepositStage.Place(t, edge, tileSeed, cx, cy, NearCopperRadius, DepositKind.Copper, forced: true);
+                centers[k] = new Orpheus.Core.Geometry.TileCoord(cx, cy);
+            }
+
+            t.NearCopper = centers;
+            return centers;
         }
 
         /// <summary>

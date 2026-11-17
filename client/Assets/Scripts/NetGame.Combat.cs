@@ -56,7 +56,66 @@ namespace Orpheus.Client
                     (byte)(killer.Enemy >> SnapshotLayout.EnemyArchetypeShift));
             }
 
+            // C-029: убит враг — открыт (подсказка «где взять» перестаёт писать «?» у его добычи).
+            if (m.Victim != _localId && _client != null && _client.HasSnapshot && _client.Latest.TryFind(m.Victim, out SnapshotEntity victim)
+                && victim.Kind == SimEntity.KindEnemy)
+            {
+                byte arch = (byte)(victim.Enemy >> SnapshotLayout.EnemyArchetypeShift);
+                _known?.NoteKill(arch == EnemyArchetype.Melee ? ItemSources.Bandit : arch);
+            }
+
             _feed.OnDeath(m, Time.timeAsDouble);
+        }
+
+        // ---------- C-029: открытия игрока (биомы, враги) для подсказок ингредиентов ----------
+
+        Discovery? _known;
+        ulong _knownSeed;
+        float _knownNextSave;
+
+        string KnownPath(ulong seed) => System.IO.Path.Combine(Application.persistentDataPath, "Discovery", $"{seed:x16}.txt");
+
+        /// <summary>Кадр открытий: загрузить по зерну мира, отметить биом под персонажем, раз в 5 с сохранить изменения.</summary>
+        void DiscoveryFrame()
+        {
+            if (_world == null || _ui == null)
+            {
+                return;
+            }
+
+            if (_known == null || _knownSeed != _world.Seed)
+            {
+                _knownSeed = _world.Seed;
+                string? text = null;
+                try
+                {
+                    string path = KnownPath(_knownSeed);
+                    text = System.IO.File.Exists(path) ? System.IO.File.ReadAllText(path) : null;
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[known] не прочитать открытия: {e.Message}");
+                }
+
+                _known = Discovery.Load(text);
+                _ui.Known = _known;
+            }
+
+            _known.NoteFloor(_world.GetFloor(Torus.TileOf(_map, _localPos)));
+            if (_known.Dirty && Time.unscaledTime >= _knownNextSave)
+            {
+                _knownNextSave = Time.unscaledTime + 5f;
+                try
+                {
+                    string path = KnownPath(_knownSeed);
+                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+                    System.IO.File.WriteAllText(path, _known.Save());
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[known] не сохранить открытия: {e.Message}");
+                }
+            }
         }
 
         /// <summary>Где сущность сейчас на экране (свой — предсказание; чужие — показ интерполяции, иначе последний снимок).</summary>
@@ -89,6 +148,7 @@ namespace Orpheus.Client
                 return;
             }
 
+            DiscoveryFrame(); // C-029
             double now = Time.timeAsDouble;
             _feed.Expire(now);
             _enemyMarks.Clear();

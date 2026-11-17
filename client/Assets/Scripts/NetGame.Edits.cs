@@ -186,6 +186,12 @@ namespace Orpheus.Client
             UI.UiBuildState build = _args.NetSmokeSeconds > 0 ? default : BuildState(c, pr);
             _ui.MapSnapshot = c.HasSnapshot ? c.Latest : null; // C-008: точки игроков и врагов на мини-карте
             _ui.MapSelf = _localId;
+            if (_explored != null && _world != null)
+            {
+                _explored.Update(_world, 2); // C-029: открытые чанки для карты на весь экран — по 2 за кадр
+                _ui.Explored = _explored;
+                _ui.Hearth = CenterOf(_map.Width / 2, _map.Height / 2); // допущение C-029: Очаг — центр мира (точка появления)
+            }
             _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0,
                 Orpheus.Core.Movement.Stamina.Max, craft, build);
             if (_ui.SlotClicked >= 0)
@@ -226,6 +232,41 @@ namespace Orpheus.Client
         /// <summary>Esc этого кадра занят линейкой: идёт протягивание или его только что отменили.</summary>
         bool RulerTookEscape => (_ui?.Ruler.Dragging ?? false) || _rulerCancelFrame == Time.frameCount || _menuCancelFrame == Time.frameCount || FromMenu;
 
+        /// <summary>
+        /// Пипетка (C-029, «скопировать предмет»): средняя кнопка мыши или G по постройке под курсором — такая же постройка в руку
+        /// (<see cref="UI.GameUi.Pipette"/>: из сумки, нет — изготовить на месте), с её поворотом. Цель — как у молота
+        /// (<see cref="BuildCursor.Target"/> без постройки: якорь, нарисованная высота). Не постройка — строка «нечего копировать».
+        /// </summary>
+        void PipetteKeys(Mouse mouse, long now)
+        {
+            bool press = mouse.middleButton.wasPressedThisFrame || Keyboard.current?.gKey.wasPressedThisFrame == true;
+            if (!press || _ui == null || _world == null || _origin == null)
+            {
+                return;
+            }
+
+            Vector3 screen = mouse.position.ReadValue();
+            Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
+            TileCoord at = BuildCursor.Target(_world, _map, _origin.FromUnity(v), 0, out _);
+            byte item = BuildCursor.PipetteItem(_world, at, out int rotation);
+            if (item == Items.None)
+            {
+                _lastRefusal = UI.UiStrings.PipetteNothing;
+                _lastRefusalUntilUs = now + FlashUs;
+                return;
+            }
+
+            _ui.Ruler.Cancel();
+            _ui.Pipette(item);
+            _menuSlot = HeldCell;
+            if (BuildHand.IsBuildItem(item, out ushort key) && Turnable(key))
+            {
+                _turns[item] = rotation & 3;
+            }
+
+            Debug.Log($"[build] пипетка: {item} (поворот {rotation * 90}°)");
+        }
+
         /// <summary>Тайл под курсором мыши (нет мыши или мира — null).</summary>
         TileCoord? CursorTile()
         {
@@ -238,24 +279,13 @@ namespace Orpheus.Client
             Vector3 screen = mouse.position.ReadValue();
             Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
             WorldPos p = Torus.Wrap(_map, _origin.FromUnity(v));
-            TileCoord cell = BuildCells.CellAt(_map, p);
+            // C-029: один расчёт цели для призрака и щелчка (мебель — СЗ ячейка от узла 0,5; молот, кирка, F — якорь постройки
+            // под курсором, с поправкой на нарисованную высоту стен и мебели). Раньше щелчок брал простой тайл точки.
             byte held = HandItem;
-            if (BuildHand.IsBuildItem(held, out ushort key) && BuildLayers.IsFurniture(key))
-            {
-                // E2-15: мебель с шагом 0,5 — центром к ближнему узлу сетки 0,5 под курсором; тайл и четверть — её СЗ ячейка.
-                // E2-16: размер — по повороту (кровать 1 × 2, верстак 2 × 2).
-                cell = BuildLayers.FurnitureCellAt(_map, p, HandKey(held));
-                _cursorQuad = BuildCells.QuadOf(cell);
-                return BuildCells.TileOfCell(cell);
-            }
-
-            _cursorQuad = BuildCells.QuadOf(cell);
-            if (!BuildHand.IsBuildItem(held) && _world != null && BuildLayers.TryTopOfCell(_world, cell, out TileCoord top))
-            {
-                return top; // E2-15: молот, F — по постройке под курсором; мебель соседа со сдвигом — её тайл-якорь
-            }
-
-            return Torus.TileOf(_map, p);
+            ushort key = BuildHand.IsBuildItem(held) ? HandKey(held) : (ushort)0;
+            TileCoord t = BuildCursor.Target(_world, _map, p, key, out int quad);
+            _cursorQuad = quad;
+            return t;
         }
 
         /// <summary>
@@ -366,7 +396,7 @@ namespace Orpheus.Client
         /// </summary>
         void HookPiles(NetClient client)
         {
-            client.PileSeen = p => _pileView?.Set(p.Id, p.Item, p.Count, p.Position);
+            client.PileSeen = p => _pileView?.Set(p.Id, p.Item, p.Count, p.Position, p.Kind, p.Aim); // C-031: вид и ось воткнувшейся стрелы
             client.PileGone = (m, was) =>
             {
                 Transform? taker = null;
@@ -499,9 +529,8 @@ namespace Orpheus.Client
                 return 0;
             }
 
-            Vector3 screen = mouse.position.ReadValue();
-            Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
-            TileCoord tile = Torus.TileOf(_map, _origin!.FromUnity(v));
+            // C-029: цель щелчка — тот же расчёт, что у призрака (BuildCursor), а не простой тайл под точкой.
+            TileCoord tile = CursorTile() ?? default;
 
             // 1-012: F — закрыть ближайшую открытую дверь (передний фронт здесь, запрос TileOp.CloseDoor — протокол 19;
             // радиус, проём и замок проверяет сервер, предсказание и откат — общие с правками).
@@ -523,6 +552,7 @@ namespace Orpheus.Client
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
+            PipetteKeys(mouse, now); // C-029: средняя кнопка / G — пипетка
             TurnAndMenuKeys(HandItem); // E2-16: R — поворот, Tab — линейка, Esc / ПКМ — убрать постройку из меню
             byte held = HandItem;      // E2-16: постройка из меню — как в руке
             if ((BuildHand.IsHammer(held) || BuildHand.IsBuildItem(held)) && _ui != null && _world != null)
@@ -898,7 +928,7 @@ namespace Orpheus.Client
                     }
 
                     byte floor = chunk.GetFloor(index);
-                    if (floor == FloorId.Water || floor == FloorId.Lava || _netRules!.IsBlocked(_map, t) || RemoteNear(t, 3))
+                    if (FloorId.IsLiquid(floor) || _netRules!.IsBlocked(_map, t) || RemoteNear(t, 3))
                     {
                         continue;
                     }

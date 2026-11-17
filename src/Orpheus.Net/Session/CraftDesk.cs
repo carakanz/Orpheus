@@ -50,15 +50,28 @@ namespace Orpheus.Net.Session
         /// <summary>На сколько изготовлений хватает ингредиентов в сумке и в сундуках рядом (E2-10, сводка сервера).</summary>
         public readonly int Affordable;
 
-        public CraftLine(byte recipe, CraftReply state, int affordable)
+        /// <summary>
+        /// C-029 (слово Автора 17.11: «Если я строю стену из меню строительства и она уже есть в рюкзаке, она должна браться из
+        /// рюкзака»): у рецепта постройки — сколько готовых построек лежит в сумке (их ставят из меню без изготовления); иначе 0.
+        /// </summary>
+        public readonly int Ready;
+
+        public CraftLine(byte recipe, CraftReply state, int affordable, int ready = 0)
         {
             Recipe = recipe;
             State = state;
             Affordable = affordable;
+            Ready = ready;
         }
 
         /// <summary>Можно делать прямо сейчас («белая» строка, <c>06</c> 3.3).</summary>
         public bool CanMake => State == CraftReply.Accepted;
+
+        /// <summary>C-029: постройку можно поставить из меню — готовая в сумке (без станка и материалов) или изготовить.</summary>
+        public bool CanPlace => Ready > 0 && State != CraftReply.Dead;
+
+        /// <summary>Строка «доступна» для фильтра «только доступные»: изготовить можно или постройка уже есть в сумке.</summary>
+        public bool Shown => CanMake || CanPlace;
     }
 
     /// <summary>
@@ -112,7 +125,8 @@ namespace Orpheus.Net.Session
                 }
             }
 
-            return new CraftLine(def.Id, state, can);
+            int ready = BuildHand.IsBuildItem(def.Result) ? bag.Count(def.Result) : 0; // C-029: готовые постройки
+            return new CraftLine(def.Id, state, can, ready);
         }
 
         /// <summary>

@@ -10,8 +10,9 @@ using UnityEngine;
 namespace Orpheus.Client
 {
     /// <summary>
-    /// Стрелы на экране (E3-2, шаг 3.2): спрайт стрелы с наклоном по оси полёта, след за ней; воткнувшаяся — дрожит и висит
-    /// <see cref="ClientProjectiles.StuckUs"/>; попала — исчезает в теле. Высота полёта — середина тела
+    /// Стрелы на экране (E3-2, шаг 3.2): спрайт стрелы с наклоном по оси полёта, след за ней; воткнувшаяся — дрожит
+    /// <see cref="ClientProjectiles.StuckUs"/>, дальше на её месте предмет «воткнувшаяся стрела» той же позы (C-031,
+    /// <see cref="StuckPose"/>, рисует <see cref="PileView"/>); попала — исчезает в теле. Высота полёта — середина тела
     /// (<see cref="AimMath.BodyCenterY"/>): прицел C-012 считается от неё, поэтому стрела на экране идёт ровно в курсор.
     /// Плюс прицел натяжения у курсора: тонкая линия от тела к курсору и кольцо силы, растущее до полного натяжения (без сектора).
     /// Только вид: полёт считает <see cref="ClientProjectiles"/>, попадания — сервер. Картинки — процедурные (заглушки).
@@ -90,11 +91,13 @@ namespace Orpheus.Client
                 float deg = Mathf.Atan2(ay, ax) * Mathf.Rad2Deg;
                 bool arrived = list.Arrived(f, nowUs);
                 float trail = 0f;
+                float wobble = 0f;
                 if (arrived)
                 {
                     float since = f.ArrivedUs == 0 ? 0f : (nowUs - f.ArrivedUs) / 1e6f;
                     float k = Mathf.Clamp01(1f - since / WobbleSec);
-                    deg += Mathf.Sin(since * 55f) * WobbleDeg * k * k;
+                    wobble = Mathf.Sin(since * 55f) * WobbleDeg * k * k;
+                    deg += wobble;
                 }
                 else
                 {
@@ -103,11 +106,29 @@ namespace Orpheus.Client
                     trail = Mathf.Min(TrailTiles * f.P.SpeedX256 / (28f * 256f * 256f / 30f), flown);
                 }
 
+                if (arrived && (f.Reason == ProjectileEnd.Wall || f.Dropped))
+                {
+                    // C-031: воткнулась — та же поза, что у предмета «воткнувшаяся стрела» (PileView), плюс дрожь; потом её сменит предмет
+                    StuckPose(f.Reason == ProjectileEnd.Wall ? Orpheus.Core.Sim.GroundPile.KindArrowWall : Orpheus.Core.Sim.GroundPile.KindArrowGround,
+                        f.P.AimRaw, out float sdeg, out Vector3 local, out Vector3 sscale);
+                    a.Root.transform.position = ground;
+                    a.Root.transform.rotation = Quaternion.identity;
+                    a.Body.transform.localPosition = local;
+                    a.Body.transform.localRotation = Quaternion.Euler(0f, 0f, sdeg + wobble);
+                    a.Body.transform.localScale = sscale;
+                    a.Trail.enabled = false;
+                    int sorder = WorldView.SortOrderAt(ground.y - 0.05f) + 1;
+                    a.Body.sortingOrder = sorder + 1;
+                    continue;
+                }
+
                 Vector3 pos = ground + new Vector3(0f, AimMath.BodyCenterY, 0f);
                 a.Root.transform.position = pos;
                 a.Root.transform.rotation = Quaternion.Euler(0f, 0f, deg);
-                // наконечник — в точке ядра (воткнувшаяся — чуть в преграде)
-                a.Body.transform.localPosition = new Vector3(arrived && f.Reason == ProjectileEnd.Wall ? -ArrowTiles * 0.5f + StuckEmbedTiles : -ArrowTiles * 0.5f, 0f, 0f);
+                a.Body.transform.localRotation = Quaternion.identity;
+                a.Body.transform.localScale = Vector3.one;
+                // наконечник — в точке ядра
+                a.Body.transform.localPosition = new Vector3(-ArrowTiles * 0.5f, 0f, 0f);
                 a.Trail.enabled = trail > 0.05f;
                 a.Trail.transform.localPosition = new Vector3(-ArrowTiles * 0.6f - trail * 0.5f, 0f, 0f);
                 a.Trail.transform.localScale = new Vector3(trail / (32f / 32f), 1f, 1f);
@@ -191,8 +212,38 @@ namespace Orpheus.Client
             return sr;
         }
 
+        /// <summary>
+        /// C-031: поза воткнувшейся стрелы относительно точки ядра (корень предмета на земле): угол, место и масштаб спрайта.
+        /// В преграде (1) — на высоте середины тела, наконечник уходит в преграду (как дрожащий снаряд у стены); в земле (2) —
+        /// круто воткнута: короче в проекции, хвост приподнят, наконечник в точке. Одна функция для снаряда и предмета —
+        /// предмет сменяет снаряд без скачка.
+        /// </summary>
+        public static void StuckPose(byte kind, ushort aim, out float deg, out Vector3 local, out Vector3 scale)
+        {
+            AimMath.AxisOf(aim, out float ax, out float ay);
+            deg = Mathf.Atan2(ay, ax) * Mathf.Rad2Deg;
+            if (kind == Orpheus.Core.Sim.GroundPile.KindArrowGround)
+            {
+                const float k = GroundLengthScale;
+                Vector3 back = new Vector3(-ax, -ay, 0f) * (ArrowTiles * k * 0.5f - GroundEmbedTiles);
+                local = back + new Vector3(0f, GroundTailLift, 0f);
+                deg += ax >= 0f ? -GroundTiltDeg : GroundTiltDeg; // хвост вверх: наконечник смотрит в землю
+                scale = new Vector3(k, 1f, 1f);
+                return;
+            }
+
+            local = new Vector3(0f, AimMath.BodyCenterY, 0f) + new Vector3(ax, ay, 0f) * (-ArrowTiles * 0.5f + StuckEmbedTiles);
+            scale = Vector3.one;
+        }
+
+        /// <summary>Стрела в земле: длина в проекции, наконечник в земле, подъём хвоста, наклон к земле (C-031, картинка).</summary>
+        public const float GroundLengthScale = 0.6f;
+        public const float GroundEmbedTiles = 0.08f;
+        public const float GroundTailLift = 0.12f;
+        public const float GroundTiltDeg = 18f;
+
         /// <summary>Стрела 32 × 5 px (0,8 тайла): наконечник серый, древко дерево, оперение светлое с красной полосой; ось — +X.</summary>
-        static Sprite ArrowSprite()
+        internal static Sprite ArrowSprite()
         {
             if (_arrow != null)
             {

@@ -44,8 +44,23 @@ namespace Orpheus.Core.World
         /// <summary>Сухая трава — природный пол пятнами на лугу (E1-2, план 1.3).</summary>
         public const byte DryGrass = 12;
 
+        /// <summary>
+        /// Глубокая вода (C-027, генератор v9; слово Автора 17.11 «Сквозь глубокую воду нужно запретить ходить»): вода дальше
+        /// 2 тайлов от суши. Непроходима для всех (в отличие от <see cref="Water"/>-отмели, C-018), не опора — на ней только настил.
+        /// </summary>
+        public const byte DeepWater = 13;
+
+        /// <summary>
+        /// Хвойная подстилка — пол соснового бора (C-027, генератор v9: виды лесов). Свойства — как у <see cref="ForestFloor"/>;
+        /// вид (сосны, рыжая хвоя) — клиент (`worldview`).
+        /// </summary>
+        public const byte PineFloor = 14;
+
+        /// <summary>Мшистая подстилка — пол тёмного ельника (C-027, v9). Свойства — как у <see cref="ForestFloor"/>.</summary>
+        public const byte SpruceFloor = 15;
+
         /// <summary>Наибольший описанный id: таблица заполнена до него включительно.</summary>
-        public const byte MaxKnown = 12; // E2-12: ≤ 15 — пол записи постройки занимает 4 бита (старшие — маска ячеек), тест E212_FloorIds_Fit4Bits
+        public const byte MaxKnown = 15; // E2-12: ≤ 15 — пол записи постройки занимает 4 бита (старшие — маска ячеек), тест E212_FloorIds_Fit4Bits
 
         /// <summary>Размер таблицы свойств (id 0…<see cref="MaxKnown"/>).</summary>
         public const int TableSize = MaxKnown + 1;
@@ -85,6 +100,9 @@ namespace Orpheus.Core.World
             Properties.Solid | Properties.Passable | Properties.Built, // Platform (настил)
             Properties.Solid | Properties.Passable | Properties.Natural, // ForestFloor
             Properties.Solid | Properties.Passable | Properties.Natural, // DryGrass
+            Properties.Natural,                                   // DeepWater: не идут никогда (C-027); не опора — на ней только настил
+            Properties.Solid | Properties.Passable | Properties.Natural, // PineFloor
+            Properties.Solid | Properties.Passable | Properties.Natural, // SpruceFloor
         };
 
         /// <summary>Свойства id; неизвестный id (выше <see cref="MaxKnown"/>) — <see cref="Properties.None"/>.</summary>
@@ -101,6 +119,15 @@ namespace Orpheus.Core.World
 
         /// <summary>Пол построенный игроком.</summary>
         public static bool IsBuilt(byte id) => (Of(id) & Properties.Built) != 0;
+
+        /// <summary>Жидкость (вода любой глубины, лава): строить — только настил (`05` 1.3).</summary>
+        public static bool IsLiquid(byte id) => id == Water || id == DeepWater || id == Lava;
+
+        /// <summary>Вода любой глубины (отмель <see cref="Water"/> или <see cref="DeepWater"/>).</summary>
+        public static bool IsWater(byte id) => id == Water || id == DeepWater;
+
+        /// <summary>Лесная подстилка любого вида леса (дубрава, бор, ельник — C-027).</summary>
+        public static bool IsForest(byte id) => id == ForestFloor || id == PineFloor || id == SpruceFloor;
 
         /// <summary>Id описан в таблице (0…<see cref="MaxKnown"/>).</summary>
         public static bool Known(byte id) => id <= MaxKnown;

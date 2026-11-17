@@ -20,6 +20,9 @@ namespace Orpheus.Client.UI
         Queue,
         Filter,
         ScrollBar,
+
+        /// <summary>C-029: ингредиент выбранного рецепта (номер в рецепте).</summary>
+        Ingredient,
     }
 
     /// <summary>
@@ -85,6 +88,7 @@ namespace Orpheus.Client.UI
             public RectTransform Rt = null!;
             public UiItemIcon Icon = null!;
             public Text Have = null!;
+            public Text Left = null!; // C-029: красным — сколько останется после изготовления
         }
 
         readonly UiSlotGrid _tabs, _subs, _col, _queue;
@@ -173,6 +177,11 @@ namespace Orpheus.Client.UI
                 UiRoot.Picture(ing.Rt, "Back", (IngStep - 4f - IngBox) / 2f, Big - IngBox, IngBox, IngBox, ingBack);
                 ing.Icon = new UiItemIcon(ing.Rt, (IngStep - 4f - IngBox) / 2f, Big - IngBox, IngBox, 32f);
                 ing.Have = UiRoot.Label(ing.Rt, "Have", -4f, -2f, IngStep + 4f, 24f, 18, TextAnchor.MiddleCenter, UiStyle.TextLight, outline: true, bold: true);
+                // C-029 (слово Автора 17.11: «около затраченных материалов пусть пишется красным, сколько останется»): «→ N» у
+                // под «есть / нужно» — остаток после ещё одного изготовления (строка состояния там же пуста: показ — только когда
+                // рецепт можно сделать).
+                ing.Left = UiRoot.Label(ing.Rt, "Left", -4f, -24f, IngStep + 4f, 22f, 17, TextAnchor.MiddleCenter, UiStyle.TextWarn, outline: true, bold: true);
+                ing.Left.enabled = false;
                 _ingredients[k] = ing;
             }
 
@@ -308,6 +317,35 @@ namespace Orpheus.Client.UI
             }
         }
 
+        /// <summary>
+        /// C-029: открыть рецепт <paramref name="recipe"/> (ЛКМ по небазовому ингредиенту): его раздел и подраздел, выбран в
+        /// столбике; не виден из-за «только доступные» — галочка снимается. Рецепта нет в раскладке — false.
+        /// </summary>
+        public bool ShowRecipe(int recipe, CraftLine[] lines)
+        {
+            (int section, int sub) = CraftShelf.Place(recipe);
+            if (section < 0)
+            {
+                return false;
+            }
+
+            SelectSection(section);
+            SelectSub(sub);
+            if (_onlyAvailable && (recipe >= lines.Length || !lines[recipe].Shown))
+            {
+                _onlyAvailable = false;
+            }
+
+            Refresh(lines);
+            int i = _list.IndexOf(recipe);
+            if (i >= 0)
+            {
+                Pick(i);
+            }
+
+            return i >= 0;
+        }
+
         /// <summary>Прокрутка столбика на <paramref name="rows"/> строк (колесо: вверх — −1).</summary>
         public void Scroll(int rows) => _scroll = Mathf.Clamp(_scroll + rows, 0, MaxScroll);
 
@@ -373,6 +411,18 @@ namespace Orpheus.Client.UI
                 return new CraftHit(CraftPart.Button, 0);
             }
 
+            int recipe = Recipe;
+            if (recipe > 0 && local.y >= _cardY && local.y < _cardY + Big)
+            {
+                // C-029: ингредиент выбранного рецепта — подсказка «что это / где взять», ЛКМ по небазовому — его рецепт.
+                float x = local.x - CardX - IngX;
+                int k = x >= 0f ? (int)(x / IngStep) : -1;
+                if (k >= 0 && k < RecipeTable.Get(recipe).IngredientCount && x - k * IngStep < IngStep - 4f)
+                {
+                    return new CraftHit(CraftPart.Ingredient, k);
+                }
+            }
+
             int q = _queue.Hit(local);
             return q >= 0 && q < _queueCount ? new CraftHit(CraftPart.Queue, q) : default;
         }
@@ -436,6 +486,7 @@ namespace Orpheus.Client.UI
             CraftPart.Cell => _col.CenterOf(index),
             CraftPart.Button => new Vector2(CardX + Big / 2f, (_cardY >= 0f ? _cardY : ColY) + Big / 2f),
             CraftPart.Queue => _queue.CenterOf(index),
+            CraftPart.Ingredient => new Vector2(CardX + IngX + index * IngStep + (IngStep - 4f) / 2f, (_cardY >= 0f ? _cardY : ColY) + Big - IngBox / 2f),
             _ => Vector2.zero,
         };
 
@@ -515,7 +566,7 @@ namespace Orpheus.Client.UI
                 }
 
                 CraftLine line = lines[recipe];
-                _col.SetRecipe(i, RecipeTable.Get(recipe).Result, CraftShelf.Badge(line), !line.CanMake);
+                _col.SetRecipe(i, RecipeTable.Get(recipe).Result, CraftShelf.Badge(line), !line.Shown); // C-029: готовая постройка в сумке — не приглушать
                 if (recipe == selected)
                 {
                     selCell = i;
@@ -595,18 +646,27 @@ namespace Orpheus.Client.UI
                 Ingredient ing = _ingredients[k];
                 ing.Have.text = $"{have}/{need}";
                 ing.Have.color = lacks ? UiStyle.TextWarn : UiStyle.TextLight;
+                bool left = line.CanMake && !dead;
+                ing.Left.enabled = left;
+                if (left)
+                {
+                    ing.Left.text = UiStrings.IngredientLeft(have - need);
+                }
             }
 
             string state = line.CanMake ? string.Empty
-                : dead ? UiStrings.CraftDead : UiStrings.CraftState(line.State, def.Station, line.Affordable);
+                : dead ? UiStrings.CraftDead
+                : line.CanPlace ? UiStrings.ReadyInBag(line.Ready) // C-029: постройка ставится из сумки без изготовления
+                : UiStrings.CraftState(line.State, def.Station, line.Affordable);
             if (state != _shownState)
             {
                 _shownState = state;
                 _state.text = state;
+                _state.color = !line.CanMake && line.CanPlace && !dead ? UiStyle.TextLight : UiStyle.TextWarn;
             }
 
-            _bigBack.sprite = !line.CanMake ? _bigOff : Armed == recipe ? _bigHover : _bigPlain; // C-013: выбран («в руке») — подсвечен
-            _result.Dim(!line.CanMake);
+            _bigBack.sprite = !line.Shown ? _bigOff : Armed == recipe ? _bigHover : _bigPlain; // C-013: выбран («в руке») — подсвечен
+            _result.Dim(!line.Shown);
         }
 
         void ShowQueue(in CraftQueue queue, bool running, int progress, CraftHit hover)

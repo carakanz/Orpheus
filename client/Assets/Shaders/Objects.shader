@@ -4,6 +4,8 @@
 // E1-11: верх объекта смещается ветром и толчками (низ на месте) — в вершинном шейдере.
 // Свой персонаж за кроной: у высокого объекта, чья опора ниже ног персонажа (объект ближе к зрителю), точки в круге
 // _OrphHero.w вокруг персонажа становятся полупрозрачными — персонаж виден сквозь крону.
+// C-027 (слово Автора 17.11 «гора не должна становиться прозрачной»): у горы (uv1.z = 2) прозрачности нет — где гора закрывает
+// своего персонажа, поверх неё рисуется его силуэт (заливка и светлый контур) по маске _OrphHeroMask (камера маски, WorldFx).
 Shader "Orpheus/Objects"
 {
     Properties
@@ -26,6 +28,14 @@ Shader "Orpheus/Objects"
     float4 _OrphHero;
     // x — наименьшая непрозрачность кроны над персонажем.
     float4 _OrphHeroFade;
+    // C-027: маска своего персонажа (альфа) — прямоугольник мира (xy — угол, zw — 1 / размер) и шаг точки маски (xy).
+    TEXTURE2D(_OrphHeroMask);
+    SAMPLER(sampler_OrphHeroMask);
+    float4 _OrphHeroRect;
+    float4 _OrphHeroTexel;
+    // rgb — цвет заливки силуэта, a — её сила; цвет контура — _OrphHeroLine.
+    float4 _OrphHeroFill;
+    float4 _OrphHeroLine;
 
     struct Attributes
     {
@@ -40,7 +50,7 @@ Shader "Orpheus/Objects"
         float4 positionCS : SV_POSITION;
         float2 uv : TEXCOORD0;
         half4 color : COLOR;
-        float3 world : TEXCOORD1; // xy — точка мира, z — 1, если объект может закрыть персонажа
+        float3 world : TEXCOORD1; // xy — точка мира, z — 1, если объект может закрыть персонажа (крона), 2 — гора перед ним
     };
 
     Varyings Vert(Attributes v)
@@ -54,14 +64,29 @@ Shader "Orpheus/Objects"
         o.positionCS = TransformWorldToHClip(wp);
         o.uv = v.uv;
         o.color = v.color;
-        o.world = float3(wp.xy, (v.info.z > 0.5 && base.y < _OrphHero.z && _OrphHero.w > 0) ? 1 : 0);
+        o.world = float3(wp.xy, (v.info.z > 0.5 && base.y < _OrphHero.z && _OrphHero.w > 0) ? (v.info.z > 1.5 ? 2 : 1) : 0);
         return o;
     }
 
     half4 Frag(Varyings i) : SV_Target
     {
         half4 c = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv) * i.color;
-        if (i.world.z > 0.5)
+        if (i.world.z > 1.5)
+        {
+            // Гора сплошная; силуэт персонажа поверх (C-027).
+            float2 uv = (i.world.xy - _OrphHeroRect.xy) * _OrphHeroRect.zw;
+            float2 t = _OrphHeroTexel.xy * 1.5;
+            half m = SAMPLE_TEXTURE2D(_OrphHeroMask, sampler_OrphHeroMask, uv).a;
+            half n = max(max(SAMPLE_TEXTURE2D(_OrphHeroMask, sampler_OrphHeroMask, uv + float2(t.x, 0)).a,
+                             SAMPLE_TEXTURE2D(_OrphHeroMask, sampler_OrphHeroMask, uv - float2(t.x, 0)).a),
+                         max(SAMPLE_TEXTURE2D(_OrphHeroMask, sampler_OrphHeroMask, uv + float2(0, t.y)).a,
+                             SAMPLE_TEXTURE2D(_OrphHeroMask, sampler_OrphHeroMask, uv - float2(0, t.y)).a));
+            half fill = smoothstep(0.35, 0.65, m);
+            half edge = saturate(smoothstep(0.2, 0.5, n) - fill);
+            c.rgb = lerp(c.rgb, _OrphHeroFill.rgb, fill * _OrphHeroFill.a);
+            c.rgb = lerp(c.rgb, _OrphHeroLine.rgb, edge * _OrphHeroLine.a);
+        }
+        else if (i.world.z > 0.5)
         {
             float d = distance(i.world.xy, _OrphHero.xy);
             c.a *= lerp(_OrphHeroFade.x, 1.0, smoothstep(_OrphHero.w * 0.55, _OrphHero.w, d));

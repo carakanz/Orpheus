@@ -545,7 +545,12 @@ namespace Orpheus.Client.Anim
                     yield return Strip(s);
                 }
 
-                foreach (Shot s in PickShots()) // C-028: взмах кирки и трещины — после лука (с 23,8 с)
+                foreach (Shot s in ArrowShots()) // C-031: стрелы-предметы, непрерывная стрельба, подбор — с 24 с
+                {
+                    yield return Strip(s);
+                }
+
+                foreach (Shot s in PickShots()) // C-028: взмах кирки и трещины — после стрел C-031 (с 30,6 с)
                 {
                     yield return Strip(s);
                 }
@@ -617,8 +622,8 @@ namespace Orpheus.Client.Anim
 
             strip.Apply();
             Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ||
-                 s.Name.StartsWith("E3-2", StringComparison.Ordinal) || s.Name.StartsWith("C-028", StringComparison.Ordinal)
-                ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
+                 s.Name.StartsWith("E3-2", StringComparison.Ordinal) || s.Name.StartsWith("C-031", StringComparison.Ordinal) ||
+                 s.Name.StartsWith("C-028", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
         }
 

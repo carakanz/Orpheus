@@ -1085,7 +1085,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Save_Format9_Chests_Beds_RoundTrip_ServerRestart()
         {
-            Assert.Equal(13u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(14u, SaveModule.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             SaveFixtures.LiveWorld live = SaveFixtures.Create(256, 25, bots: 0);
             Simulation sim = live.Sim;
             WorldPos at = Orpheus.Server.ServerRun.SpawnPoint(sim.Shape, 0);
@@ -1116,7 +1116,7 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "сундуки", chars), 2, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(13u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(14u, f.Header.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(2, st.ChestTiles.Length);
             Assert.Equal(c1, st.ChestTiles[0]); // по (Y, X): c2 южнее (Y больше) — второй
@@ -1199,7 +1199,7 @@ namespace Orpheus.Tests
             int id = st.Entities[0].Id;
             Assert.Equal(EditReply.Accepted, sim.RequestSetBed(id, bed));
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат8", st.Characters), 7, 0);
-            Assert.Equal(13u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(14u, SaveContainer.Read(again).Header.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             Simulation re = SaveFixtures.Load(baseBytes, again);
             Assert.Equal(StateHash.Compute(sim).Total, StateHash.Compute(re).Total);
             Assert.True(re.TryGetChest(chest, out Inventory back));
@@ -1275,7 +1275,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Net_GoldenBytes_Use_Reply_Chest_Repair()
         {
-            Assert.Equal(32, NetModule.ProtocolVersion); // C-028: 32 (взмах, тип 39); // E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
+            Assert.Equal(33, NetModule.ProtocolVersion); // C-028: 33 (взмах, тип 39); C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[256];
             int n = new UseRequestMessage { Op = UseOp.Use, Tile = new TileCoord(0x0102, 0x0304) }.Write(buf);
             Assert.Equal(UseRequestMessage.Bytes, n);

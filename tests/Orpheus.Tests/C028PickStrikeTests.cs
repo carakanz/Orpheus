@@ -446,7 +446,7 @@ namespace Orpheus.Tests
         [Fact]
         public void C028_Codec_GoldenBytes_Strike()
         {
-            Assert.Equal(32, NetModule.ProtocolVersion);
+            Assert.Equal(33, NetModule.ProtocolVersion); // C-028: 33 (C-031 занял 32)
             Assert.Equal(39, (int)MessageType.Strike);
             var m = new StrikeMessage { Striker = 0x01020304, RequestId = 0x0506, Count = 1 };
             m.SetTile(0, new StrikeTile { Tile = new TileCoord(0x0A0B, 0x0C0D), Obj = ObjectId.Rock, Hits = 2, Needed = 3, Broken = true });

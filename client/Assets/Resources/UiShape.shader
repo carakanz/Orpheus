@@ -224,14 +224,15 @@ Shader "Orpheus/UiShape"
                 return float4(ToLinear(col.rgb) * a, a);
             }
 
-            // Зигзаг (режим «поштучно», C-015): ломаная из четырёх звеньев со скруглёнными концами.
-            float4 Zigzag(float2 p, float4 col)
+            // Шахматка 2 × 2 (режим «поштучно», C-029, слово Автора 17.11: «квадратики шахматкой ■□ / □■»): сверху слева и снизу
+            // справа — залитые квадраты, два других — рамкой той же толщины, что у линейки; края — SDF в 1 пиксель.
+            float4 Checker(float2 p, float4 col)
             {
-                float d = Segment(p, float2(-0.82, -0.42), float2(-0.41, 0.42));
-                d = min(d, Segment(p, float2(-0.41, 0.42), float2(0.0, -0.42)));
-                d = min(d, Segment(p, float2(0.0, -0.42), float2(0.41, 0.42)));
-                d = min(d, Segment(p, float2(0.41, 0.42), float2(0.82, -0.42)));
-                float a = Cover(d - 0.12) * col.a;
+                const float h = 0.40, o = 0.45, r = 0.06, t = 0.075;
+                float full = min(Box(p, float2(-o, o), float2(h, h), r), Box(p, float2(o, -o), float2(h, h), r));
+                float hollow = min(abs(Box(p, float2(o, o), float2(h - t, h - t), r)) - t,
+                                   abs(Box(p, float2(-o, -o), float2(h - t, h - t), r)) - t);
+                float a = Cover(min(full, hollow)) * col.a;
                 return float4(ToLinear(col.rgb) * a, a);
             }
 
@@ -257,7 +258,7 @@ Shader "Orpheus/UiShape"
                 }
                 else
                 {
-                    c = Zigzag(i.uv, i.color);
+                    c = Checker(i.uv, i.color);
                 }
 
             #if defined(UNITY_UI_CLIP_RECT)

@@ -47,6 +47,9 @@ namespace Orpheus.Net.Session
             c[FloorId.Platform] = Rgba(156, 114, 68);
             c[FloorId.ForestFloor] = Rgba(66, 116, 52);
             c[FloorId.DryGrass] = Rgba(176, 172, 92);
+            c[FloorId.DeepWater] = Rgba(28, 72, 150);   // C-027: глубина темнее отмели
+            c[FloorId.PineFloor] = Rgba(104, 112, 56);  // C-027: бор — рыжая хвоя
+            c[FloorId.SpruceFloor] = Rgba(40, 84, 52);  // C-027: ельник — тёмный мох
             for (int i = FloorId.MaxKnown + 1; i < c.Length; i++)
             {
                 c[i] = Unknown;
@@ -63,7 +66,7 @@ namespace Orpheus.Net.Session
             c[ObjectId.Stump] = Rgba(110, 80, 50);
             c[ObjectId.Rock] = Rgba(112, 112, 120);
             c[ObjectId.Granite] = Rgba(96, 92, 104);
-            c[ObjectId.Ore] = Rgba(206, 124, 60);
+            c[ObjectId.Ore] = Rgba(255, 150, 30); // C-027: медь — яркий оранжевый, не путать с землёй
             c[ObjectId.Cliff] = Rgba(72, 64, 60);
             c[ObjectId.WoodWall] = Building;
             c[ObjectId.StoneWall] = Building;

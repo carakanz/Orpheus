@@ -99,6 +99,7 @@ namespace Orpheus.Client.Anim
             _bowTarget = new ActorRig(Make("Bow target", ActorFactory.EnemyTint));
             _bowShots = new ClientProjectiles(_g.Map);
             _bowView = new ArrowView(_stage);
+            BuildArrows(); // C-031: стрелы-предметы и прохожий
         }
 
         /// <summary>Кадр лука: позы лучников, выстрелы по расписанию, стрелы и кольцо силы.</summary>
@@ -120,6 +121,16 @@ namespace Orpheus.Client.Anim
             // Лучник 1: цикл 2 с.
             var bow = new BowAction();
             var s = new ActorInput { Held = a.Held, DrawDirX = axis.x, DrawDirY = axis.y };
+            if (_t >= C031Start)
+            {
+                // C-031: оба лучника держат ЛКМ — непрерывная стрельба, стрелы-предметы, подбор проходом
+                ArrowsFrame(dt, a, a2, nowUs, ref bow, ref cursor);
+                tg.Apply(tg.Animator.Step(dt, new ActorInput()));
+                _bowPiles!.Frame(_g.Origin, dt, _bowShots!.Covers);
+                _bowView!.Frame(_bowShots!, nowUs, _g.Origin, bow, ArcherPos, bow.Phase == BowAction.PhaseDraw ? cursor : (Vector3?)null);
+                return;
+            }
+
             if (_t >= BowStart)
             {
                 int k = (int)((_t - BowStart) / BowCycle);
@@ -163,7 +174,7 @@ namespace Orpheus.Client.Anim
                 if (!_stuckShot)
                 {
                     _stuckShot = true;
-                    Fire(Archer2Pos, trunk, 24, Items.CopperBow, nowUs, _bowTree, false);
+                    FireStuck(Archer2Pos, _bowTree, Items.CopperBow, nowUs, ProjectileEnd.Wall, 0.42f); // C-031: воткнулась — сама предмет
                 }
             }
 
@@ -178,6 +189,7 @@ namespace Orpheus.Client.Anim
             }
 
             tg.Apply(tg.Animator.Step(dt, new ActorInput()));
+            _bowPiles!.Frame(_g.Origin, dt, _bowShots!.Covers); // C-031: стрелы-предметы, пока снаряд не закрывает
             _bowView!.Frame(_bowShots!, nowUs, _g.Origin, bow, ArcherPos, bow.Phase == BowAction.PhaseDraw ? cursor : (Vector3?)null);
         }
 

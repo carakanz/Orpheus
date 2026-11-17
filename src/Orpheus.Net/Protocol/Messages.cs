@@ -1063,27 +1063,34 @@ namespace Orpheus.Net.Protocol
     /// <summary>Куча на земле, как её видит клиент (E2-1): номер, предмет, количество, позиция в unit.</summary>
     public struct NetPile
     {
-        /// <summary>Номер 4 + предмет 1 + количество 2 + позиция 4 + 4.</summary>
-        public const int Bytes = 15;
+        /// <summary>Номер 4 + предмет 1 + количество 2 + позиция 4 + 4 + вид 1 + ось 2 (C-031, протокол 32).</summary>
+        public const int Bytes = 18;
 
         public int Id;
         public byte Item;
         public ushort Count;
         public WorldPos Position;
 
+        /// <summary>Вид (C-031): 0 — куча, 1 — стрела в преграде, 2 — стрела в земле (<see cref="GroundPile.Kind"/>).</summary>
+        public byte Kind;
+
+        /// <summary>Ось воткнувшейся стрелы (u16); у кучи 0.</summary>
+        public ushort Aim;
+
         public override readonly string ToString() => $"куча #{Id} предмет {Item} × {Count} {Position}";
     }
 
     /// <summary>
     /// «Кучи» (E2-1, тип 27, канал 2): кучи на земле в обзоре игрока — новые и те, у которых изменилось количество.
-    /// Поля: тип 1 + число 1 + на кучу — номер u32, предмет 1, количество u16 (≥ 1), позиция x, y u32 (unit).
+    /// Поля: тип 1 + число 1 + на кучу — номер u32, предмет 1, количество u16 (≥ 1), позиция x, y u32 (unit), вид 1 и ось u16
+    /// воткнувшейся стрелы (C-031, протокол 32).
     /// </summary>
     public struct PilesMessage
     {
         /// <summary>Куч в одном сообщении.</summary>
         public const int MaxPiles = 48;
 
-        /// <summary>Наибольший размер: тип 1 + число 1 + 48 куч = 722 байта (влезает в один пакет).</summary>
+        /// <summary>Наибольший размер: тип 1 + число 1 + 48 куч = 866 байт (влезает в один пакет).</summary>
         public const int MaxBytes = 2 + MaxPiles * NetPile.Bytes;
 
         public static int Write(Span<byte> dest, ReadOnlySpan<NetPile> piles)
@@ -1103,6 +1110,8 @@ namespace Orpheus.Net.Protocol
                 w.WriteUInt16(piles[i].Count);
                 w.WriteUInt32((uint)piles[i].Position.X);
                 w.WriteUInt32((uint)piles[i].Position.Y);
+                w.WriteByte(piles[i].Kind);
+                w.WriteUInt16(piles[i].Aim);
             }
 
             return w.BytesWritten;
@@ -1123,9 +1132,11 @@ namespace Orpheus.Net.Protocol
                 var p = new NetPile { Id = (int)r.ReadUInt32(), Item = r.ReadByte(), Count = r.ReadUInt16() };
                 int x = (int)r.ReadUInt32();
                 int y = (int)r.ReadUInt32();
-                if (p.Id <= 0 || !Items.Exists(p.Item) || p.Count == 0)
+                p.Kind = r.ReadByte();
+                p.Aim = r.ReadUInt16();
+                if (p.Id <= 0 || !Items.Exists(p.Item) || p.Count == 0 || p.Kind > GroundPile.MaxKind)
                 {
-                    throw new ProtocolException($"Кучи: № {i} — номер {p.Id}, предмет {p.Item} × {p.Count}.");
+                    throw new ProtocolException($"Кучи: № {i} — номер {p.Id}, предмет {p.Item} × {p.Count}, вид {p.Kind}.");
                 }
 
                 p.Position = new WorldPos(x, y);

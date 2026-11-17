@@ -28,7 +28,31 @@ namespace Orpheus.Core.Sim
         /// <summary>Такт, с которого кучу можно подобрать (задержка после появления и после выброса).</summary>
         public long PickupTick;
 
-        public override readonly string ToString() => $"pile#{Id} {ItemTable.Get(Item).Key}×{Count} {Position}";
+        /// <summary>
+        /// Вид (C-031): <see cref="KindPlain"/> — обычная куча; <see cref="KindArrowWall"/> / <see cref="KindArrowGround"/> —
+        /// воткнувшаяся стрела (сама — предмет, 1 штука, не сливается; рисуется стрелой, а не значком).
+        /// </summary>
+        public byte Kind;
+
+        /// <summary>Ось полёта воткнувшейся стрелы (u16, как прицел) — для картинки; у обычной кучи 0.</summary>
+        public ushort Aim;
+
+        /// <summary>Обычная куча.</summary>
+        public const byte KindPlain = 0;
+
+        /// <summary>Стрела, воткнувшаяся в преграду (стена, дерево, скала, закрытая дверь).</summary>
+        public const byte KindArrowWall = 1;
+
+        /// <summary>Стрела, долетевшая до конца дальности и воткнувшаяся в землю.</summary>
+        public const byte KindArrowGround = 2;
+
+        /// <summary>Наибольший вид.</summary>
+        public const byte MaxKind = KindArrowGround;
+
+        /// <summary>Воткнувшаяся стрела (C-031).</summary>
+        public readonly bool IsStuckArrow => Kind != KindPlain;
+
+        public override readonly string ToString() => $"pile#{Id} {ItemTable.Get(Item).Key}×{Count} {Position}{(Kind != 0 ? $" стрела{Kind} ∠{Aim}" : "")}";
     }
 
     /// <summary>Операция игрока с ячейками сумки (заявка клиента, решает сервер — <see cref="Simulation.RequestBagOp"/>).</summary>

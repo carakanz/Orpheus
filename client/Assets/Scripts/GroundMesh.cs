@@ -22,7 +22,6 @@ namespace Orpheus.Client
         public const int Halo = 3;
 
         /// <summary>Вода ближе этого расстояния (в тайлах, по прямой) до суши — отмель: полоса 1–2 тайла.</summary>
-        const int ShallowDist2 = 5; // dx² + dy² ≤ 5: до (2, 1)
 
         const int Pad = Size + 2 * Halo;
         const int Quads = Size * Size;
@@ -47,7 +46,6 @@ namespace Orpheus.Client
         readonly MapShape _map;
         readonly byte[] _floor = new byte[Pad * Pad];
         readonly byte[] _layer = new byte[Pad * Pad];
-        readonly bool[] _water = new bool[Pad * Pad];
         readonly VertexGpu[] _verts = new VertexGpu[Quads * 4];
         readonly Chunk?[] _near = new Chunk?[9];
         static ushort[]? _indices;
@@ -139,37 +137,11 @@ namespace Orpheus.Client
                     _floor[p] = floor;
                     GroundRow row = GroundTable.Of(floor);
                     _layer[p] = row.Layer;
-                    _water[p] = row.Kind == GroundKind.Water;
                 }
             }
 
-            // 2. Вода: отмель у суши, глубина дальше. Нужны тайлы −1…31 (углы квадратов), смотрим на 2 тайла вокруг.
-            for (int py = Halo - 1; py < Halo + Size; py++)
-            {
-                for (int px = Halo - 1; px < Halo + Size; px++)
-                {
-                    int p = py * Pad + px;
-                    if (!_water[p])
-                    {
-                        continue;
-                    }
-
-                    bool shore = false;
-                    for (int dy = -2; dy <= 2 && !shore; dy++)
-                    {
-                        for (int dx = -2; dx <= 2; dx++)
-                        {
-                            if (dx * dx + dy * dy <= ShallowDist2 && !_water[p + dy * Pad + dx])
-                            {
-                                shore = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    _layer[p] = shore ? GroundTable.WaterShallow : GroundTable.WaterDeep;
-                }
-            }
+            // 2. Вода (C-027): глубина — свой пол ядра (DeepWater, стена), отмель — Water (проходима); слой — из таблицы, как
+            // правило ядра. В мире генератора старше v9 вся вода — отмель: по ней и правда можно идти (C-018).
 
             // 3. Вершины. Координата мира — по модулю 256 тайлов: картинки (4), шум (16, 64) в неё укладываются, а числа малы.
             float ox = ((c.X * Size) & 255) - 0.5f;

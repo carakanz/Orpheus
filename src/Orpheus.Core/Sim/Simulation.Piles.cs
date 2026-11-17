@@ -44,6 +44,37 @@ namespace Orpheus.Core.Sim
 
         private const int TicksPerSecond = 30;
 
+        /// <summary>
+        /// C-031 (`BRIEF` 11n): в мире не больше 10 000 непропавших воткнувшихся стрел — новая сверх предела убирает самую старую
+        /// (меньший номер). Тесты уменьшают предел через <see cref="StuckArrowLimit"/>.
+        /// </summary>
+        public const int MaxStuckArrows = 10_000;
+
+        /// <summary>
+        /// Пол-экрана самого дальнего обзора по X, тайлов: камера 96 × 54 т (`GameBoot.FarViewTiles`, 16:9) плюс запас на
+        /// другие пропорции экрана и сдвиг камеры — 52 × 32 *(прикидка C-031)*. Стрелу старше 10 мин в этом окне вокруг любого
+        /// персонажа в мире не убираем: «в границах экрана никого нет» (`BRIEF` 11n).
+        /// </summary>
+        public const int ScreenHalfTilesX = 52;
+
+        /// <summary>Пол-экрана по Y, тайлов (см. <see cref="ScreenHalfTilesX"/>).</summary>
+        public const int ScreenHalfTilesY = 32;
+
+        private int _stuckArrowLimit = MaxStuckArrows;
+        private int _stuckArrowCount;
+        private int[] _pickers = new int[16];
+        private int _pickerCount;
+
+        /// <summary>Предел воткнувшихся стрел (по умолчанию <see cref="MaxStuckArrows"/>; меньше — только тесты).</summary>
+        internal int StuckArrowLimit
+        {
+            get => _stuckArrowLimit;
+            set => _stuckArrowLimit = Math.Max(1, value);
+        }
+
+        /// <summary>Воткнувшихся стрел в мире (C-031).</summary>
+        public int StuckArrowCount => _stuckArrowCount;
+
         private struct BagRequest
         {
             public int EntityId;
@@ -87,7 +118,7 @@ namespace Orpheus.Core.Sim
             int maxId = 0;
             for (int i = 0; i < piles.Length; i++)
             {
-                if (piles[i].Id <= maxId || !ItemTable.Exists(piles[i].Item) || piles[i].Count == 0)
+                if (piles[i].Id <= maxId || !ItemTable.Exists(piles[i].Item) || piles[i].Count == 0 || piles[i].Kind > GroundPile.MaxKind)
                 {
                     throw new ArgumentException($"Куча № {i}: {piles[i]} — номер не растёт или предмет/количество неверны.", nameof(piles));
                 }
@@ -103,6 +134,14 @@ namespace Orpheus.Core.Sim
             piles.CopyTo(_piles);
             _pileCount = piles.Length;
             _nextPileId = Math.Max(nextPileId, maxId + 1);
+            _stuckArrowCount = 0;
+            for (int i = 0; i < piles.Length; i++)
+            {
+                if (piles[i].IsStuckArrow)
+                {
+                    _stuckArrowCount++;
+                }
+            }
         }
 
         /// <summary>
@@ -147,12 +186,18 @@ namespace Orpheus.Core.Sim
             }
 
             // Истечение и подбор одним проходом; список сжимается на месте, порядок по номеру сохраняется.
+            CollectPickers();
             int kept = 0;
             for (int i = 0; i < _pileCount; i++)
             {
                 GroundPile p = _piles[i];
-                if (p.ExpireTick <= tick)
+                if (p.ExpireTick <= tick && (!p.IsStuckArrow || !OnAnyScreen(p.Position)))
                 {
+                    if (p.IsStuckArrow)
+                    {
+                        _stuckArrowCount--; // C-031: 10 мин с выстрела и ни у кого на экране
+                    }
+
                     continue;
                 }
 
@@ -175,9 +220,113 @@ namespace Orpheus.Core.Sim
                 {
                     _piles[kept++] = p;
                 }
+                else if (p.IsStuckArrow)
+                {
+                    _stuckArrowCount--; // подобрали — стрела в сумке
+                }
             }
 
             _pileCount = kept;
+        }
+
+        /// <summary>Персонажи в мире по месту в списке сущностей — кандидаты подбора и «экраны» (один раз за такт).</summary>
+        private void CollectPickers()
+        {
+            _pickerCount = 0;
+            for (int i = 0; i < _entityCount; i++)
+            {
+                if (!_entities[i].IsCharacter)
+                {
+                    continue;
+                }
+
+                if (_pickerCount == _pickers.Length)
+                {
+                    Array.Resize(ref _pickers, _pickers.Length * 2);
+                }
+
+                _pickers[_pickerCount++] = i;
+            }
+        }
+
+        /// <summary>
+        /// Точка в окне экрана (<see cref="ScreenHalfTilesX"/> × <see cref="ScreenHalfTilesY"/>) вокруг какого-нибудь персонажа
+        /// в мире (живого или мёртвого — камера стоит над телом), по тору. Только после <see cref="CollectPickers"/>.
+        /// </summary>
+        private bool OnAnyScreen(WorldPos pos)
+        {
+            const int hx = ScreenHalfTilesX * Torus.SubTilesPerTile, hy = ScreenHalfTilesY * Torus.SubTilesPerTile;
+            for (int k = 0; k < _pickerCount; k++)
+            {
+                Int2 d = Torus.Delta(_shape, _entities[_pickers[k]].Mover.Position, pos);
+                if (Math.Abs(d.X) <= hx && Math.Abs(d.Y) <= hy)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Воткнувшаяся стрела (C-031, `BRIEF` 11n «стрела не должна около себя оставлять предмет»): сама — предмет на земле
+        /// ровно в точке остановки (не сдвигается на соседний тайл, не сливается), вид <paramref name="kind"/>, ось
+        /// <paramref name="aim"/>. Срок — 10 мин от такта выстрела <paramref name="shotTick"/>, дальше пропадает, только когда
+        /// её нет ни на одном экране. Сверх <see cref="StuckArrowLimit"/> пропадает самая старая. В воде (и на непроходимом
+        /// полу) стрела тонет — 0. Возвращает номер.
+        /// </summary>
+        private int SpawnStuckArrow(long tick, long shotTick, byte item, WorldPos at, ushort aim, byte kind)
+        {
+            WorldPos pos = Torus.Wrap(_shape, at);
+            byte floor = _world.GetFloor(Torus.TileOf(_shape, pos));
+            if (!ItemTable.Exists(item) || !FloorId.IsPassable(floor)) // вода (C-018: проходима только замедлением), лава, пустота
+            {
+                return 0;
+            }
+
+            if (_stuckArrowCount >= _stuckArrowLimit)
+            {
+                EvictOldestStuckArrow();
+            }
+
+            if (_pileCount == _piles.Length)
+            {
+                Array.Resize(ref _piles, _piles.Length * 2);
+            }
+
+            int id = _nextPileId++;
+            _piles[_pileCount++] = new GroundPile
+            {
+                Id = id,
+                Item = item,
+                Count = 1,
+                Position = pos,
+                ExpireTick = shotTick + PileLifetimeTicks,
+                PickupTick = tick + LootPickupDelayTicks,
+                Kind = kind,
+                Aim = aim,
+            };
+            _stuckArrowCount++;
+            return id;
+        }
+
+        /// <summary>Только для тестов (C-031): воткнуть стрелу без выстрела — как <see cref="SpawnStuckArrow"/> в этом такте.</summary>
+        internal int AddStuckArrowForTests(WorldPos at, ushort aim, byte kind, long shotTick) =>
+            SpawnStuckArrow(Tick, shotTick, Items.Arrows, at, aim, kind);
+
+        /// <summary>Убрать самую старую воткнувшуюся стрелу (меньший номер — первая в списке); порядок остальных цел.</summary>
+        private void EvictOldestStuckArrow()
+        {
+            for (int i = 0; i < _pileCount; i++)
+            {
+                if (_piles[i].IsStuckArrow)
+                {
+                    Array.Copy(_piles, i + 1, _piles, i, _pileCount - i - 1);
+                    _pileCount--;
+                    _stuckArrowCount--;
+                    return;
+                }
+            }
         }
 
         /// <summary>
@@ -188,9 +337,10 @@ namespace Orpheus.Core.Sim
         {
             int best = -1;
             long bestD2 = (long)PickupRadiusUnits * PickupRadiusUnits + 1;
-            for (int i = 0; i < _entityCount; i++)
+            for (int k = 0; k < _pickerCount; k++)
             {
-                if (!_entities[i].IsCharacter || !_entities[i].Alive)
+                int i = _pickers[k];
+                if (!_entities[i].Alive)
                 {
                     continue;
                 }
@@ -292,7 +442,7 @@ namespace Orpheus.Core.Sim
                 int into = -1;
                 for (int i = 0; i < _pileCount; i++)
                 {
-                    if (_piles[i].Item != item || _piles[i].Count >= PileMaxCount)
+                    if (_piles[i].Item != item || _piles[i].Count >= PileMaxCount || _piles[i].IsStuckArrow)
                     {
                         continue;
                     }
