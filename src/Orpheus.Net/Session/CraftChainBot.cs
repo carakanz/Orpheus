@@ -236,6 +236,7 @@ namespace Orpheus.Net.Session
         {
             _broken.Clear();
             client.DrainBrokenByMe(_broken); // C-028: снятое своими взмахами — в счёт
+            SkipMissed(client);
             foreach ((TileCoord t, ushort raw) in _broken)
             {
                 Count(t, raw);

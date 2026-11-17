@@ -237,6 +237,7 @@ namespace Orpheus.Net.Session
             _frame++;
             _broken.Clear();
             client.DrainBrokenByMe(_broken); // C-028: скалы, снятые своими взмахами
+            SkipMissed(client);
             foreach ((TileCoord _, ushort raw) in _broken)
             {
                 if (ObjectId.IdOf(raw) == ObjectId.Rock || ObjectId.IdOf(raw) == ObjectId.Granite)
@@ -459,6 +460,7 @@ namespace Orpheus.Net.Session
                     ushort id = client.StartDig(t);
                     if (id != 0)
                     {
+                        NoteStrike(client, id, t); // C-028 (П)
                         _digTile = t;
                         _digSlot = slot;
                         _reqObj[id] = obj;
@@ -484,6 +486,32 @@ namespace Orpheus.Net.Session
         /// C-028: инструмент ячейки <paramref name="slot"/> в руках не меньше 6 кадров — запрос копания пойдёт с ним (сервер решает
         /// «взмах или копание» и «нужен инструмент» по предмету в руках такта).
         /// </summary>
+        private ushort _strikeReq;
+        private TileCoord _strikeTile;
+
+        /// <summary>C-028 (П): свой взмах не задел цель (линия перекрыта) — тайл пропускается 4 с, а не бьётся вечно.</summary>
+        private void SkipMissed(NetClient client)
+        {
+            if (client.OwnStrikeResolved(_strikeReq, _strikeTile, out bool hit))
+            {
+                if (!hit)
+                {
+                    _skipUntil[_strikeTile] = _frame + 240;
+                }
+
+                _strikeReq = 0;
+            }
+        }
+
+        private void NoteStrike(NetClient client, ushort id, TileCoord t)
+        {
+            if (client.DigStrike)
+            {
+                _strikeReq = id;
+                _strikeTile = t;
+            }
+        }
+
         private bool Armed(byte slot)
         {
             if (_digToolSlot != slot)
@@ -536,6 +564,8 @@ namespace Orpheus.Net.Session
                     {
                         continue;
                     }
+
+                    NoteStrike(client, id, t); // C-028 (П)
 
                     _digTile = t;
                     _digSlot = slot;

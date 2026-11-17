@@ -94,9 +94,37 @@ namespace Orpheus.Net.Session
             return n;
         }
 
+        /// <summary>Последний свой «взмах» сервера (номер запроса и задетые тайлы).</summary>
+        public StrikeMessage LastOwnStrike { get; private set; }
+
+        /// <summary>
+        /// Свой взмах по запросу <paramref name="request"/> уже решён сервером: <paramref name="hit"/> — задел ли он тайл
+        /// <paramref name="tile"/> (боты: цель за стеной, дверью, деревом — не задета, её надо пропустить, а не бить вечно).
+        /// </summary>
+        public bool OwnStrikeResolved(ushort request, TileCoord tile, out bool hit)
+        {
+            hit = false;
+            if (request == 0 || LastOwnStrike.RequestId != request || LastOwnStrike.Striker != EntityId)
+            {
+                return false;
+            }
+
+            for (int k = 0; k < LastOwnStrike.Count; k++)
+            {
+                hit |= LastOwnStrike.Get(k).Tile == tile;
+            }
+
+            return true;
+        }
+
         private void OnStrike(in StrikeMessage m)
         {
             StrikesSeen++;
+            if (m.Striker == EntityId)
+            {
+                LastOwnStrike = m;
+            }
+
             for (int k = 0; k < m.Count; k++)
             {
                 StrikeTile t = m.Get(k);

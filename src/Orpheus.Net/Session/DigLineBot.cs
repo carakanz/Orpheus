@@ -135,6 +135,26 @@ namespace Orpheus.Net.Session
         private readonly List<(TileCoord Tile, ushort Obj)> _broken = new List<(TileCoord Tile, ushort Obj)>();
 
         /// <summary>C-028: тайлы, снятые своими взмахами (скала в полосе — по X тайла от шва), — в счёт, как снятые копанием.</summary>
+        private ushort _strikeReq;
+        private TileCoord _strikeTile;
+
+        /// <summary>
+        /// C-028 (П): взмах не задел цель (линия до неё перекрыта — стена, дверь, дерево, угол) — тайл пропускается 4 с, иначе бот
+        /// бил бы его вечно (ответ «принято», но удара нет).
+        /// </summary>
+        private void SkipMissed(NetClient client)
+        {
+            if (client.OwnStrikeResolved(_strikeReq, _strikeTile, out bool hit))
+            {
+                if (!hit)
+                {
+                    _skipUntil[_strikeTile] = _frame + 240;
+                }
+
+                _strikeReq = 0;
+            }
+        }
+
         private void CountBroken(NetClient client)
         {
             _broken.Clear();
@@ -169,6 +189,7 @@ namespace Orpheus.Net.Session
         {
             _frame++;
             CountBroken(client);
+            SkipMissed(client);
             ClientWorld? world = client.World;
             if (world == null || Done)
             {
@@ -362,6 +383,12 @@ namespace Orpheus.Net.Session
             if (id == 0)
             {
                 return false;
+            }
+
+            if (client.DigStrike)
+            {
+                _strikeReq = id;
+                _strikeTile = t;
             }
 
             _digs[id] = inBand && ObjectId.IdOf(obj) == ObjectId.Rock;
