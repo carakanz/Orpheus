@@ -7213,9 +7213,26 @@
    "description": "Лесной хищник, замаскированный под кустарник, с длинными чешуйчатыми ногами и пастью, полной зубов. Он поджидает жертву, расставляя липкие ловушки из паутинного секрета. Атакуйте осторожно, чтобы не наступить на невидимые ловушки, и бейте в голову.",
    "image_subject": "Medium-sized spider-like creature with human-like head and long legs, full body, crouching pose, sharp teeth, camouflage fur, glowing eyes, no background.",
    "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Medium-sized spider-like creature with human-like head and long legs, full body, crouching pose, sharp teeth, camouflage fur, glowing eyes, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
+  },
+  "bst_reef_shark": {
+   "id": "bst_reef_shark",
+   "biomes": [
+    "lake",
+    "ocean"
+   ],
+   "act": "I",
+   "tier": "1",
+   "archetype": "fast",
+   "archetype_name": "",
+   "role": [
+    "пловец"
+   ],
+   "night_only": false,
+   "size_tiles": 1.0,
+   "description": "Голодная тень, скользкая в мутных водах наших озёр и прибрежных вод. Она бросается на любого, кто зайдёт в воду, используя скорость, чтобы укусить и скрыться. Бойтесь её рывков и старайтесь держать дистанцию или использовать оружие, поражающее под водой.",
+   "image_subject": "Sleek grey reef shark with sharp white teeth, pointed snout, dorsal fin, gills, and streamlined body, swimming aggressively forward with open mouth, full body, no background.",
+   "image_prompt": "clean hand-drawn 2D game illustration, bold confident dark plum-brown outlines of even weight around every shape, flat color fills with simple two-step cel shading and one crisp highlight, strong readable silhouette, graphic simplified shapes, bright saturated Mediterranean palette of turquoise, leaf green, gold and warm red, smooth vector-like finish, Sleek grey reef shark with sharp white teeth, pointed snout, dorsal fin, gills, and streamlined body, swimming aggressively forward with open mouth, full body, no background, high overhead three-quarter view, top-down game camera tilted at about 45 degrees looking down at the subject like in a top-down survival crafting game, a single subject centered in the frame, the whole subject fully visible with empty margin around it, nothing cropped, key light from the upper left at 45 degrees, soft cast shadow falling toward the lower right, isolated on a plain flat very light warm grey background, no ground scenery, no other objects, ancient Greek mythological world, no text, no letters, no watermark, no border, no frame"
   }
  },
- "failed": {
-  "bst_reef_shark": 3
- }
+ "failed": {}
 }
