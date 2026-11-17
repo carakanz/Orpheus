@@ -104,6 +104,45 @@ namespace Orpheus.Client.Anim
             client.SwingStarted = OnSwing;
             client.MeleeResolved = OnResult;
             client.Projectiles.ShotSeen = OnShot; // E3-2: отдача выстрела у чужих
+            client.StrikeSeen += OnStrikeSeen; // C-028: удары чужих взмахов — искры по тайлам
+        }
+
+        long _strikesShown;
+
+        /// <summary>C-028: «взмах» сервера чужого игрока — искры и крошка на каждом задетом тайле (свои — по своему счёту удара).</summary>
+        void OnStrikeSeen(StrikeMessage m)
+        {
+            if (m.Striker == _client.EntityId)
+            {
+                return;
+            }
+
+            for (int k = 0; k < m.Count; k++)
+            {
+                Vector3 c = _origin.ToUnity(TileCenter(m.Get(k).Tile));
+                Emit(_sparks, c, Vector2.up, ImpactLook.Stone);
+            }
+        }
+
+        /// <summary>
+        /// C-028: свой удар взмаха посчитан (<see cref="NetClient.StrikesPredicted"/>, тот же кадр, что удар позы) — отклик на каждом
+        /// задетом тайле: искры и крошка, с той стороны, откуда бьёт персонаж.
+        /// </summary>
+        void ShowOwnStrike()
+        {
+            if (_client.StrikesPredicted == _strikesShown)
+            {
+                return;
+            }
+
+            _strikesShown = _client.StrikesPredicted;
+            for (int k = 0; k < _client.PredictedStrikeCount; k++)
+            {
+                Vector3 c = _origin.ToUnity(TileCenter(_client.PredictedStrikeTile(k)));
+                Vector2 back = (Vector2)(_g.Character.position - c);
+                Emit(_sparks, c, back.sqrMagnitude > 1e-6f ? back.normalized : Vector2.up, ImpactLook.Stone);
+                ImpactsShown++;
+            }
         }
 
         /// <summary>
@@ -408,7 +447,15 @@ namespace Orpheus.Client.Anim
             _self.Apply(p);
             if (p.DigPokeNow)
             {
-                if (s.Action == ActionKind.Chop || s.Action == ActionKind.Mine || s.Action == ActionKind.Hammer)
+                if (_client.DigStrike)
+                {
+                    // C-028: отклик взмаха — по задетым тайлам (ShowOwnStrike); в воздух — только пыль у прицела.
+                    if (_client.PredictedStrikeCount == 0)
+                    {
+                        EmitDust(digAt, new Vector2(-s.DigDirX, -s.DigDirY), AnimParams.DustLight);
+                    }
+                }
+                else if (s.Action == ActionKind.Chop || s.Action == ActionKind.Mine || s.Action == ActionKind.Hammer)
                 {
                     // Вид отклика — по запомненному объекту (дерево/камень), даже если его уже сняло предсказание.
                     Emit(_sparks, digAt, new Vector2(-s.DigDirX, -s.DigDirY), _dig.Look);
@@ -421,7 +468,7 @@ namespace Orpheus.Client.Anim
 
                 // E1-11: удар по дереву — встряска и листья. На последнем ударе дерева уже нет (предсказание сняло его в этот же
                 // кадр): облачко листьев срубленного даёт WorldView.Fill → LifeFx.TreeGone по тому же изменению тайла — не дублируем.
-                if (_client.Digging && _world.GetObject(_client.DigTile) != ObjectId.Empty)
+                if (_client.Digging && !_client.DigStrike && _world.GetObject(_client.DigTile) != ObjectId.Empty)
                 {
                     LifeFx.HitTile(_client.DigTile, new Vector2(s.DigDirX, s.DigDirY));
                 }
@@ -438,6 +485,7 @@ namespace Orpheus.Client.Anim
 
             _swings.Expire(nowUs);
             ForgetGoneMelee();
+            ShowOwnStrike(); // C-028
             _sparks.Update(dt);
         }
 

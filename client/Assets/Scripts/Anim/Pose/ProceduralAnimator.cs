@@ -314,7 +314,7 @@ namespace Orpheus.Client.Anim
                 p.RotationDeg += -sw.LeanDeg * face;
                 p.ScaleY *= 1f - sw.Squash;
                 p.ScaleX *= 1f + sw.Squash * 0.5f;
-                handTarget = sw.HandDeg + ActionAnim.AimDeg(s.DigDirX, s.DigDirY) * ActionAnim.AimFollow;
+                handTarget = sw.HandDeg + ActionAnim.AimDeg(s.DigDirX, s.DigDirY) * ActionAnim.AimFollowOf(s.Action); // C-028: кирка — вся ось
                 handDirect = true;
                 p.DigPokeNow = ActionAnim.ImpactsBetween(_actionPrevSec, s.ActionSec, s.ActionFrames) > 0;
                 _actionPrevSec = s.ActionSec;

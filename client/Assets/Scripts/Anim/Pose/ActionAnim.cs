@@ -79,9 +79,16 @@ namespace Orpheus.Client.Anim
         public const float ChopTopDeg = 115f;
         public const float ChopHitDeg = -80f;
 
-        /// <summary>Кирка: верх и удар (ниже и дальше вперёд, чем топор).</summary>
-        public const float MineTopDeg = 100f;
-        public const float MineHitDeg = -100f;
+        /// <summary>
+        /// Кирка (C-028, BRIEF 11n «удары кирки горизонтальные»): взмах вбок, как меч, — дуга вокруг прицела, а не пробив сверху.
+        /// Головка (рука + 45°) идёт от прицел + 75° к прицел − 75° (сектор удара ядра ±45° с запасом); угол руки следует прицелу
+        /// целиком (<see cref="AimFollowOf"/>).
+        /// </summary>
+        public const float MineTopDeg = 30f;
+        public const float MineHitDeg = -120f;
+
+        /// <summary>C-028: доля угла прицела в угле руки у кирки — вся (взмах вокруг оси удара).</summary>
+        public const float MineAimFollow = 1f;
 
         /// <summary>Молот: короткий замах.</summary>
         public const float HammerTopDeg = 45f;
@@ -520,6 +527,9 @@ namespace Orpheus.Client.Anim
                 ReachY = 0.02f * kick,
             };
         }
+
+        /// <summary>Доля угла цели в угле руки: кирка — вся (C-028, взмах вокруг прицела), прочее — <see cref="AimFollow"/>.</summary>
+        public static float AimFollowOf(ActionKind kind) => kind == ActionKind.Mine ? MineAimFollow : AimFollow;
 
         /// <summary>Угол цели над горизонталью «вперёд», градусов (−90…90): цель выше — плюс.</summary>
         public static float AimDeg(float dirX, float dirY)

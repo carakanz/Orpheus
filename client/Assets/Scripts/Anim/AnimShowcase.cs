@@ -69,7 +69,7 @@ namespace Orpheus.Client.Anim
         bool _rockReal;
         int _builds = -1, _picks = -1;
         const int ChopFrames = 54;  // 0,9 с на тайл — 2 замаха (такт ядра)
-        const int MineFrames = 75;  // 1,25 с — 3 замаха
+        const int MineFrames = PickStrike.SwingFrames; // C-028: кирка — взмахи по 24 кадра (0,4 с), удар в конце каждого
         const float ActionGap = 0.35f; // пауза между тайлами (ответ сервера)
         float _ortho = ShotsOrtho;
 
@@ -350,12 +350,14 @@ namespace Orpheus.Client.Anim
                 LifeFx.HitTile(_treeTile, Vector2.right);
             }
 
-            // E2-7: кирка по камню к востоку — искры и крошка.
+            // E2-7 → C-028: кирка по камню к востоку — горизонтальный взмах, удар по тайлам сектора, искры и трещины.
             _miner.Root.position = MinerPos;
             if (ToolDig(_miner, ActionKind.Mine, MineFrames, _t + 0.2f, dt, Vector2.right))
             {
-                NetAnimation.Emit(_sparks, _rock, Vector2.left, ImpactLook.Stone);
+                PickImpact();
             }
+
+            PickFrame(dt);
 
             // E2-7: стройка — жест к месту постановки (вправо-вниз) раз в 1,1 с.
             _builder.Root.position = BuilderPos;
@@ -519,7 +521,7 @@ namespace Orpheus.Client.Anim
                     new Shot { Name = "E2-7_chop", Focus = () => (DiggerPos + _tree) * 0.5f, Ortho = ShotsOrtho,
                         Times = new[] { 8.88f, 9.00f, 9.10f, 9.17f, 9.21f, 9.28f }, CropW = 560, CropH = 600 },
                     new Shot { Name = "E2-7_mine", Focus = () => (MinerPos + _rock) * 0.5f, Ortho = ShotsOrtho,
-                        Times = new[] { 11.05f, 11.20f, 11.32f, 11.39f, 11.43f, 11.50f }, CropW = 560, CropH = 600 },
+                        Times = new[] { 11.05f, 11.20f, 11.32f, 11.40f, 11.45f, 11.52f } /* C-028: взмах 0,4 с, удар в 11,45 */, CropW = 560, CropH = 600 },
                     new Shot { Name = "E2-7_build", Focus = () => BuilderPos + new Vector3(0.5f, 0f, 0f), Ortho = ShotsOrtho,
                         Times = new[] { 12.10f, 12.16f, 12.22f, 12.27f, 12.33f, 12.42f }, CropW = 480, CropH = 560 },
                     new Shot { Name = "E2-7_pickup", Focus = () => PickerPos, Ortho = ShotsOrtho,
@@ -539,6 +541,11 @@ namespace Orpheus.Client.Anim
                 }
 
                 foreach (Shot s in BowShots()) // E3-2: лук — после C-012 (с 18 с)
+                {
+                    yield return Strip(s);
+                }
+
+                foreach (Shot s in PickShots()) // C-028: взмах кирки и трещины — после лука (с 23,8 с)
                 {
                     yield return Strip(s);
                 }
@@ -610,7 +617,8 @@ namespace Orpheus.Client.Anim
 
             strip.Apply();
             Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ||
-                 s.Name.StartsWith("E3-2", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
+                 s.Name.StartsWith("E3-2", StringComparison.Ordinal) || s.Name.StartsWith("C-028", StringComparison.Ordinal)
+                ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
         }
 

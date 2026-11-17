@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Orpheus.Client.Anim;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
@@ -413,6 +414,26 @@ namespace Orpheus.Tests
             rig.AfterClientPoll = null;
             Assert.Equal(2, replies.Count(r => r.Reply == EditReply.Accepted));
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock)); // 1 + 2 = 3 удара
+        }
+
+        /// <summary>
+        /// Анимация: взмах кирки горизонтальный, как меч, — головка (рука + 45°) идёт дугой вокруг прицела от +75° до −75° при
+        /// любом угле прицела (угол руки следует прицелу целиком), а не пробивом сверху вниз с частью угла цели.
+        /// </summary>
+        [Theory]
+        [InlineData(0f)]
+        [InlineData(60f)]
+        [InlineData(-70f)]
+        public void C028_Anim_PickSwing_ArcAroundAim(float aimDeg)
+        {
+            Assert.Equal(ActionKind.Mine, ActionAnim.DigActionOf(Items.StonePickaxe));
+            float follow = ActionAnim.AimFollowOf(ActionKind.Mine);
+            float top = ActionAnim.ToolSwing(ActionKind.Mine, ActionAnim.StrikeShare, false).HandDeg + aimDeg * follow + 45f;
+            float hit = ActionAnim.ToolSwing(ActionKind.Mine, 1f, false).HandDeg + aimDeg * follow + 45f;
+            Assert.Equal(aimDeg + 75f, top, 2);
+            Assert.Equal(aimDeg - 75f, hit, 2);
+            Assert.Equal(ActionAnim.AimFollow, ActionAnim.AimFollowOf(ActionKind.Chop)); // топор не менялся
+            Assert.Equal(1, ActionAnim.BeatsFor(PickStrike.SwingFrames)); // один удар на взмах — в кадр удара ядра
         }
 
         [Fact]
