@@ -1,6 +1,6 @@
 # Старт для opencode — вечер 17.11.2026
 
-C-023 ч. 2 (merge `4bd8eb8`), C-024, P-006, P-003, C-025, C-026 (merge `e41592a`, журналы `6efc8a9`) — всё слито.main = `6efc8a9`. Очередь плана (`work/next.md`) пуста: этап 2 закрыт, остался только **пункт 2.8 — приёмка этапа Автором** (30 минут игры одному). Идёт сборка Mono с main для приёмки: `build\logs\build_main_28a.log` (Unity Hub поднят вручную, Store `!UnityHub`).
+C-023 ч. 2 (merge `4bd8eb8`), C-024, P-006, P-003, C-025, C-026 (merge `e41592a`, журналы `6efc8a9`) — всё слито. main = `80914c9`. Очередь плана (`work/next.md`) пуста: этап 2 закрыт, остался только **пункт 2.8 — приёмка этапа Автором** (30 минут игры одному). **Сборка Mono с main готова**: `build\client-win\Orpheus.exe` (Succeeded, 0 ошибок, лог `build\logs\build_main_28a.log`; Unity Hub поднят вручную, Store `!UnityHub`).
 
 ## Обязательно
 - Код — только в ветке `task/…` и копии `.claude\worktrees\…`; `main` — merge `--no-ff -F`. После слияния — сносить копию/ветку (`git worktree remove` + ветку с origin).
