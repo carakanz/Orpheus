@@ -515,7 +515,7 @@ namespace Orpheus.Client.UI
                 }
 
                 CraftLine line = lines[recipe];
-                _col.SetRecipe(i, RecipeTable.Get(recipe).Result, CraftShelf.Badge(line), !line.CanMake);
+                _col.SetRecipe(i, RecipeTable.Get(recipe).Result, CraftShelf.Badge(line), !line.Shown); // C-029: готовая постройка в сумке — не приглушать
                 if (recipe == selected)
                 {
                     selCell = i;
@@ -598,15 +598,18 @@ namespace Orpheus.Client.UI
             }
 
             string state = line.CanMake ? string.Empty
-                : dead ? UiStrings.CraftDead : UiStrings.CraftState(line.State, def.Station, line.Affordable);
+                : dead ? UiStrings.CraftDead
+                : line.CanPlace ? UiStrings.ReadyInBag(line.Ready) // C-029: постройка ставится из сумки без изготовления
+                : UiStrings.CraftState(line.State, def.Station, line.Affordable);
             if (state != _shownState)
             {
                 _shownState = state;
                 _state.text = state;
+                _state.color = !line.CanMake && line.CanPlace && !dead ? UiStyle.TextLight : UiStyle.TextWarn;
             }
 
-            _bigBack.sprite = !line.CanMake ? _bigOff : Armed == recipe ? _bigHover : _bigPlain; // C-013: выбран («в руке») — подсвечен
-            _result.Dim(!line.CanMake);
+            _bigBack.sprite = !line.Shown ? _bigOff : Armed == recipe ? _bigHover : _bigPlain; // C-013: выбран («в руке») — подсвечен
+            _result.Dim(!line.Shown);
         }
 
         void ShowQueue(in CraftQueue queue, bool running, int progress, CraftHit hover)

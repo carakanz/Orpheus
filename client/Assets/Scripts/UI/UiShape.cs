@@ -29,8 +29,8 @@ namespace Orpheus.Client.UI
             /// <summary>Линейка — значок режима постановки «линейка» (у быстрой панели).</summary>
             Ruler = 3,
 
-            /// <summary>Зигзаг — значок режима постановки «поштучно».</summary>
-            Zigzag = 4,
+            /// <summary>Шахматка 2 × 2 — значок режима постановки «поштучно» (C-029; до него — зигзаг).</summary>
+            Checker = 4,
         }
 
         static Material? _material;

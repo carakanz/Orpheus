@@ -209,6 +209,19 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
+        /// C-029: дверь заменила стену (<see cref="BuildCells.CheckPlace"/>) — предметы стены, по одному на её ячейку до замены,
+        /// в сумку ставящего (не влезли — кучей у ног). Масса сохраняется: стена в мире стала предметами.
+        /// </summary>
+        private void ReturnReplacedWall(int i, int requester)
+        {
+            if (BuildDefs.TryGet(ObjectId.IdOf(_preObj[i]), out BuildDef wall) && wall.Item != Items.None)
+            {
+                int units = Math.Max(1, BuildCells.Count(BuildCells.MaskOf(_preObj[i], _preHasBuild[i], _preBuild[i])));
+                ReturnBuildItem(requester, AnyCell, wall.Item, units);
+            }
+        }
+
+        /// <summary>
         /// Вернуть персонажу <paramref name="count"/> предметов-построек (отказ после списания, E2-11; E2-12 — по ячейке стены): в ячейку <paramref name="cell"/>, если она
         /// пуста или с тем же предметом и не полна; иначе в сумку с доукладкой; не влез — кучей у ног (не пропадает).
         /// Персонажа нет — false (в такте правки невозможно: заявка идёт от живой сущности).

@@ -58,6 +58,9 @@ namespace Orpheus.Core.World
         /// <summary>Бит ячейки по четвертям <paramref name="qx"/> (0 — запад) и <paramref name="qy"/> (0 — север).</summary>
         public static byte Bit(int qx, int qy) => (byte)(1 << ((qx & 1) | ((qy & 1) << 1)));
 
+        /// <summary>C-029: стена (деревянная или каменная) — её можно заменить дверью без сноса.</summary>
+        public static bool IsWall(ushort obj) => ObjectId.IdOf(obj) == ObjectId.WoodWall || ObjectId.IdOf(obj) == ObjectId.StoneWall;
+
         /// <summary>Постройка занимает ячейки (стена, забор, дверь), а не целый тайл.</summary>
         public static bool IsCellBuilding(ushort obj)
         {
@@ -226,6 +229,25 @@ namespace Orpheus.Core.World
             add = 0;
             TileCoord t = Torus.Wrap(world.Shape, tile);
             ushort here = world.GetObject(t);
+            if (ObjectId.IdOf(obj) == ObjectId.Door && IsWall(here))
+            {
+                // C-029 (слово Автора 17.11: «Нужно иметь возможность построить дверь поверх стены»): дверь на стену — замена
+                // без сноса; стена тайла (все её ячейки) возвращается в сумку ставящего (Simulation.BuildItems: ReplacedWall).
+                if (!EditRules.InPlaceRadius(world.Shape, center, t))
+                {
+                    return EditReply.OutOfReach;
+                }
+
+                if (!world.TryGetBuild(t, out BuildRecord wrec) || wrec.IsDebris || (want & BuildLayers.OverhangAt(world, t, solidOnly: false)) != 0)
+                {
+                    return EditReply.Busy;
+                }
+
+                mask = want;
+                add = want;
+                return EditReply.Accepted;
+            }
+
             if (here == ObjectId.Empty || ObjectId.IdOf(obj) == ObjectId.Door)
             {
                 EditReply r = EditRules.CheckPlaceTile(world, center, t, obj);

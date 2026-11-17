@@ -127,6 +127,9 @@ namespace Orpheus.Client.UI
 
         public const string CraftKeyInv = "Q · C · Esc";
         public const string CraftOnlyAvailable = "Только доступные";
+
+        /// <summary>C-029: постройка уже есть в сумке — из меню ставится она, не изготавливается новая.</summary>
+        public static string ReadyInBag(int n) => $"В сумке: {n} — ставится из сумки";
         public const string CraftFlat = "Все рецепты раздела";
         public const string CraftEmptySub = "Здесь пока нет рецептов";
         public const string CraftEmptyFiltered = "Сейчас здесь ничего не сделать\nснимите «Только доступные» (Ins)";

@@ -433,6 +433,12 @@ namespace Orpheus.Core.Sim
                         RefundPlacement(i, req); // E2-11: предмет-постройка — обратно в ячейку (не влез — кучей у ног)
                     }
 
+                    // C-029: дверь поставлена поверх стены — стена (по предмету на её ячейку) возвращается в сумку ставящего.
+                    if (result == EditResult.Applied && ObjectId.IdOf(_edits[i].Edit.Obj) == ObjectId.Door && BuildCells.IsWall(_preObj[i]))
+                    {
+                        ReturnReplacedWall(i, req);
+                    }
+
                     // Добыча (1-010, E2-1): правка «снять природный объект» применена — материал падает кучей на тайл в том же такте.
                     // Двое копающих один тайл: вторая правка — Busy, добыча ровно одному.
                     if (result == EditResult.Applied && _edits[i].Edit.Obj == ObjectId.Empty)
