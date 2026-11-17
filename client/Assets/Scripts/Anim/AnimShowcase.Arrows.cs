@@ -177,13 +177,15 @@ namespace Orpheus.Client.Anim
         Shot[] ArrowShots() => new[]
         {
             // непрерывная стрельба двоих: натяжение, вылет, втыкание (ствол и земля), снова натяжение, все стрелы лежат
-            new Shot { Name = "C-031_hold", Focus = () => _bowTree + new Vector3(4.6f, -1.7f, 0f), Ortho = 4.6f,
+            new Shot { Name = "C-031_hold", Focus = () => _bowTree + new Vector3(4.6f, -2.2f, 0f), Ortho = 4.6f,
                 Times = new[] { 24.35f, 24.66f, 25.15f, 25.50f, 26.62f }, CropW = 1240, CropH = 780 },
-            // крупно: стрелы-предметы в земле и в стволе (дрожь кончилась, это уже предметы)
-            new Shot { Name = "C-031_stuck", Focus = () => _bowTree + new Vector3(4.6f, -1.9f, 0f), Ortho = 2.6f,
-                Times = new[] { 26.85f }, CropW = 1800, CropH = 1000 },
+            // крупно: стрелы-предметы в стволе и в земле (дрожь кончилась, это уже предметы)
+            new Shot { Name = "C-031_stuck_trunk", Focus = () => _bowTree + new Vector3(0.6f, 0.4f, 0f), Ortho = 1.6f,
+                Times = new[] { 26.80f }, CropW = 1000, CropH = 700 },
+            new Shot { Name = "C-031_stuck_ground", Focus = () => ArcherPos + new Vector3(3.7f, -1.1f, 0f), Ortho = 1.6f,
+                Times = new[] { 26.90f }, CropW = 1400, CropH = 600 },
             // подбор проходом рядом: прохожий идёт вдоль стрел, они прыгают к нему
-            new Shot { Name = "C-031_pickup", Focus = () => ArcherPos + new Vector3(2.6f, -1.0f, 0f), Ortho = 3.2f,
+            new Shot { Name = "C-031_pickup", Focus = () => ArcherPos + new Vector3(3.4f, -1.0f, 0f), Ortho = 3.2f,
                 Times = new[] { 27.05f, 27.70f, 27.95f, 28.20f, 28.45f, 28.85f }, CropW = 1100, CropH = 560 },
         };
     }
