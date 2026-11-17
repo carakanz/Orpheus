@@ -195,7 +195,6 @@ namespace Orpheus.Tests
             Assert.Equal(24, TileOf(sim, rogue).X); // дошёл до проёма
 
             // Игрок снёс дверь (правка мира) — пересчёт пути в том же такте, без ожидания 2 с.
-            int searchesBefore = (int)sim.PathSearches;
             sim.RequestEdit(new TileCoord(23, 22), FloorId.Grass, ObjectId.Empty);
             sim.Step();
             int removedTick = (int)sim.Tick;
