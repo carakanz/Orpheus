@@ -35,6 +35,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Win32.SafeHandles;
 
 public static class HiddenCi
 {
@@ -62,7 +63,7 @@ public static class HiddenCi
     static extern bool CloseDesktop(IntPtr h);
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    static extern bool CreatePipe(out IntPtr read, out IntPtr write, ref SECURITY_ATTRIBUTES sa, int size);
+    static extern bool CreatePipe(out SafeFileHandle read, out SafeFileHandle write, ref SECURITY_ATTRIBUTES sa, int size);
 
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool SetHandleInformation(IntPtr h, int mask, int flags);
@@ -101,33 +102,34 @@ public static class HiddenCi
         try
         {
             var sa = new SECURITY_ATTRIBUTES { nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES)), bInheritHandle = true };
-            IntPtr inR, inW, outR, outW, errR, errW;
+            SafeFileHandle inR, inW, outR, outW, errR, errW;
             if (!CreatePipe(out inR, out inW, ref sa, 0) || !CreatePipe(out outR, out outW, ref sa, 0)
                 || !CreatePipe(out errR, out errW, ref sa, 0))
             {
                 stdErr = "hidden: CreatePipe, ошибка " + Marshal.GetLastWin32Error();
                 return 1;
             }
-            SetHandleInformation(inR, HandleFlagInherit, 0);   // ребёнку — только inW/outW/errW
-            SetHandleInformation(outR, HandleFlagInherit, 0);
-            SetHandleInformation(errR, HandleFlagInherit, 0);
+            SetHandleInformation(inR.DangerousGetHandle(), HandleFlagInherit, 0);   // ребёнку — только inW/outW/errW
+            SetHandleInformation(outR.DangerousGetHandle(), HandleFlagInherit, 0);
+            SetHandleInformation(errR.DangerousGetHandle(), HandleFlagInherit, 0);
 
             STARTUPINFO si = new STARTUPINFO();
             si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
             si.lpDesktop = "WinSta0\\" + desktop;
             si.dwFlags = 0x100; // STARTF_USESTDHANDLES
-            si.hStdInput = inR; si.hStdOutput = outW; si.hStdError = errW;
+            si.hStdInput = inR.DangerousGetHandle(); si.hStdOutput = outW.DangerousGetHandle(); si.hStdError = errW.DangerousGetHandle();
 
             PROCESS_INFORMATION pi;
             var cmd = new StringBuilder(exe + " " + args);
             if (!CreateProcess(null, cmd, IntPtr.Zero, IntPtr.Zero, true, CreateNoWindow, IntPtr.Zero, cwd, ref si, out pi))
             {
                 int e = Marshal.GetLastWin32Error();
-                CloseHandle(inR); CloseHandle(inW); CloseHandle(outR); CloseHandle(outW); CloseHandle(errR); CloseHandle(errW);
+                inR.Dispose(); inW.Dispose(); outR.Dispose(); outW.Dispose(); errR.Dispose(); errW.Dispose();
                 stdErr = "hidden: CreateProcess " + exe + ", ошибка " + e;
                 return 1;
             }
-            CloseHandle(inW); // stdin ребёнка — EOF
+            inW.Dispose(); // stdin ребёнка — EOF
+            outW.Dispose(); errW.Dispose(); // свои копии труб вывода закрыть, иначе EOF не наступит никогда
 
             // Обе трубы выкачиваем параллельно: vstest пишет результаты в stdout, MSBuild — ошибки
             // сборки в stderr; последовательное чтение deadlock'ится на заполнении буфера второй.
@@ -155,13 +157,13 @@ public static class HiddenCi
             lock (eSb) stdErr = eSb.ToString();
 
             CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
-            CloseHandle(inR); CloseHandle(outR); CloseHandle(errR);
+            inR.Dispose();
             return code;
         }
         finally { CloseDesktop(desk); }
     }
 
-    static void Drain(IntPtr h, StringBuilder into)
+    static void Drain(SafeFileHandle h, StringBuilder into)
     {
         try
         {
