@@ -1,6 +1,8 @@
 #nullable enable
 using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
+using Orpheus.Net.Session;
 using UnityEngine;
 using Items = Orpheus.Core.Sim.Items;
 
