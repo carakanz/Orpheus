@@ -413,7 +413,7 @@ namespace Orpheus.Tests
             sim.RequestPlayerEdit(rock, FloorId.Grass, ObjectId.Empty, false, default, id, 1);
             sim.Step();
             int n = Assert.Single(sim.Piles.ToArray()).Count;
-            Assert.InRange(n, 1, 2);
+            Assert.InRange(n, 4, 8); // C-028: камень ×4
             for (int t = 1; t < Simulation.LootPickupDelayTicks; t++)
             {
                 sim.Step();

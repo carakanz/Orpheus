@@ -70,12 +70,40 @@ namespace Orpheus.Net.Session
             StrikePredicted?.Invoke(n);
         }
 
+        /// <summary>Своих снятых взмахом тайлов в очереди не больше (сверх — старые уходят; боты разбирают каждый кадр).</summary>
+        public const int MaxBrokenQueue = 256;
+
+        private readonly System.Collections.Generic.List<(TileCoord Tile, ushort Obj)> _brokenByMe =
+            new System.Collections.Generic.List<(TileCoord Tile, ushort Obj)>();
+
+        /// <summary>
+        /// Забрать тайлы, снятые своими взмахами (по «взмаху» сервера, с объектом до снятия) — для счёта добычи у ботов.
+        /// Возвращает число добавленных в <paramref name="into"/>.
+        /// </summary>
+        public int DrainBrokenByMe(System.Collections.Generic.List<(TileCoord Tile, ushort Obj)> into)
+        {
+            int n = _brokenByMe.Count;
+            into.AddRange(_brokenByMe);
+            _brokenByMe.Clear();
+            return n;
+        }
+
         private void OnStrike(in StrikeMessage m)
         {
             StrikesSeen++;
             for (int k = 0; k < m.Count; k++)
             {
                 StrikeTile t = m.Get(k);
+                if (t.Broken && m.Striker == EntityId)
+                {
+                    if (_brokenByMe.Count >= MaxBrokenQueue)
+                    {
+                        _brokenByMe.RemoveAt(0);
+                    }
+
+                    _brokenByMe.Add((t.Tile, t.Obj));
+                }
+
                 // Снят — трещин больше нет (пачка мира уберёт объект); иначе — удары сервера (он главнее своего счёта).
                 Wear.Set(t.Tile, t.Obj, t.Broken ? 0 : t.Hits, t.Needed, _nowUs);
             }

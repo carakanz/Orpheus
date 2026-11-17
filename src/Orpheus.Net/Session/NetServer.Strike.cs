@@ -120,7 +120,7 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < _strikes.Count; i++)
             {
                 StrikeRecord r = _strikes[i];
-                uint mask = 0;
+                uint mask = StrikeMessage.ReplySwingBit; // «принято» требует маски ≠ 0: взмах без снятых тайлов — только этот бит
                 for (int k = 0; k < r.Msg.Count; k++)
                 {
                     if (r.Msg.Get(k).Broken)

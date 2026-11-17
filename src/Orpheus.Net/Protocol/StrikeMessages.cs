@@ -23,6 +23,12 @@ namespace Orpheus.Net.Protocol
     public struct StrikeMessage
     {
         public const int HeaderBytes = 8;
+
+        /// <summary>
+        /// Ответ на запрос взмаха (21): «принято», маска — бит 31 (взмах решён) и биты 0…2 — снятые этим ударом тайлы (номер в
+        /// «взмахе»). Предсказаний у взмаха нет — маска для <see cref="Session.ClientWorld.Resolve"/> ничего не откатывает.
+        /// </summary>
+        public const uint ReplySwingBit = 1u << 31;
         public const int TileBytes = 13;
 
         public int Striker;

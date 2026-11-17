@@ -113,7 +113,7 @@ namespace Orpheus.Tests
             Assert.Equal(0, e.Inv.Count(Items.CopperIngot)); // 8 слитков ушли в кирку
 
             // Гранит взят: тайл пуст на сервере (без медной кирки он не берётся — E26_Granite_OnlyCopperPickaxe).
-            Assert.Equal(1, bot.GraniteDug);
+            Assert.True(bot.GraniteDug >= 1, bot.Summary); // C-028: взмах медной кирки может снять и соседний гранит (было ровно 1)
             Assert.NotNull(bot.GraniteTile);
             Assert.Equal(ObjectId.Empty, o.Sim.World.GetObject(bot.GraniteTile!.Value));
             Assert.Equal(0, o.Client.BadMessages);

@@ -820,7 +820,8 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => CraftStateMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             Assert.True(Codec.IsKnown(30) && Codec.IsKnown(31) && Codec.IsKnown(32));
-            Assert.False(Codec.IsKnown(39)); // E3-2: 38 — снаряд; E3-1: 37 — урон; E2-5: 33–35 заняты (действие, ответ, сундук); E2-10: 36 — сундуки рядом
+            Assert.True(Codec.IsKnown(39)); // C-028: 39 — взмах кирки
+            Assert.False(Codec.IsKnown(40)); // E3-2: 38 — снаряд; E3-1: 37 — урон; E2-5: 33–35 заняты (действие, ответ, сундук); E2-10: 36 — сундуки рядом
         }
 
         private static void Give(EditTests.EditRig rig, NetClient c, params (byte Item, int Count)[] items)

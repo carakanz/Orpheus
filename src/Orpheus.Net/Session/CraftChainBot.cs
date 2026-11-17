@@ -178,6 +178,11 @@ namespace Orpheus.Net.Session
             ushort raw = _digRaw[m.RequestId];
             _digTile.Remove(m.RequestId);
             _digRaw.Remove(m.RequestId);
+            if (m.Reply == EditReply.Accepted && (m.Mask & StrikeMessage.ReplySwingBit) != 0)
+            {
+                return; // C-028: взмах кирки — снятые тайлы приходят «взмахом» (CountBroken)
+            }
+
             if (m.Reply != EditReply.Accepted)
             {
                 Refused++;
@@ -188,6 +193,13 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            Count(t, raw);
+        }
+
+        private readonly List<(TileCoord Tile, ushort Obj)> _broken = new List<(TileCoord Tile, ushort Obj)>();
+
+        private void Count(TileCoord t, ushort raw)
+        {
             switch (ObjectId.IdOf(raw))
             {
                 case ObjectId.Tree:
@@ -222,6 +234,13 @@ namespace Orpheus.Net.Session
         /// <summary>Кадр ввода (60 Гц). <paramref name="pos"/> — своя позиция (снимок или предсказание).</summary>
         public InputFrame Next(NetClient client, WorldPos pos)
         {
+            _broken.Clear();
+            client.DrainBrokenByMe(_broken); // C-028: снятое своими взмахами — в счёт
+            foreach ((TileCoord t, ushort raw) in _broken)
+            {
+                Count(t, raw);
+            }
+
             InputFrame f = Decide(client, pos);
             if (f.Slot != _sentSlot)
             {
