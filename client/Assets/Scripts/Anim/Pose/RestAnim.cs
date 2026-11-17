@@ -24,11 +24,20 @@ namespace Orpheus.Client.Anim
         /// <summary>Макушка — от центра кровати к изголовью, тайлов (кровать 2 × 2: изголовье в 1 т от центра).</summary>
         public const float HeadFromCenter = 0.82f;
 
+        /// <summary>
+        /// Макушка от центра для поворота: при 180° изголовье — у зрителя, высокая спинка закрывает край подушки на экране,
+        /// поэтому голова ложится ближе к середине (снимок <c>C-030_lie2</c>; предварительно).
+        /// </summary>
+        public static float HeadFrom(int rotation) => (rotation & 3) == 2 ? 0.6f : HeadFromCenter;
+
         /// <summary>Своя половина двуспальной кровати: сдвиг поперёк, тайлов (лежит на левой половине, если смотреть от ног).</summary>
         public const float Side = 0.46f;
 
-        /// <summary>Подъём матраса над землёй на экране (ракурс 3/4: высота × 0,5), тайлов.</summary>
-        public const float MattressLift = 0.2f;
+        /// <summary>
+        /// Подъём матраса на экране, тайлов: высота матраса × 0,5 (ракурс 3/4) = 0,2 плюс подъём картинки мебели над опорой
+        /// (<c>ObjectTable.BaseLift</c> = 0,3 — кровать нарисована на 0,3 т выше своих клеток).
+        /// </summary>
+        public const float MattressLift = 0.2f + 0.3f;
 
         /// <summary>Высота спрайта персонажа, тайлов (<c>actors</c>: 1 × 1,5).</summary>
         public const float BodyLength = 1.5f;
@@ -55,7 +64,7 @@ namespace Orpheus.Client.Anim
         public static void Spot(int rotation, out float x, out float y)
         {
             HeadDir(rotation, out float hx, out float hy);
-            float along = HeadFromCenter - BodyLength; // опора — на длину тела от макушки
+            float along = HeadFrom(rotation) - BodyLength; // опора — на длину тела от макушки
             // «Слева, если смотреть к изголовью» = поворот направления головы на +90°: (−hy, hx).
             x = hx * along + -hy * Side;
             y = hy * along + hx * Side + MattressLift;
@@ -84,8 +93,9 @@ namespace Orpheus.Client.Anim
         {
             float k = Progress(age);
             Spot(rotation, out float sx, out float sy);
+            // Сдвиг позы — от опоры спрайта, а она на SpriteFootY ниже корня: опору ставим в точку Spot кровати.
             p.OffsetX = p.OffsetX * (1f - k) + (toBedX + sx) * k;
-            p.OffsetY = p.OffsetY * (1f - k) + (toBedY + sy) * k;
+            p.OffsetY = p.OffsetY * (1f - k) + (toBedY + sy - ActionAnim.SpriteFootY) * k;
             p.RotationDeg = p.RotationDeg * (1f - k) + BodyDeg(rotation) * k;
             p.ScaleX = 1f;
             p.ScaleY = 1f + 0.012f * (float)Math.Sin(age * 2.4f); // дыхание

@@ -126,7 +126,8 @@ namespace Orpheus.Tests
             Assert.Equal(hy, uy, 3);
             float headX = sx + ux * RestAnim.BodyLength, headY = sy - lift + uy * RestAnim.BodyLength;
             float feetX = sx, feetY = sy - lift;
-            Assert.Equal(RestAnim.HeadFromCenter, headX * hx + headY * hy, 3); // макушка у изголовья
+            Assert.Equal(RestAnim.HeadFrom(rot), headX * hx + headY * hy, 3); // макушка у изголовья
+            Assert.True(RestAnim.HeadFrom(rot) >= 0.5f);                        // в изголовной половине
             foreach (float v in new[] { headX, headY, feetX, feetY })
             {
                 Assert.InRange(v, -1f, 1f); // в пределах кровати 2 × 2
@@ -140,7 +141,7 @@ namespace Orpheus.Tests
             p = RestAnim.Apply(Pose.Identity, 1f, rot, 2f, 3f);
             Assert.Equal(RestAnim.Cover, p.Cover);
             Assert.Equal(2f + sx, p.OffsetX, 3);
-            Assert.Equal(3f + sy, p.OffsetY, 3);
+            Assert.Equal(3f + sy - ActionAnim.SpriteFootY, p.OffsetY, 3); // опора спрайта — на SpriteFootY ниже корня
             Assert.Equal(RestAnim.BodyDeg(rot), p.RotationDeg, 3);
             Assert.True(p.HideHand);
             Assert.True(RestAnim.Dim(1f) > 0.3f && RestAnim.Dim(0f) == 0f);

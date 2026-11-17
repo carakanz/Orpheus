@@ -215,8 +215,8 @@ namespace Orpheus.Client
                     var tex = Texture2D.whiteTexture;
                     var go = new GameObject("RestShade");
                     go.transform.SetParent(Camera.transform, false);
-                    go.transform.localPosition = new Vector3(0f, 0f, 1f);
-                    go.transform.localScale = new Vector3(4000f, 4000f, 1f);
+                    go.transform.localPosition = new Vector3(0f, 0f, 5f); // перед камерой, как DayTintView
+                    go.transform.localScale = new Vector3(600f, 600f, 1f);
                     _bedDemoShade = go.AddComponent<SpriteRenderer>();
                     _bedDemoShade.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), tex.width);
                     _bedDemoShade.sortingOrder = WorldView.TintOrder + 5;
