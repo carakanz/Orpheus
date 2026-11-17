@@ -282,7 +282,7 @@ namespace Orpheus.Net.Session
                     next.Add(new KnownPile { Id = id, Count = piles[i].Count });
                 }
 
-                _pileBatch[batch++] = new NetPile { Id = id, Item = piles[i].Item, Count = piles[i].Count, Position = piles[i].Position };
+                _pileBatch[batch++] = new NetPile { Id = id, Item = piles[i].Item, Count = piles[i].Count, Position = piles[i].Position, Kind = piles[i].Kind, Aim = piles[i].Aim };
                 if (batch == _pileBatch.Length)
                 {
                     FlushPiles(pl, batch);

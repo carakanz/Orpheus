@@ -366,7 +366,7 @@ namespace Orpheus.Client
         /// </summary>
         void HookPiles(NetClient client)
         {
-            client.PileSeen = p => _pileView?.Set(p.Id, p.Item, p.Count, p.Position);
+            client.PileSeen = p => _pileView?.Set(p.Id, p.Item, p.Count, p.Position, p.Kind, p.Aim); // C-031: вид и ось воткнувшейся стрелы
             client.PileGone = (m, was) =>
             {
                 Transform? taker = null;
