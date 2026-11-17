@@ -84,6 +84,9 @@ namespace Orpheus.Client
 
         readonly Dictionary<int, GameObject> _ents = new Dictionary<int, GameObject>();
         readonly HashSet<int> _seen = new HashSet<int>();
+        // E3-4: корни чужих существ этого кадра для силуэта за кроной (WorldFx.SetActors) — 8 ближайших к своему.
+        readonly List<Vector3> _actorRoots = new List<Vector3>();
+        readonly List<float> _actorDist = new List<float>();
         GameObject _entityRoot = null!;
         PileView? _pileView; // E2-1: кучи на земле (сообщения 27 и 28)
         ArrowView? _arrowView; // E3-2: стрелы (сообщение 38 и свои предсказанные), прицел натяжения
@@ -734,6 +737,8 @@ namespace Orpheus.Client
 
             // Чужие: набор — новейший снимок, позиция — RemoteInterpolation на время показа этого кадра.
             _seen.Clear();
+            _actorRoots.Clear(); // E3-4: силуэты за кроной — собирается заново каждый кадр
+            _actorDist.Clear();
             RemoteInterpolation r = _remote!;
             if (r.BeginFrame(now))
             {
@@ -747,7 +752,7 @@ namespace Orpheus.Client
                     }
 
                     _seen.Add(id);
-                    GameObject go = GetEntity(id);
+                    GameObject go = GetEntity(id, snap.Entities[i].Kind);
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
                     _anim?.Remote(id, go.transform, snap.Entities[i]); // E2-7: предмет в руке и удар мечом чужих — из снимка
@@ -755,8 +760,14 @@ namespace Orpheus.Client
                     {
                         _seen.Remove(id); // E3-1: труп врага растворился — не рисуется до удаления сервером
                     }
+                    else
+                    {
+                        AddActorSlot(go.transform.position); // E3-4: существо видно сквозь крону
+                    }
                 }
             }
+
+            WorldFx.SetActors(_actorRoots); // E3-4: свободные слоты шейдер выключает
 
             foreach (KeyValuePair<int, GameObject> kv in _ents)
             {
@@ -828,7 +839,7 @@ namespace Orpheus.Client
             _measureSelf = true;
         }
 
-        GameObject GetEntity(int id)
+        GameObject GetEntity(int id, byte kind)
         {
             if (_ents.TryGetValue(id, out GameObject? existing))
             {
@@ -842,12 +853,40 @@ namespace Orpheus.Client
             spriteGo.transform.localPosition = new Vector3(0f, -0.4f, 0f);
             var sr = spriteGo.AddComponent<SpriteRenderer>();
             sr.sprite = _heroSprite;
-            sr.color = new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
+            // E3-4: враг выглядит врагом — тёплый красный, как манекены (своих ассетов врагов в клиенте пока нет).
+            sr.color = kind == SimEntity.KindEnemy ? Anim.ActorFactory.EnemyTint : new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
             sr.sortingOrder = WorldView.ObjectOrder;
             sr.spriteSortPoint = SpriteSortPoint.Pivot;
             WorldFx.AddActorShadow(root.transform, 0.8f); // E1-7: пятно-тень под существом
             _ents[id] = root;
             return root;
+        }
+
+        /// <summary>
+        /// E3-4: существо в слот силуэта за кроной (шейдер _OrphActors): держим <see cref="WorldFx.MaxActorSilhouettes"/>
+        /// ближайших к своему персонажу.
+        /// </summary>
+        void AddActorSlot(Vector3 root)
+        {
+            float d2 = (root - _g.Character.position).sqrMagnitude;
+            if (_actorRoots.Count == WorldFx.MaxActorSilhouettes && d2 >= _actorDist[WorldFx.MaxActorSilhouettes - 1])
+            {
+                return; // дальше восьми ближайших
+            }
+
+            int at = _actorDist.BinarySearch(d2);
+            if (at < 0)
+            {
+                at = ~at;
+            }
+
+            _actorRoots.Insert(at, root);
+            _actorDist.Insert(at, d2);
+            if (_actorRoots.Count > WorldFx.MaxActorSilhouettes)
+            {
+                _actorRoots.RemoveAt(WorldFx.MaxActorSilhouettes);
+                _actorDist.RemoveAt(WorldFx.MaxActorSilhouettes);
+            }
         }
 
         // E1-1 (план, шаг 1.1): колесо мыши — обзор от 40 до 96 тайлов в ширину, как офлайн; на геймпаде — плечи.

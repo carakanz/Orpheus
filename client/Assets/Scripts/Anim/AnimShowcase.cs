@@ -410,6 +410,7 @@ namespace Orpheus.Client.Anim
             }
 
             BowFrame(dt); // E3-2: лучники, стрелы, кольцо силы
+            FoeFrame(dt); // E3-4: враг с мечом, ответ героя, лучник-враг, смерть (с 25 с)
         }
 
         static SwingPhase PhaseAt(float su, out float q)
@@ -543,6 +544,11 @@ namespace Orpheus.Client.Anim
                     yield return Strip(s);
                 }
 
+                foreach (Shot s in FoeShots()) // E3-4: враги — после лука (с 25 с)
+                {
+                    yield return Strip(s);
+                }
+
                 _ortho = 5f;
                 _focus = _c + new Vector3(0f, 1.2f, 0f);
                 while (_t < 16.0f)
@@ -610,7 +616,8 @@ namespace Orpheus.Client.Anim
 
             strip.Apply();
             Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ||
-                 s.Name.StartsWith("E3-2", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
+                 s.Name.StartsWith("E3-2", StringComparison.Ordinal) || s.Name.StartsWith("E3-4", StringComparison.Ordinal)
+                 ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
         }
 
