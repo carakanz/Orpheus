@@ -14,7 +14,8 @@ namespace Orpheus.Core.World
     /// <item>Удар задевает до <see cref="MaxTiles"/> «каменных» тайлов (<see cref="IsTarget"/>: природный объект, который этой
     /// киркой бьётся, <see cref="DigTimes.HitsFor"/> &gt; 0) в секторе ±45° от оси «персонаж → центр тайла прицела», ближняя
     /// точка тайла не дальше <see cref="ReachUnits"/> (досягаемость кирки + 1 тайл). Тайл прицела — первым, если он задет; дальше —
-    /// по близости (квадрат расстояния до центра, затем отход от оси), равные — по обходу строк.</item>
+    /// по близости (квадрат расстояния до центра, затем отход от оси), равные — по обходу строк. Линия до тайла — как у меча
+    /// (стена, закрытая дверь, обрыв, дерево — преграда; камни, которые кирка бьёт, — нет).</item>
     /// <item>Каждый задетый тайл получает удар (<see cref="TileWear"/>); набрал <see cref="DigTimes.HitsFor"/> — снимается правкой
     /// (добыча — как у копания, <see cref="DigLoot"/>).</item>
     /// </list>
@@ -83,7 +84,16 @@ namespace Orpheus.Core.World
         /// <paramref name="needed"/>. Возвращает число; прицел в тайле персонажа ровно в точке — 0 (оси нет).
         /// </summary>
         public static int Targets(WorldModel world, WorldPos pos, TileCoord aim, DigTimes times, byte held,
-            Span<TileCoord> tiles, Span<ushort> objs, Span<byte> needed)
+            Span<TileCoord> tiles, Span<ushort> objs, Span<byte> needed) =>
+            Targets(world, pos, aim, times, held, tiles, objs, needed, null);
+
+        /// <summary>
+        /// То же с проверкой линии (проверка П C-028): <paramref name="lineClear"/>(точка персонажа, тайл) — линия до тайла чиста
+        /// (сервер — <see cref="Sim.Simulation.PickLineClear"/>: стена, закрытая дверь, обрыв, дерево гасят удар; камни, которые эта
+        /// кирка бьёт, прозрачны). null — без линии (предсказание трещин без правил мира).
+        /// </summary>
+        public static int Targets(WorldModel world, WorldPos pos, TileCoord aim, DigTimes times, byte held,
+            Span<TileCoord> tiles, Span<ushort> objs, Span<byte> needed, Func<WorldPos, TileCoord, bool>? lineClear)
         {
             MapShape map = world.Shape;
             TileCoord aimT = Torus.Wrap(map, aim);
@@ -128,9 +138,9 @@ namespace Orpheus.Core.World
 
                     ushort obj = world.GetObject(t);
                     int hits = HitsOf(times, obj, held);
-                    if (hits <= 0)
+                    if (hits <= 0 || (lineClear != null && !lineClear(pos, t)))
                     {
-                        continue;
+                        continue; // не камень этой кирки или за стеной / дверью / обрывом
                     }
 
                     long d2 = (long)v.X * v.X + (long)v.Y * v.Y;

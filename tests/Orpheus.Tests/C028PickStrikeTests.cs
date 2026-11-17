@@ -142,6 +142,106 @@ namespace Orpheus.Tests
             Assert.Equal(5, cn[0]);
         }
 
+        /// <summary>Тайлы удара с линией, как на сервере (<see cref="Simulation.PickLineClear"/>; камни этой кирки прозрачны).</summary>
+        private static TileCoord[] TargetsWithLine(Simulation sim, WorldPos pos, TileCoord aim, byte held = Items.StonePickaxe)
+        {
+            var tiles = new TileCoord[PickStrike.MaxTiles];
+            var objs = new ushort[PickStrike.MaxTiles];
+            var needed = new byte[PickStrike.MaxTiles];
+            var times = new DigTimes();
+            int n = PickStrike.Targets(sim.World, pos, aim, times, held, tiles, objs, needed,
+                (from, t) => sim.PickLineClear(from, t, c => PickStrike.IsTarget(times, sim.World.GetObject(c), held)));
+            return tiles.Take(n).ToArray();
+        }
+
+        /// <summary>
+        /// Проверка П C-028: взмах не бьёт сквозь стену, столб стен, закрытую дверь, обрыв, дерево (тем же обходом ячеек, что
+        /// меч); в коридоре скал — 1-й и 2-й камень по линии (камни этой кирки прозрачны); без линии — бил бы (контроль).
+        /// </summary>
+        [Fact]
+        public void C028_Targets_LineBlockedByWall_Door_Cliff_CorridorPasses()
+        {
+            WorldPos me = Center(300, 200);
+            var rock = new TileCoord(302, 200);
+
+            // Стена между — скала за ней не задета; без проверки линии была бы (контроль мутации).
+            var sim = new Simulation(Flat(), maxEntities: 4);
+            sim.World.SetBaseTile(new TileCoord(301, 200), FloorId.Grass, ObjectId.StoneWall);
+            sim.World.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            Assert.Empty(TargetsWithLine(sim, me, rock));
+            Assert.Equal(new[] { rock }, Targets(sim.World, me, rock).Tiles);
+
+            // Столб стен x = 301, y = 198…202, скалы за ним — ни одной.
+            sim = new Simulation(Flat(), maxEntities: 4);
+            for (int y = 198; y <= 202; y++)
+            {
+                sim.World.SetBaseTile(new TileCoord(301, y), FloorId.Grass, ObjectId.StoneWall);
+            }
+
+            for (int y = 199; y <= 201; y++)
+            {
+                sim.World.SetBaseTile(new TileCoord(302, y), FloorId.Stone, ObjectId.Rock);
+            }
+
+            Assert.Empty(TargetsWithLine(sim, me, rock));
+
+            // Закрытая дверь между.
+            sim = new Simulation(Flat(), maxEntities: 4);
+            sim.RequestEdit(new TileCoord(301, 200), FloorId.Grass, ObjectId.Door, BuildRecord.OfPlayer(1, FloorId.Grass));
+            sim.Step();
+            Assert.Equal(ObjectId.Door, ObjectId.IdOf(sim.World.GetObject(new TileCoord(301, 200))));
+            sim.World.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            Assert.Empty(TargetsWithLine(sim, me, rock));
+
+            // Обрыв между.
+            sim = new Simulation(Flat(), maxEntities: 4);
+            sim.World.SetBaseTile(new TileCoord(301, 200), FloorId.DryGrass, ObjectId.Cliff);
+            sim.World.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            Assert.Empty(TargetsWithLine(sim, me, rock));
+
+            // Дерево между (топору, не кирке) — тоже преграда.
+            sim = new Simulation(Flat(), maxEntities: 4);
+            sim.World.SetBaseTile(new TileCoord(301, 200), FloorId.Grass, ObjectId.Tree);
+            sim.World.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            Assert.Empty(TargetsWithLine(sim, me, rock));
+
+            // Коридор скал: 1-й и 2-й по линии — да (передняя скала прозрачна для своей кирки).
+            sim = new Simulation(Flat(), maxEntities: 4);
+            sim.World.SetBaseTile(new TileCoord(301, 200), FloorId.Stone, ObjectId.Rock);
+            sim.World.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            Assert.Equal(new[] { new TileCoord(301, 200), rock }, TargetsWithLine(sim, me, new TileCoord(310, 200)));
+        }
+
+        /// <summary>
+        /// C-029 + C-028: цель кирки — <see cref="BuildCursor.Target"/> (как у сноса и пипетки). Курсор на скале — скала, взмах;
+        /// на пустой ячейке над нарисованным верхом стены — сама стена, и кирка по ней — прежний снос по времени (не взмах);
+        /// курсор на траве — взмах в воздух к курсору.
+        /// </summary>
+        [Fact]
+        public void C028_CursorTarget_RockStrikes_WallTopDemolishes()
+        {
+            WorldModel w = Flat();
+            var rock = new TileCoord(301, 200);
+            var wall = new TileCoord(305, 200);
+            w.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            w.SetBaseTile(wall, FloorId.Grass, ObjectId.StoneWall);
+
+            TileCoord onRock = BuildCursor.Target(w, w.Shape, Center(301, 200), 0, out _);
+            Assert.Equal(rock, onRock);
+            Assert.True(PickStrike.IsStrike(w, onRock, Items.StonePickaxe));
+
+            // Нарисованный верх стены: южная половина тайла над стеной (305,199).
+            var overWallTop = new WorldPos(305 * U + U / 2, 199 * U + U * 3 / 4);
+            TileCoord onWallTop = BuildCursor.Target(w, w.Shape, overWallTop, 0, out _);
+            Assert.Equal(wall, onWallTop);
+            Assert.False(PickStrike.IsStrike(w, onWallTop, Items.StonePickaxe)); // постройка киркой — снос по времени (как до C-028)
+            Assert.Equal(EditReply.Accepted, EditRules.CheckDig(w, Center(304, 200), onWallTop, new DigTimes(), Items.StonePickaxe));
+
+            TileCoord onGrass = BuildCursor.Target(w, w.Shape, Center(301, 205), 0, out _);
+            Assert.Equal(new TileCoord(301, 205), onGrass);
+            Assert.True(PickStrike.IsStrike(w, onGrass, Items.StonePickaxe));
+        }
+
         [Fact]
         public void C028_TileWear_Accumulates_ResetsAfterPause_AndOnObjectChange()
         {
@@ -350,6 +450,99 @@ namespace Orpheus.Tests
             Assert.Equal(2f / 3f, b.WearOf(rock), 3); // чужие удары видны
             Assert.Equal(StrikeMessage.ReplySwingBit | 1u, Swing(rig, b, rb, rock).Mask);
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
+        }
+
+        /// <summary>Сервер: стена между персонажем и скалой — взмах «принят», скала за стеной не получает удара и стоит.</summary>
+        [Fact]
+        public void C028_Net_WallBetween_RockBehindNotHit()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(302, 200);
+            world.SetBaseTile(new TileCoord(301, 200), FloorId.Grass, ObjectId.StoneWall);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditTests.EditRig(world, _ => Center(300, 200));
+            NetClient c = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            var strikes = new List<StrikeMessage>();
+            c.StrikeSeen = strikes.Add;
+            rig.Run(5);
+            rig.InputOf = _ => DigPick;
+            rig.Run(4);
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.Equal(StrikeMessage.ReplySwingBit, Swing(rig, c, replies, rock).Mask);
+            }
+
+            Assert.All(strikes, m => Assert.Equal(0, m.Count));
+            Assert.Equal(0, rig.Server.Wear.HitsOn(rock, ObjectId.Rock));
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
+        }
+
+        /// <summary>«Взмах» (39) — ударившему и игрокам в 56 т; игрок в 60 т его не получает.</summary>
+        [Fact]
+        public void C028_Net_StrikeBroadcast_Within56Tiles_Only()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 200);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditTests.EditRig(world, n => n == 0 ? Center(300, 200) : n == 1 ? Center(350, 200) : Center(360, 200));
+            NetClient c = rig.Join();
+            NetClient near = rig.Join();
+            NetClient far = rig.Join();
+            var replies = new List<TileReplyMessage>();
+            c.EditReplied = replies.Add;
+            rig.Run(5);
+            rig.InputOf = k => k == c ? DigPick : InputFrame.None;
+            rig.Run(4);
+            Swing(rig, c, replies, rock);
+            rig.Run(2);
+            Assert.Equal(1, c.StrikesSeen);
+            Assert.Equal(1, near.StrikesSeen);  // 50 т
+            Assert.Equal(0, far.StrikesSeen);   // 60 т
+            Assert.Equal(0f, far.WearOf(rock));
+        }
+
+        /// <summary>
+        /// Двое добивают одну скалу в одном такте (удары 2/3, оба взмаха начаты в одном кадре): правка одна, «снят» — у одного
+        /// ударившего (бит маски и флаг во «взмахе»), камень выдан один раз.
+        /// </summary>
+        [Fact]
+        public void C028_Net_TwoFinishSameTick_BrokenOnlyOnce()
+        {
+            WorldModel world = Flat();
+            var rock = new TileCoord(301, 200);
+            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            using var rig = new EditTests.EditRig(world, n => n == 0 ? Center(300, 200) : Center(302, 200));
+            NetClient a = rig.Join();
+            NetClient b = rig.Join();
+            var ra = new List<TileReplyMessage>();
+            var rb = new List<TileReplyMessage>();
+            a.EditReplied = ra.Add;
+            b.EditReplied = rb.Add;
+            var seen = new List<StrikeMessage>();
+            a.StrikeSeen = seen.Add;
+            rig.Run(5);
+            rig.InputOf = _ => DigPick;
+            rig.Run(4);
+            Swing(rig, a, ra, rock);
+            Swing(rig, a, ra, rock);
+            Assert.Equal(2, rig.Server.Wear.HitsOn(rock, ObjectId.Rock));
+
+            ra.Clear();
+            seen.Clear();
+            a.StartDig(rock, rig.Sim.GetEntity(a.EntityId).Mover.Position);
+            b.StartDig(rock, rig.Sim.GetEntity(b.EntityId).Mover.Position);
+            rig.Run(16);
+            TileReplyMessage qa = Assert.Single(ra);
+            TileReplyMessage qb = Assert.Single(rb);
+            Assert.Equal(1, ((qa.Mask & 1u) != 0 ? 1 : 0) + ((qb.Mask & 1u) != 0 ? 1 : 0));
+            Assert.Equal(2, seen.Count);
+            Assert.Equal(1, seen.Count(m => m.Count == 1 && m.T0.Broken));
+            Assert.Equal(1, rig.Server.StrikeTilesBroken);
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
+            int expected = DigLoot.DropFor(ObjectId.Rock, rock.X, rock.Y, world.Seed, out _);
+            Assert.Equal(expected, rig.Sim.Piles.ToArray().Where(p => p.Item == Items.Stone).Sum(p => p.Count));
         }
 
         /// <summary>Кирка по дереву в досягаемости — «нужен топор»; по граниту каменной — «нужна кирка: медная»; взмах в воздух — «принято».</summary>

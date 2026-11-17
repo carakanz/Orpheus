@@ -66,7 +66,10 @@ namespace Orpheus.Net.Session
         private void Strike(Player p, EditState s, WorldPos pos, byte held)
         {
             s.Digging = false;
-            int n = PickStrike.Targets(_sim.World, pos, s.DigTile, DigTimes, held, _strikeTiles, _strikeObjs, _strikeNeeded);
+            // Линия до тайла — как у меча (проверка П): сквозь стену, закрытую дверь, обрыв не бьёт; камни этой кирки прозрачны.
+            WorldModel world = _sim.World;
+            int n = PickStrike.Targets(world, pos, s.DigTile, DigTimes, held, _strikeTiles, _strikeObjs, _strikeNeeded,
+                (from, t) => _sim.PickLineClear(from, t, c => PickStrike.IsTarget(DigTimes, world.GetObject(c), held)));
             var rec = new StrikeRecord
             {
                 Player = p,

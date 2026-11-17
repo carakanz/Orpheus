@@ -29,6 +29,12 @@ namespace Orpheus.Net.Session
         /// </summary>
         public WorldPos SelfPosition { get; set; }
 
+        /// <summary>
+        /// Линия до тайла для своего удара (проверка П C-028): игра ставит правило ядра по своему миру
+        /// (<c>Simulation.PickLineClear</c>), как у сервера; null — без линии (боты, тесты: трещины поправит «взмах» сервера).
+        /// </summary>
+        public Func<WorldPos, TileCoord, bool>? StrikeLine { get; set; }
+
         /// <summary>Удары по тайлам у клиента (трещины): свои — сразу, затем как прислал сервер; сброс через 5 с без ударов.</summary>
         public TileWear Wear { get; } = new TileWear(TileWear.ClientResetUs);
 
@@ -59,7 +65,7 @@ namespace Orpheus.Net.Session
 
         private void PredictStrike()
         {
-            int n = PickStrike.Targets(World!.World, SelfPosition, _digTile, DigTimes, HeldItem, _predTiles, _predObjs, _predNeeded);
+            int n = PickStrike.Targets(World!.World, SelfPosition, _digTile, DigTimes, HeldItem, _predTiles, _predObjs, _predNeeded, StrikeLine);
             for (int k = 0; k < n; k++)
             {
                 Wear.Hit(_predTiles[k], _predObjs[k], _predNeeded[k], _nowUs);

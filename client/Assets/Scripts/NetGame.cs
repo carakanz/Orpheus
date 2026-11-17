@@ -443,6 +443,10 @@ namespace Orpheus.Client
             _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
             _anim = new Anim.NetAnimation(_g, _client, _origin, _world, _entityRoot.transform);
             _cracks = new TileCracksView(_entityRoot.transform); // C-028
+            NetClient strikeClient = _client!;
+            Simulation lineRules = _netRules!;
+            strikeClient.StrikeLine = (from, t) => lineRules.PickLineClear(from, t, // C-028 (П): линия взмаха — как у сервера
+                c => PickStrike.IsTarget(strikeClient.DigTimes, lineRules.World.GetObject(c), strikeClient.HeldItem));
             HookCombat(_client); // E3-1: урон цифрами, смерть и возрождение на экране
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height}, такт {accept.ServerTick}; " +
                       $"мир — чанки от сервера (генератора у клиента нет), пришло уже {cw.ChunksReceived}");

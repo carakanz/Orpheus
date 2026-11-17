@@ -105,7 +105,7 @@ namespace Orpheus.Client
                 return _stages;
             }
 
-            const int n = 64;
+            const int n = 128; // C-028 (П): крупнее — на экране ~250 px на тайл, 64 px размывались в серое
             var pixels = new Color32[n * n];
             _stages = new Sprite[3];
             uint seed = 0x9E3779B9u;
@@ -115,19 +115,19 @@ namespace Orpheus.Client
                 for (int b = 0; b < branches; b++)
                 {
                     // Излом от середины (стадия 1) или от точки на прежнем изломе (дальше) — 5–8 шагов по 3–5 px.
-                    float x = n / 2f + (stage == 0 ? 0f : (Next(ref seed) - 0.5f) * 20f);
-                    float y = n / 2f + (stage == 0 ? 0f : (Next(ref seed) - 0.5f) * 16f);
+                    float x = n / 2f + (stage == 0 ? 0f : (Next(ref seed) - 0.5f) * 40f);
+                    float y = n / 2f + (stage == 0 ? 0f : (Next(ref seed) - 0.5f) * 32f);
                     float ang = (b + Next(ref seed) * 0.6f) * Mathf.PI * 2f / branches + stage * 0.7f;
                     int steps = 5 + (int)(Next(ref seed) * 4f);
                     for (int k = 0; k < steps; k++)
                     {
                         ang += (Next(ref seed) - 0.5f) * 1.1f;
-                        float len = 3f + Next(ref seed) * 2.5f;
+                        float len = 6f + Next(ref seed) * 5f;
                         float nx = x + Mathf.Cos(ang) * len, ny = y + Mathf.Sin(ang) * len * 0.8f;
-                        Line(pixels, n, x, y, nx, ny, k < 3 ? 3 : 2);
+                        Line(pixels, n, x, y, nx, ny, k < 3 ? 6 : 4);
                         x = nx;
                         y = ny;
-                        if (x < 3 || y < 3 || x > n - 4 || y > n - 4)
+                        if (x < 6 || y < 6 || x > n - 7 || y > n - 7)
                         {
                             break;
                         }
@@ -154,8 +154,8 @@ namespace Orpheus.Client
                 int y = Mathf.RoundToInt(Mathf.Lerp(y0, y1, f));
                 for (int d = 0; d < w; d++)
                 {
-                    Put(px, n, x + 1, y - 1 - d, new Color32(214, 206, 186, 150), false);
-                    Put(px, n, x, y - d, new Color32(28, 22, 20, 235), true);
+                    Put(px, n, x + 2, y - 2 - d, new Color32(246, 240, 222, 210), false); // светлая кромка
+                    Put(px, n, x, y - d, new Color32(14, 9, 8, 255), true);                 // тёмная щель, непрозрачная
                 }
             }
         }
