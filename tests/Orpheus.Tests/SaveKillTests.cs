@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Orpheus.Platform.Pc;
 using Orpheus.Save;
 using Orpheus.Server;
 using Xunit;
@@ -373,33 +374,21 @@ namespace Orpheus.Tests
         /// </summary>
         private int RunServer(string worldDir, string[] args, bool killOnCrash, List<string> log, out string stdout)
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = Host,
-                WorkingDirectory = AppContext.BaseDirectory,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                // Сервер пишет UTF-8 (Program): без этого русские строки лога придут кракозябрами.
-                StandardOutputEncoding = new UTF8Encoding(false),
-                StandardErrorEncoding = new UTF8Encoding(false),
-            };
+            // C-022: на невидимом рабочем столе (HiddenProcess) — 1–2 запуска в секунду мигали экраном Автора.
+            // Сервер пишет UTF-8 (Program), трубы помощника читаются как UTF-8.
+            var argv = new List<string>();
             if (Host != ServerApp)
             {
-                psi.ArgumentList.Add(ServerDll);
-            }
-            psi.ArgumentList.Add("--world");
-            psi.ArgumentList.Add(worldDir);
-            foreach (string a in args)
-            {
-                psi.ArgumentList.Add(a);
+                argv.Add(ServerDll);
             }
 
-            psi.ArgumentList.Add("--logs");
-            psi.ArgumentList.Add(_logs);
+            argv.Add("--world");
+            argv.Add(worldDir);
+            argv.AddRange(args);
+            argv.Add("--logs");
+            argv.Add(_logs);
 
-            using var process = Process.Start(psi) ?? throw new InvalidOperationException("не запустился " + Host);
+            using var process = HiddenProcess.Start(Host, argv, AppContext.BaseDirectory);
             Exception? failure = null;
             try
             {

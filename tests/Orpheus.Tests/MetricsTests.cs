@@ -145,8 +145,8 @@ namespace Orpheus.Tests
         {
             string world = Path.Combine(_dir, "w1024");
             using var cpu = new CpuLoad();
-            (double createWall, double createSec, double createWs, double createPeak) = StartServer($"--world \"{world}\" --create --seed 42 --size 1024 --port 0 --metrics 0");
-            (double loadWall, double loadSec, double loadWs, double loadPeak) = StartServer($"--world \"{world}\" --port 0 --metrics 0");
+            (double createWall, double createSec, double createWs, double createPeak) = StartServer("--world", world, "--create", "--seed", "42", "--size", "1024", "--port", "0", "--metrics", "0");
+            (double loadWall, double loadSec, double loadWs, double loadPeak) = StartServer("--world", world, "--port", "0", "--metrics", "0");
             CpuLoad.Summary load = cpu.Stop();
             _out.WriteLine($"новый мир: сервер готов за {createSec:F3} с (wall-clock {createWall:F2} с), рабочий набор {createWs:F0} МБ, пик {createPeak:F0} МБ");
             _out.WriteLine($"загрузка мира: сервер готов за {loadSec:F3} с (wall-clock {loadWall:F2} с), рабочий набор {loadWs:F0} МБ, пик {loadPeak:F0} МБ");
@@ -165,42 +165,35 @@ namespace Orpheus.Tests
         /// Wall-clock от <c>Process.Start</c> до маркера включает создание процесса ОС и планировщик — под <c>-All</c> это шум;
         /// он печатается для справки, проверка идёт по числу самого процесса, порог 5 с не ослаблен.
         /// </remarks>
-        private static (double WallClockSec, double ServerReadySec, double WorkingSetMb, double PeakMb) StartServer(string args)
+        private static (double WallClockSec, double ServerReadySec, double WorkingSetMb, double PeakMb) StartServer(params string[] args)
         {
             string exe = PcServerLauncher.DefaultPath(AppContext.BaseDirectory);
-            var psi = new ProcessStartInfo
-            {
-                FileName = exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? "dotnet" : exe,
-                Arguments = exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? $"\"{exe}\" {args}" : args,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-            };
+            bool dll = exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
             using var ready = new ManualResetEventSlim();
             var watch = Stopwatch.StartNew();
             double readySec = -1;
             double serverSec = -1;
-            using Process p = Process.Start(psi)!;
-            p.OutputDataReceived += (_, e) =>
+            // C-022: на невидимом рабочем столе (не мигать экраном Автора).
+            using HiddenProcess p = HiddenProcess.Start(dll ? "dotnet" : exe, dll ? new[] { exe }.Concat(args) : args, AppContext.BaseDirectory);
+            p.BeginReadLines(data =>
             {
-                if (e.Data == null)
+                if (data == null)
                 {
                     return;
                 }
 
-                if (e.Data.StartsWith(ServerRun.ReadyMarker, StringComparison.Ordinal) && readySec < 0)
+                if (data.StartsWith(ServerRun.ReadyMarker, StringComparison.Ordinal) && readySec < 0)
                 {
                     readySec = watch.Elapsed.TotalSeconds; // справка: wall-clock лаунчера (не проверяется)
                 }
 
                 // P-003: строка «готов: принимаю подключения» — JSON-строка JsonLog в консоли (ServerRun.cs:41), поле
                 // data.sinceProcessStartSec — секунды от запуска процесса, их меряет сам сервер (ServerHost.ReadyMetrics).
-                if (e.Data.Contains("sinceProcessStartSec", StringComparison.Ordinal) && serverSec < 0)
+                if (data.Contains("sinceProcessStartSec", StringComparison.Ordinal) && serverSec < 0)
                 {
                     try
                     {
-                        using var doc = JsonDocument.Parse(e.Data);
+                        using var doc = JsonDocument.Parse(data);
                         if (doc.RootElement.TryGetProperty("data", out JsonElement d) &&
                             d.TryGetProperty("sinceProcessStartSec", out JsonElement v) &&
                             v.TryGetDouble(out double s))
@@ -214,18 +207,15 @@ namespace Orpheus.Tests
                         // строка не JSON (например, маркер готовности) — пропускаем
                     }
                 }
-            };
-            p.ErrorDataReceived += (_, e) => { };
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
+            }, _ => { });
             try
             {
                 Assert.True(ready.Wait(TimeSpan.FromSeconds(60)) || p.HasExited, "сервер не готов за 60 с");
                 Assert.False(p.HasExited && readySec < 0, $"сервер вышел до готовности, код {(p.HasExited ? p.ExitCode : 0)}");
                 Assert.True(serverSec >= 0, $"сервер не написал sinceProcessStartSec (wall-clock {readySec:F2} с)");
                 Thread.Sleep(3000);
-                p.Refresh();
-                return (readySec, serverSec, p.WorkingSet64 / 1048576.0, p.PeakWorkingSet64 / 1048576.0);
+                using Process mem = Process.GetProcessById(p.Id); // ручка процесса у нас — PID не переиспользован
+                return (readySec, serverSec, mem.WorkingSet64 / 1048576.0, mem.PeakWorkingSet64 / 1048576.0);
             }
             finally
             {
