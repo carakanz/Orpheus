@@ -281,7 +281,8 @@ namespace Orpheus.Client
         static int SnowLevel(ObjectLook look) => look.Snow && look.Levels >= 4 ? look.Levels : int.MaxValue;
 
         // uv1 квадратов блока: опора — нижний край тайла, «высокий» (в круге своего персонажа полупрозрачен), не качается.
-        static Vector4 BlockInfo(in Item it) => new Vector4(it.X, it.Y, 1f, 0f);
+        // uv1.z = 2: гора не становится прозрачной перед своим персонажем — поверх неё силуэт персонажа (C-027, Objects.shader).
+        static Vector4 BlockInfo(in Item it) => new Vector4(it.X, it.Y, 2f, 0f);
 
         // Лицо: вертикальные трещины-изломы (по хэшу тайла) от подошвы вверх — скала столбами, а не полки.
         void FaceMarks(Vector2 fsw, Vector2 fse, Vector2 tsw, Vector2 tse, int tx, int ty, in ObjectAtlas.Entry white)

@@ -163,6 +163,14 @@
     { "name": "E3-1_hurt", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-hurt"] },
     { "name": "E3-1_kill_strip", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-kill", "--shot-walk", "stay:6:0.3:0", "--shot-crop", "640x400"] },
     { "name": "E3-1_death", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-death"] },
-    { "name": "E3-1_respawn", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-respawn"] }
+    { "name": "E3-1_respawn", "seed": "0xE50007", "size": 1024, "tile": [522, 527], "width": 40, "args": ["--paint-demo", "--ui-demo", "combat-respawn"] },
+    { "name": "C-027_start_64", "comment": "C-027 (generator v9): no dirt trails; plant micro-biomes (flowers, sunflowers, tall grass, reeds in the shallows), copper outcrops near the start, forest kinds (oak / pine / dark spruce), deep water is a wall, the mountain stays solid with the hero silhouette over it.", "seed": "0xE50007", "size": 1024, "tile": null, "width": 64 },
+    { "name": "C-027_meadow_40", "seed": "0xE50007", "size": 1024, "tile": [530, 470], "width": 40 },
+    { "name": "C-027_copper_40", "seed": "0xE50007", "size": 1024, "tile": [513, 397], "width": 40 },
+    { "name": "C-027_behind_24", "seed": "0xE50007", "size": 1024, "tile": [778, 465], "width": 40, "args": ["--shot-walk", "stay:1:0.2", "--shot-crop", "1152x648"] },
+    { "name": "C-027_forest_64", "seed": "0xE50007", "size": 1024, "tile": [712, 824], "width": 64 },
+    { "name": "C-027_forest_96", "seed": "0xE50007", "size": 1024, "tile": [792, 104], "width": 96 },
+    { "name": "C-027_lake_64", "seed": "0xE50007", "size": 1024, "tile": [604, 800], "width": 64 },
+    { "name": "C-027_reeds_40", "seed": "0xE50007", "size": 1024, "tile": [604, 800], "width": 40 }
   ]
 }

@@ -47,10 +47,15 @@ namespace Orpheus.Client
         /// <summary>Порядок отрисовки: над землёй (−10) и построенным полом (0), под слоем теней (3).</summary>
         public const int Order = 1;
 
-        /// <summary>Формы листа: 0–3 — пучки травы, 4 — папоротник, 5 — камыш, 6 — редкая метёлка, 7 — лист (частицы <see cref="LeafFx"/>).</summary>
-        public const int ShapeFern = 4, ShapeReed = 5, ShapeSeed = 6, ShapeLeaf = 7, ShapeCount = 8;
+        /// <summary>
+        /// Формы листа: 0–3 — пучки травы, 4 — папоротник, 5 — камыш, 6 — редкая метёлка, 7 — лист (частицы <see cref="LeafFx"/>);
+        /// C-027: 8 — высокая трава, 9 — маки, 10 — васильки, 11 — ромашки, 12 — лютики, 13 — подсолнух (цветы — своим цветом в листе).
+        /// </summary>
+        public const int ShapeFern = 4, ShapeReed = 5, ShapeSeed = 6, ShapeLeaf = 7;
+        public const int ShapeTall = 8, ShapePoppy = 9, ShapeCornflower = 10, ShapeDaisy = 11, ShapeButtercup = 12, ShapeSunflower = 13;
+        public const int ShapeCount = 14;
 
-        const int MaxPerTile = 4;
+        const int MaxPerTile = 8;
         const int MaxQuads = BandRows * Size * MaxPerTile;
 
         public static readonly TuftRule[] Rules =
@@ -58,7 +63,84 @@ namespace Orpheus.Client
             new TuftRule { Ground = GroundTable.Grass, Min = 2, Max = 4, Clump = 0.9f, Shape = 0, Shapes = 4, SizeMin = 0.3f, SizeMax = 0.62f, Tint = new Color32(158, 204, 82, 255) },
             new TuftRule { Ground = GroundTable.DryGrass, Min = 1, Max = 2, Chance = 0.7f, Clump = 0.5f, Shape = 0, Shapes = 4, SizeMin = 0.25f, SizeMax = 0.5f, Tint = new Color32(228, 198, 98, 255) },
             new TuftRule { Ground = GroundTable.Forest, Min = 1, Max = 1, Chance = 0.22f, Shape = ShapeFern, SizeMin = 0.4f, SizeMax = 0.62f, Tint = new Color32(112, 152, 66, 255) },
+            // C-027: бор — редкая сухая трава по хвое; ельник — густой тёмный папоротник.
+            new TuftRule { Ground = GroundTable.Pine, Min = 1, Max = 2, Chance = 0.3f, Clump = 0.6f, Shape = 0, Shapes = 4, SizeMin = 0.25f, SizeMax = 0.45f, Tint = new Color32(200, 184, 104, 255) },
+            new TuftRule { Ground = GroundTable.Spruce, Min = 1, Max = 2, Chance = 0.5f, Clump = 0.8f, Shape = ShapeFern, SizeMin = 0.45f, SizeMax = 0.75f, Tint = new Color32(78, 128, 74, 255) },
         };
+
+        // ---------- Микробиомы растений (C-027) ----------
+
+        /// <summary>
+        /// Пятно растений (C-027, слово Автора 17.11: «вместо коричневых линий — биомы растительности: цветы, подсолнухи,
+        /// камыши»): где плавный шум координаты <see cref="Noise"/> (масштаб <see cref="Scale"/> тайлов) выше <see cref="From"/>,
+        /// на слое <see cref="Ground"/> поверх обычной травы ставятся пучки правила <see cref="Rule"/>. Только вид: в данных
+        /// мира пятен нет (клиент в сети не знает зерна — шум по координате мира, одинаков у всех игроков).
+        /// </summary>
+        public sealed class MicroRule
+        {
+            public byte Ground;
+            public float Scale = 14f;
+            public uint Noise;
+            public float From;
+            public TuftRule Rule = new TuftRule();
+        }
+
+        static TuftRule Flowers(int shape, Color32 tint) => new TuftRule
+        {
+            Min = 1, Max = 3, Chance = 0.8f, Clump = 0.6f, Shape = shape, SizeMin = 0.32f, SizeMax = 0.5f, Tint = tint, Tone = 0.06f,
+        };
+
+        /// <summary>Пятна растений по слоям (числа предварительные): первая подошедшая строка на тайл.</summary>
+        public static readonly MicroRule[] Micro =
+        {
+            // Луг: подсолнухи, поляны цветов (цвет пятна — свой шум), высокая трава.
+            new MicroRule { Ground = GroundTable.Grass, Scale = 11f, Noise = 401, From = 0.74f,
+                Rule = new TuftRule { Min = 1, Max = 2, Chance = 0.75f, Shape = ShapeSunflower, SizeMin = 0.8f, SizeMax = 1.05f, Tone = 0.05f } },
+            new MicroRule { Ground = GroundTable.Grass, Scale = 9f, Noise = 409, From = 0.66f, Rule = Flowers(ShapePoppy, new Color32(255, 255, 255, 255)) },
+            new MicroRule { Ground = GroundTable.Grass, Scale = 13f, Noise = 419, From = 0.62f,
+                Rule = new TuftRule { Min = 2, Max = 3, Shape = ShapeTall, SizeMin = 0.6f, SizeMax = 0.9f, Tint = new Color32(150, 196, 84, 255) } },
+            new MicroRule { Ground = GroundTable.DryGrass, Scale = 11f, Noise = 401, From = 0.7f,
+                Rule = new TuftRule { Min = 1, Max = 2, Chance = 0.7f, Shape = ShapeSunflower, SizeMin = 0.8f, SizeMax = 1.05f, Tone = 0.05f } },
+            new MicroRule { Ground = GroundTable.DryGrass, Scale = 9f, Noise = 409, From = 0.66f, Rule = Flowers(ShapeButtercup, new Color32(255, 255, 255, 255)) },
+            // Дубрава: поляны ромашек и папоротник погуще.
+            new MicroRule { Ground = GroundTable.Forest, Scale = 8f, Noise = 431, From = 0.68f, Rule = Flowers(ShapeDaisy, new Color32(255, 255, 255, 255)) },
+            new MicroRule { Ground = GroundTable.Forest, Scale = 10f, Noise = 433, From = 0.6f,
+                Rule = new TuftRule { Min = 1, Max = 2, Shape = ShapeFern, SizeMin = 0.5f, SizeMax = 0.75f, Tint = new Color32(104, 150, 64, 255) } },
+            // Ельник: заросли папоротника.
+            new MicroRule { Ground = GroundTable.Spruce, Scale = 9f, Noise = 437, From = 0.58f,
+                Rule = new TuftRule { Min = 2, Max = 3, Shape = ShapeFern, SizeMin = 0.6f, SizeMax = 0.9f, Tint = new Color32(70, 120, 70, 255) } },
+        };
+
+        /// <summary>Цвета полян цветов на лугу — по второму шуму: маки, васильки, ромашки, лютики.</summary>
+        static readonly int[] MeadowFlowers = { ShapePoppy, ShapeCornflower, ShapeDaisy, ShapeButtercup };
+
+        /// <summary>Камыш в отмели у берега (C-027): пятнами, на воде, соседней с сушей.</summary>
+        public static readonly TuftRule WaterReed = new TuftRule
+        {
+            Min = 2, Max = 3, Chance = 0.85f, Shape = ShapeReed, SizeMin = 0.75f, SizeMax = 1.05f, Tint = new Color32(140, 158, 80, 255), Tone = 0.08f,
+        };
+
+        /// <summary>Пятно растений тайла (tx, ty) на слое; null — пятна нет.</summary>
+        public static TuftRule? MicroAt(byte layer, int tx, int ty, out int shape)
+        {
+            shape = -1;
+            foreach (MicroRule m in Micro)
+            {
+                if (m.Ground != layer || ObjectTable.Smooth(tx / m.Scale, ty / m.Scale, m.Noise) < m.From)
+                {
+                    continue;
+                }
+
+                if (m.Rule.Shape == ShapePoppy && layer == GroundTable.Grass)
+                {
+                    shape = MeadowFlowers[Mathf.Min(3, (int)(ObjectTable.Smooth(tx / 23f, ty / 23f, 443) * 4f))];
+                }
+
+                return m.Rule;
+            }
+
+            return null;
+        }
 
         /// <summary>Камыш у воды: на суше, соседней с водой (по 4 сторонам).</summary>
         public static readonly TuftRule Reed = new TuftRule
@@ -207,17 +289,37 @@ namespace Orpheus.Client
                             continue; // под объектом и постройкой травы нет
                         }
 
-                        GroundRow row = GroundTable.Of(chunk.GetFloor(index));
-                        if (row.Kind != GroundKind.Ground)
+                        int tx = corner.X + lx, ty = corner.Y + ly;
+                        byte floor = chunk.GetFloor(index);
+                        GroundRow row = GroundTable.Of(floor);
+                        if (floor == FloorId.Water)
                         {
-                            continue; // вода, построенный пол
+                            // C-027: камыш в отмели у берега, пятнами.
+                            if (ObjectTable.Smooth(tx / 7f, ty / 7f, 449) > 0.45f
+                                && (!WaterAt(chunk, corner, lx + 1, ly) || !WaterAt(chunk, corner, lx - 1, ly)
+                                    || !WaterAt(chunk, corner, lx, ly + 1) || !WaterAt(chunk, corner, lx, ly - 1)))
+                            {
+                                quads = Tile(WaterReed, tx, ty, lx, ly, quads, 60);
+                            }
+
+                            continue;
                         }
 
-                        int tx = corner.X + lx, ty = corner.Y + ly;
+                        if (row.Kind != GroundKind.Ground)
+                        {
+                            continue; // глубина, построенный пол
+                        }
+
                         TuftRule? rule = ByLayer[row.Layer];
                         if (rule != null)
                         {
                             quads = Tile(rule, tx, ty, lx, ly, quads, 0);
+                        }
+
+                        TuftRule? micro = MicroAt(row.Layer, tx, ty, out int shape);
+                        if (micro != null)
+                        {
+                            quads = Tile(micro, tx, ty, lx, ly, quads, 80, shape);
                         }
 
                         if (row.Layer != GroundTable.Rocky
@@ -247,8 +349,8 @@ namespace Orpheus.Client
             return quads;
         }
 
-        // Пучки одного тайла по правилу; salt разводит хэши правил (трава и камыш на одном тайле).
-        int Tile(TuftRule rule, int tx, int ty, int lx, int ly, int quads, uint salt)
+        // Пучки одного тайла по правилу; salt разводит хэши правил (трава и камыш на одном тайле); shapeOverride ≥ 0 — форма вместо правила.
+        int Tile(TuftRule rule, int tx, int ty, int lx, int ly, int quads, uint salt, int shapeOverride = -1)
         {
             if (rule.Chance < 1f && GroundAtlas.Hash(tx, ty, 301 + salt) >= rule.Chance)
             {
@@ -271,7 +373,7 @@ namespace Orpheus.Client
                 float size = Mathf.Lerp(rule.SizeMin, rule.SizeMax, GroundAtlas.Hash(tx, ty, 313 + s));
                 float fx = 0.08f + 0.84f * GroundAtlas.Hash(tx, ty, 317 + s);
                 float fy = (k + 0.1f + 0.8f * GroundAtlas.Hash(tx, ty, 331 + s)) * slot; // от верхнего края тайла вниз
-                int shape = rule.Shape + (int)(GroundAtlas.Hash(tx, ty, 337 + s) * rule.Shapes);
+                int shape = shapeOverride >= 0 ? shapeOverride : rule.Shape + (int)(GroundAtlas.Hash(tx, ty, 337 + s) * rule.Shapes);
                 if (rule.Shapes > 1 && GroundAtlas.Hash(tx, ty, 359 + s) < 0.06f)
                 {
                     shape = ShapeSeed; // изредка — метёлка
@@ -422,6 +524,8 @@ namespace Orpheus.Client
             // Лист (частица): овал с контуром, светлая и теневая половины.
             Dot(px, w, ShapeLeaf, 32f, 32f, 17f, 26f, Color.white, 4f);
 
+            DrawPlants(px, w, R);
+
             var tex = new Texture2D(w, Cell, TextureFormat.RGBA32, mipChain: true)
             {
                 name = "GrassAtlas",
@@ -446,8 +550,51 @@ namespace Orpheus.Client
             px[at] = new Color((c.r * a + d.r * d.a * (1f - a)) / outA, (c.g * a + d.g * d.a * (1f - a)) / outA, (c.b * a + d.b * d.a * (1f - a)) / outA, outA);
         }
 
-        // Травинка: клин вдоль дуги от (x0, y0) к (x1, y1), прогиб bend в сторону, ширина у опоры width.
+        // C-027: высокая трава, цветы и подсолнух. Стебли зелёные прямо в листе (у цветов тон вершины белый — цвет из листа).
+        static readonly Color Stem = new Color(0.47f, 0.70f, 0.30f);
+
+        static void DrawPlants(Color[] px, int w, System.Func<float, float, float> R)
+        {
+            // Высокая трава: 6 длинных травинок с колосками.
+            for (int b = 0; b < 6; b++)
+            {
+                float side = (b / 5f) * 2f - 1f;
+                float tipX = 32f + side * R(10f, 20f), tipY = 5f + R(48f, 57f) * (1f - 0.2f * Mathf.Abs(side));
+                Blade(px, w, ShapeTall, 32f + side * 5f, 5f, tipX, tipY, side * R(3f, 7f), R(3.6f, 4.6f));
+            }
+
+            // Цветы: 3–4 стебля разной высоты с головками своего цвета.
+            Bloom(px, w, ShapePoppy, R, new Color(0.92f, 0.20f, 0.16f), new Color(0.20f, 0.12f, 0.10f), 6.5f);
+            Bloom(px, w, ShapeCornflower, R, new Color(0.34f, 0.50f, 0.96f), new Color(0.22f, 0.24f, 0.55f), 5.5f);
+            Bloom(px, w, ShapeDaisy, R, new Color(0.98f, 0.97f, 0.94f), new Color(0.98f, 0.80f, 0.20f), 6f);
+            Bloom(px, w, ShapeButtercup, R, new Color(1f, 0.86f, 0.18f), new Color(0.95f, 0.62f, 0.10f), 5f);
+
+            // Подсолнух: высокий стебель, два листа, крупная жёлтая корзинка с тёмной серединой.
+            Blade(px, w, ShapeSunflower, 32f, 4f, 33f, 46f, 1.5f, 4.2f, Stem);
+            Blade(px, w, ShapeSunflower, 32f, 18f, 20f, 26f, -3f, 6f, Stem);
+            Blade(px, w, ShapeSunflower, 32f, 24f, 44f, 31f, 3f, 6f, Stem);
+            Dot(px, w, ShapeSunflower, 33f, 49f, 12f, 11f, new Color(1f, 0.80f, 0.12f), 1.6f);
+            Dot(px, w, ShapeSunflower, 33f, 49f, 5f, 4.6f, new Color(0.42f, 0.25f, 0.10f), 1f);
+        }
+
+        static void Bloom(Color[] px, int w, int shape, System.Func<float, float, float> R, Color petal, Color heart, float size)
+        {
+            int n = 3 + (shape % 2);
+            for (int b = 0; b < n; b++)
+            {
+                float side = (b / (float)(n - 1)) * 2f - 1f;
+                float tipX = 32f + side * R(9f, 17f), tipY = 5f + R(22f, 40f) * (1f - 0.25f * Mathf.Abs(side));
+                Blade(px, w, shape, 32f + side * 3f, 5f, tipX, tipY, side * R(2f, 5f), 2.8f, Stem);
+                Dot(px, w, shape, tipX, tipY + size * 0.4f, size, size * 0.85f, petal, 1.3f);
+                Dot(px, w, shape, tipX, tipY + size * 0.4f, size * 0.38f, size * 0.34f, heart, 0.6f);
+            }
+        }
+
+        // Травинка: клин вдоль дуги от (x0, y0) к (x1, y1), прогиб bend в сторону, ширина у опоры width; tint — тон заливки (белый — цвет даёт вершина).
         static void Blade(Color[] px, int texW, int cell, float x0, float y0, float x1, float y1, float bend, float width)
+            => Blade(px, texW, cell, x0, y0, x1, y1, bend, width, Color.white);
+
+        static void Blade(Color[] px, int texW, int cell, float x0, float y0, float x1, float y1, float bend, float width, Color tint)
         {
             const int segs = 8;
             const float outline = 1.9f * K;
@@ -506,7 +653,7 @@ namespace Orpheus.Client
                     int at = y * texW + cell * Cell + x;
                     Over(px, at, Line, cover);
                     float fill = Mathf.Clamp01(half + 0.5f - best);
-                    Over(px, at, bestSide > 0f ? Light : Dark, fill);
+                    Over(px, at, (bestSide > 0f ? Light : Dark) * tint, fill);
                 }
             }
         }

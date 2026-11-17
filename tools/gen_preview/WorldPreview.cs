@@ -35,6 +35,7 @@ namespace Orpheus.Tools.GenPreview
             int pngCount = 0;
             bool dump = false;
             string? mapSeeds = null;
+            string mapPrefix = "E2-6";
             string outDir = Path.Combine(root, "build", "gen_preview", "world");
             string pngDir = Path.Combine(root, "work", "screens");
             for (int i = 0; i < args.Length; i++)
@@ -52,6 +53,7 @@ namespace Orpheus.Tools.GenPreview
                     case "--png-dir": pngDir = args[++i]; break;
                     case "--dump": dump = true; break;
                     case "--map": mapSeeds = args[++i]; break;
+                    case "--prefix": mapPrefix = args[++i]; break; // C-027: имя карт <приставка>_map_<зерно>.png
                     case "--out": outDir = args[++i]; break;
                     default:
                         Console.Error.WriteLine($"Неизвестный параметр {args[i]}. См. комментарий в tools/gen_preview/WorldPreview.cs.");
@@ -65,7 +67,7 @@ namespace Orpheus.Tools.GenPreview
             var ci = CultureInfo.InvariantCulture;
             if (mapSeeds != null)
             {
-                return Maps(mapSeeds, size, pngDir);
+                return Maps(mapSeeds, size, pngDir, mapPrefix);
             }
 
             Console.WriteLine("seed,ms_macro,ms_tiles,ms_model,ms_total,meadow_pct,forest_pct,mount_pct,cave_pct,meadow_trees_k,forest_trees_k," +
@@ -138,7 +140,7 @@ namespace Orpheus.Tools.GenPreview
         /// Карты 1 : 1 (пиксель = тайл) зёрен из списка (десятичные или 0x…): <c>E1-2_map_&lt;зерно&gt;.png</c> и строка чисел
         /// приёмки E1-2 на зерно. Запуск: <c>-- --world --map 0xE50007,1,2 [--png-dir work/screens]</c>.
         /// </summary>
-        private static int Maps(string seeds, int size, string pngDir)
+        private static int Maps(string seeds, int size, string pngDir, string prefix)
         {
             var ci = CultureInfo.InvariantCulture;
             Console.WriteLine("seed,ms,water_pct,sand_pct,cliff_pct,cliff_thin_pct,forest_trees_pct,meadow_trees_pct,meadow_dry_pct,mount_boulders_pct," +
@@ -177,7 +179,7 @@ namespace Orpheus.Tools.GenPreview
                 }
 
                 string name = hex ? part.Substring(2).ToUpperInvariant() : part;
-                string path = Path.Combine(pngDir, $"E2-6_map_{(hex ? "0x" : "")}{name}.png");
+                string path = Path.Combine(pngDir, $"{prefix}_map_{(hex ? "0x" : "")}{name}.png");
                 Program.WritePng(path, rgb, w, w);
                 Console.Error.WriteLine($"карта: {Path.GetFullPath(path)}");
             }

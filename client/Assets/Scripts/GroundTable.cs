@@ -10,7 +10,7 @@ namespace Orpheus.Client
         /// <summary>Земля: слой меша земли.</summary>
         Ground,
 
-        /// <summary>Вода: слой «отмель» у берега и «глубина» дальше — выбирает сборщик меша по расстоянию до суши.</summary>
+        /// <summary>Вода: слой из таблицы — отмель (<see cref="FloorId.Water"/>, проходима) или глубина (<see cref="FloorId.DeepWater"/>, стена; C-027).</summary>
         Water,
 
         /// <summary>Построенный пол: плитка Tilemap поверх меша; под ней меш рисует слой строки.</summary>
@@ -77,7 +77,11 @@ namespace Orpheus.Client
         public const byte DryGrass = 4;
         public const byte Grass = 5;
         public const byte Forest = 6;
-        public const byte Rocky = 7;
+
+        /// <summary>C-027: сосновый бор (рыжая хвоя) и тёмный ельник (мох) — та же картинка подстилки, свой тон.</summary>
+        public const byte Pine = 7;
+        public const byte Spruce = 8;
+        public const byte Rocky = 9;
 
         /// <summary>Слоёв воды (первые в списке): у них движение и светлая линия берега.</summary>
         public const int WaterLayers = 2;
@@ -92,6 +96,8 @@ namespace Orpheus.Client
             new GroundLayer("ground_drygrass", new Color32(200, 172, 80, 255), new Color(0.93f, 0.86f, 0.78f), 0.70f, 1f, 0.6f),
             new GroundLayer("ground_grass", new Color32(112, 170, 44, 255), new Color(0.86f, 0.86f, 0.80f), 0.68f, 1f, 0.5f),
             new GroundLayer("ground_forest", new Color32(84, 92, 44, 255), Color.white, 1f, 0.5f),
+            new GroundLayer("ground_forest", new Color32(128, 96, 52, 255), new Color(1.22f, 0.98f, 0.70f), 0.80f, 0.6f, 0.8f),
+            new GroundLayer("ground_forest", new Color32(40, 64, 44, 255), new Color(0.62f, 0.80f, 0.70f), 0.85f, 0.5f, 0.9f),
             new GroundLayer("ground_rocky", new Color32(176, 168, 150, 255)),
         };
 
@@ -119,6 +125,9 @@ namespace Orpheus.Client
             (FloorId.StoneFloor, Dirt, GroundKind.Built),
             (FloorId.Platform, WaterShallow, GroundKind.Built), // настил стоит над водой
             (FloorId.ForestFloor, Forest, GroundKind.Ground),
+            (FloorId.DeepWater, WaterDeep, GroundKind.Water),   // C-027: глубина — своим полом, отмель — Water
+            (FloorId.PineFloor, Pine, GroundKind.Ground),
+            (FloorId.SpruceFloor, Spruce, GroundKind.Ground),
             (DryGrassFloor, DryGrass, GroundKind.Ground),       // FloorId.DryGrass — когда появится в ядре (шаг 1.2)
         };
 
