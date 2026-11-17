@@ -145,19 +145,16 @@ namespace Orpheus.Client.UI
             var sb = new System.Text.StringBuilder(ItemName(item));
             if (description.Length > 0)
             {
-                sb.Append('
-').Append(description);
+                sb.Append('\n').Append(description);
             }
 
             if (!isBase)
             {
-                sb.Append("
-ЛКМ — открыть рецепт");
+                sb.Append("\nЛКМ — открыть рецепт");
             }
             else
             {
-                sb.Append("
-Где взять:");
+                sb.Append("\nГде взять:");
                 if (where == null || where.Count == 0)
                 {
                     sb.Append(" ?");
@@ -166,8 +163,7 @@ namespace Orpheus.Client.UI
                 {
                     foreach (string w in where)
                     {
-                        sb.Append("
-  ").Append(w);
+                        sb.Append("\n  ").Append(w);
                     }
                 }
             }

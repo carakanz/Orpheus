@@ -178,8 +178,9 @@ namespace Orpheus.Client.UI
                 ing.Icon = new UiItemIcon(ing.Rt, (IngStep - 4f - IngBox) / 2f, Big - IngBox, IngBox, 32f);
                 ing.Have = UiRoot.Label(ing.Rt, "Have", -4f, -2f, IngStep + 4f, 24f, 18, TextAnchor.MiddleCenter, UiStyle.TextLight, outline: true, bold: true);
                 // C-029 (слово Автора 17.11: «около затраченных материалов пусть пишется красным, сколько останется»): «→ N» у
-                // правого верхнего угла значка ингредиента — остаток после ещё одного изготовления.
-                ing.Left = UiRoot.Label(ing.Rt, "Left", IngStep - 4f - 44f, Big - 18f, 48f, 20f, 16, TextAnchor.MiddleRight, UiStyle.TextWarn, outline: true, bold: true);
+                // под «есть / нужно» — остаток после ещё одного изготовления (строка состояния там же пуста: показ — только когда
+                // рецепт можно сделать).
+                ing.Left = UiRoot.Label(ing.Rt, "Left", -4f, -24f, IngStep + 4f, 22f, 17, TextAnchor.MiddleCenter, UiStyle.TextWarn, outline: true, bold: true);
                 ing.Left.enabled = false;
                 _ingredients[k] = ing;
             }
@@ -645,7 +646,7 @@ namespace Orpheus.Client.UI
                 Ingredient ing = _ingredients[k];
                 ing.Have.text = $"{have}/{need}";
                 ing.Have.color = lacks ? UiStyle.TextWarn : UiStyle.TextLight;
-                bool left = !lacks && !dead && line.State != CraftReply.NoStation;
+                bool left = line.CanMake && !dead;
                 ing.Left.enabled = left;
                 if (left)
                 {

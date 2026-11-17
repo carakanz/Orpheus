@@ -686,8 +686,14 @@ namespace Orpheus.Client.UI
         // Подсказка значка рецепта: название, «есть / нужно», станок, что мешает.
         string? RecipeTip(int recipe, in Inventory bag, ChestStock? stock)
         {
-            return recipe == 0 ? null : UiStrings.RecipeTip(recipe, _lines[recipe], CraftDesk.Have(recipe, 0, bag, stock),
+            if (recipe == 0)
+            {
+                return null;
+            }
+
+            string tip = UiStrings.RecipeTip(recipe, _lines[recipe], CraftDesk.Have(recipe, 0, bag, stock),
                 CraftDesk.Have(recipe, 1, bag, stock), CraftDesk.Have(recipe, 2, bag, stock));
+            return _lines[recipe].CanPlace ? tip + "\n" + UiStrings.ReadyInBag(_lines[recipe].Ready) : tip; // C-029
         }
 
         // Щелчок по окну изготовления: раздел, подраздел, галочка, значок рецепта, полоса прокрутки, крупный значок
@@ -903,15 +909,26 @@ namespace Orpheus.Client.UI
                 _bag.SetCell(17, Items.Meat, 3);
                 _bag.SetCell(18, Items.CopperAxe, 1);
             }
+
+            if (mode == "inv-ready")
+            {
+                // C-029 п. 1: камня нет, готовые каменные стены в сумке — рецепт стены виден при «только доступные».
+                _bag.SetCell(10, Items.None, 0);
+                _bag.SetCell(21, Items.None, 0);
+                _bag.SetCell(22, Items.StoneWall, 10);
+            }
+
+            _ui.Known.NoteFloor(FloorId.Grass); // C-029: стенд — открыты только луга (остальное в подсказках «?»)
         }
 
         /// <summary>Сцена с окном крафта (нужен верстак рядом с персонажем).</summary>
         public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint" || mode == "craft-chest" || IsInv(mode);
 
         /// <summary>Сцены окна «сумка + изготовление» (E2-9).</summary>
-        public static bool IsInv(string? mode) => mode == "inv" || mode == "inv-weapons" || mode == "inv-buildings" || mode == "inv-stone";
+        public static bool IsInv(string? mode) => mode == "inv" || mode == "inv-weapons" || mode == "inv-buildings" || mode == "inv-stone"
+            || mode == "inv-ingredient" || mode == "inv-ingredient-open" || mode == "inv-ready"; // C-029
 
-        public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode) || IsBuild(mode) || IsCombat(mode);
+        public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || mode == "worldmap" || IsCraft(mode) || IsBuild(mode) || IsCombat(mode);
 
         public bool RequestBagMove(int from, int to) =>
             from >= BagHand.ChestBase || to >= BagHand.ChestBase ? ChestMove(from, to) : _bag.Move(from, to);
@@ -1015,6 +1032,32 @@ namespace Orpheus.Client.UI
             {
                 CraftScript(ref input);
             }
+            else if (_mode == "worldmap" && _world != null)
+            {
+                // C-029 п. 8: карта на весь экран — открыты чанки в 5 вокруг персонажа, Очаг — правее и ниже, M на 2-м кадре.
+                if (_frame == 1)
+                {
+                    var explored = new ExploredMap(_world.Shape);
+                    ChunkCoord me = Torus.ChunkOf(_world.Shape, position);
+                    for (int dy = -4; dy <= 4; dy++)
+                    {
+                        for (int dx = -6; dx <= 6; dx++)
+                        {
+                            if (dx * dx + dy * dy <= 26)
+                            {
+                                explored.Record(_world, Torus.Wrap(_world.Shape, new ChunkCoord(me.X + dx, me.Y + dy)));
+                            }
+                        }
+                    }
+
+                    _ui.Explored = explored;
+                    _ui.Hearth = Torus.Offset(_world.Shape, position, new Int2(40 * Torus.SubTilesPerTile, 25 * Torus.SubTilesPerTile));
+                }
+
+                input.Map = _frame == 2;
+                // масштаб по умолчанию — 1 тайл на пиксель картинки: видно и открытое, и тёмное неоткрытое вокруг
+                input.Pointer = new Vector2(1500f, 300f);
+            }
             else
             {
                 input.Pointer = _ui.CellCenter(5) + new Vector2(6f, 10f);
@@ -1065,6 +1108,27 @@ namespace Orpheus.Client.UI
             (5, CraftPart.Section, 2), (8, CraftPart.Sub, 0), (11, CraftPart.Cell, 1), (99, CraftPart.Button, 0),
         };
 
+        // C-029 inv-ingredient: Инструменты → Кирки → каменная кирка; курсор над камнем (базовый): подсказка «где взять», у
+        // ингредиентов красным — сколько останется.
+        static readonly (int Frame, CraftPart Part, int Index)[] IngredientSteps =
+        {
+            (5, CraftPart.Section, 2), (8, CraftPart.Sub, 0), (11, CraftPart.Cell, 0), (99, CraftPart.Ingredient, 0),
+        };
+
+        // C-029 inv-ingredient-open: снять галочку → медная кирка → ЛКМ по слитку (небазовый) — открылся рецепт слитка;
+        // курсор над его рудой — «где взять: ?».
+        static readonly (int Frame, CraftPart Part, int Index)[] IngredientOpenSteps =
+        {
+            (5, CraftPart.Filter, 0), (8, CraftPart.Section, 2), (11, CraftPart.Sub, 0), (14, CraftPart.Cell, 1), (17, CraftPart.Ingredient, 0),
+            (99, CraftPart.Ingredient, 0),
+        };
+
+        // C-029 inv-ready: Здания → Камень при «только доступные» — каменная стена видна (готовые в сумке), «В сумке: 10».
+        static readonly (int Frame, CraftPart Part, int Index)[] ReadySteps =
+        {
+            (5, CraftPart.Section, 0), (8, CraftPart.Sub, 1), (11, CraftPart.Cell, 0), (99, CraftPart.Cell, 0),
+        };
+
         static ChestStock DemoStock()
         {
             var stock = new ChestStock();
@@ -1093,7 +1157,8 @@ namespace Orpheus.Client.UI
             }
 
             var steps = _mode == "inv-weapons" ? WeaponSteps : _mode == "inv-buildings" ? BuildingSteps : _mode == "inv-stone" ? StoneSteps
-                : _mode == "craft-chest" ? ChestSteps : InvSteps;
+                : _mode == "craft-chest" ? ChestSteps : _mode == "inv-ingredient" ? IngredientSteps
+                : _mode == "inv-ingredient-open" ? IngredientOpenSteps : _mode == "inv-ready" ? ReadySteps : InvSteps;
             int k = 0;
             while (k < steps.Length - 1 && f > steps[k].Frame)
             {

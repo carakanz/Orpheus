@@ -160,16 +160,16 @@ namespace Orpheus.Net.Session
 
         private static readonly Dictionary<byte, string> Descriptions = new Dictionary<byte, string>
         {
-            [Items.Wood] = "Древесина — основа построек, рукоятей и луков.",
-            [Items.Stone] = "Камень — стены, полы, инструменты, наконечники стрел.",
-            [Items.Resin] = "Смола — горит: факелы и пропитка.",
-            [Items.Fiber] = "Волокно — верёвки, тетивы, постель.",
-            [Items.CopperOre] = "Медная руда — переплавляется в медные слитки у костра.",
-            [Items.CopperIngot] = "Медный слиток — медные инструменты и оружие.",
-            [Items.Rope] = "Верёвка — тетивы и вязка.",
-            [Items.Meat] = "Сырое мясо — жарится у костра.",
-            [Items.RoastMeat] = "Жареное мясо — восстанавливает здоровье.",
-            [Items.Arrows] = "Стрелы для лука.",
+            [Items.Wood] = "Основа построек, рукоятей и луков.",
+            [Items.Stone] = "Стены, полы, инструменты, наконечники стрел.",
+            [Items.Resin] = "Горит: факелы и пропитка.",
+            [Items.Fiber] = "Верёвки, тетивы, постель.",
+            [Items.CopperOre] = "Переплавляется в медные слитки у костра.",
+            [Items.CopperIngot] = "Медные инструменты и оружие.",
+            [Items.Rope] = "Тетивы и вязка.",
+            [Items.Meat] = "Жарится у костра.",
+            [Items.RoastMeat] = "Восстанавливает здоровье.",
+            [Items.Arrows] = "Для лука.",
         };
 
         private static readonly Dictionary<byte, ItemSource[]> Sources = new Dictionary<byte, ItemSource[]>
