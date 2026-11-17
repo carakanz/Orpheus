@@ -11,6 +11,9 @@ namespace Orpheus.WorldGen
 
         public long Tiles;
         public long Water;
+
+        /// <summary>C-027: из них глубокой воды (<see cref="FloorId.DeepWater"/>).</summary>
+        public long Deep;
         public long Sand;
         public long Cliff;
 
@@ -69,9 +72,10 @@ namespace Orpheus.WorldGen
                     bool near = (dx * dx) + (dy * dy) <= r2;
                     byte floor = t.Floor[i];
                     ushort obj = t.Objects[i];
-                    if (floor == FloorId.Water)
+                    if (FloorId.IsWater(floor))
                     {
                         s.Water++;
+                        s.Deep += floor == FloorId.DeepWater ? 1 : 0;
                         s.WaterNearStart += near ? 1 : 0;
                         continue;
                     }

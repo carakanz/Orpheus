@@ -15,8 +15,10 @@ namespace Orpheus.WorldGen
     /// <see cref="FordEvery"/> тайлов. Ось реки не ближе 280 к Очагу, изгиб ≤ 112: до старта ≥ 165.</item>
     /// <item><b>Берег</b> — песок на 1–3 тайла от воды (ширина — от детали берега). В радиусе
     /// <see cref="NoWaterRadius"/> от Очага воды нет.</item>
+    /// <item><b>Глубина</b> (C-027, v9): вода дальше <see cref="ShallowReach"/> тайлов от суши (квадрат 5 × 5 вокруг — вся вода) —
+    /// <see cref="FloorId.DeepWater"/>, непроходима; отмель у берега (<see cref="FloorId.Water"/>) проходима с замедлением (C-018).
+    /// Ставится последней (<see cref="MarkDeep"/>, после бродов этапа 12); броды — песок.</item>
     /// </list>
-    /// Мелководье в данных не различается: клиент рисует отмель по расстоянию до берега.
     /// </summary>
     public static class WaterStage
     {
@@ -52,6 +54,63 @@ namespace Orpheus.WorldGen
         public const byte ShoreFar = 255;
 
         public static readonly int[] CellsShoreDetail = { 32, 16 };
+
+        /// <summary>C-027: отмель — вода не дальше стольких тайлов (по 8 сторонам) от суши; дальше — глубина.</summary>
+        public const int ShallowReach = 2;
+
+        /// <summary>
+        /// C-027: вода, у которой в квадрате (2 · <see cref="ShallowReach"/> + 1)² нет суши, — <see cref="FloorId.DeepWater"/>.
+        /// Возвращает число тайлов глубины (и пишет в <see cref="TileWorld.DeepTiles"/>).
+        /// </summary>
+        public static int MarkDeep(TileWorld t)
+        {
+            int w = t.WorldSize;
+            int mask = w - 1;
+            byte[] floor = t.Floor;
+            var deep = new bool[floor.Length];
+            int count = 0;
+            for (int y = 0; y < w; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (floor[(y * w) + x] != FloorId.Water)
+                    {
+                        continue;
+                    }
+
+                    bool shore = false;
+                    for (int dy = -ShallowReach; dy <= ShallowReach && !shore; dy++)
+                    {
+                        int row = ((y + dy) & mask) * w;
+                        for (int dx = -ShallowReach; dx <= ShallowReach; dx++)
+                        {
+                            if (!FloorId.IsWater(floor[row + ((x + dx) & mask)]))
+                            {
+                                shore = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!shore)
+                    {
+                        deep[(y * w) + x] = true;
+                        count++;
+                    }
+                }
+            }
+
+            for (int i = 0; i < deep.Length; i++)
+            {
+                if (deep[i])
+                {
+                    floor[i] = FloorId.DeepWater;
+                }
+            }
+
+            t.DeepTiles = count;
+            return count;
+        }
 
         /// <summary>Вода и берег: пишет <see cref="FloorId.Water"/> и <see cref="FloorId.Sand"/> в пол (остальной пол — 0, его кладёт этап 11) и расстояние до воды.</summary>
         public static void Run(TileWorld t)

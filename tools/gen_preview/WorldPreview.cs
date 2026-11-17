@@ -229,6 +229,9 @@ namespace Orpheus.Tools.GenPreview
             switch (floor)
             {
                 case FloorId.Water: return new byte[] { 0x2A, 0x62, 0xB8 };
+                case FloorId.DeepWater: return new byte[] { 0x18, 0x40, 0x90 };
+                case FloorId.PineFloor: return new byte[] { 0x6A, 0x70, 0x38 };
+                case FloorId.SpruceFloor: return new byte[] { 0x2C, 0x56, 0x36 };
                 case FloorId.Sand: return new byte[] { 0xE2, 0xD0, 0x8C };
                 case FloorId.ForestFloor: return new byte[] { 0x4A, 0x74, 0x34 };
                 case FloorId.DryGrass: return new byte[] { 0xB4, 0xBC, 0x5C };
