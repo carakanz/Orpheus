@@ -185,6 +185,8 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $logPath = ''
 if ($LogFile -ne '') {
     $logPath = if ([System.IO.Path]::IsPathRooted($LogFile)) { $LogFile } else { Join-Path $root $LogFile }
+    # в свежей рабочей копии build\logs ещё нет (папка вне git) — создаём сами
+    New-Item -ItemType Directory -Force (Split-Path -Parent $logPath) | Out-Null
     [System.IO.File]::WriteAllText($logPath, '', $utf8NoBom)
 }
 
