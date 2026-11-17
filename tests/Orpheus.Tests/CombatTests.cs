@@ -299,6 +299,38 @@ namespace Orpheus.Tests
             Assert.Equal(90, c.Health);
         }
 
+        /// <summary>
+        /// C-024: отбрасывание замедляется тайлом под ногами, как бег и уворот (C-018, <see cref="TerrainSlow"/>):
+        /// вода ×0,45 — цель улетает короче, куст ×0,6 — средний, трава — как раньше (−255, тест выше).
+        /// <see cref="Mover.KnockSpeedX10"/> не меняется — тайл умножается каждый кадр шага.
+        /// </summary>
+        [Theory]
+        [InlineData(FloorId.Grass, ObjectId.Empty, -255)]  // как на чистом поле
+        [InlineData(FloorId.Water, ObjectId.Empty, -114)]  // (284 × 115) >> 8 = 127 unit×10/кадр × 9 кадров
+        [InlineData(FloorId.Grass, ObjectId.Bush, -153)]   // (284 × 154) >> 8 = 170 unit×10/кадр × 9 кадров
+        public void D02_S6_6_Knockback_SlowedByWaterAndBush(byte floor, ushort obj, int expected)
+        {
+            WorldPos at = new(400 * U, 512 * U + 128);
+            WorldModel world = Flat(1024, 5);
+            for (int y = 510; y <= 514; y++)
+            {
+                for (int x = 394; x <= 402; x++)
+                {
+                    world.SetBaseTile(new TileCoord(x, y), floor, obj);
+                }
+            }
+
+            var (sim, en, id, _) = Scene(world, at);
+            WorldPos origin = Torus.Offset(sim.Shape, at, new Int2(U, 0)); // источник на востоке → бросок на запад
+            Assert.Equal(10, sim.ApplyStrike(id, en, Simulation.StrikeRawMelee, origin, knockback: true));
+            Steps(sim, 5); // 10 кадров: 9 кадров рывка + кадр без ввода
+            SimEntity c = sim.GetEntity(id);
+            Assert.Equal(0, c.Mover.KnockLeft);
+            Int2 d = Torus.Delta(sim.Shape, at, c.Mover.Position);
+            Assert.Equal(expected, d.X);
+            Assert.Equal(0, d.Y);
+        }
+
         // ---------- 13 8.3, 13.5, 13.6: смерть, 5 с, возрождение в точке старта ----------
 
         [Fact]

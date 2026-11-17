@@ -217,10 +217,13 @@ namespace Orpheus.Core.Movement
                 StepMelee(attackPressed, aimRaw);
                 Bow.StepFrame(bowInput, aimRaw, Position.X, Position.Y);
                 Input8 kdir = KnockDirection;
-                int kwantX = (Carry.X + kdir.SpeedX10(KnockSpeedX10)) / MovementTick.SpeedScale;
-                int kwantY = (Carry.Y + kdir.SpeedY10(KnockSpeedX10)) / MovementTick.SpeedScale;
+                // C-024: отбрасывание замедляется тайлом под ногами, как бег (стр. 270) и рывок (стр. 278):
+                // в воде цель улетает короче, на траве — как раньше (множитель 256 ничего не меняет).
+                int knockX10 = TileSpeed.Scale(KnockSpeedX10, TileSpeed.At(map, Position, solid));
+                int kwantX = (Carry.X + kdir.SpeedX10(knockX10)) / MovementTick.SpeedScale;
+                int kwantY = (Carry.Y + kdir.SpeedY10(knockX10)) / MovementTick.SpeedScale;
                 WorldPos kfrom = Position;
-                Position = MovementTick.Tick(map, Position, Carry, kdir, KnockSpeedX10, solid, out Carry);
+                Position = MovementTick.Tick(map, Position, Carry, kdir, knockX10, solid, out Carry);
                 Int2 kmoved = Torus.Delta(map, kfrom, Position);
 
                 bool kstuckX = kwantX == 0 || kmoved.X != kwantX;
