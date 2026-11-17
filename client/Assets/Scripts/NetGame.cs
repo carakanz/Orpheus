@@ -776,7 +776,7 @@ namespace Orpheus.Client
 
             _anim?.Frame(now, _pred!);
             CombatFrame(); // E3-1: цифры урона, полоски врагов, экран смерти
-            _pileView?.Frame(_origin!, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
+            _pileView?.Frame(_origin!, Time.deltaTime, _client!.Projectiles.Covers); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему; C-031: стрелу-предмет закрывает снаряд
             _arrowView?.Frame(_client!.Projectiles, now, _origin!, _pred!.Bow, _g.Character.position,
                 _args.NetSmokeSeconds > 0 ? null : CursorPoint()); // E3-2: стрелы и кольцо силы у курсора
             if (_args.NetSmokeSeconds > 0)

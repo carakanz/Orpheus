@@ -455,6 +455,12 @@ namespace Orpheus.Save
 
             /// <summary>Такт, с которого кучу можно подобрать.</summary>
             public const int PickupTick = 7;
+
+            /// <summary>Вид (формат 14, C-031): 1 — стрела в преграде, 2 — стрела в земле; поля нет — обычная куча.</summary>
+            public const int Kind = 8;
+
+            /// <summary>Ось воткнувшейся стрелы, u16 (формат 14, C-031).</summary>
+            public const int Aim = 9;
         }
 
         /// <summary>Схема записей раздела для <c>orpheus-save dump</c>: имена полей и вложенные схемы. null — схемы нет.</summary>
@@ -523,7 +529,9 @@ namespace Orpheus.Save
                 .Field(PileField.X, "x, 1/256 тайла")
                 .Field(PileField.Y, "y, 1/256 тайла")
                 .Field(PileField.ExpireTick, "исчезнет на такте")
-                .Field(PileField.PickupTick, "подбор с такта"))
+                .Field(PileField.PickupTick, "подбор с такта")
+                .Field(PileField.Kind, "вид: 1 — стрела в преграде, 2 — в земле")
+                .Field(PileField.Aim, "ось стрелы, u16"))
             .Field(CreaturesField.Chest, "сундук", new RecordSchema()
                 .Field(ChestField.X, "x тайла")
                 .Field(ChestField.Y, "y тайла")

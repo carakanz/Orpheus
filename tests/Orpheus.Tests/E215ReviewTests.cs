@@ -319,7 +319,7 @@ namespace Orpheus.Tests
 
             // Пересохранение в формат 11 — тот же хэш.
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат10→11"), 6, 0);
-            Assert.Equal(13u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13, E2-16: 12
+            Assert.Equal(14u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13, E2-16: 12
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total.ToString("x16"));
 
             // Снос старого пола — 4 предмета (тайл = 4 ячейки), сундука — 1.

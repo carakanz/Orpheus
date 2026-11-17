@@ -2,7 +2,6 @@ using System;
 using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
-using Orpheus.Core.Rng;
 using Orpheus.Core.Trig;
 
 namespace Orpheus.Core.Sim
@@ -51,6 +50,12 @@ namespace Orpheus.Core.Sim
     {
         /// <summary>Потолок летящих снарядов (лишние выстрелы — без снаряда, стрела не снимается).</summary>
         public const int MaxProjectiles = 512;
+
+        /// <summary>
+        /// Потолок полёта, тактов: 10 с *(прикидка C-031)*. Лук долетает свои 30–33 т за ≤ 1,7 с; потолок держит любой
+        /// снаряд (медленный вражеский шага 3.3, скорость 1) — стрела не летит вечно (`BRIEF` 11n).
+        /// </summary>
+        public const int MaxFlightTicks = 10 * 30;
 
         private readonly Projectile[] _projectiles = new Projectile[MaxProjectiles];
         private int _projectileCount;
@@ -273,14 +278,26 @@ namespace Orpheus.Core.Sim
             }
 
             p.Age++;
-            if (last)
+            if (!_shape.Wraps && !InsideMap(b))
             {
+                // C-031: мир без шва (тесты, стенды) — за краем стрела пропадает, а не летит по зажатым координатам
+                Stop(tick, p, ProjectileEnd.Range, Torus.Wrap(_shape, b), -1, lost: true);
+                return false;
+            }
+
+            if (last || p.Age >= MaxFlightTicks)
+            {
+                // C-031 «стрела не должна лететь вечно»: дальность, и сверху — потолок тактов полёта на любой скорости
                 Stop(tick, p, ProjectileEnd.Range, Torus.Wrap(_shape, b), -1);
                 return false;
             }
 
             return true;
         }
+
+        /// <summary>Точка внутри мира (для карты без шва).</summary>
+        private bool InsideMap(WorldPos p) =>
+            (uint)p.X < (uint)_shape.WidthUnits && (uint)p.Y < (uint)_shape.HeightUnits;
 
         /// <summary>Точка <paramref name="k"/> из <paramref name="n"/> на отрезке (обёрнута).</summary>
         private WorldPos StepPoint(WorldPos start, Int2 d, int k, int n) =>
@@ -368,14 +385,18 @@ namespace Orpheus.Core.Sim
             return best;
         }
 
-        /// <summary>Конец снаряда: запись остановки; стрела, остановленная стеной или дальностью, с шансом 50 % ложится кучей.</summary>
-        private void Stop(long tick, in Projectile p, ProjectileEnd reason, WorldPos at, int victim)
+        /// <summary>
+        /// Конец снаряда: запись остановки. C-031 (`BRIEF` 11n): стрела, остановленная преградой или дальностью, остаётся
+        /// всегда — сама предмет на земле в точке остановки (воткнулась в преграду / в землю, <see cref="SpawnStuckArrow"/>);
+        /// в воде тонет. Попавшая в существо пропадает (`02` 4.2, как в E3-2). Ушедшая за край мира без шва — пропадает.
+        /// </summary>
+        private void Stop(long tick, in Projectile p, ProjectileEnd reason, WorldPos at, int victim, bool lost = false)
         {
             bool dropped = false;
-            if (reason != ProjectileEnd.Hit && p.DropItem != 0 &&
-                (int)(SplitMix64.Hash(p.Id, (int)reason, 0x3E2, _world.Seed) & 0xFF) < Combat.Projectiles.ArrowDropChanceQ8)
+            if (reason != ProjectileEnd.Hit && p.DropItem != 0 && !lost)
             {
-                dropped = SpawnPile(tick, p.DropItem, 1, at, LootPickupDelayTicks) != 0;
+                byte kind = reason == ProjectileEnd.Wall ? GroundPile.KindArrowWall : GroundPile.KindArrowGround;
+                dropped = SpawnStuckArrow(tick, p.SpawnTick, p.DropItem, at, p.AimRaw, kind) != 0;
             }
 
             if (_stopCount < _stopsThisTick.Length)

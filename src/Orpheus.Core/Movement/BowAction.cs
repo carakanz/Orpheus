@@ -25,7 +25,9 @@ namespace Orpheus.Core.Movement
     /// покой → натяжение (ЛКМ держится; бег 60 %) → отпускание — выстрел → отход 12 кадров (0,2 с) → покой. Кадры 60 Гц.
     /// <para>
     /// Сила — кадры натяжения: урон и скорость линейно от <see cref="MinDrawFrames"/> (0,2 с) до <see cref="FullDrawFrames"/>
-    /// (0,6 с), дальше не растёт; натяжение держится сколько угодно. Отпустил раньше 0,2 с — тетива дотягивается сама
+    /// (0,6 с). C-031 (`BRIEF` 11n «зажатие выстрела — бесконечная стрельба»): ЛКМ держится до полного натяжения — выстрел
+    /// сам, отход, и пока ЛКМ держится и есть стрелы — натяжение снова (темп 0,6 + 0,2 с = 1,25/с, как раньше на полном
+    /// натяжении); отпустил раньше — выстрел на отпускании. Отпустил раньше 0,2 с — тетива дотягивается сама
     /// и стрела уходит на 0,2 с: темп выстрелов не больше 1,25/с на полном натяжении (0,6 + 0,2 с) и урон в секунду
     /// одинаков на любом натяжении (`02` 4.1: 1,25 B). Ось — прицел кадра, пока ЛКМ держится (C-012: от середины тела).
     /// </para>
@@ -138,6 +140,11 @@ namespace Orpheus.Core.Movement
                             Frames++;
                         }
 
+                        if (Frames >= FullDrawFrames)
+                        {
+                            Fire(x, y); // C-031: зажатая ЛКМ — непрерывная стрельба: полное натяжение — выстрел, отход, натяжение снова
+                        }
+
                         return;
                     }
 
@@ -149,14 +156,7 @@ namespace Orpheus.Core.Movement
 
                     if (Frames >= MinDrawFrames)
                     {
-                        Fired = true;
-                        ShotDraw = Frames;
-                        ShotAim = AimRaw;
-                        ShotX = x;
-                        ShotY = y;
-                        Phase = PhaseRecover;
-                        Frames = RecoverFrames;
-                        Released = false;
+                        Fire(x, y);
                     }
 
                     return;
@@ -174,6 +174,18 @@ namespace Orpheus.Core.Movement
 
                     return;
             }
+        }
+
+        private void Fire(int x, int y)
+        {
+            Fired = true;
+            ShotDraw = Frames;
+            ShotAim = AimRaw;
+            ShotX = x;
+            ShotY = y;
+            Phase = PhaseRecover;
+            Frames = RecoverFrames;
+            Released = false;
         }
 
         /// <summary>Забрать выстрел кадра: true — был (флаг снят).</summary>

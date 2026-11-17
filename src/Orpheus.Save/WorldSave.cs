@@ -478,6 +478,12 @@ namespace Orpheus.Save
                 e.WriteInt(SaveSections.PileField.Y, gp.Position.Y);
                 e.WriteInt(SaveSections.PileField.ExpireTick, gp.ExpireTick);
                 e.WriteInt(SaveSections.PileField.PickupTick, gp.PickupTick);
+                if (gp.Kind != GroundPile.KindPlain)
+                {
+                    e.WriteUInt(SaveSections.PileField.Kind, gp.Kind); // формат 14 (C-031): воткнувшаяся стрела — вид и ось
+                    e.WriteUInt(SaveSections.PileField.Aim, gp.Aim);
+                }
+
                 e.EndRecord(mark);
             }
 
@@ -1085,12 +1091,18 @@ namespace Orpheus.Save
                     case SaveSections.PileField.PickupTick:
                         p.PickupTick = r.Int();
                         break;
+                    case SaveSections.PileField.Kind:
+                        p.Kind = (byte)r.UIntAsInt(GroundPile.MaxKind); // формат 14 (C-031)
+                        break;
+                    case SaveSections.PileField.Aim:
+                        p.Aim = (ushort)r.UIntAsInt(ushort.MaxValue);
+                        break;
                 }
             }
 
-            if (p.Id <= 0 || !ItemTable.Exists(p.Item) || p.Count == 0)
+            if (p.Id <= 0 || !ItemTable.Exists(p.Item) || p.Count == 0 || (p.IsStuckArrow && p.Count != 1))
             {
-                throw new InvalidDataException($"Куча #{p.Id}: предмет {p.Item} × {p.Count} — такого нет.");
+                throw new InvalidDataException($"Куча #{p.Id}: предмет {p.Item} × {p.Count} (вид {p.Kind}) — такого нет.");
             }
 
             p.Position = Torus.Wrap(shape, new WorldPos(x, y));

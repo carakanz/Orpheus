@@ -36,6 +36,10 @@ namespace Orpheus.Client
             public float Phase;
             public byte Item;
 
+            /// <summary>C-031: вид (0 — куча, 1/2 — воткнувшаяся стрела в преграде / в земле) и ось стрелы.</summary>
+            public byte Kind;
+            public ushort Aim;
+
             // Полёт к поднявшему.
             public bool Flying;
             public float FlyTime;
@@ -58,24 +62,41 @@ namespace Orpheus.Client
         /// <summary>Куч на экране (без улетающих).</summary>
         public int Count => _piles.Count;
 
-        /// <summary>Куча появилась или изменила количество.</summary>
-        public void Set(int id, byte item, int count, WorldPos position)
+        /// <summary>
+        /// Куча появилась или изменила количество. C-031: <paramref name="kind"/> 1/2 — воткнувшаяся стрела (сама предмет):
+        /// рисуется стрелой в преграде / в земле по оси <paramref name="aim"/>, без значка и покачивания.
+        /// </summary>
+        public void Set(int id, byte item, int count, WorldPos position, byte kind = 0, ushort aim = 0)
         {
             if (!_piles.TryGetValue(id, out Pile? p))
             {
-                p = Create(id, item);
+                p = Create(id, item, kind);
                 _piles[id] = p;
             }
-            else if (p.Item != item)
+            else if (p.Item != item && p.Kind == 0)
             {
                 p.Item = item;
                 p.Renderer.sprite = SpriteFor(item);
             }
 
             p.Position = position;
+            p.Kind = kind;
+            p.Aim = aim;
+            if (kind != 0)
+            {
+                ArrowView.StuckPose(kind, aim, out float deg, out Vector3 local, out Vector3 scale);
+                p.Icon.localPosition = local;
+                p.Icon.localRotation = Quaternion.Euler(0f, 0f, deg);
+                p.Icon.localScale = scale;
+                return;
+            }
+
             float s = IconScale * (count >= 20 ? 1.25f : count >= 5 ? 1.1f : 1f); // большая куча чуть крупнее
             p.Icon.localScale = new Vector3(s, s, 1f);
         }
+
+        /// <summary>Воткнувшихся стрел-предметов на экране (C-031; видимых — без закрытых снарядом).</summary>
+        public int StuckArrowsShown { get; private set; }
 
         /// <summary>Куча исчезла; <paramref name="taker"/> — к кому «прыгнуть» (подбор), null — просто убрать.</summary>
         public void Remove(int id, Transform? taker)
@@ -96,6 +117,7 @@ namespace Orpheus.Client
             p.FlyTime = 0f;
             p.FlyFrom = p.Root.transform.position;
             p.Target = taker;
+            p.Root.SetActive(true);
             _flying.Add(p);
         }
 
@@ -116,19 +138,37 @@ namespace Orpheus.Client
             _flying.Clear();
         }
 
-        /// <summary>Кадр: места от плавающего начала, покачивание, порядок отрисовки по нижней кромке, полёт подобранных.</summary>
-        public void Frame(FloatingOrigin origin, float dt)
+        /// <summary>
+        /// Кадр: места от плавающего начала, покачивание, порядок отрисовки по нижней кромке, полёт подобранных. C-031:
+        /// воткнувшаяся стрела не рисуется, пока её место закрывает снаряд (<paramref name="covered"/> — летит к ней или дрожит).
+        /// </summary>
+        public void Frame(FloatingOrigin origin, float dt, System.Func<WorldPos, bool>? covered = null)
         {
             _time += dt;
+            int stuck = 0;
             foreach (Pile p in _piles.Values)
             {
                 Vector3 at = origin.ToUnity(p.Position);
                 p.Root.transform.position = at;
+                if (p.Kind != 0)
+                {
+                    bool show = covered == null || !covered(p.Position);
+                    if (p.Root.activeSelf != show)
+                    {
+                        p.Root.SetActive(show);
+                    }
+
+                    stuck += show ? 1 : 0;
+                    p.Renderer.sortingOrder = WorldView.SortOrderAt(at.y - 0.05f) + 2; // как снаряд у ArrowView
+                    continue;
+                }
+
                 float bob = Mathf.Sin(_time * BobSpeed + p.Phase) * BobTiles;
                 p.Icon.localPosition = new Vector3(0f, -0.2f + BobTiles + bob, 0f);
                 p.Renderer.sortingOrder = WorldView.SortOrderAt(at.y - 0.12f);
             }
 
+            StuckArrowsShown = stuck;
             for (int i = _flying.Count - 1; i >= 0; i--)
             {
                 Pile p = _flying[i];
@@ -145,13 +185,13 @@ namespace Orpheus.Client
                 Vector3 at = Vector3.Lerp(p.FlyFrom, to, k * k);
                 at.y += Mathf.Sin(k * Mathf.PI) * 0.35f; // дуга прыжка
                 p.Root.transform.position = at;
-                float s = IconScale * (1f - 0.6f * k);
+                float s = (p.Kind != 0 ? 1f : IconScale) * (1f - 0.6f * k); // C-031: стрела — своего размера
                 p.Icon.localScale = new Vector3(s, s, 1f);
                 p.Renderer.sortingOrder = WorldView.SortOrderAt(at.y - 0.12f) + 1;
             }
         }
 
-        Pile Create(int id, byte item)
+        Pile Create(int id, byte item, byte kind = 0)
         {
             var root = new GameObject($"Pile {id}");
             root.transform.SetParent(_parent, false);
@@ -160,18 +200,19 @@ namespace Orpheus.Client
             var shadowAnchor = new GameObject("ShadowAnchor");
             shadowAnchor.transform.SetParent(root.transform, false);
             shadowAnchor.transform.localPosition = new Vector3(-0.1f, WorldFx.FootOffset - 0.1f, 0f);
-            WorldFx.AddActorShadow(shadowAnchor.transform, 0.75f, 0.35f); // C-017: куча низкая — короткий силуэт по солнцу
+            WorldFx.AddActorShadow(shadowAnchor.transform, kind != 0 ? 0.3f : 0.75f, kind != 0 ? 0.2f : 0.35f); // C-017: куча низкая — короткий силуэт по солнцу
 
             var icon = new GameObject("Icon");
             icon.transform.SetParent(root.transform, false);
             var sr = icon.AddComponent<SpriteRenderer>();
-            sr.sprite = SpriteFor(item);
+            sr.sprite = kind != 0 ? ArrowView.ArrowSprite() : SpriteFor(item); // C-031: стрела — сама стрела, не значок
             return new Pile
             {
                 Root = root,
                 Icon = icon.transform,
                 Renderer = sr,
                 Item = item,
+                Kind = kind,
                 Phase = (id * 0.6180339f % 1f) * Mathf.PI * 2f, // соседние кучи качаются не в такт
             };
         }

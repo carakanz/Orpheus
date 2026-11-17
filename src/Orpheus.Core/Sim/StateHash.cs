@@ -185,6 +185,12 @@ namespace Orpheus.Core.Sim
                 h.Add(piles[i].Position.Y);
                 h.Add(piles[i].ExpireTick);
                 h.Add(piles[i].PickupTick);
+                if (piles[i].Kind != GroundPile.KindPlain)
+                {
+                    h.Add(0xC031); // C-031: воткнувшаяся стрела — вид и ось; у обычных куч хэш прежний
+                    h.Add(piles[i].Kind);
+                    h.Add(piles[i].Aim);
+                }
             }
 
             return new StateHashResult(r.Tick, h.Value, r.World);

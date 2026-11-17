@@ -32,6 +32,9 @@ namespace Orpheus.Net.Session
         public int Victim;
         public bool Dropped;
 
+        /// <summary>Точка конца сервера (C-031: там лежит воткнувшаяся стрела-предмет, если <see cref="Dropped"/>).</summary>
+        public WorldPos StopPosition;
+
         /// <summary>Миг, когда картинка дошла до точки конца (0 — ещё летит).</summary>
         public long ArrivedUs;
     }
@@ -40,7 +43,7 @@ namespace Orpheus.Net.Session
     /// Стрелы на клиенте (E3-2, `02` 4.4): полёт по событию выстрела тем же счётом ядра (<see cref="Projectile.PositionAtTravel"/>)
     /// от мига приёма; свой выстрел — сразу по предсказанию (<see cref="LocalPrediction.TryTakeShot"/>), выстрел сервера с
     /// владельцем «я» подменяет параметры старейшей неподтверждённой своей стрелы (время полёта — своё). Конец — по пути:
-    /// картинка долетает до точки конца сервера и там гаснет (воткнулась — висит <see cref="StuckUs"/>), без привязки к часам
+    /// картинка долетает до точки конца сервера и там гаснет (воткнулась — дрожит <see cref="StuckUs"/>, дальше — предмет «воткнувшаяся стрела», C-031), без привязки к часам
     /// сервера. Неподтверждённая своя стрела (сервер отказал: стрел нет) гаснет через <see cref="UnconfirmedUs"/>.
     /// Чистый C#, без выделений в кадре (список переиспользуется).
     /// </summary>
@@ -49,8 +52,11 @@ namespace Orpheus.Net.Session
         /// <summary>Длина такта, мкс.</summary>
         public const double TickUs = 1_000_000.0 / Projectiles.TicksPerSecond;
 
-        /// <summary>Воткнутая стрела видна 3 с (дальше — куча, если легла).</summary>
-        public const long StuckUs = 3_000_000;
+        /// <summary>
+        /// Воткнувшаяся стрела-снаряд держится 0,4 с — дрожь (C-031); дальше её место занимает предмет «воткнувшаяся стрела»
+        /// (куча вида 1/2 в той же точке, <see cref="Covers"/> прячет его, пока снаряд виден). Не легла (вода) — гаснет сразу.
+        /// </summary>
+        public const long StuckUs = 400_000;
 
         /// <summary>Своя стрела без подтверждения сервера гаснет через 1,5 с.</summary>
         public const long UnconfirmedUs = 1_500_000;
@@ -176,6 +182,7 @@ namespace Orpheus.Net.Session
                     f.Reason = m.Reason;
                     f.Victim = m.Victim;
                     f.Dropped = m.Dropped;
+                    f.StopPosition = m.Position;
                     _items[i] = f;
                     return;
                 }
@@ -218,7 +225,7 @@ namespace Orpheus.Net.Session
                         f.ArrivedUs = nowUs;
                     }
 
-                    keep = f.Reason == ProjectileEnd.Wall && nowUs - f.ArrivedUs < StuckUs;
+                    keep = (f.Reason == ProjectileEnd.Wall || f.Dropped) && nowUs - f.ArrivedUs < StuckUs;
                 }
                 else if (!f.Stopped && TravelX256(f, nowUs) >= (long)f.P.RangeUnits << 8 && nowUs - f.StartUs > UnconfirmedUs * 2)
                 {
@@ -232,6 +239,23 @@ namespace Orpheus.Net.Session
             }
 
             _items.RemoveRange(w, _items.Count - w);
+        }
+
+        /// <summary>
+        /// C-031: воткнувшаяся стрела-предмет в точке <paramref name="pos"/> закрыта снарядом, который ещё летит к ней или дрожит
+        /// (сервер шлёт конец снаряда раньше кучи — каналом 2 по порядку): предмет не рисуется, пока снаряд виден.
+        /// </summary>
+        public bool Covers(WorldPos pos)
+        {
+            for (int i = 0; i < _items.Count; i++)
+            {
+                if (_items[i].Stopped && _items[i].Dropped && _items[i].StopPosition.X == pos.X && _items[i].StopPosition.Y == pos.Y)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Убрать все (выход из мира).</summary>
