@@ -787,13 +787,13 @@ namespace Orpheus.Client
         bool _smokeBedWoke;
 
         /// <summary>
-        /// Net-smoke (C-030): с 0,15 с до 0,45 с — F тем же путём, что клавиша (<see cref="UseObject"/>: объект рядом —
+        /// Net-smoke (C-030): с 0,15 с до 0,49 с — F тем же путём, что клавиша (<see cref="UseObject"/>: объект рядом —
         /// <see cref="ObjectUse.Find"/>, кровать → заявка 33); ответ «принято» кладёт персонажа (обработчик ответа в
         /// <c>UiFrame</c>). Скриптовый бег с 0,5 с — «встал». Кадры позы — <c>NetAnimation.RestFrames</c>.
         /// </summary>
         void SmokeBed(long sinceUs, NetClient c)
         {
-            if (!_smokeBedAsked && sinceUs >= 150_000 && sinceUs < 450_000 && _world != null)
+            if (!_smokeBedAsked && sinceUs >= 150_000 && sinceUs < 490_000 && _world != null)
             {
                 _smokeBedTries++;
                 if (ObjectUse.Find(_world, _localPos, null, out TileCoord t, out UseKind kind) && kind == UseKind.Bed)
@@ -805,7 +805,8 @@ namespace Orpheus.Client
             }
 
             bool was = _rest.Active;
-            bool moving = sinceUs >= 500_000; // ScriptedSmokeFrame: бег с 0,5 с
+            // ScriptedSmokeFrame: бег с 0,5 с; поднимает не раньше 0,1 с лёжа (ответ мог прийти, когда бег уже начался).
+            bool moving = sinceUs >= 500_000 && _rest.Age >= 0.1f;
             _rest.Update(_world!, !(_pred?.Dead ?? false), moving, Time.deltaTime);
             if (was && !_rest.Active)
             {

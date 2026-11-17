@@ -290,13 +290,18 @@ namespace Orpheus.Server
 
                 if (o.DebugBed)
                 {
-                    // Кровать для host-smoke (C-030, --debug-bed): двуспальная 2 × 2, якорь (cx − 8, cy + 1) — тайлы x cx − 8…cx − 7,
-                    // y cy + 1…cy + 2, на тайл южнее появления № 0 (cx − 7, cy − 1): в досягаемости F, бег на восток не задевает.
-                    TileCoord bedTile = Torus.Wrap(world.Shape, new TileCoord(spawnCenter.X - 8, spawnCenter.Y + 1));
-                    byte bedFloor = world.GetFloor(bedTile);
-                    sim.RequestEdit(bedTile, bedFloor, ObjectId.Bed,
-                        new BuildRecord(BuildRecord.WorldOwner, 40, (byte)BuildFlags.Wide, bedFloor, 0));
-                    log.Info(sim.Tick, "world", "отладка: кровать у точки появления", ("tile", $"{bedTile.X},{bedTile.Y}"));
+                    // Кровати для host-smoke (C-030, --debug-bed): ряд из 8 двуспальных 2 × 2, якоря (cx − 8 + 2k, cy + 1) — тайлы
+                    // y cy + 1…cy + 2 под первым рядом появления (cx − 7 + 2i, cy − 1): у каждой из 8 точек кровать в 2 тайлах
+                    // (хозяин входит не первым — первые точки заняты ботами); бег на восток и на север их не задевает.
+                    for (int k = 0; k < 8; k++)
+                    {
+                        TileCoord bedTile = Torus.Wrap(world.Shape, new TileCoord(spawnCenter.X - 8 + 2 * k, spawnCenter.Y + 1));
+                        byte bedFloor = world.GetFloor(bedTile);
+                        sim.RequestEdit(bedTile, bedFloor, ObjectId.Bed,
+                            new BuildRecord(BuildRecord.WorldOwner, 40, (byte)BuildFlags.Wide, bedFloor, 0));
+                    }
+
+                    log.Info(sim.Tick, "world", "отладка: ряд кроватей под точками появления", ("y", spawnCenter.Y + 1));
                 }
 
                 if (o.DebugDayScale != Simulation.DayScaleDefault || o.DebugTimeSeconds != 0)
