@@ -17,10 +17,10 @@ namespace Orpheus.Client
         public const int PoolSize = 48;
 
         /// <summary>Подъём трещин над центром тайла (тело валуна стоит на <see cref="ObjectTable.BaseLift"/>), тайлов.</summary>
-        public const float Lift = 0.12f;
+        public const float Lift = 0.5f;
 
         /// <summary>Размер спрайта трещин, тайлов.</summary>
-        public const float Size = 0.82f;
+        public const float Size = 1.2f;
 
         static Sprite[]? _stages;
 
@@ -124,7 +124,7 @@ namespace Orpheus.Client
                         ang += (Next(ref seed) - 0.5f) * 1.1f;
                         float len = 3f + Next(ref seed) * 2.5f;
                         float nx = x + Mathf.Cos(ang) * len, ny = y + Mathf.Sin(ang) * len * 0.8f;
-                        Line(pixels, n, x, y, nx, ny, k < 2 && stage > 0 ? 2 : 1);
+                        Line(pixels, n, x, y, nx, ny, k < 3 ? 3 : 2);
                         x = nx;
                         y = ny;
                         if (x < 3 || y < 3 || x > n - 4 || y > n - 4)

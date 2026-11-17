@@ -126,6 +126,13 @@ namespace Orpheus.Tests
             (tiles, _) = Targets(w, Center(300, 200), new TileCoord(300, 200));
             Assert.Empty(tiles);
 
+            // Граница сектора ±45°: на север — (301,198) в 26,6° от оси — да, (302,199) в 63,4° — нет.
+            WorldModel w2 = Flat();
+            w2.SetBaseTile(new TileCoord(301, 198), FloorId.Stone, ObjectId.Rock);
+            w2.SetBaseTile(new TileCoord(302, 199), FloorId.Stone, ObjectId.Rock);
+            (tiles, _) = Targets(w2, Center(300, 200), new TileCoord(300, 199));
+            Assert.Equal(new[] { new TileCoord(301, 198) }, tiles);
+
             // Гранит каменной киркой не бьётся, медной — да (5 ударов).
             w.SetBaseTile(new TileCoord(301, 200), FloorId.Stone, ObjectId.Granite);
             (tiles, _) = Targets(w, Center(300, 200), new TileCoord(301, 200));

@@ -41,12 +41,14 @@ namespace Orpheus.Client.Anim
             {
                 Vector3 c = _g.Origin.ToUnity(_g.TileCenter(_pickTiles[k]));
                 Vector2 back = ((Vector2)(MinerPos - c)).normalized;
-                NetAnimation.Emit(_sparks, c, back, ImpactLook.Stone);
+                NetAnimation.EmitOnRock(_sparks, c, back);
                 if (_pickWear.Hit(_pickTiles[k], _pickObjs[k], _pickNeeded[k], PickImpacts) >= _pickNeeded[k])
                 {
                     _pickWear.Set(_pickTiles[k], _pickObjs[k], 0, _pickNeeded[k], PickImpacts); // в игре — снят
-                    _sparks.Emit(c, Vector2.up, AnimParams.StoneCrumbs * 3, AnimParams.DigDustSpeed * 1.4f, AnimParams.DigDustLife * 1.5f, 80f, true,
+                    _sparks.Order = WorldView.RowOrderAt(c.y - 0.5f + ObjectTable.BaseLift) + 2;
+                    _sparks.Emit(c + new Vector3(0f, 0.35f, 0f), Vector2.up, AnimParams.StoneCrumbs * 3, AnimParams.DigDustSpeed * 1.4f, AnimParams.DigDustLife * 1.5f, 80f, true,
                         AnimParams.DustStone, AnimParams.DustStone, AnimParams.DustLight);
+                    _sparks.Order = WorldView.ObjectOrder + 2;
                 }
             }
 

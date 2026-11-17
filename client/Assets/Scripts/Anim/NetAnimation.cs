@@ -120,8 +120,16 @@ namespace Orpheus.Client.Anim
             for (int k = 0; k < m.Count; k++)
             {
                 Vector3 c = _origin.ToUnity(TileCenter(m.Get(k).Tile));
-                Emit(_sparks, c, Vector2.up, ImpactLook.Stone);
+                EmitOnRock(_sparks, c, Vector2.up);
             }
+        }
+
+        /// <summary>C-028: искры и крошка удара по камню — над валуном его строки (валун «с высотой», рисуется выше плиток).</summary>
+        public static void EmitOnRock(Sparks sparks, Vector3 tileCenter, Vector2 towardPlayer)
+        {
+            sparks.Order = WorldView.RowOrderAt(tileCenter.y - 0.5f + ObjectTable.BaseLift) + 2;
+            Emit(sparks, tileCenter + new Vector3(0f, 0.35f, 0f), towardPlayer, ImpactLook.Stone);
+            sparks.Order = WorldView.ObjectOrder + 2;
         }
 
         /// <summary>
@@ -140,7 +148,7 @@ namespace Orpheus.Client.Anim
             {
                 Vector3 c = _origin.ToUnity(TileCenter(_client.PredictedStrikeTile(k)));
                 Vector2 back = (Vector2)(_g.Character.position - c);
-                Emit(_sparks, c, back.sqrMagnitude > 1e-6f ? back.normalized : Vector2.up, ImpactLook.Stone);
+                EmitOnRock(_sparks, c, back.sqrMagnitude > 1e-6f ? back.normalized : Vector2.up);
                 ImpactsShown++;
             }
         }
