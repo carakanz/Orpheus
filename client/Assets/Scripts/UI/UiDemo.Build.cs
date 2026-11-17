@@ -49,7 +49,7 @@ namespace Orpheus.Client.UI
                 _bag.Select(6);
                 if (_mode == "build" && _ui.Ruler.Mode == PlaceMode.Ruler)
                 {
-                    _ui.ToggleRuler(); // C-015: сцена «поштучно» — у быстрой панели значок зигзага
+                    _ui.ToggleRuler(); // C-015: сцена «поштучно» — у быстрой панели значок шахматки (C-029)
                 }
             }
 

@@ -10,7 +10,7 @@ namespace Orpheus.Client.UI
     /// Быстрая панель 1–8 (C-015, слова Автора 15.11: «верхний левый угол инвентарь»): ряд полупрозрачных ячеек в левом
     /// верхнем углу, всегда на экране, с подписями клавиш; по Q под ним раскрывается сумка (<see cref="BagWindow"/>), и
     /// ряд работает как её верхний ряд (как в Terraria). Справа от ряда — маленькая кнопка режима постановки (слово
-    /// Автора: «маленькой иконкой линейки или зигзага около инвентаря»): линейка — режим «линейка», зигзаг — «поштучно»;
+    /// Автора: «маленькой иконкой линейки или зигзага около инвентаря»): линейка — режим «линейка», шахматка 2 × 2 (C-029, было — зигзаг) — «поштучно»;
     /// щелчок переключает (как Tab). Значки — шейдером (<see cref="UiShape"/>). Места — <see cref="HudLayout"/>.
     /// </summary>
     public sealed class HotbarView : UiGroup
@@ -38,13 +38,13 @@ namespace Orpheus.Client.UI
         /// <summary>Курсор (точка холста) над кнопкой режима.</summary>
         public bool OverMode(Vector2 canvas, Vector2 point) => Visible && HudLayout.OverMode(canvas.y, point.x, point.y);
 
-        /// <summary>Значок режима: линейка или зигзаг; подсветка под курсором.</summary>
+        /// <summary>Значок режима: линейка или шахматка; подсветка под курсором.</summary>
         public void SetMode(bool ruler, bool hover)
         {
             if (ruler != _ruler)
             {
                 _ruler = ruler;
-                _modeIcon.Kind = ruler ? UiShape.Shape.Ruler : UiShape.Shape.Zigzag;
+                _modeIcon.Kind = ruler ? UiShape.Shape.Ruler : UiShape.Shape.Checker;
             }
 
             if (hover != _hover)

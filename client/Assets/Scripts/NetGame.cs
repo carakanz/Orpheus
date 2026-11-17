@@ -100,6 +100,7 @@ namespace Orpheus.Client
         WorldPos _serverLast;
         WorldModel? _world;
         MapShape _map;
+        ExploredMap? _explored; // C-029
         FloatingOrigin? _origin;
         WorldView? _view;
         DayTintView? _tint; // E1-8: тон суток; время — WorldClock клиента (приходит в заголовке снимков)
@@ -416,12 +417,19 @@ namespace Orpheus.Client
             _origin = new FloatingOrigin(_map, Torus.ChunkOf(_map, spawn));
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
             WorldView view = _view;
+            var explored = new ExploredMap(_map); // C-029: открытые области — карта на весь экран
+            _explored = explored;
             foreach (ChunkCoord c in _world.GetChunkCoords().ToArray())
             {
                 view.ShowChunk(c); // чанки, пришедшие в том же Poll, что и «вход принят»
+                explored.MarkDirty(c);
             }
 
-            cw.ChunkChanged = c => view.ShowChunk(c);
+            cw.ChunkChanged = c =>
+            {
+                view.ShowChunk(c);
+                explored.MarkDirty(c);
+            };
             cw.ChunkRemoved = c => view.HideChunk(c);
             cw.RolledBack = OnRolledBack; // 0-028: откат правки — красная вспышка с причиной
             _tint = new DayTintView(_g.Camera, _world!, _origin!); // E1-8: тон суток (время мира — часы из заголовка снимков)

@@ -129,7 +129,22 @@ namespace Orpheus.Client.UI
         /// Постройка «из меню» (E2-16 → C-013): результат выбранного в окне изготовления рецепта, если это постройка, — ставится
         /// щелчком по земле с изготовлением на месте; 0 — нет. Окно при этом остаётся открытым (C-008: мир доступен).
         /// </summary>
-        public byte MenuPlace => CraftWindow.PlaceableResult(_armed);
+        public byte MenuPlace => _pipette != Items.None ? _pipette : CraftWindow.PlaceableResult(_armed);
+
+        /// <summary>
+        /// C-029: пипетка (средняя кнопка мыши или G по постройке в мире) — такая же постройка «в руку» путём постановки из меню
+        /// (E2-16): из сумки, а если её там нет — изготовить на месте. Снимается как выбор из меню: Esc, ПКМ, смена ячейки панели.
+        /// </summary>
+        public byte PipetteItem => _pipette;
+
+        byte _pipette;
+
+        /// <summary>C-029: взять пипеткой постройку <paramref name="item"/> (выбранный рецепт снимается).</summary>
+        public void Pipette(byte item)
+        {
+            Disarm();
+            _pipette = BuildHand.IsBuildItem(item) ? item : Items.None;
+        }
 
         /// <summary>C-013: рецепт, выбранный «в руку» (щелчок по значку); 0 — нет.</summary>
         public int ArmedRecipe => _armed;
@@ -153,9 +168,10 @@ namespace Orpheus.Client.UI
         /// <summary>Снять выбор рецепта (ПКМ, Esc, закрыли окно, сменили раздел или ячейку панели).</summary>
         public void Disarm()
         {
-            if (_armed != 0)
+            if (_armed != 0 || _pipette != Items.None)
             {
                 _armed = 0;
+                _pipette = Items.None; // C-029: и пипетку
                 _ruler.Cancel();
             }
         }
