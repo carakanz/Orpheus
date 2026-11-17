@@ -112,5 +112,25 @@ namespace Orpheus.Net.Session
         /// <summary>Середины сфер (здоровье — слева, выносливость — справа) на холсте.</summary>
         public static (float X, float Y) OrbCenter(float canvasW, bool stamina) =>
             (BarX(canvasW) + (stamina ? BarWidth - Orb / 2f : Orb / 2f), BarBottom + Orb / 2f);
+
+        // ---------- E3-1: бой над головами и экран смерти ----------
+
+        /// <summary>Полоска здоровья врага над головой: ширина, высота, рамка (единицы холста); подъём над ногами, тайлов.</summary>
+        public const float EnemyBarW = 64f, EnemyBarH = 8f, EnemyBarBorder = 2f, EnemyBarLift = 1.45f;
+
+        /// <summary>Имя элитного врага / босса над полоской: кегль, зазор.</summary>
+        public const int EnemyNameFont = 20;
+        public const float EnemyNameGap = 3f;
+
+        /// <summary>Цифра урона: кегль обычной (сильная — ×<see cref="CombatFeed.StrongScale"/>), начало над ногами, тайлов.</summary>
+        public const int DamageFont = 30;
+        public const float DamageLift = 1.2f;
+
+        /// <summary>Дорожки цифр одного существа, единицы холста (не зависят от обзора): шаг вбок шире цифры «10», шаг вверх.</summary>
+        public const float DamageLaneX = 46f, DamageLaneY = 18f;
+
+        /// <summary>Экран смерти: кегль заголовка «Вы погибли», строк причины и таймера; середина заголовка — доля высоты холста (выше середины: свой персонаж лежит в центре экрана).</summary>
+        public const int DeathTitleFont = 84, DeathLineFont = 30;
+        public const float DeathTitleY = 0.74f, DeathLineGap = 14f;
     }
 }

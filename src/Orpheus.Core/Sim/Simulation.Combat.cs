@@ -54,7 +54,8 @@ namespace Orpheus.Core.Sim
         /// События «урон» и «смерть» — в буфер такта (0 нет: вне такта, сервер читает по своему счёту).
         /// Возвращает урон после брони.
         /// </summary>
-        public int ApplyStrike(int targetId, int attackerId, int rawDamage, WorldPos knockOrigin = default, bool knockback = false, byte damageKind = 0)
+        public int ApplyStrike(int targetId, int attackerId, int rawDamage, WorldPos knockOrigin = default, bool knockback = false, byte damageKind = 0,
+            bool strong = false)
         {
             int slot = SlotOf(targetId);
             if (slot < 0)
@@ -122,7 +123,7 @@ namespace Orpheus.Core.Sim
             }
 
             AddEvent(new SimEvent(SimEventKind.Damage, Tick, default, -1, EditResult.Applied, 0,
-                requester: attackerId, victim: target.Id, damage: damage, damageType: damageKind));
+                requester: attackerId, tag: strong ? DamageTagStrong : 0, victim: target.Id, damage: damage, damageType: damageKind));
 
             if (target.Health <= 0)
             {
@@ -235,7 +236,8 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
-            int damage = ApplyStrike(_entities[target].Id, e.Id, SwordStrike.DamageFor(m.Index), origin, knockback: true);
+            int damage = ApplyStrike(_entities[target].Id, e.Id, SwordStrike.DamageFor(m.Index), origin, knockback: true,
+                strong: m.Index == MeleeAction.SeriesSize - 1); // E3-1: добивающий удар серии — «сильный» (крупная цифра)
             if (damage > 0)
             {
                 // Третий удар отбрасывает на 2 тайла (`02` 3.2): скорость ставит ApplyStrike (база ÷ масса), множитель удара — здесь.

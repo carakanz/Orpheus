@@ -142,6 +142,23 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
+        /// E3-1: возродится ли персонаж <paramref name="entityId"/> у своей кровати (кровать назначена и цела; чанк кровати не
+        /// загружен — цела). Только чтение — для экрана смерти; само решение — <see cref="RespawnPointOf"/> в миг возрождения.
+        /// </summary>
+        public bool RespawnsAtBed(int entityId)
+        {
+            int slot = SlotOf(entityId);
+            if (slot < 0 || !_entities[slot].HasBed)
+            {
+                return false;
+            }
+
+            TileCoord bed = _entities[slot].Bed;
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_shape, bed));
+            return chunk == null || ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(bed.X, bed.Y))) == ObjectId.Bed;
+        }
+
+        /// <summary>
         /// Где возродится персонаж: у своей кровати, если она цела (свободный тайл рядом — сама кровать твёрдая), иначе у
         /// старта; снесённая кровать точкой быть перестаёт. Чанк кровати не загружен — кровать считается целой.
         /// </summary>

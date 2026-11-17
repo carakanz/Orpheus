@@ -488,7 +488,7 @@ namespace Orpheus.Client
                         i++;
                         if (!UI.UiDemo.IsMode(next))
                         {
-                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, half, turn, cursor-place, ruler-wall или ruler-floor, дано '{next}'";
+                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, half, turn, cursor-place, ruler-wall, ruler-floor или combat-hit|hurt|kill|death|respawn, дано '{next}'";
                         }
                         else
                         {
