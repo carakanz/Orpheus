@@ -347,10 +347,11 @@ namespace Orpheus.Tests
             Assert.Equal((byte)(BuildCells.DoorSouth | BuildCells.Bit(0, 0)), BuildCells.MaskAt(rig.Sim.World, t));
             Assert.Equal(integrity, Integrity(rig.Sim, t));
 
-            // Другой вид в тайле — «занято»; ячейка уже занята — «занято»; дверь в тайл со стеной — «занято».
+            // Другой вид в тайле — «занято»; ячейка уже занята — «занято». Дверь в тайл со стеной — C-029 (слово Автора 17.11
+            // «Нужно иметь возможность построить дверь поверх стены»): замена, «принято» (было «занято», E2-12).
             Assert.Equal(EditReply.Busy, BuildHand.Check(c.World.World, self, c.Inv, 4, true, t, 1).Reply);
             Assert.Equal(EditReply.Busy, BuildHand.Check(c.World.World, self, c.Inv, 3, true, t, 2).Reply);
-            Assert.Equal(EditReply.Busy, BuildCells.CheckPlace(c.World.World, self, t, ObjectId.Door, BuildCells.DoorNorth, out _, out _));
+            Assert.Equal(EditReply.Accepted, BuildCells.CheckPlace(c.World.World, self, t, ObjectId.Door, BuildCells.DoorNorth, out _, out _));
 
             for (int x = 296; x <= 305; x++)
             {
