@@ -111,7 +111,7 @@ namespace Orpheus.Tests
                 null);
             Assert.Equal(0, r.ExitCode);
             MetricsSample m = r.Metrics!;
-            _out.WriteLine($"тактов {m.Ticks}, промежутков {m.Gaps}, простоев {m.Stalls} ({m.StallPercent:F1} %), промежуток max {m.MaxGapMs:F1} мс, такт max {m.TickMaxMs:F2} мс");
+            _out.WriteLine($"тактов {m.Ticks}, промежутков {m.Gaps}, простоев {m.Stalls} ({m.StallPercent:F1} %), длинных (≥100 мс) {m.LongGaps}, промежуток max {m.MaxGapMs:F1} мс, такт max {m.TickMaxMs:F2} мс");
             Assert.Equal(30, m.Ticks);
             Assert.Equal(29, m.Gaps);
             // P-003 (08.11, «время хрупко под нагрузкой»): правило 0-030 — заморозка = простой, промежуток ≥ 150 мс,
@@ -123,6 +123,11 @@ namespace Orpheus.Tests
             Assert.True(m.Stalls >= 1, $"простоев {m.Stalls} — заморозка не посчитана простым");
             Assert.True(m.MaxGapMs >= 150, $"{m.MaxGapMs}");
             Assert.True(m.TickMaxMs < 150, $"заморозка попала во время такта: {m.TickMaxMs} мс");
+            // P-005, п. 4 (17.11): событийный порог — зазор ≥ 100 мс (LongGapMicros) считается событием,
+            // их число за прогон ограничено. Шум планировщика dev-ПК (38–100 мс) в счётчик не попадает;
+            // заморозка 150 мс даёт ровно одно событие. Верхняя граница = шум 100–150 мс под нагрузкой.
+            Assert.True(m.LongGaps >= 1, $"длинных промежутков {m.LongGaps} — заморозка не посчитана событием (≥ 100 мс)");
+            Assert.True(m.LongGaps <= 3, $"длинных промежутков {m.LongGaps} за прогон — деградация тика (заморозка даёт 1)");
         }
 
         // ---------- Приёмка 0.8: старт и память сервера (07 1.9 п. 4) ----------
