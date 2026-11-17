@@ -279,7 +279,7 @@ namespace Orpheus.Core.Sim
         {
             WorldPos pos = Torus.Wrap(_shape, at);
             byte floor = _world.GetFloor(Torus.TileOf(_shape, pos));
-            if (!ItemTable.Exists(item) || !FloorId.IsPassable(floor) || TerrainSlow.FloorQ8(floor) != TerrainSlow.One)
+            if (!ItemTable.Exists(item) || !FloorId.IsPassable(floor)) // вода (C-018: проходима только замедлением), лава, пустота
             {
                 return 0;
             }

@@ -448,6 +448,49 @@ namespace Orpheus.Tests
         // -------------------------------------------------------- клиент
 
         /// <summary>
+        /// По сети (протокол 32): воткнувшаяся стрела доходит до клиента кучей с видом и осью; подбор проходом — «кучи нет»
+        /// с поднявшим, стрела в сумке сервера.
+        /// </summary>
+        [Fact]
+        public void C031_Net_StuckArrow_KindAim_ReachClient_PickedByWalking()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
+            using var rig = new EditTests.EditRig(world, _ => At(300, 200));
+            NetClient c = rig.Join();
+            rig.Run(10);
+            int id = rig.Sim.AddStuckArrowForTests(At(304, 200), 0x4321, GroundPile.KindArrowWall, rig.Sim.Tick);
+            int plain = rig.Sim.AddPile(Items.Wood, 2, At(300, 204));
+            rig.Run(3);
+            Assert.Equal(2, c.Piles.Count);
+            NetPile seen = default, wood = default;
+            foreach (NetPile p in c.Piles)
+            {
+                if (p.Id == id)
+                    seen = p;
+                if (p.Id == plain)
+                    wood = p;
+            }
+
+            Assert.Equal(GroundPile.KindArrowWall, seen.Kind);
+            Assert.Equal(0x4321, seen.Aim);
+            Assert.Equal(1, seen.Count);
+            Assert.Equal(At(304, 200), seen.Position);
+            Assert.Equal(GroundPile.KindPlain, wood.Kind);
+
+            var gone = new List<PileGoneMessage>();
+            c.PileGone = (m, was) => gone.Add(m);
+            int before = rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Arrows);
+            rig.InputOf = cl => new InputFrame(Input8.East, 0);
+            for (int t = 0; t < 120 && gone.Count == 0; t++)
+                rig.Run(1);
+            PileGoneMessage g = Assert.Single(gone);
+            Assert.Equal(id, g.Id);
+            Assert.Equal(PileGoneReason.Picked, g.Reason);
+            Assert.Equal(c.EntityId, g.Taker);
+            Assert.Equal(before + 1, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Arrows));
+        }
+
+        /// <summary>
         /// Клиент: стрела-предмет в точке конца закрыта снарядом, пока тот летит к ней и дрожит (<see cref="ClientProjectiles.StuckUs"/>),
         /// потом снаряд гаснет и виден предмет. Не легла (вода) — не закрывает.
         /// </summary>
