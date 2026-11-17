@@ -57,5 +57,12 @@
   Big с порогами гонять на эталонной машине/сервере, карточка **P-005** («Ждёт Автора»). Эталон Big — тихий прогон (спиннер раздувает µs/поиск 74→106 на HT).
 - ReadyWithin5s и Launcher меряют серверные секунды `sinceProcessStartSec` (от запуска процесса, п. 1.9), не wall-clock лаунчера.
 
+### C-025/C-026 (17.11) — HiddenCi в `tools\ci.ps1`
+- `ci.ps1` гоняет `dotnet` на скрытом столе `WinSta0\OrpheusHidden` через `HiddenCi` (P/Invoke в Add-Type): conhost от testhost/MSBuild на столе Автора 1→0 (C-025).
+- **Канализация (C-026): `STARTUPINFOEX` + `PROC_THREAD_ATTRIBUTE_HANDLE_LIST` (ровно inR/outW/errW) + job (`CREATE_SUSPENDED`+`Assign`+`Resume`).** В Add-Type PS 5.1 `SECURITY_ATTRIBUTES{bInheritHandle=true}` в `CreatePipe` не применяется (ручки ненаследуемые) → без списка ручек EOF по stdin к ребёнку не приходит никогда; с ним — 0,1 с. Job по таймауту снимает всё дерево (`TerminateJobObject`).
+- Параметр `-StepTimeoutSec` (3600 с): висячий шаг снимается кодом 258 + пометка в stderr; грейс потоков — параллельный `Task.WaitAll(..., 60000)`.
+- `-SelfTest` (код 0 = зелёный): таблицы `Join-CmdLine` (экранирование MSVC), гард stdin-читателя (powershell `ReadToEnd` по EOF; `cmd /c more` не годится — после EOF ждёт клавишу на `CONIN$`), гард таймаута (зависший ребёнок → 258).
+- Быстрый CI: `tools\ci.ps1 -TimeLimitSec 0` (дефолт `TimeLimitSec=60` — легасюк, прогон ~145 с).
+
 ## Дальше
-0.4 хрупкие тесты (в быстром CI под нагрузкой падают `D00_Net_Udp_BotsLogIn…` и `D07_S2_13_9_Launcher…`); сцены стенда дополнять с каждым шагом этапа 1. **17.11:** P-003 на финальной `-All` → `reviewer` → слияние; P-005 (Big-бенч на dev-ПК) ждёт Автора.
+0.4 хрупкие тесты (в быстром CI под нагрузкой падают `D00_Net_Udp_BotsLogIn…` и `D07_S2_13_9_Launcher…`); сцены стенда дополнять с каждым шагом этапа 1. **17.11:** P-003 на финальной `-All` → `reviewer` → слияние; P-005 (Big-бенч на dev-ПК) ждёт Автора. Env-блок HiddenCi остаётся ANSI (П з. 4: не-ASCII портится; юникод-блок в Add-Type PS 5.1 — отказ 577) — проверка на PS 7 в бэклоге.

@@ -189,3 +189,8 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Sim/Simulation.Projectiles.cs: ProjectileStop · SpawnProjectile (общий, и для врагов) · FireBow · BowInputOf · BowFrames30 · StepProjectiles (фаза 4.2) · FlyOneTick · ProjectileVictim · Stop (куча 50 %). Буферы ShotsThisTick / StopsThisTick.
 - Net: Protocol/ProjectileMessages.cs (38), NetServer.Events.BroadcastProjectiles, Session/ClientProjectiles.cs (полёт на клиенте, подмена предсказанной), LocalPrediction.HasArrows/Bow/TryTakeShot, NetServer.Threats (BowInput в копиях Mover).
 - Клиент: ArrowView.cs (стрелы, след, кольцо силы), NetGame (бит удара с луком в NetGame.Edits, «нет стрел», AddPredicted, CursorPoint), ActionAnim.BowDraw/BowRelease, ProceduralAnimator (слой лука), NetAnimation (свой лук из предсказания, отдача чужих OnShot), Anim/AnimShowcase.Bow.cs (ленты E3-2_*).
+
+## tools/ci.ps1 (HiddenCi, C-025/C-026, 17.11)
+- Param: `-StepTimeoutSec` (3600) :16 · `-TimeLimitSec` (60) :15 · `-SelfTest`.
+- HiddenCi (Add-Type): STARTUPINFO/STARTUPINFOEX :47-56 · импорты (CreateProcessW, ProcThreadAttributeList, job, ResumeThread) ~60-115 · EnvBlock (ANSI) :121 · Run (стол, 3 трубы, handle list inR/outW/errW, job+suspended+resume, таймаут→TerminateJobObject+258, грейс Task.WaitAll 60 с) :141-272 · Drain :275.
+- PowerShell: Join-CmdLine (MSVC-экранирование) :309 · Invoke-Step (зов Run) :343 · Invoke-SelfTest :356 (таблицы, stdin-гард powershell ReadToEnd, таймаут-гард 258).
