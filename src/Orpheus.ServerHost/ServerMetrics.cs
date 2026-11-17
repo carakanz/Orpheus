@@ -48,6 +48,9 @@ namespace Orpheus.Server
         /// <summary>Наибольший промежуток между началами тактов, мс.</summary>
         public double MaxGapMs { get; set; }
 
+        /// <summary>Длинных промежутков ≥ 100 мс между началами тактов — событий (P-005, п. 4): заморозки, долгие сборки.</summary>
+        public long LongGaps { get; set; }
+
         /// <summary>Байт, выделенных потоком такта внутри такта, в среднем на такт (11.6: в установившейся игре — 0).</summary>
         public double AllocatedBytesPerTick { get; set; }
 
@@ -114,6 +117,7 @@ namespace Orpheus.Server
             d.Add(("stalls", Stalls));
             d.Add(("stallPercent", R(StallPercent)));
             d.Add(("maxGapMs", R(MaxGapMs)));
+            d.Add(("longGaps", LongGaps));
             d.Add(("allocatedBytesPerTick", R(AllocatedBytesPerTick)));
             d.Add(("gc0", Gc0));
             d.Add(("gc1", Gc1));
@@ -351,6 +355,7 @@ namespace Orpheus.Server
             s.Gaps = t.Gaps;
             s.StallPercent = 100 * t.StallShare;
             s.MaxGapMs = t.MaxGapMicros / 1000.0;
+            s.LongGaps = t.LongGaps;
             s.AllocatedBytesPerTick = t.Ticks > 0 ? t.AllocatedInTicks / (double)t.Ticks : 0;
             s.TicksWithAllocations = t.TicksWithAllocations;
         }
