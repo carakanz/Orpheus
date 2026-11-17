@@ -238,24 +238,13 @@ namespace Orpheus.Client
             Vector3 screen = mouse.position.ReadValue();
             Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
             WorldPos p = Torus.Wrap(_map, _origin.FromUnity(v));
-            TileCoord cell = BuildCells.CellAt(_map, p);
+            // C-029: один расчёт цели для призрака и щелчка (мебель — СЗ ячейка от узла 0,5; молот, кирка, F — якорь постройки
+            // под курсором, с поправкой на нарисованную высоту стен и мебели). Раньше щелчок брал простой тайл точки.
             byte held = HandItem;
-            if (BuildHand.IsBuildItem(held, out ushort key) && BuildLayers.IsFurniture(key))
-            {
-                // E2-15: мебель с шагом 0,5 — центром к ближнему узлу сетки 0,5 под курсором; тайл и четверть — её СЗ ячейка.
-                // E2-16: размер — по повороту (кровать 1 × 2, верстак 2 × 2).
-                cell = BuildLayers.FurnitureCellAt(_map, p, HandKey(held));
-                _cursorQuad = BuildCells.QuadOf(cell);
-                return BuildCells.TileOfCell(cell);
-            }
-
-            _cursorQuad = BuildCells.QuadOf(cell);
-            if (!BuildHand.IsBuildItem(held) && _world != null && BuildLayers.TryTopOfCell(_world, cell, out TileCoord top))
-            {
-                return top; // E2-15: молот, F — по постройке под курсором; мебель соседа со сдвигом — её тайл-якорь
-            }
-
-            return Torus.TileOf(_map, p);
+            ushort key = BuildHand.IsBuildItem(held) ? HandKey(held) : (ushort)0;
+            TileCoord t = BuildCursor.Target(_world, _map, p, key, out int quad);
+            _cursorQuad = quad;
+            return t;
         }
 
         /// <summary>
@@ -499,9 +488,8 @@ namespace Orpheus.Client
                 return 0;
             }
 
-            Vector3 screen = mouse.position.ReadValue();
-            Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
-            TileCoord tile = Torus.TileOf(_map, _origin!.FromUnity(v));
+            // C-029: цель щелчка — тот же расчёт, что у призрака (BuildCursor), а не простой тайл под точкой.
+            TileCoord tile = CursorTile() ?? default;
 
             // 1-012: F — закрыть ближайшую открытую дверь (передний фронт здесь, запрос TileOp.CloseDoor — протокол 19;
             // радиус, проём и замок проверяет сервер, предсказание и откат — общие с правками).
