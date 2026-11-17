@@ -31,6 +31,7 @@ $total = [System.Diagnostics.Stopwatch]::StartNew()
 # Образец перенаправления: src/Orpheus.Platform.Pc/HiddenProcess.cs.
 Add-Type @"
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -84,8 +85,28 @@ public static class HiddenCi
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool CloseHandle(IntPtr h);
 
+    // Свой env-блок в ANSI (Encoding.Default — как Process.Start в .NET Framework):
+    // копия окружения + доп. переменные. Юникодный блок с CREATE_UNICODE_ENVIRONMENT
+    // здесь (Add-Type PS 5.1) почему-то получает отказ 577; ANSI принят, значения доходят.
+    static byte[] EnvBlock(string[] extra)
+    {
+        var map = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
+            map[(string)e.Key] = e.Value == null ? "" : (string)e.Value;
+        if (extra != null)
+            foreach (var kv in extra)
+            {
+                int i = kv.IndexOf('=');
+                if (i > 0) map[kv.Substring(0, i)] = kv.Substring(i + 1);
+            }
+        var sb = new StringBuilder();
+        foreach (var kv in map) sb.Append(kv.Key).Append('=').Append(kv.Value).Append('\0');
+        sb.Append('\0');
+        return Encoding.Default.GetBytes(sb.ToString());
+    }
+
     // Запуск exe на скрытом столе; stdout/stderr — трубы UTF-8. Код возврата процесса.
-    public static int Run(string exe, string args, string cwd, string desktop, out string stdout, out string stdErr)
+    public static int Run(string exe, string args, string cwd, string desktop, string[] extraEnv, out string stdout, out string stdErr)
     {
         stdout = ""; stdErr = "";
         const uint GenericAll = 0x10000000;
@@ -121,7 +142,14 @@ public static class HiddenCi
 
             PROCESS_INFORMATION pi;
             var cmd = new StringBuilder(exe + " " + args);
-            if (!CreateProcess(null, cmd, IntPtr.Zero, IntPtr.Zero, true, CreateNoWindow, IntPtr.Zero, cwd, ref si, out pi))
+            // env-блок передаём свой (ANSI, пиннуемый буфер — как Process.Start): гасим
+            // персистентные серверы сборки (MSBUILDUSESERVER и пр. — задаёт вызывающий).
+            // Юникодный блок + CREATE_UNICODE_ENVIRONMENT в этой сборке получает отказ 577.
+            byte[] env = EnvBlock(extraEnv);
+            GCHandle gh = GCHandle.Alloc(env, GCHandleType.Pinned);
+            bool ok = CreateProcess(null, cmd, IntPtr.Zero, IntPtr.Zero, true, CreateNoWindow, gh.AddrOfPinnedObject(), cwd, ref si, out pi);
+            gh.Free();
+            if (!ok)
             {
                 int e = Marshal.GetLastWin32Error();
                 inR.Dispose(); inW.Dispose(); outR.Dispose(); outW.Dispose(); errR.Dispose(); errW.Dispose();
@@ -211,8 +239,12 @@ function Invoke-Step([string]$name, [string]$color, [string[]]$dotnetArgs) {
     # conhost от testhost на столе Автора.
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
+    # Персистентные серверы сборки (MSBuild node reuse / MSBuild Server): узлы, рождённые
+    # на столе вызывающей консоли, живут после сборки и при следующем билде спавнят сирот
+    # (conhost) на столе Автора. Гасим их в env-блоке ребёнка.
+    $env_ = @('DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1', 'MSBUILDUSESERVER=0')
     $code = 1; $stdOut = ''; $stdErr = ''
-    try { $code = [HiddenCi]::Run('dotnet', (Join-CmdLine $dotnetArgs), $root, 'OrpheusHidden', [ref]$stdOut, [ref]$stdErr) }
+    try { $code = [HiddenCi]::Run('dotnet', (Join-CmdLine $dotnetArgs), $root, 'OrpheusHidden', $env_, [ref]$stdOut, [ref]$stdErr) }
     catch { $code = 1; $stdErr = "hidden: " + $_.Exception.Message }
     $ErrorActionPreference = $prev
     foreach ($line in ($stdOut -split "`r?`n")) { Write-Line "   $line" }
