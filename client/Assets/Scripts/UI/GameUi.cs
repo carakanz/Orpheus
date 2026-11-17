@@ -43,7 +43,7 @@ namespace Orpheus.Client.UI
         public bool Ctrl;
         public bool CancelLast;
 
-        /// <summary>C-008: M — свернуть / развернуть мини-карту.</summary>
+        /// <summary>C-008: M — свернуть / развернуть мини-карту; C-029: M — карта на весь экран, Shift+M — свернуть мини-карту.</summary>
         public bool Map;
 
     }
@@ -144,6 +144,16 @@ namespace Orpheus.Client.UI
         readonly HotbarView _hotbar;
         readonly BagWindow _bag;
         readonly MiniMapView _map;
+        readonly WorldMapView _bigMap;
+
+        /// <summary>C-029: открытые области для карты на весь экран (ведёт клей клиента по пришедшим чанкам).</summary>
+        public ExploredMap? Explored { get; set; }
+
+        /// <summary>C-029: где Очаг (возрождение без кровати); null — неизвестно.</summary>
+        public WorldPos? Hearth { get; set; }
+
+        /// <summary>C-029: карта на весь экран открыта (мышь и колесо — ей).</summary>
+        public bool WorldMapOpen => _bigMap.Open;
         readonly CraftWindow _craft;
         readonly UiTooltip _tip;
         readonly UiCarry _carry;
@@ -189,6 +199,7 @@ namespace Orpheus.Client.UI
             _map = new MiniMapView(_root); // C-008 п. 8: мини-карта справа вверху
             _craft = new CraftWindow(_root);
             CreateBuild(_root, build, BarTop); // E2-5: окно сундука, строка у курсора, сообщение, подпись линейки
+            _bigMap = new WorldMapView(_root); // C-029: карта на весь экран (M) — поверх окон, под подсказкой
             _tip = new UiTooltip(_root);
             _carry = new UiCarry(_root);
             Combat.CreateOverlay(); // E3-1: экран смерти — поверх всего
@@ -306,7 +317,7 @@ namespace Orpheus.Client.UI
         /// Кадр интерфейса: сумка сервера, выбранная ячейка панели, жив ли, здоровье и выносливость (0…max), состояние
         /// крафта (очередь сервера, мир и место — для «станок рядом»). Звать до чтения мыши миром (<see cref="PointerBlocked"/>).
         /// </summary>
-        public void Frame(in UiInput input, in Inventory bag, int selected, bool dead, int health, int maxHealth, int stamina, int maxStamina,
+        public void Frame(in UiInput input0, in Inventory bag, int selected, bool dead, int health, int maxHealth, int stamina, int maxStamina,
             in UiCraftState craft, in UiBuildState build = default)
         {
             _root.FitToScreen();
@@ -327,6 +338,28 @@ namespace Orpheus.Client.UI
             SyncChestWindow(build, craft);
             EscapeUsed = false;
             SlotClicked = -1;
+            UiInput input = input0;
+            if (_bigMap.Open)
+            {
+                // C-029: карта на весь экран забирает ввод: M / Esc — закрыть, колесо — масштаб, ЛКМ — тянуть, ПКМ — к себе.
+                if (input.Escape || (input.Map && !input.Shift))
+                {
+                    _bigMap.Close();
+                    EscapeUsed = input.Escape;
+                }
+                else
+                {
+                    if (input.RightDown)
+                    {
+                        _bigMap.Recenter();
+                    }
+
+                    _bigMap.Input(input.LeftDown, input.LeftHeld, input.Pointer, input.Wheel);
+                }
+
+                input = new UiInput { HasPointer = input.HasPointer, Pointer = input.Pointer };
+            }
+
             if (!input.LeftHeld)
             {
                 _capture = false;
@@ -379,9 +412,18 @@ namespace Orpheus.Client.UI
             _chest.AddZones(_pointer, size);
             _craft.AddZones(_pointer, size);
             _map.AddZones(_pointer, size);
+            _bigMap.AddZones(_pointer, size); // C-029: открыта — весь экран интерфейс
             if (input.Map)
             {
-                _map.Toggle();
+                // C-029: M — карта на весь экран (слово Автора 17.11), Shift+M — свернуть / развернуть мини-карту (было M, C-008).
+                if (input.Shift)
+                {
+                    _map.Toggle();
+                }
+                else
+                {
+                    _bigMap.Toggle();
+                }
             }
             bool overUi = input.HasPointer && _pointer.Over(p.x, p.y);
 
@@ -422,7 +464,7 @@ namespace Orpheus.Client.UI
 
             // C-008 проверка п. 2: любая нарисованная часть (и нижняя панель — верхний ряд сумки, и сферы, и карта) —
             // интерфейс для правил «колесо над окном — не обзор» и «Shift над окном — не уворот».
-            if (overUi)
+            if (overUi || _bigMap.Open)
             {
                 OverWindow = true;
             }
@@ -612,7 +654,7 @@ namespace Orpheus.Client.UI
                 };
             }
 
-            _tip.Show(tip, size, p);
+            _tip.Show(_bigMap.Open ? null : tip, size, p); // C-029: под картой на весь экран подсказок нет
             if (!_hand.Holding && _armed != 0 && (overUi || !armedBuilds))
             {
                 // C-013: выбранный рецепт «в руке» — значок результата у курсора (у постройки над миром — призрак на земле).
@@ -625,6 +667,10 @@ namespace Orpheus.Client.UI
             }
             _bar.Set(health, maxHealth, stamina, maxStamina);
             _map.Frame(craft.World, craft.Position, MapSnapshot, MapSelf);
+            if (craft.World != null)
+            {
+                _bigMap.Frame(Explored, craft.World.Shape, craft.Position, Hearth, MapSnapshot, MapSelf);
+            }
         }
 
         /// <summary>C-029: что открыл игрок (биомы, враги) — для «где взять» в подсказке ингредиента; ведёт клей клиента.</summary>

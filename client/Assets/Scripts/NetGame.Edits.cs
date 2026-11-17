@@ -186,6 +186,12 @@ namespace Orpheus.Client
             UI.UiBuildState build = _args.NetSmokeSeconds > 0 ? default : BuildState(c, pr);
             _ui.MapSnapshot = c.HasSnapshot ? c.Latest : null; // C-008: точки игроков и врагов на мини-карте
             _ui.MapSelf = _localId;
+            if (_explored != null && _world != null)
+            {
+                _explored.Update(_world, 2); // C-029: открытые чанки для карты на весь экран — по 2 за кадр
+                _ui.Explored = _explored;
+                _ui.Hearth = CenterOf(_map.Width / 2, _map.Height / 2); // допущение C-029: Очаг — центр мира (точка появления)
+            }
             _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0,
                 Orpheus.Core.Movement.Stamina.Max, craft, build);
             if (_ui.SlotClicked >= 0)

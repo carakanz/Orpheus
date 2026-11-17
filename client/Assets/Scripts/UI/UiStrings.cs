@@ -44,7 +44,7 @@ namespace Orpheus.Client.UI
         public static string ArmedNote(byte item) => $"{ItemName(item)}: щёлкни по ячейке сумки   (ПКМ / Esc — снять)";
         public const string AbilityLocked = "Способность — откроется позже";
         public const string PassiveLocked = "Пассивная способность — откроется позже";
-        public const string MapCollapsed = "Карта (M)";
+        public const string MapCollapsed = "Карта (Shift+M)"; // C-029: M — карта на весь экран
         public const string CraftEmptyShort = "Здесь пока нет рецептов";
         public const string CraftEmptyFilteredShort = "Сейчас ничего не сделать — Ins: показать все";
 
@@ -127,6 +127,14 @@ namespace Orpheus.Client.UI
 
         public const string CraftKeyInv = "Q · C · Esc";
         public const string CraftOnlyAvailable = "Только доступные";
+
+        /// <summary>C-029: карта на весь экран.</summary>
+        public const string WorldMapTitle = "Карта";
+
+        public const string WorldMapHelp = "M / Esc — закрыть · колесо — масштаб · ЛКМ — тянуть · ПКМ — к себе · золотая — вы, белое кольцо — Очаг, оранжевые — кровати";
+
+        public static string WorldMapCoords(int x, int y, double tilesPerPixel) =>
+            $"{x}, {y} · {(tilesPerPixel < 1 ? $"×{1 / tilesPerPixel:0}" : $"1:{tilesPerPixel:0}")}";
 
         /// <summary>
         /// C-029: подсказка ингредиента — название, описание; базовый — «Где взять:» и строки источников («?» — не открыто),
