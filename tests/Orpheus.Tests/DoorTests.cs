@@ -19,6 +19,9 @@ namespace Orpheus.Tests
 
         private static WorldPos TileCenter(int x, int y) => new WorldPos(x * U + U / 2, y * U + U / 2);
 
+        /// <summary>Задержка автозакрытия (1-012, C-014: 0,5 с): явное число, а не константа ядра — тест ловит её смену.</summary>
+        private const int AutoCloseTicks = 15;
+
         private static WorldModel Flat(int size = 1024) => FlatWorldGenerator.Instance.Generate(MapShape.World(size), 1);
 
         private static void PlaceDoor(Simulation sim, int x, int y, bool open = false)
@@ -39,6 +42,11 @@ namespace Orpheus.Tests
             Assert.True(sim.World.TryGetBuild(new TileCoord(x, y), out BuildRecord rec), "дверь без записи");
             return rec.IsDoorOpen;
         }
+
+        /// <summary>Круг сущности пересекает хитбокс двери (ячейки тайла, C-014) — та же проверка, что в ядре.</summary>
+        private static bool InDoorHitbox(Simulation sim, int id, int x, int y) =>
+            Collision.CircleOverlapsCells(sim.World.Shape, sim.Entities[sim.SlotOf(id)].Mover.Position,
+                new TileCoord(x, y), BuildCells.Full);
 
         private static TileCoord EntityTile(Simulation sim, int id) =>
             Torus.TileOf(sim.World.Shape, sim.Entities[sim.SlotOf(id)].Mover.Position);
@@ -71,27 +79,34 @@ namespace Orpheus.Tests
             Assert.True(openedTick >= 0, "дверь не открылась подбеганием");
             Assert.True(EntityTile(sim, me).X <= 110, "открылась до прихода");
 
-            // Проход сквозь открытую дверь — без остановки (51,2 unit/такт: проём 256 unit ≈ 5 тактов).
-            for (int t = 0; t < 15; t++)
-            {
-                sim.Step();
-            }
-
-            Assert.True(EntityTile(sim, me).X >= 111, "застряла на проходе");
-
-            // Автозакрытие: игрок остановился — 15 тактов свободы хитбокса, и дверь закрыта.
-            sim.SetInput(me, InputFrame.None);
+            // Проход сквозь открытую дверь (51,2 unit/такт: проём 256 unit ≈ 5 тактов) и автозакрытие (1-012):
+            // дверь закрылась через AutoCloseTicks тактов после такта, когда круг игрока вышел из её хитбокса
+            // (C-014). Задержка — явное число, не константа ядра (П 1-012, M1: мутация DoorAutoCloseTicks
+            // 15 -> 1 обязана красить тест; правило 0,5 с — слово Автора 15.11).
+            bool wasIn = false;
+            int freeTick = -1;
             int closedTick = -1;
-            for (int t = 0; t < 80 && closedTick < 0; t++)
+            for (int t = 0; t < 120 && closedTick < 0; t++)
             {
                 sim.Step();
+                bool inBox = InDoorHitbox(sim, me, 110, 100);
+                wasIn |= inBox;
+                if (wasIn && !inBox && freeTick < 0)
+                {
+                    freeTick = (int)sim.Tick;
+                }
+
                 if (!IsOpen(sim, 110, 100))
                 {
                     closedTick = (int)sim.Tick;
                 }
             }
 
+            Assert.True(EntityTile(sim, me).X >= 111, "застряла на проходе");
+            Assert.True(wasIn, "не был в хитбоксе двери");
+            Assert.True(freeTick >= 0, "не вышел из хитбокса двери");
             Assert.True(closedTick >= 0, "не закрылась");
+            Assert.Equal(AutoCloseTicks, closedTick - freeTick);
 
             // Шаг обратно открывает; F закрывает; в замке стояние рядом не открывает.
             sim.SetInput(me, new InputFrame(Input8.West));
