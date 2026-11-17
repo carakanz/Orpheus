@@ -427,36 +427,77 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Линия удара чиста (`02` 3.1, 3.4): отрезок «начало удара — центр цели» с шагом
-        /// <see cref="StrikeLosStepUnits"/> unit не пересекает непроходимых тайлов (<see cref="IsBlocked"/>:
-        /// стена, скала, дерево, гранит, закрытая дверь/ворота); тайл атакующего пропускается,
-        /// только если сам проходим (открытая дверь, забор), — стоит врагу на ЗАКРЫТУЮ дверь (закрылась
-        /// под ним, C-001), она перекрывает линию: цель за дверью не под ударом; забор проходим —
-        /// линию не прерывает. Шов тора: разность — <see cref="Torus.Delta"/>.
+        /// Линия удара чиста (`02` 3.1, 3.4): отрезок «начало удара — центр цели» обходом ячеек 0,5
+        /// (<see cref="FirstBlockedCellStep"/>, шаг ≤ <see cref="StrikeLosStepUnits"/> unit, при диагональном
+        /// переходе проверяются обе промежуточные ячейки — стык двух стен углом меч не проходит, как после
+        /// фикса стрелы E3-2; C-023). Твёрдая ячейка — <see cref="CellSolidForStrike"/>: стена, скала, дерево,
+        /// гранит, закрытая дверь/ворота; тайл атакующего сам проходим (открытая дверь, забор) — не преграда;
+        /// стоит врагу на ЗАКРЫТУЮ дверь (закрылась под ним, C-001), она перекрывает линию. endpoints (старт
+        /// и центр цели) не проверяются. Шов тора: разность — <see cref="Torus.Delta"/>.
         /// </summary>
         private bool StrikeLineClear(WorldPos from, WorldPos to, TileCoord own)
         {
             Int2 d = Torus.Delta(_shape, from, to);
-            int steps = (Math.Abs(d.X) + Math.Abs(d.Y) + StrikeLosStepUnits - 1) / StrikeLosStepUnits;
-            for (int i = 1; i < steps; i++)
+            int span = Math.Max(Math.Abs(d.X), Math.Abs(d.Y));
+            int n = (span + StrikeLosStepUnits - 1) / StrikeLosStepUnits; // шаг ≤ 64 unit: ячейку 0,5 по оси не перепрыгнуть
+            return n <= 1 || FirstBlockedCellStep(from, d, n, n - 1, withStart: false) > n - 1;
+        }
+
+        /// <summary>
+        /// Первая точка <paramref name="k"/> (1…<paramref name="last"/>) на отрезке старт + d·k/n в твёрдой
+        /// ячейке 0,5 × 0,5 (128 unit): <see cref="CellSolidForStrike"/>. Точки через ≤ 1 ячейку по каждой оси
+        /// — ячейка не перепрыгивается; ячейка смотрится при смене. Переход угол к углу (стык двух стен
+        /// «лесенкой», диагональный) проверяет обе промежуточные ячейки — любая твёрдая — преграда
+        /// (фикс E3-2 для стрелы; C-023 — та же дыра у линии удара). <paramref name="withStart"/> — проверять
+        /// и начальную точку. Возвращает номер точки ≤ last; last + 1 — преграды нет.
+        /// </summary>
+        private int FirstBlockedCellStep(WorldPos start, Int2 d, int n, int last, bool withStart)
+        {
+            const int CellShift = Torus.SubTileBits - 1; // ячейка 0,5 тайла = 128 unit
+            int cx = start.X >> CellShift, cy = start.Y >> CellShift;
+            if (withStart && CellSolidForStrike(cx, cy))
             {
-                WorldPos p = new WorldPos(
-                    from.X + (int)((long)d.X * i / steps),
-                    from.Y + (int)((long)d.Y * i / steps));
-                TileCoord tile = Torus.TileOf(_shape, p);
-                if (tile == own && !StrikeTileBlocked(own))
+                return 0;
+            }
+
+            for (int k = 1; k <= last; k++)
+            {
+                int nx = (start.X + (int)((long)d.X * k / n)) >> CellShift; // арифметический сдвиг — пол и для отрицательных
+                int ny = (start.Y + (int)((long)d.Y * k / n)) >> CellShift;
+                if (nx == cx && ny == cy)
                 {
                     continue;
                 }
 
-                // E2-12: стена в полтайла — точка гасит удар, только если попала в твёрдую ячейку тайла (у целых тайлов — всегда).
-                if (StrikeTileBlocked(tile) && StrikeCellSolid(tile, p))
+                if (nx != cx && ny != cy && (CellSolidForStrike(nx, cy) || CellSolidForStrike(cx, ny)))
                 {
-                    return false;
+                    return k; // угол к углу: любая из промежуточных твёрдая — стык закрыт
                 }
+
+                if (CellSolidForStrike(nx, ny))
+                {
+                    return k;
+                }
+
+                cx = nx;
+                cy = ny;
             }
 
-            return true;
+            return last + 1;
+        }
+
+        /// <summary>Ячейка 0,5 (номер по сетке 128 unit, без обёртки) твёрдая для удара и стрелы.</summary>
+        private bool CellSolidForStrike(int cellX, int cellY)
+        {
+            TileCoord tile = Torus.Wrap(_shape, new TileCoord(cellX >> 1, cellY >> 1));
+            if (!StrikeTileBlocked(tile))
+            {
+                return false;
+            }
+
+            const int half = Torus.SubTilesPerTile / 2;
+            return StrikeCellSolid(tile, new WorldPos(tile.X * Torus.SubTilesPerTile + (cellX & 1) * half + half / 2,
+                tile.Y * Torus.SubTilesPerTile + (cellY & 1) * half + half / 2));
         }
 
     }

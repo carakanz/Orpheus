@@ -293,54 +293,8 @@ namespace Orpheus.Core.Sim
         /// углу, «лесенка» стен) проверяет обе промежуточные — стык двух стен углом стрелу не пропускает (П E3-2, п. 1).
         /// <paramref name="withStart"/> — проверять и начальную точку (первый такт). Возвращает номер точки 0…n; n + 1 — преграды нет.
         /// </summary>
-        private int FirstBlockedStep(WorldPos start, Int2 d, int n, bool withStart)
-        {
-            const int CellShift = Torus.SubTileBits - 1; // ячейка 0,5 тайла = 128 unit
-            int cx = start.X >> CellShift, cy = start.Y >> CellShift;
-            if (withStart && CellSolidForArrow(cx, cy))
-            {
-                return 0;
-            }
-
-            for (int k = 1; k <= n; k++)
-            {
-                int nx = (start.X + (int)((long)d.X * k / n)) >> CellShift; // арифметический сдвиг — пол и для отрицательных
-                int ny = (start.Y + (int)((long)d.Y * k / n)) >> CellShift;
-                if (nx == cx && ny == cy)
-                {
-                    continue;
-                }
-
-                if (nx != cx && ny != cy && (CellSolidForArrow(nx, cy) || CellSolidForArrow(cx, ny)))
-                {
-                    return k; // угол к углу: любая из промежуточных твёрдая — стык закрыт
-                }
-
-                if (CellSolidForArrow(nx, ny))
-                {
-                    return k;
-                }
-
-                cx = nx;
-                cy = ny;
-            }
-
-            return n + 1;
-        }
-
-        /// <summary>Ячейка 0,5 (номер по сетке 128 unit, без обёртки) твёрдая для стрелы.</summary>
-        private bool CellSolidForArrow(int cellX, int cellY)
-        {
-            TileCoord tile = Torus.Wrap(_shape, new TileCoord(cellX >> 1, cellY >> 1));
-            if (!StrikeTileBlocked(tile))
-            {
-                return false;
-            }
-
-            const int half = Torus.SubTilesPerTile / 2;
-            return StrikeCellSolid(tile, new WorldPos(tile.X * Torus.SubTilesPerTile + (cellX & 1) * half + half / 2,
-                tile.Y * Torus.SubTilesPerTile + (cellY & 1) * half + half / 2));
-        }
+        private int FirstBlockedStep(WorldPos start, Int2 d, int n, bool withStart) =>
+            FirstBlockedCellStep(start, d, n, n, withStart);
 
         /// <summary>
         /// Первое существо стороны-цели, чей круг (0,4 т) + радиус стрелы (0,2 т) пересекает отрезок: точный корень квадратного
