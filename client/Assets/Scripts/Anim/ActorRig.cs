@@ -162,12 +162,13 @@ namespace Orpheus.Client.Anim
 
         /// <summary>
         /// C-030 (сцена снимков <c>--bed-demo</c>): поза «лежит в кровати» поверх дыхания — <see cref="RestAnim"/>; до центра
-        /// кровати (<paramref name="toBedX"/>, <paramref name="toBedY"/>) от корня, порядок — <paramref name="sortY"/>.
+        /// кровати (<paramref name="toBedX"/>, <paramref name="toBedY"/>) от корня, половина спящего (<paramref name="sleeper"/>,
+        /// C-032), порядок — <paramref name="sortY"/>.
         /// </summary>
-        public void AnimateRest(float dt, float age, int rotation, float toBedX, float toBedY, float sortY)
+        public void AnimateRest(float dt, float age, int rotation, float toBedX, float toBedY, int sleeper, float sortY)
         {
             MeasureVelocity(dt);
-            Pose p = RestAnim.Apply(Animator.Step(dt, new ActorInput { Held = _look }), age, rotation, toBedX, toBedY);
+            Pose p = RestAnim.Apply(Animator.Step(dt, new ActorInput { Held = _look }), age, rotation, toBedX, toBedY, RestAnim.SideOf(sleeper));
             p.SortY = sortY;
             p.HasSortY = true;
             Apply(p);

@@ -232,6 +232,29 @@ namespace Orpheus.Tests
             Assert.Empty(r.StuckArrows());
         }
 
+        /// <summary>
+        /// C-032 (мутация M4 из C-031): «не исчезает у персонажа» — только про стрелы. Обычная куча истекает ровно
+        /// на такте «создание + 10 мин», даже когда персонаж видит её в окне экрана.
+        /// </summary>
+        [Fact]
+        public void C031_Expiry_NormalPile_Expires_Under_Character()
+        {
+            var r = new Range(size: 256, cx: 100, cy: 100);
+            int pile = r.Sim.AddPile(Items.Wood, 3, At(100, 100));
+            Assert.True(pile > 0);
+            long expire = r.Sim.Piles[0].ExpireTick;
+            Assert.Equal(r.Sim.Tick + Simulation.PileLifetimeTicks, expire);
+
+            // смотрящий на краю окна экрана (52 т по X), подбор не достаёт (1,5 т)
+            r.Sim.PlaceForTests(r.Char, At(100 + Simulation.ScreenHalfTilesX, 100));
+            while (r.Sim.Tick < expire - 1)
+                r.Sim.Step();
+            Assert.Contains(r.Sim.Piles.ToArray(), p => p.Id == pile); // до срока — лежит
+            r.Sim.Step();
+            Assert.Equal(expire, r.Sim.Tick);
+            Assert.DoesNotContain(r.Sim.Piles.ToArray(), p => p.Id == pile); // пропала на такте срока, хотя персонаж видит
+        }
+
         // -------------------------------------------------------- предел
 
         /// <summary>Предел (уменьшен до 5): 8 стрел в стену — лежат 5 последних, 3 самые старые пропали; обычные кучи не трогаются.</summary>
@@ -510,6 +533,16 @@ namespace Orpheus.Tests
             Assert.True(list.Covers(end));
             list.Update(arrive + ClientProjectiles.StuckUs + 1);
             Assert.False(list.Covers(end));
+            Assert.Empty(list.Items);
+
+            // C-032 (мутация M5 из C-031): стрела в воду — легла без предмета (Dropped = false) — в той же точке не закрывает.
+            var p2 = new Projectile { Id = 6, Owner = 9, Kind = Projectiles.KindArrow, Origin = At(17, 32), AimRaw = East, SpeedX256 = 28 * U * 256 / 30, RangeUnits = 30 * U };
+            list.OnMessage(ProjectileMessage.ShotOf(p2), 1, 0);
+            WorldPos end2 = At(20, 32);
+            list.OnMessage(ProjectileMessage.StopOf(new ProjectileStop(6, 9, ProjectileEnd.Range, end2, -1, false)), 1, 0);
+            Assert.False(list.Covers(end2));
+            list.Update(arrive);
+            Assert.False(list.Covers(end2)); // долетела — гаснет сразу, переходить к предмету не за чем
             Assert.Empty(list.Items);
         }
     }

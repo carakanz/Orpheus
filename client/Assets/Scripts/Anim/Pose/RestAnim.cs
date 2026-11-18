@@ -34,6 +34,12 @@ namespace Orpheus.Client.Anim
         public const float Side = 0.46f;
 
         /// <summary>
+        /// Половина спящего (C-032, хвост C-030): двое в одной двуспальной — каждый на своей; чётный номер персонажа —
+        /// левая половина (если смотреть от ног), нечётный — правая.
+        /// </summary>
+        public static float SideOf(int sleeperId) => (sleeperId & 1) == 0 ? Side : -Side;
+
+        /// <summary>
         /// Подъём матраса на экране, тайлов: высота матраса × 0,5 (ракурс 3/4) = 0,2 плюс подъём картинки мебели над опорой
         /// (<c>ObjectTable.BaseLift</c> = 0,3 — кровать нарисована на 0,3 т выше своих клеток).
         /// </summary>
@@ -59,15 +65,15 @@ namespace Orpheus.Client.Anim
 
         /// <summary>
         /// Опора спрайта (ноги) лежащего относительно центра кровати, тайлов: макушка — у изголовья, тело — к ногам, на своей
-        /// половине (слева, если смотреть от ног к изголовью), всё поднято на высоту матраса.
+        /// половине (<paramref name="side"/>, см. <see cref="SideOf"/>), всё поднято на высоту матраса.
         /// </summary>
-        public static void Spot(int rotation, out float x, out float y)
+        public static void Spot(int rotation, float side, out float x, out float y)
         {
             HeadDir(rotation, out float hx, out float hy);
             float along = HeadFrom(rotation) - BodyLength; // опора — на длину тела от макушки
             // «Слева, если смотреть к изголовью» = поворот направления головы на +90°: (−hy, hx).
-            x = hx * along + -hy * Side;
-            y = hy * along + hx * Side + MattressLift;
+            x = hx * along + -hy * side;
+            y = hy * along + hx * side + MattressLift;
         }
 
         /// <summary>Доля «лёг» 0…1 (плавно).</summary>
@@ -87,12 +93,13 @@ namespace Orpheus.Client.Anim
 
         /// <summary>
         /// Поза лежащего: <paramref name="toBedX"/>, <paramref name="toBedY"/> — от корня персонажа (его точка в ядре) до центра
-        /// кровати, тайлов Unity. Сдвиг и поворот — по доле «лёг»; одеяло — с середины; рука с предметом и призраки — нет.
+        /// кровати, тайлов Unity; <paramref name="side"/> — его половина (<see cref="SideOf"/>). Сдвиг и поворот — по доле «лёг»;
+        /// одеяло — с середины; рука с предметом и призраки — нет.
         /// </summary>
-        public static Pose Apply(Pose p, float age, int rotation, float toBedX, float toBedY)
+        public static Pose Apply(Pose p, float age, int rotation, float toBedX, float toBedY, float side)
         {
             float k = Progress(age);
-            Spot(rotation, out float sx, out float sy);
+            Spot(rotation, side, out float sx, out float sy);
             // Сдвиг позы — от опоры спрайта, а она на SpriteFootY ниже корня: опору ставим в точку Spot кровати.
             p.OffsetX = p.OffsetX * (1f - k) + (toBedX + sx) * k;
             p.OffsetY = p.OffsetY * (1f - k) + (toBedY + sy - ActionAnim.SpriteFootY) * k;
