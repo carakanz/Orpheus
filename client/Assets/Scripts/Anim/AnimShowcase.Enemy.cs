@@ -158,9 +158,9 @@ namespace Orpheus.Client.Anim
             // стрела врага-лучника: натяжение, вылет, полёт, попадание в героя
             new Shot { Name = "E3-4_foe_arrow", Focus = () => (FoeArcherPos + FoeHeroPos) * 0.5f + new Vector3(0f, 0.3f, 0f), Ortho = 4f,
                 Times = new[] { 28.35f, 28.62f, 28.83f, 28.90f, 28.96f, 29.10f }, CropW = 1100, CropH = 330 },
-            // смерть: начало падения, лежание, растворение
+            // смерть: начало падения, лежание, растворение (раствор кончается ~30,1 — берём кадры до него)
             new Shot { Name = "E3-4_foe_death", Focus = () => (FoeHome + FoeHeroPos) * 0.5f, Ortho = ShotsOrtho,
-                Times = new[] { 29.26f, 29.45f, 30.00f, 30.30f, 30.60f, 30.85f }, CropW = 640, CropH = 560 },
+                Times = new[] { 29.26f, 29.45f, 29.60f, 29.80f, 30.05f, 30.30f }, CropW = 640, CropH = 560 },
         };
     }
 }
