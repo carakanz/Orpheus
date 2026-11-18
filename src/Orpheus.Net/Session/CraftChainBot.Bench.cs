@@ -113,7 +113,14 @@ namespace Orpheus.Net.Session
                 return new InputFrame(new Input8(Math.Sign(d.X), Math.Sign(d.Y)), 0, 0, _slot);
             }
 
-            if (count > 0 && client.Craft.IsEmpty && _frame - _craftFrame > 90)
+            // C-028: очередь опустела — сводка сумки с последним изделием может прийти позже (RTT 100): пауза 30 кадров, иначе
+            // бот видел 7 слитков из 8 и плавил девятый (руды с залежи теперь до 4 — лишняя пара находилась).
+            if (!client.Craft.IsEmpty)
+            {
+                _craftBusyFrame = _frame;
+            }
+
+            if (count > 0 && client.Craft.IsEmpty && _frame - _craftFrame > 90 && _frame - _craftBusyFrame > 30)
             {
                 CraftLine line = CraftDesk.LineOf(recipe, client.Inv, client.Craft, world.World, pos, stock: client.NearbyStock);
                 if (_desk.Make(line, count))
@@ -133,6 +140,7 @@ namespace Orpheus.Net.Session
         private InputFrame Stand() => new InputFrame(Input8.None, 0, 0, _slot);
 
         private CraftDesk? _desk;
+        private int _craftBusyFrame = -1000;
         private int _benchOrderFrame = -1000; // E2-11: заявка «сделать верстак» ушла — пока предмет не пришёл, этап «верстак»
 
         private InputFrame Equip(NetClient client, in Inventory inv)
