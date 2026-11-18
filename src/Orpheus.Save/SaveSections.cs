@@ -80,6 +80,12 @@ namespace Orpheus.Save
             /// симуляция ищет их первым тактом после загрузки. Пишется только «да».
             /// </summary>
             public const int HealScan = 12;
+
+            /// <summary>
+            /// E3-3 (формат 15): следующий номер снаряда; нет поля — 1 (выстрелов не было). Пишется, только если больше 1 —
+            /// файлы без выстрелов байт в байт как в формате 14.
+            /// </summary>
+            public const int NextProjectileId = 13;
         }
 
         /// <summary>Раздел ЧАНКИ: повторяющееся поле <see cref="Chunk"/> — вложенная запись чанка.</summary>
@@ -124,6 +130,12 @@ namespace Orpheus.Save
             /// порядку очереди симуляции. Нет (старые файлы) — флаги и обломки находит поиск первым тактом.
             /// </summary>
             public const int Expire = 5;
+
+            /// <summary>
+            /// Летящий снаряд (E3-3, формат 15): запись <see cref="ProjectileField"/>; по возрастанию номера.
+            /// Нет (форматы ≤ 14) — летящих не было; в формате 15 полёт стрел переживает сохранение.
+            /// </summary>
+            public const int Projectile = 6;
         }
 
         /// <summary>Поля записи сущности (минимально: то, что есть в такте 0-006; уворот — с формата 2, 0-029).</summary>
@@ -463,6 +475,45 @@ namespace Orpheus.Save
             public const int Aim = 9;
         }
 
+        /// <summary>Поля записи летящего снаряда (E3-3, формат 15; <c>Projectile</c>).</summary>
+        public static class ProjectileField
+        {
+            public const int Id = 1;
+            public const int Owner = 2;
+
+            /// <summary>Снаряд врага (вредит персонажам); пишут только «да».</summary>
+            public const int Hostile = 3;
+
+            /// <summary>Вид (<c>Projectiles.KindArrow</c> …).</summary>
+            public const int Kind = 4;
+
+            public const int Damage = 5;
+
+            /// <summary>Предмет дропа (0 — без дропа).</summary>
+            public const int DropItem = 6;
+
+            /// <summary>«Сильный» (полное натяжение); пишут только «да».</summary>
+            public const int Strong = 7;
+
+            /// <summary>Такт выстрела (SpawnTick = такт выстрела + 1).</summary>
+            public const int SpawnTick = 8;
+
+            public const int X = 9;
+            public const int Y = 10;
+
+            /// <summary>Ось полёта, u16.</summary>
+            public const int Aim = 11;
+
+            /// <summary>Скорость, unit × 256 за такт.</summary>
+            public const int Speed = 12;
+
+            /// <summary>Дальность полёта, unit.</summary>
+            public const int Range = 13;
+
+            /// <summary>Тактов в полёте.</summary>
+            public const int Age = 14;
+        }
+
         /// <summary>Схема записей раздела для <c>orpheus-save dump</c>: имена полей и вложенные схемы. null — схемы нет.</summary>
         public static RecordSchema? Schema(uint id) => id switch
         {
@@ -484,7 +535,8 @@ namespace Orpheus.Save
             .Field(WorldField.NextEntityId, "следующий номер сущности")
             .Field(WorldField.Replaces, "заменяет поколение")
             .Field(WorldField.WorldTime, "время мира, тактов суток")
-            .Field(WorldField.HealScan, "поиск повреждённых построек первым тактом");
+            .Field(WorldField.HealScan, "поиск повреждённых построек первым тактом")
+            .Field(WorldField.NextProjectileId, "следующий номер снаряда");
 
         private static readonly RecordSchema ChunksSchema = new RecordSchema()
             .Field(ChunksField.Chunk, "чанк", new RecordSchema()
@@ -548,7 +600,22 @@ namespace Orpheus.Save
                 .Field(ExpireField.Y, "y тайла")
                 .Field(ExpireField.End, "такт")
                 .Field(ExpireField.Debris, "обломки")
-                .Field(ExpireField.Clear, "флаг"));
+                .Field(ExpireField.Clear, "флаг"))
+            .Field(CreaturesField.Projectile, "летящий снаряд", new RecordSchema()
+                .Field(ProjectileField.Id, "номер")
+                .Field(ProjectileField.Owner, "номер стрелка")
+                .Field(ProjectileField.Hostile, "снаряд врага")
+                .Field(ProjectileField.Kind, "вид")
+                .Field(ProjectileField.Damage, "урон")
+                .Field(ProjectileField.DropItem, "предмет дропа")
+                .Field(ProjectileField.Strong, "сильный")
+                .Field(ProjectileField.SpawnTick, "такт выстрела")
+                .Field(ProjectileField.X, "x выстрела, 1/256 тайла")
+                .Field(ProjectileField.Y, "y выстрела, 1/256 тайла")
+                .Field(ProjectileField.Aim, "ось полёта, u16")
+                .Field(ProjectileField.Speed, "скорость, unit × 256/такт")
+                .Field(ProjectileField.Range, "дальность, unit")
+                .Field(ProjectileField.Age, "тактов в полёте"));
 
         private static readonly RecordSchema CharactersSchema = new RecordSchema()
             .Field(CharactersField.Character, "персонаж", new RecordSchema()

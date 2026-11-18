@@ -12,6 +12,18 @@ namespace Orpheus.Client.Anim
         /// <summary>Враги-болванки и манекен — тот же спрайт, тёплый красный оттенок (своих ассетов врагов в клиенте пока нет).</summary>
         public static readonly Color EnemyTint = new Color(1f, 0.55f, 0.45f);
 
+        /// <summary>E3-3: враг-лучник — холодный синий, волк — серый: тот же спрайт, разные тона по архетипу из снимка.</summary>
+        public static readonly Color EnemyArcherTint = new Color(0.6f, 0.75f, 1f);
+        public static readonly Color EnemyBeastTint = new Color(0.8f, 0.8f, 0.72f);
+
+        /// <summary>Тон врага по архетипу из снимка (<see cref="Orpheus.Core.Sim.EnemyBrain.ArchetypeOf"/>).</summary>
+        public static Color EnemyTintFor(byte archetype) => archetype switch
+        {
+            Orpheus.Core.Sim.EnemyArchetype.Ranged => EnemyArcherTint,
+            Orpheus.Core.Sim.EnemyArchetype.Beast => EnemyBeastTint,
+            _ => EnemyTint,
+        };
+
         public static Transform Create(Transform parent, string name, Sprite sprite, Color color)
         {
             var root = new GameObject(name);

@@ -78,6 +78,40 @@ namespace Orpheus.Core.Sim
         public int NextProjectileId => _nextProjectileId;
 
         /// <summary>
+        /// Загрузка летящих снарядов из сохранения (E3-3, формат 15): только в симуляцию без снарядов; строго по
+        /// возрастанию номера; следующий номер — больше всех загруженных. Полёт продолжается с следующего такта
+        /// (позиция — отрезок от <c>Speed × Age</c>, как при выстреле).
+        /// </summary>
+        public void RestoreProjectiles(ReadOnlySpan<Projectile> projectiles, int nextProjectileId)
+        {
+            if (_projectileCount != 0)
+            {
+                throw new InvalidOperationException("Загрузка снарядов — только в симуляцию без снарядов.");
+            }
+
+            if (projectiles.Length > MaxProjectiles)
+            {
+                throw new ArgumentException($"Снарядов {projectiles.Length} — больше потолка {MaxProjectiles}.", nameof(projectiles));
+            }
+
+            int maxId = 0;
+            for (int i = 0; i < projectiles.Length; i++)
+            {
+                if (projectiles[i].Id <= maxId || projectiles[i].Id <= 0 || projectiles[i].SpeedX256 < 1 || projectiles[i].RangeUnits < 1
+                    || projectiles[i].Age < 1 || projectiles[i].Age >= MaxFlightTicks)
+                {
+                    throw new ArgumentException($"Снаряд № {i}: {projectiles[i].Id} — номер не растёт или полёт вне правил.", nameof(projectiles));
+                }
+
+                maxId = projectiles[i].Id;
+            }
+
+            projectiles.CopyTo(_projectiles);
+            _projectileCount = projectiles.Length;
+            _nextProjectileId = Math.Max(nextProjectileId, maxId + 1);
+        }
+
+        /// <summary>
         /// Выпустить снаряд (общий механизм: лук игрока, стрелок-враг шага 3.3). <paramref name="hostile"/> — снаряд врага
         /// (вредит персонажам). Возвращает номер, 0 — потолок снарядов.
         /// </summary>
