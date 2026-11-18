@@ -101,12 +101,42 @@ namespace Orpheus.Core.World
         /// </summary>
         public bool RemoveChunk(ChunkCoord coord)
         {
-            if (!_chunks.Remove(CheckedWrap(coord)))
+            ChunkCoord key = CheckedWrap(coord);
+            if (!_chunks.Remove(key))
             {
                 return false;
             }
 
             _keysStale = true;
+
+            // C-034: кэши ячеек (комнаты, свет с учётом стен) — чистые функции окна 3 × 3
+            // (штамп `CellWindow.StampOf`): запись чанка X меняется только при изменении
+            // чанков |X−C|∞ ≤ 1 — их и снимаем. (Новый чанк на том же месте имеет ревизию 0 —
+            // штамп совпадает со старым, по штампу устаревание не ловится, нужен явный Drop.)
+            // Иначе у клиента при долгой игре копятся метки всех когда-то видимых чанков.
+            // Кэш ленивый: на сервере (чанки не выгружаются) не создаётся.
+            if (_rooms != null)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        _rooms.Drop(new ChunkCoord(key.X + dx, key.Y + dy));
+                    }
+                }
+            }
+
+            if (_sight != null)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    for (int dx = -1; dx <= 1; dx++)
+                    {
+                        _sight.Drop(new ChunkCoord(key.X + dx, key.Y + dy));
+                    }
+                }
+            }
+
             return true;
         }
 
