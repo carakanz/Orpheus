@@ -52,7 +52,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_ItemTable_Categories_Stacks_MaterialsAreItems()
         {
-            Assert.Equal(32, ItemTable.Count); // 14 — E2-1; + 7 — E2-3 (слиток, верёвка, медные топор / меч / лук, мясо, жареное мясо); + 11 — E2-11 (постройки)
+            Assert.Equal(36, ItemTable.Count); // 14 — E2-1; + 7 — E2-3 (слиток, верёвка, медные топор / меч / лук, мясо, жареное мясо); + 11 — E2-11 (постройки); + 4 — E3-6 (шлем, доспех, поножи, шкура)
             for (int id = 1; id < ItemTable.Count; id++)
             {
                 ItemDef d = ItemTable.Get((byte)id);
@@ -757,8 +757,8 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "кучи", chars), 3, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(15u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5), 10 — ячейки стен (E2-12); сумка и кучи — как в формате 7
-            Assert.Equal(15u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(16u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5), 10 — ячейки стен (E2-12); сумка и кучи — как в формате 7
+            Assert.Equal(16u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
 
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(bag, st.Characters[0].Inv);
@@ -924,7 +924,7 @@ namespace Orpheus.Tests
 
             // Пересохранение: формат 7, сумки и кучи те же, хэш состояния тот же.
             byte[] v7 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), again.Name, again.Characters), 5, 0);
-            Assert.Equal(15u, SaveContainer.Read(v7).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // нынешний формат (10 с E2-12)
+            Assert.Equal(16u, SaveContainer.Read(v7).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // нынешний формат (10 с E2-12)
             LoadedWorldState st7 = WorldSave.Load(SaveContainer.Read(v7), WorldSnapshot.LoadBase(baseBytes), WorldSnapshot.StoredHash(baseBytes));
             Assert.Equal(orpheus, st7.Characters[0].Inv);
             Assert.Equal(eurydice, st7.Characters[1].Inv);
@@ -1128,7 +1128,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_Net_GoldenBytes_Piles_PileGone_BagRequest()
         {
-            Assert.Equal(34, NetModule.ProtocolVersion); // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
+            Assert.Equal(35, NetModule.ProtocolVersion); // E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
 
             var buf = new byte[PilesMessage.MaxBytes];
             var piles = new[]
@@ -1168,17 +1168,17 @@ namespace Orpheus.Tests
             BagRequestMessage req = BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal(BagOp.Split, req.Op);
             Assert.Equal(15, req.Count);
-            buf[2] = 70; // ячейка вне сумки и сундука (E2-5: 40…69 — ячейки открытого сундука)
+            buf[2] = 73; // ячейка вне сумки, сундука и носимого (E2-5: 40…69 — сундук; E3-6: 70…72 — носимое)
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
             buf[2] = 6;
             buf[1] = 0; // нет такой операции
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
-            // Сумка (26) ячейками: 7 + 121 байт, начало — тип, сущность, версия, выбранная ячейка, ячейка 0.
+            // Сумка (26) + носимое (E3-6) ячейками: 7 + 124 байта, начало — тип, сущность, версия, выбранная ячейка, ячейка 0.
             var bag = Inventory.StartingKit();
             n = new InventoryMessage { EntityId = 5, Version = 2, Bag = bag }.Write(buf);
             Assert.Equal(InventoryMessage.Bytes, n);
-            Assert.Equal(128, n);
+            Assert.Equal(131, n);
             Assert.Equal("1A-05-00-00-00-02-00-00-01-01-00-02-01-00", BitConverter.ToString(buf, 0, 14));
             Assert.Equal(bag, InventoryMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Bag);
         }
@@ -1259,7 +1259,7 @@ namespace Orpheus.Tests
             Assert.Equal(Items.None, a.Inv.ItemAt(7));
             Assert.Equal(15, Assert.Single(a.Piles).Count);
             Assert.Equal(15, Assert.Single(b.Piles).Count);
-            Assert.False(a.RequestBagMove(0, 70)); // E2-5: 40…69 — сундук
+            Assert.False(a.RequestBagMove(0, 73)); // E2-5: 40…69 — сундук; E3-6: 70…72 — снаряжение, за ними (73) — отказ
             Assert.Equal(3, rig.Server.BagRequestsReceived);
 
             NetClient late = rig.Join();

@@ -234,7 +234,7 @@ namespace Orpheus.Net.Session
             _transport.Send(p.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             Log?.Invoke(NetLogLevel.Info, $"вход{(p.IsHost ? " хозяина" : "")}: «{m.Name}» → #{id} ({where}), соединение {p.Peer}");
             SendPauseTo(p); // 0-036: вошёл в паузу — сразу узнаёт, что пауза и кто поставил
-            SendInventoryTo(p, _sim.GetEntity(id).Inv); // 1-002: вошёл — сразу знает свою сумку
+            SendInventoryTo(p, _sim.GetEntity(id)); // 1-002: вошёл — сразу знает свою сумку; E3-6 — и надетое
             if (p.IsHost)
             {
                 HostJoined?.Invoke();

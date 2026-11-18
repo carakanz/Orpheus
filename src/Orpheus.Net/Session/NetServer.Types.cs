@@ -100,6 +100,9 @@ namespace Orpheus.Net.Session
             public bool HasSentInv;
             public ushort InvVersion;
 
+            /// <summary>Надетое в последней «сумке» игрока (E3-6): три байта в одном числе (<c>GearKey</c>) — сверяется вместе с сумкой.</summary>
+            public int SentGear;
+
             /// <summary>Кучи на земле, которые игрок знает (E2-1), по номеру; вторая — рабочая для сверки после такта.</summary>
             public List<KnownPile> KnownPiles = new List<KnownPile>();
             public List<KnownPile> KnownPilesNext = new List<KnownPile>();

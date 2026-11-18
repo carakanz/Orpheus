@@ -386,7 +386,7 @@ namespace Orpheus.Tests
             var inv = Inventory.StartingKit();
             inv.Select(3);
             var m = new InventoryMessage { EntityId = 77, Version = 9, Bag = inv };
-            Assert.Equal(128, InventoryMessage.Bytes);
+            Assert.Equal(131, InventoryMessage.Bytes); // E3-6: + 3 байта надетого (голова / тело / ноги)
             var buf = new byte[InventoryMessage.Bytes];
             Assert.Equal(InventoryMessage.Bytes, m.Write(buf));
             InventoryMessage r = InventoryMessage.Read(buf);

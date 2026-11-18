@@ -75,6 +75,10 @@ namespace Orpheus.Net.Session
             ("campfire", "furniture", "stations"),
             ("chest", "furniture", "storage"),
             ("bed", "furniture", "sleep"),
+            // Броня (E3-6): раздел «Броня», подразделы по ячейке снаряжения.
+            ("copper_helmet", "armor", "head"),
+            ("copper_chest", "armor", "body"),
+            ("copper_legs", "armor", "legs"),
         };
 
         private static readonly int[][][] Shelves = Build(out PlaceOf);

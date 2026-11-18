@@ -76,41 +76,56 @@ namespace Orpheus.Client.UI
         public static readonly float GridW = UiSlotGrid.WidthOf(Inventory.Slots);
         static readonly int Rows = (Inventory.Cells - Inventory.Slots) / Inventory.Slots;
         public static readonly float GridH = UiSlotGrid.WidthOf(Rows);
-        public static readonly float Width = GridW;
+        public static readonly float EquipW = UiSlotGrid.WidthOf(1); // E3-6: колонка «голова / тело / ноги» слева от сумки
+        public static readonly float Width = EquipW + Gap + GridW;
         public static readonly float Height = HintH + Gap + GridH;
         static readonly float GridY = HintH + Gap;
 
         readonly UiSlotGrid _main;
+        readonly UiSlotGrid _equip; // E3-6: ячейки снаряжения (70…72), сверху вниз — голова, тело, ноги
         readonly Text _hint;
         bool _dead;
 
         public BagWindow(UiRoot root)
             : base(root, "Bag", new Vector2(0f, 1f), new Vector2(HudLayout.Margin, -HudLayout.BagTop - Height), new Vector2(Width, Height))
         {
-            _main = new UiSlotGrid(Rt, 0f, GridY, Inventory.Slots, Rows, Inventory.Slots, UiCellLook.Glass);
-            _hint = UiRoot.Label(Rt, "Hint", 2f, 0f, Width - 2f, HintH, 18, TextAnchor.UpperLeft, UiStyle.TextLight, outline: true);
+            _equip = new UiSlotGrid(Rt, 0f, GridY, 1, Simulation.EquipCells, Simulation.EquipBase, UiCellLook.Glass);
+            _main = new UiSlotGrid(Rt, EquipW + Gap, GridY, Inventory.Slots, Rows, Inventory.Slots, UiCellLook.Glass);
+            _hint = UiRoot.Label(Rt, "Hint", EquipW + Gap, 0f, GridW - 2f, HintH, 18, TextAnchor.UpperLeft, UiStyle.TextLight, outline: true);
             _hint.horizontalOverflow = HorizontalWrapMode.Wrap; // C-015: не заходит под сундук справа
             _hint.text = HintText(false);
             Visible = false;
         }
 
-        /// <summary>Ячейка сумки (8…39) под точкой окна; мимо — −1.</summary>
+        /// <summary>Ячейка сумки (8…39) или снаряжения (70…72, E3-6) под точкой окна; мимо — −1.</summary>
         public int CellAt(Vector2 local)
         {
-            int i = _main.Hit(local);
+            int i = _equip.Hit(local);
+            if (i >= 0)
+            {
+                return _equip.First + i;
+            }
+
+            i = _main.Hit(local);
             return i >= 0 ? _main.First + i : -1;
         }
 
-        /// <summary>C-008: прямоугольник сетки — интерфейс; подписи над и под ней — мир.</summary>
-        public void AddZones(UiPointer p, Vector2 canvas) => Zone(p, canvas, 0f, GridY, GridW, GridH);
+        /// <summary>C-008: прямоугольник сетки — интерфейс; подписи над и под ней — мир. E3-6: колонка снаряжения — тоже.</summary>
+        public void AddZones(UiPointer p, Vector2 canvas)
+        {
+            Zone(p, canvas, 0f, GridY, EquipW, GridH);
+            Zone(p, canvas, EquipW + Gap, GridY, GridW, GridH);
+        }
 
         /// <summary>Курсор над сеткой (в зазоре тоже) — колесо и Shift в игру не уходят.</summary>
-        public bool Covers(Vector2 local) => Visible && _main.Covers(local);
+        public bool Covers(Vector2 local) => Visible && (_main.Covers(local) || _equip.Covers(local));
 
-        /// <summary>Середина ячейки 8…39 в координатах окна (скрипт стенда снимков).</summary>
-        public Vector2 CellCenter(int cell) => _main.CenterOf(cell - Inventory.Slots);
+        /// <summary>Середина ячейки 8…39 или снаряжения 70…72 в координатах окна (скрипт стенда снимков).</summary>
+        public Vector2 CellCenter(int cell) => Simulation.IsEquipCell(cell)
+            ? _equip.CenterOf(cell - Simulation.EquipBase)
+            : _main.CenterOf(cell - Inventory.Slots);
 
-        /// <summary>Показать сумку: числа — без того, что «в руке»; ячейка под курсором.</summary>
+        /// <summary>Показать сумку: числа — без того, что «в руке»; ячейка под курсором. E3-6: надетое — из руки (оно приходит в «сумке» 26).</summary>
         public void Show(in Inventory bag, BagHand hand, int hover, bool dead)
         {
             for (int i = Inventory.Slots; i < Inventory.Cells; i++)
@@ -118,7 +133,14 @@ namespace Orpheus.Client.UI
                 _main.Set(i - Inventory.Slots, bag.ItemAt(i), hand.ShownCount(i));
             }
 
+            for (byte s = 0; s < Simulation.EquipCells; s++)
+            {
+                int cell = Simulation.EquipBase + s;
+                _equip.Set(s, hand.ItemAt(cell), hand.ShownCount(cell));
+            }
+
             _main.Hover(hover >= Inventory.Slots && hover < Inventory.Cells ? hover - Inventory.Slots : -1);
+            _equip.Hover(Simulation.IsEquipCell(hover) ? hover - Simulation.EquipBase : -1);
             if (dead != _dead)
             {
                 _dead = dead;
@@ -316,13 +338,15 @@ namespace Orpheus.Client.UI
         /// <summary>
         /// Кадр интерфейса: сумка сервера, выбранная ячейка панели, жив ли, здоровье и выносливость (0…max), состояние
         /// крафта (очередь сервера, мир и место — для «станок рядом»). Звать до чтения мыши миром (<see cref="PointerBlocked"/>).
+        /// E3-6: надетое (голова / тело / ноги) приходит вместе с сумкой — в конце.
         /// </summary>
         public void Frame(in UiInput input0, in Inventory bag, int selected, bool dead, int health, int maxHealth, int stamina, int maxStamina,
-            in UiCraftState craft, in UiBuildState build = default)
+            in UiCraftState craft, in UiBuildState build = default, byte equipHead = Items.None, byte equipBody = Items.None, byte equipLegs = Items.None)
         {
             _root.FitToScreen();
             _hand.Sync(bag, dead);
             _hand.SyncChest(build.ChestOpen, build.Chest); // E2-5: ячейки 40…69 — открытый сундук
+            _hand.SyncEquip(equipHead, equipBody, equipLegs); // E3-6: надетое — ячейки 70…72
             _hand.Pump(Time.unscaledTimeAsDouble); // C-008: «Взять / Положить всё» — пачками по 8 за такт сервера
             if (_hand.LastStop != _moveAllStop)
             {

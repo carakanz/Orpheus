@@ -170,6 +170,7 @@ namespace Orpheus.Net.Session
             [Items.Meat] = "Жарится у костра.",
             [Items.RoastMeat] = "Восстанавливает здоровье.",
             [Items.Arrows] = "Для лука.",
+            [Items.Hide] = "Медная броня: шлем, доспех, поножи.",
         };
 
         private static readonly Dictionary<byte, ItemSource[]> Sources = new Dictionary<byte, ItemSource[]>
@@ -204,6 +205,10 @@ namespace Orpheus.Net.Session
                 new ItemSource(SourceKind.Enemy, Wolf, "волки"),
                 new ItemSource(SourceKind.Enemy, Boar, "кабаны"),
                 new ItemSource(SourceKind.Enemy, Deer, "олени"),
+            },
+            [Items.Hide] = new[] // E3-6: шкура — дроп волка [док] (код дропа пришёл в E3-3)
+            {
+                new ItemSource(SourceKind.Enemy, Wolf, "волки"),
             },
         };
 

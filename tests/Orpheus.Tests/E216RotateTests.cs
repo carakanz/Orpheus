@@ -464,7 +464,7 @@ namespace Orpheus.Tests
             byte[] v10 = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format10_build.save"));
             byte[] baseBytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format10_build.base"));
             Simulation sim = SaveFixtures.Load(baseBytes, v10);
-            Assert.Equal("1b6417ad926914f6", StateHash.Compute(sim).Total.ToString("x16"));
+            Assert.Equal("0329ad4c20838f97", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 16
             var bench = new TileCoord(129, 132);
             Assert.Equal(ObjectId.Workbench, sim.World.GetObject(bench));
             Assert.True(sim.World.TryGetBuild(bench, out BuildRecord wr));
@@ -482,7 +482,7 @@ namespace Orpheus.Tests
             Assert.Equal(Bed(3), sim.World.GetObject(bt));
             string hash = StateHash.Compute(sim).Total.ToString("x16");
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "E2-16"), 7, 0);
-            Assert.Equal(15u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13
+            Assert.Equal(16u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13
             Simulation back = SaveFixtures.Load(baseBytes, again);
             Assert.Equal(hash, StateHash.Compute(back).Total.ToString("x16"));
             Assert.Equal(Bed(3), back.World.GetObject(bt));

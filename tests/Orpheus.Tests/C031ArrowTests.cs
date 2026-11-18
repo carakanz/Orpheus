@@ -421,7 +421,7 @@ namespace Orpheus.Tests
             Assert.True(old > 0 && young > 0);
 
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "стрелы"), 3, 0);
-            Assert.Equal(15u, SaveContainer.Read(save).Header.FormatVersion);
+            Assert.Equal(16u, SaveContainer.Read(save).Header.FormatVersion);
             Simulation loaded = SaveFixtures.Load(live.BaseBytes, save);
             Assert.Equal(sim.Piles.ToArray(), loaded.Piles.ToArray());
             Assert.Equal(2, loaded.StuckArrowCount);
@@ -450,7 +450,7 @@ namespace Orpheus.Tests
             Assert.Equal(13u, SaveContainer.Read(v13).Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v13);
             string hash = StateHash.Compute(sim).Total.ToString("x16");
-            Assert.Equal("5c1e87344ea8d510", hash); // хэш генератора после загрузки (код 45fce53)
+            Assert.Equal("fde26d9ee8b93917", hash); // хэш генератора после загрузки (код 45fce53); E3-6: формат 16
             Assert.Equal(4, sim.Piles.Length);
             int arrows = 0;
             foreach (GroundPile p in sim.Piles)
@@ -464,7 +464,7 @@ namespace Orpheus.Tests
             Assert.Equal(0, sim.StuckArrowCount);
 
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат13→14"), 8, 0);
-            Assert.Equal(15u, SaveContainer.Read(again).Header.FormatVersion);
+            Assert.Equal(16u, SaveContainer.Read(again).Header.FormatVersion);
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total.ToString("x16"));
         }
 

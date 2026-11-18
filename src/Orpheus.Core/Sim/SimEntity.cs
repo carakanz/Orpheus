@@ -52,6 +52,18 @@ namespace Orpheus.Core.Sim
         /// <summary>Масса для отбрасывания (6.5): игрок и обычный враг — 1, танк — 3.</summary>
         public byte Mass;
 
+        // E3-6: ячейки снаряжения персонажа — предметы в них (0 — пусто). Armor и Mass — производные:
+        // сумма бронь предметов и комплект (`06` 4.7 «Устойчивость»: полный медный → масса 2). Пересчёт — RecalcGear.
+
+        /// <summary>Предмет в ячейке «голова» (<see cref="Items.SlotHead"/>); у врага — 0.</summary>
+        public byte EquipHead;
+
+        /// <summary>Предмет в ячейке «тело» (<see cref="Items.SlotBody"/>).</summary>
+        public byte EquipBody;
+
+        /// <summary>Предмет в ячейке «ноги» (<see cref="Items.SlotLegs"/>).</summary>
+        public byte EquipLegs;
+
         /// <summary>Тактов неуязвимости после удара или снаряда осталось (0,4 с = 12 тактов, 6.3; у врагов тоже).</summary>
         public int InvulnTicks;
 

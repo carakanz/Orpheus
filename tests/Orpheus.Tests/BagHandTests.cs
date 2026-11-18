@@ -221,5 +221,66 @@ namespace Orpheus.Tests
             Assert.Equal(before, rig.Server.BagRequestsReceived);
             Assert.Equal(0, rig.Server.BagRequestsRefused);
         }
+
+        /// <summary>
+        /// E3-6: ячейки снаряжения 70…72 в руке — те же щелчки: ЛКМ из сумки в «голову» — надеть (одну штуку),
+        /// обратно в сумку — снять; чужой предмет в ячейку не берётся; Quick из надетого — в сумку.
+        /// </summary>
+        [Fact]
+        public void E36_Hand_Equip_Cells_Net()
+        {
+            using var rig = new EditTests.EditRig(Flat(), i => Center(300 + 3 * i, 200));
+            NetClient a = rig.Join();
+            rig.Run(10);
+            Give(rig, a, 10, Items.CopperHelmet, 1);
+            Give(rig, a, 12, Items.Stone, 4);
+            var hand = new BagHand(a);
+            hand.SyncEquip(Items.None, Items.None, Items.None);
+            Sync(hand, a);
+
+            // Камень в «голову» — не берётся, заявок нет.
+            Assert.Equal(BagClick.Taken, hand.Right(12));
+            Assert.Equal(BagClick.None, hand.Left(70));
+            Assert.True(hand.Holding);
+            Assert.Equal(BagClick.Cancelled, hand.Left(12));
+
+            // Шлем в «голову» — надеть (снаряжение — стопка 1).
+            Sync(hand, a);
+            Assert.Equal(BagClick.Taken, hand.Right(10));
+            Assert.Equal(BagClick.Moved, hand.Left(70));
+            rig.Run(4);
+            Assert.Equal(Items.CopperHelmet, rig.Sim.GetEntity(a.EntityId).EquipHead);
+            Assert.Equal(0, a.Inv.CountIn(10));
+            Assert.Equal(1, rig.Sim.GetEntity(a.EntityId).Armor);
+
+            // Снять щелчком из ячейки снаряжения в сумку.
+            hand.SyncEquip(Items.CopperHelmet, Items.None, Items.None);
+            Assert.Equal(Items.CopperHelmet, hand.EquipAt(Items.SlotHead));
+            Assert.Equal(BagClick.Taken, hand.Left(70));
+            int free = 30;
+            Assert.Equal(BagClick.Moved, hand.Left(free));
+            rig.Run(4);
+            SimEntity e = rig.Sim.GetEntity(a.EntityId);
+            Assert.Equal(Items.None, e.EquipHead);
+            Assert.Equal(0, e.Armor);
+            Assert.Equal(1, e.Inv.CountIn(free));
+
+            // Quick из надетого — в сумку (не в быструю панель).
+            Sync(hand, a);
+            Assert.Equal(BagClick.Taken, hand.Left(free));
+            Assert.Equal(BagClick.Moved, hand.Left(70));
+            rig.Run(4);
+            hand.SyncEquip(Items.CopperHelmet, Items.None, Items.None);
+            Sync(hand, a);
+            Assert.Equal(BagClick.Moved, hand.Quick(70));
+            rig.Run(4);
+            e = rig.Sim.GetEntity(a.EntityId);
+            Assert.Equal(Items.None, e.EquipHead);
+            Assert.Equal(1, e.Inv.Count(Items.CopperHelmet)); // снятое встало в сумку
+
+            Assert.Equal(hand.RequestsSent, rig.Server.BagRequestsReceived);
+            Assert.Equal(0, rig.Server.BagRequestsRefused);
+            Assert.Equal(0, a.BadMessages);
+        }
     }
 }

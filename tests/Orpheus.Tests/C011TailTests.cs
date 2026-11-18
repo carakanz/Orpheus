@@ -152,7 +152,7 @@ namespace Orpheus.Tests
             Assert.Equal(11u, SaveContainer.Read(v11).Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v11);
             string hash = StateHash.Compute(sim).Total.ToString("x16");
-            Assert.Equal("0feba4e61d42d023", hash); // хэш генератора (код 4848c8c)
+            Assert.Equal("3d3d027b3fa96dc8", hash); // хэш генератора (код 4848c8c); E3-6: формат 16
 
             for (int x = 130; x <= 132; x++)
             {
@@ -196,7 +196,7 @@ namespace Orpheus.Tests
             Assert.Equal((1, 1), (tr.OffsetX, tr.OffsetY));
 
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат11→13"), 6, 0);
-            Assert.Equal(15u, SaveContainer.Read(again).Header.FormatVersion);
+            Assert.Equal(16u, SaveContainer.Read(again).Header.FormatVersion);
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total.ToString("x16"));
         }
 
@@ -213,7 +213,7 @@ namespace Orpheus.Tests
             Assert.Equal(12u, SaveContainer.Read(v12).Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v12);
             string hash = StateHash.Compute(sim).Total.ToString("x16");
-            Assert.Equal("d06cf59675c89d79", hash); // хэш генератора (код 72e93d0)
+            Assert.Equal("9ac0a72706b7c295", hash); // хэш генератора (код 72e93d0); E3-6: формат 16
 
             Assert.Equal(FloorId.WoodFloor, sim.World.GetFloor(new TileCoord(130, 126)));
             Assert.Equal(ObjectId.StoneWall, sim.World.GetObject(new TileCoord(130, 126)));
@@ -243,7 +243,7 @@ namespace Orpheus.Tests
             Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, new TileCoord(121, 133)));
 
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат12→13"), 6, 0);
-            Assert.Equal(15u, SaveContainer.Read(again).Header.FormatVersion);
+            Assert.Equal(16u, SaveContainer.Read(again).Header.FormatVersion);
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total.ToString("x16"));
         }
 

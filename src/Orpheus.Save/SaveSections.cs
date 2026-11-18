@@ -338,6 +338,15 @@ namespace Orpheus.Save
 
             /// <summary>Точка возрождения у кровати: тайл Y.</summary>
             public const int BedY = 67;
+
+            /// <summary>Снаряжение: предмет в ячейке «голова» (E3-6, формат 16); пишется, только если надето что-то. Нет поля — пусто.</summary>
+            public const int EquipHead = 68;
+
+            /// <summary>Снаряжение: ячейка «тело» (E3-6).</summary>
+            public const int EquipBody = 69;
+
+            /// <summary>Снаряжение: ячейка «ноги» (E3-6).</summary>
+            public const int EquipLegs = 70;
         }
 
         /// <summary>Раздел ПЕРСОНАЖИ (формат 3, 0-035): повторяющееся поле <see cref="Character"/> — мировая часть персонажа.</summary>

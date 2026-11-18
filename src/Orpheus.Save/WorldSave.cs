@@ -395,6 +395,12 @@ namespace Orpheus.Save
                 e.WriteInt(SaveSections.EntityField.MaxHealth, x.MaxHealth);
                 e.WriteUInt(SaveSections.EntityField.Armor, x.Armor);
                 e.WriteUInt(SaveSections.EntityField.Mass, x.Mass);
+                if (x.EquipHead != 0 || x.EquipBody != 0 || x.EquipLegs != 0) // E3-6: снаряжение — только ненулевое
+                {
+                    e.WriteUInt(SaveSections.EntityField.EquipHead, x.EquipHead);
+                    e.WriteUInt(SaveSections.EntityField.EquipBody, x.EquipBody);
+                    e.WriteUInt(SaveSections.EntityField.EquipLegs, x.EquipLegs);
+                }
                 e.WriteUInt(SaveSections.EntityField.InvulnTicks, (ulong)x.InvulnTicks);
                 e.WriteUInt(SaveSections.EntityField.RegenTicks, (ulong)x.RegenTicks);
                 e.WriteInt(SaveSections.EntityField.RegenCarryX100, x.RegenCarryX100);
@@ -1444,6 +1450,7 @@ namespace Orpheus.Save
             bool hasBrain = false;
             // Бой (формат 6, 1-007): в форматах 1–5 полей нет — нули, Simulation.RestoreDefaults подставит дефолты спавна.
             int health = 0, maxHealth = 0, armor = 0, mass = 0, invuln = 0, regen = 0, regenCarry = 0, combat = 0, dead = 0;
+            int equipHead = 0, equipBody = 0, equipLegs = 0; // E3-6: снаряжение (формат 16)
             int windup = 0, recover = 0, immune = 0, atkTarget = 0, atkRaw = 0, period = 0, atkOriginX = 0, atkOriginY = 0, atkFacing = 0;
             int knockLeft = 0, knockSpeed = 0, knockDir = 0, aimAngle = 0, inputSlot = 0;
             while (r.Next())
@@ -1620,6 +1627,15 @@ namespace Orpheus.Save
                     case SaveSections.EntityField.Mass:
                         mass = r.UIntAsInt(byte.MaxValue);
                         break;
+                    case SaveSections.EntityField.EquipHead:
+                        equipHead = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.EquipBody:
+                        equipBody = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.EquipLegs:
+                        equipLegs = r.UIntAsInt(byte.MaxValue);
+                        break;
                     case SaveSections.EntityField.InvulnTicks:
                         invuln = r.UIntAsInt(int.MaxValue);
                         break;
@@ -1713,6 +1729,9 @@ namespace Orpheus.Save
                 MaxHealth = (short)maxHealth,
                 Armor = (byte)armor,
                 Mass = (byte)mass,
+                EquipHead = (byte)equipHead,
+                EquipBody = (byte)equipBody,
+                EquipLegs = (byte)equipLegs,
                 InvulnTicks = invuln,
                 RegenTicks = regen,
                 RegenCarryX100 = regenCarry,
