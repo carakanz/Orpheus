@@ -323,7 +323,7 @@ namespace Orpheus.Client
                 Light(world, map, x1, y, ObjectId.StoneWall);
             }
 
-            Light(world, map, x0 + 1, y0 + 1, BuildLayers.Turned(ObjectId.Bed, 1)); // E2-16: кровать 1 × 2 — поперёк, в один ряд
+            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed); // C-030: двуспальная 2 × 2, изголовьем к северной стене
             Light(world, map, x1 - 2, y0 + 1, ObjectId.Workbench); // E2-16: верстак 2 × 2
             Light(world, map, x1 - 1, y1 - 1, ObjectId.Chest);
             Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
@@ -392,7 +392,7 @@ namespace Orpheus.Client
                 Cells(world, map, x, y1, ObjectId.WoodFence, BuildCells.DoorSouth, false); // забор двора — тонкий
             }
 
-            Light(world, map, x0 + 1, y0 + 1, BuildLayers.Turned(ObjectId.Bed, 1)); // E2-16: кровать 1 × 2 — поперёк, в один ряд
+            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed); // C-030: двуспальная 2 × 2, изголовьем к северной стене
             Light(world, map, x1 - 1, y0 + 1, ObjectId.Chest);
             Light(world, map, x0 + 1, y1 - 1, ObjectId.Torch);
         }
@@ -456,17 +456,18 @@ namespace Orpheus.Client
 
             // Перегородка спальни (дерево): столбец hx − 1 (восточные ячейки) от северной стены до hy − 1, ряд hy − 1 (южные
             // ячейки) от западной стены до hx − 3 — проём в hx − 2, торец у проёма.
-            for (int y = y0 + 1; y <= hy - 1; y++)
+            // C-030: кровать двуспальная 2 × 2 — перегородка на ряд ниже (hy), чтобы спальня вместила кровать.
+            for (int y = y0 + 1; y <= hy; y++)
             {
-                Cells(world, map, hx - 1, y, ObjectId.WoodWall, y == hy - 1 ? (byte)(BuildCells.DoorEast | BuildCells.DoorSouth) : BuildCells.DoorEast, false);
+                Cells(world, map, hx - 1, y, ObjectId.WoodWall, y == hy ? (byte)(BuildCells.DoorEast | BuildCells.DoorSouth) : BuildCells.DoorEast, false);
             }
 
             for (int x = x0 + 1; x <= hx - 3; x++)
             {
-                Cells(world, map, x, hy - 1, ObjectId.WoodWall, BuildCells.DoorSouth, false);
+                Cells(world, map, x, hy, ObjectId.WoodWall, BuildCells.DoorSouth, false);
             }
 
-            Light(world, map, x0 + 1, y0 + 1, BuildLayers.Turned(ObjectId.Bed, 1)); // E2-16: кровать 1 × 2 — поперёк, в один ряд
+            Light(world, map, x0 + 1, y0 + 1, ObjectId.Bed); // C-030: двуспальная 2 × 2, изголовьем к северной стене
             Light(world, map, x0 + 3, y0 + 1, ObjectId.Chest);
             Light(world, map, hx + 1, y0 + 1, ObjectId.Workbench);
             Light(world, map, hx + 3, y0 + 1, ObjectId.Chest);

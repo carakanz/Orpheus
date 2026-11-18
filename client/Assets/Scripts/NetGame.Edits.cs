@@ -168,7 +168,12 @@ namespace Orpheus.Client
                     }
                     else if (ObjectUse.KindOf(m.Obj) == UseKind.Bed)
                     {
+                        // C-030: точка возрождения поставлена — персонаж ложится на эту кровать (встать — любое движение).
                         ui.Notify(UI.UiStrings.BedSet);
+                        if (_world != null && !(_pred?.Dead ?? false) && _rest.Begin(_world, m.Tile))
+                        {
+                            Debug.Log($"[bed] лёг: кровать {_rest.Bed.X},{_rest.Bed.Y}, поворот {_rest.Rotation}");
+                        }
                     }
                 };
                 _ghost = new BuildGhost(_entityRoot.transform);
@@ -356,6 +361,52 @@ namespace Orpheus.Client
             return s;
         }
 
+        /// <summary>C-030: свой персонаж в кровати (вид у своего клиента; ядро не знает).</summary>
+        readonly BedRest _rest = new BedRest();
+
+        /// <summary>
+        /// C-030: ПКМ по объекту под курсором — кровать (лечь, точка возрождения) или сундук (открыть); прочее — ничего
+        /// (дверь ПКМ не закрывает: ПКМ по миру без молота раньше ничего не делал, F остаётся общим правилом).
+        /// </summary>
+        void UseUnderCursor(NetClient c)
+        {
+            TileCoord? cursor = CursorTile();
+            if (_world == null || !cursor.HasValue)
+            {
+                return;
+            }
+
+            UseKind kind = ObjectUse.At(_world, _localPos, cursor.Value, out TileCoord t);
+            if (kind == UseKind.Bed || kind == UseKind.Chest)
+            {
+                c.RequestUse(t);
+                Debug.Log($"[use] ПКМ: {kind} на {t.X},{t.Y}");
+            }
+        }
+
+        /// <summary>
+        /// C-030, кадр: лежит в кровати — встаёт от <paramref name="wakeClick"/> (F, клик по миру), движения (WASD), уворота,
+        /// смерти, сноса кровати; затемнение экрана по времени лёжа (<see cref="Anim.RestAnim.Dim"/>).
+        /// </summary>
+        void RestFrame(bool wakeClick)
+        {
+            if (_world == null)
+            {
+                return;
+            }
+
+            bool was = _rest.Active;
+            bool move = _g.Move.ReadValue<Vector2>().sqrMagnitude > 0.04f || _g.Dodge.WasPressedThisFrame();
+            bool alive = !(_pred?.Dead ?? false);
+            _rest.Update(_world, alive, wakeClick || move, Time.deltaTime);
+            if (was && !_rest.Active)
+            {
+                Debug.Log("[bed] встал");
+            }
+
+            _ui?.Combat.RestShade(_rest.Active ? Anim.RestAnim.Dim(_rest.Age) : 0f);
+        }
+
         /// <summary>
         /// F (E2-5, общее правило — <see cref="ObjectUse.Find"/>): объект под курсором или ближайший с действием. Дверь —
         /// закрыть (1-012), верстак и костёр — окно крафта на их вкладке, сундук — открыть, кровать — точка возрождения;
@@ -534,10 +585,16 @@ namespace Orpheus.Client
 
             // 1-012: F — закрыть ближайшую открытую дверь (передний фронт здесь, запрос TileOp.CloseDoor — протокол 19;
             // радиус, проём и замок проверяет сервер, предсказание и откат — общие с правками).
-            if (Keyboard.current?.fKey.wasPressedThisFrame == true)
+            bool fPressed = Keyboard.current?.fKey.wasPressedThisFrame == true;
+            if (fPressed && !_rest.Active)
             {
                 UseObject(c); // E2-5: общее правило F (дверь, станки, сундук, кровать)
             }
+
+            // C-030: лёжа — встать от F, движения, уворота, клика по миру; затемнение экрана.
+            bool overUi = _ui != null && _ui.PointerBlocked;
+            bool rested = _rest.Active; // клик, которым встал, не кладёт обратно
+            RestFrame(fPressed || (!overUi && (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame)));
 
             if (_ui != null && _ui.PointerBlocked)
             {
@@ -555,6 +612,10 @@ namespace Orpheus.Client
             PipetteKeys(mouse, now); // C-029: средняя кнопка / G — пипетка
             TurnAndMenuKeys(HandItem); // E2-16: R — поворот, Tab — линейка, Esc / ПКМ — убрать постройку из меню
             byte held = HandItem;      // E2-16: постройка из меню — как в руке
+            if (mouse.rightButton.wasPressedThisFrame && !rested && !BuildHand.IsHammer(held) && !BuildHand.IsBuildItem(held))
+            {
+                UseUnderCursor(c); // C-030: ПКМ по кровати / сундуку — как F (по привычке Terraria)
+            }
             if ((BuildHand.IsHammer(held) || BuildHand.IsBuildItem(held)) && _ui != null && _world != null)
             {
                 return HammerEdits(c, mouse, tile, held, now);
@@ -772,6 +833,41 @@ namespace Orpheus.Client
             }
         }
 
+        // ---------- C-030: host-smoke «лечь в кровать» (--smoke-bed → сервер --debug-bed) ----------
+
+        bool _smokeBedAsked;
+        int _smokeBedTries;
+        bool _smokeBedWoke;
+
+        /// <summary>
+        /// Net-smoke (C-030): с 0,15 с до 0,49 с — F тем же путём, что клавиша (<see cref="UseObject"/>: объект рядом —
+        /// <see cref="ObjectUse.Find"/>, кровать → заявка 33); ответ «принято» кладёт персонажа (обработчик ответа в
+        /// <c>UiFrame</c>). Скриптовый бег с 0,5 с — «встал». Кадры позы — <c>NetAnimation.RestFrames</c>.
+        /// </summary>
+        void SmokeBed(long sinceUs, NetClient c)
+        {
+            if (!_smokeBedAsked && sinceUs >= 150_000 && sinceUs < 490_000 && _world != null)
+            {
+                _smokeBedTries++;
+                if (ObjectUse.Find(_world, _localPos, null, out TileCoord t, out UseKind kind) && kind == UseKind.Bed)
+                {
+                    _smokeBedAsked = true;
+                    UseObject(c);
+                    Debug.Log($"[bed] smoke: F по кровати {t.X},{t.Y} (проба {_smokeBedTries})");
+                }
+            }
+
+            bool was = _rest.Active;
+            // ScriptedSmokeFrame: бег с 0,5 с; поднимает не раньше 0,1 с лёжа (ответ мог прийти, когда бег уже начался).
+            bool moving = sinceUs >= 500_000 && _rest.Age >= 0.1f;
+            _rest.Update(_world!, !(_pred?.Dead ?? false), moving, Time.deltaTime);
+            if (was && !_rest.Active)
+            {
+                _smokeBedWoke = true;
+                Debug.Log("[bed] smoke: встал (бег)");
+            }
+        }
+
         // ---------- 1-012: host-smoke проход через дверь (--smoke-door → сервер --debug-door) ----------
 
         TileCoord _smokeDoorTile;
@@ -836,6 +932,11 @@ namespace Orpheus.Client
         void SmokeEdit(long now, NetClient c)
         {
             long sinceUs = now - _inGameSinceUs;
+            if (_args.NetSmokeBed)
+            {
+                SmokeBed(sinceUs, c);
+            }
+
             if (!_smokeEditDone && sinceUs >= 300_000)
             {
                 _smokeEditDone = true;

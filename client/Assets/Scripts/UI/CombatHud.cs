@@ -46,6 +46,7 @@ namespace Orpheus.Client.UI
 
         RectTransform? _overlay;
         Image? _shade;
+        readonly Image _restShade; // C-030: лёжа в кровати — экран темнеет (под всеми окнами)
         Text? _title, _cause, _timer, _note;
 
         sealed class Bar
@@ -59,8 +60,25 @@ namespace Orpheus.Client.UI
         public CombatHud(UiRoot root)
         {
             _root = root;
+            RectTransform rest = UiRoot.Node(root.Transform, "RestShade", 0f, 0f, 0f, 0f);
+            Stretch(rest);
+            _restShade = rest.gameObject.AddComponent<Image>();
+            _restShade.raycastTarget = false;
+            _restShade.color = new Color32(0, 0, 0, 0);
+            rest.gameObject.SetActive(false);
             _marks = UiRoot.Node(root.Transform, "CombatMarks", 0f, 0f, 0f, 0f);
             Anchor(_marks);
+        }
+
+        /// <summary>C-030: затемнение «лежит в кровати» (0 — нет): тёмно-синий тон ночи поверх мира, под окнами и цифрами.</summary>
+        public void RestShade(float dim)
+        {
+            bool on = dim > 0.003f;
+            SetActive(_restShade.gameObject, on);
+            if (on)
+            {
+                _restShade.color = new Color(0.02f, 0.03f, 0.09f, dim);
+            }
         }
 
         /// <summary>Экран смерти — поверх всего интерфейса: звать после создания окон.</summary>

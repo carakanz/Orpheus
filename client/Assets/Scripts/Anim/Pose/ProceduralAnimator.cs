@@ -85,6 +85,16 @@ namespace Orpheus.Client.Anim
         /// <summary>E2-7: рука вытянута от плеча — вперёд (по взгляду) и вверх, тайлов.</summary>
         public float HandReachX, HandReachY;
 
+        /// <summary>C-030: низ спрайта под одеялом, тайлов (обрез, как в воде C-018); 0 — нет. Тень у ног тогда не рисуется.</summary>
+        public float Cover;
+
+        /// <summary>C-030: предмет в руке не рисовать (лежит).</summary>
+        public bool HideHand;
+
+        /// <summary>C-030: порядок отрисовки — как у существа с ногами на этой высоте Unity (<see cref="HasSortY"/>), а не по корню.</summary>
+        public float SortY;
+        public bool HasSortY;
+
         public static Pose Identity => new Pose { ScaleX = 1f, ScaleY = 1f, TintR = 1f, TintG = 1f, TintB = 1f, Alpha = 1f };
     }
 

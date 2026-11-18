@@ -222,7 +222,7 @@ namespace Orpheus.Client
             new ObjectLook
             {
                 Id = ObjectId.Bed, Variants = new[] { V("obj_bed") },
-                Turns = new[] { "obj_bed", "obj_bed_e", "obj_bed_s", "obj_bed_e" }, TurnFlip = Mirror270, // E2-16: 1 × 2
+                Turns = new[] { "obj_bed", "obj_bed_e", "obj_bed_s", "obj_bed_e" }, TurnFlip = Mirror270, // C-030: двуспальная 2 × 2 (E2-16: 1 × 2)
                 Shadow = 0.35f,
             },
         };

@@ -97,6 +97,9 @@ namespace Orpheus.Client
         ScreenshotRun? _screenshot;
         Anim.ActorRig? _heroRig;        // K-001: ходьба и дыхание своего персонажа офлайн
         WadeDemoEnemy? _wadeEnemy;      // C-018: враг-болванка в воде (--wade-demo enemy)
+        TileCoord _bedDemoAnchor;       // C-030: кровать сцены --bed-demo
+        float _bedDemoAge;
+        SpriteRenderer? _bedDemoShade;  // C-030: затемнение «лежит» в сцене снимков
         Anim.AnimShowcase? _showcase;   // K-001: показ анимации и замер (--anim-shots, --anim-bench)
         TileBenchRun? _tileBench;       // 1-022: стенд «48 Tilemap» (--tile-bench): бег через шов + поток правок, замеры
         DayTintView? _dayTint;          // E1-8: тон суток (ночь, сумерки, рассвет; свет факела и костра)
@@ -197,6 +200,27 @@ namespace Orpheus.Client
                 PaintDemo.Home(World, Map, at.X, at.Y, Args.HomeDemo!);
                 View.Clear();
                 View.UpdateWindow(Player.Position);
+            }
+
+            if (Args.BedDemoRot >= 0)
+            {
+                // C-030: спальня с двуспальной кроватью; с «l» — персонаж лежит в ней.
+                TileCoord at = Torus.TileOf(Map, Player.Position);
+                PaintDemo.Bed(World, Map, at.X, at.Y, Args.BedDemoRot);
+                _bedDemoAnchor = Torus.Wrap(Map, PaintDemo.BedDemoAnchor(at.X, at.Y));
+                View.Clear();
+                View.UpdateWindow(Player.Position);
+                if (Args.BedDemoLie)
+                {
+                    var tex = Texture2D.whiteTexture;
+                    var go = new GameObject("RestShade");
+                    go.transform.SetParent(Camera.transform, false);
+                    go.transform.localPosition = new Vector3(0f, 0f, 5f); // перед камерой, как DayTintView
+                    go.transform.localScale = new Vector3(600f, 600f, 1f);
+                    _bedDemoShade = go.AddComponent<SpriteRenderer>();
+                    _bedDemoShade.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), tex.width);
+                    _bedDemoShade.sortingOrder = WorldView.TintOrder + 5;
+                }
             }
 
             if (Args.WadeDemo != null)
@@ -403,7 +427,25 @@ namespace Orpheus.Client
 
             // 5. Персонаж и камера.
             PlaceCharacterAndCamera();
-            _heroRig?.AnimateWalk(Time.deltaTime);
+            if (Args.BedDemoLie && _heroRig != null)
+            {
+                // C-030: лежит в кровати сцены — поза RestAnim (как у NetAnimation), затемнение — RestAnim.Dim.
+                _bedDemoAge += Time.deltaTime;
+                Vector3 center = Origin.ToUnity(BuildLayers.CenterAt(World, _bedDemoAnchor));
+                Vector3 root = Character.position;
+                float sortY = Origin.ToUnity(TileCenter(_bedDemoAnchor)).y - 0.5f + ObjectTable.BaseLift - 0.25f;
+                _heroRig.AnimateRest(Time.deltaTime, Math.Max(_bedDemoAge, Anim.RestAnim.LieSec), ObjectId.RotationOf(World.GetObject(_bedDemoAnchor)),
+                    center.x - root.x, center.y - root.y, sortY);
+                if (_bedDemoShade != null)
+                {
+                    _bedDemoShade.color = new Color(0.02f, 0.03f, 0.09f, Anim.RestAnim.DimMax);
+                }
+            }
+            else
+            {
+                _heroRig?.AnimateWalk(Time.deltaTime);
+            }
+
             _wadeEnemy?.Frame(Time.deltaTime);
             _piles?.Frame(Origin, Time.deltaTime);
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа

@@ -50,6 +50,12 @@ namespace Orpheus.Client.Anim
 
         // E2-7: такт копания своего — по счёту кадров ядра (NetClient.DigProgress) и доле кадра с последнего счёта.
         const float FrameSec = 1f / ActionAnim.FramesPerSecond;
+        /// <summary>C-030: свой персонаж лежит в кровати (ставит <c>NetGame</c>); null — не бывает.</summary>
+        public BedRest? Rest;
+
+        /// <summary>C-030: кадров с позой «лежит» (smoke).</summary>
+        public int RestFrames { get; private set; }
+
         readonly DigTrack _dig = new DigTrack(); // объект тайла с начала копания и часы удара по счёту кадров
         long _requestsSeen = -1;
 
@@ -450,6 +456,18 @@ namespace Orpheus.Client.Anim
             else
             {
                 _selfDeadAge = -1f;
+                if (Rest != null && Rest.Active)
+                {
+                    // C-030: лёжа — спрайт на своей половине кровати, макушкой к изголовью, под одеялом; порядок — сразу за строкой
+                    // объектов якоря кровати (кровать рисуется в строке якоря, ObjectMesh), чтобы тело было поверх кровати.
+                    Vector3 center = _origin.ToUnity(BuildLayers.CenterAt(_world, Rest.Bed));
+                    Vector3 rootAt = _g.Character.position;
+                    p = RestAnim.Apply(p, Rest.Age, Rest.Rotation, center.x - rootAt.x, center.y - rootAt.y);
+                    float anchorBottom = _origin.ToUnity(TileCenter(Rest.Bed)).y - 0.5f;
+                    p.SortY = anchorBottom + ObjectTable.BaseLift - 0.25f;
+                    p.HasSortY = true;
+                    RestFrames++;
+                }
             }
 
             _self.Apply(p);

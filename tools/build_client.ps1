@@ -211,7 +211,7 @@ if ($HostSmoke) {
     foreach ($p in @($hostLog, $hostWorld)) { if (Test-Path $p) { Remove-Item -Recurse -Force $p } }
     Say 'host-smoke: Orpheus.exe --host --net-smoke 6 (сервер запускает сам клиент; «для друзей» — 127.0.0.2)'
     $hp = Start-Process -FilePath $Exe -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $LogDir 'host-smoke.stdout.txt') -ArgumentList @(
-        '-batchmode', '-nographics', '--host', '--world', "`"$hostWorld`"", '--net-smoke', '6',
+        '-batchmode', '-nographics', '--host', '--world', "`"$hostWorld`"", '--net-smoke', '6', '--smoke-bed',
         '--open-for-friends', '--open-address', '127.0.0.2', '--open-port', '0',
         '--server-arg', '--bots', '--server-arg', '2:wander', '-logFile', "`"$hostLog`"")
     $null = $hp.Handle
@@ -230,6 +230,8 @@ if ($HostSmoke) {
     }
     if ($hp.ExitCode -ne 0) { Fail "host-smoke: код выхода $($hp.ExitCode), лог: $hostLog" }
     if (-not (Select-String -Path $hostLog -Pattern '^\[smoke\] done' -Quiet)) { Fail "host-smoke: нет строки '[smoke] done' в $hostLog" }
+    # C-030: «лечь в кровать» — F нашёл кровать, сервер принял, персонаж лёг и встал от бега.
+    if (-not (Select-String -Path $hostLog -Pattern '^\[smoke\] кровать \(C-030\)' -Quiet)) { Fail "host-smoke: нет строки '[smoke] кровать (C-030)' в $hostLog" }
     if (-not $ready) { Fail "host-smoke: клиент не запускал сервер (нет строки '[host] сервер готов')" }
     if (-not (Select-String -Path $hostLog -Pattern '^\[host\] сервер остановлен: код 0' -Quiet)) { Fail 'host-smoke: сервер не вышел штатно с кодом 0' }
     Say 'host-smoke: код 0'

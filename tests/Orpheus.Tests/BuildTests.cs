@@ -172,7 +172,9 @@ namespace Orpheus.Tests
                 Assert.True(BuildHand.IsBuildItem(item));
                 Assert.Equal(ItemCategory.Building, ItemTable.Get(item).Category);
                 // E2-16: верстак 2 × 2 тайла — рядом с остальными не влезает, ставим рядом выше.
-                var t = key == BuildDefs.PlatformKey ? new TileCoord(306, 199) : key == ObjectId.Workbench ? new TileCoord(295 + k, 194) : new TileCoord(295 + k, 197);
+                // C-030: кровать двуспальная 2 × 2 — тоже выше, западнее верстака (в досягаемости).
+                var t = key == BuildDefs.PlatformKey ? new TileCoord(306, 199) : key == ObjectId.Workbench ? new TileCoord(295 + k, 194)
+                    : key == ObjectId.Bed ? new TileCoord(300, 194) : new TileCoord(295 + k, 197);
                 BuildCheck chk = Build(rig, c, hand, key, t);
                 Assert.True(chk.Ok, $"постройка {key}: {chk.Reason}");
                 Assert.Equal(BuildAction.Place, chk.Action);
@@ -1054,7 +1056,8 @@ namespace Orpheus.Tests
             Kill(rig, c);
             e = rig.Sim.GetEntity(c.EntityId);
             Assert.True(e.Alive);
-            Assert.True(Torus.Dist2(rig.Sim.Shape, e.Mover.Position, EditRules.CenterOf(bed)) <= 2L * U * 2L * U, $"возродился в {e.Mover.Position}");
+            // C-030: кровать двуспальная 2 × 2 — возрождение на свободном тайле рядом: до центра кровати не дальше 2 тайлов.
+            Assert.True(Torus.Dist2(rig.Sim.Shape, e.Mover.Position, BuildLayers.CenterAt(rig.Sim.World, bed)) <= 2L * U * 2L * U, $"возродился в {e.Mover.Position}");
             Assert.NotEqual(bed, Torus.TileOf(rig.Sim.Shape, e.Mover.Position));
 
             // Снесли кровать (правка мира) — возрождение у старта, точка снята.
@@ -1275,7 +1278,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Net_GoldenBytes_Use_Reply_Chest_Repair()
         {
-            Assert.Equal(33, NetModule.ProtocolVersion); // C-028: 33 (взмах, тип 39); C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
+            Assert.Equal(34, NetModule.ProtocolVersion); // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[256];
             int n = new UseRequestMessage { Op = UseOp.Use, Tile = new TileCoord(0x0102, 0x0304) }.Write(buf);
             Assert.Equal(UseRequestMessage.Bytes, n);
