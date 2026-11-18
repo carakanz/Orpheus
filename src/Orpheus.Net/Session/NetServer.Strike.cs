@@ -172,7 +172,7 @@ namespace Orpheus.Net.Session
                     }
                 }
 
-                _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                AppendEvent(pl, EventRecordKind.Strike, new ReadOnlySpan<byte>(_buf, 0, len)); // C-035: в пачку (40)
                 StrikeMessagesSent++;
             }
         }

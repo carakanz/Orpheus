@@ -217,6 +217,7 @@ namespace Orpheus.Net.Session
                     SendSnapshotTo(pl, entities, tick);
                     int slot = _sim.SlotOf(pl.EntityId);
                     pl.BagRequestsThisTick = 0; // лимит заявок на сумку — на такт (E2-1)
+                    pl.NewPilesThisTick = 0; // лимит новых куч — на такт (C-035)
                     if (slot >= 0)
                     {
                         SendPilesTo(pl, entities[slot].Mover.Position); // E2-1: кучи на земле в обзоре — разницей
@@ -240,6 +241,7 @@ namespace Orpheus.Net.Session
 
             StepEnemyThreats(); // 1-007: замахи врагов с ИИ — телеграф (удар уже решён симуляцией)
             SendSwings();
+            FlushEventBatches(); // C-035: пачки событий (40) такта — до снимков уходят в том же flush, порядок за тактом
             _transport.Flush(); // снимки такта — сразу, а не по таймеру транспорта (0-015)
         }
 

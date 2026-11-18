@@ -639,7 +639,7 @@ namespace Orpheus.Tests
         [Fact]
         public void C028_Codec_GoldenBytes_Strike()
         {
-            Assert.Equal(35, NetModule.ProtocolVersion); // E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (C-031 занял 32, C-030 — 33)
+            Assert.Equal(36, NetModule.ProtocolVersion); // C-035: 36 (пачка событий, тип 40); E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (C-031 занял 32, C-030 — 33)
             Assert.Equal(39, (int)MessageType.Strike);
             var m = new StrikeMessage { Striker = 0x01020304, RequestId = 0x0506, Count = 1 };
             m.SetTile(0, new StrikeTile { Tile = new TileCoord(0x0A0B, 0x0C0D), Obj = ObjectId.Rock, Hits = 2, Needed = 3, Broken = true });

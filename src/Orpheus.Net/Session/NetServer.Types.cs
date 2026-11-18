@@ -110,6 +110,17 @@ namespace Orpheus.Net.Session
             /// <summary>Заявок на сумку (29) принято от игрока с прошлой рассылки снимков (лимит на такт, E2-1).</summary>
             public int BagRequestsThisTick;
 
+            /// <summary>
+            /// C-035: набор «пачки событий» (40) на этот такт: байты записей (вид 1 + тело) в <see cref="EventStaging"/>,
+            /// байт набрано в <see cref="EventStaged"/>, записей в <see cref="EventRecords"/>; переполнение — пачка уходит сразу.
+            /// </summary>
+            public readonly byte[] EventStaging = new byte[EventBatchMessage.MaxBodyBytes + 40];
+            public int EventStaged;
+            public int EventRecords;
+
+            /// <summary>Новых куч (27) отправлено игроку с прошлой рассылки снимков (лимит на такт, C-035).</summary>
+            public int NewPilesThisTick;
+
             /// <summary>Очередь изготовления, отправленная игроку (E2-3), и признак «идёт»; <see cref="HasSentCraft"/> — слана хоть раз.</summary>
             public CraftQueue SentCraft;
             public bool SentCraftRunning;

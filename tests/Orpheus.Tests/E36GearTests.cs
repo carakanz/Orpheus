@@ -362,7 +362,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E36_Protocol_And_Format_Bump()
         {
-            Assert.Equal(35, NetModule.ProtocolVersion);
+            Assert.Equal(36, NetModule.ProtocolVersion);
             Assert.Equal(16u, SaveModule.FormatVersion);
         }
 
