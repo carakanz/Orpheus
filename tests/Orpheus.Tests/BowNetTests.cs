@@ -33,7 +33,7 @@ namespace Orpheus.Tests
         public void E32_Codec_GoldenBytes_Projectile()
         {
             Assert.Equal(38, (int)MessageType.Projectile);
-            Assert.Equal(34, NetModule.ProtocolVersion); // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32
+            Assert.Equal(35, NetModule.ProtocolVersion); // E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32
             var buf = new byte[64];
             var shot = new ProjectileMessage
             {

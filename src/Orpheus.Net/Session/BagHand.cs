@@ -84,16 +84,57 @@ namespace Orpheus.Net.Session
         /// <summary>Первая ячейка открытого сундука в номерах руки (E2-5): 40.</summary>
         public const int ChestBase = Inventory.Cells;
 
+        /// <summary>Первая ячейка снаряжения в номерах руки (E3-6): 70 — после сумки (0…39) и сундука (40…69).</summary>
+        public const int EquipBase = Simulation.EquipBase;
+
+        /// <summary>Ячеек снаряжения (E3-6): голова, тело, ноги.</summary>
+        public const int EquipCells = Simulation.EquipCells;
+
         /// <summary>Сундук открыт — ячейки 40…69 доступны.</summary>
         public bool ChestOpen { get; private set; }
 
-        /// <summary>Ячеек доступно руке сейчас: сумка, с открытым сундуком — и он.</summary>
+        /// <summary>Ячеек доступно руке сейчас: сумка, с открытым сундуком — и он (снаряжение — всегда, см. <see cref="Accepts"/>).</summary>
         public int CellCount => ChestOpen ? ChestBase + Simulation.ChestCells : Inventory.Cells;
 
-        /// <summary>Предмет и количество в ячейке руки (сумка или сундук).</summary>
-        public byte ItemAt(int cell) => cell >= ChestBase ? _chest.ItemAt(cell - ChestBase) : _bag.ItemAt(cell);
+        /// <summary>Ячейка доступна руке (E3-6): сумка, открытый сундук, снаряжение (оно видно при открытой сумке всегда).</summary>
+        public bool Accepts(int cell) => (uint)cell < CellCount || Simulation.IsEquipCell(cell);
 
-        public int CountIn(int cell) => cell >= ChestBase ? _chest.CountIn(cell - ChestBase) : _bag.CountIn(cell);
+        /// <summary>Надетое (E3-6): голова, тело, ноги — как их знает сервер (приходит в «сумке» 26).</summary>
+        byte _equipHead, _equipBody, _equipLegs;
+
+        /// <summary>
+        /// Свежее надетое сервера (E3-6) — звать каждый кадр после <see cref="Sync"/>. Взятое из ячейки снаряжения
+        /// сняли или заменили — рука подстраивается, как у сумки.
+        /// </summary>
+        public void SyncEquip(byte head, byte body, byte legs)
+        {
+            _equipHead = head;
+            _equipBody = body;
+            _equipLegs = legs;
+            if (Holding && Simulation.IsEquipCell(From))
+            {
+                if (Dead || ItemAt(From) != Item)
+                {
+                    Cancel();
+                }
+            }
+        }
+
+        /// <summary>Надетое предметами (E3-6) — для окна сумки и тестов руки.</summary>
+        public byte EquipAt(byte slot) => slot switch
+        {
+            Items.SlotHead => _equipHead,
+            Items.SlotBody => _equipBody,
+            Items.SlotLegs => _equipLegs,
+            _ => Items.None,
+        };
+
+        /// <summary>Предмет и количество в ячейке руки (сумка, сундук или снаряжение).</summary>
+        public byte ItemAt(int cell) => Simulation.IsEquipCell(cell) ? EquipAt(Simulation.EquipSlotOfCell(cell))
+            : cell >= ChestBase ? _chest.ItemAt(cell - ChestBase) : _bag.ItemAt(cell);
+
+        public int CountIn(int cell) => Simulation.IsEquipCell(cell) ? (ItemAt(cell) == Items.None ? 0 : 1)
+            : cell >= ChestBase ? _chest.CountIn(cell - ChestBase) : _bag.CountIn(cell);
 
         /// <summary>
         /// Свежий сундук сервера (E2-5) — звать каждый кадр после <see cref="Sync"/>. Сундук закрылся или взятая из него
@@ -198,7 +239,7 @@ namespace Orpheus.Net.Session
         /// <summary>ЛКМ по ячейке: пустой рукой — взять всю стопку, с предметом — положить (перенос, доукладка, обмен).</summary>
         public BagClick Left(int cell)
         {
-            if ((uint)cell >= CellCount || Dead)
+            if (!Accepts(cell) || Dead)
             {
                 return BagClick.None;
             }
@@ -212,7 +253,7 @@ namespace Orpheus.Net.Session
         /// </summary>
         public BagClick Right(int cell)
         {
-            if ((uint)cell >= CellCount || Dead)
+            if (!Accepts(cell) || Dead)
             {
                 return BagClick.None;
             }
@@ -240,7 +281,7 @@ namespace Orpheus.Net.Session
         /// <summary>Shift+ЛКМ по ячейке пустой рукой (слово Автора 15.11): взять половину (с округлением вверх).</summary>
         public BagClick Half(int cell)
         {
-            if ((uint)cell >= CellCount || Dead || Holding)
+            if (!Accepts(cell) || Dead || Holding)
             {
                 return BagClick.None;
             }
@@ -254,12 +295,13 @@ namespace Orpheus.Net.Session
         /// </summary>
         public BagClick Quick(int cell)
         {
-            if ((uint)cell >= CellCount || Dead || Holding || ItemAt(cell) == Items.None)
+            if (!Accepts(cell) || Dead || Holding || ItemAt(cell) == Items.None)
             {
                 return BagClick.None;
             }
 
-            int to = !ChestOpen ? QuickTarget(_bag, cell)
+            int to = Simulation.IsEquipCell(cell) ? FitTarget(_bag, ItemAt(cell), Inventory.Slots, Inventory.Cells) // E3-6: надетое → сумка (не в быструю панель)
+                : !ChestOpen ? QuickTarget(_bag, cell)
                 : cell >= ChestBase ? FitTarget(_bag, ItemAt(cell), 0, Inventory.Cells)      // сундук → сумка
                 : FitTarget(_chest, ItemAt(cell), 0, Simulation.ChestCells, ChestBase);   // сумка → сундук
             return to >= 0 && Send(_requests.RequestBagMove(cell, to)) ? BagClick.Moved : BagClick.None;
@@ -500,6 +542,18 @@ namespace Orpheus.Net.Session
             {
                 Cancel();
                 return BagClick.Cancelled;
+            }
+
+            if (Simulation.IsEquipCell(cell))
+            {
+                // E3-6: в ячейку снаряжения — только предмет своей ячейки (голова / тело / ноги); сервер берёт одну штуку.
+                if (ItemTable.Get(Item).Slot != Simulation.EquipSlotOfCell(cell))
+                {
+                    return BagClick.None;
+                }
+
+                Cancel();
+                return Send(_requests.RequestBagMove(from, cell)) ? BagClick.Moved : BagClick.None;
             }
 
             if (count >= CountIn(from))

@@ -25,6 +25,9 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Постройка в виде предмета (факел): ставится в мир. Стопка 99.</summary>
         Building = 5,
+
+        /// <summary>Броня (E3-6; «снаряжение» `06` 1.3): носится в ячейке снаряжения. Стопка 1.</summary>
+        Armor = 6,
     }
 
     /// <summary>
@@ -60,8 +63,18 @@ namespace Orpheus.Core.Sim
         /// <summary>Длина для досягаемости, unit (1/256 тайла); 0 — своей длины нет.</summary>
         public readonly int LengthUnits;
 
+        /// <summary>Броня (E3-6; единицы формулы `02` 6.1); у неброни — 0.</summary>
+        public readonly byte Armor;
+
+        /// <summary>Ячейка снаряжения (<see cref="Items.SlotHead"/>…); у неброни — <see cref="Items.SlotNone"/> (E3-6).</summary>
+        public readonly byte Slot;
+
+        /// <summary>Комплект (<see cref="Items.SetCopper"/>); без комплекта — <see cref="Items.SetNone"/> (E3-6).</summary>
+        public readonly byte SetId;
+
         public ItemDef(byte id, string key, ushort maxStack, ItemCategory category, byte kind = Items.KindNone,
-            byte tool = Items.ToolNone, byte tier = Items.TierNone, ToolKind digTool = ToolKind.Hands, int lengthUnits = 0)
+            byte tool = Items.ToolNone, byte tier = Items.TierNone, ToolKind digTool = ToolKind.Hands, int lengthUnits = 0,
+            byte armor = 0, byte slot = Items.SlotNone, byte setId = Items.SetNone)
         {
             Id = id;
             Key = key;
@@ -72,6 +85,9 @@ namespace Orpheus.Core.Sim
             Tier = tier;
             DigTool = digTool;
             LengthUnits = lengthUnits;
+            Armor = armor;
+            Slot = slot;
+            SetId = setId;
         }
     }
 
@@ -135,6 +151,12 @@ namespace Orpheus.Core.Sim
             new ItemDef(Items.Workbench, "workbench", StackFurniture, ItemCategory.Building),
             new ItemDef(Items.Chest, "chest", StackFurniture, ItemCategory.Building),
             new ItemDef(Items.Bed, "bed", StackFurniture, ItemCategory.Building),
+            // E3-6: медная броня (`06` 4.7) — броня 1 каждая, комплект «Медный» (бонус «Устойчивость» при полном);
+            // шкура — ингредиент (`06` 4.7), добыча с зверей (допущение E3-6).
+            new ItemDef(Items.CopperHelmet, "copper_helmet", StackGear, ItemCategory.Armor, Items.KindArmor, armor: 1, slot: Items.SlotHead, setId: Items.SetCopper),
+            new ItemDef(Items.CopperChest, "copper_chest", StackGear, ItemCategory.Armor, Items.KindArmor, armor: 1, slot: Items.SlotBody, setId: Items.SetCopper),
+            new ItemDef(Items.CopperLegs, "copper_legs", StackGear, ItemCategory.Armor, Items.KindArmor, armor: 1, slot: Items.SlotLegs, setId: Items.SetCopper),
+            new ItemDef(Items.Hide, "hide", StackMaterial, ItemCategory.Material),
             // Новые строки — сюда, в конец; id = место в таблице.
         };
 

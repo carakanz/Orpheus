@@ -109,6 +109,11 @@ namespace Orpheus.Core.Sim
         public const byte Chest = 24;
         public const byte Bed = 25;
 
+        // E3-6: медная броня (`06` 4.7) — верстак I; слитки + шкуры.
+        public const byte CopperHelmet = 26;
+        public const byte CopperChest = 27;
+        public const byte CopperLegs = 28;
+
         private const CraftStation Hands = CraftStation.None;
         private const CraftStation Bench = CraftStation.Workbench;
 
@@ -147,6 +152,10 @@ namespace Orpheus.Core.Sim
             new RecipeDef(Workbench, Items.Workbench, 1, Hands, DefaultTicks, Items.Wood, 10, Items.Stone, 6),
             new RecipeDef(Chest, Items.Chest, 1, Hands, DefaultTicks, Items.Wood, 8),
             new RecipeDef(Bed, Items.Bed, 1, Hands, DefaultTicks, Items.Wood, 10, Items.Fiber, 5),
+            // Медная броня (E3-6; `06` 4.7: 6/10/8 слитков + 1/2/1 шкуры, верстак I). Время — DefaultTicks (в `06` своего нет, допущение).
+            new RecipeDef(CopperHelmet, Items.CopperHelmet, 1, Bench, DefaultTicks, Items.CopperIngot, 6, Items.Hide, 1),
+            new RecipeDef(CopperChest, Items.CopperChest, 1, Bench, DefaultTicks, Items.CopperIngot, 10, Items.Hide, 2),
+            new RecipeDef(CopperLegs, Items.CopperLegs, 1, Bench, DefaultTicks, Items.CopperIngot, 8, Items.Hide, 1),
             // Новые строки — сюда, в конец; номер = место в таблице.
         };
 

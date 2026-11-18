@@ -99,10 +99,10 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_RecipeTable_MatchesDesign()
         {
-            Assert.Equal(26, RecipeTable.Count); // 14 рецептов + 11 построек (E2-11, строки — BuildTests.E211_*) + нулевая строка
-            Assert.Equal(32, ItemTable.Count);
+            Assert.Equal(29, RecipeTable.Count); // 14 рецептов + 11 построек (E2-11, строки — BuildTests.E211_*) + 3 брони (E3-6) + нулевая строка
+            Assert.Equal(36, ItemTable.Count);
             Assert.False(RecipeTable.Exists(0));
-            Assert.False(RecipeTable.Exists(26));
+            Assert.False(RecipeTable.Exists(29));
             Assert.Equal(0, RecipeTable.Get(200).Id);
 
             void Row(byte id, byte result, int count, CraftStation station, params (byte Item, int N)[] ins)
@@ -749,7 +749,7 @@ namespace Orpheus.Tests
 
             // Хэш состояния — тот же, что посчитал код, записавший файл.
             Simulation sim = SaveFixtures.Load(baseBytes, v7);
-            Assert.Equal("d96dbde9cfe7c8ff", StateHash.Compute(sim).Total.ToString("x16"));
+            Assert.Equal("5b706bed9dbf5b21", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 15
 
             // Мир из старого файла живёт: руды 17 → слитки у верстака нет (отказ), верёвка руками — делается.
             int id = st.Entities[0].Id;
@@ -769,7 +769,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_Net_GoldenBytes_CraftRequest_Reply_State()
         {
-            Assert.Equal(34, NetModule.ProtocolVersion); // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
+            Assert.Equal(35, NetModule.ProtocolVersion); // E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[64];
 
             int n = new CraftRequestMessage { Op = CraftOp.Make, Arg = RecipeTable.CopperPickaxe, Count = 0x0102 }.Write(buf);

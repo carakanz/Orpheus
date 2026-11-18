@@ -52,7 +52,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_ItemTable_Categories_Stacks_MaterialsAreItems()
         {
-            Assert.Equal(32, ItemTable.Count); // 14 — E2-1; + 7 — E2-3 (слиток, верёвка, медные топор / меч / лук, мясо, жареное мясо); + 11 — E2-11 (постройки)
+            Assert.Equal(36, ItemTable.Count); // 14 — E2-1; + 7 — E2-3 (слиток, верёвка, медные топор / меч / лук, мясо, жареное мясо); + 11 — E2-11 (постройки); + 4 — E3-6 (шлем, доспех, поножи, шкура)
             for (int id = 1; id < ItemTable.Count; id++)
             {
                 ItemDef d = ItemTable.Get((byte)id);
@@ -1128,7 +1128,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_Net_GoldenBytes_Piles_PileGone_BagRequest()
         {
-            Assert.Equal(34, NetModule.ProtocolVersion); // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
+            Assert.Equal(35, NetModule.ProtocolVersion); // E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
 
             var buf = new byte[PilesMessage.MaxBytes];
             var piles = new[]
@@ -1259,7 +1259,7 @@ namespace Orpheus.Tests
             Assert.Equal(Items.None, a.Inv.ItemAt(7));
             Assert.Equal(15, Assert.Single(a.Piles).Count);
             Assert.Equal(15, Assert.Single(b.Piles).Count);
-            Assert.False(a.RequestBagMove(0, 70)); // E2-5: 40…69 — сундук
+            Assert.False(a.RequestBagMove(0, 73)); // E2-5: 40…69 — сундук; E3-6: 70…72 — снаряжение, за ними (73) — отказ
             Assert.Equal(3, rig.Server.BagRequestsReceived);
 
             NetClient late = rig.Join();

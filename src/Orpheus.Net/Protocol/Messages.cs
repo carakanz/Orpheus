@@ -998,12 +998,13 @@ namespace Orpheus.Net.Protocol
     /// «Сумка» (1-002, тип 26; E2-1 — ячейками; docs/06 5.5): сумка персонажа — сервер шлёт <b>владельцу</b> при входе
     /// и когда содержимое изменилось (канал 2, надёжный). Предмет в руках для чужих сущностей —
     /// 8 бит в снимке (<see cref="SnapshotEntity.HeldItem"/>), целиком сумка чужому игроку не нужна.
-    /// Поля: тип 1 + сущность u32 + версия u16 + выбранная ячейка 1 + 40 ячеек × (предмет 1 + количество u16).
+    /// Поля: тип 1 + сущность u32 + версия u16 + выбранная ячейка 1 + 40 ячеек × (предмет 1 + количество u16)
+    /// + снаряжение 3 (предмет в ячейке «голова»/«тело»/«ноги», E3-6; протокол 35).
     /// </summary>
     public struct InventoryMessage
     {
-        /// <summary>Тип 1 + сущность 4 + версия 2 + payload 121.</summary>
-        public const int Bytes = 1 + 4 + 2 + Inventory.PayloadBytes;
+        /// <summary>Тип 1 + сущность 4 + версия 2 + payload 121 + снаряжение 3 (E3-6).</summary>
+        public const int Bytes = 1 + 4 + 2 + Inventory.PayloadBytes + 3;
 
         public int EntityId;
 
@@ -1011,6 +1012,15 @@ namespace Orpheus.Net.Protocol
         public ushort Version;
 
         public Inventory Bag;
+
+        /// <summary>Предмет в ячейке снаряжения «голова» (E3-6; 0 — пусто).</summary>
+        public byte EquipHead;
+
+        /// <summary>Предмет в ячейке снаряжения «тело» (E3-6).</summary>
+        public byte EquipBody;
+
+        /// <summary>Предмет в ячейке снаряжения «ноги» (E3-6).</summary>
+        public byte EquipLegs;
 
         public int Write(Span<byte> dest)
         {
@@ -1025,6 +1035,9 @@ namespace Orpheus.Net.Protocol
                 w.WriteUInt16((ushort)Bag.CountIn(i));
             }
 
+            w.WriteByte(EquipHead); // E3-6: надетое — окно сумки показывает его в своих трёх ячейках
+            w.WriteByte(EquipBody);
+            w.WriteByte(EquipLegs);
             return w.BytesWritten;
         }
 
@@ -1052,12 +1065,26 @@ namespace Orpheus.Net.Protocol
             }
 
             bag.Select(selected);
+            m.EquipHead = GearItemAt(r.ReadByte(), Items.SlotHead); // E3-6: надетое — своя ячейка у каждого предмета
+            m.EquipBody = GearItemAt(r.ReadByte(), Items.SlotBody);
+            m.EquipLegs = GearItemAt(r.ReadByte(), Items.SlotLegs);
             r.ExpectEnd();
             m.Bag = bag;
             return m;
         }
 
-        public override string ToString() => $"сумка #{EntityId} в{Version} {Bag}";
+        /// <summary>Надетый предмет ячейки; предмет не брони своей ячейки — протокольная ошибка (сервер такого не шлёт).</summary>
+        static byte GearItemAt(byte item, byte slot)
+        {
+            if (item != Items.None && ItemTable.Get(item).Slot != slot)
+            {
+                throw new ProtocolException($"Сумка: в ячейке снаряжения {slot} предмет {item}.");
+            }
+
+            return item;
+        }
+
+        public override string ToString() => $"сумка #{EntityId} в{Version} {Bag} броня {EquipHead}/{EquipBody}/{EquipLegs}";
     }
 
     /// <summary>Куча на земле, как её видит клиент (E2-1): номер, предмет, количество, позиция в unit.</summary>
@@ -1230,8 +1257,8 @@ namespace Orpheus.Net.Protocol
             return w.BytesWritten;
         }
 
-        /// <summary>Ячеек в заявке: сумка (0…39) и открытый сундук (40…69; E2-5).</summary>
-        public const int MaxCell = Inventory.Cells + Simulation.ChestCells;
+        /// <summary>Ячеек в заявке: сумка (0…39), открытый сундук (40…69; E2-5), снаряжение (70…72; E3-6).</summary>
+        public const int MaxCell = Inventory.Cells + Simulation.ChestCells + Simulation.EquipCells;
 
         public static BagRequestMessage Read(ReadOnlySpan<byte> src)
         {

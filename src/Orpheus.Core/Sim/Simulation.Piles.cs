@@ -379,13 +379,35 @@ namespace Orpheus.Core.Sim
             switch (r.Op)
             {
                 case BagOp.Move:
-                    inv.Move(r.From, r.To);
+                    if (IsEquipCell(r.From) || IsEquipCell(r.To))
+                    {
+                        ApplyEquipMove(tick, slot, r); // E3-6: наделить/снять (обмен с сумкой)
+                    }
+                    else
+                    {
+                        inv.Move(r.From, r.To);
+                    }
+
                     break;
                 case BagOp.Split:
                     inv.Split(r.From, r.To, r.Count);
                     break;
                 case BagOp.Drop:
                     {
+                        if (IsEquipCell(r.From))
+                        {
+                            // E3-6: сброс надетого на землю (стопка 1 — вся штука).
+                            byte worn = GetEquip(_entities[slot], EquipSlotOfCell(r.From));
+                            if (worn != Items.None)
+                            {
+                                SetEquip(ref _entities[slot], EquipSlotOfCell(r.From), Items.None);
+                                RecalcGear(ref _entities[slot]);
+                                SpawnPile(tick, worn, 1, _entities[slot].Mover.Position, DropPickupDelayTicks);
+                            }
+
+                            break;
+                        }
+
                         byte item = inv.ItemAt(r.From);
                         int n = inv.TakeFrom(r.From, r.Count == 0 ? int.MaxValue : r.Count);
                         if (n > 0)

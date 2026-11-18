@@ -170,16 +170,29 @@ namespace Orpheus.Net.Session
         /// <summary>
         /// «Сумка» игроку (1-002, тип 26, канал 2): сумка его сущности — при входе и при каждом изменении
         /// (сверка в <see cref="SendSnapshots"/>). Версия растёт при каждой отправке; порядок хранит канал 2.
+        /// E3-6: вместе с сумкой уходит надетое (три ячейки снаряжения) — окно сумки показывает их.
         /// </summary>
-        private void SendInventoryTo(Player pl, in Inventory bag)
+        private void SendInventoryTo(Player pl, in SimEntity e)
         {
             pl.InvVersion = unchecked((ushort)(pl.InvVersion + 1));
-            pl.SentInv = bag;
+            pl.SentInv = e.Inv;
+            pl.SentGear = GearKey(e);
             pl.HasSentInv = true;
-            int len = new InventoryMessage { EntityId = pl.EntityId, Version = pl.InvVersion, Bag = bag }.Write(_buf);
+            int len = new InventoryMessage
+            {
+                EntityId = pl.EntityId,
+                Version = pl.InvVersion,
+                Bag = e.Inv,
+                EquipHead = e.EquipHead,
+                EquipBody = e.EquipBody,
+                EquipLegs = e.EquipLegs,
+            }.Write(_buf);
             _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             InventoriesSent++;
         }
+
+        /// <summary>Надетое тремя байтами в одном числе (сверка «сумка изменилась» — вместе с нею, E3-6).</summary>
+        static int GearKey(in SimEntity e) => e.EquipHead | (e.EquipBody << 8) | (e.EquipLegs << 16);
 
         /// <summary>
         /// После такта: снимок каждому игроку в игре (0-014, 4.3). База — снимок, который клиент подтвердил
@@ -213,9 +226,9 @@ namespace Orpheus.Net.Session
 
                     SendChestTo(pl, slot); // E2-5: открытый сундук — содержимое, если изменилось, или «закрыт»
 
-                    if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))
+                    if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv || GearKey(entities[slot]) != pl.SentGear))
                     {
-                        SendInventoryTo(pl, entities[slot].Inv); // 1-002: сумка изменилась (копание, подбор, смена ячейки)
+                        SendInventoryTo(pl, entities[slot]); // 1-002: сумка изменилась (копание, подбор, смена ячейки); E3-6 — и надетое
                         int ci = Characters.FindEntity(pl.EntityId); // 1-004: запись реестра — за сущностью, сейв в мире берёт живую сумку
                         if (ci >= 0)
                         {

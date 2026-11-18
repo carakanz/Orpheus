@@ -450,7 +450,7 @@ namespace Orpheus.Tests
             Assert.Equal(13u, SaveContainer.Read(v13).Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v13);
             string hash = StateHash.Compute(sim).Total.ToString("x16");
-            Assert.Equal("5c1e87344ea8d510", hash); // хэш генератора после загрузки (код 45fce53)
+            Assert.Equal("fde26d9ee8b93917", hash); // хэш генератора после загрузки (код 45fce53); E3-6: формат 15
             Assert.Equal(4, sim.Piles.Length);
             int arrows = 0;
             foreach (GroundPile p in sim.Piles)

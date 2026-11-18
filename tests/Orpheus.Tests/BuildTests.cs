@@ -1187,7 +1187,7 @@ namespace Orpheus.Tests
             Assert.Equal(77, st.Characters[1].Inv.Count(Items.Stone));
 
             Simulation sim = SaveFixtures.Load(baseBytes, v8);
-            Assert.Equal("e09eff630b0899ff", StateHash.Compute(sim).Total.ToString("x16"));
+            Assert.Equal("514e925be82bb377", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 15 (надетое в записи сущности)
             var chest = new TileCoord(124, 127);
             var bed = new TileCoord(124, 129);
             Assert.Equal(ObjectId.Chest, Obj(sim, chest));
@@ -1226,7 +1226,7 @@ namespace Orpheus.Tests
             Assert.True(f.IsOk, f.Error);
             Assert.Equal(8u, f.Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v8);
-            Assert.Equal("5b86237e5673c26d", StateHash.Compute(sim).Total.ToString("x16")); // хэш, записанный генератором
+            Assert.Equal("4bfc5e59ad33151f", StateHash.Compute(sim).Total.ToString("x16")); // хэш, записанный генератором; E3-6: формат 15
 
             int id = sim.Entities[0].Id;
             var cases = new List<(TileCoord Tile, byte Floor, ushort Obj, byte Natural, int Integrity, byte Item, int Refund)>();
@@ -1278,7 +1278,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Net_GoldenBytes_Use_Reply_Chest_Repair()
         {
-            Assert.Equal(34, NetModule.ProtocolVersion); // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
+            Assert.Equal(35, NetModule.ProtocolVersion); // E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[256];
             int n = new UseRequestMessage { Op = UseOp.Use, Tile = new TileCoord(0x0102, 0x0304) }.Write(buf);
             Assert.Equal(UseRequestMessage.Bytes, n);

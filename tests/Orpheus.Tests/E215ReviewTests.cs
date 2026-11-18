@@ -291,7 +291,7 @@ namespace Orpheus.Tests
             Assert.Equal(10u, f.Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v10);
             string hash = StateHash.Compute(sim).Total.ToString("x16");
-            Assert.Equal("1b6417ad926914f6", hash); // хэш генератора (код main)
+            Assert.Equal("0329ad4c20838f97", hash); // хэш генератора (код main); E3-6: формат 15
 
             for (int x = 130; x <= 132; x++)
             {

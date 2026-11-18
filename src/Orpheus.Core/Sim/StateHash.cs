@@ -277,6 +277,9 @@ namespace Orpheus.Core.Sim
             h.Add(e.MaxHealth);
             h.Add(e.Armor);
             h.Add(e.Mass);
+            h.Add(e.EquipHead); // E3-6: снаряжение (Armor/Mass — его производные, поля — для точного расхождения)
+            h.Add(e.EquipBody);
+            h.Add(e.EquipLegs);
             h.Add(e.InvulnTicks);
             h.Add(e.RegenTicks);
             h.Add(e.RegenCarryX100);

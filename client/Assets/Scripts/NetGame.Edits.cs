@@ -37,8 +37,17 @@ namespace Orpheus.Client
         // (копание, подбор). Выбранная ячейка для руки берётся из своих кадров, пока подтверждение не пришло.
         Inventory _bag = Inventory.StartingKit();
 
-        /// <summary>Сумка от сервера (этап 4): зеркало — серверная сумка целиком, включая выбранную ячейку.</summary>
-        void OnInventory(InventoryMessage m) => _bag = m.Bag;
+        // E3-6: надетое (голова / тело / ноги) — приходит в конце «сумки» (26), показываем в трёх ячейках окна.
+        byte _equipHead, _equipBody, _equipLegs;
+
+        /// <summary>Сумка от сервера (этап 4): зеркало — серверная сумка целиком, включая выбранную ячейку и надетое (E3-6).</summary>
+        void OnInventory(InventoryMessage m)
+        {
+            _bag = m.Bag;
+            _equipHead = m.EquipHead;
+            _equipBody = m.EquipBody;
+            _equipLegs = m.EquipLegs;
+        }
 
         /// <summary>Предмет в руках: ячейка последнего отправленного кадра, содержимое — из зеркала сумки (1-002).</summary>
         byte HeldItem => _bag.SlotAt(HeldCell);
@@ -198,7 +207,7 @@ namespace Orpheus.Client
                 _ui.Hearth = CenterOf(_map.Width / 2, _map.Height / 2); // допущение C-029: Очаг — центр мира (точка появления)
             }
             _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0,
-                Orpheus.Core.Movement.Stamina.Max, craft, build);
+                Orpheus.Core.Movement.Stamina.Max, craft, build, _equipHead, _equipBody, _equipLegs); // E3-6: надетое — из «сумки» (26)
             if (_ui.SlotClicked >= 0)
             {
                 _slot = _ui.SlotClicked;
