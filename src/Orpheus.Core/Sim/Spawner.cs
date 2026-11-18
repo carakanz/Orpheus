@@ -66,6 +66,24 @@ namespace Orpheus.Core.Sim
         /// <summary>«Интерес» после появления: 20 с = 600 тактов (8.3).</summary>
         public const int SpawnInterestTicks = 600;
 
+        // ----- Выбор архетипа при появлении (E3-3, допущение карточки: числа под баланс этапа 3) -----
+
+        /// <summary>Лес: шанс волчьей стаи (процентов).</summary>
+        public const int SpawnWolfPackPct = 40;
+
+        /// <summary>Лес: шанс лучника после волков (процентов).</summary>
+        public const int SpawnArcherForestPct = 30;
+
+        /// <summary>Луг: шанс лучника (процентов), остальное — разбойник.</summary>
+        public const int SpawnArcherGrassPct = 35;
+
+        /// <summary>Стая волков: размер от…до (влезли в проходимые соседние тайлы).</summary>
+        public const int SpawnWolfPackMin = 2;
+        public const int SpawnWolfPackMax = 3;
+
+        /// <summary>Смещения стаи: E, N, W, S от тайла-кандидата.</summary>
+        private static readonly Int2[] WolfPackOffsets = { new Int2(1, 0), new Int2(0, 1), new Int2(-1, 0), new Int2(0, -1) };
+
         /// <summary>Заливка «замкнутости» (как <see cref="Pathing.PathFinder"/>): лимит 256 тайлов; меньше — область замкнута.</summary>
         public const int SpawnEnclosureFillLimit = 256;
 
@@ -290,8 +308,8 @@ namespace Orpheus.Core.Sim
         /// <summary>
         /// Попытка появления (8.5, C-006): только в фазе «ночь», раз в 120 тактов — следующий игрок
         /// по кругу; если его окрестность 40 т ниже лимита группы — до 10 тайлов кольца 36–46 т, первый годный
-        /// тайл → «Ближний» с «Интересом» на своего игрока. Архетип: «Стрелок» (1-008) не реализован —
-        /// таблица 2:1 вырождается в 100 % «Ближний» (записано в решениях карточки).
+        /// тайл → враг с «Интересом» на своего игрока. Архетип выбирается по полу тайла (E3-3):
+        /// лес — стая волков / лучник / разбойник, луг — лучник / разбойник (допущение карточки E3-3).
         /// </summary>
         private void StepSpawnAttempt(long tick)
         {
@@ -342,14 +360,59 @@ namespace Orpheus.Core.Sim
                     continue;
                 }
 
-                int id = AddMeleeRogue(EditRules.CenterOf(tile), NightMultX1024);
-                int slot = SlotOf(id);
-                ref EnemyBrain b = ref _entities[slot].Brain;
-                b.CauseId = pid;
-                b.State = EnemyState.Interest;
-                b.StateTicks = 0;
-                b.InterestUntil = tick + SpawnInterestTicks;
-                return; // одна сущность за попытку
+                // Выбор архетипа (E3-3, допущение карточки): лес — стая волков 40 %, лучник 30 %, разбойник 30 %;
+                // луг — лучник 35 %, разбойник 65 %. Шум от (игрок + кандидат, такт, зерно) — детерминизм 11.5.
+                ulong ha = EnemyRng.Hash(unchecked(pid + k * 1021 + 7777), tick, seed);
+                byte arche;
+                int pack = 1;
+                if (FloorId.IsForest(_world.GetFloor(tile)))
+                {
+                    int roll = (int)(ha % 100);
+                    if (roll < SpawnWolfPackPct)
+                    {
+                        arche = EnemyArchetype.Beast;
+                        pack = 2 + (int)((ha >> 8) % (SpawnWolfPackMax - SpawnWolfPackMin + 1)); // стая 2–3
+                    }
+                    else if (roll < SpawnWolfPackPct + SpawnArcherForestPct)
+                    {
+                        arche = EnemyArchetype.Ranged;
+                    }
+                    else
+                    {
+                        arche = EnemyArchetype.Melee;
+                    }
+                }
+                else
+                {
+                    arche = (int)(ha % 100) < SpawnArcherGrassPct ? EnemyArchetype.Ranged : EnemyArchetype.Melee;
+                }
+
+                for (int w = 0; w < pack; w++)
+                {
+                    TileCoord wt = tile;
+                    if (w > 0)
+                    {
+                        // Стаю — на соседние проходимые тайлы (E,N,W,N по шуму); сколько влезло — столько стаи.
+                        Int2 off = WolfPackOffsets[(int)(((ha >> 12) + (ulong)(w * 3)) & 3)];
+                        wt = Torus.Wrap(_shape, new TileCoord(tile.X + off.X, tile.Y + off.Y));
+                        if (!IsSpawnTileOk(wt))
+                        {
+                            break;
+                        }
+                    }
+
+                    int id = arche == EnemyArchetype.Beast ? AddBeastWolf(EditRules.CenterOf(wt), NightMultX1024)
+                        : arche == EnemyArchetype.Ranged ? AddRangedArcher(EditRules.CenterOf(wt), NightMultX1024)
+                        : AddMeleeRogue(EditRules.CenterOf(wt), NightMultX1024);
+                    int slot = SlotOf(id);
+                    ref EnemyBrain b = ref _entities[slot].Brain;
+                    b.CauseId = pid;
+                    b.State = EnemyState.Interest;
+                    b.StateTicks = 0;
+                    b.InterestUntil = tick + SpawnInterestTicks;
+                }
+
+                return; // одна сущность (стая — одна волна) за попытку
             }
         }
 

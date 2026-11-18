@@ -16,8 +16,14 @@ namespace Orpheus.Core.Sim
         /// <summary>«Ближний» (8.1): догоняет и бьёт в упор; урон 10, скорость 4,5 тайла/с.</summary>
         public const byte Melee = 1;
 
+        /// <summary>«Дальний» (8.2, карточка E3-3): лучник — держит 8–12 тайлов, стреляет стрелами, при ранении отходит.</summary>
+        public const byte Ranged = 2;
+
+        /// <summary>«Зверь» (8.2, карточка E3-3): волк — быстрый, рывок с 6 тайлов, укус, при 4 HP отходит; стая 2–3.</summary>
+        public const byte Beast = 3;
+
         /// <summary>Число архетипов (поле в снимке — 2 бита).</summary>
-        public const int Count = 2;
+        public const int Count = 4;
     }
 
     /// <summary>
@@ -53,6 +59,18 @@ namespace Orpheus.Core.Sim
         /// обнаружения — Преследование (обычным зрением мозга). Снимок — 3 бита (State &amp; 7), влезает.
         /// </summary>
         Interest = 7,
+
+        /// <summary>
+        /// Отступление (E3-3): лучник держит дистанцию (движение от цели), волк при 4 HP убегает.
+        /// В снимке 3 бита: (8 &amp; 7) = 0 — клиент по архетипу рисует бегущую стойку.
+        /// </summary>
+        Retreat = 8,
+
+        /// <summary>
+        /// Рывок волка (E3-3): бросок до цели с 6 тайлов, скорость выше погони.
+        /// В снимке 3 бита: (9 &amp; 7) = 1 — клиент по архетипу рисует бег.
+        /// </summary>
+        Pounce = 9,
     }
 
     /// <summary>
@@ -265,6 +283,82 @@ namespace Orpheus.Core.Sim
         /// проходит, идущий в обход — проходит за ~10 тактов.
         /// </summary>
         public const int EpisodeClosePathPoints = 4;
+    }
+
+    /// <summary>
+    /// Числа «Дальнего»-лучника (E3-3, docs/02 8.2): 25 HP, стрела 8 урона, выстрел раз в 2 с;
+    /// держит 8–12 тайлов, дальше — сближается, ближе — отступает (раненый ≤ 50 % HP — отходит до 10 тайлов);
+    /// стреляет при чистой линии до 14 тайлов. Отход 1,0× героя (512 X10), крейсерская 0,8× погони разбойника.
+    /// </summary>
+    public static class RangedArcher
+    {
+        public const int MaxHealth = 25;
+
+        /// <summary>Урон стрелы (сырой; ночь масштабируется при выстреле, как удар).</summary>
+        public const int ShotDamage = 8;
+
+        /// <summary>Выстрел раз в 2 с (60 тактов).</summary>
+        public const int PeriodTicks = 60;
+
+        /// <summary>≤ 50 % максимума — «ранен»: держит дальнюю границу (10 тайлов).</summary>
+        public const int WoundedPct = 50;
+
+        /// <summary>Ближе 8 тайлов — отход (квадрат в юнитах², тайл = 256 юнитов, как <see cref="MeleeRogue.Sight2"/>).</summary>
+        public const long KeepOut2 = 8L * Torus.SubTilesPerTile * 8 * Torus.SubTilesPerTile;
+
+        /// <summary>Раненый: ближе 10 тайлов — отход.</summary>
+        public const long WoundedKeepOut2 = 10L * Torus.SubTilesPerTile * 10 * Torus.SubTilesPerTile;
+
+        /// <summary>Дальше 12 тайлов — сближение.</summary>
+        public const long KeepIn2 = 12L * Torus.SubTilesPerTile * 12 * Torus.SubTilesPerTile;
+
+        /// <summary>Стреляет до 14 тайлов (чистая линия).</summary>
+        public const long ShootIn2 = 14L * Torus.SubTilesPerTile * 14 * Torus.SubTilesPerTile;
+
+        /// <summary>Крейсерская (сближение) — 0,8× погони разбойника (460).</summary>
+        public const int CruiseSpeedX10 = 368;
+
+        /// <summary>Отход — 1,0× скорости героя (512 X10 = 5,0 т/с).</summary>
+        public const int RetreatSpeedX10 = 512;
+
+        /// <summary>Скорость стрелы (X256, как низ лука) и дальность полёта (юниты).</summary>
+        public const int ArrowSpeedX256 = 18 * 256;
+
+        public const int ArrowRangeUnits = 16 * Torus.SubTilesPerTile;
+    }
+
+    /// <summary>
+    /// Числа «Зверя»-волка (E3-3, docs/02 8.2): 21 HP, укус 7 урона; крейсерская 4,5 т/с (как погоня
+    /// разбойника), рывок с 6 тайлов — бросок 8,0 т/с на 15 тактов; укус в упор (зона как у ближнего);
+    /// при ≤ 4 HP отходит на 4 тайла, упёрся — принимает бой. Стая 2–3 (спавнер, лес).
+    /// </summary>
+    public static class BeastWolf
+    {
+        public const int MaxHealth = 21;
+        public const int StrikeDamage = 7;
+        public const int PeriodTicks = MeleeRogue.PeriodTicks;
+
+        /// <summary>≤ 4 HP — отход от цели.</summary>
+        public const int FleeHp = 4;
+
+        /// <summary>Зона укуса — как у ближнего (1-013).</summary>
+        public const long StrikeRange2 = MeleeRogue.StrikeRange2;
+
+        /// <summary>Рывок: цель дальше 6 тайлов — бросок на <see cref="PounceTicks"/> тактов, перерыв
+        /// <see cref="PounceCooldownTicks"/> (в среднем 4,9 т/с — далеко убегающего героя не догоняет).</summary>
+        public const long PounceFrom2 = 6L * Torus.SubTilesPerTile * 6 * Torus.SubTilesPerTile;
+        public const int PounceTicks = 15;
+        public const int PounceCooldownTicks = 120;
+
+        /// <summary>Отход: держит 4 тайла от цели.</summary>
+        public const long FleeGoal2 = 4L * Torus.SubTilesPerTile * 4 * Torus.SubTilesPerTile;
+
+        /// <summary>Упёрся в бегстве за 60 тактов — принимает бой (атакует).</summary>
+        public const int BlockedFightTicks = 60;
+
+        public const int ChaseSpeedX10 = MeleeRogue.ChaseSpeedX10; // 460 = 4,5 т/с
+        public const int PounceSpeedX10 = 819;                     // 8,0 т/с
+        public const int FleeSpeedX10 = 614;                       // 6,0 т/с
     }
 
     /// <summary>

@@ -767,7 +767,8 @@ namespace Orpheus.Client
                     }
 
                     _seen.Add(id);
-                    GameObject go = GetEntity(id, snap.Entities[i].Kind);
+                    GameObject go = GetEntity(id, snap.Entities[i].Kind,
+                        (byte)(snap.Entities[i].Enemy >> SnapshotLayout.EnemyArchetypeShift)); // E3-3: тон по архетипу
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
                     _anim?.Remote(id, go.transform, snap.Entities[i]); // E2-7: предмет в руке и удар мечом чужих — из снимка
@@ -855,7 +856,7 @@ namespace Orpheus.Client
             _measureSelf = true;
         }
 
-        GameObject GetEntity(int id, byte kind)
+        GameObject GetEntity(int id, byte kind, byte archetype = 0)
         {
             if (_ents.TryGetValue(id, out GameObject? existing))
             {
@@ -870,7 +871,8 @@ namespace Orpheus.Client
             var sr = spriteGo.AddComponent<SpriteRenderer>();
             sr.sprite = _heroSprite;
             // E3-4: враг выглядит врагом — тёплый красный, как манекены (своих ассетов врагов в клиенте пока нет).
-            sr.color = kind == SimEntity.KindEnemy ? Anim.ActorFactory.EnemyTint : new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
+            // E3-3: тон по архетипу из снимка — лучник синий, волк серый, ближний красный.
+            sr.color = kind == SimEntity.KindEnemy ? Anim.ActorFactory.EnemyTintFor(archetype) : new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
             sr.sortingOrder = WorldView.ObjectOrder;
             sr.spriteSortPoint = SpriteSortPoint.Pivot;
             WorldFx.AddActorShadow(root.transform, 0.8f); // E1-7: пятно-тень под существом

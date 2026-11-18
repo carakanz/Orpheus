@@ -629,7 +629,8 @@ namespace Orpheus.Client.Anim
             strip.Apply();
             Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ||
                  s.Name.StartsWith("E3-2", StringComparison.Ordinal) || s.Name.StartsWith("C-031", StringComparison.Ordinal) ||
-                 s.Name.StartsWith("C-028", StringComparison.Ordinal) || s.Name.StartsWith("E3-4", StringComparison.Ordinal)
+                 s.Name.StartsWith("C-028", StringComparison.Ordinal) || s.Name.StartsWith("E3-4", StringComparison.Ordinal) ||
+                 s.Name.StartsWith("E3-3", StringComparison.Ordinal)
                  ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
         }

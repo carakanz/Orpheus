@@ -196,7 +196,7 @@ namespace Orpheus.Tests
             Assert.Equal((1, 1), (tr.OffsetX, tr.OffsetY));
 
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат11→13"), 6, 0);
-            Assert.Equal(14u, SaveContainer.Read(again).Header.FormatVersion);
+            Assert.Equal(15u, SaveContainer.Read(again).Header.FormatVersion);
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total.ToString("x16"));
         }
 
@@ -243,7 +243,7 @@ namespace Orpheus.Tests
             Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, new TileCoord(121, 133)));
 
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат12→13"), 6, 0);
-            Assert.Equal(14u, SaveContainer.Read(again).Header.FormatVersion);
+            Assert.Equal(15u, SaveContainer.Read(again).Header.FormatVersion);
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total.ToString("x16"));
         }
 
