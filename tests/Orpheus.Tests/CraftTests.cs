@@ -749,7 +749,7 @@ namespace Orpheus.Tests
 
             // Хэш состояния — тот же, что посчитал код, записавший файл.
             Simulation sim = SaveFixtures.Load(baseBytes, v7);
-            Assert.Equal("5b706bed9dbf5b21", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 15
+            Assert.Equal("5b706bed9dbf5b21", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 16
 
             // Мир из старого файла живёт: руды 17 → слитки у верстака нет (отказ), верёвка руками — делается.
             int id = st.Entities[0].Id;

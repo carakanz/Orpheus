@@ -1187,7 +1187,7 @@ namespace Orpheus.Tests
             Assert.Equal(77, st.Characters[1].Inv.Count(Items.Stone));
 
             Simulation sim = SaveFixtures.Load(baseBytes, v8);
-            Assert.Equal("514e925be82bb377", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 15 (надетое в записи сущности)
+            Assert.Equal("514e925be82bb377", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 16 (надетое в записи сущности)
             var chest = new TileCoord(124, 127);
             var bed = new TileCoord(124, 129);
             Assert.Equal(ObjectId.Chest, Obj(sim, chest));
@@ -1226,7 +1226,7 @@ namespace Orpheus.Tests
             Assert.True(f.IsOk, f.Error);
             Assert.Equal(8u, f.Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v8);
-            Assert.Equal("4bfc5e59ad33151f", StateHash.Compute(sim).Total.ToString("x16")); // хэш, записанный генератором; E3-6: формат 15
+            Assert.Equal("4bfc5e59ad33151f", StateHash.Compute(sim).Total.ToString("x16")); // хэш, записанный генератором; E3-6: формат 16
 
             int id = sim.Entities[0].Id;
             var cases = new List<(TileCoord Tile, byte Floor, ushort Obj, byte Natural, int Integrity, byte Item, int Refund)>();
@@ -1318,7 +1318,7 @@ namespace Orpheus.Tests
             Assert.Equal(5, buf[3]);
             n = new BagRequestMessage { Op = BagOp.Move, From = 69, To = 0 }.Write(buf);
             Assert.Equal(69, BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).From);
-            buf[2] = 70;
+            buf[2] = 73; // E3-6: MaxCell = 40 + 30 + 3 = 73
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
         }
 

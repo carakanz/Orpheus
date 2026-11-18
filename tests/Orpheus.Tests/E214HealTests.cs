@@ -374,7 +374,7 @@ namespace Orpheus.Tests
             byte[] v10 = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format10_build.save"));
             byte[] baseBytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format10_build.base"));
             Simulation sim = SaveFixtures.Load(baseBytes, v10);
-            Assert.Equal("0329ad4c20838f97", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 15
+            Assert.Equal("0329ad4c20838f97", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 16
             Assert.True(sim.HealScanPending);
             Assert.True(sim.Heals.IsEmpty);
 

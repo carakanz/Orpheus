@@ -406,7 +406,7 @@ namespace Orpheus.Tests
             Assert.True(f.IsOk, f.Error);
             Assert.Equal(9u, f.Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v9);
-            Assert.Equal("57928adf1114518e", StateHash.Compute(sim).Total.ToString("x16")); // хэш генератора (код E2-11); E3-6: формат 15
+            Assert.Equal("57928adf1114518e", StateHash.Compute(sim).Total.ToString("x16")); // хэш генератора (код E2-11); E3-6: формат 16
 
             var cases = new List<(TileCoord Tile, ushort Obj, byte Item, int Refund)>();
             for (int i = 0; i < 3; i++)

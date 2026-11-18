@@ -1450,7 +1450,7 @@ namespace Orpheus.Save
             bool hasBrain = false;
             // Бой (формат 6, 1-007): в форматах 1–5 полей нет — нули, Simulation.RestoreDefaults подставит дефолты спавна.
             int health = 0, maxHealth = 0, armor = 0, mass = 0, invuln = 0, regen = 0, regenCarry = 0, combat = 0, dead = 0;
-            int equipHead = 0, equipBody = 0, equipLegs = 0; // E3-6: снаряжение (формат 15)
+            int equipHead = 0, equipBody = 0, equipLegs = 0; // E3-6: снаряжение (формат 16)
             int windup = 0, recover = 0, immune = 0, atkTarget = 0, atkRaw = 0, period = 0, atkOriginX = 0, atkOriginY = 0, atkFacing = 0;
             int knockLeft = 0, knockSpeed = 0, knockDir = 0, aimAngle = 0, inputSlot = 0;
             while (r.Next())

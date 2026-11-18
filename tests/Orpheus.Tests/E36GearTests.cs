@@ -282,7 +282,7 @@ namespace Orpheus.Tests
             Assert.Equal(2, e.Armor);
         }
 
-        // ---------- Сейв (формат 15) ----------
+        // ---------- Сейв (формат 16) ----------
 
         /// <summary>Сейв сохраняет надетое; после загрузки в новую симуляцию Armor и Mass считаются заново по нему.</summary>
         [Fact]
@@ -387,7 +387,11 @@ namespace Orpheus.Tests
             Run(sim, Simulation.RespawnDelayTicks + 2);
             SimEntity e = sim.GetEntity(id);
             Assert.True(e.Alive);
-            Assert.True(Torus.Dist2(sim.Shape, e.Mover.Position, sim.RespawnCenter) <= (long)(4 * U) * (4 * U),
+            // Сравниваем с явным центром мира (тайл Очага), а не с RespawnCenter: проверка не должна
+            // ссылаться на саму точку возрождения.
+            var hearthPos = new WorldPos((sim.Shape.Width / 2 << Torus.SubTileBits) + Torus.SubTilesPerTile / 2,
+                (sim.Shape.Height / 2 << Torus.SubTileBits) + Torus.SubTilesPerTile / 2);
+            Assert.True(Torus.Dist2(sim.Shape, e.Mover.Position, hearthPos) <= (long)(4 * U) * (4 * U),
                 "Возрождение без кровати — у Очага (центр мира).");
         }
 

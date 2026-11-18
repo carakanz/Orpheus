@@ -1168,17 +1168,17 @@ namespace Orpheus.Tests
             BagRequestMessage req = BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal(BagOp.Split, req.Op);
             Assert.Equal(15, req.Count);
-            buf[2] = 70; // ячейка вне сумки и сундука (E2-5: 40…69 — ячейки открытого сундука)
+            buf[2] = 73; // ячейка вне сумки, сундука и носимого (E2-5: 40…69 — сундук; E3-6: 70…72 — носимое)
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
             buf[2] = 6;
             buf[1] = 0; // нет такой операции
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
-            // Сумка (26) ячейками: 7 + 121 байт, начало — тип, сущность, версия, выбранная ячейка, ячейка 0.
+            // Сумка (26) + носимое (E3-6) ячейками: 7 + 124 байта, начало — тип, сущность, версия, выбранная ячейка, ячейка 0.
             var bag = Inventory.StartingKit();
             n = new InventoryMessage { EntityId = 5, Version = 2, Bag = bag }.Write(buf);
             Assert.Equal(InventoryMessage.Bytes, n);
-            Assert.Equal(128, n);
+            Assert.Equal(131, n);
             Assert.Equal("1A-05-00-00-00-02-00-00-01-01-00-02-01-00", BitConverter.ToString(buf, 0, 14));
             Assert.Equal(bag, InventoryMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Bag);
         }
