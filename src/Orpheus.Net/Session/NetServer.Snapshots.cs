@@ -15,7 +15,7 @@ namespace Orpheus.Net.Session
     /// </summary>
     public sealed partial class NetServer
     {
-        private static SnapshotEntity Quantize(in SimEntity e) => new SnapshotEntity
+        private SnapshotEntity Quantize(in SimEntity e) => new SnapshotEntity
         {
             Id = e.Id,
             Kind = e.Kind,
@@ -25,7 +25,34 @@ namespace Orpheus.Net.Session
             HeldItem = e.Inv.Held, // 1-002: предмет в руках — картинка у всех
             Melee = (byte)(e.Mover.Melee.Phase | (e.Mover.Melee.Index << 2)), // 1-004: фаза удара — анимация у чужих
             Enemy = SnapshotLayout.EncodeEnemy(e.Brain.Archetype, e.Brain.SnapshotState), // 1-007: ИИ врага — архетип + состояние
+            Action = ActionOf(e), // C-036: взмах кирки / натяжение лука — анимация у чужих
         };
+
+        /// <summary>
+        /// Действие сущности для снимка (C-036): лук — фаза натяжения (<see cref="BowAction.PhaseDraw"/>), прогресс — сила
+        /// <see cref="BowAction.PowerQ8"/>&gt;&gt;2 (0…63, меняется раз в ~4 кадра — дельта редкая). Копка/взмах кирки —
+        /// окно в <see cref="EditState"/> игрока, квант 16 кадров (как фазы меча 1-004: дельта раз в окно, не каждый такт);
+        /// окно 0 — стоит. Отход лука (PhaseRecover) — 0: отдачу клиент рисует по сообщению снаряда (E3-2).
+        /// Враги без лука и копки — 0.
+        /// </summary>
+        private byte ActionOf(in SimEntity e)
+        {
+            if (e.Mover.Bow.Phase == BowAction.PhaseDraw)
+                return SnapshotLayout.EncodeAction(SnapshotLayout.ActionToolBow, BowAction.PowerQ8(e.Mover.Bow.Frames) >> 2);
+            Player? pl = FindByEntity(e.Id);
+            EditState? s = pl?.Edits;
+            if (s != null && s.Digging)
+            {
+                int frames = DigFramesOf(s, e.Inv.Held); // взмах — SwingFrames, копка — время тайла; ≤ 0 — прогресс стоит
+                if (frames > 0)
+                    return SnapshotLayout.EncodeAction(SnapshotLayout.ActionToolPick, (s.DigProgress + ActionDigQuantum - 1) / ActionDigQuantum);
+            }
+
+            return 0;
+        }
+
+        /// <summary>C-036: квант окна копки/взмаха для прогресса в снимке — <see cref="SnapshotLayout.ActionDigQuantum"/>.</summary>
+        private const int ActionDigQuantum = SnapshotLayout.ActionDigQuantum;
 
         /// <summary>
         /// Обзор игрока (docs/07, 4.4; 0-022) в <paramref name="cur"/>: свой — первым; позиции квантованы; число сущностей.
@@ -157,7 +184,7 @@ namespace Orpheus.Net.Session
             w.SetWorldTime(WorldTimeTicks);
             for (int i = 0; i < curCount; i++)
             {
-                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem, _cur[i].Melee, _cur[i].Enemy))
+                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem, _cur[i].Melee, _cur[i].Enemy, _cur[i].Action))
                 {
                     break;
                 }
@@ -322,6 +349,11 @@ namespace Orpheus.Net.Session
                         f |= DeltaFields.Enemy; // 1-007
                     }
 
+                    if (_cur[ci].Action != b.Action)
+                    {
+                        f |= DeltaFields.Action; // C-036
+                    }
+
                     if (f == DeltaFields.None)
                     {
                         continue;
@@ -372,13 +404,13 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < updatedN; i++)
             {
                 SnapshotEntity e = _cur[_updCur[i]];
-                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy);
+                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy, e.Action);
             }
 
             for (int i = 0; i < addedN; i++)
             {
                 SnapshotEntity e = _cur[_addCur[i]];
-                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy);
+                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy, e.Action);
             }
 
             int len = w.Finish();
