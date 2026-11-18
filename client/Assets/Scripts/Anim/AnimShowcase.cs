@@ -18,6 +18,7 @@ namespace Orpheus.Client.Anim
     /// заданные миги кадр снимается, вырезается кусок вокруг действия и кладётся в ленту из 6 кадров:
     /// <c>K-001_walk.png</c>, <c>_dodge</c>, <c>_swing_hit</c>, <c>_swing_dodge</c>, <c>_dig</c>, плюс общий <c>K-001_overview.png</c>;
     /// E2-7 — <c>E2-7_chop</c>, <c>_mine</c>, <c>_build</c>, <c>_pickup</c>, <c>_carry</c>, <c>_sword</c> (рубка, кирка по камню, стройка, подбор, несение, меч в руке).</item>
+    /// <item>C-036 — <c>C-036_pick</c>, <c>C-036_bow</c> (чужие действие по снимку: шаги кирки и сила натяжения лука).</item>
     /// <item><c>--anim-bench &lt;сек&gt;</c>: 8 персонажей (ходьба, увороты) и 40 врагов-болванок (замах с сектором по кругу) на
     /// экране при зуме ×1,0, без вертикальной синхронизации; в лог — средний fps и 1 % худших кадров, выход 0.</item>
     /// </list>
@@ -413,6 +414,7 @@ namespace Orpheus.Client.Anim
 
             BowFrame(dt); // E3-2: лучники, стрелы, кольцо силы
             FoeFrame(dt); // E3-4: враг с мечом, ответ героя, лучник-враг, смерть (с 25 с)
+            ActionFrame(dt); // C-036: чужой с киркой (шаги прогресса) и чужой лучник (сила натяжения) — с 42,2 с
         }
 
         static SwingPhase PhaseAt(float su, out float q)
@@ -557,6 +559,11 @@ namespace Orpheus.Client.Anim
                 }
 
                 foreach (Shot s in FoeShots()) // E3-4: враги — после кирки C-028 (с 34 с)
+                {
+                    yield return Strip(s);
+                }
+
+                foreach (Shot s in ActionShots()) // C-036: действие чужого по снимку — после врагов E3-3/E3-4 (с 42,2 с)
                 {
                     yield return Strip(s);
                 }
