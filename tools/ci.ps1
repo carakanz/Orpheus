@@ -17,7 +17,11 @@ param(
     [string]$LogFile = '',
     [switch]$All,
     [switch]$Soak,
-    [switch]$SelfTest
+    [switch]$SelfTest,
+    # C-033: шлюз чистоты процессов — на время прогона крутится tools\watch_spawns.ps1
+    # (скрыто), в конце — проверка: conhost.exe на столе Автора (WinSta0\Default) из процессов
+    # этой копии = 0, иначе CI красный.
+    [switch]$Hygiene
 )
 
 $ErrorActionPreference = 'Stop'
@@ -272,6 +276,33 @@ public static class HiddenCi
         finally { CloseDesktop(desk); }
     }
 
+    // C-033: фоновый запуск на скрытом столе без труб (наблюдатель шлюза чистоты): вывод —
+    // свой файл, останавливается по -StopFile. Возвращает pid ребёнка, -1 — не вышло.
+    public static int RunAsync(string exe, string args, string cwd, string desktop)
+    {
+        const uint GenericAll = 0x10000000;
+        const uint CreateNoWindow = 0x08000000;
+        IntPtr desk = OpenDesktop(desktop, 0, (int)GenericAll);
+        if (desk == IntPtr.Zero) desk = CreateDesktop(desktop, IntPtr.Zero, IntPtr.Zero, 0, GenericAll, IntPtr.Zero);
+        if (desk == IntPtr.Zero) return -1;
+        try
+        {
+            STARTUPINFOEX siex = new STARTUPINFOEX();
+            siex.Info.cb = Marshal.SizeOf(typeof(STARTUPINFOEX));
+            siex.Info.lpDesktop = "WinSta0\\" + desktop;
+            siex.Info.dwFlags = 0x01; // STARTF_USESHOWWINDOW
+            siex.Info.wShowWindow = 0; // SW_HIDE
+            siex.lpAttributeList = IntPtr.Zero; // ручки не наследуются (ни conhost, ни трубы)
+            var cmd = new StringBuilder(exe + " " + args);
+            PROCESS_INFORMATION pi;
+            if (!CreateProcess(null, cmd, IntPtr.Zero, IntPtr.Zero, false, CreateNoWindow, IntPtr.Zero, cwd, ref siex, out pi))
+                return -1;
+            CloseHandle(pi.hThread); CloseHandle(pi.hProcess);
+            return pi.dwProcessId;
+        }
+        finally { CloseDesktop(desk); }
+    }
+
     static void Drain(SafeFileHandle h, StringBuilder into)
     {
         try
@@ -304,6 +335,23 @@ function Write-Line([string]$text, [string]$color = 'Gray') {
     if ($logPath -ne '') {
         [System.IO.File]::AppendAllText($logPath, $text + "`n", $utf8NoBom)
     }
+}
+
+# C-033: разбор TSV наблюдателя (tools\watch_spawns.ps1): time pid ppid name desktop flags path parent.
+function Read-Spawns([string]$tsv) {
+    if (-not (Test-Path $tsv)) { return @() }
+    @(Get-Content $tsv -Encoding UTF8 | Select-Object -Skip 1 | Where-Object { $_ -ne '' } | ForEach-Object {
+        $c = $_ -split "`t"
+        if ($c.Count -ge 8) { [pscustomobject]@{ Name = $c[3]; Desktop = $c[4]; Path = $c[6]; Parent = $c[7] } }
+    })
+}
+
+# C-033: «свои» — то же правило, что в watch_spawns.ps1: путь содержит имя копии, ИЛИ conhost,
+# у которого родитель из-под копии. Из них — conhost на столе Автора (WinSta0\Default).
+function Get-ConhostOnDefault([array]$rows, [string]$filter) {
+    @($rows | Where-Object {
+        $filter -eq '' -or $_.Path -like "*$filter*" -or ($_.Name -eq 'conhost.exe' -and $_.Parent -like "*$filter*")
+    } | Where-Object { $_.Name -eq 'conhost.exe' -and $_.Desktop -like '*\Default' })
 }
 
 function Join-CmdLine([string[]]$argv) {
@@ -394,9 +442,53 @@ function Invoke-SelfTest {
     $sec = [math]::Round($sw.Elapsed.TotalSeconds, 1)
     Check ($code -eq 258 -and $sec -ge 4 -and $sec -le 20 -and $stdErr -match 'таймаут') "зависший ребёнок снят таймаутом: код $code, $sec с"
 
+    # C-033: гард детектора шлюза чистоты — наблюдатель обязан ловить намеренно запущенный
+    # conhost на столе Автора. Наблюдатель (без -Filter, считаем всё) стартует в фоне; параллельно
+    # запускаем powershell -WindowStyle Hidden: новая консоль → conhost.exe на WinSta0\Default.
+    $hygTsv = Join-Path $root 'build\logs\spawns-selftest.tsv'
+    New-Item -ItemType Directory -Force (Join-Path $root 'build\logs') | Out-Null
+    Remove-Item -Force $hygTsv -ErrorAction SilentlyContinue
+    $wa = Join-CmdLine @('powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'watch_spawns.ps1'),
+        '-DurationSec', '8', '-IntervalMs', '200', '-OutFile', $hygTsv)
+    $watchPid = [HiddenCi]::RunAsync('powershell', $wa, $root, 'OrpheusHidden')
+    Check ($watchPid -ge 0) "hygiene: наблюдатель запущен (pid $watchPid)"
+    Start-Sleep -Milliseconds 700
+    # проба живёт ~6 с: наблюдатель успевает прочитать desktop по PEB (у мгновенно умерших
+    # процессов OpenProcess не даёт читать — строка приходит с «?»)
+    $probe = Start-Process -FilePath 'powershell' -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep 6') -WindowStyle Hidden -PassThru
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($watchPid -ge 0 -and (Get-Process -Id $watchPid -ErrorAction SilentlyContinue) -and $sw.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 500 }
+    try { $probe.Kill() } catch { }
+    $caught = @(Get-ConhostOnDefault (Read-Spawns $hygTsv) '')
+    Check ($caught.Count -ge 1) "hygiene: проба conhost на WinSta0\Default поймана: $($caught.Count)"
+
     return $script:selfFail
 }
 if ($SelfTest) { exit (Invoke-SelfTest) }
+
+# C-033: запуск наблюдателя шлюза чистоты (параметр -Hygiene): скрытый стол, TSV в build\logs,
+# остановка по файлу-флагу. Фильтр «своих» — имя рабочей копии (в watch_spawns: подстрока пути).
+$hygStop = ''; $hygTsv = ''; $hygPid = -1; $hygFilter = (Split-Path -Leaf $root)
+if ($Hygiene) {
+    $logDirH = Join-Path $root 'build\logs'
+    New-Item -ItemType Directory -Force $logDirH | Out-Null
+    $hygTsv = Join-Path $logDirH 'spawns.tsv'
+    $hygStop = Join-Path $logDirH 'spawns.stop'
+    Remove-Item -Force $hygTsv, $hygStop -ErrorAction SilentlyContinue
+    $wa = Join-CmdLine @('powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'watch_spawns.ps1'),
+        '-DurationSec', '7200', '-IntervalMs', '200', '-Filter', $hygFilter, '-OutFile', $hygTsv, '-StopFile', $hygStop)
+    $hygPid = [HiddenCi]::RunAsync('powershell', $wa, $root, 'OrpheusHidden')
+    if ($hygPid -lt 0) { Write-Line 'hygiene: наблюдатель не запущен — шлюз будет красный' 'Red' }
+    else {
+        # Наблюдатель обязан остановиться и при падении шага (exit внутри Invoke-Step):
+        # файл-флаг пишем на выходе из движка PowerShell.
+        $global:HygStopPath = $hygStop
+        $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
+            Set-Content -Path $global:HygStopPath -Value 'exit' -Encoding ASCII -ErrorAction SilentlyContinue
+        }
+    }
+    Write-Line "hygiene: наблюдатель запущен (pid $hygPid, фильтр '$hygFilter')" 'Gray'
+}
 
 Invoke-Step 'build' 'Cyan' @('build', $sln, '-c', $Configuration, '--nologo', '-v', 'minimal')
 $testArgs = @('test', $sln, '-c', $Configuration, '--no-build', '--nologo', '-v', 'minimal')
@@ -411,6 +503,20 @@ if ($Soak) {
     $title = 'test (без Category=Big и Soak)'
 }
 Invoke-Step $title 'Cyan' $testArgs
+
+# C-033: остановка наблюдателя и вердикт: conhost.exe на столе Автора (WinSta0\Default)
+# среди процессов этой копии = 0. Порог не ослаблять: замеры 14–16.11 (C-022) чистые.
+if ($Hygiene) {
+    if ($hygStop -ne '') { Set-Content -Path $hygStop -Value 'exit' -Encoding ASCII -ErrorAction SilentlyContinue }
+    $swH = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($hygPid -ge 0 -and (Get-Process -Id $hygPid -ErrorAction SilentlyContinue) -and $swH.Elapsed.TotalSeconds -lt 15) { Start-Sleep -Milliseconds 300 }
+    $rowsH = Read-Spawns $hygTsv
+    $ownH = @($rowsH | Where-Object { $_.Path -like "*$hygFilter*" -or ($_.Name -eq 'conhost.exe' -and $_.Parent -like "*$hygFilter*") })
+    $badH = Get-ConhostOnDefault $rowsH $hygFilter
+    Write-Line ("hygiene: новых процессов {0}, своих {1}, conhost на WinSta0\Default: {2}" -f $rowsH.Count, $ownH.Count, $badH.Count) $(if ($badH.Count -gt 0) { 'Red' } else { 'Green' })
+    $badH | Select-Object -First 10 | ForEach-Object { Write-Line "   $($_.Name) desktop $($_.Desktop) родитель $($_.Parent)" 'Red' }
+    if ($badH.Count -gt 0) { Write-Line 'hygiene: на столе Автора появились дочерние процессы прогона — шлюз красный' 'Red'; exit 4 }
+}
 
 $sec = [math]::Round($total.Elapsed.TotalSeconds, 1)
 if ($TimeLimitSec -gt 0 -and $total.Elapsed.TotalSeconds -gt $TimeLimitSec) {
