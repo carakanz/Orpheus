@@ -358,7 +358,7 @@ namespace Orpheus.Tests
         private static Simulation SaveAndLoad(SaveFixtures.LiveWorld live, Simulation sim, out LoadedWorldState st)
         {
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "восстановление"), 3, 0);
-            Assert.Equal(15u, SaveContainer.Read(save).Header.FormatVersion);
+            Assert.Equal(16u, SaveContainer.Read(save).Header.FormatVersion);
             st = WorldSave.Load(SaveContainer.Read(save), WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(sim.Heals.ToArray(), st.Heals);
             return SaveFixtures.Load(live.BaseBytes, save);
