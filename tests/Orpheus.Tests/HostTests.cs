@@ -78,7 +78,7 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 0 }));
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 4 }));
             Assert.Equal("Хост вышел. Мир сохранён у него", new ClosingMessage { Reason = ClosingReason.HostLeft }.Describe());
-            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.Strike + 1 })); // последний тип — Strike (C-028; до него — Projectile, E3-2; до него — Damage, E3-1; до него — NearbyStock, E2-10; до него — ChestState, E2-5; до него — CraftState, E2-3; до него — BagRequest, E2-1)
+            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.EventBatch + 1 })); // последний тип — пачка событий (C-035); до него — Strike (C-028), Projectile (E3-2), Damage (E3-1), NearbyStock (E2-10), ChestState (E2-5), CraftState (E2-3), BagRequest (E2-1)
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.MeleeResult + 1 })); // 15 не занят: после MeleeResult (0-029)
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { 15 }));
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.Chunk - 1 })); // … и до Chunk (0-026)
