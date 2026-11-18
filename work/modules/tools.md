@@ -64,5 +64,11 @@
 - `-SelfTest` (код 0 = зелёный): таблицы `Join-CmdLine` (экранирование MSVC), гард stdin-читателя (powershell `ReadToEnd` по EOF; `cmd /c more` не годится — после EOF ждёт клавишу на `CONIN$`), гард таймаута (зависший ребёнок → 258).
 - Быстрый CI: `tools\ci.ps1 -TimeLimitSec 0` (дефолт `TimeLimitSec=60` — легасюк, прогон ~145 с).
 
+### C-033 (18.11) — шлюз чистоты процессов `-Hygiene`
+- `tools\ci.ps1 -Hygiene`: на время шагов крутится `tools\watch_spawns.ps1` (наблюдатель spawn'ов, C-022) — сам запускается скрыто через новый `[HiddenCi]::RunAsync` (скрытый стол, без труб, вывод — TSV `build\logs\spawns.tsv`, остановка по `-StopFile`; `Register-EngineEvent PowerShell.Exiting` — стоп и при падении шага). НЕ `Start-Job`: job-воркеры сами плодят conhost на столе Автора.
+- Вердикт в конце: «hygiene: новых N, своих M, conhost на WinSta0\Default: K»; K > 0 → exit 4 (порог не ослаблять). «Свои» — путь содержит имя копии, ИЛИ conhost с родителем из-под копии (как в watch_spawns).
+- Гард детектора в `-SelfTest`: наблюдатель (без фильтра) + проба `powershell -WindowStyle Hidden` (живёт ~6 с — у мгновенно умирающих процессов desktop по PEB не читается) → пойма ≥ 1, иначе FAIL.
+- Замер 18.11: `-Hygiene` на tc033 — 1331 тестов, новых 740, своих 134, conhost на столе Автора 0.
+
 ## Дальше
 0.4 хрупкие тесты (в быстром CI под нагрузкой падают `D00_Net_Udp_BotsLogIn…` и `D07_S2_13_9_Launcher…`); сцены стенда дополнять с каждым шагом этапа 1. **17.11:** P-003 на финальной `-All` → `reviewer` → слияние; P-005 (Big-бенч на dev-ПК) ждёт Автора. Env-блок HiddenCi остаётся ANSI (П з. 4: не-ASCII портится; юникод-блок в Add-Type PS 5.1 — отказ 577) — проверка на PS 7 в бэклоге.
