@@ -654,6 +654,29 @@ namespace Orpheus.Client
                 return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
             }
 
+            // C-028: кирка к пустому или природному тайлу — взмах к курсору (удар по сектору, несколько ударов на камень). Следующий
+            // взмах — сразу после своего удара, не дожидаясь ответа (зажатая ЛКМ — взмахи подряд). Отказ («нужен топор»,
+            // «нужна кирка: медная») — строкой у курсора на нажатии.
+            c.SelfPosition = _localPos;
+            if (PickStrike.IsStrike(_world!, tile, held))
+            {
+                if (!c.Digging || (c.DigStrike && c.DigPredicted))
+                {
+                    EditReply strike = PickStrike.Check(_world!, _localPos, tile, c.DigTimes, held);
+                    if (strike == EditReply.Accepted)
+                    {
+                        c.StartDig(tile, _localPos);
+                    }
+                    else if (mouse.leftButton.wasPressedThisFrame)
+                    {
+                        _lastRefusal = EditRules.Describe(strike, _world!.GetObject(tile), c.DigTimes);
+                        _lastRefusalUntilUs = now + FlashUs;
+                    }
+                }
+
+                return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
+            }
+
             // 1-011: «что копать и чем» решает ядро — CheckDig (кирка/топор/молот, ярус, ямы, построенные полы и
             // обломки молотом). Не подходит — ЛКМ не начинает копание и запрос не уходит (у сервера тот же отказ молча).
             if (!c.Digging && EditRules.CheckDig(_world!, _localPos, tile, c.DigTimes, held) == EditReply.Accepted)

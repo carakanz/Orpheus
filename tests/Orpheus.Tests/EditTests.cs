@@ -170,9 +170,10 @@ namespace Orpheus.Tests
         // ---------- По сети ----------
 
         /// <summary>
-        /// Копание по времени сервера (3.7): клиент жмёт «копать» у скалы и держит кнопку; через 15 кадров своим счётом предсказывает
-        /// «объект снят», сервер докапывает по тем же кадрам и отвечает «принято»; тайл у клиента = сервер, наблюдатель видит правку.
-        /// Отпустил раньше — «прервано», скала на месте.
+        /// Копание по времени сервера (3.7): клиент жмёт «копать» у дерева (топор) и держит кнопку; через 18 кадров своим счётом
+        /// предсказывает «объект снят», сервер докапывает по тем же кадрам и отвечает «принято»; тайл у клиента = сервер, наблюдатель
+        /// видит правку. Отпустил раньше — «прервано», дерево на месте. C-028: кирка по скале — взмах (C028PickStrikeTests), копание
+        /// по времени проверяется топором.
         /// </summary>
         [Fact]
         public void D07_S3_7_Dig_PredictThenConfirm_StopEarly_Interrupted()
@@ -180,17 +181,18 @@ namespace Orpheus.Tests
             WorldModel world = Flat();
             var rock = new TileCoord(301, 200);
             var rock2 = new TileCoord(301, 201);
-            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
-            world.SetBaseTile(rock2, FloorId.Stone, ObjectId.Rock);
+            world.SetBaseTile(rock, FloorId.Grass, ObjectId.Tree);
+            world.SetBaseTile(rock2, FloorId.Grass, ObjectId.Tree);
             using var rig = new EditRig(world, n => TileCenter(300 + 2 * n, 200));
             NetClient c = rig.Join();
             NetClient observer = rig.Join();
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
+            rig.InputOf = k => k == c ? new InputFrame(Input8.None, 0, 0, 1) : InputFrame.None; // топор в руках
             rig.Run(10);
 
             ushort id = c.StartDig(rock);
-            rig.InputOf = k => k == c ? DigHold : InputFrame.None;
+            rig.InputOf = k => k == c ? DigAxe : InputFrame.None;
             int predictedAt = -1;
             for (int t = 0; t < 20 && replies.Count == 0; t++)
             {
@@ -204,7 +206,7 @@ namespace Orpheus.Tests
             Assert.Single(replies);
             Assert.Equal(id, replies[0].RequestId);
             Assert.Equal(EditReply.Accepted, replies[0].Reply);
-            Assert.InRange(predictedAt, 6, 8); // 15 кадров = 7,5 такта
+            Assert.InRange(predictedAt, 7, 9); // 18 кадров = 9 тактов
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
             rig.Run(2);
             ChunkCoord ch = Torus.ChunkOf(world.Shape, rock);
@@ -222,7 +224,7 @@ namespace Orpheus.Tests
             Assert.Single(replies);
             Assert.Equal(id2, replies[0].RequestId);
             Assert.Equal(EditReply.Interrupted, replies[0].Reply);
-            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock2));
+            Assert.Equal(ObjectId.Tree, rig.Sim.World.GetObject(rock2));
             Assert.Equal(0, c.World.PredictionsRolledBack);
         }
 
@@ -298,25 +300,25 @@ namespace Orpheus.Tests
         {
             WorldModel world = Flat();
             var rock = new TileCoord(301, 200);
-            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            world.SetBaseTile(rock, FloorId.Grass, ObjectId.Tree); // C-028: копание по времени — топором (кирка — взмах)
             using var rig = new EditRig(world, _ => TileCenter(300, 200));
             NetClient c = rig.Join();
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
 
-            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 0); // кирка
+            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 1); // топор
             rig.Run(5); // игрок в мире
             ushort id = c.StartDig(rock);
-            rig.Run(5); // ~10 кадров из 15 — не скопано
-            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
+            rig.Run(5); // ~10 кадров из 18 — не скопано
+            Assert.Equal(ObjectId.Tree, rig.Sim.World.GetObject(rock));
             Assert.Empty(replies);
 
             rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 3); // меч — прогресс стоит
             rig.Run(20);
-            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
+            Assert.Equal(ObjectId.Tree, rig.Sim.World.GetObject(rock));
             Assert.Empty(replies);
 
-            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 0); // кирка — с того же места
+            rig.InputOf = _ => new InputFrame(Input8.None, InputButtons.Dig, 0, 1); // топор — с того же места
             for (int t = 0; t < 10 && replies.Count == 0; t++)
             {
                 rig.Run(1);
@@ -386,12 +388,12 @@ namespace Orpheus.Tests
                 {
                     int a = DigLoot.DropFor(ObjectId.Rock, x, y, 7, out Material ma);
                     int b = DigLoot.DropFor(ObjectId.Rock, x, y, 11, out Material mb); // стабильно при своём зерне
-                    Assert.InRange(a, 1, 2);
-                    Assert.InRange(b, 1, 2);
+                    Assert.InRange(a, 4, 8); // C-028: ×4
+                    Assert.InRange(b, 4, 8); // C-028: ×4
                     Assert.Equal(Material.Stone, ma);
                     Assert.Equal(3, DigLoot.DropFor(ObjectId.Tree, x, y, 7, out Material mw));
                     Assert.Equal(Material.Wood, mw);
-                    Assert.InRange(DigLoot.DropFor(ObjectId.Ore, x, y, 7, out Material mo), 2, 3);
+                    Assert.InRange(DigLoot.DropFor(ObjectId.Ore, x, y, 7, out Material mo), 2, 4); // C-028: 2…4
                     Assert.Equal(Material.Copper, mo);
                     Assert.Equal(0, DigLoot.DropFor(ObjectId.StoneWall, x, y, 7, out _)); // постройки — возврат материала за 1-011
                 }
@@ -447,7 +449,7 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Ярус (1-010, `06` 2.4): гранит каменной киркой — «нужна кирка: медная» строкой, тайл цел; медной киркой —
-        /// копается (11 кадров), добыча 1–2 камня, детерминированный бросок на клиенте и сервере совпадает.
+        /// снимается пятым взмахом (C-028), добыча 4–8 камня, детерминированный бросок на клиенте и сервере совпадает.
         /// </summary>
         [Fact]
         public void D01_S5_Dig_Granite_StonePickRefusedByTier_ThenCopperDigs()
@@ -475,16 +477,21 @@ namespace Orpheus.Tests
             rig.Run(6); // сумка дошла (тип 26)
             Assert.Equal(Items.CopperPickaxe, c.Inv.SlotAt(0));
 
-            replies.Clear();
-            Assert.Equal(23, rig.Server.DigTimes.FramesFor(ObjectId.Granite, ToolKind.Pick, Items.TierCopper)); // свой ярус — ×1
-            c.StartDig(granite);
-            rig.Run(25);
-            Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
-            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(granite));
+            // C-028: медная кирка — взмахи; гранит своим ярусом — 5 ударов (⌈3 × 1,5⌉), снят пятым.
+            Assert.Equal(5, rig.Server.DigTimes.HitsFor(ObjectId.Granite, ToolKind.Pick, Items.TierCopper));
+            for (int swing = 1; swing <= 5; swing++)
+            {
+                replies.Clear();
+                c.StartDig(granite);
+                rig.Run(14);
+                Assert.Equal(EditReply.Accepted, Assert.Single(replies).Reply);
+                Assert.Equal(swing == 5 ? ObjectId.Empty : ObjectId.Granite, rig.Sim.World.GetObject(granite));
+            }
+
             rig.Run(Simulation.LootPickupDelayTicks + 6); // E2-1: добыча упала кучей, через 10 тактов стоящий рядом её поднял
             int expected = DigLoot.DropFor(ObjectId.Granite, granite.X, granite.Y, world.Seed, out Material m);
             Assert.Equal(Material.Stone, m);
-            Assert.InRange(expected, 1, 2);
+            Assert.InRange(expected, 4, 8); // C-028: ×4
             Assert.Equal(expected, rig.Sim.GetEntity(c.EntityId).Inv.CountAt(Material.Stone));
             Assert.Equal(expected, c.Inv.CountAt(Material.Stone)); // сумка сервера (тип 26)
         }
@@ -651,32 +658,34 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
-        /// Копание по таблице на сервере и клиенте (0-034): залежь (×2) копается вдвое дольше скалы; правка таблицы (модификатор
-        /// залежи ×0,5 у сервера и клиента) меняет время; пень с модификатором 0 — «нельзя», пень на месте, предсказания нет.
+        /// Копание по таблице на сервере и клиенте (0-034): дерево (×1,2) рубится вдвое дольше пня (×0,6); правка таблицы (модификатор
+        /// дерева ×0,5 у сервера и клиента) меняет время; пень с модификатором 0 — «нельзя», пень на месте, предсказания нет.
+        /// C-028: кирка по скале и залежи — взмах (удары, C028PickStrikeTests), время по таблице — топором.
         /// </summary>
         [Fact]
         public void D05_S1_3_DigTimes_ServerAndClient_DifferentItems_EditChangesTime_ZeroRefused()
         {
             WorldModel world = Flat();
-            var rock = new TileCoord(301, 200);
-            var ore = new TileCoord(299, 200);
-            var ore2 = new TileCoord(300, 201);
-            var stump = new TileCoord(300, 199);
-            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
-            world.SetBaseTile(ore, FloorId.Stone, ObjectId.Ore);
-            world.SetBaseTile(ore2, FloorId.Stone, ObjectId.Ore);
+            var tree = new TileCoord(301, 200);
+            var stump = new TileCoord(299, 200);
+            var tree2 = new TileCoord(300, 201);
+            var stump2 = new TileCoord(300, 199);
+            world.SetBaseTile(tree, FloorId.Grass, ObjectId.Tree);
             world.SetBaseTile(stump, FloorId.Grass, ObjectId.Stump);
+            world.SetBaseTile(tree2, FloorId.Grass, ObjectId.Tree);
+            world.SetBaseTile(stump2, FloorId.Grass, ObjectId.Stump);
             using var rig = new EditRig(world, n => TileCenter(300, 200));
             NetClient c = rig.Join();
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
+            rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, 1); // топор в руках
             rig.Run(10);
 
             int DigTicks(TileCoord tile, out EditReply reply)
             {
                 replies.Clear();
                 c.StartDig(tile);
-                rig.InputOf = _ => DigHold;
+                rig.InputOf = _ => DigAxe;
                 int t = 0;
                 while (replies.Count == 0 && t < 60)
                 {
@@ -684,37 +693,37 @@ namespace Orpheus.Tests
                     t++;
                 }
 
-                rig.InputOf = null;
+                rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, 1);
                 rig.Run(3);
                 reply = replies.Count > 0 ? replies[0].Reply : EditReply.NotAllowed;
                 return t;
             }
 
-            int rockTicks = DigTicks(rock, out EditReply r1);
+            int treeTicks = DigTicks(tree, out EditReply r1);
             Assert.Equal(EditReply.Accepted, r1);
-            Assert.Equal(15, c.DigFrames);
-            int oreTicks = DigTicks(ore, out EditReply r2);
+            Assert.Equal(18, c.DigFrames);
+            int stumpTicks = DigTicks(stump, out EditReply r2);
             Assert.Equal(EditReply.Accepted, r2);
-            Assert.Equal(30, c.DigFrames);
-            Assert.InRange(oreTicks - rockTicks, 7, 8); // +15 кадров = 7,5 такта
+            Assert.Equal(9, c.DigFrames);
+            Assert.InRange(treeTicks - stumpTicks, 4, 5); // −9 кадров = 4,5 такта
 
-            rig.Server.DigTimes.SetModifier(ObjectId.Ore, 50); // правка таблицы — у сервера и клиента
-            c.DigTimes.SetModifier(ObjectId.Ore, 50);
-            int ore2Ticks = DigTicks(ore2, out EditReply r3);
+            rig.Server.DigTimes.SetModifier(ObjectId.Tree, 50); // правка таблицы — у сервера и клиента
+            c.DigTimes.SetModifier(ObjectId.Tree, 50);
+            int tree2Ticks = DigTicks(tree2, out EditReply r3);
             Assert.Equal(EditReply.Accepted, r3);
             Assert.Equal(8, c.DigFrames); // 7,5 → 8
-            Assert.InRange(ore2Ticks, rockTicks - 4, rockTicks - 3);
+            Assert.InRange(tree2Ticks, stumpTicks - 1, stumpTicks);
 
             rig.Server.DigTimes.SetModifier(ObjectId.Stump, 0);
             c.DigTimes.SetModifier(ObjectId.Stump, 0);
-            DigTicks(stump, out EditReply r4);
+            DigTicks(stump2, out EditReply r4);
             Assert.Equal(EditReply.NotAllowed, r4);
-            Assert.Equal(ObjectId.Stump, rig.Sim.World.GetObject(stump));
-            Assert.Equal(ObjectId.Stump, c.World!.World.GetObject(stump));
+            Assert.Equal(ObjectId.Stump, rig.Sim.World.GetObject(stump2));
+            Assert.Equal(ObjectId.Stump, c.World!.World.GetObject(stump2));
             Assert.Equal(0, c.World.PredictionsRolledBack);
-            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
-            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(ore));
-            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(ore2));
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(tree));
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(stump));
+            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(tree2));
         }
 
         /// <summary>
@@ -725,16 +734,17 @@ namespace Orpheus.Tests
         public void D07_S3_7_ServerChecks_Reach_Empty_Radius()
         {
             WorldModel world = Flat();
-            world.SetBaseTile(new TileCoord(303, 200), FloorId.Stone, ObjectId.Rock);
+            world.SetBaseTile(new TileCoord(303, 200), FloorId.Grass, ObjectId.Tree); // C-028: копание по времени — топором (кирка — взмах)
             using var rig = new EditRig(world, n => TileCenter(300, 200));
             NetClient c = rig.Join();
             var replies = new List<TileReplyMessage>();
             c.EditReplied = replies.Add;
+            rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, 1);
             rig.Run(10);
             WorldPos self = rig.Sim.GetEntity(c.EntityId).Mover.Position;
 
             c.StartDig(new TileCoord(303, 200)); // 3 тайла
-            rig.InputOf = _ => DigHold;
+            rig.InputOf = _ => DigAxe;
             rig.Run(12);
             c.StartDig(new TileCoord(301, 200)); // пусто
             rig.Run(2);
@@ -747,7 +757,7 @@ namespace Orpheus.Tests
 
             Assert.Equal(new[] { EditReply.OutOfReach, EditReply.Empty, EditReply.OutOfReach }, replies.Select(r => r.Reply).ToArray());
             Assert.Equal(far, replies[2].RequestId);
-            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(new TileCoord(303, 200)));
+            Assert.Equal(ObjectId.Tree, rig.Sim.World.GetObject(new TileCoord(303, 200)));
             Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(new TileCoord(307, 200)));
             Assert.Equal(0, c.World!.PendingPredictions);
         }
@@ -762,7 +772,7 @@ namespace Orpheus.Tests
         {
             WorldModel world = Flat();
             var rock = new TileCoord(301, 201);
-            world.SetBaseTile(rock, FloorId.Stone, ObjectId.Rock);
+            world.SetBaseTile(rock, FloorId.Grass, ObjectId.Tree); // C-028: копание по времени — топором (кирка — взмах, удары общие)
             using var rig = new EditRig(world, n => TileCenter(300 + 2 * n, 200));
             NetClient a = rig.Join();
             NetClient b = rig.Join();
@@ -800,14 +810,16 @@ namespace Orpheus.Tests
             Assert.Equal(2, rig.Sim.GetEntity(b.EntityId).Inv.CountIn(7));
             Assert.Equal(2, b.Inv.CountIn(7));
 
-            // Копание одной скалы обоими: правка одна, второму — «занято».
+            // Копание одного дерева обоими: правка одна, второму — «занято».
             ra.Clear();
             rb.Clear();
+            rig.InputOf = _ => new InputFrame(Input8.None, 0, 0, 1); // топор в руках
+            rig.Run(2);
             ChunkCoord rc = Torus.ChunkOf(world.Shape, rock);
             uint rrev = rig.Sim.World.FindChunk(rc)!.Revision;
             a.StartDig(rock);
             b.StartDig(rock);
-            rig.InputOf = _ => DigHold;
+            rig.InputOf = _ => DigAxe;
             rig.Run(12);
             Assert.Equal(EditReply.Accepted, Assert.Single(ra).Reply);
             Assert.Equal(EditReply.Busy, Assert.Single(rb).Reply);
@@ -922,7 +934,7 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Подделанный кадр в «копать: начало» (3.7: время копания — по кадрам сервера). Сырые запросы в обход <see cref="NetClient"/>:
-        /// кадр 1 (давно прошёл, кнопка зажата 40 кадров) кредита не даёт — 12 новых кадров мало, 18 хватает; кадр на 10⁶ вперёд —
+        /// кадр 1 (давно прошёл, кнопка зажата 40 кадров) кредита не даёт — 22 новых кадра мало для взмаха, 26 хватает; кадр на 10⁶ вперёд —
         /// копание не начинается за 60 кадров с зажатой кнопкой. Линия 33 тайла через шов — «нельзя» (проверка П по 0-028, З2).
         /// </summary>
         [Fact]
@@ -940,15 +952,16 @@ namespace Orpheus.Tests
             rig.InputOf = _ => DigHold; // кнопка зажата давно: 40 кадров «копания» до запроса
             rig.Run(20);
 
-            // Прошлое: кадр 1 — засчитывать нечего, нужно 15 новых кадров (7,5 такта).
+            // Прошлое: кадр 1 — засчитывать нечего, нужно 24 новых кадра взмаха (C-028: кирка по скале — взмах, 12 тактов).
             RawRequest(c, new TileRequestMessage { RequestId = 900, Op = TileOp.DigStart, Frame = 1, From = rock, To = rock });
-            rig.Run(6); // 12 кадров
+            rig.Run(11); // 22 кадра
             Assert.Empty(replies);
-            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
-            rig.Run(3);
+            Assert.Equal(0, rig.Server.Wear.HitsOn(rock, ObjectId.Rock));
+            rig.Run(2);
             Assert.Single(replies);
             Assert.Equal(EditReply.Accepted, replies[0].Reply);
-            Assert.Equal(ObjectId.Empty, rig.Sim.World.GetObject(rock));
+            Assert.Equal(1, rig.Server.Wear.HitsOn(rock, ObjectId.Rock)); // удар засчитан только по новым кадрам
+            Assert.Equal(ObjectId.Rock, rig.Sim.World.GetObject(rock));
 
             // Будущее: кадр далеко впереди — не начинается, не копается.
             replies.Clear();
@@ -1087,7 +1100,7 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.FurnitureInTile, TileReplyMessage.Read(badReply).Reply);
             badReply[3] = 22; // 21 — «сумка полна» (C-013, протокол 29); 20 — «нужен станок» (E2-16, протокол 28); 15 — «ты мёртв» (E2-1, протокол 21); 16–18 — «цело», «под ударом», «пауза» (E2-5, протокол 23); 19 — E2-15
             Assert.Throws<ProtocolException>(() => TileReplyMessage.Read(badReply));
-            Assert.Equal(33, NetModule.ProtocolVersion); // C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1), 22 — крафт: заявка 30, ответ 31, очередь 32 (E2-3), 23 — починка, действие 33–35, сундук (E2-5), 24 — сундуки рядом 36 (E2-10), 25 — ячейка панели в запросе постановки (E2-11), 26 — четверти в запросе постановки (E2-12), 27 — запись постройки 9 байт (E2-15), 28 — поворот, многоклеточная мебель, постановка из меню (E2-16)
+            Assert.Equal(34, NetModule.ProtocolVersion); // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // 8 — опережение L (0-033), 9 — «имя занято» (0-035), 10 — пауза 22–23 (0-036), 11 — бой (1-001), 12 — прицел и ячейка в кадре ввода (1-002), 13 — сумка, тип 26 (1-002), 14 — выносливость в своём состоянии (1-003), 15 — фаза удара в снимке (1-004), 16 — ИИ врага в снимке (1-007), 17 — отказы ToolRequired/TierRequired (1-010), 18 — строительство: «обломки» (13), «нет ресурсов» (14), постановка молотом (1-011), 19 — двери: запрос TileOp.CloseDoor (1-012), 20 — время мира u16 в заголовках снимка и дельты (1-014), 21 — сумка ячейками, кучи на земле 27–28, заявка на сумку 29 (E2-1), 22 — крафт: заявка 30, ответ 31, очередь 32 (E2-3), 23 — починка, действие 33–35, сундук (E2-5), 24 — сундуки рядом 36 (E2-10), 25 — ячейка панели в запросе постановки (E2-11), 26 — четверти в запросе постановки (E2-12), 27 — запись постройки 9 байт (E2-15), 28 — поворот, многоклеточная мебель, постановка из меню (E2-16)
         }
 
         // ---------- Строительство (1-011): палитра данными, полы, снос, обломки ----------
@@ -1225,7 +1238,7 @@ namespace Orpheus.Tests
             Assert.Equal(FloorId.WoodFloor, rig.Sim.World.GetFloor(new TileCoord(302, 200))); // соседний пол не тронут
         }
 
-        /// <summary>Снос построенного пола киркой — «нужен инструмент» (1-011: пол и обломки — только молот).</summary>
+        /// <summary>Снос построенного пола топором — «нужен инструмент» (1-011: пол и обломки — только молот); C-028: киркой — взмах, пол цел.</summary>
         [Fact]
         public void D05_S1_4_Dig_Floor_Pickaxe_ToolRequired()
         {
@@ -1244,11 +1257,22 @@ namespace Orpheus.Tests
             Assert.Equal(FloorId.WoodFloor, rig.Sim.World.GetFloor(new TileCoord(301, 200)));
 
             replies.Clear();
-            rig.InputOf = _ => DigHold; // кирка в руках
+            rig.InputOf = _ => DigAxe; // топор в руках (C-028: кирка по полу — взмах в воздух, ниже)
             rig.Run(2);
             c.StartDig(new TileCoord(301, 200));
             rig.Run(3);
             Assert.Equal(EditReply.ToolRequired, Assert.Single(replies).Reply);
+            Assert.Equal(FloorId.WoodFloor, rig.Sim.World.GetFloor(new TileCoord(301, 200)));
+
+            // C-028: кирка — взмах; пол взмахом не бьётся — «принято» без снятых тайлов, пол цел.
+            replies.Clear();
+            rig.InputOf = _ => DigHold;
+            rig.Run(2);
+            c.StartDig(new TileCoord(301, 200));
+            rig.Run(14);
+            TileReplyMessage swing = Assert.Single(replies);
+            Assert.Equal(EditReply.Accepted, swing.Reply);
+            Assert.Equal(StrikeMessage.ReplySwingBit, swing.Mask);
             Assert.Equal(FloorId.WoodFloor, rig.Sim.World.GetFloor(new TileCoord(301, 200)));
         }
 

@@ -104,7 +104,7 @@ namespace Orpheus.Tests
 
             // Цепочка: дерево и камень добыты, верстак стоит настоящим объектом мира, руда добыта и переплавлена.
             Assert.True(bot.TreesCut >= 1 && bot.RocksDug >= 1, bot.Summary);
-            Assert.True(bot.OresDug >= CraftChainBot.NeedOre / 3, bot.Summary); // залежь даёт 2–3 руды
+            Assert.True(bot.OresDug >= CraftChainBot.NeedOre / 4, bot.Summary); // залежь даёт 2–4 руды (C-028; было 2–3)
             Assert.NotNull(bot.BenchTile);
             Assert.Equal(ObjectId.Workbench, ObjectId.IdOf(o.Sim.World.GetObject(bot.BenchTile!.Value)));
             Assert.True(o.Sim.World.TryGetBuild(bot.BenchTile.Value, out BuildRecord rec));
@@ -113,7 +113,7 @@ namespace Orpheus.Tests
             Assert.Equal(0, e.Inv.Count(Items.CopperIngot)); // 8 слитков ушли в кирку
 
             // Гранит взят: тайл пуст на сервере (без медной кирки он не берётся — E26_Granite_OnlyCopperPickaxe).
-            Assert.Equal(1, bot.GraniteDug);
+            Assert.True(bot.GraniteDug >= 1, bot.Summary); // C-028: взмах медной кирки может снять и соседний гранит (было ровно 1)
             Assert.NotNull(bot.GraniteTile);
             Assert.Equal(ObjectId.Empty, o.Sim.World.GetObject(bot.GraniteTile!.Value));
             Assert.Equal(0, o.Client.BadMessages);

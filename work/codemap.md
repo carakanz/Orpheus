@@ -194,3 +194,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Param: `-StepTimeoutSec` (3600) :16 · `-TimeLimitSec` (60) :15 · `-SelfTest`.
 - HiddenCi (Add-Type): STARTUPINFO/STARTUPINFOEX :47-56 · импорты (CreateProcessW, ProcThreadAttributeList, job, ResumeThread) ~60-115 · EnvBlock (ANSI) :121 · Run (стол, 3 трубы, handle list inR/outW/errW, job+suspended+resume, таймаут→TerminateJobObject+258, грейс Task.WaitAll 60 с) :141-272 · Drain :275.
 - PowerShell: Join-CmdLine (MSVC-экранирование) :309 · Invoke-Step (зов Run) :343 · Invoke-SelfTest :356 (таблицы, stdin-гард powershell ReadToEnd, таймаут-гард 258).
+- C-028: World/PickStrike.cs — IsStrike, Check, HitsOf, Targets (сектор ±45°, ≤ 3 тайла); World/TileWear.cs — Hit, Set, HitsOn, Expire; DigTimes.HitsFor.
+- C-028: NetServer.Strike.cs — DigFramesOf, Strike, OnStrikeEdit, FlushStrikes (в конце SendEditReplies), BroadcastStrike; NetServer.Edits.cs ApplyPendingDig (ветка взмаха), AdvanceEdits.
+- C-028: NetClient.Strike.cs — StartDig(tile, self), PredictStrike, OnStrike, WearOf, DrainBrokenByMe (боты); Protocol/StrikeMessages.cs (тип 39, ReplySwingBit).
+- C-028: client TileCracksView.cs (трещины), NetAnimation.ShowOwnStrike/OnStrikeSeen, AnimShowcase.Pick.cs, NetGame.Edits.UpdateEdits (ветка PickStrike.IsStrike).

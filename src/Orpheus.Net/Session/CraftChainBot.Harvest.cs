@@ -209,6 +209,34 @@ namespace Orpheus.Net.Session
         // Досягаемость с запасом 1/4 тайла: своя позиция — из снимка, сервер её уже обогнал.
         private bool InReach(WorldPos pos, TileCoord t) => EditRules.InReach(_shape, pos, t, EditRules.DigReachUnits - U / 4);
 
+        private ushort _strikeReq;
+        private TileCoord _strikeTile;
+
+        /// <summary>C-028 (П): свой взмах не задел цель (линия перекрыта) — тайл пропускается 4 с, а не бьётся вечно.</summary>
+        private void SkipMissed(NetClient client)
+        {
+            if (client.OwnStrikeResolved(_strikeReq, _strikeTile, out bool hit))
+            {
+                if (!hit)
+                {
+                    _skipUntil[_strikeTile] = _frame + 240;
+                    _path.Clear();
+                    _hasTarget = false;
+                }
+
+                _strikeReq = 0;
+            }
+        }
+
+        private void NoteStrike(NetClient client, ushort id, TileCoord t)
+        {
+            if (client.DigStrike)
+            {
+                _strikeReq = id;
+                _strikeTile = t;
+            }
+        }
+
         private bool Skipped(TileCoord t) => _skipUntil.TryGetValue(t, out int until) && _frame < until;
 
         private bool Dig(NetClient client, ClientWorld world, TileCoord t, ushort obj)
@@ -232,6 +260,8 @@ namespace Orpheus.Net.Session
             {
                 return false;
             }
+
+            NoteStrike(client, id, t); // C-028 (П)
 
             _slot = slot;
             _digTile[id] = t;

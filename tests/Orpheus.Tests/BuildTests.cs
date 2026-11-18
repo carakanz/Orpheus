@@ -1278,7 +1278,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Net_GoldenBytes_Use_Reply_Chest_Repair()
         {
-            Assert.Equal(33, NetModule.ProtocolVersion); // C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
+            Assert.Equal(34, NetModule.ProtocolVersion); // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[256];
             int n = new UseRequestMessage { Op = UseOp.Use, Tile = new TileCoord(0x0102, 0x0304) }.Write(buf);
             Assert.Equal(UseRequestMessage.Bytes, n);

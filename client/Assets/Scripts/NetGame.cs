@@ -110,6 +110,7 @@ namespace Orpheus.Client
         int _localId;
         ScreenshotRun? _screenshot;
         Anim.NetAnimation? _anim; // K-001: процедурная анимация — только отображение
+        TileCracksView? _cracks; // C-028: трещины на камнях от взмахов кирки
         long _inGameSinceUs;
         long _hudSnaps;
         long _hudTimeUs;
@@ -442,6 +443,11 @@ namespace Orpheus.Client
             _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
             _anim = new Anim.NetAnimation(_g, _client, _origin, _world, _entityRoot.transform);
             _anim.Rest = _rest; // C-030: лечь в кровать — поза своего персонажа
+            _cracks = new TileCracksView(_entityRoot.transform); // C-028
+            NetClient strikeClient = _client!;
+            Simulation lineRules = _netRules!;
+            strikeClient.StrikeLine = (from, t) => lineRules.PickLineClear(from, t, // C-028 (П): линия взмаха — как у сервера
+                c => PickStrike.IsTarget(strikeClient.DigTimes, lineRules.World.GetObject(c), strikeClient.HeldItem));
             HookCombat(_client); // E3-1: урон цифрами, смерть и возрождение на экране
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height}, такт {accept.ServerTick}; " +
                       $"мир — чанки от сервера (генератора у клиента нет), пришло уже {cw.ChunksReceived}");
@@ -776,6 +782,7 @@ namespace Orpheus.Client
             }
 
             _anim?.Frame(now, _pred!);
+            _cracks?.Frame(_client!, _origin!, Time.deltaTime); // C-028: трещины на камнях
             CombatFrame(); // E3-1: цифры урона, полоски врагов, экран смерти
             _pileView?.Frame(_origin!, Time.deltaTime, _client!.Projectiles.Covers); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему; C-031: стрелу-предмет закрывает снаряд
             _arrowView?.Frame(_client!.Projectiles, now, _origin!, _pred!.Bow, _g.Character.position,

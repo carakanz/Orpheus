@@ -553,6 +553,9 @@ namespace Orpheus.Net.Session
                     case MessageType.Projectile when State == NetClientState.InGame:
                         Projectiles.OnMessage(ProjectileMessage.Read(data), EntityId, _nowUs); // E3-2: выстрел / конец снаряда
                         break;
+                    case MessageType.Strike when State == NetClientState.InGame:
+                        OnStrike(StrikeMessage.Read(data)); // C-028: удары взмаха кирки
+                        break;
                     case MessageType.NearbyStock when State == NetClientState.InGame:
                         NearbyStockMessage.Read(data, NearbyStock); // E2-10: сундуки рядом
                         NearbyStockSeen++;

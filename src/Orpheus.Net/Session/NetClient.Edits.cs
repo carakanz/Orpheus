@@ -103,6 +103,7 @@ namespace Orpheus.Net.Session
             _digRequest = id;
             _digTile = t;
             _digObj = DigKeyOf(t); // объект тайла; построенный пол и обломки — id пола (молот, 1-011)
+            _digStrike = PickStrike.IsStrike(World.World, t, HeldItem); // C-028: кирка — взмах, не копание по времени
             DigFrames = NeededFrames();
             DigProgress = 0;
             SendRequest(new TileRequestMessage { RequestId = id, Op = TileOp.DigStart, Frame = _input.LastFrame + 1, From = t, To = t });
@@ -112,7 +113,7 @@ namespace Orpheus.Net.Session
         /// <summary>«Копать: конец» — кнопку отпустили до конца копания; докопанное своим счётом не прерывается.</summary>
         public void StopDig()
         {
-            if (!_digActive || _digPredicted)
+            if (!_digActive || _digPredicted || _digStrike) // C-028: начатый взмах доигрывается (как удар мечом)
             {
                 return;
             }
@@ -197,6 +198,11 @@ namespace Orpheus.Net.Session
         private void OnFrameSent(InputFrame frame)
         {
             _lastSlot = frame.Slot;
+            if (Wear.Count > 0)
+            {
+                Wear.Expire(_nowUs); // C-028: трещины гаснут через 5 с без ударов (как у сервера)
+            }
+
             if (!_digActive || _digPredicted || !InputButtons.DigHeld(frame) || World == null)
             {
                 return;
@@ -214,6 +220,12 @@ namespace Orpheus.Net.Session
             }
 
             _digPredicted = true;
+            if (_digStrike)
+            {
+                PredictStrike(); // C-028: удары по тайлам сектора — трещины сразу, снятие — пачкой сервера
+                return;
+            }
+
             if (DigKeyOf(_digTile) != _digObj)
             {
                 return; // тайл уже не тот (пачка сервера) — предсказывать нечего, ответ придёт «пусто»
@@ -287,6 +299,7 @@ namespace Orpheus.Net.Session
 
         /// <summary>Кадров нужно на текущий объект предметом в руках (1-010); ≤ 0 — этим предметом не копается.</summary>
         private int NeededFrames() =>
-            DigTimes.FramesFor(_digObj, Items.DigToolOf(HeldItem), Items.TierOf(HeldItem));
+            _digStrike ? (Items.DigToolOf(HeldItem) == ToolKind.Pick ? PickStrike.SwingFrames : 0)
+            : DigTimes.FramesFor(_digObj, Items.DigToolOf(HeldItem), Items.TierOf(HeldItem));
     }
 }
