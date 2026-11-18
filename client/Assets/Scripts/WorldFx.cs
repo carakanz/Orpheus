@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Orpheus.Client
@@ -11,7 +12,8 @@ namespace Orpheus.Client
     /// отдельная камера в текстуру (половина разрешения, смешивание «наибольшее») — тени не складываются в чёрное.
     /// Текстура ложится на землю один раз большим квадратом перед основной камерой (<see cref="WorldView.ShadowOrder"/>).</item>
     /// <item><b>Персонаж за кроной.</b> Шейдеру объектов каждый кадр отдаётся место своего персонажа: кроны перед ним
-    /// становятся полупрозрачными в круге <see cref="HeroFadeRadius"/>.</item>
+    /// становятся полупрозрачными в круге <see cref="HeroFadeRadius"/>. E3-4: так же для чужих существ —
+    /// ближайшие к своему (<see cref="SetActors"/>, до <see cref="MaxActorSilhouettes"/>).</item>
     /// <item><b>Персонаж за горой</b> (C-027): гора не прозрачна — спрайты своего персонажа (слой <see cref="HeroLayer"/>) рисует
     /// ещё одна камера в маску, и шейдер объектов кладёт по маске силуэт поверх горы, которая стоит перед персонажем.</item>
     /// </list>
@@ -50,6 +52,10 @@ namespace Orpheus.Client
 
         static readonly int HeroId = Shader.PropertyToID("_OrphHero");
         static readonly int HeroFadeId = Shader.PropertyToID("_OrphHeroFade");
+        // E3-4: силуэты чужих существ за кроной (шейдер Objects, слоты _OrphActors).
+        public const int MaxActorSilhouettes = 8;
+        static readonly int ActorsId = Shader.PropertyToID("_OrphActors");
+        static readonly List<Vector4> _actorBuf = new List<Vector4>(MaxActorSilhouettes);
         static readonly int ShadowTexId = Shader.PropertyToID("_OrphShadowTex");
         static readonly int ShadowRectId = Shader.PropertyToID("_OrphShadowRect");
 
@@ -197,6 +203,28 @@ namespace Orpheus.Client
         {
             float foot = root.y - FootOffset;
             Shader.SetGlobalVector(HeroId, new Vector4(root.x, foot + 0.75f, foot, HeroFadeRadius));
+        }
+
+        /// <summary>
+        /// E3-4: силуэты чужих существ (враги и игроки) за кроной, кодировка как у <see cref="SetHero"/>;
+        /// свободные слоты — выключены (w = 0). Каждый кадр вместе с <see cref="SetHero"/>.
+        /// </summary>
+        public static void SetActors(List<Vector3> roots)
+        {
+            _actorBuf.Clear();
+            for (int i = 0; i < MaxActorSilhouettes; i++)
+            {
+                Vector4 slot = Vector4.zero;
+                if (i < roots.Count)
+                {
+                    float foot = roots[i].y - FootOffset;
+                    slot = new Vector4(roots[i].x, foot + 0.75f, foot, HeroFadeRadius);
+                }
+
+                _actorBuf.Add(slot);
+            }
+
+            Shader.SetGlobalVectorArray(ActorsId, _actorBuf);
         }
 
         /// <summary>Раз в кадр после того, как камера встала на место (<see cref="WorldFxDriver"/>).</summary>

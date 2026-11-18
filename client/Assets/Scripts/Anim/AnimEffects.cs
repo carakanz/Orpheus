@@ -85,6 +85,13 @@ namespace Orpheus.Client.Anim
 
         public void Hide() => _go.SetActive(false);
 
+        /// <summary>E3-4: убрать visuals существа вместе с сектором-телеграфом.</summary>
+        public void Destroy()
+        {
+            Object.Destroy(_go);
+            Object.Destroy(_mesh);
+        }
+
         /// <summary>
         /// Показать: центр (Unity), ось (единичная, экранные оси), радиус (тайлов), половина дуги (радианы), доля заливки 0…1,
         /// вспышка 0…1 (1 — миг удара), общая прозрачность (гаснет в отходе).

@@ -100,6 +100,19 @@ namespace Orpheus.Client.Anim
             _handIcon!.localPosition = new Vector3(ix, iy, 0f);
         }
 
+        /// <summary>
+        /// E3-4: спрятать тело существа и предмет в руке (у призрака «Enemy {id}», когда враг рисуется корнем снимка,
+        /// остаётся только сектор-телеграф). Поза продолжает применяться — сектор стоит по корню.
+        /// </summary>
+        public void SetSpriteVisible(bool on)
+        {
+            _sr.enabled = on;
+            if (_handSr != null)
+            {
+                _handSr.enabled = on && _handSr.sprite != null;
+            }
+        }
+
         void ApplyHand(in Pose p, int order)
         {
             if (_hand == null || _handSr == null || !_handSr.enabled)

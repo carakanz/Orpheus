@@ -3,7 +3,8 @@
 // uv1.z — 1 у высокого объекта (дерево), uv1.w — ветер: амплитуда на тайл высоты + фаза (OrphLife.hlsl; 0 — не качается).
 // E1-11: верх объекта смещается ветром и толчками (низ на месте) — в вершинном шейдере.
 // Свой персонаж за кроной: у высокого объекта, чья опора ниже ног персонажа (объект ближе к зрителю), точки в круге
-// _OrphHero.w вокруг персонажа становятся полупрозрачными — персонаж виден сквозь крону.
+// _OrphHero.w вокруг персонажа становятся полупрозрачными — персонаж виден сквозь крону. E3-4: так же для чужих
+// существ (врагов и игроков) — слоты _OrphActors, их заполняет WorldFx.
 // C-027 (слово Автора 17.11 «гора не должна становиться прозрачной»): у горы (uv1.z = 2) прозрачности нет — где гора закрывает
 // своего персонажа, поверх неё рисуется его силуэт (заливка и светлый контур) по маске _OrphHeroMask (камера маски, WorldFx).
 Shader "Orpheus/Objects"
@@ -26,6 +27,8 @@ Shader "Orpheus/Objects"
 
     // Задаёт WorldFx каждый кадр: xy — середина персонажа в мире, z — высота его ног, w — радиус круга, тайлов (0 — выключено).
     float4 _OrphHero;
+    // E3-4: чужие существа (враги и игроки), ближайшие к своему: 8 слотов, кодировка та же, что у _OrphHero (w = 0 — слот выключен).
+    float4 _OrphActors[8];
     // x — наименьшая непрозрачность кроны над персонажем.
     float4 _OrphHeroFade;
     // C-027: маска своего персонажа (альфа) — прямоугольник мира (xy — угол, zw — 1 / размер) и шаг точки маски (xy).
@@ -36,6 +39,19 @@ Shader "Orpheus/Objects"
     // rgb — цвет заливки силуэта, a — её сила; цвет контура — _OrphHeroLine.
     float4 _OrphHeroFill;
     float4 _OrphHeroLine;
+
+    // Насколько проредить крону у точки at: 1 — не трогать; если существо за объектом (опора объекта ниже его ног)
+    // и точка в его круге — к центру круга _OrphHeroFade.x.
+    float CreatureFade(float2 at, float baseY, float4 a)
+    {
+        if (a.w <= 0 || baseY >= a.z)
+        {
+            return 1.0;
+        }
+
+        float d = distance(at, a.xy);
+        return lerp(_OrphHeroFade.x, 1.0, smoothstep(a.w * 0.55, a.w, d));
+    }
 
     struct Attributes
     {
@@ -50,7 +66,8 @@ Shader "Orpheus/Objects"
         float4 positionCS : SV_POSITION;
         float2 uv : TEXCOORD0;
         half4 color : COLOR;
-        float3 world : TEXCOORD1; // xy — точка мира, z — 1, если объект может закрыть персонажа (крона), 2 — гора перед ним
+        float3 world : TEXCOORD1; // xy — точка мира, z — 1, если объект может закрыть существо (крона), 2 — гора перед персонажем
+        float baseY : TEXCOORD2;  // опора объекта в меше (низ) — ниже чьих ног он стоит
     };
 
     Varyings Vert(Attributes v)
@@ -64,7 +81,10 @@ Shader "Orpheus/Objects"
         o.positionCS = TransformWorldToHClip(wp);
         o.uv = v.uv;
         o.color = v.color;
-        o.world = float3(wp.xy, (v.info.z > 0.5 && base.y < _OrphHero.z && _OrphHero.w > 0) ? (v.info.z > 1.5 ? 2 : 1) : 0);
+        // Гора (info.z > 1,5) — только силуэт по маске, и только когда маска своего персонажа включена (C-027);
+        // крона (info.z > 0,5) — прозрачность в кругах существ (E3-4, проверки по слотам в CreatureFade).
+        o.world = float3(wp.xy, (v.info.z > 1.5 && base.y < _OrphHero.z && _OrphHero.w > 0) ? 2f : (v.info.z > 0.5 ? 1f : 0f));
+        o.baseY = base.y;
         return o;
     }
 
@@ -88,8 +108,11 @@ Shader "Orpheus/Objects"
         }
         else if (i.world.z > 0.5)
         {
-            float d = distance(i.world.xy, _OrphHero.xy);
-            c.a *= lerp(_OrphHeroFade.x, 1.0, smoothstep(_OrphHero.w * 0.55, _OrphHero.w, d));
+            c.a *= CreatureFade(i.world.xy, i.baseY, _OrphHero);
+            for (int k = 0; k < 8; k++)
+            {
+                c.a *= CreatureFade(i.world.xy, i.baseY, _OrphActors[k]);
+            }
         }
 
         return c;

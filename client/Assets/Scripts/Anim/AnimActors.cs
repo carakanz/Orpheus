@@ -54,7 +54,7 @@ namespace Orpheus.Client.Anim
         public bool Animate(float dt, SwingPhase phase, float progress)
         {
             Vector2 v = Rig.MeasureVelocity(dt);
-            var s = new ActorInput { VelX = v.x, VelY = v.y, Swing = phase, SwingProgress = progress, SwingDirX = Axis.x, SwingDirY = Axis.y };
+            var s = new ActorInput { VelX = v.x, VelY = v.y, Held = Rig.Held, Swing = phase, SwingProgress = progress, SwingDirX = Axis.x, SwingDirY = Axis.y };
             Rig.Apply(Rig.Animator.Step(dt, s));
 
             bool struck = phase == SwingPhase.Strike && _lastPhase != SwingPhase.Strike;
@@ -99,6 +99,13 @@ namespace Orpheus.Client.Anim
             }
 
             return Vector2.Angle(Axis, d) <= HalfArc * Mathf.Rad2Deg + 15f;
+        }
+
+        /// <summary>E3-4: убрать visuals врага вместе с сектором-телеграфом (существо ушло из игры).</summary>
+        public void Destroy()
+        {
+            _sector.Destroy();
+            Object.Destroy(Rig.Root.gameObject);
         }
     }
 }

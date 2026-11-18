@@ -8,6 +8,7 @@ using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Items = Orpheus.Core.Sim.Items;
 
 namespace Orpheus.Client.Anim
 {
@@ -46,6 +47,7 @@ namespace Orpheus.Client.Anim
         {
             public SwingActor Actor = null!;
             public WorldPos Position;
+            public float Idle; // E3-4: сколько секунд призрак не виден на экране (не из снимка и не труп) — чистка
         }
 
         // E2-7: такт копания своего — по счёту кадров ядра (NetClient.DigProgress) и доле кадра с последнего счёта.
@@ -164,6 +166,9 @@ namespace Orpheus.Client.Anim
         /// по снимку (<see cref="SnapshotEntity.HeldItem"/>, <see cref="SnapshotEntity.Melee"/>). Копания чужих в снимке нет —
         /// рубки у них не видно (протокол не менялся, см. карточку E2-7).
         /// </summary>
+        // E3-4: в каком кадре Unity сущность была нарисована из снимка (корень «Ent {id}») — призрак замаха не дублирует спрайт.
+        readonly Dictionary<int, int> _remoteSeenFrame = new Dictionary<int, int>();
+
         public void Remote(int id, Transform root, in SnapshotEntity e)
         {
             if (!_remotes.TryGetValue(id, out ActorRig? rig))
@@ -172,9 +177,11 @@ namespace Orpheus.Client.Anim
                 _remotes.Add(id, rig);
             }
 
+            _remoteSeenFrame[id] = Time.frameCount;
             float dt = Time.deltaTime;
             Vector2 v = rig.MeasureVelocity(dt);
-            rig.SetHeld(e.HeldItem);
+            // E3-4: враг-мечник («Ближний», архетип 1) с пустой рукой в снимке держит деревянный меч — как в бою.
+            rig.SetHeld(e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && e.HeldItem == 0 ? Items.WoodenSword : e.HeldItem);
             var s = new ActorInput { VelX = v.x, VelY = v.y, Held = rig.Held };
             RemoteSwing(id, e.Melee, dt, rig, ref s);
             if (_remoteShots.TryGetValue(id, out RemoteShot shot))
@@ -500,19 +507,77 @@ namespace Orpheus.Client.Anim
                 }
             }
 
-            // Враги по «замах начат».
+            // Враги по «замах начат». E3-4: если существо в этом кадре нарисовано из снимка (корень «Ent {id}»), призрак
+            // показывает только сектор-телеграф от места корня — второй спрайт рядом не нужен; труп — тоже скрыт.
             foreach (KeyValuePair<int, Enemy> kv in _enemies)
             {
                 Enemy e = kv.Value;
-                e.Actor.Rig.Root.position = _origin.ToUnity(e.Position);
-                SwingPhase phase = _swings.Phase(kv.Key, nowUs, out float q);
-                e.Actor.Animate(dt, phase, q);
+                SwingPhase ePhase = _swings.Phase(kv.Key, nowUs, out float eQ);
+                bool drawn = _remoteSeenFrame.TryGetValue(kv.Key, out int seenAt) && seenAt == Time.frameCount;
+                // Труп рисует корень снимка (E3-1); сервер держит его 10,5 с — дольше возрасту не расти, иначе запись
+                // удалённой сущности будет вечно держать призрак.
+                bool corpse = _deadAge.TryGetValue(kv.Key, out float corpseAge) && corpseAge < 12f;
+                if (drawn && _remotes.TryGetValue(kv.Key, out ActorRig? at))
+                {
+                    e.Actor.Rig.SetSpriteVisible(false);
+                    e.Actor.Rig.Root.position = at.Root.position;
+                }
+                else if (corpse)
+                {
+                    e.Actor.Rig.SetSpriteVisible(false);
+                }
+                else
+                {
+                    e.Actor.Rig.SetSpriteVisible(true); // манекен (0-029) — вне игры виден только по сообщениям замаха
+                    e.Actor.Rig.Root.position = _origin.ToUnity(e.Position);
+                }
+
+                e.Actor.Animate(dt, ePhase, eQ);
+                e.Idle = drawn || corpse ? 0f : e.Idle + dt;
             }
 
+            ForgetGoneEnemies();
             _swings.Expire(nowUs);
             ForgetGoneMelee();
             ShowOwnStrike(); // C-028
             _sparks.Update(dt);
+        }
+
+        /// <summary>
+        /// E3-4: призрак врага, долго не видимый на экране (труп растворился, существо ушло из снимка), убирается;
+        /// записи «нарисована в кадре» застарелых сущностей — снимаются (как фазы удара в <see cref="ForgetGoneMelee"/>).
+        /// </summary>
+        void ForgetGoneEnemies()
+        {
+            int now = Time.frameCount;
+            _gone.Clear();
+            foreach (KeyValuePair<int, Enemy> kv in _enemies)
+            {
+                if (kv.Value.Idle > 5f)
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _enemies[_gone[i]].Actor.Destroy();
+                _enemies.Remove(_gone[i]);
+            }
+
+            _gone.Clear();
+            foreach (KeyValuePair<int, int> kv in _remoteSeenFrame)
+            {
+                if (now - kv.Value > 60)
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _remoteSeenFrame.Remove(_gone[i]);
+            }
         }
 
         void OnSwing(SwingStartMessage m)
