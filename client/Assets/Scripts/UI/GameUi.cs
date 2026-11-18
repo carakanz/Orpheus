@@ -693,7 +693,7 @@ namespace Orpheus.Client.UI
 
             string tip = UiStrings.RecipeTip(recipe, _lines[recipe], CraftDesk.Have(recipe, 0, bag, stock),
                 CraftDesk.Have(recipe, 1, bag, stock), CraftDesk.Have(recipe, 2, bag, stock));
-            return _lines[recipe].CanPlace ? tip + "\n" + UiStrings.ReadyInBag(_lines[recipe].Ready) : tip; // C-029
+            return tip; // C-032: «В сумке: N» (CanPlace) склеивалась с «что мешает» — теперь внутри RecipeTip, по одной строке
         }
 
         // Щелчок по окну изготовления: раздел, подраздел, галочка, значок рецепта, полоса прокрутки, крупный значок

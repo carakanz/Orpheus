@@ -117,7 +117,7 @@ namespace Orpheus.Tests
         public void C030_RestPose_Head_At_Headboard_Inside_Bed(int rot)
         {
             RestAnim.HeadDir(rot, out float hx, out float hy);
-            RestAnim.Spot(rot, out float sx, out float sy);
+            RestAnim.Spot(rot, RestAnim.SideOf(0), out float sx, out float sy);
             float lift = RestAnim.MattressLift;
             // Макушка = опора + «верх» спрайта, повёрнутый на BodyDeg, × длина тела.
             double a = RestAnim.BodyDeg(rot) * Math.PI / 180.0;
@@ -136,9 +136,9 @@ namespace Orpheus.Tests
             float side = feetX * -hy + feetY * hx; // поперёк — своя половина
             Assert.InRange(side, 0.2f, 0.8f);
 
-            Pose p = RestAnim.Apply(Pose.Identity, 0.05f, rot, 2f, 3f);
+            Pose p = RestAnim.Apply(Pose.Identity, 0.05f, rot, 2f, 3f, RestAnim.SideOf(0));
             Assert.Equal(0f, p.Cover);
-            p = RestAnim.Apply(Pose.Identity, 1f, rot, 2f, 3f);
+            p = RestAnim.Apply(Pose.Identity, 1f, rot, 2f, 3f, RestAnim.SideOf(0));
             Assert.Equal(RestAnim.Cover, p.Cover);
             Assert.Equal(2f + sx, p.OffsetX, 3);
             Assert.Equal(3f + sy - ActionAnim.SpriteFootY, p.OffsetY, 3); // опора спрайта — на SpriteFootY ниже корня
@@ -161,6 +161,62 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Accepted, sim.RequestSetBed(b, new TileCoord(101, 101)));
             Assert.Equal(bed, sim.GetEntity(a).Bed);
             Assert.Equal(bed, sim.GetEntity(b).Bed);
+        }
+
+        /// <summary>
+        /// C-032 (хвост C-030): далеко — не ложится: заявка «лечь» вне радиуса действия (3 т до любого тайла кровати) —
+        /// «вне радиуса», точка возрождения не ставится; подойдя — принимается.
+        /// </summary>
+        [Fact]
+        public void C030_SetBed_Far_OutOfReach()
+        {
+            var sim = new Simulation(Flat());
+            var bed = new TileCoord(100, 100);
+            Assert.True(sim.RequestEdit(bed, FloorId.Grass, Bed(0), BedRecord));
+            sim.Step();
+            int a = sim.AddEntity(At(105, 100)); // 4 т до ближнего хвоста (101,100) — больше 3
+            Assert.Equal(EditReply.OutOfReach, sim.RequestSetBed(a, bed));
+            Assert.False(sim.GetEntity(a).HasBed);
+
+            sim.PlaceForTests(a, At(102, 101)); // 1 т до хвоста — в радиусе
+            Assert.Equal(EditReply.Accepted, sim.RequestSetBed(a, new TileCoord(101, 101)));
+            Assert.True(sim.GetEntity(a).HasBed);
+            Assert.Equal(bed, sim.GetEntity(a).Bed);
+        }
+
+        /// <summary>
+        /// C-032 (хвост C-030): двое спят в одной двуспальной — на разных половинах: чётный номер — левая (от ног),
+        /// нечётный — правая; оба макушкой к изголовью, на одном расстоянии от него, тела целиком внутри кровати 2 × 2.
+        /// </summary>
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        public void C030_Two_Sleepers_Opposite_Halves(int rot)
+        {
+            Assert.Equal(RestAnim.Side, RestAnim.SideOf(0), 3);
+            Assert.Equal(-RestAnim.Side, RestAnim.SideOf(1), 3);
+            RestAnim.HeadDir(rot, out float hx, out float hy);
+            float lift = RestAnim.MattressLift;
+            RestAnim.Spot(rot, RestAnim.SideOf(0), out float x0, out float y0);
+            RestAnim.Spot(rot, RestAnim.SideOf(1), out float x1, out float y1);
+
+            foreach ((float sx, float sy) in new[] { (x0, y0), (x1, y1) })
+            {
+                float feetX = sx, feetY = sy - lift;
+                float headX = sx + hx * RestAnim.BodyLength, headY = feetY + hy * RestAnim.BodyLength;
+                foreach (float v in new[] { headX, headY, feetX, feetY })
+                {
+                    Assert.InRange(v, -1f, 1f); // в пределах кровати 2 × 2
+                }
+
+                Assert.Equal(RestAnim.HeadFrom(rot), headX * hx + headY * hy, 3); // макушка у изголовья
+            }
+
+            float side0 = x0 * -hy + (y0 - lift) * hx, side1 = x1 * -hy + (y1 - lift) * hx; // поперёк кровати
+            Assert.Equal(RestAnim.Side, side0, 3);
+            Assert.Equal(-RestAnim.Side, side1, 3); // зеркала относительно середины — не рядом и не в одной половине
         }
     }
 }

@@ -465,11 +465,12 @@ namespace Orpheus.Client.Anim
                 _selfDeadAge = -1f;
                 if (Rest != null && Rest.Active)
                 {
-                    // C-030: лёжа — спрайт на своей половине кровати, макушкой к изголовью, под одеялом; порядок — сразу за строкой
+                    // C-030: лёжа — спрайт на своей половине кровати (C-032: половина по чётности номера), макушкой к изголовью,
+                    // под одеялом; порядок — сразу за строкой
                     // объектов якоря кровати (кровать рисуется в строке якоря, ObjectMesh), чтобы тело было поверх кровати.
                     Vector3 center = _origin.ToUnity(BuildLayers.CenterAt(_world, Rest.Bed));
                     Vector3 rootAt = _g.Character.position;
-                    p = RestAnim.Apply(p, Rest.Age, Rest.Rotation, center.x - rootAt.x, center.y - rootAt.y);
+                    p = RestAnim.Apply(p, Rest.Age, Rest.Rotation, center.x - rootAt.x, center.y - rootAt.y, RestAnim.SideOf(_client.EntityId));
                     float anchorBottom = _origin.ToUnity(TileCenter(Rest.Bed)).y - 0.5f;
                     p.SortY = anchorBottom + ObjectTable.BaseLift - 0.25f;
                     p.HasSortY = true;

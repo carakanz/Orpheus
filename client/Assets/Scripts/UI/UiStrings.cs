@@ -239,7 +239,9 @@ namespace Orpheus.Client.UI
             }
 
             sb.Append('\n').Append(def.Station == CraftStation.None ? "Руками, где угодно" : "Станок: " + StationName(def.Station).ToLowerInvariant());
-            sb.Append('\n').Append(CraftState(line.State, def.Station, line.Affordable));
+            // C-032 (хвост C-029): готовая постройка в сумке — ставится из сумки, не изготавливается: последней строкой
+            // только «В сумке: N», без «что мешает» («не хватает» и «в сумке» одновременно писать нельзя).
+            sb.Append('\n').Append(line.CanPlace ? ReadyInBag(line.Ready) : CraftState(line.State, def.Station, line.Affordable));
             return sb.ToString();
         }
 

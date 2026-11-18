@@ -435,7 +435,7 @@ namespace Orpheus.Client
                 Vector3 root = Character.position;
                 float sortY = Origin.ToUnity(TileCenter(_bedDemoAnchor)).y - 0.5f + ObjectTable.BaseLift - 0.25f;
                 _heroRig.AnimateRest(Time.deltaTime, Math.Max(_bedDemoAge, Anim.RestAnim.LieSec), ObjectId.RotationOf(World.GetObject(_bedDemoAnchor)),
-                    center.x - root.x, center.y - root.y, sortY);
+                    center.x - root.x, center.y - root.y, sleeper: 0, sortY);
                 if (_bedDemoShade != null)
                 {
                     _bedDemoShade.color = new Color(0.02f, 0.03f, 0.09f, Anim.RestAnim.DimMax);
