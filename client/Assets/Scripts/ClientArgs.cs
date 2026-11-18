@@ -105,6 +105,13 @@ namespace Orpheus.Client
         /// </summary>
         public bool NetSmokeDoor;
 
+        /// <summary>
+        /// C-030: net-smoke ложится в кровать — сервер получает <c>--debug-bed</c> (ряд кроватей под точками появления);
+        /// в 0,15 с — F тем же путём, что клавиша (<c>ObjectUse.Find</c> → заявка 33), ответ «принято» кладёт персонажа,
+        /// скриптовый бег с 0,5 с поднимает. Проверка — в <c>NetSmokeCheck</c>.
+        /// </summary>
+        public bool NetSmokeBed;
+
         public bool Hud;
 
         /// <summary>Одиночная / хост: сервер дочерним процессом (0-024); null — офлайн или <see cref="Connect"/>.</summary>
@@ -166,6 +173,13 @@ namespace Orpheus.Client
         /// <c>behind</c>, <c>door</c>, <c>camp</c>, <c>fence</c>, <c>torches</c> (C-017: обзор и 10 факелов), <c>room</c> (C-017: персонаж в комнате), <c>wall</c> (C-017: факел и валун у стены).
         /// </summary>
         public string? HomeDemo;
+
+        /// <summary>
+        /// C-030, только для снимков без сервера: спальня с двуспальной кроватью (<see cref="global::Orpheus.Client.PaintDemo.Bed"/>);
+        /// слово — поворот кровати 0…3, с буквой <c>l</c> — персонаж лежит в ней (поза и затемнение), напр. <c>0</c>, <c>1l</c>.
+        /// </summary>
+        public int BedDemoRot = -1;
+        public bool BedDemoLie;
 
         /// <summary>
         /// C-018, только для снимков без сервера: пруд и кусты вокруг персонажа (<see cref="global::Orpheus.Client.PaintDemo.Wade"/>);
@@ -317,6 +331,10 @@ namespace Orpheus.Client
                     case "--smoke-door":
                         a.NetSmokeDoor = true;
                         a.ServerArgs.Add("--debug-door"); // дверь ставит сервер у точки появления (1-012)
+                        break;
+                    case "--smoke-bed":
+                        a.NetSmokeBed = true;
+                        a.ServerArgs.Add("--debug-bed"); // C-030: кровать ставит сервер у точки появления
                         break;
                     case "--hud":
                         a.Hud = true;
@@ -505,6 +523,19 @@ namespace Orpheus.Client
                         else
                         {
                             a.HomeDemo = next;
+                        }
+
+                        break;
+                    case "--bed-demo":
+                        i++;
+                        if (next == null || next.Length < 1 || next[0] < '0' || next[0] > '3' || (next.Length > 1 && next.Substring(1) != "l"))
+                        {
+                            a.Error = $"--bed-demo: нужно 0…3 или 0l…3l, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.BedDemoRot = next[0] - '0';
+                            a.BedDemoLie = next.Length > 1;
                         }
 
                         break;

@@ -231,11 +231,16 @@ namespace Orpheus.Tests
             Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, new TileCoord(129, 133)));
             Assert.Equal(BuildCells.DoorWest, sim.SolidCells(sim.Shape, new TileCoord(130, 132))); // восточный край 2 × 2
 
+            // C-030 [док]: кровать теперь двуспальная 2 × 2 тайла при любом повороте — старые кровати 1 × 2 из файла читаются
+            // двуспальными (поворот хранится, вид — по повороту); в этом файле рядом с ними свободно.
             Assert.Equal(Bed(1), sim.World.GetObject(new TileCoord(122, 130)));
             Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, new TileCoord(123, 130)));
-            Assert.Equal(0, sim.SolidCells(sim.Shape, new TileCoord(122, 131)));
+            Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, new TileCoord(122, 131)));
+            Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, new TileCoord(123, 131)));
+            Assert.Equal(0, sim.SolidCells(sim.Shape, new TileCoord(124, 130)));
             Assert.Equal(Bed(0), sim.World.GetObject(new TileCoord(120, 132)));
             Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, new TileCoord(120, 133)));
+            Assert.Equal(BuildCells.Full, sim.SolidCells(sim.Shape, new TileCoord(121, 133)));
 
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат12→13"), 6, 0);
             Assert.Equal(14u, SaveContainer.Read(again).Header.FormatVersion);
@@ -265,7 +270,8 @@ namespace Orpheus.Tests
             Assert.Equal((bed, UseKind.Bed), (t, k));
             var benchTail = new TileCoord(98, 101);
             Assert.Equal(UseKind.None, ObjectUse.At(sim.World, self, benchTail)); // C-013 [док]: у верстака нет действия F («F — верстак не нужно»)
-            Assert.Equal(UseKind.None, ObjectUse.At(sim.World, self, new TileCoord(103, 99))); // рядом с хвостом — пусто
+            Assert.Equal(UseKind.Bed, ObjectUse.At(sim.World, self, new TileCoord(103, 99))); // C-030: двуспальная 2 × 2 — и восточная половина
+            Assert.Equal(UseKind.None, ObjectUse.At(sim.World, self, new TileCoord(104, 99))); // рядом с хвостом — пусто
 
             // Персонаж южнее ножной части на 3 тайла: до изголовья 4 — достаёт по хвосту.
             WorldPos far = At(102, 102);
