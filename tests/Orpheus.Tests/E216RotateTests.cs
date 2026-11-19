@@ -482,7 +482,7 @@ namespace Orpheus.Tests
             Assert.Equal(Bed(3), sim.World.GetObject(bt));
             string hash = StateHash.Compute(sim).Total.ToString("x16");
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "E2-16"), 7, 0);
-            Assert.Equal(16u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13
+            Assert.Equal(17u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13
             Simulation back = SaveFixtures.Load(baseBytes, again);
             Assert.Equal(hash, StateHash.Compute(back).Total.ToString("x16"));
             Assert.Equal(Bed(3), back.World.GetObject(bt));

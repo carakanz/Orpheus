@@ -482,6 +482,9 @@ namespace Orpheus.Save
 
             /// <summary>Ось воткнувшейся стрелы, u16 (формат 14, C-031).</summary>
             public const int Aim = 9;
+
+            /// <summary>Владелец личной капли — номер игрока (E3-3b, формат 17); поля нет — общая куча.</summary>
+            public const int Owner = 10;
         }
 
         /// <summary>Поля записи летящего снаряда (E3-3, формат 15; <c>Projectile</c>).</summary>

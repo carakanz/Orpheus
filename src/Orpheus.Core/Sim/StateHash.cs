@@ -191,6 +191,12 @@ namespace Orpheus.Core.Sim
                     h.Add(piles[i].Kind);
                     h.Add(piles[i].Aim);
                 }
+
+                if (piles[i].Owner != 0)
+                {
+                    h.Add(0xE33B); // E3-3b: личная капля — владелец; у общих куч хэш прежний
+                    h.Add(piles[i].Owner);
+                }
             }
 
             return new StateHashResult(r.Tick, h.Value, r.World);

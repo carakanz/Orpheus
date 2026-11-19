@@ -136,7 +136,7 @@ namespace Orpheus.Core.Sim
                 target.Input = InputFrame.None;
                 if (target.Kind == SimEntity.KindEnemy && target.Brain.Archetype != EnemyArchetype.None)
                 {
-                    SpawnEnemyDrop(ref target); // лутом у ног (E3-3, 8.2/8.6): еда 50 %, у лучника ещё стрелы
+                    SpawnEnemyDrop(ref target); // лут у ног (E3-3b, «06» 1.6): таблица по архетипу, личная капля убийце
                 }
 
                 AddEvent(new SimEvent(SimEventKind.Death, Tick, default, -1, EditResult.Applied, 0,

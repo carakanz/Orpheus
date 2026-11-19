@@ -259,6 +259,11 @@ namespace Orpheus.Net.Session
                     break;
                 }
 
+                if (piles[i].Owner != 0 && piles[i].Owner != pl.EntityId)
+                {
+                    continue; // E3-3b: личная капля (`06` 9) — чужой игрок кучу не видит и не знает о ней
+                }
+
                 Int2 d = Torus.Delta(shape, self, piles[i].Position);
                 int tx = Math.Abs(d.X) >> Torus.SubTileBits, ty = Math.Abs(d.Y) >> Torus.SubTileBits;
                 bool wasKnown = k < known.Count && known[k].Id == id;
@@ -294,7 +299,7 @@ namespace Orpheus.Net.Session
                     next.Add(new KnownPile { Id = id, Count = piles[i].Count });
                 }
 
-                _pileBatch[batch++] = new NetPile { Id = id, Item = piles[i].Item, Count = piles[i].Count, Position = piles[i].Position, Kind = piles[i].Kind, Aim = piles[i].Aim };
+                _pileBatch[batch++] = new NetPile { Id = id, Item = piles[i].Item, Count = piles[i].Count, Position = piles[i].Position, Kind = piles[i].Kind, Aim = piles[i].Aim, Owner = piles[i].Owner };
                 if (batch == _pileBatch.Length)
                 {
                     FlushPiles(pl, batch);

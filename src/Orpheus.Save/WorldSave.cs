@@ -511,6 +511,11 @@ namespace Orpheus.Save
                     e.WriteUInt(SaveSections.PileField.Aim, gp.Aim);
                 }
 
+                if (gp.Owner != 0)
+                {
+                    e.WriteInt(SaveSections.PileField.Owner, gp.Owner); // формат 17 (E3-3b): личная капля — владелец
+                }
+
                 e.EndRecord(mark);
             }
 
@@ -1265,6 +1270,9 @@ namespace Orpheus.Save
                         break;
                     case SaveSections.PileField.Aim:
                         p.Aim = (ushort)r.UIntAsInt(ushort.MaxValue);
+                        break;
+                    case SaveSections.PileField.Owner:
+                        p.Owner = r.IntAsInt(); // формат 17 (E3-3b): личная капля — владелец; поля нет — общая
                         break;
                 }
             }

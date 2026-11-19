@@ -362,8 +362,8 @@ namespace Orpheus.Tests
         [Fact]
         public void E36_Protocol_And_Format_Bump()
         {
-            Assert.Equal(37, NetModule.ProtocolVersion); // C-036: 37 (действие в снимке); C-035: 36 (пачка 40)
-            Assert.Equal(16u, SaveModule.FormatVersion);
+            Assert.Equal(38, NetModule.ProtocolVersion); // E3-3b: 38 (владелец личной капли в кучах 27); C-036: 37 (действие в снимке); C-035: 36 (пачка 40)
+            Assert.Equal(17u, SaveModule.FormatVersion);
         }
 
         // ---------- Очаг ----------

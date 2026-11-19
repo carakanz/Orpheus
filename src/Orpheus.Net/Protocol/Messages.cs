@@ -1093,8 +1093,9 @@ namespace Orpheus.Net.Protocol
     /// <summary>Куча на земле, как её видит клиент (E2-1): номер, предмет, количество, позиция в unit.</summary>
     public struct NetPile
     {
-        /// <summary>Номер 4 + предмет 1 + количество 2 + позиция 4 + 4 + вид 1 + ось 2 (C-031, протокол 32).</summary>
-        public const int Bytes = 18;
+        /// <summary>Номер 4 + предмет 1 + количество 2 + позиция 4 + 4 + вид 1 + ось 2 (C-031, протокол 32)
+        /// + владелец 4 (E3-3b, протокол 38).</summary>
+        public const int Bytes = 22;
 
         public int Id;
         public byte Item;
@@ -1107,20 +1108,24 @@ namespace Orpheus.Net.Protocol
         /// <summary>Ось воткнувшейся стрелы (u16); у кучи 0.</summary>
         public ushort Aim;
 
+        /// <summary>Владелец личной капли (E3-3b, `06` 9): номер игрока; 0 — общая. Сервер чужие личные кучи не шлёт,
+        /// поле нужно для порядка и отладки: у всего, что видит клиент, здесь его номер или 0.</summary>
+        public int Owner;
+
         public override readonly string ToString() => $"куча #{Id} предмет {Item} × {Count} {Position}";
     }
 
     /// <summary>
     /// «Кучи» (E2-1, тип 27, канал 2): кучи на земле в обзоре игрока — новые и те, у которых изменилось количество.
-    /// Поля: тип 1 + число 1 + на кучу — номер u32, предмет 1, количество u16 (≥ 1), позиция x, y u32 (unit), вид 1 и ось u16
-    /// воткнувшейся стрелы (C-031, протокол 32).
+    /// Поля: тип 1 + число 1 + на кучу — номер u32, предмет 1, количество u16 (≥ 1), позиция x, y u32 (unit), вид 1,
+    /// ось u16 воткнувшейся стрелы (C-031, протокол 32) и владелец u32 личной капли (E3-3b, протокол 38).
     /// </summary>
     public struct PilesMessage
     {
         /// <summary>Куч в одном сообщении.</summary>
         public const int MaxPiles = 48;
 
-        /// <summary>Наибольший размер: тип 1 + число 1 + 48 куч = 866 байт (влезает в один пакет).</summary>
+        /// <summary>Наибольший размер: тип 1 + число 1 + 48 куч = 1058 байт (влезает в один пакет).</summary>
         public const int MaxBytes = 2 + MaxPiles * NetPile.Bytes;
 
         public static int Write(Span<byte> dest, ReadOnlySpan<NetPile> piles)
@@ -1142,6 +1147,7 @@ namespace Orpheus.Net.Protocol
                 w.WriteUInt32((uint)piles[i].Position.Y);
                 w.WriteByte(piles[i].Kind);
                 w.WriteUInt16(piles[i].Aim);
+                w.WriteUInt32((uint)piles[i].Owner);
             }
 
             return w.BytesWritten;
@@ -1164,6 +1170,7 @@ namespace Orpheus.Net.Protocol
                 int y = (int)r.ReadUInt32();
                 p.Kind = r.ReadByte();
                 p.Aim = r.ReadUInt16();
+                p.Owner = (int)r.ReadUInt32(); // E3-3b: личная капля
                 if (p.Id <= 0 || !Items.Exists(p.Item) || p.Count == 0 || p.Kind > GroundPile.MaxKind)
                 {
                     throw new ProtocolException($"Кучи: № {i} — номер {p.Id}, предмет {p.Item} × {p.Count}, вид {p.Kind}.");
