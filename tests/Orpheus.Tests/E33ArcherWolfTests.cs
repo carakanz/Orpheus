@@ -330,13 +330,16 @@ namespace Orpheus.Tests
 
         // ==================================================== лут с смерти (8.2, 8.6)
 
-        /// <summary>Смерть ближнего: еда 2–5 ровно в 50 % случаев; смерть лучника: стрелы 1–3 всегда (100 %).</summary>
+        /// <summary>Смерть ближнего (разбойник) рукой игрока: дропа нет (у людей по `06` 1.6 только оболы —
+        /// валюта, не предмет среза); смерть лучника рукой игрока: стрелы 2–5 в 50 % случаев, личная капля
+        /// (Owner = убийца). Убит не игроком (самоудар) — дропа нет (E3-3b).</summary>
         [Fact]
         public void E33_Death_Drops()
         {
             // 30 разных id в одной симе — шум (id, такт, зерно) разный: оценка доли со съедобным лутом.
             // Тайлы через 4 — кучи не сливаются (PileMergeUnits ≈ тайл).
             var sim = new Simulation(Flat(1024, 3308));
+            int ch = sim.AddEntity(At(400, 400)); // E3-3b: дропаем только когда убил персонаж
             int[] rogues = new int[30];
             for (int k = 0; k < 30; k++)
             {
@@ -345,23 +348,14 @@ namespace Orpheus.Tests
 
             foreach (int rogue in rogues)
             {
-                Assert.True(sim.ApplyStrike(rogue, rogue, 999, sim.GetEntity(rogue).Mover.Position) > 0);
+                Assert.True(sim.ApplyStrike(rogue, ch, 999, sim.GetEntity(rogue).Mover.Position) > 0);
             }
 
-            int food = 0;
-            foreach (GroundPile p in sim.Piles.ToArray())
-            {
-                if (p.Item == Items.Meat)
-                {
-                    food++;
-                    Assert.InRange(p.Count, 2, 5);
-                }
-            }
+            Assert.Empty(sim.Piles.ToArray()); // E3-3b: с людей дропа нет
 
-            Assert.InRange(food, 9, 21); // ~15 из 30; мутация «лута нет» → 0
-
-            // Лучник: стрелы всегда (10 разных id).
+            // Лучник: стрелы 2–5 в 50 % случаев (10 разных id).
             var sim2 = new Simulation(Flat(1024, 3309));
+            int ch2 = sim2.AddEntity(At(400, 404));
             int[] archers = new int[10];
             for (int k = 0; k < 10; k++)
             {
@@ -370,20 +364,25 @@ namespace Orpheus.Tests
 
             foreach (int archer in archers)
             {
-                sim2.ApplyStrike(archer, archer, 999, sim2.GetEntity(archer).Mover.Position);
+                sim2.ApplyStrike(archer, ch2, 999, sim2.GetEntity(archer).Mover.Position);
             }
 
             int arrows = 0;
             foreach (GroundPile p in sim2.Piles.ToArray())
             {
-                if (p.Item == Items.Arrows)
-                {
-                    Assert.InRange(p.Count, 1, 3);
-                    arrows++;
-                }
+                Assert.Equal(Items.Arrows, p.Item); // только стрелы
+                Assert.Equal(ch2, p.Owner); // личная капля — убийце
+                Assert.InRange(p.Count, 2, 5);
+                arrows++;
             }
 
-            Assert.Equal(10, arrows);
+            Assert.InRange(arrows, 2, 8); // ~5 из 10 при 50 %; мутация «лута нет» → 0
+
+            // Убит не игроком (самоудар врага) — дропа нет (E3-3b).
+            var sim3 = new Simulation(Flat(1024, 3311));
+            int wolf3 = sim3.AddBeastWolf(At(500, 500));
+            sim3.ApplyStrike(wolf3, wolf3, 999, sim3.GetEntity(wolf3).Mover.Position);
+            Assert.Empty(sim3.Piles.ToArray());
         }
 
         // ==================================================== хэш и детерминизм
