@@ -559,6 +559,22 @@ namespace Orpheus.Core.Sim
             _preResult[i] = EditResult.Applied;
             _costPaid[i] = 0;
 
+            // C-040 (хвост C-029): дверь поверх стены — предметы стены возвращаются ставящему (ReturnReplacedWall),
+            // потому в такте нужен заявитель: живой и в радиусе постановки (проверка в такте, как ApplyChestOp).
+            // Заявителя нет (правка процесса мира), труп или далеко — отказ с кодом: стена цела, ничего не списано,
+            // масса мира не меняется (раньше стена сносилась без возврата). Ремонт стены (obj = стена) не трогаем:
+            // там стена остаётся стеной, возврата предметов нет.
+            if (ObjectId.IdOf(e.Edit.Obj) == ObjectId.Door && BuildCells.IsWall(_preObj[i]))
+            {
+                int s = SlotOf(e.Requester);
+                if (s < 0 || !_entities[s].Alive
+                    || !EditRules.InPlaceRadius(_shape, _entities[s].Mover.Position, TileOf(e.Chunk, index)))
+                {
+                    _preResult[i] = EditResult.NoRequester; // в пачку не идёт; в пачке этот случай даёт ReturnReplacedWall (req > 0)
+                    return;
+                }
+            }
+
             if (e.Requester <= 0)
             {
                 return; // правки сервера (урон, истечения) — без стоимости и возврата
