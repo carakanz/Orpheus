@@ -22,7 +22,10 @@ namespace Orpheus.Client.UI
         bool _chestOpen;
 
         /// <summary>Сцена режима стройки, сундука или дома (E2-5).</summary>
-        public static bool IsBuild(string? mode) => mode == "build" || mode == "build-open" || mode == "chest" || mode == "house" || mode == "thin" || mode == "half" || mode == "turn" || mode == "cursor-place" || IsRuler(mode);
+        public static bool IsBuild(string? mode) => mode == "build" || mode == "build-open" || mode == "chest" || mode == "house" || mode == "thin" || mode == "half" || mode == "turn" || mode == "oldbeds" || IsRmb(mode) || mode == "cursor-place" || IsRuler(mode);
+
+        /// <summary>C-041: сцены ПКМ по сундуку при выбранном рецепте («до» — снятие, «после» — открытие).</summary>
+        public static bool IsRmb(string? mode) => mode == "rmb-open" || mode == "rmb-disarm";
 
         /// <summary>E2-13: сцены линейки — протягивание стены (<c>ruler-wall</c>) и пола (<c>ruler-floor</c>).</summary>
         public static bool IsRuler(string? mode) => mode == "ruler-wall" || mode == "ruler-floor";
@@ -32,7 +35,7 @@ namespace Orpheus.Client.UI
         {
             _origin = origin;
             _ghost = new BuildGhost(parent);
-            if (_mode == "chest")
+            if (_mode == "chest" || IsRmb(_mode))
             {
                 _chest.SetCell(0, Items.Wood, 64);
                 _chest.SetCell(1, Items.Stone, 40);
@@ -40,7 +43,7 @@ namespace Orpheus.Client.UI
                 _chest.SetCell(6, Items.Arrows, 120);
                 _chest.SetCell(7, Items.Fiber, 9);
                 _chest.SetCell(13, Items.CopperIngot, 6);
-                _chestOpen = true;
+                _chestOpen = _mode == "chest"; // C-041: в сценах ПКМ сундук сначала закрыт
             }
 
             if (_mode == "build" || _mode == "build-open")
@@ -75,6 +78,12 @@ namespace Orpheus.Client.UI
         }
 
         readonly BuildRuler _demoRuler = new BuildRuler();
+
+        // C-041: выбор рецепта кровати щелчками по полке: «Мебель» (раздел 1) → «Спать» (подраздел 2) → клетка 0.
+        static readonly (int Frame, CraftPart Part, int Index)[] RmbSteps =
+        {
+            (5, CraftPart.Section, 1), (7, CraftPart.Sub, 2), (9, CraftPart.Cell, 0),
+        };
 
         // Заявки стройки стенда: мир сцены не меняется (снимок — про призрак и ленту).
         public ushort Place(TileCoord from, TileCoord to, ushort obj, WorldPos self, byte cell, byte quad) => 1;
@@ -194,6 +203,42 @@ namespace Orpheus.Client.UI
                 {
                     _ghost.ShowPlan(_origin, _world.Shape, position, _demoRuler.Spots);
                     input.Pointer = _ui.WorldToCanvas(_origin.ToUnity(EditRules.CenterOf(b)) + new Vector3(0.25f, -0.25f, 0f));
+                }
+            }
+            else if (IsRmb(_mode))
+            {
+                // C-041: ПКМ по сундуку при выбранном рецепте кровати; снимок — кадр 10.
+                // rmb-disarm («до»): ПКМ доходит до интерфейса — рецепт снят, сундук закрыт.
+                // rmb-open («после»): игра сама открывает сундук (UseUnderCursor) и не отдаёт
+                // ПКМ интерфейсу — RightDown не приходит, рецепт остаётся выбран.
+                int f = _frame;
+                input.Craft = f == 2; // окно изготовления открыто
+                if (f >= 5 && f <= 9)
+                {
+                    // Щелчки по полке: «Мебель» → «Спать» → кровать (рецепт выбран на кадр 9).
+                    int k = 0;
+                    while (k < RmbSteps.Length - 1 && f > RmbSteps[k].Frame)
+                    {
+                        k++;
+                    }
+
+                    input.Pointer = _ui.CraftPoint(RmbSteps[k].Part, RmbSteps[k].Index);
+                    input.LeftDown = f == RmbSteps[k].Frame;
+                    input.LeftHeld = input.LeftDown;
+                }
+
+                if (f >= 10 && _origin != null)
+                {
+                    input.Pointer = _ui.WorldToCanvas(_origin.ToUnity(EditRules.CenterOf(new TileCoord(me.X + 2, me.Y))));
+                    if (_mode == "rmb-disarm")
+                    {
+                        input.RightDown = f == 10; // интерфейс сам снимает рецепт
+                    }
+                    else
+                    {
+                        _chestOpen = true; // «после»: открытие победило снятие
+                        build.ChestOpen = true;
+                    }
                 }
             }
             else if (_mode == "chest")

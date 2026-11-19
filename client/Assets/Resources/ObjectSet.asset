@@ -59,6 +59,9 @@ MonoBehaviour:
   - item_wooden_sword
   - item_workbench
   - obj_bed
+  - obj_bed_1x2
+  - obj_bed_1x2_e
+  - obj_bed_1x2_s
   - obj_bed_e
   - obj_bed_s
   - obj_campfire
@@ -130,6 +133,9 @@ MonoBehaviour:
   - {fileID: 21300000, guid: d104885345ea64241a7a9db19babe60b, type: 3}
   - {fileID: 21300000, guid: 18eb9c7cf9f15754db422e924f301d3b, type: 3}
   - {fileID: 21300000, guid: 753450af1a943984493f9d7cccd13f16, type: 3}
+  - {fileID: 21300000, guid: 7111eb541d4e6ae44bc25bf5206ef1bd, type: 3}
+  - {fileID: 21300000, guid: b47a26b5494fa8f488865dcc445b9f4a, type: 3}
+  - {fileID: 21300000, guid: 28ee9fe2f842a334bbccb1f591a8b7c8, type: 3}
   - {fileID: 21300000, guid: 1f17a9bb6052adb44a2fec8ec5d6c0b8, type: 3}
   - {fileID: 21300000, guid: ef2d194a98f71124fa7d89b1820df702, type: 3}
   - {fileID: 21300000, guid: 120702e935b89cf479c444ba708a874b, type: 3}

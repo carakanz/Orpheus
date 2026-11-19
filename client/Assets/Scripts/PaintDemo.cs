@@ -263,7 +263,7 @@ namespace Orpheus.Client
         /// </summary>
         public static void House(WorldModel world, MapShape map, int cx, int cy, string mode)
         {
-            if (mode == "chest")
+            if (mode == "chest" || mode == "rmb-open" || mode == "rmb-disarm") // C-041: сцены ПКМ по сундуку — тот же мир
             {
                 Rect(world, map, cx - 1, cy - 1, 5, 3, FloorId.WoodFloor);
                 Light(world, map, cx + 2, cy, ObjectId.Chest);
@@ -280,6 +280,12 @@ namespace Orpheus.Client
             if (mode == "turn")
             {
                 TurnRoom(world, map, cx, cy); // E2-16: повороты кровати, верстака, сундука; дверь в вертикальной стене (PaintDemo.Turn.cs)
+                return;
+            }
+
+            if (mode == "oldbeds")
+            {
+                OldBedsRoom(world, map, cx, cy); // C-041: записи старых кроватей 1 × 2 (сохранения до C-030) — ряды и контроль (PaintDemo.Turn.cs)
                 return;
             }
 

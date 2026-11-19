@@ -96,3 +96,6 @@ client/Assets/Art/_TEMP/TEMP_obj_workbench_n.png,placeholder,К,"объект «
 client/Assets/Art/_TEMP/TEMP_obj_workbench_e.png,placeholder,К,"объект «верстак» 2 x 2, поворот 90° — рабочий край к востоку (270° — зеркально), 256x376 (C-030); скрипт tools/furniture_detail.py"
 client/Assets/Art/_TEMP/TEMP_obj_chest_n.png,placeholder,К,"объект «сундук», поворот 180° — замок от зрителя, петли к зрителю, 128x160 (C-030); скрипт tools/furniture_detail.py"
 client/Assets/Art/_TEMP/TEMP_obj_chest_e.png,placeholder,К,"объект «сундук», поворот 90° — замок к востоку (270° — зеркально), ручка-кольцо на торце, 128x160 (C-030); скрипт tools/furniture_detail.py"
+client/Assets/Art/_TEMP/TEMP_obj_bed_1x2.png,placeholder,К,"объект «кровать» старый размер 1 x 2 тайла 128x304, изголовье к северу (0°) — для записей старых сохранений, когда восточная колонка окна 2 x 2 занята (C-041); 3/4 с высотой, опора — низ по центру; скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_bed_1x2_s.png,placeholder,К,"объект «кровать» старый размер 1 x 2, поворот 180° — изголовье к зрителю, 128x304 (C-041); скрипт tools/make_furniture.py"
+client/Assets/Art/_TEMP/TEMP_obj_bed_1x2_e.png,placeholder,К,"объект «кровать» старый размер 2 x 1, поворот 90° — изголовье на восток (270° — зеркально), 256x168 (C-041); скрипт tools/make_furniture.py"
