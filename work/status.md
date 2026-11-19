@@ -60,4 +60,5 @@
 19.11 C-038 реализация готова (17eaa27+d7f728b): лимит 2 сообщ. куч/такт, очередь PileGone в KnownPile, протокол 38 цел; Piles|GroundItem 38/38, Mono+Smoke+HostSmoke 0; -All 1418/0 (код 1 — гейт 60 с); П принято с замечаниями.
 19.11 C-037 починка (52d7f9d): литералы 2f/1f/0f в Objects.shader (E3-4) dx11 отклонял («syntax error: unexpected token 'f'») → шейдер не попадал в Mono-сборку → маджента объектов; замена 2.0/1.0/0.0; build errors=0, smoke 0, host-smoke 0; 5 снимков чистые, HUD виден; UiShape без дефекта.
 19.11 C-037 влита (merge 06f5038); 2.8 сборка пересобрана с 06f5038: smoke+host-smoke 0, 04_meadow_forest чистый (shots 20261119-1324); tc037/tc038 сняты.
-19.11 C-040 исполнитель закрыл (3c9dca6+d9486a5): заявитель в PreEdit, NoRequester=9; Build|Door 1149/0; -All 1421/1 (flaky D00_GenerationHash 3-й случай, соло 2/2); П идёт. C-039 (8f4ff6e) — П идёт. E4-1 — разработчик в te41.
+19.11 C-040 исполнитель закрыл (3c9dca6+d9486a5): заявитель в PreEdit, NoRequester=9; Build|Door 1149/0; -All 1421/1 (flaky D00_GenerationHash 3-й случай, соло 2/2); П идёт. E4-1 — разработчик в te41.
+19.11 C-039: чистка _deadAge в ForgetGoneEnemies (растворился + вне снимка) + снятие призрака; сборка Mono smoke/host-smoke 0; сцены shots.ps1 11/11 байт-в-байт, ленты --anim-shots глазами те же (13 лент байт-недетерминированы и до правки); П принято. task/C-039
