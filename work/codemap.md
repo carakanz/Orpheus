@@ -179,6 +179,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - tests/PathTests.cs: Bench1024 :410 · ThinHouses :443 (пороги MeanTickUs/MaxWaitTicks :432–434, только Release) · `ThreadCpuClock` :646 (`QueryThreadCycleTime`) · `PathBench` :709 (`RunDirect`/`RunScheduler`, `PerTick`=40).
 - tests/MetricsTests.cs: `ReadyMaxSeconds` :131 · `D07_S1_9_4_Big_Server1024_ReadyWithin5s_Under128Mb` :144 · `StartServer` (парсит `sinceProcessStartSec` из stdout) :198..225.
 - Bots/BotRun.cs: `EntryGraceSeconds` :248 · `allInAt`/`windowEnd` ~:340 (окно `--seconds` от события «все в игре»).
+- P-003d (19.11, гонка UDP-порта): tests/InterpolationTests.cs `D00_GenerationHash_LoadedWorldWithEdits_LoginSendsGenerationHash` :559 (--port 0 + цикл `orpheus-ready port=(\d+)`) · guard `D00_GenerationHash_BusyPort_ServerFaultsAtBind` после `FreeUdpPort` :638 · ServerHost.cs `Ready` :540 (строка :560, после bind) · UDP `Listen` :344-346 · фильтр исключений `Run` :187-197 (`SocketException` не ловится) · LiteNetTransport.cs `Listen` :70-81 (bind → AddressAlreadyInUse).
 
 ## Бой на экране (E3-1)
 - Net/Protocol/Messages.cs: DamageMessage (37), DeathMessage (24, + RespawnTicks, FlagAtBed). Net/Session/CombatFeed.cs: DamageTone · DamageNumber · CombatFeed (OnDamage / OnDeath / OnRespawn / Expire · Rise / Alpha / Scale / LaneOffset / LaneLift · BarVisible · RespawnLeft / Fade / RespawnNote). HudLayout: EnemyBar*, Damage*, Death*.
