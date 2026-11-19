@@ -94,7 +94,7 @@ namespace Orpheus.Client.Anim
                     DigDirX = 1f, // ось — взгляд на восток, как чужой в снимке (прицела чужого в снимке нет)
                     DigDirY = 0f,
                     DigPeriod = ProceduralAnimator.DigPeriodFor(q),
-                    Action = ActionAnim.DigActionOf(miner.Held),
+                    Action = ActionAnim.DigActionOf(Items.StonePickaxe),
                     ActionFrames = n * q,
                     ActionSec = (n - 1) * q * ActFrameSec + Mathf.Min(_actAge, q * ActFrameSec),
                 };

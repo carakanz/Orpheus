@@ -193,10 +193,11 @@ namespace Orpheus.Client.Anim
             float dt = Time.deltaTime;
             Vector2 v = rig.MeasureVelocity(dt);
             // E3-4: враг-мечник («Ближний», архетип 1) с пустой рукой в снимке держит деревянный меч — как в бою.
-            rig.SetHeld(e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && e.HeldItem == 0 ? Items.WoodenSword : e.HeldItem);
+            byte held = e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && e.HeldItem == 0 ? Items.WoodenSword : e.HeldItem;
+            rig.SetHeld(held);
             var s = new ActorInput { VelX = v.x, VelY = v.y, Held = rig.Held };
             RemoteSwing(id, e.Melee, dt, rig, ref s);
-            RemoteAction(id, e.Action, dt, rig, ref s);
+            RemoteAction(id, e.Action, dt, rig, held, ref s);
             if (_remoteShots.TryGetValue(id, out RemoteShot shot))
             {
                 float since = Time.time - shot.At;
@@ -302,7 +303,7 @@ namespace Orpheus.Client.Anim
         /// <see cref="BowAction.PowerQ8"/>); отдачу после выстрела даёт <see cref="_remoteShots"/> (сообщение снаряда, E3-2).
         /// Ось — куда смотрит (прицела чужого в снимке нет).
         /// </summary>
-        void RemoteAction(int id, byte action, float dt, ActorRig rig, ref ActorInput s)
+        void RemoteAction(int id, byte action, float dt, ActorRig rig, byte held, ref ActorInput s)
         {
             byte tool = SnapshotLayout.ActionToolOf(action);
             int step = SnapshotLayout.ActionProgressOf(action);
@@ -327,7 +328,7 @@ namespace Orpheus.Client.Anim
                 s.DigDirX = facing;
                 s.DigDirY = 0f;
                 s.DigPeriod = ProceduralAnimator.DigPeriodFor(q);
-                s.Action = ActionAnim.DigActionOf(rig.Held);
+                s.Action = ActionAnim.DigActionOf(held);
                 s.ActionFrames = n * q;
                 s.ActionSec = (n - 1) * q * FrameSec + Mathf.Min(a.Age, q * FrameSec);
             }
