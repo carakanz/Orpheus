@@ -38,7 +38,16 @@ namespace Orpheus.Net.Protocol
         /// </summary>
         public byte Enemy;
 
-        public override string ToString() => $"#{Id} k{Kind} {Position} d{Direction} hp{HealthPct} h{HeldItem} m{Melee}";
+        /// <summary>
+        /// Действие персонажа (C-036): 8 бит (<see cref="SnapshotLayout.ActionBits"/>) — инструмент 2 бита в младших
+        /// (<see cref="SnapshotLayout.ActionToolPick"/> — кирка, <see cref="SnapshotLayout.ActionToolBow"/> — лук)
+        /// и прогресс 6 бит (<see cref="SnapshotLayout.ActionProgressMask"/>): у кирки — доля кадра в окне взмаха/копания,
+        /// у лука — сила натяжения (<see cref="BowAction.PowerQ8"/>, 0…63). 0 — покой; для анимации
+        /// чужих (взмах кирки, «внатяг» лука).
+        /// </summary>
+        public byte Action;
+
+        public override string ToString() => $"#{Id} k{Kind} {Position} d{Direction} hp{HealthPct} h{HeldItem} m{Melee} a{Action}";
     }
 
     /// <summary>
@@ -278,6 +287,38 @@ namespace Orpheus.Net.Protocol
         public static byte EncodeEnemy(byte archetype, int state) =>
             (byte)(((archetype & 3) << EnemyArchetypeShift) | (state & ((1 << EnemyStateBits) - 1)));
 
+        /// <summary>
+        /// Бит на действие персонажа (C-036): инструмент 2 бита в младших (0 — покой, <see cref="ActionToolPick"/> — кирка,
+        /// <see cref="ActionToolBow"/> — лук) + прогресс 6 бит (<see cref="ActionProgressMask"/>).
+        /// </summary>
+        public const int ActionBits = 8;
+
+        /// <summary>Инструмент действия (младшие 2 бита <see cref="ActionBits"/>): кирка (взмах/копка) — C-028.</summary>
+        public const byte ActionToolPick = 1;
+
+        /// <summary>Инструмент действия: лук (натяжение) — C-036, E3-2.</summary>
+        public const byte ActionToolBow = 2;
+
+        /// <summary>Сдвиг и маска прогресса действия (старшие 6 бит).</summary>
+        public const int ActionProgressShift = 2;
+        public const int ActionProgressMask = 0x3F;
+
+        /// <summary>Собрать действие: инструмент (0…3) + прогресс (0…63, больше — обрезается).</summary>
+        public static byte EncodeAction(byte tool, int progress) =>
+            (byte)(tool | (Math.Min(ActionProgressMask, Math.Max(0, progress)) << ActionProgressShift));
+
+        /// <summary>Инструмент действия (0 — покой).</summary>
+        public static byte ActionToolOf(byte action) => (byte)(action & 3);
+
+        /// <summary>Прогресс действия (0…63).</summary>
+        public static int ActionProgressOf(byte action) => (action >> ActionProgressShift) & ActionProgressMask;
+
+        /// <summary>
+        /// C-036: квант окна копки/взмаха, кадров: прогресс кирки в снимке — <c>ceil(DigProgress / квант)</c> (шаг ~0,27 с,
+        /// дельта не каждый такт); клиент по нему считает длину замаха чужого копания.
+        /// </summary>
+        public const int ActionDigQuantum = 16;
+
         public readonly MapShape Shape;
         public readonly int BitsX;
         public readonly int BitsY;
@@ -304,7 +345,7 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Бит на сущность.</summary>
-        public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits + HealthPctBits + HeldBits + MeleeBits + EnemyBits;
+        public int EntityBits => IdBits + KindBits + BitsX + BitsY + DirectionBits + HealthPctBits + HeldBits + MeleeBits + EnemyBits + ActionBits;
 
         /// <summary>
         /// Бит своего состояния (<see cref="SelfState"/>, 0-019): признак 1 + позиция без кванта + остаток скорости 2 × 5
@@ -422,7 +463,7 @@ namespace Orpheus.Net.Protocol
             for (int i = 0; i < Count; i++)
             {
                 if (!w.TryAdd(Entities[i].Id, Entities[i].Kind, Entities[i].Position, Entities[i].Direction,
-                             Entities[i].HealthPct, Entities[i].HeldItem, Entities[i].Melee, Entities[i].Enemy))
+                             Entities[i].HealthPct, Entities[i].HeldItem, Entities[i].Melee, Entities[i].Enemy, Entities[i].Action))
                 {
                     throw new ProtocolException($"Снимок: {Count} сущностей не влезли в {dest.Length} байт.");
                 }
@@ -456,6 +497,7 @@ namespace Orpheus.Net.Protocol
                 e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
                 e.Melee = (byte)r.ReadBits(SnapshotLayout.MeleeBits);
                 e.Enemy = (byte)r.ReadBits(SnapshotLayout.EnemyBits);
+                e.Action = (byte)r.ReadBits(SnapshotLayout.ActionBits);
                 if (e.HealthPct > 100)
                 {
                     throw new ProtocolException($"Снимок: доля здоровья {e.HealthPct} % > 100.");
@@ -544,7 +586,7 @@ namespace Orpheus.Net.Protocol
         public int Count => _count;
 
         /// <summary>Добавить сущность; не влезает — false (ничего не записано).</summary>
-        public bool TryAdd(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0)
+        public bool TryAdd(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0, byte action = 0)
         {
             if (_count == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
             {
@@ -560,6 +602,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
             _w.WriteBits(melee, SnapshotLayout.MeleeBits);
             _w.WriteBits(enemy, SnapshotLayout.EnemyBits);
+            _w.WriteBits(action, SnapshotLayout.ActionBits);
             _count++;
             return true;
         }
@@ -591,6 +634,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>ИИ врага (1-007): Enemy изменился — состояние мозга (архетип + состояние, 5 бит).</summary>
         Enemy = 32,
+
+        /// <summary>Действие персонажа (C-036): Action изменился — взмах кирки / натяжение лука у чужих.</summary>
+        Action = 64,
     }
 
     /// <summary>
@@ -625,8 +671,8 @@ namespace Orpheus.Net.Protocol
         /// <summary>Бит на номер сущности в базе.</summary>
         public const int IndexBits = 8;
 
-        /// <summary>Бит на маску полей (Position, Direction, Health, Held, Melee — 1-004, Enemy — 1-007).</summary>
-        public const int MaskBits = 6;
+        /// <summary>Бит на маску полей (Position, Direction, Health, Held, Melee — 1-004, Enemy — 1-007, Action — C-036).</summary>
+        public const int MaskBits = 7;
 
         /// <summary>Наибольшее отставание базы (поле — u8).</summary>
         public const int MaxBaselineAge = 255;
@@ -665,7 +711,8 @@ namespace Orpheus.Net.Protocol
             ((fields & DeltaFields.Health) != 0 ? SnapshotLayout.HealthPctBits : 0) +
             ((fields & DeltaFields.Held) != 0 ? SnapshotLayout.HeldBits : 0) +
             ((fields & DeltaFields.Melee) != 0 ? SnapshotLayout.MeleeBits : 0) +
-            ((fields & DeltaFields.Enemy) != 0 ? SnapshotLayout.EnemyBits : 0);
+            ((fields & DeltaFields.Enemy) != 0 ? SnapshotLayout.EnemyBits : 0) +
+            ((fields & DeltaFields.Action) != 0 ? SnapshotLayout.ActionBits : 0);
 
         /// <summary>Прочитать дельту в этот объект (номера базы проверяет <see cref="ApplyTo"/>).</summary>
         public void Read(ReadOnlySpan<byte> src, in SnapshotLayout layout)
@@ -747,6 +794,11 @@ namespace Orpheus.Net.Protocol
                         throw new ProtocolException($"Дельта: состояние ИИ {e.Enemy & 7} вне 0…{(int)EnemyState.Interest}.");
                     }
                 }
+
+                if ((f & DeltaFields.Action) != 0)
+                {
+                    e.Action = (byte)r.ReadBits(SnapshotLayout.ActionBits);
+                }
             }
 
             for (int i = 0; i < added; i++)
@@ -760,6 +812,7 @@ namespace Orpheus.Net.Protocol
                 e.HeldItem = (byte)r.ReadBits(SnapshotLayout.HeldBits);
                 e.Melee = (byte)r.ReadBits(SnapshotLayout.MeleeBits);
                 e.Enemy = (byte)r.ReadBits(SnapshotLayout.EnemyBits);
+                e.Action = (byte)r.ReadBits(SnapshotLayout.ActionBits);
                 if (e.HealthPct > 100)
                 {
                     throw new ProtocolException($"Дельта: доля здоровья {e.HealthPct} % > 100.");
@@ -851,6 +904,11 @@ namespace Orpheus.Net.Protocol
                     if ((UpdatedFields[k] & DeltaFields.Enemy) != 0)
                     {
                         e.Enemy = Updated[k].Enemy;
+                    }
+
+                    if ((UpdatedFields[k] & DeltaFields.Action) != 0)
+                    {
+                        e.Action = Updated[k].Action;
                     }
                 }
 
@@ -976,7 +1034,7 @@ namespace Orpheus.Net.Protocol
         }
 
         /// <summary>Изменившаяся сущность базы: номер, поля по маске; не влезла — false (ничего не записано).</summary>
-        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0)
+        public bool TryAddUpdated(int baseIndex, DeltaFields fields, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0, byte action = 0)
         {
             Enter(1);
             if (fields == DeltaFields.None)
@@ -1022,12 +1080,17 @@ namespace Orpheus.Net.Protocol
                 _w.WriteBits(enemy, SnapshotLayout.EnemyBits);
             }
 
+            if ((fields & DeltaFields.Action) != 0)
+            {
+                _w.WriteBits(action, SnapshotLayout.ActionBits);
+            }
+
             _updated++;
             return true;
         }
 
         /// <summary>Новая сущность — полной записью; не влезла — false.</summary>
-        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0)
+        public bool TryAddAdded(int id, byte kind, WorldPos position, byte direction, byte healthPct = 100, byte heldItem = 0, byte melee = 0, byte enemy = 0, byte action = 0)
         {
             Enter(2);
             if (_added == Snapshot.MaxEntities || _w.BitPosition + _layout.EntityBits > _limitBits)
@@ -1044,6 +1107,7 @@ namespace Orpheus.Net.Protocol
             _w.WriteBits(heldItem, SnapshotLayout.HeldBits);
             _w.WriteBits(melee, SnapshotLayout.MeleeBits);
             _w.WriteBits(enemy, SnapshotLayout.EnemyBits);
+            _w.WriteBits(action, SnapshotLayout.ActionBits);
             _added++;
             return true;
         }

@@ -87,6 +87,18 @@ namespace Orpheus.Client.Anim
             _remoteShots[m.Owner] = new RemoteShot { At = Time.time, Dir = new Vector2(ax, ay) };
         }
 
+        // C-036: действие чужого из снимка (Action): копка киркой — замах по шагам прогресса (квант SnapshotLayout.ActionDigQuantum);
+        // лук — поза «внатяг» по силе натяжения. Осевая линия — куда смотрит (прицела чужого в снимке нет).
+        readonly Dictionary<int, RemoteAct> _remoteAct = new Dictionary<int, RemoteAct>();
+
+        struct RemoteAct
+        {
+            public byte Tool; // SnapshotLayout.ActionToolOf (0 — покой)
+            public int Step;  // прогресс 0…63 (SnapshotLayout.ActionProgressOf)
+            public int SeenFrame; // кадр Unity, в котором сущность была в снимке
+            public float Age;     // секунд с текущего шага прогресса
+        }
+
         /// <summary>E2-7: ударов инструментом своего показано (отклик: дерево — встряска и щепки, камень — искры и крошка).</summary>
         public long ImpactsShown { get; private set; }
 
@@ -163,8 +175,8 @@ namespace Orpheus.Client.Anim
 
         /// <summary>
         /// Чужой персонаж поставлен на интерполированное место: ходьба, рывок — по скорости; E2-7: предмет в руке и удар мечом —
-        /// по снимку (<see cref="SnapshotEntity.HeldItem"/>, <see cref="SnapshotEntity.Melee"/>). Копания чужих в снимке нет —
-        /// рубки у них не видно (протокол не менялся, см. карточку E2-7).
+        /// по снимку (<see cref="SnapshotEntity.HeldItem"/>, <see cref="SnapshotEntity.Melee"/>); C-036: копка киркой и
+        /// натяжение лука — по <see cref="SnapshotEntity.Action"/> (<see cref="RemoteAction"/>).
         /// </summary>
         // E3-4: в каком кадре Unity сущность была нарисована из снимка (корень «Ent {id}») — призрак замаха не дублирует спрайт.
         readonly Dictionary<int, int> _remoteSeenFrame = new Dictionary<int, int>();
@@ -181,9 +193,11 @@ namespace Orpheus.Client.Anim
             float dt = Time.deltaTime;
             Vector2 v = rig.MeasureVelocity(dt);
             // E3-4: враг-мечник («Ближний», архетип 1) с пустой рукой в снимке держит деревянный меч — как в бою.
-            rig.SetHeld(e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && e.HeldItem == 0 ? Items.WoodenSword : e.HeldItem);
+            byte held = e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && e.HeldItem == 0 ? Items.WoodenSword : e.HeldItem;
+            rig.SetHeld(held);
             var s = new ActorInput { VelX = v.x, VelY = v.y, Held = rig.Held };
             RemoteSwing(id, e.Melee, dt, rig, ref s);
+            RemoteAction(id, e.Action, dt, rig, held, ref s);
             if (_remoteShots.TryGetValue(id, out RemoteShot shot))
             {
                 float since = Time.time - shot.At;
@@ -282,6 +296,53 @@ namespace Orpheus.Client.Anim
 
         readonly List<int> _gone = new List<int>();
 
+        /// <summary>
+        /// C-036: действие чужого по снимку (<see cref="SnapshotEntity.Action"/>). Кирка: шаги прогресса идут раз в квант
+        /// (<see cref="SnapshotLayout.ActionDigQuantum"/> кадров) — замах считается по шагам: окно = шаг × квант, доля — своим
+        /// таймером от смены шага (снимок идёт реже кадров). Лук: поза «внатяг», сила = прогресс (обратное
+        /// <see cref="BowAction.PowerQ8"/>); отдачу после выстрела даёт <see cref="_remoteShots"/> (сообщение снаряда, E3-2).
+        /// Ось — куда смотрит (прицела чужого в снимке нет).
+        /// </summary>
+        void RemoteAction(int id, byte action, float dt, ActorRig rig, byte held, ref ActorInput s)
+        {
+            byte tool = SnapshotLayout.ActionToolOf(action);
+            int step = SnapshotLayout.ActionProgressOf(action);
+            _remoteAct.TryGetValue(id, out RemoteAct a);
+            if (a.Tool != tool || a.Step != step)
+            {
+                a = new RemoteAct { Tool = tool, Step = step, Age = 0f };
+            }
+            else
+            {
+                a.Age += dt;
+            }
+
+            a.SeenFrame = Time.frameCount;
+            _remoteAct[id] = a;
+            float facing = rig.Animator.FacingRight ? 1f : -1f;
+            if (tool == SnapshotLayout.ActionToolPick)
+            {
+                int q = SnapshotLayout.ActionDigQuantum;
+                int n = Mathf.Max(1, step); // шаг 1 — первое окно (0 только в первый кадр, пока снимок не дошёл)
+                s.Digging = true;
+                s.DigDirX = facing;
+                s.DigDirY = 0f;
+                s.DigPeriod = ProceduralAnimator.DigPeriodFor(q);
+                s.Action = ActionAnim.DigActionOf(held);
+                s.ActionFrames = n * q;
+                s.ActionSec = (n - 1) * q * FrameSec + Mathf.Min(a.Age, q * FrameSec);
+            }
+            else if (tool == SnapshotLayout.ActionToolBow)
+            {
+                s.Drawing = true;
+                s.DrawPower = step / (float)SnapshotLayout.ActionProgressMask;
+                // Сила Q8 ≈ шаг × 4 (квант с сервера); кадры натяжения — обратное BowAction.PowerQ8: 12…36.
+                s.DrawSec = (BowAction.MinDrawFrames + step * 4 * (BowAction.FullDrawFrames - BowAction.MinDrawFrames) / 256) * FrameSec;
+                s.DrawDirX = facing;
+                s.DrawDirY = 0f;
+            }
+        }
+
         /// <summary>E2-7: сущность ушла из снимка (не появлялась больше 60 кадров) — её фаза удара забывается.</summary>
         void ForgetGoneMelee()
         {
@@ -299,10 +360,28 @@ namespace Orpheus.Client.Anim
             {
                 _remoteMelee.Remove(_gone[i]);
             }
+
+            // C-036: действия чужих чистятся тем же счётом.
+            _gone.Clear();
+            foreach (KeyValuePair<int, RemoteAct> kv in _remoteAct)
+            {
+                if (now - kv.Value.SeenFrame > 60)
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _remoteAct.Remove(_gone[i]);
+            }
         }
 
         /// <summary>Фаз удара чужих в памяти (для проверки очистки).</summary>
         public int RemoteMeleeTracked => _remoteMelee.Count;
+
+        /// <summary>C-036: действий чужих в памяти (для проверки очистки).</summary>
+        public int RemoteActionTracked => _remoteAct.Count;
 
         /// <summary>
         /// E2-7: кучу подобрали (сообщение «кучи нет» с поднявшим): свой (<paramref name="self"/>) или чужой
