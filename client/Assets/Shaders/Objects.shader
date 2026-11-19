@@ -83,7 +83,7 @@ Shader "Orpheus/Objects"
         o.color = v.color;
         // Гора (info.z > 1,5) — только силуэт по маске, и только когда маска своего персонажа включена (C-027);
         // крона (info.z > 0,5) — прозрачность в кругах существ (E3-4, проверки по слотам в CreatureFade).
-        o.world = float3(wp.xy, (v.info.z > 1.5 && base.y < _OrphHero.z && _OrphHero.w > 0) ? 2f : (v.info.z > 0.5 ? 1f : 0f));
+        o.world = float3(wp.xy, (v.info.z > 1.5 && base.y < _OrphHero.z && _OrphHero.w > 0) ? 2.0 : (v.info.z > 0.5 ? 1.0 : 0.0));
         o.baseY = base.y;
         return o;
     }
