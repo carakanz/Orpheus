@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Orpheus.Core.Bots;
@@ -579,10 +580,12 @@ namespace Orpheus.Tests
                 };
                 Assert.Equal(0, ServerRun.Run(first, null).ExitCode);
 
-                int port = FreeUdpPort();
                 ServerOptions second = ServerOptions.Parse(new[]
                 {
-                    "--world", world, "--port", port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--ticks", "600",
+                    // Порт берёт сервер на bind (19.11, P-003): FreeUdpPort освобождал порт заранее
+                    // (bind + close), и сосед по параллельному прогону успевал занять его до нашего
+                    // Listen — bind падал (SocketException), сервер не стартовал, вход краснел по всему окну.
+                    "--world", world, "--port", "0", "--ticks", "600",
                     "--logs", Path.Combine(dir, "logs"),
                 });
                 ulong loadedHash = 0;
@@ -594,13 +597,45 @@ namespace Orpheus.Tests
                     }
                 };
 
+                var console = new StringWriter();
                 using var stop = new CancellationTokenSource();
-                Task<ServerResult> server = Task.Run(() => ServerRun.Run(second, null, stop.Token));
+                Task<ServerResult> server = Task.Run(() => ServerRun.Run(second, console, stop.Token));
+
+                // Ждём «orpheus-ready port=N» (ServerHost.cs:560 — печатается после bind, когда NetServer готов).
+                // Сметка широкая: старт с сохранённого мира 1024×1024 под нагрузкой прогона сам по себе долгий
+                // (15.11) — здесь важен bind, окно входа ниже короткое и покрывает только рукопожатие.
+                int port = 0;
+                var readyDeadline = DateTime.UtcNow.AddSeconds(90);
+                while (port == 0)
+                {
+                    var ready = Regex.Match(console.ToString(), @"orpheus-ready port=(\d+)");
+                    if (ready.Success)
+                    {
+                        port = int.Parse(ready.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                        break;
+                    }
+
+                    if (server.IsCompleted)
+                    {
+                        throw new InvalidOperationException(
+                            "Сервер упал до готовности (порт занят, мир не загружен и т. п.): " + console + " | " +
+                            server.Exception?.Flatten().Message);
+                    }
+
+                    if (DateTime.UtcNow > readyDeadline)
+                    {
+                        throw new InvalidOperationException("Сервер не стал готов за 90 с: " + console);
+                    }
+
+                    await Task.Delay(50);
+                }
+
                 LoginAcceptMessage accept;
                 using (LiteNetTransport t = LiteNetTransport.Connect("127.0.0.1", port))
                 {
                     var client = new NetClient(t, t.ServerPeer, "хэш", NetModule.Version);
                     var sw = Stopwatch.StartNew();
+                    // Окно входа 15 с (16.11, flaky.md) — сервер уже слушает, остаётся рукопожатие.
                     while (client.State != NetClientState.InGame && sw.Elapsed < TimeSpan.FromSeconds(15))
                     {
                         client.Poll(sw.ElapsedTicks * 1_000_000 / Stopwatch.Frequency);
@@ -637,6 +672,50 @@ namespace Orpheus.Tests
             using var s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             s.Bind(new IPEndPoint(IPAddress.Loopback, 0));
             return ((IPEndPoint)s.LocalEndPoint!).Port;
+        }
+
+        /// <summary>
+        /// Запись механизма гонки 19.11 (P-003): занятый порт — явная красная ошибка сервера сразу
+        /// (SocketException на bind, <see cref="LiteNetTransport.Listen"/>), строки готовности нет.
+        /// До фикса вход на мёртвый сервер держал весь бюджет окна (15 с) и краснел по нему без
+        /// слова о порте; тест фиксирует, что отказ на bind есть и он быстрый.
+        /// </summary>
+        [Fact]
+        public async Task D00_GenerationHash_BusyPort_ServerFaultsAtBind()
+        {
+            int port = FreeUdpPort();
+            using var jam = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            jam.Bind(new IPEndPoint(IPAddress.Loopback, port)); // «сосед» занял порт
+
+            string dir = Path.Combine(Path.GetTempPath(), "orpheus-hash-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                ServerOptions o = ServerOptions.Parse(new[]
+                {
+                    "--world", Path.Combine(dir, "w"), "--create", "--seed", "202609", "--size", "1024",
+                    "--port", port.ToString(System.Globalization.CultureInfo.InvariantCulture), "--ticks", "600",
+                    "--logs", Path.Combine(dir, "logs"),
+                });
+                var console = new StringWriter();
+                var sw = Stopwatch.StartNew();
+                Task<ServerResult> server = Task.Run(() => ServerRun.Run(o, console, CancellationToken.None));
+                var finished = await Task.WhenAny(server, Task.Delay(TimeSpan.FromSeconds(20)));
+                Assert.Same(server, finished); // упал, а не висит
+                var ex = await Assert.ThrowsAsync<SocketException>(() => server);
+                Assert.Equal(SocketError.AddressAlreadyInUse, ex.SocketErrorCode);
+                Assert.DoesNotContain(ServerRun.ReadyMarker, console.ToString());
+                Assert.True(sw.Elapsed < TimeSpan.FromSeconds(20), sw.Elapsed.ToString());
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(dir, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
         }
 
         [Fact]
