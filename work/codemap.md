@@ -13,7 +13,7 @@ Simulation.Combat.cs: StartAttack :21 · ApplyStrike :57 · BeginWindup :151 · 
 Simulation.Enemies.cs: Chase :24 · AddMeleeRogue :240 · StepAI :273 · UpdateTarget :393
 Simulation.Movement.cs: ISqrt :18 · StepSeparation :50 · MoveToward :98 · NewPathScheduler :112 · ResetPathCaches :119 · IsBlocked :138
 Simulation.Restore.cs: Restore :23/:32 · NextEntityId :~75 · RestoreDefaults :83
-Simulation.Piles.cs (E2-1): константы :18-42 · Piles :58 · AddPile :67 · RestorePiles :71 · RequestBagOp :101 · StepItems :119 (фаза 5.2 такта) · NearestPicker :166 · ApplyBagOp :188 · DropOnTile :222 · SpawnPile :238 · FreeGroundNear :296
+Simulation.Piles.cs (E2-1, E3-3b): константы :18-42 · Piles :58 · AddPile :108 (+owner E3-3b) · RequestBagOp :153 · StepItems :175 (фаза 5.2 такта, автоподбор :207) · NearestPicker :338 (пропуск чужих личных :350) · DropOnTile :442 · SpawnPile :458 (+owner) · FreeGroundNear :~296
 
 ## Spawner.cs - partial Simulation (спавн)
 Волны, точки появления, очередь спавна: методы по grep (класс Simulation :34).
@@ -102,8 +102,8 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Sim/Simulation.Craft.cs (E2-3): CheckCraft · RequestCraft · RequestCraftCancel · RefundCraftQueue · ApplyCraft · ApplyCraftCancel · StepCraft (фаза 5.2 такта, после заявок на сумку). Sim/Simulation.CraftChests.cs (E2-10): CollectNearChests (порядок снятия) · AffordableNear · TakeIngredients (сумка → сундуки) · FillChestStock.
 
 ## Сеть и клиент предметов (E2-1)
-- NetServer.Items.cs: OnBagRequest · SendPilesTo (разница куч игроку) · TakerOf. NetClient.Items.cs: Piles · RequestBagMove/Split/Drop · OnPiles · OnPileGone.
-- Protocol/Messages.cs: InventoryMessage (ячейки), NetPile, PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
+- NetServer.Items.cs: OnBagRequest · SendPilesTo :231 (разница куч игроку; фильтр чужих личных :262, E3-3b) · TakerOf. NetClient.Items.cs: Piles · RequestBagMove/Split/Drop · OnPiles · OnPileGone.
+- Protocol/Messages.cs: InventoryMessage (ячейки), NetPile (+Owner u32, 22 байта, E3-3b), PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
 - BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room).
 - Крафт (E2-3): Protocol/CraftMessages.cs — CraftRequestMessage (30), CraftReplyMessage (31), CraftStateMessage (32), NearbyStockMessage (36, E2-10). NetServer.Items.cs: OnCraftRequest · SendCraftTo · SendStockTo (E2-10, раз в 5 тактов и после своего изготовления). NetClient.Items.cs: Craft · CraftRunning · CraftProgressAt · RequestCraft · RequestCraftCancel. CraftDesk.cs: `ICraftRequests`, `CraftLine`, `ICraftCancelChecked`, `CraftDesk` (LineOf · Missing · Have · InChests · Make · Cancel; E2-10 — со сводкой `NetClient.NearbyStock`) — путь окна крафта и ботов.
 - Полки окна изготовления (E2-9): `src/Orpheus.Net/Session/CraftShelf.cs` — Sections (разделы и подразделы), Rows (ключ результата → раздел / подраздел), Place · Recipes · CountIn · Shown (фильтр «только доступные») · Available · Badge (число на значке); тесты `CraftShelfTests`.
