@@ -757,8 +757,8 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "кучи", chars), 3, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(16u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5), 10 — ячейки стен (E2-12); сумка и кучи — как в формате 7
-            Assert.Equal(16u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(17u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5), 10 — ячейки стен (E2-12); сумка и кучи — как в формате 7
+            Assert.Equal(17u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
 
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(bag, st.Characters[0].Inv);
@@ -924,7 +924,7 @@ namespace Orpheus.Tests
 
             // Пересохранение: формат 7, сумки и кучи те же, хэш состояния тот же.
             byte[] v7 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), again.Name, again.Characters), 5, 0);
-            Assert.Equal(16u, SaveContainer.Read(v7).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // нынешний формат (10 с E2-12)
+            Assert.Equal(17u, SaveContainer.Read(v7).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // нынешний формат (10 с E2-12)
             LoadedWorldState st7 = WorldSave.Load(SaveContainer.Read(v7), WorldSnapshot.LoadBase(baseBytes), WorldSnapshot.StoredHash(baseBytes));
             Assert.Equal(orpheus, st7.Characters[0].Inv);
             Assert.Equal(eurydice, st7.Characters[1].Inv);
@@ -1128,18 +1128,18 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_Net_GoldenBytes_Piles_PileGone_BagRequest()
         {
-            Assert.Equal(37, NetModule.ProtocolVersion); // C-036: 37 (действие в снимке); C-035: 36 (пачка 40); E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
+            Assert.Equal(38, NetModule.ProtocolVersion); // E3-3b: 38 (владелец личной капли в кучах 27); C-036: 37 (действие в снимке); C-035: 36 (пачка 40); E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
 
             var buf = new byte[PilesMessage.MaxBytes];
             var piles = new[]
             {
                 new NetPile { Id = 1, Item = Items.Wood, Count = 3, Position = new WorldPos(0x12345, 0x6789A) },
-                new NetPile { Id = 0x01020304, Item = Items.Arrows, Count = 999, Position = new WorldPos(256, 512), Kind = GroundPile.KindArrowWall, Aim = 0x1234 },
+                new NetPile { Id = 0x01020304, Item = Items.Arrows, Count = 999, Position = new WorldPos(256, 512), Kind = GroundPile.KindArrowWall, Aim = 0x1234, Owner = 42 },
             };
             int n = PilesMessage.Write(buf, piles);
             Assert.Equal(2 + 2 * NetPile.Bytes, n);
             Assert.Equal(
-                "1B-02-01-00-00-00-08-03-00-45-23-01-00-9A-78-06-00-00-00-00-04-03-02-01-0D-E7-03-00-01-00-00-00-02-00-00-01-34-12", // C-031: + вид 1 и ось u16
+                "1B-02-01-00-00-00-08-03-00-45-23-01-00-9A-78-06-00-00-00-00-00-00-00-00-04-03-02-01-0D-E7-03-00-01-00-00-00-02-00-00-01-34-12-2A-00-00-00", // C-031: + вид 1 и ось u16; E3-3b: + владелец u32
                 BitConverter.ToString(buf, 0, n));
             var read = new NetPile[PilesMessage.MaxPiles];
             Assert.Equal(2, PilesMessage.Read(new ReadOnlySpan<byte>(buf, 0, n), read));
@@ -1149,9 +1149,11 @@ namespace Orpheus.Tests
             Assert.Equal(GroundPile.KindArrowWall, read[1].Kind); // C-031
             Assert.Equal(0x1234, read[1].Aim);
             Assert.Equal(GroundPile.KindPlain, read[0].Kind);
-            buf[2 + NetPile.Bytes * 2 - 3] = GroundPile.MaxKind + 1; // C-031: нет такого вида
+            Assert.Equal(42, read[1].Owner); // E3-3b: личная капля — владелец
+            Assert.Equal(0, read[0].Owner); // общая куча
+            buf[2 + NetPile.Bytes * 2 - 7] = GroundPile.MaxKind + 1; // C-031: нет такого вида (E3-3b: вид за 7 байт до конца кучи)
             Assert.Throws<ProtocolException>(() => PilesMessage.Read(new ReadOnlySpan<byte>(buf, 0, n), read));
-            buf[2 + NetPile.Bytes * 2 - 3] = GroundPile.KindArrowWall;
+            buf[2 + NetPile.Bytes * 2 - 7] = GroundPile.KindArrowWall;
             buf[6] = 200; // нет такого предмета
             Assert.Throws<ProtocolException>(() => PilesMessage.Read(new ReadOnlySpan<byte>(buf, 0, n), read));
 

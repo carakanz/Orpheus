@@ -103,9 +103,10 @@ namespace Orpheus.Core.Sim
         /// <summary>
         /// Положить кучу на землю (тесты, выдача вне такта): позиция сдвигается с непроходимого тайла на соседний,
         /// одинаковая куча рядом принимает добавку. Возвращает номер кучи (новой или принявшей); 0 — нечего класть.
+        /// <paramref name="owner"/> (E3-3b) — номер игрока-владельца личной капли; 0 — общая.
         /// </summary>
-        public int AddPile(byte item, int count, WorldPos position, int pickupDelayTicks = 0) =>
-            SpawnPile(Tick, item, count, position, pickupDelayTicks);
+        public int AddPile(byte item, int count, WorldPos position, int pickupDelayTicks = 0, int owner = 0) =>
+            SpawnPile(Tick, item, count, position, pickupDelayTicks, owner: owner);
 
         /// <summary>Загрузка куч из сохранения: только до первой кучи; строго по возрастанию номера.</summary>
         public void RestorePiles(ReadOnlySpan<GroundPile> piles, int nextPileId)
@@ -203,7 +204,7 @@ namespace Orpheus.Core.Sim
 
                 if (p.PickupTick <= tick)
                 {
-                    int taker = NearestPicker(p.Position, p.Item);
+                    int taker = NearestPicker(p.Position, p.Item, p.Owner);
                     if (taker >= 0)
                     {
                         int put = _entities[taker].Inv.Add(p.Item, p.Count);
@@ -331,9 +332,10 @@ namespace Orpheus.Core.Sim
 
         /// <summary>
         /// Ближайший живой персонаж в радиусе подбора, у которого есть место под предмет; равная дальность — меньший
-        /// номер сущности (первый в списке). Нет такого — −1.
+        /// номер сущности (первый в списке). Нет такого — −1. Личная капля (E3-3b, <paramref name="owner"/> ≠ 0) —
+        /// только её владелец.
         /// </summary>
-        private int NearestPicker(WorldPos pos, byte item)
+        private int NearestPicker(WorldPos pos, byte item, int owner)
         {
             int best = -1;
             long bestD2 = (long)PickupRadiusUnits * PickupRadiusUnits + 1;
@@ -343,6 +345,11 @@ namespace Orpheus.Core.Sim
                 if (!_entities[i].Alive)
                 {
                     continue;
+                }
+
+                if (owner != 0 && _entities[i].Id != owner)
+                {
+                    continue; // E3-3b: чужую личную каплю не подбираем (`06` 9)
                 }
 
                 long d2 = Torus.Dist2(_shape, _entities[i].Mover.Position, pos);
@@ -430,8 +437,9 @@ namespace Orpheus.Core.Sim
             }
         }
 
-        /// <summary>Добыча и возврат материалов — кучей на тайле объекта с небольшим разбросом (E2-1).</summary>
-        private void DropOnTile(long tick, TileCoord tile, byte item, int count)
+        /// <summary>Добыча и возврат материалов — кучей на тайле объекта с небольшим разбросом (E2-1).
+        /// <paramref name="owner"/> (E3-3b) — владелец личной капли; 0 — общая.</summary>
+        private void DropOnTile(long tick, TileCoord tile, byte item, int count, int owner = 0)
         {
             if (count <= 0 || !ItemTable.Exists(item))
             {
@@ -444,10 +452,10 @@ namespace Orpheus.Core.Sim
             int dy = (int)((h >> 20) % (ulong)span) - PileScatterUnits;
             WorldPos center = Torus.CornerOf(tile);
             var pos = new WorldPos(center.X + Torus.SubTilesPerTile / 2 + dx, center.Y + Torus.SubTilesPerTile / 2 + dy);
-            SpawnPile(tick, item, count, pos, LootPickupDelayTicks);
+            SpawnPile(tick, item, count, pos, LootPickupDelayTicks, owner: owner);
         }
 
-        private int SpawnPile(long tick, byte item, int count, WorldPos position, int pickupDelayTicks, bool forever = false)
+        private int SpawnPile(long tick, byte item, int count, WorldPos position, int pickupDelayTicks, bool forever = false, int owner = 0)
         {
             if (count <= 0 || !ItemTable.Exists(item))
             {
@@ -461,10 +469,11 @@ namespace Orpheus.Core.Sim
             while (count > 0)
             {
                 // Слияние: первая по номеру одинаковая куча в пределах тайла, пока в ней есть место.
+                // E3-3b: личная капля сливается только со своей (общая — только с общей).
                 int into = -1;
                 for (int i = 0; i < _pileCount; i++)
                 {
-                    if (_piles[i].Item != item || _piles[i].Count >= PileMaxCount || _piles[i].IsStuckArrow)
+                    if (_piles[i].Item != item || _piles[i].Count >= PileMaxCount || _piles[i].IsStuckArrow || _piles[i].Owner != owner)
                     {
                         continue;
                     }
@@ -485,7 +494,7 @@ namespace Orpheus.Core.Sim
                     }
 
                     into = _pileCount++;
-                    _piles[into] = new GroundPile { Id = _nextPileId++, Item = item, Position = pos };
+                    _piles[into] = new GroundPile { Id = _nextPileId++, Item = item, Position = pos, Owner = owner };
                 }
 
                 ref GroundPile p = ref _piles[into];

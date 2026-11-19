@@ -421,7 +421,7 @@ namespace Orpheus.Tests
             Assert.True(old > 0 && young > 0);
 
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "стрелы"), 3, 0);
-            Assert.Equal(16u, SaveContainer.Read(save).Header.FormatVersion);
+            Assert.Equal(17u, SaveContainer.Read(save).Header.FormatVersion);
             Simulation loaded = SaveFixtures.Load(live.BaseBytes, save);
             Assert.Equal(sim.Piles.ToArray(), loaded.Piles.ToArray());
             Assert.Equal(2, loaded.StuckArrowCount);
@@ -464,7 +464,7 @@ namespace Orpheus.Tests
             Assert.Equal(0, sim.StuckArrowCount);
 
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат13→14"), 8, 0);
-            Assert.Equal(16u, SaveContainer.Read(again).Header.FormatVersion);
+            Assert.Equal(17u, SaveContainer.Read(again).Header.FormatVersion);
             Assert.Equal(hash, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total.ToString("x16"));
         }
 

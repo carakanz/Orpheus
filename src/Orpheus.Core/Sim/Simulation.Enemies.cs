@@ -483,20 +483,33 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Лут с врага при смерти (E3-3, docs/02 8.2/8.6): разбойник/волк — еда 2–5 в 50 % случаев;
-        /// лучник — стрелы 1–3 (100 %) + еда 2–5 (50 %). Шум от (номер, такт, зерно) — детерминизм 11.5.
+        /// Лут с врага при смерти (E3-3b, `06` 1.6) — личная капля: дроп только когда убил игрок
+        /// (<see cref="EnemyBrain.LastHitBy"/> — персонаж), владелец кучи = убийца. Зверь (волк): мясо 1–2 (100 %),
+        /// шкура 1 (70 %). Дальний (лучник): стрелы 2–5 (50 %). Ближний (разбойник): дропа нет (у людей по `06` 1.6
+        /// только оболы — валюта, не предмет среза). Шум от (номер, такт, зерно) — детерминизм 11.5.
         /// </summary>
         private void SpawnEnemyDrop(ref SimEntity e)
         {
-            ulong h = EnemyRng.Hash(e.Id, Tick, _world.Seed);
-            if (e.Brain.Archetype == EnemyArchetype.Ranged)
+            int owner = e.Brain.LastHitBy;
+            int slot = SlotOf(owner);
+            if (slot < 0 || !_entities[slot].IsCharacter)
             {
-                DropOnTile(Tick, Torus.TileOf(_shape, e.Mover.Position), Items.Arrows, 1 + (int)(h % 3));
+                return; // E3-3b: убило не игроком (деспавн, среда) — не дропаем
             }
 
-            if ((int)((h >> 8) % 100) < 50)
+            ulong h = EnemyRng.Hash(e.Id, Tick, _world.Seed);
+            TileCoord tile = Torus.TileOf(_shape, e.Mover.Position);
+            if (e.Brain.Archetype == EnemyArchetype.Beast)
             {
-                DropOnTile(Tick, Torus.TileOf(_shape, e.Mover.Position), Items.Meat, 2 + (int)((h >> 4) % 4));
+                DropOnTile(Tick, tile, Items.Meat, 1 + (int)(h % 2), owner); // мясо 1–2 (100 %)
+                if ((int)((h >> 8) % 100) < 70)
+                {
+                    DropOnTile(Tick, tile, Items.Hide, 1, owner); // шкура (70 %)
+                }
+            }
+            else if (e.Brain.Archetype == EnemyArchetype.Ranged && (int)((h >> 8) % 100) < 50)
+            {
+                DropOnTile(Tick, tile, Items.Arrows, 2 + (int)(h % 4), owner); // стрелы 2–5 (50 %)
             }
         }
 
