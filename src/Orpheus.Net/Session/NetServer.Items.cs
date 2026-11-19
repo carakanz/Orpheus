@@ -41,6 +41,12 @@ namespace Orpheus.Net.Session
         /// <summary>Заявок на сумку от одного игрока за такт; сверх — отказ (общая очередь такта — 256, хватает на 32 игрока).</summary>
         public const int MaxBagRequestsPerPlayerTick = 8;
 
+        /// <summary>
+        /// Новых куч (27) одному игроку за такт (C-035): сверх — не уходят (останутся новыми и придут на следующем
+        /// такте). Ровно пачка «куч» (48): всплеск куч не раздувает исходящий трафик игрока.
+        /// </summary>
+        public const int PilesEnterPerTick = PilesMessage.MaxPiles;
+
         /// <summary>Заявок на сумку отклонено: пауза, лимит игрока за такт, мёртвый персонаж, очередь такта полна.</summary>
         public long BagRequestsRefused { get; private set; }
 
@@ -279,6 +285,12 @@ namespace Orpheus.Net.Session
                         continue;
                     }
 
+                    if (pl.NewPilesThisTick == PilesEnterPerTick)
+                    {
+                        continue; // C-035: лимит новых куч на такт — куча останется новой и придёт на следующем
+                    }
+
+                    pl.NewPilesThisTick++;
                     next.Add(new KnownPile { Id = id, Count = piles[i].Count });
                 }
 

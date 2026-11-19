@@ -70,6 +70,7 @@ namespace Orpheus.Net.Session
                 }
 
                 n++;
+                FlushEventBatches(); // C-035: «смерть»/«возрождение» вне пачки — что набрано раньше, уходит до них (порядок за тактом)
                 int len = ev.Kind == SimEventKind.Death
                     ? DeathOf(ev.Victim, ev.Requester, ev.Damage, ev.DamageType).Write(_buf)
                     : new RespawnMessage { Victim = ev.Victim }.Write(_buf);
@@ -155,7 +156,7 @@ namespace Orpheus.Net.Session
                     }
                 }
 
-                _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                AppendEvent(pl, EventRecordKind.Damage, new ReadOnlySpan<byte>(_buf, 0, len)); // C-035: в пачку (40), не отдельным сообщением
                 DamageMessagesSent++;
             }
         }
@@ -167,6 +168,7 @@ namespace Orpheus.Net.Session
         /// </summary>
         private void BroadcastDeath(int victim, int attacker, int damage, byte damageType)
         {
+            FlushEventBatches(); // C-035: смерть вне пачки — накопленные уроны (решение угрозы) уходят до смерти
             int len = DeathOf(victim, attacker, damage, damageType).Write(_buf);
             for (int p = 0; p < _players.Count; p++)
             {
@@ -222,8 +224,69 @@ namespace Orpheus.Net.Session
                         }
                     }
 
-                    _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
+                    AppendEvent(pl, EventRecordKind.Projectile, new ReadOnlySpan<byte>(_buf, 0, len)); // C-035: в пачку (40)
                     ProjectileMessagesSent++;
+                }
+            }
+        }
+
+        /// <summary>C-035: пачек «события» (40) отправлено — по одной на игрока за такт (при переполнении — больше).</summary>
+        public long EventBatchesSent { get; private set; }
+
+        /// <summary>C-035: буфер сборки пачки (40) — отдельный: <see cref="_buf"/> в этот момент держит исходное сообщение.</summary>
+        private readonly byte[] _eventBatchBuf = new byte[EventBatchMessage.MaxBytes];
+
+        /// <summary>
+        /// C-035: запись в пачку событий игрока: <paramref name="msg"/> — целое одиночное сообщение (тип + тело),
+        /// тип заменяется видом записи. Переполнение (лимит тела или <see cref="EventBatchMessage.MaxRecords"/>) —
+        /// набранное уходит сразу, запись начинает вторую пачку.
+        /// </summary>
+        private void AppendEvent(Player pl, EventRecordKind kind, ReadOnlySpan<byte> msg)
+        {
+            int body = msg.Length - 1;
+            if (pl.EventRecords == EventBatchMessage.MaxRecords ||
+                pl.EventStaged + 1 + body > EventBatchMessage.MaxBodyBytes)
+            {
+                SendEventBatch(pl);
+            }
+
+            if (1 + body > EventBatchMessage.MaxBodyBytes)
+            {
+                throw new InvalidOperationException($"Пачка: запись {(byte)kind} длиннее пачки ({body} байт).");
+            }
+
+            pl.EventStaging[pl.EventStaged++] = (byte)kind;
+            msg.Slice(1).CopyTo(pl.EventStaging.AsSpan(pl.EventStaged, body));
+            pl.EventStaged += body;
+            pl.EventRecords++;
+        }
+
+        /// <summary>C-035: пачка игрока наружу (пустая — ничего); счётчик — на пачку, не на запись.</summary>
+        private void SendEventBatch(Player pl)
+        {
+            if (pl.EventRecords == 0)
+            {
+                return;
+            }
+
+            int len = EventBatchMessage.Write(_eventBatchBuf, new ReadOnlySpan<byte>(pl.EventStaging, 0, pl.EventStaged));
+            _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_eventBatchBuf, 0, len));
+            pl.EventStaged = 0;
+            pl.EventRecords = 0;
+            EventBatchesSent++;
+        }
+
+        /// <summary>
+        /// C-035: пачки всех игроков в игре наружу — перед снимками такта (<see cref="SendSnapshots"/>) и перед
+        /// внепачечными «смертью»/«возрождением» (24/25), чтобы порядок за тактом не переехал.
+        /// </summary>
+        public void FlushEventBatches()
+        {
+            for (int p = 0; p < _players.Count; p++)
+            {
+                if (_players[p].State == PlayerState.InGame)
+                {
+                    SendEventBatch(_players[p]);
                 }
             }
         }

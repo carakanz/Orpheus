@@ -556,6 +556,9 @@ namespace Orpheus.Net.Session
                     case MessageType.Strike when State == NetClientState.InGame:
                         OnStrike(StrikeMessage.Read(data)); // C-028: удары взмаха кирки
                         break;
+                    case MessageType.EventBatch when State == NetClientState.InGame:
+                        OnEventBatch(data); // C-035: пачка записей 37/38/39 — тем же разбором, что одиночные
+                        break;
                     case MessageType.NearbyStock when State == NetClientState.InGame:
                         NearbyStockMessage.Read(data, NearbyStock); // E2-10: сундуки рядом
                         NearbyStockSeen++;

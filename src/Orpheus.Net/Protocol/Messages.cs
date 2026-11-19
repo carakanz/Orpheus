@@ -148,6 +148,9 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Взмах кирки (C-028): удары по тайлам — сервер → ударивший и игроки рядом, канал 2 (<see cref="StrikeMessage"/>). Протокол 32.</summary>
         Strike = 39,
+
+        /// <summary>Пачка событий (C-035): записи 37/38/39 одним сообщением — сервер → игрокам, канал 2 (<see cref="EventBatchMessage"/>). Протокол 36.</summary>
+        EventBatch = 40,
     }
 
     /// <summary>
@@ -1300,11 +1303,11 @@ namespace Orpheus.Net.Protocol
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
         /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001), 26 (сумка, 1-002) и 27…29 (кучи и заявка на сумку, E2-1;
-        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; 37 — урон, E3-1; 38 — снаряд, E3-2; 39 — взмах кирки, C-028; последний — Strike); 15 не занят.
+        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; 37 — урон, E3-1; 38 — снаряд, E3-2; 39 — взмах кирки, C-028; 40 — пачка событий, C-035; последний — EventBatch); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.Strike);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.EventBatch);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)
