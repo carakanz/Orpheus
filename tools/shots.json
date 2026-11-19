@@ -189,8 +189,14 @@
     { "name": "C-030_turn", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "turn"] },
     { "name": "C-030_home", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--home-demo", "overview"] },
     { "name": "C-030_house", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "house"] },
+    { "name": "C-041_oldbeds", "comment": "C-041: записи старых кроватей 1 × 2 (сохранения до C-030): кровать A узкая (восток — B), кровать B узкая (восток — сундук), пара лёжа (поворот 1, узкая к югу), контроль — новая 2 × 2 не сдвигается, факел.", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "oldbeds"] },
     { "name": "C-041_rmb_disarm", "comment": "C-041 «до»: ПКМ при выбранном рецепте кровати доходит до интерфейса — рецепт снят, сундук под курсором закрыт (подсказка «F — открыть»).", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "rmb-disarm"] },
     { "name": "C-041_rmb_open", "comment": "C-041 «после»: тот же кадр — ПКМ сначала пробует открыть объект под курсором: окно сундука открыто, рецепт кровати остался выбран.", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "rmb-open"] },
-    { "name": "C-041_oldbeds", "comment": "C-041: записи старых кроватей 1 × 2 (сохранения до C-030): кровать A узкая (восток — B), кровать B узкая (восток — сундук), пара лёжа (поворот 1, узкая к югу), контроль — новая 2 × 2 не сдвигается, факел.", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "oldbeds"] }
+    { "name": "C-041_oldbeds", "comment": "C-041: записи старых кроватей 1 × 2 (сохранения до C-030): кровать A узкая (восток — B), кровать B узкая (восток — сундук), пара лёжа (поворот 1, узкая к югу), контроль — новая 2 × 2 не сдвигается, факел.", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "oldbeds"] },
+    { "name": "E4-1_menu", "comment": "E4-1: main menu — four buttons.", "seed": "0xE4100001", "size": 1024, "tile": null, "args": ["--ui-demo", "menu"], "frame": { "width": 1280, "height": 720 } },
+    { "name": "E4-1_menu-new", "comment": "E4-1: «New world» screen — world folder and seed.", "seed": "0xE4100001", "size": 1024, "tile": null, "args": ["--ui-demo", "menu-new"], "frame": { "width": 1280, "height": 720 } },
+    { "name": "E4-1_menu-host", "comment": "E4-1: «Open for friends» screen — guest address.", "seed": "0xE4100001", "size": 1024, "tile": null, "args": ["--ui-demo", "menu-host"], "frame": { "width": 1280, "height": 720 } },
+    { "name": "E4-1_menu-join", "comment": "E4-1: «Join by address» screen — typed address and history.", "seed": "0xE4100001", "size": 1024, "tile": null, "args": ["--ui-demo", "menu-join"], "frame": { "width": 1280, "height": 720 } },
+    { "name": "E4-1_menu-notice", "comment": "E4-1: notice screen after a lost connection — «To menu».", "seed": "0xE4100001", "size": 1024, "tile": null, "args": ["--ui-demo", "menu-notice"], "frame": { "width": 1280, "height": 720 } }
   ]
 }

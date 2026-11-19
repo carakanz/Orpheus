@@ -282,10 +282,37 @@ namespace Orpheus.Client
                 Debug.Log(r.Opened
                     ? $"[host] открыто для друзей: UDP-порт {r.Port} ({_args.OpenAddress ?? "все адреса"})"
                     : "[host] открыть для друзей не удалось");
+                ShowFriendsAddress(r);
             }
         }
 
+        /// <summary>
+        /// E4-1: полоска сверху «открыто для друзей: адрес порт» — без неё хост не знает,
+        /// куда звать гостей. Адрес даёт игрок (--open-address), порт — сервер в ответе.
+        /// </summary>
+        void ShowFriendsAddress(OpenResultMessage r)
+        {
+            if (_ui == null)
+            {
+                return;
+            }
+            string text = r.Opened
+                ? UI.UiStrings.FriendsOpen((_args.OpenAddress ?? "IP-адрес этого ПК") + ":" + r.Port)
+                : UI.UiStrings.MenuFriendsFail;
+            var label = UI.UiRoot.Label(_ui.RootTransform, "friends-addr",
+                0, _ui.RootSize.y - 70f, _ui.RootSize.x, 48f, 24,
+                TextAnchor.UpperCenter, UI.UiStyle.Gold, outline: true, bold: true);
+            label.text = text;
+            Debug.Log("[host] E4-1: адрес для друзей показан: " + text);
+        }
+
         public bool InGame => _view != null && _client?.State == NetClientState.InGame;
+
+        /// <summary>Статус окончательный (мир не совпал, соединения нет) — кадр выше ведёт обратно в меню (E4-1).</summary>
+        public bool Fatal => _fatal;
+
+        /// <summary>Текст окончательного статуса — причина для экрана «Упс!» (E4-1).</summary>
+        public string StatusText => _status;
 
         /// <summary>Один кадр: разбор связи, состояние, ввод, интерполяция, окно, камера, HUD, smoke/снимок.</summary>
         /// <summary>Секунд с входа в игру (0 до входа).</summary>
@@ -369,6 +396,7 @@ namespace Orpheus.Client
             if (_view != null && state == NetClientState.InGame && !_fatal)
             {
                 UiFrame(); // E2-2: до чтения мыши миром — интерфейс забирает щелчки по себе
+                DeathMenuFrame(); // E4-1: «В меню» на экране смерти — возврат в меню (только для игры из меню)
                 SendInput(now);
                 Render(now);
                 if (_screenshot == null && _args.ScreenshotPath != null)

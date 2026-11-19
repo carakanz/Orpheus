@@ -185,6 +185,7 @@ namespace Orpheus.Client.UI
         readonly CraftLine[] _lines = new CraftLine[RecipeTable.Count];
         readonly UiGroup _stationHint;
         readonly Text _stationHintText;
+        readonly UiButton _deathMenu; // E4-1: «В меню» на экране смерти — выход в меню без перезапуска процесса
         bool _capture;
         CraftStation _near;
         int _nearAge;
@@ -225,11 +226,22 @@ namespace Orpheus.Client.UI
             _tip = new UiTooltip(_root);
             _carry = new UiCarry(_root);
             Combat.CreateOverlay(); // E3-1: экран смерти — поверх всего
+            // E4-1: «В меню» на экране смерти — в меню без перезапуска процесса (поверх экрана смерти).
+            _deathMenu = new UiButton(_root.Transform, 0f, 0f, 340f, 56f, UiStrings.MenuDeathButton, 22,
+                TextAnchor.MiddleCenter, glass: true);
+            _deathMenu.Visible = false;
             Layout();
         }
 
         /// <summary>E3-1: цифры урона, полоски врагов, экран смерти (рисует NetGame / стенд по <c>CombatFeed</c>).</summary>
         public CombatHud Combat { get; }
+
+        /// <summary>E4-1: на экране смерти нажата кнопка «В меню» (NetGame забирает это и уходит в меню).</summary>
+        public bool DeathMenuClicked { get; private set; }
+
+        /// <summary>E4-1: корень холста и его размер — для надписи адреса «для друзей» (NetGame).</summary>
+        public Transform RootTransform => _root.Transform;
+        public Vector2 RootSize => _root.Size;
 
         /// <summary>Окно сумки открыто.</summary>
         public bool BagOpen => _bag.Visible;
@@ -344,6 +356,21 @@ namespace Orpheus.Client.UI
             in UiCraftState craft, in UiBuildState build = default, byte equipHead = Items.None, byte equipBody = Items.None, byte equipLegs = Items.None)
         {
             _root.FitToScreen();
+            // E4-1: «В меню» на экране смерти (поверх затемнения).
+            _deathMenu.Visible = dead;
+            DeathMenuClicked = false;
+            if (dead)
+            {
+                Vector2 dsize = _root.Size;
+                _deathMenu.Rt.anchoredPosition = new Vector2(dsize.x / 2f - 170f, dsize.y * 0.26f);
+                bool overMenu = input0.HasPointer && _deathMenu.Contains(input0.Pointer);
+                _deathMenu.Set(overMenu, false, true);
+                if (overMenu && input0.LeftDown)
+                {
+                    DeathMenuClicked = true;
+                }
+            }
+
             _hand.Sync(bag, dead);
             _hand.SyncChest(build.ChestOpen, build.Chest); // E2-5: ячейки 40…69 — открытый сундук
             _hand.SyncEquip(equipHead, equipBody, equipLegs); // E3-6: надетое — ячейки 70…72

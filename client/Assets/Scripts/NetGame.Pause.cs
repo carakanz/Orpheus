@@ -257,5 +257,18 @@ namespace Orpheus.Client
 
         /// <summary>net-smoke не кончается, пока пауза не прошла (проверка — до «[smoke] done»).</summary>
         bool SmokePauseDone => _args.NetSmokeSeconds <= 0 || _smokePauseStage == 4;
+
+        /// <summary>
+        /// E4-1: экран смерти (E3-1) — кнопка «В меню» в <see cref="UI.GameUi"/>; ведущая игра
+        /// из меню возвращается туда без рестарта процесса. Игра с ключами остаётся как раньше.
+        /// </summary>
+        void DeathMenuFrame()
+        {
+            if (_args.FromMenu && _ui != null && _ui.DeathMenuClicked)
+            {
+                Debug.Log("[boot] E4-1: герой погиб — возврат в меню");
+                _g.GoToMenu(null);
+            }
+        }
     }
 }

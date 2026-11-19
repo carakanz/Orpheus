@@ -1,11 +1,14 @@
 #nullable enable
 using System;
 using System.Diagnostics;
+using System.IO;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
+using Orpheus.Net.Hosting;
 using Orpheus.WorldGen;
+using System.IO;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
@@ -110,6 +113,13 @@ namespace Orpheus.Client
         void Awake()
         {
             Args = ClientArgs.Parse(Environment.GetCommandLineArgs());
+            if (_startInMenu)
+            {
+                // E4-1: сцена перезагружена возвратом «в меню»: аргументы прошлого захода сброшены,
+                // стартуем с чистого листа — и ниже открываем меню.
+                _startInMenu = false;
+                Args = new ClientArgs();
+            }
             bool netMode = Args.Connect != null || Args.Mode.HasValue;
             if (Args.Error != null && !netMode)
             {
@@ -118,6 +128,15 @@ namespace Orpheus.Client
 
             CreateInput();
             WorldFx.Init(Camera, Character); // E1-7: слой теней, персонаж за кроной (до первого WorldView)
+
+            // E4-1: главный экран. Если это не скриптовый прогон (снимки, тесты, стенды) и не
+            // сетевой запуск с аргументами, игра стартует в меню: «Новый мир», «Продолжить»,
+            // «Открыть для друзей», «Войти по адресу». Смерть и обрыв связи тоже ведут сюда.
+            if (!netMode && !ScriptedRun())
+            {
+                OpenMenu();
+                return;
+            }
 
             // Сетевой режим (0-012): мир присылает сервер, поэтому здесь только связь; окно — сразу с HUD-текстом.
             // Одиночная и хост (0-024) — тот же сетевой режим: сервер — дочерний процесс, вход через 127.0.0.1 (07, 2.3).
@@ -131,7 +150,6 @@ namespace Orpheus.Client
                     return;
                 }
 
-                ShowDebugLabels(Args.Hud);
                 Net = new NetGame(this, Args);
                 Net.StartConnect();
                 return;
@@ -244,6 +262,15 @@ namespace Orpheus.Client
                     UI.UiRoot.FixedFrame = new Vector2Int(Args.ShotPixelsX, Args.ShotPixelsY); // холст — сразу в размере снимка
                 }
 
+                if (UI.MenuUi.IsMenuDemo(Args.UiDemo))
+                {
+                    // E4-1: снимки меню: мир построен как обычно (кадр снимка идёт по своему сценарию),
+                    // сверху — витрина меню; обычный UiDemo для этих режимов не создаётся.
+                    _menu = new UI.MenuUi(Camera, OnMenuStart);
+                    _menu.ShowDemo(Args.UiDemo!);
+                    return;
+                }
+
                 if (UI.UiDemo.IsCraft(Args.UiDemo))
                 {
                     // E2-4: окно крафта показывается у верстака — ставим его в двух тайлах восточнее персонажа, костёр — западнее.
@@ -277,6 +304,123 @@ namespace Orpheus.Client
                     _uiDemo.BindCombat(Origin, new GameObject("CombatDemo").transform, heroSprite, _heroRig);
                 }
             }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        //  E4-1: главное меню — вход в игру из меню и возврат в меню без рестарта процесса
+        // ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>Меню живо, пока открыт этот экран; кадры игры тогда не идут.</summary>
+        UI.MenuUi? _menu;
+
+        /// <summary>Стартовать в меню после перезагрузки сцены (static: перезагрузка сцены убивает этот компонент).</summary>
+        static bool _startInMenu;
+
+        /// <summary>Экран «Уведомление» с текстом причины для кадра после перезагрузки сцены.</summary>
+        static string? _pendingNotice;
+
+        /// <summary>
+        /// Скриптовый прогон: снимки, тесты, стенды и демо рисуются без игрока в меню,
+        /// поэтому они стартуют сразу, как раньше.
+        /// </summary>
+        bool ScriptedRun() =>
+            Args.Smoke || Args.ScreenshotPath != null || Args.UiDemo != null
+            || Args.AnimShotsDir != null || Args.AnimBenchSeconds > 0 || Args.TileBenchSeconds > 0
+            || Args.PaintDemo || Args.PaintForest || Args.DemoPiles || Args.HomeDemo != null
+            || Args.BedDemoRot >= 0 || Args.WadeDemo != null || Args.WalkFrames != 0;
+
+        /// <summary>Открыть меню (при старте и после каждой перезагрузки сцены).</summary>
+        void OpenMenu()
+        {
+            ShowDebugLabels(false);
+            _startInMenu = false;
+            _menu = new UI.MenuUi(Camera, OnMenuStart);
+            string? notice = _pendingNotice;
+            _pendingNotice = null;
+            if (notice != null)
+            {
+                _menu.ShowNotice(notice);
+            }
+
+            Debug.Log("[boot] E4-1: главное меню открыто");
+        }
+
+        /// <summary>
+        /// Клик по кнопкам меню: собрать аргументы захода (тот же путь, что ключи) и войти в игру.
+        /// «Новый мир» и «для друзей» — свежая папка Worlds/world-N и посев с экрана; «Продолжить» —
+        /// самая свежая папка с сохранением; «войти по адресу» — только клиент, сервера здесь нет.
+        /// </summary>
+        void OnMenuStart(UI.MenuUi.Start s)
+        {
+            string? worldDir = null, connect = null;
+            bool friends = false;
+            ulong seed = 0;
+            switch (s.Kind)
+            {
+                case UI.MenuUi.Kind.NewWorld:
+                    worldDir = Path.Combine(UI.MenuUi.WorldsRoot, UI.MenuUi.NextWorldName());
+                    seed = (ulong)s.Seed;
+                    break;
+                case UI.MenuUi.Kind.Continue:
+                    worldDir = Path.Combine(UI.MenuUi.WorldsRoot, UI.MenuUi.LatestWorldName() ?? UI.MenuUi.NextWorldName());
+                    break;
+                case UI.MenuUi.Kind.FriendsNew:
+                    worldDir = Path.Combine(UI.MenuUi.WorldsRoot, UI.MenuUi.NextWorldName());
+                    seed = (ulong)s.Seed;
+                    friends = true;
+                    break;
+                case UI.MenuUi.Kind.FriendsContinue:
+                    worldDir = Path.Combine(UI.MenuUi.WorldsRoot, UI.MenuUi.LatestWorldName() ?? UI.MenuUi.NextWorldName());
+                    friends = true;
+                    break;
+                case UI.MenuUi.Kind.Join:
+                    connect = s.Address;
+                    break;
+            }
+
+            Debug.Log($"[boot] E4-1: меню начинает заход {s.Kind}: мир {worldDir ?? "-"} адрес {connect ?? "-"}");
+            StartNet(worldDir: worldDir, hostForFriends: friends, connect: connect, seed: seed);
+        }
+
+        /// <summary>
+        /// Запуск игры из меню — тот же путь, что ключи: одиночный мир (LocalServer-поток),
+        /// «для друзей» (LocalServer + UDP-подстёжка, как --single --open-for-friends), вход по адресу.
+        /// </summary>
+        void StartNet(string? worldDir = null, bool hostForFriends = false, string? connect = null, ulong seed = 0)
+        {
+            _menu?.Dispose();
+            _menu = null;
+            Args.FromMenu = true;
+            Args.Mode = connect == null ? ServerMode.Single : (ServerMode?)null;
+            Args.WorldDir = worldDir;
+            if (seed != 0)
+            {
+                Args.Seed = seed;
+            }
+
+            Args.OpenForFriends = hostForFriends;
+            Args.OpenAddress = hostForFriends ? UI.MenuUi.FriendsAddress : null;
+            Args.OpenPort = hostForFriends ? UI.MenuUi.FriendsPort : Args.OpenPort;
+            Args.Connect = connect;
+            ShowDebugLabels(Args.Hud);
+            Net = new NetGame(this, Args);
+            Net.StartConnect();
+        }
+
+        /// <summary>
+        /// Возврат в меню без рестарта процесса: экраны в буфере, сервер пишется по Stop
+        /// (OnDestroy → Net.Shutdown), сцена перезагружается — и Awake открывает меню.
+        /// </summary>
+        public void GoToMenu(string? notice)
+        {
+            if (_startInMenu)
+            {
+                return; // перезагрузка сцены уже идёт
+            }
+            Debug.Log("[boot] E4-1: возврат в меню" + (notice != null ? ": " + notice : ""));
+            _startInMenu = true;
+            _pendingNotice = notice;
+            UnityEngine.SceneManagement.SceneManager.LoadScene(gameObject.scene.name);
         }
 
         void OnDestroy()
@@ -392,6 +536,19 @@ namespace Orpheus.Client
 
         void Update()
         {
+            // E4-1: в меню весь кадр принадлежит меню; фатальная сетевая авария — возврат в меню.
+            if (_menu != null)
+            {
+                _menu.Frame();
+                _screenshot?.AfterFrame(); // снимки меню (--ui-demo menu*) снимаются на своём кадре
+                return;
+            }
+            if (Net != null && Net.Fatal)
+            {
+                GoToMenu(Net.StatusText);
+                return;
+            }
+
             if (Net != null)
             {
                 Net.Frame();
