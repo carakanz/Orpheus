@@ -68,7 +68,7 @@ namespace Orpheus.Tests
             }
 
             Assert.Equal(100, PilesOf(sim, Items.Meat).Count);
-            Assert.InRange(hides, 55, 85);
+            Assert.InRange(hides, 60, 80); // приёмочное окно `06` 1.6 (70 % ± разброс)
             foreach (GroundPile h in PilesOf(sim, Items.Hide))
             {
                 Assert.Equal(1, h.Count);
