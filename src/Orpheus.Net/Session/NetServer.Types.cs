@@ -26,6 +26,15 @@ namespace Orpheus.Net.Session
         {
             public int Id;
             public ushort Count;
+
+            /// <summary>
+            /// C-038: «кучи нет» (28) перенесено на следующий такт — на такте не хватило потолка сообщений.
+            /// Куча остаётся в знании игрока, пока сообщение не отправлено (иначе у клиента останется «призрак»).
+            /// Причина и поднявший считаются при постановке в очередь (события такта на следующий такт не действуют).
+            /// </summary>
+            public bool PendingGone;
+            public PileGoneReason Reason;
+            public int Taker;
         }
 
         private sealed class Player

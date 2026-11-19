@@ -47,6 +47,13 @@ namespace Orpheus.Net.Session
         /// </summary>
         public const int PilesEnterPerTick = PilesMessage.MaxPiles;
 
+        /// <summary>
+        /// Сообщений куч (27 и 28) одному игроку за такт (C-038): сверх — остаток переносится на следующие такты
+        /// (новые кучи остаются новыми, диффы — на старом количестве игрока, «кучи нет» — в очереди в знании игрока).
+        /// Всплеск (вход в область 200+ куч, массовые подбор/истечение) не даёт всплеска UDP на персонажа.
+        /// </summary>
+        public const int PileMessagesPerTick = 2;
+
         /// <summary>Заявок на сумку отклонено: пауза, лимит игрока за такт, мёртвый персонаж, очередь такта полна.</summary>
         public long BagRequestsRefused { get; private set; }
 
@@ -227,7 +234,12 @@ namespace Orpheus.Net.Session
             return slot >= 0 && !_sim.Entities[slot].Alive ? EditReply.Dead : EditReply.QueueFull;
         }
 
-        /// <summary>После такта: разница «что игрок знает о кучах» ↔ «что лежит в его обзоре» — сообщениями 27 и 28.</summary>
+        /// <summary>
+        /// После такта: разница «что игрок знает о кучах» ↔ «что лежит в его обзоре» — сообщениями 27 и 28.
+        /// C-038: за такт не больше <see cref="PileMessagesPerTick"/> сообщений; остаток переносится на следующие
+        /// такты. Согласованность: «кучи нет» за удалённую кучу ставится в очередь внутри знания игрока
+        /// (<see cref="KnownPile.PendingGone"/>) и куча не выпадает из знания, пока сообщение не отправлено.
+        /// </summary>
         private void SendPilesTo(Player pl, WorldPos self)
         {
             ReadOnlySpan<GroundPile> piles = _sim.Piles;
@@ -240,6 +252,7 @@ namespace Orpheus.Net.Session
             MapShape shape = _sim.Shape;
             List<KnownPile> next = pl.KnownPilesNext;
             next.Clear();
+            int budget = PileMessagesPerTick; // C-038: каждая отправленная 27/28 списывает по одному
             int batch = 0;
             int k = 0;
             for (int i = 0; i <= piles.Length; i++)
@@ -249,8 +262,25 @@ namespace Orpheus.Net.Session
                 // Известные игроку кучи с номером меньше текущей — в симуляции их больше нет: подобраны или истекли.
                 while (k < known.Count && known[k].Id < id)
                 {
-                    int taker = TakerOf(known[k].Id);
-                    SendPileGone(pl, known[k].Id, taker != 0 ? PileGoneReason.Picked : PileGoneReason.Expired, taker);
+                    KnownPile kp = known[k];
+                    if (!kp.PendingGone)
+                    {
+                        int taker = TakerOf(kp.Id); // события — этого такта, на следующий такт поднявшего не найти
+                        kp.Taker = taker;
+                        kp.Reason = taker != 0 ? PileGoneReason.Picked : PileGoneReason.Expired;
+                        kp.PendingGone = true;
+                    }
+
+                    if (budget > 0)
+                    {
+                        SendPileGone(pl, kp.Id, kp.Reason, kp.Taker);
+                        budget--;
+                    }
+                    else
+                    {
+                        next.Add(kp); // очередь: куча остаётся в знании игрока до отправки «кучи нет»
+                    }
+
                     k++;
                 }
 
@@ -269,18 +299,55 @@ namespace Orpheus.Net.Session
                 bool wasKnown = k < known.Count && known[k].Id == id;
                 if (wasKnown)
                 {
-                    ushort sentCount = known[k].Count;
+                    KnownPile kp = known[k];
+                    ushort sentCount = kp.Count;
                     k++;
                     if (tx > PileLeaveTilesX || ty > PileLeaveTilesY)
                     {
-                        SendPileGone(pl, id, PileGoneReason.OutOfView, 0);
+                        kp.PendingGone = true;
+                        kp.Reason = PileGoneReason.OutOfView;
+                        kp.Taker = 0;
+                        if (budget > 0)
+                        {
+                            SendPileGone(pl, id, PileGoneReason.OutOfView, 0);
+                            budget--;
+                        }
+                        else
+                        {
+                            next.Add(kp);
+                        }
+
                         continue;
                     }
 
-                    next.Add(new KnownPile { Id = id, Count = piles[i].Count });
+                    if (kp.PendingGone)
+                    {
+                        kp.PendingGone = false; // очередь «кучи нет» больше не нужна: куча вернулась в обзор
+                        kp.Reason = default;
+                        kp.Taker = 0;
+                    }
+
+                    next.Add(kp);
                     if (sentCount == piles[i].Count)
                     {
                         continue;
+                    }
+
+                    if (budget == 0)
+                    {
+                        continue; // C-038: нет бюджета сообщения — дифф на следующем такте, игрок помнит старое количество
+                    }
+
+                    if (batch == 0)
+                    {
+                        budget--; // резерв пачки 27: первое запись в неё списывает сообщение
+                    }
+
+                    _pileBatch[batch++] = new NetPile { Id = id, Item = piles[i].Item, Count = piles[i].Count, Position = piles[i].Position, Kind = piles[i].Kind, Aim = piles[i].Aim, Owner = piles[i].Owner };
+                    if (batch == _pileBatch.Length)
+                    {
+                        FlushPiles(pl, batch);
+                        batch = 0;
                     }
                 }
                 else
@@ -290,20 +357,24 @@ namespace Orpheus.Net.Session
                         continue;
                     }
 
-                    if (pl.NewPilesThisTick == PilesEnterPerTick)
+                    if (pl.NewPilesThisTick == PilesEnterPerTick || budget == 0)
                     {
-                        continue; // C-035: лимит новых куч на такт — куча останется новой и придёт на следующем
+                        continue; // C-035: лимит новых куч на такт; C-038: нет бюджета — куча останется новой и придёт на следующем
                     }
 
                     pl.NewPilesThisTick++;
                     next.Add(new KnownPile { Id = id, Count = piles[i].Count });
-                }
+                    if (batch == 0)
+                    {
+                        budget--; // резерв пачки 27
+                    }
 
-                _pileBatch[batch++] = new NetPile { Id = id, Item = piles[i].Item, Count = piles[i].Count, Position = piles[i].Position, Kind = piles[i].Kind, Aim = piles[i].Aim, Owner = piles[i].Owner };
-                if (batch == _pileBatch.Length)
-                {
-                    FlushPiles(pl, batch);
-                    batch = 0;
+                    _pileBatch[batch++] = new NetPile { Id = id, Item = piles[i].Item, Count = piles[i].Count, Position = piles[i].Position, Kind = piles[i].Kind, Aim = piles[i].Aim, Owner = piles[i].Owner };
+                    if (batch == _pileBatch.Length)
+                    {
+                        FlushPiles(pl, batch);
+                        batch = 0;
+                    }
                 }
             }
 

@@ -1385,5 +1385,154 @@ namespace Orpheus.Tests
             Assert.Equal(EditReply.Dead, Assert.Single(replies).Reply);
             Assert.Equal("ты мёртв", EditRules.Describe(EditReply.Dead));
         }
+
+        // ---------- C-038: потолок сообщений куч на игрока за такт ----------
+
+        /// <summary>
+        /// C-038: 200 куч в окне входа — за такт игроку не больше <see cref="NetServer.PileMessagesPerTick"/> сообщений
+        /// куч (27 + 28); за 20 тактов клиент видит все 200 куч, ничего не потеряно и ничего не пропало.
+        /// </summary>
+        [Fact]
+        public void C038_Net_Piles_200InWindow_PerTickLimit_AllKnownInK()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 5);
+            using var rig = new EditTests.EditRig(world, _ => Center(300, 300));
+            for (int x = 305; x < 385; x++)
+                for (int y = 295; y < 355; y++)
+                    rig.Sim.RequestEdit(new TileCoord(x, y), FloorId.Grass, ObjectId.Empty);
+            NetClient c = rig.Join();
+            rig.Run(4);
+            Assert.Equal(NetClientState.InGame, c.State);
+
+            for (int x = 310; x <= 319; x++) // 200 куч в окне входа (80 × 56 тайлов)
+                for (int y = 300; y <= 319; y++)
+                    rig.Sim.AddStuckArrowForTests(Center(x, y), 0, GroundPile.KindArrowGround, rig.Sim.Tick);
+            int added = rig.Sim.Piles.Length;
+            Assert.Equal(200, added);
+
+            var perTick = new List<long>();
+            long prev = c.PileMessagesSeen + c.PileGoneSeen;
+            rig.AfterTick = () =>
+            {
+                long now = c.PileMessagesSeen + c.PileGoneSeen;
+                perTick.Add(now - prev);
+                prev = now;
+            };
+            rig.Run(20);
+            rig.AfterTick = null;
+
+            Assert.All(perTick, d => Assert.InRange(d, 0, NetServer.PileMessagesPerTick)); // потолок за такт
+            Assert.Equal(200, c.Piles.Count); // за 20 тактов выгрузка полная (96 куч за такт)
+            Assert.Equal(0, c.PileGoneSeen); // и ничего не пропало (задержка подбора, в 10 т от игрока)
+            Assert.Equal(added, rig.Sim.Piles.Length); // на земле всё целое
+            Assert.Equal(0, c.BadMessages);
+        }
+
+        /// <summary>
+        /// C-038: 200 куч разом уходят из обзора — «кучи нет» уходит очередью по ≤ 2 за такт; куча не выпадает из
+        /// знания игрока раньше сообщения (нет «призраков»); возврат куч в обзор отменяет очередь.
+        /// </summary>
+        [Fact]
+        public void C038_Net_Piles_BurstOutOfView_GoneQueued_NoGhosts_CancelledOnReturn()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 5);
+            using var rig = new EditTests.EditRig(world, _ => Center(300, 300));
+            for (int x = 305; x < 385; x++)
+                for (int y = 295; y < 355; y++)
+                    rig.Sim.RequestEdit(new TileCoord(x, y), FloorId.Grass, ObjectId.Empty);
+            NetClient c = rig.Join();
+            rig.Run(4);
+
+            for (int x = 310; x <= 319; x++)
+                for (int y = 300; y <= 319; y++)
+                    rig.Sim.AddStuckArrowForTests(Center(x, y), 0, GroundPile.KindArrowGround, rig.Sim.Tick);
+            Assert.Equal(200, rig.Sim.Piles.Length);
+
+            var perTick = new List<long>();
+            long prev = c.PileMessagesSeen + c.PileGoneSeen;
+            var shown = new HashSet<int>(); // кучи, показанные клиенту («кучи» минус «кучи нет»)
+            var gones = new List<PileGoneMessage>();
+            c.PileSeen = p => shown.Add(p.Id);
+            c.PileGone = (m, was) =>
+            {
+                gones.Add(m);
+                Assert.True(shown.Remove(m.Id), "«кучи нет» на кучу, которую клиент не видел — «призрак»");
+            };
+            rig.AfterTick = () =>
+            {
+                long now = c.PileMessagesSeen + c.PileGoneSeen;
+                perTick.Add(now - prev);
+                prev = now;
+                Assert.Equal(shown.Count, c.Piles.Count);
+            };
+
+            rig.Run(6); // все кучи известны игроку
+            Assert.Equal(200, c.Piles.Count);
+
+            rig.Sim.PlaceForTests(c.EntityId, Center(500, 500)); // кучи далеко за границей обзора
+            rig.Run(7); // ушли все 200; клиент успел опросить доставка 6 тактов по 2
+            Assert.Equal(12, c.PileGoneSeen); // ровно по потолку за такт; два «ушедших» 7-го такта ещё в пути
+
+            rig.Sim.PlaceForTests(c.EntityId, Center(300, 300)); // кучи снова в обзоре — очередь «кучи нет» отменяется
+            rig.Run(10);
+            Assert.Equal(14, c.PileGoneSeen); // +2 — доставка 7-го такта; новых ушедших после возврата нет
+            Assert.Equal(200, c.Piles.Count); // 188 остались в знании (очередь отменена), 12 ушедших пришли заново
+
+            rig.Sim.PlaceForTests(c.EntityId, Center(500, 500));
+            rig.Run(110);
+            Assert.All(perTick, d => Assert.InRange(d, 0, NetServer.PileMessagesPerTick)); // потолок за такт на всём прогоне
+            Assert.Equal(214, c.PileGoneSeen); // 14 ушедших в первом побеге + 200 во втором (188 + 12 вернувшихся)
+            Assert.Empty(c.Piles); // «призраков» не осталось
+            Assert.All(gones, g => Assert.Equal(PileGoneReason.OutOfView, g.Reason));
+            Assert.Equal(200, rig.Sim.Piles.Length); // на земле всё целое
+            Assert.Equal(0, c.BadMessages);
+        }
+
+        /// <summary>
+        /// C-038: 9 куч поднимаются в одном такте — «кучи нет» уходит очередью по ≤ 2 за такт, поднявший и причина
+        /// считаются в такте подбора и не теряются в очереди; клиент видит подбор целиком, сумка пополнена.
+        /// </summary>
+        [Fact]
+        public void C038_Net_Piles_BurstPickup_GoneQueued_TakerKept()
+        {
+            using var rig = new EditTests.EditRig(Flat(), i => i == 0 ? Center(300, 200) : Center(300, 206));
+            NetClient a = rig.Join();
+            NetClient b = rig.Join();
+            for (int x = 302; x <= 306; x++) // поле 5 × 5 куч, игрок «a» в 2 т — не подбирает
+                for (int y = 198; y <= 202; y++)
+                    rig.Sim.AddStuckArrowForTests(Center(x, y), 0, GroundPile.KindArrowGround, rig.Sim.Tick);
+            Assert.Equal(25, rig.Sim.Piles.Length);
+
+            var perTick = new List<long>();
+            long prev = b.PileMessagesSeen + b.PileGoneSeen;
+            rig.AfterTick = () =>
+            {
+                long now = b.PileMessagesSeen + b.PileGoneSeen;
+                perTick.Add(now - prev);
+                prev = now;
+            };
+            rig.Run(15); // кучи известны обоим; задержка подбора (10 тактов) истекла
+            Assert.Equal(25, a.Piles.Count);
+            Assert.Equal(25, b.Piles.Count);
+
+            var gones = new List<PileGoneMessage>();
+            b.PileGone = (m, was) => gones.Add(m);
+            int arrowsBefore = a.Inv.Count(Items.Arrows);
+            rig.Sim.PlaceForTests(a.EntityId, Center(304, 200)); // в середину поля: 9 куч в радиусе подбора — поднимаются в одном такте
+            rig.Run(20);
+
+            Assert.All(perTick, d => Assert.InRange(d, 0, NetServer.PileMessagesPerTick)); // потолок за такт у свидетеля
+            int picked = 25 - rig.Sim.Piles.Length;
+            Assert.Equal(9, picked); // 3 × 3 кучы в 384 единицах (1,5 тайла) от персонажа
+            Assert.Equal(9, b.PileGoneSeen); // все ушли очередью за ≤ 5 тактов
+            Assert.All(gones, g =>
+            {
+                Assert.Equal(PileGoneReason.Picked, g.Reason);
+                Assert.Equal(a.EntityId, g.Taker); // поднявший не потерялся в очереди
+            });
+            Assert.Equal(16, b.Piles.Count);
+            Assert.Equal(arrowsBefore + 9, a.Inv.Count(Items.Arrows));
+            Assert.Equal(0, a.BadMessages + b.BadMessages);
+        }
     }
 }
