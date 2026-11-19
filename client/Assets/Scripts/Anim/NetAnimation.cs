@@ -626,6 +626,8 @@ namespace Orpheus.Client.Anim
         /// <summary>
         /// E3-4: призрак врага, долго не видимый на экране (труп растворился, существо ушло из снимка), убирается;
         /// записи «нарисована в кадре» застарелых сущностей — снимаются (как фазы удара в <see cref="ForgetGoneMelee"/>).
+        /// C-039: там же вычёркиваются записи смерти <see cref="_deadAge"/> ушедших из снимка существ — иначе словарь
+        /// растёт до конца игры.
         /// </summary>
         void ForgetGoneEnemies()
         {
@@ -657,6 +659,31 @@ namespace Orpheus.Client.Anim
             for (int i = 0; i < _gone.Count; i++)
             {
                 _remoteSeenFrame.Remove(_gone[i]);
+            }
+
+            // C-039: запись о смерти (E3-1) нужна, пока существо в снимке: Remote() идёт из снимка и ведёт
+            // возраст падения/растворения. Снял сервер труп из снимка (10,5 с) — Remote() для id больше не
+            // вызывается и запись остаётся в словаре навсегда. Записи, прошедшие растворение (DeathAnim.Gone)
+            // и не нарисованные в этом кадре, вычёркиваются: дальше они ничего не рисуют, а только держат
+            // скрытый призрак замаха (corpse-проверка :599) — призрак убирается вместе с записью.
+            _gone.Clear();
+            foreach (KeyValuePair<int, float> kv in _deadAge)
+            {
+                bool inSnapshot = _remoteSeenFrame.TryGetValue(kv.Key, out int seenAt) && seenAt == now;
+                if (!inSnapshot && DeathAnim.Gone(kv.Value, true))
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _deadAge.Remove(_gone[i]);
+                if (_enemies.TryGetValue(_gone[i], out Enemy? deadGhost))
+                {
+                    deadGhost.Actor.Destroy();
+                    _enemies.Remove(_gone[i]);
+                }
             }
         }
 
