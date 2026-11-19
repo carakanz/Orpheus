@@ -282,6 +282,12 @@ namespace Orpheus.Client.UI
                 b.Visible = false;
             }
 
+            // История — не в _all: прячем всегда, на экране 3 включаются заново (иначе висят пустыми в углу).
+            foreach (UiButton b in _historyButtons)
+            {
+                b.Visible = false;
+            }
+
             _title.gameObject.SetActive(screen == 0);
             _worldLine.gameObject.SetActive(screen == 1);
             _seedLine.gameObject.SetActive(screen == 1);
@@ -334,6 +340,7 @@ namespace Orpheus.Client.UI
         void ShowJoin()
         {
             _addr = string.Empty;
+            _addrLine.text = UiStrings.MenuJoinAddr(_addr);
             Show(3);
         }
 
@@ -363,6 +370,7 @@ namespace Orpheus.Client.UI
                     break;
                 case "menu-join":
                     _addr = "193.19.1.11:7788";
+                    _addrLine.text = UiStrings.MenuJoinAddr(_addr);
                     Show(3);
                     break;
                 case "menu-notice":
