@@ -98,6 +98,11 @@ namespace Orpheus.Client
         public bool[] TurnFlip = new bool[0];
         internal int[] TurnSprites = new int[0];
 
+        /// <summary>C-041: картинки старого размера кровати 1 × 2 / 2 × 1 (записы сохранений до C-030) по повороту;
+        /// зеркало 270° — то же <see cref="TurnFlip"/>. Пусто — узкого вида нет.</summary>
+        public string[] NarrowTurns = new string[0];
+        internal int[] NarrowTurnSprites = new int[0];
+
         // Заполняет ObjectTable при сборке: номера картинок листа и суммарный вес.
         internal int[] Sprites = new int[0];
         internal float[] Weights = new float[0];
@@ -223,6 +228,7 @@ namespace Orpheus.Client
             {
                 Id = ObjectId.Bed, Variants = new[] { V("obj_bed") },
                 Turns = new[] { "obj_bed", "obj_bed_e", "obj_bed_s", "obj_bed_e" }, TurnFlip = Mirror270, // C-030: двуспальная 2 × 2 (E2-16: 1 × 2)
+                NarrowTurns = new[] { "obj_bed_1x2", "obj_bed_1x2_e", "obj_bed_1x2_s", "obj_bed_1x2_e" }, // C-041: старый 1 × 2 — вид, когда окно занято соседом
                 Shadow = 0.35f,
             },
         };
@@ -249,6 +255,14 @@ namespace Orpheus.Client
                 }
 
                 foreach (string t in look.Turns)
+                {
+                    if (seen.Add(t))
+                    {
+                        yield return t;
+                    }
+                }
+
+                foreach (string t in look.NarrowTurns) // C-041: старый 1 × 2 — набор картинок при импорте
                 {
                     if (seen.Add(t))
                     {
@@ -292,6 +306,12 @@ namespace Orpheus.Client
                 for (int t = 0; t < look.Turns.Length; t++)
                 {
                     look.TurnSprites[t] = ObjectAtlas.Find(look.Turns[t]); // E2-16: −1 — обычный вид
+                }
+
+                look.NarrowTurnSprites = new int[look.NarrowTurns.Length];
+                for (int t = 0; t < look.NarrowTurns.Length; t++)
+                {
+                    look.NarrowTurnSprites[t] = ObjectAtlas.Find(look.NarrowTurns[t]); // C-041: −1 — узкого вида нет
                 }
 
                 look.Weights = weights.ToArray();
@@ -414,6 +434,20 @@ namespace Orpheus.Client
             if (rotation < look.TurnSprites.Length && look.TurnSprites[rotation] >= 0)
             {
                 p.Sprite = look.TurnSprites[rotation];
+                p.Flip = rotation < look.TurnFlip.Length && look.TurnFlip[rotation];
+            }
+
+            return p;
+        }
+
+        /// <summary>Вид старой узкой кровати 1 × 2 / 2 × 1 (C-041): картинка <see cref="ObjectLook.NarrowTurns"/>,
+        /// зеркало 270° — как у поворота.</summary>
+        public static Placement PlaceNarrow(ObjectLook look, int tx, int ty, int rotation)
+        {
+            Placement p = Place(look, tx, ty);
+            if (rotation < look.NarrowTurnSprites.Length && look.NarrowTurnSprites[rotation] >= 0)
+            {
+                p.Sprite = look.NarrowTurnSprites[rotation];
                 p.Flip = rotation < look.TurnFlip.Length && look.TurnFlip[rotation];
             }
 

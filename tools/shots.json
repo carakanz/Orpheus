@@ -188,6 +188,9 @@
     { "name": "C-030_lie3", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--bed-demo", "3l"] },
     { "name": "C-030_turn", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "turn"] },
     { "name": "C-030_home", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--home-demo", "overview"] },
-    { "name": "C-030_house", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "house"] }
+    { "name": "C-030_house", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "house"] },
+    { "name": "C-041_rmb_disarm", "comment": "C-041 «до»: ПКМ при выбранном рецепте кровати доходит до интерфейса — рецепт снят, сундук под курсором закрыт (подсказка «F — открыть»).", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "rmb-disarm"] },
+    { "name": "C-041_rmb_open", "comment": "C-041 «после»: тот же кадр — ПКМ сначала пробует открыть объект под курсором: окно сундука открыто, рецепт кровати остался выбран.", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "rmb-open"] },
+    { "name": "C-041_oldbeds", "comment": "C-041: записи старых кроватей 1 × 2 (сохранения до C-030): кровать A узкая (восток — B), кровать B узкая (восток — сундук), пара лёжа (поворот 1, узкая к югу), контроль — новая 2 × 2 не сдвигается, факел.", "seed": "0xE50007", "size": 1024, "tile": null, "width": 40, "args": ["--ui-demo", "oldbeds"] }
   ]
 }

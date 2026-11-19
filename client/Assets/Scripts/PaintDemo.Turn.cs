@@ -54,5 +54,37 @@ namespace Orpheus.Client
                 chunk.SetBaseBuild(index, rec.WithFlags(BuildFlags.Wide));
             }
         }
+
+        /// <summary>
+        /// Сцена старых кроватей C-041 (<c>--ui-demo oldbeds</c>): записи сохранений до C-030 — кровать 1 × 2 / 2 × 1,
+        /// в окне которой (окно современного стандарта 2 × 2) стоит сосед. Слева ряд стоя: кровать (восток — соседняя
+        /// кровать), вторая кровать (восток — сундук), сундук; посередине пара лёжа (90°): верхняя (юг — соседняя) и
+        /// нижняя (север — соседняя); справа контроль — новая двуспальная 2 × 2 без соседей (окно свободно).
+        /// Записи — с флагом Wide и поворотом в объекте, как в старых сохранениях.
+        /// </summary>
+        static void OldBedsRoom(WorldModel world, MapShape map, int cx, int cy)
+        {
+            for (int y = cy - 5; y <= cy + 4; y++)
+            {
+                for (int x = cx - 7; x <= cx + 7; x++)
+                {
+                    Layered(world, map, x, y, BuildCells.Full, ObjectId.Empty, 0, 0, 0);
+                }
+            }
+
+            // Ряд стоя (0°): A — восток занят кроватью B; B — восток занят сундуком; обе рисуем узкими (1 × 2).
+            Turned(world, map, cx - 6, cy - 4, ObjectId.Bed, 0);
+            Turned(world, map, cx - 5, cy - 4, ObjectId.Bed, 0);
+            Turned(world, map, cx - 4, cy - 4, ObjectId.Chest, 0);
+
+            // Пара лёжа (90°): D — юг занят кроватью E; E — север занята кроватью D; обе узкие (2 × 1).
+            Turned(world, map, cx + 1, cy - 4, ObjectId.Bed, 1);
+            Turned(world, map, cx + 1, cy - 3, ObjectId.Bed, 1);
+
+            // Контроль: новая двуспальная 2 × 2 (окно свободно) — остаётся широкой.
+            Turned(world, map, cx - 1, cy + 1, ObjectId.Bed, 0);
+
+            Light(world, map, cx + 5, cy + 3, ObjectId.Torch);
+        }
     }
 }

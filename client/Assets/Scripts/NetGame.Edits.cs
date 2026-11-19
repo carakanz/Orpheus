@@ -189,6 +189,19 @@ namespace Orpheus.Client
             }
 
             UI.UiInput input = _args.NetSmokeSeconds > 0 ? default : _ui.ReadInput();
+
+            // C-041: ПКМ по миру над открытым окном сумки — сначала пробуем открыть объект под курсором (сундук /
+            // кровать), и только если открыть нечего UI увидит нажатие (снять рецепт, взять один, отменить «в руке»).
+            // Порядок одного нажатия: открыть → снять, если не открыли. Молот / постройка из меню в физических руках —
+            // ПКМ принадлежит стройке (снять постройку), мир не открываем.
+            if (input.RightDown && !_rest.Active && !_ui.Hand.Holding
+                && (!_ui.PointerBlocked || _ui.Route == PointerRoute.Idle)
+                && !BuildHand.IsHammer(HeldItem) && !BuildHand.IsBuildItem(HeldItem)
+                && UseUnderCursor(c))
+            {
+                input.RightDown = false; // открыли — окно крафта рецепт не снимает
+            }
+
             LocalPrediction? pr = _pred;
             // E2-4: окно крафта показывает очередь сервера; прогресс первой позиции — по такту сервера, без предсказания.
             var craft = new UI.UiCraftState
@@ -242,6 +255,7 @@ namespace Orpheus.Client
         TileCoord? _buildLast;
         int _buildLastQuad;
         int _rulerCancelFrame = -1; // E2-13: кадр, в котором Esc отменил протягивание (паузу этот Esc не ставит)
+        int _rmbOpenedFrame = -1;   // C-041: кадр, в котором ПКМ открыл объект в мире (UI-снятие рецепта и UpdateEdits не удваивают открытие)
 
         /// <summary>Esc этого кадра занят линейкой: идёт протягивание или его только что отменили.</summary>
         bool RulerTookEscape => (_ui?.Ruler.Dragging ?? false) || _rulerCancelFrame == Time.frameCount || _menuCancelFrame == Time.frameCount || FromMenu;
@@ -376,21 +390,27 @@ namespace Orpheus.Client
         /// <summary>
         /// C-030: ПКМ по объекту под курсором — кровать (лечь, точка возрождения) или сундук (открыть); прочее — ничего
         /// (дверь ПКМ не закрывает: ПКМ по миру без молота раньше ничего не делал, F остаётся общим правилом).
+        /// C-041: true — открытие произошло (кадр помечен, UI-снятие рецепта и <see cref="UpdateEdits"/> этот клик не
+        /// повторяют); верстак ПКМ не открывается (слово Автора по C-013: «F — верстак не нужно»).
         /// </summary>
-        void UseUnderCursor(NetClient c)
+        bool UseUnderCursor(NetClient c)
         {
             TileCoord? cursor = CursorTile();
             if (_world == null || !cursor.HasValue)
             {
-                return;
+                return false;
             }
 
             UseKind kind = ObjectUse.At(_world, _localPos, cursor.Value, out TileCoord t);
             if (kind == UseKind.Bed || kind == UseKind.Chest)
             {
                 c.RequestUse(t);
+                _rmbOpenedFrame = Time.frameCount; // C-041: UpdateEdits в этом кадре тот же клик не открывает
                 Debug.Log($"[use] ПКМ: {kind} на {t.X},{t.Y}");
+                return true;
             }
+
+            return false;
         }
 
         /// <summary>
@@ -621,7 +641,8 @@ namespace Orpheus.Client
             PipetteKeys(mouse, now); // C-029: средняя кнопка / G — пипетка
             TurnAndMenuKeys(HandItem); // E2-16: R — поворот, Tab — линейка, Esc / ПКМ — убрать постройку из меню
             byte held = HandItem;      // E2-16: постройка из меню — как в руке
-            if (mouse.rightButton.wasPressedThisFrame && !rested && !BuildHand.IsHammer(held) && !BuildHand.IsBuildItem(held))
+            if (mouse.rightButton.wasPressedThisFrame && !rested && Time.frameCount != _rmbOpenedFrame
+                && !BuildHand.IsHammer(held) && !BuildHand.IsBuildItem(held))
             {
                 UseUnderCursor(c); // C-030: ПКМ по кровати / сундуку — как F (по привычке Terraria)
             }
