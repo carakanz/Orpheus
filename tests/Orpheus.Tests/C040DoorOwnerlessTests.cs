@@ -116,7 +116,7 @@ namespace Orpheus.Tests
             Assert.Equal(wallTotal, Total(sim, Items.StoneWall)); // масса не меняется
             Assert.Equal(doorTotal, Total(sim, Items.Door));
             Assert.Equal(1, TileResults(sim, mid, out EditResult last));
-            Assert.NotEqual(EditResult.Applied, last); // отказ с кодом
+            Assert.Equal(EditResult.NoRequester, last); // отказ с кодом (C-040)
         }
 
         /// <summary>
