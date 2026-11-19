@@ -17,6 +17,28 @@ namespace Orpheus.Client.UI
         public const string BagDead = "Вы погибли: сумка откроется для действий после возрождения";
         public const string BagKeys = "Q / I";
 
+        // ---------- E4-1: главное меню и возврат в него ----------
+
+        public const string MenuTitle = "Orpheus";
+        public const string MenuNewWorld = "Новый мир";
+        public const string MenuContinue = "Продолжить";
+        public const string MenuFriends = "Открыть для друзей";
+        public const string MenuJoin = "Войти по адресу";
+        public const string MenuBack = "Назад";
+        public const string MenuCreate = "Создать";
+        public const string MenuConnect = "Подключиться";
+        public const string MenuToMenu = "В меню";
+        public const string MenuNoticeTitle = "Уведомление";
+        public const string MenuNoSaves = "нет сохранённых миров";
+        public const string MenuJoinPrompt = "Введите адрес сервера (хост:порт):";
+        public static string MenuSeed(long seed) => $"посев: 0x{seed:X16}";
+        public static string MenuWorld(string folder) => $"папка мира: {folder}";
+        public static string MenuFriendsAddr(string addr, int port) => $"гости подключаются по адресу  {addr}:{port}";
+        public static string MenuJoinAddr(string addr) => addr.Length == 0 ? "_" : addr;
+        public static string FriendsOpen(string addr) => $"Открыто для друзей: {addr} (UDP)";
+        public const string MenuFriendsFail = "Открыть для друзей не удалось";
+        public const string MenuDeathButton = "В меню";
+
         // ---------- C-008: окна как в Terraria ----------
 
         /// <summary>Подсказка клавиш сумки — одной строкой мелко под сеткой (полная — <see cref="BagHint"/>, при наведении).</summary>

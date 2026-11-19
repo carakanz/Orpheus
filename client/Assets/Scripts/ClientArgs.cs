@@ -136,6 +136,12 @@ namespace Orpheus.Client
         public bool OpenForFriends;
 
         /// <summary>
+        /// Игра запущена из главного меню (E4-1): после смерти героя или обрыва
+        /// связи игрок возвращается в меню, а не остаётся на чёрном экране.
+        /// </summary>
+        public bool FromMenu;
+
+        /// <summary>
         /// K-001, офлайн: <c>--anim-shots &lt;папка&gt;</c> — показ процедурной анимации (ходьба, уворот, замах с сектором, попадание,
         /// копание) и серии кадров в PNG (<c>K-001_*.png</c>); <c>--anim-bench &lt;сек&gt;</c> — замер fps с 8 персонажами и
         /// 40 врагами-болванками. Нужен вывод на экран — без <c>-batchmode -nographics</c>.
@@ -504,9 +510,9 @@ namespace Orpheus.Client
                         break;
                     case "--ui-demo":
                         i++;
-                        if (!UI.UiDemo.IsMode(next))
+                        if (!UI.UiDemo.IsMode(next) && !UI.MenuUi.IsMenuDemo(next))
                         {
-                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, half, turn, cursor-place, ruler-wall, ruler-floor или combat-hit|hurt|kill|death|respawn, дано '{next}'";
+                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, half, turn, cursor-place, ruler-wall, ruler-floor, combat-hit|hurt|kill|death|respawn или menu|menu-new|menu-host|menu-join|menu-notice, дано '{next}'";
                         }
                         else
                         {
