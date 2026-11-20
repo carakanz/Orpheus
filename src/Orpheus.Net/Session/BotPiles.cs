@@ -56,6 +56,9 @@ namespace Orpheus.Net.Session
         /// <summary>Куч подобрано, пока бот к ним шёл или ждал.</summary>
         public int Collected { get; private set; }
 
+        /// <summary>Куча захвачена как цель (диагностика 20.11: видит ли клиент кучи вовсе).</summary>
+        public int Latched { get; private set; }
+
         /// <summary>Куч брошено по времени.</summary>
         public int Abandoned => _abandoned.Count;
 
@@ -66,7 +69,17 @@ namespace Orpheus.Net.Session
         /// <paramref name="line"/> — её координата, unit): кучи дальше <see cref="OffLineUnits"/> от линии не интересуют,
         /// поперёк линии бот не шагает.
         /// </summary>
-        public bool TrySeek(NetClient client, WorldPos pos, Func<byte, bool>? wants, out Input8 dir, int axis = AxisFree, int line = 0)
+        /// <param name="zone">Полоса копания (как MechTourBot._digZone): <see cref="InDigBand"/>;
+        /// кучи из чужой полосы не берём (dropped чужим ботом — его добыча). −1 — без фильтра.</param>
+        /// <summary>Полоса копания: полосы по 4 тайла ((x &gt;&gt; 3) &amp; 1). Границы полос далёки от
+        /// целевых тайлов (InDigZone) — боты не толкаются у стыка (in-proc соак 20.11: noKnock 76@4005).</summary>
+        public static bool InDigBand(int tileX, int zone) => ((tileX >> 3) & 1) == zone;
+
+        /// <summary>Целевые тайлы копания — середина полосы (x%8 = 1..2): до границы полосы ≥ 2 тайла,
+        /// до середины соседней полосы ≥ 3 тайла — standing-места ботов не соприкасаются.</summary>
+        public static bool InDigZone(int tileX, int zone) => InDigBand(tileX, zone) && ((tileX & 3) == 1 || (tileX & 3) == 2);
+
+        public bool TrySeek(NetClient client, WorldPos pos, Func<byte, bool>? wants, out Input8 dir, int axis = AxisFree, int line = 0, int zone = -1)
         {
             dir = Input8.None;
             IReadOnlyList<NetPile> piles = client.Piles;
@@ -80,6 +93,11 @@ namespace Orpheus.Net.Session
                 if (_abandoned.Contains(p.Id) || (wants != null && !wants(p.Item)) || client.Inv.RoomFor(p.Item) <= 0)
                 {
                     continue;
+                }
+
+                if (zone >= 0 && !InDigBand(p.Position.X / Torus.SubTilesPerTile, zone))
+                {
+                    continue; // куча в полосе напарника — он её и собирает
                 }
 
                 if (axis != AxisFree)
@@ -116,6 +134,7 @@ namespace Orpheus.Net.Session
             {
                 _pileId = target.Id;
                 _frames = 0;
+                Latched++;
             }
 
             if (++_frames > ChaseFrames)

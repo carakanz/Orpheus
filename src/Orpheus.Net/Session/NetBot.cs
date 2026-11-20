@@ -183,7 +183,7 @@ namespace Orpheus.Net.Session
             {
                 if (_tour == null && Client.HasSnapshot && Client.Latest.Self.Present)
                 {
-                    var tour = new MechTourBot(Client.Shape, Client.Latest.Self.Position);
+                    var tour = new MechTourBot(Client.Shape, Client.Latest.Self.Position, _botIndex);
                     _tour = tour;
                     Client.EditReplied = m => tour.OnReply(m);
                     Client.CraftReplied = m => tour.OnCraftReply(m);

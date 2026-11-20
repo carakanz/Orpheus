@@ -75,11 +75,36 @@ namespace Orpheus.Net.Session
         private int _digStartFrame;
         private byte _digSlot;
         private TileCoord _digFindFrom;
-        // Сбор дропа из личных куч (E3-3b): срубленное дерево падает в кучу, счёт сумки после сруба
-        // не растёт, пока не дойдёшь до кучи (тот же BotPiles.TrySeek, что у BuildRoomBot). В live-зонде
-        // 20.11 (`e42_probe17`) фаза сундука вставала на NeedWood именно так: деревья срублены, дерево в кучах.
+        // Сбор дропа копания: drop падает ОБЩЕЙ кучей на тайл объекта (owner=0, DigLoot → DropOnTile),
+        // подбирается в 1,5 тайла с задержкой 10 тактов; ушедший с тайла бот добычу теряет. Тот же
+        // BotPiles.TrySeek, что у BuildRoomBot (поле ниже). Счётчики диагностики 20.11: видимость куч
+        // (PileSeen/PileGone) и захваты TrySeek — по ним видно, кто и где теряет дерево.
         private BotPiles? _tourPiles;
+        private bool _pileWired;
+        private int _woodPilesSeen;
+        private int _woodTakenSelf;
+        private int _woodTakenOther;
+        private int _woodExpired;
+        private int _woodOutOfView;
         private int _digFindFrame;
+
+        // Окно оседания дропа после сруба/копания (stand, ждём автоподбора), см. DigFor.
+        private const int DigSettleFrames = 90; // 1,5 с: задержка подбора 10 тактов + доставка сумки
+        private int _digSettleFrame = -100_000;
+
+        // Зона копания по индексу бота (probe20, 20.11): drop — ОБЩАЯ куча (owner=0), напарник в 1,5 тайла
+        // подбирает раньше (забС=5, забД=5 на 10 куч), два NeedWood обнуляют друг друга. Полосы по 2 тайла
+        // ((x>>2)&1, probe22: полосы по тайлу ставили ботов впритык — resync=4755) — свой запас на бота,
+        // добыча не перехватывается и боты не толкаются.
+        private readonly byte _digZone;
+
+        // Расталкивание напарника (probe22, 20.11): два mech_tour идут бок о бок и толкают друг друга —
+        // серверная касательная коррекция на каждый толчок (bot 0: resync=4755, noKnock=128@4507 при
+        // гейте 68). Партнёр = персонаж без бита врага; в его сторону ближе 1,5 тайла не шагаем,
+        // врагов не расталкиваем (касание врага — принятая норма 68).
+        private bool _sepValid;
+        private WorldPos _sepPos;
+        private int _sepBlockFrames;
 
         // заявки изготовления
         private int _craftRecipe;
@@ -114,11 +139,12 @@ namespace Orpheus.Net.Session
             new Input8(-1, 0), new Input8(-1, -1), new Input8(0, -1), new Input8(1, -1),
         };
 
-        public MechTourBot(MapShape shape, WorldPos spawn)
+        public MechTourBot(MapShape shape, WorldPos spawn, int index = 0)
         {
             _shape = shape;
             _start = spawn;
             _lastPos = spawn;
+            _digZone = (byte)(index & 1);
         }
 
         /// <summary>Текущая фаза.</summary>
@@ -278,6 +304,71 @@ namespace Orpheus.Net.Session
             if (_selfId < 0)
             {
                 _selfId = client.EntityId;
+            }
+
+            // Позиция напарника для SepKeep (расталкивание, см. поле _sepPos).
+            _sepValid = false;
+            if (client.HasSnapshot)
+            {
+                Snapshot snapS = client.Latest;
+                long bestSep = (long)(3 * Torus.SubTilesPerTile) * (3 * Torus.SubTilesPerTile);
+                for (int i = 0; i < snapS.Count; i++)
+                {
+                    SnapshotEntity e = snapS.Entities[i];
+                    if (e.Id == _selfId || e.Kind != SimEntity.KindCharacter || e.HealthPct == 0 ||
+                        (e.Enemy >> SnapshotLayout.EnemyArchetypeShift) != 0)
+                    {
+                        continue; // не персонаж-союзник (враги — норма касания 68)
+                    }
+
+                    long d2 = Torus.Dist2(_shape, pos, e.Position);
+                    if (d2 < bestSep)
+                    {
+                        bestSep = d2;
+                        _sepPos = e.Position;
+                        _sepValid = true;
+                    }
+                }
+            }
+
+            if (!_pileWired)
+            {
+                // Диагностика 20.11 (probe20): судьба деревянных куч глазами клиента.
+                _pileWired = true;
+                client.PileSeen += p =>
+                {
+                    if (p.Item == Items.Wood)
+                    {
+                        _woodPilesSeen++;
+                    }
+                };
+                client.PileGone += (m, p) =>
+                {
+                    if (p.Item != Items.Wood)
+                    {
+                        return;
+                    }
+
+                    if (m.Reason == PileGoneReason.Picked)
+                    {
+                        if (m.Taker == client.EntityId)
+                        {
+                            _woodTakenSelf++;
+                        }
+                        else
+                        {
+                            _woodTakenOther++;
+                        }
+                    }
+                    else if (m.Reason == PileGoneReason.Expired)
+                    {
+                        _woodExpired++;
+                    }
+                    else
+                    {
+                        _woodOutOfView++;
+                    }
+                };
             }
 
             TrackHealth(client);
@@ -829,6 +920,7 @@ namespace Orpheus.Net.Session
                 else if (client.World!.World.GetObject(_digTile) != obj)
                 {
                     _digActive = false;
+                    _digSettleFrame = _frame; // окно оседания дропа, см. ниже
                     onDug();
                 }
                 else
@@ -838,11 +930,20 @@ namespace Orpheus.Net.Session
                 }
             }
 
-            // Дроп срубленного/скопанного лежит в личных кучах (E3-3b) — пока не соберёшь цельный предмет
-            // этой фазы, следующего объекта не ищем: в live-зонде 20.11 NeedWood срубал 3–4 дерева и стоял на
-            // Count(дерево)=2 (всё дерево в кучах), фаза умирала по сторожу.
+            // Окно оседания дропа (20.11, probe19): drop копания падает ОБЩЕЙ кучей на тайл объекта
+            // (DigLoot → DropOnTile, owner=0), автоподбор — радиус 1,5 тайла (PickupRadiusUnits=384),
+            // задержка 10 тактов (LootPickupDelayTicks). Ушедший с тайла бот добычу теряет: NeedWood
+            // срубал 3–5 деревьев и стоял на Count(дерево)=2. После сруба стоим на месте SettleFrames —
+            // автоподбор срабатывает сам; не собралось — ниже идём к куче.
+            if (_frame - _digSettleFrame < DigSettleFrames)
+            {
+                return false; // _digFrame уже None — стоим, ждём автоподбора
+            }
+
+            // Дроп мог упасть кучей чуть дальше радиуса автоподбора — пока не соберёшь цельный предмет
+            // этой фазы, следующего объекта не ищем (тот же BotPiles.TrySeek, что у BuildRoomBot).
             _tourPiles ??= new BotPiles(_shape);
-            if (_tourPiles.TrySeek(client, pos, it => it == item, out Input8 toPile))
+            if (_tourPiles.TrySeek(client, pos, it => it == item, out Input8 toPile, zone: _digZone))
             {
                 _digFrame = new InputFrame(toPile);
                 return false;
@@ -907,8 +1008,11 @@ namespace Orpheus.Net.Session
         private bool FindTile(ClientWorld w, TileCoord from, ushort obj, out TileCoord best)
         {
             long bestD2 = long.MaxValue;
+            long zoneD2 = long.MaxValue;
             TileCoord found = default;
+            TileCoord zoneFound = default;
             bool any = false;
+            bool zoneAny = false;
             for (int dy = -DigR; dy <= DigR; dy++)
             {
                 for (int dx = -DigR; dx <= DigR; dx++)
@@ -925,17 +1029,38 @@ namespace Orpheus.Net.Session
                     }
 
                     long d2 = (long)dx * dx + (long)dy * dy;
-                    if (d2 < bestD2)
+                    if (d2 < bestD2 && !TargetNearPartner(t))
                     {
                         bestD2 = d2;
                         found = t;
                         any = true;
                     }
+
+                    if (BotPiles.InDigZone(t.X, _digZone) && d2 < zoneD2 && !TargetNearPartner(t))
+                    {
+                        zoneD2 = d2;
+                        zoneFound = t;
+                        zoneAny = true;
+                    }
                 }
             }
 
-            best = found;
+            best = zoneAny ? zoneFound : found;
             return any;
+        }
+
+        /// <summary>Цель вплотную к напарнику (< 2,5 тайла): не брать — у стоянки бота их выталкивает
+        /// сервер (in-proc соак 20.11: бот в окне оседания, партнёр рядом → noKnock 76 > 68, кадр 4005).</summary>
+        private bool TargetNearPartner(TileCoord t)
+        {
+            if (!_sepValid)
+            {
+                return false;
+            }
+
+            Int2 pd = Torus.Delta(_shape, _sepPos, new WorldPos(t.X * U + U / 2, t.Y * U + U / 2));
+            const long near2 = (long)(5 * U / 2) * (5 * U / 2);
+            return (long)pd.X * pd.X + (long)pd.Y * pd.Y < near2;
         }
 
         private bool InDigReach(WorldPos pos, TileCoord t) =>
@@ -960,6 +1085,77 @@ namespace Orpheus.Net.Session
             return WalkTo(pos, near, t);
         }
 
+        /// <summary>
+        /// Не шагнуть в напарника ближе 1,5 тайла (<see cref="_sepPos"/>): сервер на каждый толчок
+        /// делает касательную коррекцию предсказания (68 unit), два идущих рядом бота набивают
+        /// resync в тысячи (probe22: 4755) и noKnock выше гейта 68. Если оба шага блокируются —
+        /// после 24 кадров обходим партнёра (шаг от него).
+        /// </summary>
+        private Input8 SepKeep(WorldPos pos, Input8 dir)
+        {
+            if (!dir.IsMoving || !_sepValid)
+            {
+                return dir;
+            }
+
+            Int2 d = Torus.Delta(_shape, _sepPos, pos); // партнёр → я
+            // 2 тайла, не 1,5: радиус персонажа 0,75 тайла — впритык к 1,5 сервер уже выталкивает
+            // (probe25: bot 1 noKnock=128, resync=525 — толкнули стоящего в окне оседания).
+            const int keep = 2 * Torus.SubTilesPerTile;
+            const int step = Torus.SubTilesPerTile;
+            long d0 = (long)d.X * d.X + (long)d.Y * d.Y;
+            if (d0 >= (long)keep * keep)
+            {
+                _sepBlockFrames = 0;
+                return dir;
+            }
+
+            long After(int ax, int ay)
+            {
+                int nx = d.X - ax * step;
+                int ny = d.Y - ay * step;
+                return (long)nx * nx + (long)ny * ny;
+            }
+
+            int sx = dir.DX;
+            int sy = dir.DY;
+            if (After(sx, sy) < d0) // шаг сближает с напарником ближе 1,5 тайла
+            {
+                if (sy != 0 && After(0, sy) >= d0)
+                {
+                    sx = 0;
+                }
+                else if (sx != 0 && After(sx, 0) >= d0)
+                {
+                    sy = 0;
+                }
+                else
+                {
+                    sx = 0;
+                    sy = 0;
+                }
+            }
+
+            if (sx == 0 && sy == 0)
+            {
+                if (++_sepBlockFrames > 24)
+                {
+                    _sepBlockFrames = 0;
+                    sx = Math.Sign(d.X);
+                    sy = sx == 0 ? Math.Sign(d.Y) : 0; // обход: отходим от напарника
+                    if (sx == 0 && sy == 0)
+                    {
+                        sy = 1;
+                    }
+                }
+
+                return new Input8(sx, sy);
+            }
+
+            _sepBlockFrames = 0;
+            return new Input8(sx, sy);
+        }
+
         /// <summary>Ходьба к точке с детектором «упёрся» (помеха — в пропуск на время).</summary>
         private InputFrame WalkTo(WorldPos pos, WorldPos target, TileCoord goalTile)
         {
@@ -967,7 +1163,7 @@ namespace Orpheus.Net.Session
             int dy = Torus.DeltaY(_shape, pos.Y, target.Y);
             int sx = Math.Abs(dx) > 2 ? Math.Sign(dx) : 0;
             int sy = Math.Abs(dy) > 2 ? Math.Sign(dy) : 0;
-            var dir = new Input8(sx, sy);
+            var dir = SepKeep(pos, new Input8(sx, sy)); // не входить в напарника (probe22: resync=4755)
             if (dir.IsMoving && pos == _lastPos)
             {
                 if (++_stuckFrames > 50)
@@ -1070,7 +1266,7 @@ namespace Orpheus.Net.Session
         /// Нужен, чтобы видеть причину остановки фазы: на соакере 20.11 фаза сундука стояла на <c>NeedWood</c>
         /// при восьми срубленных деревьях — loot уходит на землю, когда сумка набита.
         /// </summary>
-        private static string BagDump(NetClient client)
+        private string BagDump(NetClient client)
         {
             Inventory inv = client.Inv;
             int used = 0;
@@ -1084,7 +1280,10 @@ namespace Orpheus.Net.Session
 
             return $"инв: дерево={inv.CountAt(Material.Wood)} камень={inv.CountAt(Material.Stone)} " +
                 $"волокно={inv.CountAt(Material.Fiber)} медь={inv.CountAt(Material.Copper)} " +
-                $"мест {used}/{Inventory.Cells} место-под-дерево={inv.RoomFor(Items.Wood)}";
+                $"мест {used}/{Inventory.Cells} место-под-дерево={inv.RoomFor(Items.Wood)} " +
+                $"кучевид={client.Piles.Count} пм={client.PileMessagesSeen} pg={client.PileGoneSeen} " +
+                $"деркуч={_woodPilesSeen} захв={_tourPiles?.Latched ?? 0} забС={_woodTakenSelf} " +
+                $"забД={_woodTakenOther} истеч={_woodExpired} вне={_woodOutOfView}";
         }
 
         /// <summary>Ячейка панели с инструментом, который копаёт объект (время &gt; 0 по таблице клиента); нет — 0 (1-010).</summary>

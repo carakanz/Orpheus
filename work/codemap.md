@@ -104,7 +104,11 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 ## Сеть и клиент предметов (E2-1)
 - NetServer.Items.cs: OnBagRequest · SendPilesTo :231 (разница куч игроку; фильтр чужих личных :262, E3-3b) · TakerOf. NetClient.Items.cs: Piles · RequestBagMove/Split/Drop · OnPiles · OnPileGone.
 - Protocol/Messages.cs: InventoryMessage (ячейки), NetPile (+Owner u32, 22 байта, E3-3b), PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
-- BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room).
+- BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room). Зоны копания mech_tour (E4-2 в2):
+  `InDigBand(tileX,zone)` — полосы 4 тайла `((x>>3)&1)`, `InDigZone` — цели середина полосы `x%8=1..2`;
+  `TrySeek(..., zone=-1)` — фильтр куч по полосе (~:74–95). MechTourBot.cs: `_digZone=(index&1)` :147,
+  `FindTile` ~1008–1050 (приоритет своей зоны) + `TargetNearPartner` (не брать цели < 2,5 тайла от напарника),
+  `SepKeep` keep=2 тайла ~1080–1143 (шаг к союзнику-персонажу ближе 2 тайла срезается, обход через 24 кадра).
 - Крафт (E2-3): Protocol/CraftMessages.cs — CraftRequestMessage (30), CraftReplyMessage (31), CraftStateMessage (32), NearbyStockMessage (36, E2-10). NetServer.Items.cs: OnCraftRequest · SendCraftTo · SendStockTo (E2-10, раз в 5 тактов и после своего изготовления). NetClient.Items.cs: Craft · CraftRunning · CraftProgressAt · RequestCraft · RequestCraftCancel. CraftDesk.cs: `ICraftRequests`, `CraftLine`, `ICraftCancelChecked`, `CraftDesk` (LineOf · Missing · Have · InChests · Make · Cancel; E2-10 — со сводкой `NetClient.NearbyStock`) — путь окна крафта и ботов.
 - Полки окна изготовления (E2-9): `src/Orpheus.Net/Session/CraftShelf.cs` — Sections (разделы и подразделы), Rows (ключ результата → раздел / подраздел), Place · Recipes · CountIn · Shown (фильтр «только доступные») · Available · Badge (число на значке); тесты `CraftShelfTests`.
 - CraftChainBot*.cs (craft_chain, E2-3): `.cs` — Next / Decide (этапы Stage), OnReply · `.Harvest.cs` — Harvest (ходьба рывками, копание, подбор), Dig, ToolSlotFor · `.Path.cs` — Plan (поиск в ширину, разведка по клеткам), Flood, BuildPath · `.Bench.cs` — PlaceBench, Craft, Equip.
