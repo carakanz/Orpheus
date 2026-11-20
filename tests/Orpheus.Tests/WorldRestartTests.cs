@@ -87,13 +87,14 @@ namespace Orpheus.Tests
                 using (var srv = new Run(new PcStorage(), world, create: false, second.AfterTick, loaded))
                 {
                     Assert.True(loaded.WaitLoaded(20_000), "мир не загружен после рестарта");
-                    Assert.True(loaded.Number == first.FactsNumber,
-                        $"записано поколение {first.FactsNumber} такта {first.FactsTick} (хэш начала 0x{first.ExpectedHash:X16}); "
+                    Assert.True(loaded.Number == first.CrashNumber,
+                        $"записано и легло на диск newest: поколение {first.CrashNumber} такта {first.CrashTick} "
+                        + $"(факты такта {first.FactsTick}, хэш начала 0x{first.ExpectedHash:X16}); "
                         + $"загружено: поколение {loaded.Number} такт {loaded.Tick} (хэш 0x{loaded.Hash:X16}); "
                         + $"начала: {first.Hook!.HashesDump()}; "
                         + $"файлы: {string.Join(",", Directory.GetFiles(world).Select(f => Path.GetFileName(f) + ":" + new FileInfo(f).Length))}; "
                         + $"лог1: {srv.LogDump()}");
-                    Assert.Equal(first.FactsTick, loaded.Tick);
+                    Assert.Equal(first.CrashTick, loaded.Tick);
 
                     var clients = new List<NetClient>();
                     NetClient a = srv.Connect(NameA, clients);
@@ -145,15 +146,17 @@ namespace Orpheus.Tests
                     }
 
                     // Очередь изготовления: правило E2-3 (CharacterRoster.Restore) — после перезапуска очередь НЕ
-                    // продолжается, а сворачивается с возвратом ингредиентов в сумку записи (не влезло — кучей).
-                    // Донор C-005 так же проверяет пустую очередь после рестарта. Проверяем правило точно:
-                    // в сохранение легла непустая очередь; после рестарта она пуста, готовые изделия такта фактов
-                    // доехали в сумке A, а волокно очереди вернулось в сумку (297 минус 3 на каждую готовую верёвку;
-                    // в сумке в такт фактов лежит готовая верёвка). Масса мира (Raw == given) сверена выше.
-                    Assert.True(first.FactsQueueCount > 0, $"в сохранение не легла непустая очередь: в такт фактов {first.FactsQueueCount}");
+                    // продолжается, а сворачивается с возвратом ингредиентов в сумку записи (не влезло — кучей у ног).
+                    // Донор C-005 так же проверяет пустую очередь после рестарта. Проверяем правило по тому поколению,
+                    // которое реально легло на диск (CrashTick): в него легла непустая очередь; после рестарта она
+                    // пуста, готовые изделия в сумке A целы (верёвки не создаются и не теряются: сумка + кучи), а
+                    // волокно свёрнутой очереди вернулось в мир: 297 = волокно (сумка + кучи) + 3 на каждую верёвку.
+                    // Масса мира (Raw == given, поштучно по предметам) сверена выше — возврат ровно по рецептам.
+                    Assert.True(first.CrashQueueCount > 0,
+                        $"в записавшееся поколение {first.CrashNumber} такта {first.CrashTick} не легла непустая очередь");
                     Assert.True(second.QueuesEmpty, "очередь не свернулась после рестарта (правило E2-3)");
-                    Assert.Equal(first.FactsBagRopeA, second.BagRopeA);
-                    Assert.Equal(297 - 3 * first.FactsBagRopeA, second.BagFiberA);
+                    Assert.Equal(first.CrashBagRopeA, second.BagRopeA + second.RopePiles);
+                    Assert.Equal(297 - 3 * (second.BagRopeA + second.RopePiles), second.BagFiberA + second.FiberPiles);
                     Assert.True(a.Latest.Self.Present && b.Latest.Self.Present);
                 }
             }
@@ -572,10 +575,23 @@ namespace Orpheus.Tests
             /// <summary>Фактическая позиция личной капли в такт фактов (AddPile привязывает к центру тайла).</summary>
             public WorldPos PileActualPos { get; private set; }
 
-            /// <summary>Сумка A в такт фактов: волокно, готовая верёвка, длина очереди (сверка сворота очереди после рестарта).</summary>
-            public int FactsBagFiberA { get; private set; }
-            public int FactsBagRopeA { get; private set; }
-            public int FactsQueueCount { get; private set; }
+            /// <summary>
+            /// Факты каждой начатой записи: такт начала → (номер поколения, верёвка в сумке A, длина очереди). Снимаются
+            /// на такте начала записи в потоке такта — ровно то состояние, которое войдёт в файл. Обрыв и сверка после
+            /// рестарта идут по ПОСЛЕДНЕЙ ЗАВЕРШЁННОЙ записи (Crash*), а не по такту фактов: под нагрузкой CI между
+            /// тактом фактов и обрывом может начаться и закончиться ещё одна запись (повод «перегрузка: такты не
+            /// догоняются»), и привязка сверки к такту фактов была бы гонкой. См. «Решения» [док].
+            /// </summary>
+            private readonly Dictionary<long, (ulong Number, int Rope, int Queue)> _perTick =
+                new Dictionary<long, (ulong, int, int)>();
+
+            /// <summary>Последняя завершённая запись на такте обрыва: поколение и такт, что реально лежат на диске newest.</summary>
+            public long CrashTick { get; private set; } = -1;
+            public ulong CrashNumber { get; private set; }
+
+            /// <summary>Верёвка в сумке A и длина очереди в такт записавшегося поколения (сверка сворота очереди после рестарта).</summary>
+            public int CrashBagRopeA { get; private set; }
+            public int CrashQueueCount { get; private set; }
 
             public int IdA { get; private set; } = -1;
             public int IdB { get; private set; } = -1;
@@ -651,6 +667,13 @@ namespace Orpheus.Tests
                     return;
                 }
 
+                // Факты каждой начатой записи — на такте её начала: состояние ровно то, что войдёт в файл этого такта.
+                if (Hook!.TryBeginNumber(sim.Tick, out ulong begun))
+                {
+                    SimEntity eBegin = sim.Entities[slotA];
+                    _perTick[sim.Tick] = (begun, eBegin.Inv.Count(Items.Rope), eBegin.Craft.Count);
+                }
+
                 // Снятие фактов — на такте начатой записи (паттерн C-005): хэш записи = хэш состояния этого такта,
                 //facts ровно те, что лягут в файл. Очередь A должна быть непустой, иначе перезапуск не о чём.
                 if (!Facts && Hook!.TryBeginHash(sim.Tick, out ulong hash) && !sim.Entities[slotA].Craft.IsEmpty)
@@ -667,9 +690,6 @@ namespace Orpheus.Tests
                     FloorVal = sim.World.GetFloor(TFloor);
                     TileA = Torus.TileOf(sim.Shape, eA.Mover.Position);
                     TileB = Torus.TileOf(sim.Shape, sim.Entities[slotB].Mover.Position);
-                    FactsBagFiberA = eA.Inv.Count(Items.Fiber);
-                    FactsBagRopeA = eA.Inv.Count(Items.Rope);
-                    FactsQueueCount = eA.Craft.Count;
                     var pdump = new System.Text.StringBuilder();
                     foreach (GroundPile p in sim.Piles)
                     {
@@ -691,13 +711,23 @@ namespace Orpheus.Tests
                     Facts = true;
                 }
 
-                // Обрыв — в том же такте, что сняты факты: запись такта уже легла на диск (WaitWrite выше),
-                // новых записей в полёте нет — на носителе ровно поколение такта фактов. Сентинел — из потока
-                // такта (o.AfterTick): он не типа IOException, ServerHost.Run его не глотает — Error + HasExited.
-                // SaveOnStop остановки с ошибкой пропускает запись: такт тот же, мир уже сохранён в этом такте.
-                if (Facts && !_crashed && !Hook!.InFlight && Hook.LastDoneTick == FactsTick)
+                // Обрыв — на границе такта, когда запись такта фактов легла на диск и в полёте записей нет. Сентинел —
+                // из потока такта (o.AfterTick): он не типа IOException, ServerHost.Run его не глотает — Error + HasExited.
+                // SaveOnStop остановки с ошибкой пропускает запись: такт последней завершённой записи уже сохранён.
+                // Условие «>=», а не «== такту фактов»: под нагрузкой CI в том же такте, что закончилась запись фактов,
+                // saver успевает начать новую (повод «перегрузка: такты не догоняются») — строгое равенство такту
+                // фактов пропускается навсегда и сервер не оборвался бы никогда (поймано в общем прогоне 20.11).
+                // Обрываемся на ПЕРВОЙ границе такта с завершённой записью не раньше такта фактов и проверяем именно
+                // её поколение (CrashNumber/CrashTick) — то, что реально лежит на диске newest.
+                if (Facts && !_crashed && !Hook!.InFlight && Hook.LastDoneTick >= FactsTick)
                 {
                     _crashed = true;
+                    CrashTick = Hook.LastDoneTick;
+                    CrashNumber = Hook.LastDoneNumber;
+                    Assert.True(_perTick.TryGetValue(CrashTick, out (ulong Number, int Rope, int Queue) f),
+                        $"нет фактов записавшегося такта {CrashTick}; начала: {Hook.HashesDump()}");
+                    CrashBagRopeA = f.Rope;
+                    CrashQueueCount = f.Queue;
                     throw new Exception(CrashSentinel);
                 }
             }
@@ -750,6 +780,10 @@ namespace Orpheus.Tests
 
             /// <summary>Волокно в сумке A на сервере после рестарта (с возвратом ингредиентов очереди).</summary>
             public int BagFiberA { get; private set; }
+
+            /// <summary>Волокно и верёвка во ВСЕХ кучах на земле после рестарта (возврат очереди может лечь кучей, если сумка полна).</summary>
+            public int FiberPiles { get; private set; }
+            public int RopePiles { get; private set; }
             public int[]? Totals { get; private set; }
             public bool HasChest { get; private set; }
             public Inventory Chest { get; private set; }
@@ -790,10 +824,20 @@ namespace Orpheus.Tests
                 DoorCells = sim.SolidCells(sim.Shape, _wall);
                 Floor = sim.World.GetFloor(_floor);
                 Pile = null;
+                FiberPiles = 0;
+                RopePiles = 0;
                 var dump = new System.Text.StringBuilder();
                 foreach (GroundPile p in sim.Piles)
                 {
                     dump.Append($"{p.Item}x{p.Count}@{p.Position.X},{p.Position.Y} владелец {p.Owner} истек {p.ExpireTick},");
+                    if (p.Item == Items.Fiber)
+                    {
+                        FiberPiles += p.Count;
+                    }
+                    else if (p.Item == Items.Rope)
+                    {
+                        RopePiles += p.Count;
+                    }
                 }
 
                 PilesDump = dump.ToString();
@@ -842,6 +886,18 @@ namespace Orpheus.Tests
                     lock (_sync)
                     {
                         return _doneTick;
+                    }
+                }
+            }
+
+            /// <summary>Номер последней завершённой записи: поколение newest на диске.</summary>
+            public ulong LastDoneNumber
+            {
+                get
+                {
+                    lock (_sync)
+                    {
+                        return _done;
                     }
                 }
             }
