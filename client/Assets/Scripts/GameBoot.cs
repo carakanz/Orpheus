@@ -8,7 +8,6 @@ using Orpheus.Core.Sim;
 using Orpheus.Core.World;
 using Orpheus.Net.Hosting;
 using Orpheus.WorldGen;
-using System.IO;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
@@ -117,8 +116,12 @@ namespace Orpheus.Client
             {
                 // E4-1: сцена перезагружена возвратом «в меню»: аргументы прошлого захода сброшены,
                 // стартуем с чистого листа — и ниже открываем меню.
+                // E4-1b: «--auto-menu-click» — настройка запуска процесса, не подключения: автоклик по
+                // «В меню» проверяем как раз после такого возврата, поэтому флаг переживает сброс.
+                bool autoMenuClick = Args.AutoMenuClick;
                 _startInMenu = false;
                 Args = new ClientArgs();
+                Args.AutoMenuClick = autoMenuClick;
             }
             bool netMode = Args.Connect != null || Args.Mode.HasValue;
             if (Args.Error != null && !netMode)
@@ -266,7 +269,8 @@ namespace Orpheus.Client
                 {
                     // E4-1: снимки меню: мир построен как обычно (кадр снимка идёт по своему сценарию),
                     // сверху — витрина меню; обычный UiDemo для этих режимов не создаётся.
-                    _menu = new UI.MenuUi(Camera, OnMenuStart);
+                    // E4-1b: onMenu передаём и здесь — витрина menu-notice-click жмёт «В меню» настоящей мышью.
+                    _menu = new UI.MenuUi(Camera, OnMenuStart, OnMenuNoticeBack);
                     _menu.ShowDemo(Args.UiDemo!);
                     return;
                 }
@@ -327,22 +331,45 @@ namespace Orpheus.Client
             Args.Smoke || Args.ScreenshotPath != null || Args.UiDemo != null
             || Args.AnimShotsDir != null || Args.AnimBenchSeconds > 0 || Args.TileBenchSeconds > 0
             || Args.PaintDemo || Args.PaintForest || Args.DemoPiles || Args.HomeDemo != null
-            || Args.BedDemoRot >= 0 || Args.WadeDemo != null || Args.WalkFrames != 0;
+            || Args.BedDemoRot >= 0 || Args.WadeDemo != null || Args.WalkFrames != 0
+            || Args.NetSmokeSeconds > 0; // E4-1b: net-smoke: обрыв остаётся быстрым «[smoke] FAILED»+выход (NetSmokeCheck), не меню
 
         /// <summary>Открыть меню (при старте и после каждой перезагрузки сцены).</summary>
         void OpenMenu()
         {
             ShowDebugLabels(false);
             _startInMenu = false;
-            _menu = new UI.MenuUi(Camera, OnMenuStart);
+            _menu = new UI.MenuUi(Camera, OnMenuStart, OnMenuNoticeBack);
             string? notice = _pendingNotice;
             _pendingNotice = null;
             if (notice != null)
             {
                 _menu.ShowNotice(notice);
+                // E4-1b: --auto-menu-click — живая проверка «обрыв → уведомление → «В меню» → меню» без рук:
+                // авто-клик мышью (тот же путь, что витрина menu-notice-click).
+                if (Args.AutoMenuClick)
+                {
+                    // На скрытом столе окно меню не в фокусе (после перезагрузки сцены D3D-контекст теряется),
+                    // и Unity ставит плеер на паузу — кадры меню не идут и авто-клик не досчитывается.
+                    // Под этим тестовым флагом играем в фоне всегда; для обычной игры флаг не ставится.
+                    Application.runInBackground = true;
+                    _menu.ScheduleNoticeClick();
+                }
+
+                Debug.Log($"[boot] E4-1b: меню с уведомлением, авто-клик = {Args.AutoMenuClick}");
             }
 
             Debug.Log("[boot] E4-1: главное меню открыто");
+        }
+
+        /// <summary>
+        /// E4-1b: «В меню» на экране «Уведомление» — возврат на главный экран меню без перезагрузки сцены
+        /// (меню уже открыт, обрыв за ним). Тот же путь, что приводит со смерти.
+        /// </summary>
+        void OnMenuNoticeBack()
+        {
+            Debug.Log("[boot] E4-1b: «В меню» на уведомлении нажато — главный экран меню");
+            _menu?.ShowMainFromNotice();
         }
 
         /// <summary>
@@ -543,7 +570,9 @@ namespace Orpheus.Client
                 _screenshot?.AfterFrame(); // снимки меню (--ui-demo menu*) снимаются на своём кадре
                 return;
             }
-            if (Net != null && Net.Fatal)
+            // E4-1b: гейт по скриптовому режиму (замечание 2 П E4-1): в скриптовых прогонах обрыв ведёт себя
+            // как раньше — NetSmokeCheck даёт быстрый «[smoke] FAILED» и выход (код 1), а не меню до таймаута гейта.
+            if (Net != null && Net.Fatal && !ScriptedRun())
             {
                 GoToMenu(Net.StatusText);
                 return;

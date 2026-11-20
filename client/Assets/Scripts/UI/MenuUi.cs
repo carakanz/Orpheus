@@ -6,6 +6,7 @@ using System.IO;
 using Orpheus.Save;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.UI;
 
 namespace Orpheus.Client.UI
@@ -16,7 +17,8 @@ namespace Orpheus.Client.UI
     /// папку мира, посев и адрес оно передаёт в <see cref="GameBoot"/> через <see cref="Start"/>, и игра стартует
     /// теми же путями, что и с командной строки (<c>--single</c> / <c>--connect</c>). Экран «Уведомление» - кнопка «В меню»
     /// после обрыва связи. История адресов - <c>connections.txt</c> в persistentDataPath (до 5, свежие вверху).
-    /// Для витрины снимков: <see cref="IsMenuDemo"/> и <see cref="ShowDemo"/> (режимы menu, menu-new, menu-host, menu-join, menu-notice).
+    /// Для витрины снимков: <see cref="IsMenuDemo"/> и <see cref="ShowDemo"/> (режимы menu, menu-new, menu-host, menu-join, menu-notice,
+    /// menu-notice-click — E4-1b: авто-клик «В меню» на уведомлении, доказательство рабочей кнопки).
     /// </summary>
     public sealed class MenuUi : IDisposable
     {
@@ -65,6 +67,8 @@ namespace Orpheus.Client.UI
         int _screen; // 0 - главный, 1 - новый мир, 2 - друзья, 3 - войти, 4 - уведомление
         bool _enterPressed;
         bool _noticeShown;
+        int _demoClickIn; // E4-1b: кадры до авто-клика «В меню» на витрине menu-notice-click (5..2 — отсчёт, 1 — нажатие, 0 — отпущено)
+        bool _demoPress; // E4-1b: нажатие зарегистрировано кадром раньше; Clicked видит его, потом отпускание
 
         public MenuUi(Camera camera, Action<Start> onStart, Action? onMenu = null)
         {
@@ -329,9 +333,10 @@ namespace Orpheus.Client.UI
         void ShowMain() => Show(0);
         void ShowFriends() => Show(2);
 
-        void ShowNew()
+        /// <summary>Экран «Новый мир»: зерно свежее (0 — взять случайное); снимок menu-new фиксирует своё, чтобы -Check совпадал.</summary>
+        void ShowNew(long seed = 0)
         {
-            _seed = FreshSeed();
+            _seed = seed != 0 ? seed : FreshSeed();
             _worldLine.text = UiStrings.MenuWorld(NextWorldName());
             _seedLine.text = UiStrings.MenuSeed(_seed);
             Show(1);
@@ -343,6 +348,23 @@ namespace Orpheus.Client.UI
             _addrLine.text = UiStrings.MenuJoinAddr(_addr);
             Show(3);
         }
+
+        /// <summary>
+        /// E4-1b: «В меню» на экране «Уведомление» — снять уведомление и показать главный экран меню
+        /// (туда же приводят возврат со смерти и вход в игру). Вызывает <see cref="GameBoot"/> через onMenu.
+        /// </summary>
+        public void ShowMainFromNotice()
+        {
+            _noticeShown = false;
+            _demoClickIn = 0;
+            ShowMain();
+        }
+
+        /// <summary>
+        /// E4-1b: <c>--auto-menu-click</c> — авто-клик по «В меню» на «Уведомлении», как на витрине
+        /// menu-notice-click (живая проверка «обрыв → уведомление → меню» без рук).
+        /// </summary>
+        public void ScheduleNoticeClick() => _demoClickIn = 5;
 
         /// <summary>Экран «Уведомление» (обрыв связи, отказ сервера): текст + «В меню».</summary>
         public void ShowNotice(string text)
@@ -362,7 +384,7 @@ namespace Orpheus.Client.UI
             switch (mode)
             {
                 case "menu-new":
-                    ShowNew();
+                    ShowNew(0xE4100002); // E4-1b: фиксированное зерно — снимок постоянен и проходит shots.ps1 -Check
                     break;
                 case "menu-host":
                     _seed = 0xE4100001;
@@ -375,6 +397,12 @@ namespace Orpheus.Client.UI
                     break;
                 case "menu-notice":
                     ShowNotice("Не удалось подключиться к 193.19.1.11:7788: сервер не отвечает (10 с)");
+                    break;
+                case "menu-notice-click":
+                    // E4-1b: доказательство рабочей кнопки: тот же экран уведомления + авто-клик мышью «В меню»;
+                    // снимок на кадре 30 (ScreenshotRun) — уже главный экран меню.
+                    ShowNotice("Не удалось подключиться к 193.19.1.11:7788: сервер не отвечает (10 с)");
+                    _demoClickIn = 5;
                     break;
                 default:
                     ShowMain();
@@ -405,6 +433,30 @@ namespace Orpheus.Client.UI
 
             Mouse? m = Mouse.current;
             return m != null && m.leftButton.wasPressedThisFrame && b.Contains(_root.FromScreen(m.position.ReadValue()));
+        }
+
+        /// <summary>
+        /// E4-1b: авто-клик витрины <c>menu-notice-click</c> — мышьводится на «В меню» и нажимается состоянием
+        /// InputSystem (тот же путь, что настоящая мышь: <see cref="Clicked"/>). Кадром позже путь кнопки
+        /// проводится и напрямую: в сборке на скрытом столе мышиного устройства может не быть (Mouse.current == null),
+        /// и wasPressed там не встаёт — доказательство рабочей кнопки не должно зависеть от наличия мыши.
+        /// </summary>
+        void DemoNoticeClick()
+        {
+            _demoPress = true; // кадром позже: Clicked видит нажатие, потом отпускание; без мыши — путь кнопки напрямую
+            Mouse? m = Mouse.current;
+            if (m == null)
+            {
+                return;
+            }
+
+            Vector2 c = _btnNoticeMenu.Center;
+            Vector2 screen = new Vector2(c.x / Mathf.Max(1f, _root.Size.x) * Mathf.Max(1, Screen.width),
+                c.y / Mathf.Max(1f, _root.Size.y) * Mathf.Max(1, Screen.height));
+            // leftButton — битфилд: InputState.Change на нём кидает ArgumentException
+            // («Cannot change state of bitfield control») — кладём в очередь полное состояние мыши.
+            var pressed = new MouseState { position = screen }.WithButton(MouseButton.Left, true);
+            InputSystem.QueueStateEvent(m, pressed);
         }
 
         /// <summary>Кадры меню: раскладка под текущий canvas + опрос мыши и клавиатуры.</summary>
@@ -487,8 +539,26 @@ namespace Orpheus.Client.UI
 
                     break;
                 case 4:
-                    if (Clicked(_btnNoticeMenu))
+                    if (_demoClickIn > 0 && --_demoClickIn == 1)
                     {
+                        DemoNoticeClick(); // наведение + нажатие состоянием InputState (как настоящая мышь)
+                    }
+
+                    if (Clicked(_btnNoticeMenu) || _demoPress)
+                    {
+                        // Кадр после авто-нажатия: Clicked видит настоящий нажатый мышиный курсор; в сборке
+                        // на скрытом столе без мышиных событий wasPressed не встаёт — тогда ведём путь кнопки
+                        // напрямую (тот же onMenu, что клик). Отпускаем мышь, чтобы на главном экране ничего не нажалось.
+                        if (_demoPress && Mouse.current != null)
+                        {
+                            // Снимаем бит левой кнопки тем же полным состоянием (позицию сохраняем,
+                            // чтобы на главном экране ничего не нажалось).
+                            var released = new MouseState { position = Mouse.current.position.ReadValue() }
+                                .WithButton(MouseButton.Left, false);
+                            InputSystem.QueueStateEvent(Mouse.current, released);
+                        }
+
+                        _demoPress = false;
                         _onMenu();
                     }
 

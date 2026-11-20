@@ -142,6 +142,12 @@ namespace Orpheus.Client
         public bool FromMenu;
 
         /// <summary>
+        /// E4-1b: <c>--auto-menu-click</c> — автоклик по кнопке «В меню» на экране «Уведомление»
+        /// (живая проверка «хост убит → уведомление → возврат в меню» без рук; тот же путь, что мышь).
+        /// </summary>
+        public bool AutoMenuClick;
+
+        /// <summary>
         /// K-001, офлайн: <c>--anim-shots &lt;папка&gt;</c> — показ процедурной анимации (ходьба, уворот, замах с сектором, попадание,
         /// копание) и серии кадров в PNG (<c>K-001_*.png</c>); <c>--anim-bench &lt;сек&gt;</c> — замер fps с 8 персонажами и
         /// 40 врагами-болванками. Нужен вывод на экран — без <c>-batchmode -nographics</c>.
@@ -227,7 +233,7 @@ namespace Orpheus.Client
         /// <summary>Текст подсказки для логов и подсказки при ошибке.</summary>
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
-            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
+            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--auto-menu-click] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
             "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|turn|oldbeds|rmb-open|rmb-disarm|cursor-place|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence|torches|room|wall] [--day-tick 0…35999]";
 
@@ -341,6 +347,9 @@ namespace Orpheus.Client
                     case "--smoke-bed":
                         a.NetSmokeBed = true;
                         a.ServerArgs.Add("--debug-bed"); // C-030: кровать ставит сервер у точки появления
+                        break;
+                    case "--auto-menu-click": // E4-1b: автоклик «В меню» на «Уведомлении» (живая проверка возврата в меню)
+                        a.AutoMenuClick = true;
                         break;
                     case "--hud":
                         a.Hud = true;

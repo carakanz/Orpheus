@@ -166,6 +166,7 @@ namespace Orpheus.Client
             if (_ui == null)
             {
                 _ui = new UI.GameUi(_g.Camera, c, c, c);
+                _ui.DeathMenuEnabled = _args.FromMenu; // E4-1b: «В меню» на экране смерти — только в игре из меню (там же и DeathMenuFrame)
                 c.CraftReplied = _ui.CraftReplied; // E2-4: отказ сервера (сообщение 31) — строкой в окне крафта
                 UI.GameUi ui = _ui;
                 c.UseReplied = m =>
