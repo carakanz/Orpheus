@@ -114,6 +114,8 @@ namespace Orpheus.Client
         ScreenshotRun? _screenshot;
         Anim.NetAnimation? _anim; // K-001: процедурная анимация — только отображение
         TileCracksView? _cracks; // C-028: трещины на камнях от взмахов кирки
+        HearthMarkerView? _hearth; // E3-6b: маркер Очага на тайле центра мира
+        int _hearthFrames; // E3-6b: кадров, в которых маркер Очага был виден (проверка в net-smoke)
         long _inGameSinceUs;
         long _hudSnaps;
         long _hudTimeUs;
@@ -475,6 +477,8 @@ namespace Orpheus.Client
             _anim = new Anim.NetAnimation(_g, _client, _origin, _world, _entityRoot.transform);
             _anim.Rest = _rest; // C-030: лечь в кровать — поза своего персонажа
             _cracks = new TileCracksView(_entityRoot.transform); // C-028
+            _hearth?.Dispose();
+            _hearth = new HearthMarkerView(_entityRoot.transform, _map, accept.MapWidth / 2, accept.MapHeight / 2); // E3-6b: Очаг = центр, как RespawnCenter у ядра
             NetClient strikeClient = _client!;
             Simulation lineRules = _netRules!;
             strikeClient.StrikeLine = (from, t) => lineRules.PickLineClear(from, t, // C-028 (П): линия взмаха — как у сервера
@@ -823,6 +827,11 @@ namespace Orpheus.Client
 
             _anim?.Frame(now, _pred!);
             _cracks?.Frame(_client!, _origin!, Time.deltaTime); // C-028: трещины на камнях
+            _hearth?.Frame(_view!, _origin!, now); // E3-6b: маркер Очага, пока его чанк в окне
+            if ((_hearth?.Visible ?? 0) > 0)
+            {
+                _hearthFrames++;
+            }
             CombatFrame(); // E3-1: цифры урона, полоски врагов, экран смерти
             _pileView?.Frame(_origin!, Time.deltaTime, _client!.Projectiles.Covers); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему; C-031: стрелу-предмет закрывает снаряд
             _arrowView?.Frame(_client!.Projectiles, now, _origin!, _pred!.Bow, _g.Character.position,
@@ -1184,6 +1193,14 @@ namespace Orpheus.Client
                 if (tileErrors > 0 || samples < needSamples || cw.ChunkCount < ChunkWindow.Width * ChunkWindow.Height)
                 {
                     Fail($"[smoke] FAILED: тайлы — расхождений {tileErrors}, образцов {samples} (нужно ≥ {needSamples}), чанков {cw.ChunkCount}");
+                    return;
+                }
+
+                // E3-6b: маркер Очага у спавна (центр мира) обязан быть в окне с первого кадра.
+                Debug.Log($"[smoke] hearth: маркер Очага виден {_hearthFrames} кадров из {_renderFrames}");
+                if (_hearth == null || _hearth.Visible <= 0)
+                {
+                    Fail($"[smoke] FAILED: маркер Очага (E3-6b) не виден (кадров с маркером {_hearthFrames})");
                     return;
                 }
                 // 1-022, шаг 4: правка в сети — ковёр (бесплатная постройка 1-011) на свободный тайл с молотом в руках:
