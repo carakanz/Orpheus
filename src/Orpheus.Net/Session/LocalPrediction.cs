@@ -115,7 +115,8 @@ namespace Orpheus.Net.Session
 
         /// <summary>
         /// Наибольшее расхождение предсказания в кадре, где расхождение задано НЕ серверным нокбэком
-        /// (нокаут/толчок — серверное состояние, оно идёт в <see cref="KnockAdopted"/>, 1-001).
+        /// (нокаут/толчок — серверное состояние, оно идёт в <see cref="KnockAdopted"/>, 1-001) и не
+        /// выталкиванием из блока, появившегося в окне предсказания (E4-2).
         /// Это и есть ошибка предсказания: норма 68 unit (касание врага, <c>PredictionTests…EnemyTouch</c>).
         /// </summary>
         public int MaxDevNoKnockUnits { get; private set; }
@@ -377,6 +378,16 @@ namespace Orpheus.Net.Session
             // KnockAdopted не трогаем: счётчики и приём состояния остаются как в 1-001.
             bool knockRelated = !_dead && (server.KnockLeft > 0 || (known && predicted.KnockLeft > 0));
 
+            // Кадры, где расхождение задано серверным ВЫТАЛКИВАНИЕМ из блока, о котором предсказание в окне
+            // не знало (поставили стену/дверь/мебель на тело, блок появился в (ackFrame, now]): предсказание
+            // ставит тело в новый блок (его не было в базе ackFrame), сервер уже вытолкнул (1-001: правку
+            // задаёт сервер, предсказание её не имело — это не ошибка предсказания). Соакеры 20.11:
+            // «noKnock 77/80/81 > 68» — все в полосе выталкивания (радиус тела RadiusUnits = 102).
+            // Статистика: MaxDevUnits, ComparedOverHalfTile, счётчики Resynced/KnockAdopted НЕ тронуты.
+            bool pushOutDriven = known && !knockRelated && !_dead &&
+                Collision.TouchesSolid(_map, predicted.Position, _solid) &&
+                !Collision.TouchesSolid(_map, server.Position, _solid);
+
             if (known && !initial)
             {
                 long d2 = Torus.Dist2(_map, predicted.Position, server.Position);
@@ -387,9 +398,10 @@ namespace Orpheus.Net.Session
                     MaxDevAckFrame = ackFrame;
                 }
 
-                // То же без кадров, заданных нокбэком (начало, середина, остаток после конца): это и есть
-                // ошибка предсказания (норма 68 unit = касание врага). Нужна для длинных прогонов с боем (E4-2).
-                if (!knockDriven && !knockRelated && LastDevUnits > MaxDevNoKnockUnits)
+                // То же без кадров, заданных нокбэком (начало, середина, остаток после конца) и серверным
+                // выталкиванием из нового блока: это и есть ошибка предсказания (норма 68 unit = касание
+                // врага). Нужна для длинных прогонов с боем и стройкой (E4-2).
+                if (!knockDriven && !knockRelated && !pushOutDriven && LastDevUnits > MaxDevNoKnockUnits)
                 {
                     MaxDevNoKnockUnits = LastDevUnits;
                     MaxDevNoKnockFrame = ackFrame;
