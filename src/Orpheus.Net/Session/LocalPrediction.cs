@@ -369,6 +369,14 @@ namespace Orpheus.Net.Session
             // «от нокбэка» — не ошибка предсказания, приём серверного состояния считаем отдельно (1-001).
             bool knockDriven = !_dead && server.KnockLeft > 0 && (known ? predicted.KnockLeft == 0 : true);
 
+            // Кадры, где нокбэк «живёт» с любой стороны: сервер оттолкнул (KnockLeft > 0) ИЛИ предсказание
+            // ещё шагает принятый нокбэк (server 0, предсказание > 0 — остаток после конца отбрасывания,
+            // у стены расхождение выталкивания доходит до 77–81). Такую правку нельзя писать в «ошибку
+            // предсказания без нокбэка» — она задана отбрасыванием, а не ходьбой (E4-2, соакер 20.11:
+            // «noKnock 81 > 68, кадр 103285» — кадр сразу после конца нокбэка в ночи). Ветku Resynced/
+            // KnockAdopted не трогаем: счётчики и приём состояния остаются как в 1-001.
+            bool knockRelated = !_dead && (server.KnockLeft > 0 || (known && predicted.KnockLeft > 0));
+
             if (known && !initial)
             {
                 long d2 = Torus.Dist2(_map, predicted.Position, server.Position);
@@ -379,9 +387,9 @@ namespace Orpheus.Net.Session
                     MaxDevAckFrame = ackFrame;
                 }
 
-                // То же без кадра, где расхождение задано серверным нокбэком: это и есть ошибка предсказания
-                // (норма 68 unit = касание врага). Нужна для длинных прогонов с боем (E4-2).
-                if (!knockDriven && LastDevUnits > MaxDevNoKnockUnits)
+                // То же без кадров, заданных нокбэком (начало, середина, остаток после конца): это и есть
+                // ошибка предсказания (норма 68 unit = касание врага). Нужна для длинных прогонов с боем (E4-2).
+                if (!knockDriven && !knockRelated && LastDevUnits > MaxDevNoKnockUnits)
                 {
                     MaxDevNoKnockUnits = LastDevUnits;
                     MaxDevNoKnockFrame = ackFrame;
