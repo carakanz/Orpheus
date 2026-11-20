@@ -121,6 +121,9 @@ namespace Orpheus.Bots
         /// <summary>Сценарий <c>night_camp</c> (1-026, приёмка `08` 3.1 1.6): итог строкой; иначе null.</summary>
         public string? NightCamp { get; set; }
 
+        /// <summary>Сценарий <c>mech_tour</c> (E4-2, шаг 4.2): итог строкой (числа разбирает тест); иначе null.</summary>
+        public string? MechTour { get; set; }
+
         /// <summary><c>run_seam</c> (0-027): круги; не бегун — null.</summary>
         public List<RunSeamLap>? Laps { get; set; }
 
@@ -538,6 +541,12 @@ namespace Orpheus.Bots
                         : $"погиб через {camp.TicksToDeath / (double)Simulation.TickRate:0.#} с, ударов {camp.HitsTaken}, убийца #{camp.KillerId}, тип урона {camp.KillerDamageType}";
                 }
 
+                MechTourBot? tour = bots[i].Tour;
+                if (tour != null)
+                {
+                    st.MechTour = tour.Summary;
+                }
+
                 RunSeamBot? runner = bots[i].Runner;
                 if (runner != null || o.Script == RunSeamBot.Name)
                 {
@@ -643,6 +652,11 @@ namespace Orpheus.Bots
                 if (report.Bots[i].NightCamp != null)
                 {
                     console?.WriteLine($"  night_camp, бот {i}: {report.Bots[i].NightCamp}");
+                }
+
+                if (report.Bots[i].MechTour != null)
+                {
+                    console?.WriteLine($"  mech_tour, бот {i}: {report.Bots[i].MechTour}");
                 }
             }
 
@@ -873,6 +887,11 @@ namespace Orpheus.Bots
                 {
                     w.WriteString("digLine", b.DigLine);
                     w.WriteNumber("rocksDug", b.RocksDug);
+                }
+
+                if (b.MechTour != null)
+                {
+                    w.WriteString("mechTour", b.MechTour);
                 }
 
                 w.WriteBoolean("scenarioFailed", b.ScenarioFailed);

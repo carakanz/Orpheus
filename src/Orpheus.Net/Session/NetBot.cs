@@ -35,6 +35,7 @@ namespace Orpheus.Net.Session
         private CraftChainBot? _craft;
         private BuildRoomBot? _build;
         private NightCampBot? _camp;
+        private MechTourBot? _tour;
         private InputFrame _current;
         private LocalPrediction? _pred;
         private uint _reconciledTick;
@@ -115,6 +116,9 @@ namespace Orpheus.Net.Session
         /// <summary>Сценарий кончился сам: <c>run_seam</c> прошёл все круги, <c>seam_watch</c> остался один.</summary>
         public bool Finished => Runner?.Done == true || _watch?.Alone == true;
 
+        /// <summary>Бот <c>mech_tour</c> (E4-2) — для счётчиков в отчёте; другие сценарии — null.</summary>
+        public MechTourBot? Tour => _tour;
+
         /// <summary>Кадр бота: разобрать пришедшее, сверить, решить, отправить ввод по часам.</summary>
         public void Frame(long nowMicros)
         {
@@ -173,6 +177,17 @@ namespace Orpheus.Net.Session
                     var camp = new NightCampBot();
                     _camp = camp;
                     Client.DeathSeen = m => camp.OnDeath(m); // жертва/убийца — из «Смерти» (тип 24, 1-001)
+                }
+            }
+            else if (_script == MechTourBot.Name)
+            {
+                if (_tour == null && Client.HasSnapshot && Client.Latest.Self.Present)
+                {
+                    var tour = new MechTourBot(Client.Shape, Client.Latest.Self.Position);
+                    _tour = tour;
+                    Client.EditReplied = m => tour.OnReply(m);
+                    Client.CraftReplied = m => tour.OnCraftReply(m);
+                    Client.DeathSeen = m => tour.OnDeath(m);
                 }
             }
             else if (_bot == null)
@@ -251,6 +266,12 @@ namespace Orpheus.Net.Session
                 else if (_camp != null)
                 {
                     _current = _camp.Next(Client); // стоит: ввод пустой, счётчик смерти идёт
+                }
+                else if (_tour != null)
+                {
+                    WorldPos? pos = _pred != null && _pred.Synced ? _pred.Position
+                        : Client.HasSnapshot && Client.Latest.TryFind(Client.EntityId, out SnapshotEntity se) ? se.Position : (WorldPos?)null;
+                    _current = pos.HasValue ? _tour.Next(Client, pos.Value, nowMicros) : InputFrame.None; // E4-2: тур механик
                 }
                 else if (_bot is RunSeamBot run)
                 {
