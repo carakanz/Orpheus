@@ -109,6 +109,9 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
   `TrySeek(..., zone=-1)` — фильтр куч по полосе (~:74–95). MechTourBot.cs: `_digZone=(index&1)` :147,
   `FindTile` ~1008–1050 (приоритет своей зоны) + `TargetNearPartner` (не брать цели < 2,5 тайла от напарника),
   `SepKeep` keep=2 тайла ~1080–1143 (шаг к союзнику-персонажу ближе 2 тайла срезается, обход через 24 кадра).
+  Ночь (E4-2 доводка 3): `NightFrame` ~852–940 — охота, шаг цели в точку на дистанции удара (`standoff = reach*85/100`
+  = 391 unit), простои `_nightStandUntil`/`_nightStall`/`_nightLastPos` (поля ~134–137) после 60 «упёрлись»;
+  сторож сундука `_chest != ChestStep.Done &&` ~497 (ложный «отказ: … Done» после успеха).
 - Крафт (E2-3): Protocol/CraftMessages.cs — CraftRequestMessage (30), CraftReplyMessage (31), CraftStateMessage (32), NearbyStockMessage (36, E2-10). NetServer.Items.cs: OnCraftRequest · SendCraftTo · SendStockTo (E2-10, раз в 5 тактов и после своего изготовления). NetClient.Items.cs: Craft · CraftRunning · CraftProgressAt · RequestCraft · RequestCraftCancel. CraftDesk.cs: `ICraftRequests`, `CraftLine`, `ICraftCancelChecked`, `CraftDesk` (LineOf · Missing · Have · InChests · Make · Cancel; E2-10 — со сводкой `NetClient.NearbyStock`) — путь окна крафта и ботов.
 - Полки окна изготовления (E2-9): `src/Orpheus.Net/Session/CraftShelf.cs` — Sections (разделы и подразделы), Rows (ключ результата → раздел / подраздел), Place · Recipes · CountIn · Shown (фильтр «только доступные») · Available · Badge (число на значке); тесты `CraftShelfTests`.
 - CraftChainBot*.cs (craft_chain, E2-3): `.cs` — Next / Decide (этапы Stage), OnReply · `.Harvest.cs` — Harvest (ходьба рывками, копание, подбор), Dig, ToolSlotFor · `.Path.cs` — Plan (поиск в ширину, разведка по клеткам), Flood, BuildPath · `.Bench.cs` — PlaceBench, Craft, Equip.
