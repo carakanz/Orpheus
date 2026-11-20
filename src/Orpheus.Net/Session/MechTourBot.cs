@@ -132,6 +132,9 @@ namespace Orpheus.Net.Session
         private int _arrowSendFrame = -100_000;
 
         private int _nightFrame;
+        private int _nightStall;
+        private int _nightStandUntil = -1;
+        private WorldPos _nightLastPos;
 
         private static readonly Input8[] WanderDirs =
         {
@@ -491,7 +494,11 @@ namespace Orpheus.Net.Session
             // дерево 3 за ствол, ближайший ствол 10–12 тайлов (~25 с пешком). Прежние 5400 кадров (90 с)
             // срабатывали на втором дереве — фаза умирала на NeedWood, хотя дерево шло в сумку (20.11).
             // Постановка сундука — тот же класс шага (20.11, live-зонд): до 24 попыток, к каждой идти.
-            if (_frame - _chestStepFrame > (_chest == ChestStep.NeedWood || _chest == ChestStep.PlaceChest ? 12_000 : 5_400))
+            // Завершённый шаг не сторожится: Done — не «встала» (сундук поставлен, открыт, склад и закрытие
+            // отработаны), а Checked-ветка ниже ничего не делает; без условия сторож стрелял ложным
+            // «отказ: сундук: фаза встала на Done» через 5 400 кадров после успеха (E5-1, замер RTT 300 20.11).
+            if (_chest != ChestStep.Done &&
+                _frame - _chestStepFrame > (_chest == ChestStep.NeedWood || _chest == ChestStep.PlaceChest ? 12_000 : 5_400))
             {
                 Fail($"сундук: фаза встала на {_chest}");
                 _chest = ChestStep.Done;
@@ -848,6 +855,9 @@ namespace Orpheus.Net.Session
         /// Ночь в поле: охота на ближайшего живого врага — меч из стартового набора (<c>06</c> 0), удар в сектор
         /// прицела в досягаемости, шаг к цели иначе; врагов нет — бродит. Прежний простой бродёж (прогон 20.11)
         /// давал 4–14 ударов за 6 минут ночи и ни одной смерти (мин. здоровье 50 %), а приём тура требует смерти.
+        /// Шаг преследования цели — в точку на дистанции удара (391 unit), не в тайл врага: касание тела —
+        /// это выталкивание сервером (норма 68 unit), в углу со стеной — 77 (сломанный соакер 20.11, кадр 97253).
+        /// Если шаг стоит (враг за водой/стеной) — 90 кадров простоя: отклонение предсказания гаснет на reconcile.
         /// </summary>
         private InputFrame NightFrame(NetClient client, WorldPos pos)
         {
@@ -880,6 +890,8 @@ namespace Orpheus.Net.Session
 
             if (bestD2 == long.MaxValue)
             {
+                _nightStall = 0;
+                _nightStandUntil = -1;
                 return new InputFrame(WanderDirs[_nightFrame / 150 % WanderDirs.Length]);
             }
 
@@ -887,12 +899,42 @@ namespace Orpheus.Net.Session
             if (bestD2 <= (long)reach * reach && sword >= 0)
             {
                 AttackFrames++;
+                _nightStall = 0;
                 Int2 d = Torus.Delta(_shape, pos, target);
                 return new InputFrame(Input8.None, InputButtons.Attack, Angle16.FromDirection(d).Raw, (byte)sword);
             }
 
             MeleeChaseFrames++;
-            return WalkToTileNear(pos, Torus.TileOf(_shape, target));
+            // Шагом НЕ входим в тело врага: при касании сервер делает выталкивание (норма 68 unit),
+            // а если за спиной стена/угол — выталкивание набивает 77 (in-proc соакер 20.11:
+            // «бот 0: ошибка предсказания (без нокбэка) 77 > нормы 68, кадр 97253» — старт ночи).
+            // Цель шага — точка на дистанции удара: меч (460 unit) достает и с 391, касания тела нет.
+            Int2 dd = Torus.Delta(_shape, pos, target);
+            long len = Math.Max(1, (long)Math.Sqrt((double)bestD2));
+            const int standoff = reach * 85 / 100;
+            var aim = new WorldPos(target.X - (int)(dd.X * standoff / len), target.Y - (int)(dd.Y * standoff / len));
+            if (pos == _nightLastPos)
+            {
+                if (++_nightStall > 60)
+                {
+                    // Упёрлись (враг за водой/стеной): 90 кадров стоим — отклонение предсказания
+                    // гаснет на reconcile; упорный шаг в преграду его только набивает.
+                    _nightStall = 0;
+                    _nightStandUntil = _frame + 90;
+                }
+            }
+            else
+            {
+                _nightStall = 0;
+            }
+
+            _nightLastPos = pos;
+            if (_frame < _nightStandUntil)
+            {
+                return InputFrame.None;
+            }
+
+            return WalkTo(pos, aim, Torus.TileOf(_shape, target));
         }
 
         // ------------------------------------------------------------------ добыча своих фаз
