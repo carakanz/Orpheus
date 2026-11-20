@@ -57,6 +57,18 @@ namespace Orpheus.Bots
         /// <summary>Правок предсказания (сверка не совпала).</summary>
         public long PredResynced { get; set; }
 
+        /// <summary>Кадр подтверждения, где получено наибольшее расхождение (<see cref="PredMaxDevUnits"/>).</summary>
+        public long PredMaxDevFrame { get; set; }
+
+        /// <summary>Наибольшее расхождение вне серверного нокбэка, unit — чистая ошибка предсказания (норма 68).</summary>
+        public int PredMaxDevNoKnockUnits { get; set; }
+
+        /// <summary>Кадр подтверждения, где получено <see cref="PredMaxDevNoKnockUnits"/>.</summary>
+        public long PredMaxDevNoKnockFrame { get; set; }
+
+        /// <summary>Сверок, где расхождение задал серверный нокбэк (приём серверного состояния, 1-001).</summary>
+        public long PredKnockAdopted { get; set; }
+
         /// <summary>Часы клиента: перестановок вперёд, назад, по «часам после фриза»; перенумераций кадров; owd, мс.</summary>
         public long ClockStepsForward { get; set; }
 
@@ -120,6 +132,9 @@ namespace Orpheus.Bots
 
         /// <summary>Сценарий <c>night_camp</c> (1-026, приёмка `08` 3.1 1.6): итог строкой; иначе null.</summary>
         public string? NightCamp { get; set; }
+
+        /// <summary>Сценарий <c>mech_tour</c> (E4-2, шаг 4.2): итог строкой (числа разбирает тест); иначе null.</summary>
+        public string? MechTour { get; set; }
 
         /// <summary><c>run_seam</c> (0-027): круги; не бегун — null.</summary>
         public List<RunSeamLap>? Laps { get; set; }
@@ -502,6 +517,10 @@ namespace Orpheus.Bots
                     st.PredCompared = pred.Compared;
                     st.PredOverHalfTile = pred.ComparedOverHalfTile;
                     st.PredMaxDevUnits = pred.MaxDevUnits;
+                    st.PredMaxDevFrame = pred.MaxDevAckFrame;
+                    st.PredMaxDevNoKnockUnits = pred.MaxDevNoKnockUnits;
+                    st.PredMaxDevNoKnockFrame = pred.MaxDevNoKnockFrame;
+                    st.PredKnockAdopted = pred.KnockAdopted;
                     st.PredResynced = pred.Resynced;
                 }
 
@@ -536,6 +555,12 @@ namespace Orpheus.Bots
                     st.NightCamp = camp.Alive
                         ? $"стоит {camp.Ticks / (double)Simulation.TickRate:0.#} с, ударов {camp.HitsTaken}, жив"
                         : $"погиб через {camp.TicksToDeath / (double)Simulation.TickRate:0.#} с, ударов {camp.HitsTaken}, убийца #{camp.KillerId}, тип урона {camp.KillerDamageType}";
+                }
+
+                MechTourBot? tour = bots[i].Tour;
+                if (tour != null)
+                {
+                    st.MechTour = tour.Summary;
                 }
 
                 RunSeamBot? runner = bots[i].Runner;
@@ -644,6 +669,11 @@ namespace Orpheus.Bots
                 {
                     console?.WriteLine($"  night_camp, бот {i}: {report.Bots[i].NightCamp}");
                 }
+
+                if (report.Bots[i].MechTour != null)
+                {
+                    console?.WriteLine($"  mech_tour, бот {i}: {report.Bots[i].MechTour}");
+                }
             }
 
             for (int i = 0; i < report.Bots.Count; i++)
@@ -734,7 +764,14 @@ namespace Orpheus.Bots
             }
 
             SeamWatch? w = b.Watch;
-            return w != null ? $", seam_watch: в показе {w.FramesInView} кадров, наибольший сдвиг {w.MaxStep30Tiles:0.000} т" : "";
+            if (w != null)
+            {
+                return $", seam_watch: в показе {w.FramesInView} кадров, наибольший сдвиг {w.MaxStep30Tiles:0.000} т";
+            }
+
+            // E4-2: mech_tour — полный снимок фаз и счётчиков каждые 10 с, чтобы соакер был читаем в живом журнале.
+            MechTourBot? tour = b.Tour;
+            return tour != null ? ", " + tour.Summary : "";
         }
 
         private static int RttOf(NetBot bot, NetSimTransport? sim) => bot.Client.Transport.RoundTripMs(bot.Client.ServerPeer);
@@ -846,6 +883,10 @@ namespace Orpheus.Bots
                 w.WriteNumber("predCompared", b.PredCompared);
                 w.WriteNumber("predOverHalfTile", b.PredOverHalfTile);
                 w.WriteNumber("predMaxDevUnits", b.PredMaxDevUnits);
+                w.WriteNumber("predMaxDevFrame", b.PredMaxDevFrame);
+                w.WriteNumber("predMaxDevNoKnockUnits", b.PredMaxDevNoKnockUnits);
+                w.WriteNumber("predMaxDevNoKnockFrame", b.PredMaxDevNoKnockFrame);
+                w.WriteNumber("predKnockAdopted", b.PredKnockAdopted);
                 w.WriteNumber("predResynced", b.PredResynced);
                 w.WriteNumber("clockStepsForward", b.ClockStepsForward);
                 w.WriteNumber("clockStepsBack", b.ClockStepsBack);
@@ -873,6 +914,11 @@ namespace Orpheus.Bots
                 {
                     w.WriteString("digLine", b.DigLine);
                     w.WriteNumber("rocksDug", b.RocksDug);
+                }
+
+                if (b.MechTour != null)
+                {
+                    w.WriteString("mechTour", b.MechTour);
                 }
 
                 w.WriteBoolean("scenarioFailed", b.ScenarioFailed);

@@ -110,6 +110,19 @@ namespace Orpheus.Net.Session
         /// <summary>Наибольшее расхождение предсказания с сервером, unit (1/256 тайла), по всем сверкам после установки.</summary>
         public int MaxDevUnits { get; private set; }
 
+        /// <summary>Кадр подтверждения, на котором получено <see cref="MaxDevUnits"/> (для разбора длинных соакеров: фаза сценария по кадру).</summary>
+        public long MaxDevAckFrame { get; private set; }
+
+        /// <summary>
+        /// Наибольшее расхождение предсказания в кадре, где расхождение задано НЕ серверным нокбэком
+        /// (нокаут/толчок — серверное состояние, оно идёт в <see cref="KnockAdopted"/>, 1-001).
+        /// Это и есть ошибка предсказания: норма 68 unit (касание врага, <c>PredictionTests…EnemyTouch</c>).
+        /// </summary>
+        public int MaxDevNoKnockUnits { get; private set; }
+
+        /// <summary>Кадр подтверждения, на котором получено <see cref="MaxDevNoKnockUnits"/>.</summary>
+        public long MaxDevNoKnockFrame { get; private set; }
+
         /// <summary>
         /// Сверок со сравнением (11.3, 0-025): предсказанная позиция в кадре ack против серверной в тот же кадр — каждый
         /// снимок после установки, кроме переполнения и ack прежних номеров после перенумерации.
@@ -352,11 +365,27 @@ namespace Orpheus.Net.Session
                 known = false;
             }
 
+            // Отбрасывание задал сервер (предсказание его не имело — удар решает сервер): расхождение позиции
+            // «от нокбэка» — не ошибка предсказания, приём серверного состояния считаем отдельно (1-001).
+            bool knockDriven = !_dead && server.KnockLeft > 0 && (known ? predicted.KnockLeft == 0 : true);
+
             if (known && !initial)
             {
                 long d2 = Torus.Dist2(_map, predicted.Position, server.Position);
                 LastDevUnits = Units(d2);
-                MaxDevUnits = Math.Max(MaxDevUnits, LastDevUnits);
+                if (LastDevUnits > MaxDevUnits)
+                {
+                    MaxDevUnits = LastDevUnits;
+                    MaxDevAckFrame = ackFrame;
+                }
+
+                // То же без кадра, где расхождение задано серверным нокбэком: это и есть ошибка предсказания
+                // (норма 68 unit = касание врага). Нужна для длинных прогонов с боем (E4-2).
+                if (!knockDriven && LastDevUnits > MaxDevNoKnockUnits)
+                {
+                    MaxDevNoKnockUnits = LastDevUnits;
+                    MaxDevNoKnockFrame = ackFrame;
+                }
                 Compared++;
                 if (LastDevUnits > HalfTileUnits)
                 {
@@ -369,10 +398,6 @@ namespace Orpheus.Net.Session
                     return; // совпало (2.6 п. 3); нокбэк — тоже (1-001): шаги совпали с серверными
                 }
             }
-
-            // Отбрасывание задал сервер (предсказание его не имело — удар решает сервер): расхождение позиции
-            // «от нокбэка» — не ошибка предсказания, приём серверного состояния считаем отдельно (1-001).
-            bool knockDriven = !_dead && server.KnockLeft > 0 && (known ? predicted.KnockLeft == 0 : true);
 
             if (initial)
             {
