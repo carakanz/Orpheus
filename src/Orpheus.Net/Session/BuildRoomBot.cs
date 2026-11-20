@@ -144,6 +144,18 @@ namespace Orpheus.Net.Session
         /// <summary>Тайл двери (центр южной стены).</summary>
         public TileCoord DoorTile => new TileCoord(_center.X, _center.Y + RoomSize / 2);
 
+        /// <summary>
+        /// E4-2: позиция напарника (MechTourBot обновляет каждый кадр; valid = виден, жив).
+        /// Стена/дверь, поставленные НА ТЕЛО напарника: сервер выталкивает тело из нового блока,
+        /// предсказание напарника о блоке в окне не знало — расхождение до RadiusUnits (соакеры
+        /// 20.11: noKnock 77/80/81/102, кадры 85785/97253/97274 — всё в полосе выталкивания).
+        /// Бот не ставит спёкшийся блок (стена, дверь) на тело напарника.
+        /// </summary>
+        public WorldPos PartnerPos;
+        public bool PartnerValid;
+
+        private bool PartnerOnTile(TileCoord t) => PartnerValid && EditRules.Overlaps(_shape, PartnerPos, t);
+
         public BuildRoomBot(MapShape shape, WorldPos spawn)
         {
             _shape = shape;
@@ -808,6 +820,15 @@ namespace Orpheus.Net.Session
                 return HammerFrame(client);
             }
 
+            if (PartnerOnTile(wall))
+            {
+                // E4-2: напарник стоит на тайле стены — не ставим: сервер вытолкнет его тело из блока,
+                // предсказание напарника о блоке не знало (noKnock пика до RadiusUnits). Обойдём и повторим.
+                _skipUntil[wall] = _frame + 120;
+                _wallsFrom++;
+                return HammerFrame(client);
+            }
+
             if (InPlaceReach(pos, wall) && !EditRules.Overlaps(_shape, pos, wall))
             {
                 if (PlaceArmed(ObjectId.StoneWall, wall))
@@ -949,6 +970,13 @@ namespace Orpheus.Net.Session
             {
                 Stage = Phase.Furnish;
                 return InputFrame.None;
+            }
+
+            // E4-2: тело (своё или напарника) на тайле двери — отойти: дверь при ставке на тело
+            // выталкивает его сервером, предсказание о блоке не знало (noKnock пика до RadiusUnits).
+            if (EditRules.Overlaps(_shape, pos, door) || PartnerOnTile(door))
+            {
+                return DigOrWalk(client, world, pos, AnchorOutside(door));
             }
 
             if (InPlaceReach(pos, door))

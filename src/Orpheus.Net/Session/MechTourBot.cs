@@ -407,6 +407,9 @@ namespace Orpheus.Net.Session
                         _build = new BuildRoomBot(_shape, pos);
                     }
 
+                    // E4-2: строим, видя тело напарника: не ставим стену/дверь на него (см. BuildRoomBot).
+                    _build.PartnerPos = _sepPos;
+                    _build.PartnerValid = _sepValid;
                     return _build.Next(client, pos, nowUs);
 
                 case Phase.Night:
