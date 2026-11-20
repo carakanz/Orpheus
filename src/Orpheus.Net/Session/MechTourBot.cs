@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
+using Orpheus.Core.Trig;
 using Orpheus.Core.World;
 using Orpheus.Net.Protocol;
 
@@ -11,12 +13,13 @@ namespace Orpheus.Net.Session
     /// <summary>
     /// Бот-сценарий <c>mech_tour</c> (E4-2, шаг 4.2 плана): сквозной тур всех новых механик под предсказанием —
     /// пять фаз по кадрам ввода (60/с):
-    /// 1) <see cref="CraftChainBot"/> (0–600 с): добыча камня/дерева, верстак, плавка, медная кирка, гранит;
-    /// 2) сундук (600–780 с): крафт сундука руками, постановка (мебель, сетка 0,5), открыть (<see cref="NetClient.RequestUse"/>),
+    /// 1) <see cref="CraftChainBot"/> (0–300 с): добыча камня/дерева, верстак, плавка, медная кирка, гранит, топор;
+    /// 2) сундук (300–840 с): крафт сундука руками, постановка (мебель, сетка 0,5), открыть (<see cref="NetClient.RequestUse"/>),
     ///    положить (<see cref="NetClient.RequestBagMove"/> в ячейки 40…69), взять, закрыть;
-    /// 3) лук (780–990 с): волокно из кустов, верёвка, лук и стрелы у верстака, стрельба удержанием удара (E3-2);
-    /// 4) <see cref="BuildRoomBot"/> (990–1500 с): добыча, комната 5 × 5 (пол/стены на сетке 0,5, дверь);
-    /// 5) ночь в поле (1500–1800 с): бродит без оружия — удары, урон, смерть и респавн (счётчики).
+    /// 3) лук (840–1140 с): волокно из кустов, верёвка, лук и стрелы у верстака, стрельба удержанием удара (E3-2);
+    /// 4) <see cref="BuildRoomBot"/> (1140–1500 с): добыча, комната 5 × 5 (пол/стены на сетке 0,5, дверь);
+    /// 5) ночь в поле (1500–1800 с): охота на ближайшего врага мечом из стартового набора (<see cref="NightFrame"/>) —
+    ///    удары, урон, смерть и респавн (счётчики).
     /// Компоненты фаз получают ответы сервера через диспетчер (<see cref="OnReply"/>, <see cref="OnCraftReply"/>).
     /// Счётчики — в <see cref="Summary"/> (числа разбирает тест E4-2).
     /// </summary>
@@ -36,11 +39,16 @@ namespace Orpheus.Net.Session
         }
 
         // Границы фаз в кадрах ввода (60/с). 1800 с = 108 000 кадров.
-        public const int CraftEndFrame = 36_000;    // 600 с
-        public const int ChestEndFrame = 46_800;    // 780 с
-        public const int BowEndFrame = 59_400;      // 990 с
-        public const int BuildEndFrame = 90_000;    // 1500 с
-        public const int TourEndFrame = 108_000;    // 1800 с
+        // Калибровка 20.11 по ЖИВОМУ UDP-прогону (in-proc стенд идёт в 2× ускорении: 1 тик = 2 входных кадра,
+        // потому лента фаз завышала прогресс): цепочка верстак→кирка→топор в живом прогоне кончается к ~690 с
+        // (на 300 с бот 0 был без кирки/топора, на 900 с бот 1 — с топором). Окна: крафт 0–690 с, сундук
+        // 690–1080 с (дерево 8 в густой роще ~150 с + постановка у верстака), лук 1080–1410 с (волокно в густых
+        // кустах + верёвка/лук/стрелы у верстака + стрельба), стройка 1410–1620 с, ночь 1620–1800 с (охота с мечом).
+        public const int CraftEndFrame = 41_400;     // 690 с (цепочка + затычка: каменный топор)
+        public const int ChestEndFrame = 64_800;     // 1080 с (с топором NeedWood ~60–90 с + постановка у верстака)
+        public const int BowEndFrame = 84_600;       // 1410 с (волокно/верёвка/лук/стрелы + стрельба)
+        public const int BuildEndFrame = 97_200;     // 1620 с (комната 5 × 5: пол, стены, дверь)
+        public const int TourEndFrame = 108_000;     // 1800 с
 
         private const int U = Torus.SubTilesPerTile;
         private const int DigR = 48;          // радиус поиска объекта добычи, тайлов
@@ -67,6 +75,10 @@ namespace Orpheus.Net.Session
         private int _digStartFrame;
         private byte _digSlot;
         private TileCoord _digFindFrom;
+        // Сбор дропа из личных куч (E3-3b): срубленное дерево падает в кучу, счёт сумки после сруба
+        // не растёт, пока не дойдёшь до кучи (тот же BotPiles.TrySeek, что у BuildRoomBot). В live-зонде
+        // 20.11 (`e42_probe17`) фаза сундука вставала на NeedWood именно так: деревья срублены, дерево в кучах.
+        private BotPiles? _tourPiles;
         private int _digFindFrame;
 
         // заявки изготовления
@@ -75,9 +87,19 @@ namespace Orpheus.Net.Session
 
         private ChestStep _chest = ChestStep.NeedWood;
         private int _chestStepFrame;
+
+        /// <summary>Снимок сумки (каждые 600 кадров) — в <see cref="Summary"/>: по нему видно, из-за чего фаза встала.</summary>
+        private string _bagDump = "";
         private TileCoord _chestTile;
         private ushort _chestReq;
         private int _chestPlaceTries;
+        // Якорь постановки (20.11, live-зонд): кольцо вокруг ТЕКУЩЕЙ позиции бота в лесу давало тайлы в деревьях,
+        // попытки кончались на ходьбе. Якорь — верстак (его тайл сервер уже принял), кольцо от него; первый кандидат —
+        // южнее верстака (лес севернее, луг открыт). Отказы постановки меряются и пишутся в Summary.
+        private bool _chestAnchorSet;
+        private TileCoord _chestAnchor;
+        public int ChestPlaceRejects { get; private set; }
+        public string LastChestReject { get; private set; } = "";
 
         private BowStep _bow = BowStep.Fiber;
         private int _bowStepFrame;
@@ -129,6 +151,9 @@ namespace Orpheus.Net.Session
         public bool BowCrafted { get; private set; }
         public bool ArrowsCrafted { get; private set; }
 
+        /// <summary>Каменный топор изготовлен в затычке фазы 1 (после цепочки) — им фазы 2–3 рубят деревья.</summary>
+        public bool AxeCrafted { get; private set; }
+
         /// <summary>Сундук: поставлен, открыт, положей, взятий, закрыт.</summary>
         public bool ChestPlaced { get; private set; }
         public bool ChestOpened { get; private set; }
@@ -139,8 +164,11 @@ namespace Orpheus.Net.Session
         /// <summary>Выстрелов (по расходу стрел из сумки сервера).</summary>
         public int Shots { get; private set; }
 
-        /// <summary>Кадров со своим ударом (лук/стройка) — удержаний кнопки удара.</summary>
+        /// <summary>Кадров со своим ударом (лук/стройка/ночь) — удержаний кнопки удара.</summary>
         public int AttackFrames { get; private set; }
+
+        /// <summary>Кадров преследования врага в фазе ночи (охота за мечом).</summary>
+        private int MeleeChaseFrames { get; set; }
 
         /// <summary>Своих ударов Health упал (число ударов по снимкам), минимум здоровья в %.</summary>
         public int HitsTaken { get; private set; }
@@ -170,11 +198,13 @@ namespace Orpheus.Net.Session
                 return
                     $"мех-тур: фаза {Now}; доб: деревьев {trees}, камней {rocks}, руды {ores}, кустов {BushesDug}; " +
                     $"крафт: заявок {CraftRequests}, отказов {CraftRefusals}{(LastCraftRefusal != CraftReply.Accepted ? $" ({LastCraftRefusal})" : "")}, " +
-                    $"верстак={(BenchPlaced ? 1 : 0)}, кирка={(PickaxeDone ? 1 : 0)}, сундук={(ChestCrafted ? 1 : 0)}, верёвка={(RopeCrafted ? 1 : 0)}, лук={(BowCrafted ? 1 : 0)}, стрелы={(ArrowsCrafted ? 1 : 0)}; " +
-                    $"сундук: пост={(ChestPlaced ? 1 : 0)}, откр={(ChestOpened ? 1 : 0)}, пол={ChestPuts}, взят={ChestTakes}, закр={(ChestClosed ? 1 : 0)}; " +
+                    $"верстак={(BenchPlaced ? 1 : 0)}, кирка={(PickaxeDone ? 1 : 0)}, топор={(AxeCrafted ? 1 : 0)}, сундук={(ChestCrafted ? 1 : 0)}, верёвка={(RopeCrafted ? 1 : 0)}, лук={(BowCrafted ? 1 : 0)}, стрелы={(ArrowsCrafted ? 1 : 0)}; " +
+                    $"сундук: пост={(ChestPlaced ? 1 : 0)}, откр={(ChestOpened ? 1 : 0)}, пол={ChestPuts}, взят={ChestTakes}, закр={(ChestClosed ? 1 : 0)}" +
+                    $", попыток={_chestPlaceTries}, отказов={ChestPlaceRejects}{(LastChestReject.Length > 0 ? $" ({LastChestReject})" : "")}; " +
                     $"стрел: выстр={Shots}; стройка: пол={floors}, стен={walls}, дверь={door}; " +
                     $"бой: удары={HitsTaken}, смерти={Deaths}, мин. здоровье {MinHealthPct}%; " +
-                    $"кадров {Frames}{(FailReason.Length > 0 ? $"; отказ: {FailReason}" : "")}";
+                    $"кадров {Frames}; {(_bagDump.Length > 0 ? _bagDump : "инв: -")}" +
+                    $"{(FailReason.Length > 0 ? $"; отказ: {FailReason}" : "")}";
             }
         }
 
@@ -194,6 +224,8 @@ namespace Orpheus.Net.Session
                 }
                 else
                 {
+                    ChestPlaceRejects++;
+                    LastChestReject = EditRules.Describe(m.Reply);
                     _chestPlaceTries++;
                     _chest = ChestStep.PlaceChest;
                     if (_chestPlaceTries >= 24)
@@ -238,6 +270,11 @@ namespace Orpheus.Net.Session
         public InputFrame Next(NetClient client, WorldPos pos, long nowUs)
         {
             _frame++;
+            if (_frame % 600 == 0 && client.World != null)
+            {
+                _bagDump = BagDump(client) + $" куч={_tourPiles?.Collected ?? 0}";
+            }
+
             if (_selfId < 0)
             {
                 _selfId = client.EntityId;
@@ -252,6 +289,14 @@ namespace Orpheus.Net.Session
                     if (_craft == null)
                     {
                         _craft = new CraftChainBot(_shape, pos);
+                    }
+
+                    if (_craft.Done)
+                    {
+                        // Затычка фазы 1: каменный топор (камень 3 + дерево 2, руками). Без топора фазы 2–3 рубят
+                        // деревья голыми руками и не успевают накопить дерево — на соакере 20.11 фаза сундука
+                        // встала на NeedWood (сундук=0, лук=0 за 30 мин).
+                        return AxeStepFrame(client, pos);
                     }
 
                     return _craft.Next(client, pos);
@@ -271,8 +316,7 @@ namespace Orpheus.Net.Session
                     return _build.Next(client, pos, nowUs);
 
                 case Phase.Night:
-                    _nightFrame++;
-                    return new InputFrame(WanderDirs[_nightFrame / 150 % WanderDirs.Length]);
+                    return NightFrame(client, pos);
 
                 default:
                     return InputFrame.None;
@@ -352,7 +396,11 @@ namespace Orpheus.Net.Session
                 return InputFrame.None;
             }
 
-            if (_frame - _chestStepFrame > 5400)
+            // Шаг-сбор (рубит/копает до нужного числа) получает бюджет по времени добычи с ходьбой:
+            // дерево 3 за ствол, ближайший ствол 10–12 тайлов (~25 с пешком). Прежние 5400 кадров (90 с)
+            // срабатывали на втором дереве — фаза умирала на NeedWood, хотя дерево шло в сумку (20.11).
+            // Постановка сундука — тот же класс шага (20.11, live-зонд): до 24 попыток, к каждой идти.
+            if (_frame - _chestStepFrame > (_chest == ChestStep.NeedWood || _chest == ChestStep.PlaceChest ? 12_000 : 5_400))
             {
                 Fail($"сундук: фаза встала на {_chest}");
                 _chest = ChestStep.Done;
@@ -483,12 +531,31 @@ namespace Orpheus.Net.Session
             }
 
             TileCoord me = Torus.TileOf(_shape, pos);
+            if (!_chestAnchorSet)
+            {
+                // Якорь — верстак (сервер его принял, тайл его открыт); верстака нет — текущая позиция.
+                _chestAnchor = _craft?.BenchTile ?? me;
+                _chestAnchorSet = true;
+            }
+
             int quad = _chestPlaceTries & 3;
-            // Кольцо вокруг стойла: 8 сторон, радиусы 3–5 (возле спавна земля, деревья и валуны).
-            int[] dirX = { 1, 1, 0, -1, -1, -1, 0, 1 };
-            int[] dirY = { 0, 1, 1, 1, 0, -1, -1, -1 };
-            int ring = 3 + _chestPlaceTries / 8;
-            var tile = Torus.Wrap(_shape, new TileCoord(me.X + dirX[_chestPlaceTries % 8] * ring, me.Y + dirY[_chestPlaceTries % 8] * ring));
+            // Кандидаты от якоря: 0 — южнее верстака на 3 (лес севернее, луг открыт), дальше кольцо 8 сторон × радиусы 3–5.
+            // Занятые миром тайлы (дерево/камень/куст/постройка) пропускаем без ходьбы — попытка на них гибла в 20.11.
+            var tile = _chestPlaceTries == 0
+                ? Torus.Wrap(_shape, new TileCoord(_chestAnchor.X, _chestAnchor.Y + 3))
+                : AnchorRingTile(_chestAnchor, _chestPlaceTries - 1);
+            if (client.World!.World.GetObject(tile) != ObjectId.Empty || client.World.World.TryGetBuild(tile, out _))
+            {
+                _chestPlaceTries++;
+                if (_chestPlaceTries >= 24)
+                {
+                    Fail("сундук: постановка — все тайлы вокруг верстака заняты");
+                    _chest = ChestStep.Done;
+                }
+
+                return InputFrame.None;
+            }
+
             if (_chestReq != 0)
             {
                 return InputFrame.None; // постановка в пути
@@ -510,6 +577,7 @@ namespace Orpheus.Net.Session
             else
             {
                 _chestPlaceTries++;
+                LastChestReject = c.Reason;
                 if (_chestPlaceTries >= 24)
                 {
                     Fail($"сундук: постановка {c.Reason}");
@@ -518,6 +586,15 @@ namespace Orpheus.Net.Session
             }
 
             return InputFrame.None;
+        }
+
+        /// <summary>Тайл кольца от якоря: попытка n (0…23) — 8 сторон × радиусы 3–5.</summary>
+        private TileCoord AnchorRingTile(TileCoord anchor, int n)
+        {
+            int[] dirX = { 1, 1, 0, -1, -1, -1, 0, 1 };
+            int[] dirY = { 0, 1, 1, 1, 0, -1, -1, -1 };
+            int ring = 3 + n / 8;
+            return Torus.Wrap(_shape, new TileCoord(anchor.X + dirX[n % 8] * ring, anchor.Y + dirY[n % 8] * ring));
         }
 
         // ------------------------------------------------------------------ фаза 3: лук
@@ -529,7 +606,9 @@ namespace Orpheus.Net.Session
                 return InputFrame.None;
             }
 
-            if (_bow != BowStep.Shoot && _frame - _bowStepFrame > 3600)
+            // Бюджет шага: сбор (кусты/деревья/валуны) — добыча с ходьбой до 4 стволов; остальное — 60 с.
+            int bowStall = _bow is BowStep.Fiber or BowStep.BowAtBench or BowStep.Arrows ? 12_000 : 3_600;
+            if (_bow != BowStep.Shoot && _frame - _bowStepFrame > bowStall)
             {
                 Fail($"лук: фаза встала на {_bow}");
                 _bow = BowStep.Done;
@@ -672,6 +751,59 @@ namespace Orpheus.Net.Session
             return new InputFrame(Input8.None, InputButtons.Attack, 0, (byte)slot); // удержание — непрерывная стрельба (C-031)
         }
 
+        // ------------------------------------------------------------------ фаза 5: ночь в поле
+
+        /// <summary>
+        /// Ночь в поле: охота на ближайшего живого врага — меч из стартового набора (<c>06</c> 0), удар в сектор
+        /// прицела в досягаемости, шаг к цели иначе; врагов нет — бродит. Прежний простой бродёж (прогон 20.11)
+        /// давал 4–14 ударов за 6 минут ночи и ни одной смерти (мин. здоровье 50 %), а приём тура требует смерти.
+        /// </summary>
+        private InputFrame NightFrame(NetClient client, WorldPos pos)
+        {
+            _nightFrame++;
+            if (!Alive(client) || client.World == null)
+            {
+                return InputFrame.None; // мёртв (автореспавн) или мир не пришёл — ждём
+            }
+
+            Snapshot snap = client.Latest;
+            const int reach = Reach.SwordStrikeUnits + Collision.RadiusUnits; // сектор + круг цели (`02` 3.2)
+            long bestD2 = long.MaxValue;
+            WorldPos target = default;
+            for (int i = 0; i < snap.Count; i++)
+            {
+                SnapshotEntity e = snap.Entities[i];
+                if (e.Id == client.EntityId || e.Enemy >> SnapshotLayout.EnemyArchetypeShift == 0 || e.HealthPct == 0)
+                {
+                    continue; // не враг (архетип 0 — мозг выключен) или мёртв
+                }
+
+                Int2 d = Torus.Delta(_shape, pos, e.Position);
+                long d2 = (long)d.X * d.X + (long)d.Y * d.Y;
+                if (d2 < bestD2)
+                {
+                    bestD2 = d2;
+                    target = e.Position;
+                }
+            }
+
+            if (bestD2 == long.MaxValue)
+            {
+                return new InputFrame(WanderDirs[_nightFrame / 150 % WanderDirs.Length]);
+            }
+
+            int sword = BuildHand.SlotWith(client.Inv, Items.WoodenSword);
+            if (bestD2 <= (long)reach * reach && sword >= 0)
+            {
+                AttackFrames++;
+                Int2 d = Torus.Delta(_shape, pos, target);
+                return new InputFrame(Input8.None, InputButtons.Attack, Angle16.FromDirection(d).Raw, (byte)sword);
+            }
+
+            MeleeChaseFrames++;
+            return WalkToTileNear(pos, Torus.TileOf(_shape, target));
+        }
+
         // ------------------------------------------------------------------ добыча своих фаз
 
         /// <summary>
@@ -704,6 +836,16 @@ namespace Orpheus.Net.Session
                     _digFrame = new InputFrame(Input8.None, InputButtons.Dig, 0, _digSlot);
                     return false;
                 }
+            }
+
+            // Дроп срубленного/скопанного лежит в личных кучах (E3-3b) — пока не соберёшь цельный предмет
+            // этой фазы, следующего объекта не ищем: в live-зонде 20.11 NeedWood срубал 3–4 дерева и стоял на
+            // Count(дерево)=2 (всё дерево в кучах), фаза умирала по сторожу.
+            _tourPiles ??= new BotPiles(_shape);
+            if (_tourPiles.TrySeek(client, pos, it => it == item, out Input8 toPile))
+            {
+                _digFrame = new InputFrame(toPile);
+                return false;
             }
 
             ClientWorld w = client.World!;
@@ -757,8 +899,16 @@ namespace Orpheus.Net.Session
             }
         }
 
+        /// <summary>
+        /// Ближайший тайл с объектом в окне <see cref="DigR"/> (рядом с ботом; прежнему обходу ряд за рядом
+        /// попадался дальний угол окна — 24 тайла пешком на каждое дерево, и фаза сундука не успевала
+        /// накопить дерево за 90 с, 20.11). Пропускает тайлы из <see cref="_skipUntil"/> и предсказанные.
+        /// </summary>
         private bool FindTile(ClientWorld w, TileCoord from, ushort obj, out TileCoord best)
         {
+            long bestD2 = long.MaxValue;
+            TileCoord found = default;
+            bool any = false;
             for (int dy = -DigR; dy <= DigR; dy++)
             {
                 for (int dx = -DigR; dx <= DigR; dx++)
@@ -774,13 +924,18 @@ namespace Orpheus.Net.Session
                         continue;
                     }
 
-                    best = t;
-                    return true;
+                    long d2 = (long)dx * dx + (long)dy * dy;
+                    if (d2 < bestD2)
+                    {
+                        bestD2 = d2;
+                        found = t;
+                        any = true;
+                    }
                 }
             }
 
-            best = default;
-            return false;
+            best = found;
+            return any;
         }
 
         private bool InDigReach(WorldPos pos, TileCoord t) =>
@@ -834,6 +989,50 @@ namespace Orpheus.Net.Session
         private WorldPos TileCenter(TileCoord t) =>
             new WorldPos((t.X << Torus.SubTileBits) + U / 2, (t.Y << Torus.SubTileBits) + U / 2);
 
+        // ------------------------------------------------------------------ затычка фазы 1: каменный топор
+
+        /// <summary>
+        /// После цепочки фазы 1 добираем каменный топор (камень 3 + дерево 2, руками) — им фазы 2–3 рубят деревья.
+        /// Без топора деревья копаются голыми руками (~в 6 раз медленнее), и фаза сундука не успевает накопить
+        /// дерево: на соакере 20.11 она встала на NeedWood (сундук=0, лук=0 за 30 мин).
+        /// </summary>
+        private InputFrame AxeStepFrame(NetClient client, WorldPos pos)
+        {
+            if (!Alive(client) || client.World == null)
+            {
+                return InputFrame.None;
+            }
+
+            if (client.Inv.Count(Items.StoneAxe) > 0)
+            {
+                AxeCrafted = true;
+                return InputFrame.None;
+            }
+
+            if (client.Inv.Count(Items.Stone) < 3)
+            {
+                if (DigFor(client, pos, ObjectId.Rock, Items.Stone, 3, () => RocksDug++))
+                {
+                    return InputFrame.None; // камень готов, в следующем кадре — за деревом
+                }
+
+                return _digFrame;
+            }
+
+            if (client.Inv.Count(Items.Wood) < 2)
+            {
+                if (DigFor(client, pos, ObjectId.Tree, Items.Wood, 2, () => TreesDug++))
+                {
+                    return InputFrame.None; // дерево готово, в следующем кадре — крафт
+                }
+
+                return _digFrame;
+            }
+
+            SendCraft(client, RecipeTable.StoneAxe, 1);
+            return InputFrame.None;
+        }
+
         // ------------------------------------------------------------------ крафт и сумка
 
         /// <summary>Заявку крафта — не чаще раза в 60 кадров (лимит 8 заявок на такт — общий с сумкой).</summary>
@@ -864,6 +1063,28 @@ namespace Orpheus.Net.Session
             }
 
             return -1;
+        }
+
+        /// <summary>
+        /// Снимок сумки в <see cref="Summary"/> (по 600 кадрам): содержимое и свободное место под дерево.
+        /// Нужен, чтобы видеть причину остановки фазы: на соакере 20.11 фаза сундука стояла на <c>NeedWood</c>
+        /// при восьми срубленных деревьях — loot уходит на землю, когда сумка набита.
+        /// </summary>
+        private static string BagDump(NetClient client)
+        {
+            Inventory inv = client.Inv;
+            int used = 0;
+            for (int c = 0; c < Inventory.Cells; c++)
+            {
+                if (inv.ItemAt(c) != Items.None)
+                {
+                    used++;
+                }
+            }
+
+            return $"инв: дерево={inv.CountAt(Material.Wood)} камень={inv.CountAt(Material.Stone)} " +
+                $"волокно={inv.CountAt(Material.Fiber)} медь={inv.CountAt(Material.Copper)} " +
+                $"мест {used}/{Inventory.Cells} место-под-дерево={inv.RoomFor(Items.Wood)}";
         }
 
         /// <summary>Ячейка панели с инструментом, который копаёт объект (время &gt; 0 по таблице клиента); нет — 0 (1-010).</summary>

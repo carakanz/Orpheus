@@ -57,6 +57,18 @@ namespace Orpheus.Bots
         /// <summary>Правок предсказания (сверка не совпала).</summary>
         public long PredResynced { get; set; }
 
+        /// <summary>Кадр подтверждения, где получено наибольшее расхождение (<see cref="PredMaxDevUnits"/>).</summary>
+        public long PredMaxDevFrame { get; set; }
+
+        /// <summary>Наибольшее расхождение вне серверного нокбэка, unit — чистая ошибка предсказания (норма 68).</summary>
+        public int PredMaxDevNoKnockUnits { get; set; }
+
+        /// <summary>Кадр подтверждения, где получено <see cref="PredMaxDevNoKnockUnits"/>.</summary>
+        public long PredMaxDevNoKnockFrame { get; set; }
+
+        /// <summary>Сверок, где расхождение задал серверный нокбэк (приём серверного состояния, 1-001).</summary>
+        public long PredKnockAdopted { get; set; }
+
         /// <summary>Часы клиента: перестановок вперёд, назад, по «часам после фриза»; перенумераций кадров; owd, мс.</summary>
         public long ClockStepsForward { get; set; }
 
@@ -505,6 +517,10 @@ namespace Orpheus.Bots
                     st.PredCompared = pred.Compared;
                     st.PredOverHalfTile = pred.ComparedOverHalfTile;
                     st.PredMaxDevUnits = pred.MaxDevUnits;
+                    st.PredMaxDevFrame = pred.MaxDevAckFrame;
+                    st.PredMaxDevNoKnockUnits = pred.MaxDevNoKnockUnits;
+                    st.PredMaxDevNoKnockFrame = pred.MaxDevNoKnockFrame;
+                    st.PredKnockAdopted = pred.KnockAdopted;
                     st.PredResynced = pred.Resynced;
                 }
 
@@ -748,7 +764,14 @@ namespace Orpheus.Bots
             }
 
             SeamWatch? w = b.Watch;
-            return w != null ? $", seam_watch: в показе {w.FramesInView} кадров, наибольший сдвиг {w.MaxStep30Tiles:0.000} т" : "";
+            if (w != null)
+            {
+                return $", seam_watch: в показе {w.FramesInView} кадров, наибольший сдвиг {w.MaxStep30Tiles:0.000} т";
+            }
+
+            // E4-2: mech_tour — полный снимок фаз и счётчиков каждые 10 с, чтобы соакер был читаем в живом журнале.
+            MechTourBot? tour = b.Tour;
+            return tour != null ? ", " + tour.Summary : "";
         }
 
         private static int RttOf(NetBot bot, NetSimTransport? sim) => bot.Client.Transport.RoundTripMs(bot.Client.ServerPeer);
@@ -860,6 +883,10 @@ namespace Orpheus.Bots
                 w.WriteNumber("predCompared", b.PredCompared);
                 w.WriteNumber("predOverHalfTile", b.PredOverHalfTile);
                 w.WriteNumber("predMaxDevUnits", b.PredMaxDevUnits);
+                w.WriteNumber("predMaxDevFrame", b.PredMaxDevFrame);
+                w.WriteNumber("predMaxDevNoKnockUnits", b.PredMaxDevNoKnockUnits);
+                w.WriteNumber("predMaxDevNoKnockFrame", b.PredMaxDevNoKnockFrame);
+                w.WriteNumber("predKnockAdopted", b.PredKnockAdopted);
                 w.WriteNumber("predResynced", b.PredResynced);
                 w.WriteNumber("clockStepsForward", b.ClockStepsForward);
                 w.WriteNumber("clockStepsBack", b.ClockStepsBack);

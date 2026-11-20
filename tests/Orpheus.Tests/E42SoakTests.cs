@@ -45,6 +45,10 @@ namespace Orpheus.Tests
         /// не больше касания врага (<see cref="Torus.SubTilesPerTile"/> − 4 = 68, <c>PredictionTests…EnemyTouch</c>).</summary>
         private const int PredMaxDevNormUnits = 68;
 
+        /// <summary>Длина одного серверного отбрасывания, unit: <c>Mover.KnockFrames</c> × <c>KnockBaseX10/(KnockFrames·масса)</c> × 0.1,
+        /// масса 1 (самая лёгкая) → <c>KnockBaseX10/10</c> = 256 unit = один тайл (1-001).</summary>
+        private const int KnockLenUnits = 256;
+
         // ---------------------------------------------------------------- 30-минутный прогон
 
         /// <summary>
@@ -63,10 +67,20 @@ namespace Orpheus.Tests
             {
                 BotStats b = report.Bots[i];
                 _out.WriteLine($"бот {i}: состояние {b.State}, предсказаний {b.PredCompared}, правок >½тайла {b.PredOverHalfTile}, " +
-                               $"макс. отклонение {b.PredMaxDevUnits} unit, ресинков {b.PredResynced}, кадров {b.InputsSent}");
+                               $"макс. отклонение {b.PredMaxDevUnits} unit (кадр {b.PredMaxDevFrame}), вне нокбэка " +
+                               $"{b.PredMaxDevNoKnockUnits} unit (кадр {b.PredMaxDevNoKnockFrame}), нокбэков принято {b.PredKnockAdopted}, " +
+                               $"ресинков {b.PredResynced}, кадров {b.InputsSent}");
                 Assert.Equal("InGame", b.State);
                 Assert.Equal(0, b.PredOverHalfTile);
-                Assert.True(b.PredMaxDevUnits <= PredMaxDevNormUnits, $"бот {i}: отклонение предсказания {b.PredMaxDevUnits} > нормы {PredMaxDevNormUnits}");
+                // Норма 68 unit — на чистую ошибку предсказания: кадр, где расхождение задано серверным нокбэком,
+                // не ошибка предсказания (нокаут решает сервер, приём считается отдельно — LocalPrediction, 1-001).
+                // MaxDevUnits (с нокбэком) логируется: в 30-мин прогоне с боем он растёт вместе с числом ударов.
+                Assert.True(b.PredMaxDevNoKnockUnits <= PredMaxDevNormUnits,
+                    $"бот {i}: ошибка предсказания (без нокбэка) {b.PredMaxDevNoKnockUnits} > нормы {PredMaxDevNormUnits}, кадр {b.PredMaxDevNoKnockFrame}");
+                // С нокбэком: расхождение не может превысить норму предсказания + длину одного отбрасывания
+                // (Mover: 9 кадров × (2560/(9·масса))·0.1 unit, масса 1 → 256 unit = тайл). Превышение — чужое состояние.
+                Assert.True(b.PredMaxDevUnits <= PredMaxDevNormUnits + KnockLenUnits,
+                    $"бот {i}: отклонение предсказания с нокбэком {b.PredMaxDevUnits} > {PredMaxDevNormUnits} + {KnockLenUnits}, кадр {b.PredMaxDevFrame}");
 
                 string? s = b.MechTour;
                 Assert.NotNull(s);
@@ -80,8 +94,8 @@ namespace Orpheus.Tests
                 Assert.True(Num(s!, @"сундук: пост=1, откр=1, пол=(\d+), взят=(\d+)") > 0, $"бот {i}: в сундук ничего не положено: {s}");
                 Assert.True(Num(s!, @"сундук: пост=1, откр=1, пол=\d+, взят=(\d+)") > 0, $"бот {i}: из сундука ничего не взято: {s}");
                 Assert.True(Num(s!, @"выстр=(\d+)") > 0, $"бот {i}: ни одного выстрела: {s}");
-                Assert.True(Num(s!, @"стройку: пол=(\d+)") > 0, $"бот {i}: пол не поставлен: {s}");
-                Assert.True(Num(s!, @"стройку: пол=\d+, стен=(\d+)") > 0, $"бот {i}: стены не поставлены: {s}");
+                Assert.True(Num(s!, @"стройка: пол=(\d+)") > 0, $"бот {i}: пол не поставлен: {s}");
+                Assert.True(Num(s!, @"стройка: пол=\d+, стен=(\d+)") > 0, $"бот {i}: стены не поставлены: {s}");
                 Assert.True(Num(s!, @"удары=(\d+)") > 0, $"бот {i}: урона не получал: {s}");
                 Assert.True(Num(s!, @"смерти=(\d+)") > 0, $"бот {i}: не умирал за 30 минут ночи: {s}");
                 Assert.DoesNotContain("отказ:", s!);
@@ -261,14 +275,31 @@ namespace Orpheus.Tests
             _out.WriteLine($"прогон 2: хэшей {hashes2.Count}, финальный {hashes2[^1]:x16} — совпадает с прогоном 1");
         }
 
-        /// <summary>Мир контроля: плоский (зерно 1) + рощица, валуны, медь и гранит у старта (образец <c>CraftChainTests</c>).</summary>
-        private static WorldModel PreparedWorld()
+        /// <summary>
+        /// Мир контроля и соакера: плоский (зерно 1) + роща, кусты, валуны, медь и гранит у старта
+        /// (образец <c>CraftChainTests</c>). Ресурсов с запасом на весь тур двух ботов за 30 минут:
+        /// дерево 3 за ствол, расход на бота ~60–80 (верстак 10, сундук 8, лук 10, пол/стены/дверь ~30) —
+        /// 96 стволов в 10–25 тайлах от старта; волокно 1 за куст, расход 9 (верёвка 3×3) — 40 кустов.
+        /// В первом прогоне 20.11 на 6 деревьях фаза сундука встала на <c>NeedWood</c> (роща съедена фазой 1).
+        /// </summary>
+        internal static WorldModel PreparedWorld()
         {
             WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 1);
             void Put(int x, int y, ushort obj) => world.SetBaseTile(new TileCoord(x, y), FloorId.Grass, obj);
-            for (int i = 0; i < 6; i++)
+            for (int j = 0; j < 8; j++)
             {
-                Put(306 + 2 * (i % 3), 196 + 2 * (i / 3), ObjectId.Tree);
+                for (int i = 0; i < 12; i++)
+                {
+                    Put(288 + 2 * i, 176 + 2 * j, ObjectId.Tree);
+                }
+            }
+
+            for (int j = 0; j < 4; j++)
+            {
+                for (int i = 0; i < 10; i++)
+                {
+                    Put(286 + 2 * i, 206 + 2 * j, ObjectId.Bush);
+                }
             }
 
             for (int i = 0; i < 8; i++)
