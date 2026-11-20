@@ -107,6 +107,8 @@ namespace Orpheus.Client
         DayTintView? _dayTint;          // E1-8: тон суток (ночь, сумерки, рассвет; свет факела и костра)
         int _hudFrame;
         PileView? _piles;               // E2-1: кучи на земле без сервера (--demo-piles, сцена снимков)
+        HearthMarkerView? _hearth;      // E3-6b: маркер Очага на тайле центра (спавн) — офлайн-мир и снимки
+        float _hearthClock;             // E3-6b: часы пульса маркера (в снимках кадр фиксированный — детерминированно)
         UI.UiDemo? _uiDemo;             // E2-2: интерфейс без сервера (--ui-demo, сцены снимков)
 
         void Awake()
@@ -187,6 +189,7 @@ namespace Orpheus.Client
             View.UpdateWindow(Player.Position);
             PlaceCharacterAndCamera();
             _dayTint = new DayTintView(Camera, World, Origin); // E1-8: тон суток (офлайн-часы — Simulation.WorldTime + --day-tick)
+            _hearth = new HearthMarkerView(new GameObject("Hearth").transform, Map, Args.Size / 2, Args.Size / 2); // E3-6b: Очаг = центр, как спавн у ядра
 
             if (Args.Smoke)
             {
@@ -634,6 +637,8 @@ namespace Orpheus.Client
 
             _wadeEnemy?.Frame(Time.deltaTime);
             _piles?.Frame(Origin, Time.deltaTime);
+            _hearthClock += Time.deltaTime; // E3-6b
+            _hearth?.Frame(View, Origin, (long)(_hearthClock * 1_000_000.0)); // E3-6b: маркер Очага, пока его чанк в окне
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
             _uiDemo?.Frame(Player.Position);
