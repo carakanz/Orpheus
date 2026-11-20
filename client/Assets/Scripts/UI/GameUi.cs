@@ -239,6 +239,13 @@ namespace Orpheus.Client.UI
         /// <summary>E4-1: на экране смерти нажата кнопка «В меню» (NetGame забирает это и уходит в меню).</summary>
         public bool DeathMenuClicked { get; private set; }
 
+        /// <summary>
+        /// E4-1b (замечание 3 П E4-1): показывать ли «В меню» на экране смерти: кнопка работает только
+        /// в игре из меню (NetGame.DeathMenuFrame гейтит по FromMenu), в запусках по ключам и витринах
+        /// клик был пустой — гасим её, когда меню недоступно.
+        /// </summary>
+        public bool DeathMenuEnabled { get; set; } = true;
+
         /// <summary>E4-1: корень холста и его размер — для надписи адреса «для друзей» (NetGame).</summary>
         public Transform RootTransform => _root.Transform;
         public Vector2 RootSize => _root.Size;
@@ -356,10 +363,10 @@ namespace Orpheus.Client.UI
             in UiCraftState craft, in UiBuildState build = default, byte equipHead = Items.None, byte equipBody = Items.None, byte equipLegs = Items.None)
         {
             _root.FitToScreen();
-            // E4-1: «В меню» на экране смерти (поверх затемнения).
-            _deathMenu.Visible = dead;
+            // E4-1: «В меню» на экране смерти (поверх затемнения). E4-1b: только когда меню доступно (из меню играем).
+            _deathMenu.Visible = dead && DeathMenuEnabled;
             DeathMenuClicked = false;
-            if (dead)
+            if (dead && DeathMenuEnabled)
             {
                 Vector2 dsize = _root.Size;
                 _deathMenu.Rt.anchoredPosition = new Vector2(dsize.x / 2f - 170f, dsize.y * 0.26f);
@@ -940,6 +947,7 @@ namespace Orpheus.Client.UI
         public UiDemo(Camera camera, string mode, WorldModel? world = null)
         {
             _ui = new GameUi(camera, this, this, this);
+            _ui.DeathMenuEnabled = false; // E4-1b: в витрине меню нет — на экране смерти кнопки «В меню» нет
             _mode = mode;
             _world = world;
             _bag.SetCell(5, Items.Torch, 12);
