@@ -97,6 +97,7 @@ namespace Orpheus.Net.Session
         // ((x>>2)&1, probe22: полосы по тайлу ставили ботов впритык — resync=4755) — свой запас на бота,
         // добыча не перехватывается и боты не толкаются.
         private readonly byte _digZone;
+        private readonly int _index;
 
         // Расталкивание напарника (probe22, 20.11): два mech_tour идут бок о бок и толкают друг друга —
         // серверная касательная коррекция на каждый толчок (bot 0: resync=4755, noKnock=128@4507 при
@@ -142,12 +143,21 @@ namespace Orpheus.Net.Session
             new Input8(-1, 0), new Input8(-1, -1), new Input8(0, -1), new Input8(1, -1),
         };
 
+        /// <summary>
+        /// E4-2 (доводка 7): «бродим» шагами по 10 с (600 кадров) со сдвигом по номеру бота.
+        /// Прежний цикл 2 с × 8 направлений кружил на месте: probe31 20.11 — бот в фазе Chest сидел
+        /// в NeedWood 5400+ кадров, крафт-цепочка уже вырубила деревья в окне поиска (`DigR` = 48 тайлов),
+        /// а брождение не выводило за окрестность (квадрат ±24 тайла). За 10 с бот проходит 20+ тайлов.
+        /// </summary>
+        private Input8 Wander() => WanderDirs[(_frame / 600 + _index * 3) % WanderDirs.Length];
+
         public MechTourBot(MapShape shape, WorldPos spawn, int index = 0)
         {
             _shape = shape;
             _start = spawn;
             _lastPos = spawn;
             _digZone = (byte)(index & 1);
+            _index = index;
         }
 
         /// <summary>Текущая фаза.</summary>
@@ -233,6 +243,7 @@ namespace Orpheus.Net.Session
                     $"стрел: выстр={Shots}; стройка: пол={floors}, стен={walls}, дверь={door}; " +
                     $"бой: удары={HitsTaken}, смерти={Deaths}, мин. здоровье {MinHealthPct}%; " +
                     $"кадров {Frames}; {(_bagDump.Length > 0 ? _bagDump : "инв: -")}" +
+                    $"{(_craft != null ? $"; крафт-цепочка: {_craft.Summary}" : "")}" +
                     $"{(FailReason.Length > 0 ? $"; отказ: {FailReason}" : "")}";
             }
         }
@@ -1001,7 +1012,7 @@ namespace Orpheus.Net.Session
                 _digFindFrom = Torus.TileOf(_shape, pos);
                 if (!FindTile(w, _digFindFrom, obj, out TileCoord t))
                 {
-                    _digFrame = new InputFrame(WanderDirs[_frame / 120 % WanderDirs.Length]); // цели нет в окне — бродим
+                    _digFrame = new InputFrame(Wander()); // цели нет в окне — бродим длинными шагами (доводка 7)
                     return false;
                 }
 
