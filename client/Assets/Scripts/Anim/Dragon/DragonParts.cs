@@ -72,6 +72,7 @@ namespace Orpheus.Client.Anim.Dragon
                     continue;
                 }
 
+                ClearMark(tex);
                 tex.wrapMode = TextureWrapMode.Clamp;
                 tex.filterMode = FilterMode.Bilinear;
                 p._sprites[part.name] = UnityEngine.Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(part.pivotX, part.pivotY),
@@ -88,6 +89,20 @@ namespace Orpheus.Client.Anim.Dragon
             Debug.Log($"[dragon] частей {p._sprites.Count}, {rig.ppt} px на тайл");
             _loaded = p;
             return p;
+        }
+
+        /// <summary>Пурпурный уголок заглушки 8 × 8 (левый верхний) — стереть в памяти, в PNG он остаётся (как ObjectAtlas.ClearMarks).</summary>
+        static void ClearMark(Texture2D tex)
+        {
+            if (!tex.isReadable)
+            {
+                return;
+            }
+
+            int n = Mathf.Min(8, Mathf.Min(tex.width, tex.height));
+            var clear = new Color32[n * n];
+            tex.SetPixels32(0, tex.height - n, n, n, clear);
+            tex.Apply(false, false);
         }
 
         public Sprite SpriteOf(string part) => _sprites.TryGetValue(part, out Sprite s) ? s : throw new KeyError(part);

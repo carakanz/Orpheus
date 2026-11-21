@@ -215,12 +215,13 @@ namespace Orpheus.Client.Anim.Dragon
             float jawOpen = Mathf.Clamp01(_jawS.X);
             if (side)
             {
+                const float hk = 1.12f; // голова чуть крупнее — дракон «читается» мордой
                 float ha = AngOf(lastDir) - 30f + _headP.X;
-                Set(_head, p, ha);
-                Vector2 hinge = At(_head, "head_side", "jaw");
-                Set(_mouth!, hinge, ha - 6f * jawOpen);
-                Set(_jaw!, hinge, ha - 32f * jawOpen);
-                MouthWorld = Root.TransformPoint(At(_head, "head_side", "mouth") + Rot(new Vector2(0f, -0.04f * jawOpen), ha));
+                Set(_head, p, ha, hk, hk);
+                Vector2 hinge = p + Rot(_parts.Anchor("head_side", "jaw") * hk, ha);
+                Set(_mouth!, hinge, ha - 6f * jawOpen, hk, hk);
+                Set(_jaw!, hinge, ha - 32f * jawOpen, hk, hk);
+                MouthWorld = Root.TransformPoint(p + Rot(_parts.Anchor("head_side", "mouth") * hk + new Vector2(0f, -0.04f * jawOpen), ha));
                 MouthDir = Root.TransformDirection(Rot(Vector2.right, ha - 14f * jawOpen));
             }
             else

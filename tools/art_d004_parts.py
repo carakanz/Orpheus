@@ -684,10 +684,10 @@ def main():
         img, pivot = render(part)
         if a.painted:
             img = painted(part.name, img, layout, a.painted)
-        # пурпурный уголок заглушки (CLAUDE.md): 3×3 px в правом верхнем углу — на теле не виден
+        # пурпурный уголок заглушки (CLAUDE.md): 8×8 px в левом верхнем углу; клиент стирает его при загрузке (DragonParts)
         px = img.load()
-        for yy in range(3):
-            for xx in range(img.width - 3, img.width):
+        for yy in range(min(8, img.height)):
+            for xx in range(min(8, img.width)):
                 px[xx, yy] = (255, 0, 255, 255)
         fn = f"TEMP_dragon_{part.name}.png"
         img.save(OUT / fn)
