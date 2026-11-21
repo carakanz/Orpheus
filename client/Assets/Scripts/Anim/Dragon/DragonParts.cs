@@ -74,7 +74,7 @@ namespace Orpheus.Client.Anim.Dragon
 
                 tex.wrapMode = TextureWrapMode.Clamp;
                 tex.filterMode = FilterMode.Bilinear;
-                p._sprites[part.name] = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(part.pivotX, part.pivotY),
+                p._sprites[part.name] = UnityEngine.Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(part.pivotX, part.pivotY),
                     rig.ppt, 0, SpriteMeshType.FullRect);
                 var a = new Dictionary<string, Vector2>();
                 foreach (AnchorJson an in part.anchors)
@@ -90,7 +90,7 @@ namespace Orpheus.Client.Anim.Dragon
             return p;
         }
 
-        public Sprite Sprite(string part) => _sprites.TryGetValue(part, out Sprite s) ? s : throw new KeyError(part);
+        public Sprite SpriteOf(string part) => _sprites.TryGetValue(part, out Sprite s) ? s : throw new KeyError(part);
 
         public Vector2 Anchor(string part, string name) =>
             _anchors.TryGetValue(part, out Dictionary<string, Vector2>? a) && a.TryGetValue(name, out Vector2 v) ? v : throw new KeyError(part + "." + name);

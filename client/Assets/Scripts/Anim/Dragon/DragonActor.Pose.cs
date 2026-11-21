@@ -7,13 +7,16 @@ namespace Orpheus.Client.Anim.Dragon
     {
         // Походка: длина цикла (тайлы пути на полный цикл), доля опоры, сдвиги фаз лап по ролям
         // (0 — ближняя/правая передняя, 1 — ближняя/правая задняя, 2 — дальняя/левая передняя, 3 — дальняя/левая задняя).
-        const float WalkCycle = 0.95f, WalkDuty = 0.65f, WalkLift = 0.10f;
-        const float RunCycle = 1.7f, RunDuty = 0.38f, RunLift = 0.16f;
+        const float WalkCycle = 0.72f, WalkDuty = 0.65f, WalkLift = 0.10f;
+        const float RunCycle = 1.5f, RunDuty = 0.38f, RunLift = 0.16f;
         static readonly float[] WalkOffsets = { 0.75f, 0.5f, 0.25f, 0f };   // боковая последовательность: ЛЗ, ЛП, ПЗ, ПП
         static readonly float[] RunOffsets = { 0.58f, 0.08f, 0.5f, 0f };    // галоп: задние парой, потом передние
 
-        public const float FlyHeight = 0.85f;
+        public const float FlyHeight = 1.1f;
         const float FlapHz = 2.3f;
+
+        // сложенные крылья: плечо вверх-назад, кисть назад и вниз вдоль спины, перепонка свисает к боку
+        const float FoldArmE = 40f, FoldArmS = 55f, FoldHandE = -15f, FoldHandS = 100f;
 
         static float Smooth(float x)
         {
@@ -151,7 +154,7 @@ namespace Orpheus.Client.Anim.Dragon
 
             // ---------------- шея и голова ----------------
             Vector2 p = At(_body, BodyPart, "neck");
-            float[] deathNeck = side ? new[] { -12f, -22f, -24f, -8f } : View == DragonView.Front ? new[] { 14f, 2f, -10f, -18f } : new[] { 12f, 2f, -6f, -10f };
+            float[] deathNeck = side ? new[] { -12f, -22f, -24f, -8f } : View == DragonView.Front ? new[] { 34f, 24f, 14f, 4f } : new[] { 12f, 2f, -6f, -10f };
             Vector2 lastDir = Vector2.right;
             for (int i = 0; i < 4; i++)
             {
@@ -219,7 +222,7 @@ namespace Orpheus.Client.Anim.Dragon
             else
             {
                 float roll = _neckY[3].X * 0.35f;
-                float hs = 1f + 0.16f * lunge + 0.04f * raise;
+                float hs = 1.2f * (1f + 0.16f * lunge + 0.04f * raise);
                 Vector2 hp = p + new Vector2(0f, (View == DragonView.Front ? 0.0f : 0.06f) + _headP.X * 0.002f);
                 Set(_head, hp, roll, hs, hs);
                 if (_jaw != null)
@@ -348,7 +351,7 @@ namespace Orpheus.Client.Anim.Dragon
             }
 
             // ---------------- крылья ----------------
-            float aE, aS, hE, hS, wOmega = 9f;
+            float aE, aS, hE, hS, wOmega = 9f, foldT = 1f;
             if (a == DragonAct.Fly && T > 0.15f)
             {
                 float f = _flap;
@@ -357,21 +360,23 @@ namespace Orpheus.Client.Anim.Dragon
                 hE = aE + 32f * Mathf.Sin(f - 1.0f) - 6f;
                 hS = 48f + 22f * Mathf.Cos(f - 0.5f);
                 wOmega = 30f;
+                foldT = 0f;
             }
             else if (a == DragonAct.Bite || a == DragonAct.Fire)
             {
                 float k = Mathf.Max(reared + lunge, raise + blow);
-                aE = Mathf.Lerp(62f, 42f, k);
-                aS = Mathf.Lerp(72f, 38f, k);
-                hE = Mathf.Lerp(-38f, 8f, k);
-                hS = Mathf.Lerp(150f, 92f, k);
+                aE = Mathf.Lerp(FoldArmE, 42f, k);
+                aS = Mathf.Lerp(FoldArmS, 38f, k);
+                hE = Mathf.Lerp(FoldHandE, 8f, k);
+                hS = Mathf.Lerp(FoldHandS, 92f, k);
+                foldT = 1f - k;
             }
             else
             {
-                aE = 62f + 2f * breath + (run ? 6f * Mathf.Sin(ph) : 0f);
-                aS = 72f;
-                hE = -38f + 1.5f * breath;
-                hS = 150f;
+                aE = FoldArmE + 2f * breath + (run ? 6f * Mathf.Sin(ph) : 0f);
+                aS = FoldArmS;
+                hE = FoldHandE + 1.5f * breath;
+                hS = FoldHandS;
             }
 
             if (a == DragonAct.Hit && T < 0.45f)
@@ -382,17 +387,21 @@ namespace Orpheus.Client.Anim.Dragon
                 hS -= 50f * k;
                 hE += 30f * k;
                 wOmega = 14f;
+                foldT *= 1f - k;
             }
 
             if (dk > 0f)
             {
-                aE = Mathf.Lerp(aE, -8f, dk);
-                aS = Mathf.Lerp(aS, 40f, dk);
-                hE = Mathf.Lerp(hE, -18f, dk);
-                hS = Mathf.Lerp(hS, 86f, dk);
+                aE = Mathf.Lerp(aE, -10f, dk);
+                aS = Mathf.Lerp(aS, side ? 40f : 12f, dk);
+                hE = Mathf.Lerp(hE, -16f, dk);
+                hS = Mathf.Lerp(hS, side ? 86f : 45f, dk);
                 wOmega = 6f;
+                foldT *= 1f - dk;
             }
 
+            _fold.Step(foldT, wOmega, dt);
+            float fold = Mathf.Clamp01(_fold.X);
             Vector2 back = -_pr.F;
             Vector2 backN = back.normalized;
             foreach (Wing w in _wings)
@@ -402,8 +411,9 @@ namespace Orpheus.Client.Anim.Dragon
                 w.HandE.Step(hE, wOmega, dt);
                 w.HandS.Step(hS, wOmega, dt);
                 Vector2 sh = At(_body, BodyPart, w.Anchor);
-                Vector2 wrist = WingBone(w.Arm, sh, w.Side, back, backN, w.ArmE.X, w.ArmS.X, "wing_arm");
-                WingBone(w.Hand, wrist, w.Side, back, backN, w.HandE.X, w.HandS.X, null);
+                // сложенное крыло: перепонка собрана (уже), кисть короче
+                Vector2 wrist = WingBone(w.Arm, sh, w.Side, back, backN, w.ArmE.X, w.ArmS.X, "wing_arm", 1f, Mathf.Lerp(1f, 0.8f, fold), fold);
+                WingBone(w.Hand, wrist, w.Side, back, backN, w.HandE.X, w.HandS.X, null, Mathf.Lerp(1f, 0.85f, fold), Mathf.Lerp(1f, 0.7f, fold), fold);
             }
 
             // ---------------- тень, цвет ----------------
@@ -424,7 +434,7 @@ namespace Orpheus.Client.Anim.Dragon
 
         /// <summary>Кость крыла: направление в объёме (подъём, отвод назад) → экран; длина спрайта — по проекции; перепонка
         /// (локальный −y спрайта) всегда «стекает» назад — при повороте крыла ребром она сжимается и переходит на другую сторону.</summary>
-        Vector2 WingBone(Bone b, Vector2 at, Vector2 lateral, Vector2 back, Vector2 backN, float elev, float sweep, string? part)
+        Vector2 WingBone(Bone b, Vector2 at, Vector2 lateral, Vector2 back, Vector2 backN, float elev, float sweep, string? part, float kx, float ky, float fold)
         {
             float e = elev * Mathf.Deg2Rad, s = sweep * Mathf.Deg2Rad;
             Vector2 v = Mathf.Cos(e) * Mathf.Cos(s) * lateral + Mathf.Cos(e) * Mathf.Sin(s) * back + Mathf.Sin(e) * _pr.U;
@@ -437,13 +447,17 @@ namespace Orpheus.Client.Anim.Dragon
             Vector2 vn = len > 1e-5f ? v / len : Vector2.up;
             Vector2 n = new Vector2(vn.y, -vn.x);
             float sy = Mathf.Clamp(Vector2.Dot(n, backN) * 1.6f, -1f, 1f);
+            // сложенное крыло: перепонка прижата к телу — сбоку свисает вниз (к боку), спереди/сзади — внутрь, к хребту
+            Vector2 inward = View == DragonView.Side ? Vector2.down : -lateral.normalized;
+            float down = Mathf.Clamp(Vector2.Dot(n, inward) * 1.6f, -1f, 1f);
+            sy = Mathf.Lerp(sy, down, fold);
             if (Mathf.Abs(sy) < 0.2f)
             {
                 sy = sy < 0f ? -0.2f : 0.2f;
             }
 
-            Set(b, at, AngOf(vn), sx, sy);
-            return part != null ? at + vn * _parts.Length(part) * sx : at;
+            Set(b, at, AngOf(vn), sx * kx, sy * ky);
+            return part != null ? at + vn * _parts.Length(part) * sx * kx : at;
         }
     }
 }

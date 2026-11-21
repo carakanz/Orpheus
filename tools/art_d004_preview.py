@@ -145,7 +145,7 @@ def front(cv, at):
         wrist = add(A(wn), rot(anchor("wing_arm", "next"), a))
         cv.put("wing_hand", wrist, a - 30 * sgn, 11, flip=sgn < 0)
     for sgn, hn in ((1, "hip_r"), (-1, "hip_l")):
-        leg(cv, A(hn), (bx + 0.34 * sgn, by + 0.30), "leg_top_upper", "leg_top_lower", "foot_front", 14, 0.85, sgn)
+        leg(cv, A(hn), (bx + 0.36 * sgn, by + 0.50), "leg_top_upper", "leg_top_lower", "foot_front", 14, 0.85, sgn)
     cv.put("body_front", body, 0, 20)
     for sgn, sn in ((1, "shoulder_r"), (-1, "shoulder_l")):
         leg(cv, A(sn), (bx + 0.36 * sgn, by - 0.02), "leg_top_upper", "leg_top_lower", "foot_front", 22, 1.0, sgn)
@@ -165,7 +165,7 @@ def back(cv, at):
     end = chain(cv, neck, A("neck"), [90, 88, 86, 84], 0, -1)
     cv.put("head_back", add(end, (0, 0.10)), 0, 2)
     for sgn, sn in ((1, "shoulder_r"), (-1, "shoulder_l")):
-        leg(cv, A(sn), (bx + 0.34 * sgn, by + 0.30), "leg_top_upper", "leg_top_lower", "foot_front", 6, 0.8, sgn)
+        leg(cv, A(sn), (bx + 0.36 * sgn, by + 0.50), "leg_top_upper", "leg_top_lower", "foot_front", 6, 0.8, sgn)
     cv.put("body_back", body, 0, 20)
     for sgn, wn in ((1, "wing_r"), (-1, "wing_l")):
         a = 20 if sgn > 0 else 160
@@ -173,7 +173,7 @@ def back(cv, at):
         wrist = add(A(wn), rot(anchor("wing_arm", "next"), a))
         cv.put("wing_hand", wrist, a - 30 * sgn, 25, flip=sgn < 0)
     for sgn, hn in ((1, "hip_r"), (-1, "hip_l")):
-        leg(cv, A(hn), (bx + 0.36 * sgn, by - 0.02), "leg_top_upper", "leg_top_lower", "foot_front", 26, 0.9, sgn)
+        leg(cv, A(hn), (bx + 0.36 * sgn, by - 0.16), "leg_top_upper", "leg_top_lower", "foot_front", 26, 0.9, sgn)
     tail = [f"tail_top_{i}" for i in range(7)]
     end = chain(cv, tail, A("tail"), [-80, -60, -40, -20, -5, 10, 25], 30)
     cv.put("tail_tip_top", end, 25, 40)

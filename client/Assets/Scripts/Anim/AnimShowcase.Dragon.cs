@@ -38,7 +38,7 @@ namespace Orpheus.Client.Anim
         List<DragonShow>? _dragons;
         readonly List<(DragonShow show, FireFx fx)> _fires = new List<(DragonShow, FireFx)>();
 
-        const float DragonWalk = 1.5f, DragonRun = 4.0f;
+        const float DragonWalkSpeed = 1.5f, DragonRunSpeed = 4.0f;
 
         void DragonFrame(float dt)
         {
@@ -62,7 +62,7 @@ namespace Orpheus.Client.Anim
         static Action<DragonShow, float, float> Walker(DragonAct act, Vector2 dir, float speed, float lane)
         {
             DragonAct cur = DragonAct.Idle;
-            float prevX = -1f;
+            float prevX = -1e9f;
             return (d, own, dt) =>
             {
                 float s = own + 0.8f; // разгон до кадров ленты
@@ -79,7 +79,7 @@ namespace Orpheus.Client.Anim
                     d.Actor.Play(act);
                 }
 
-                float x = Mathf.Repeat(s * speed, lane);
+                float x = Mathf.Repeat(s * speed, lane) - lane * 0.5f;
                 Vector3 pos = d.Home + (Vector3)(dir * x);
                 if (x < prevX)
                 {
@@ -104,6 +104,43 @@ namespace Orpheus.Client.Anim
             };
         }
 
+        /// <summary>Место для дракона у тайла (x, y ядра): ближайшее, где в прямоугольнике ±rx × ±ry нет объектов и преград.</summary>
+        Vector3 FreeSpot(int x, int y, int rx, int ry)
+        {
+            Orpheus.Core.World.WorldModel w = _g.World;
+            for (int r = 0; r <= 8; r++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    for (int dx = -r; dx <= r; dx++)
+                    {
+                        if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r)
+                        {
+                            continue;
+                        }
+
+                        bool clear = true;
+                        for (int yy = -ry - 1; yy <= ry && clear; yy++) // объект южнее (y ядра больше) перекрывает — запас вниз
+                        {
+                            for (int xx = -rx; xx <= rx && clear; xx++)
+                            {
+                                var q = Orpheus.Core.Geometry.Torus.Wrap(_g.Map, new Orpheus.Core.Geometry.TileCoord(x + dx + xx, y + dy + yy + 1));
+                                clear = w.GetObject(q) == Orpheus.Core.World.ObjectId.Empty && !_g.Rules.IsBlocked(_g.Map, q);
+                            }
+                        }
+
+                        if (clear)
+                        {
+                            var t = Orpheus.Core.Geometry.Torus.Wrap(_g.Map, new Orpheus.Core.Geometry.TileCoord(x + dx, y + dy));
+                            return _g.Origin.ToUnity(_g.TileCenter(t));
+                        }
+                    }
+                }
+            }
+
+            return _g.Origin.ToUnity(_g.TileCenter(Orpheus.Core.Geometry.Torus.Wrap(_g.Map, new Orpheus.Core.Geometry.TileCoord(x, y))));
+        }
+
         IEnumerator DragonRun()
         {
             DragonParts? parts = DragonParts.Load();
@@ -121,9 +158,12 @@ namespace Orpheus.Client.Anim
 
             DragonShow Add(string name, DragonView view, Func<DragonShow, Action<DragonShow, float, float>> script, bool left = false)
             {
-                int col = slot % 6, row = slot / 6;
+                int col = slot % 5, row = slot / 5;
                 slot++;
-                var home = _c + new Vector3(-17.5f + col * 7f, 9f - row * 7f, 0f);
+                // слот сетки 11 × 8 т; рядом ищется место без деревьев и камней (дорожка ходьбы — вдоль своей оси)
+                bool moving = view == DragonView.Side ? name.StartsWith("walk") || name.StartsWith("run") : false;
+                bool movingY = view != DragonView.Side && (name.StartsWith("walk") || name.StartsWith("run"));
+                var home = FreeSpot(_treeTile.X - 34 + col * 14, _treeTile.Y - 14 + row * 10, moving ? 6 : 3, movingY ? 5 : 3);
                 var d = new DragonShow { Home = home, Last = home };
                 d.Actor = new DragonActor(_stage, "Dragon " + name, parts, view, mat);
                 d.Actor.Root.position = home;
@@ -133,7 +173,8 @@ namespace Orpheus.Client.Anim
                 return d;
             }
 
-            Vector3 Body(DragonShow d, DragonView v) => d.Actor.Root.position + new Vector3(v == DragonView.Side ? -0.15f : 0f, v == DragonView.Side ? 0.75f : 0.65f, 0f);
+            Vector3 Body(DragonShow d, DragonView v) => d.Actor.Root.position + new Vector3(v == DragonView.Side ? (d.Actor.Root.localScale.x < 0f ? -0.3f : 0.3f) : 0f,
+                v == DragonView.Side ? 0.8f : v == DragonView.Front ? 0.55f : 0.75f, 0f);
 
             void Strip(string name, DragonShow d, DragonView v, float[] rel, int w = 0, int h = 0, float ortho = 2.4f)
             {
@@ -141,7 +182,7 @@ namespace Orpheus.Client.Anim
                 var s = new DragonStrip
                 {
                     Name = name, Rel = rel, Start = clock, Ortho = ortho,
-                    W = w > 0 ? w : v == DragonView.Side ? 940 : 820, H = h > 0 ? h : 700,
+                    W = w > 0 ? w : v == DragonView.Side ? 1000 : 820, H = h > 0 ? h : 720,
                     Focus = _ => Body(d, v),
                 };
                 strips.Add(s);
@@ -158,19 +199,19 @@ namespace Orpheus.Client.Anim
             }
 
             // идёт: цикл шага 0,95 т пути = 0,63 с — 6 кадров через 0,105 с покрывают цикл
-            DragonShow walkSide = Add("walk side", DragonView.Side, _ => Walker(DragonAct.Walk, Vector2.right, DragonWalk, 6f));
+            DragonShow walkSide = Add("walk side", DragonView.Side, _ => Walker(DragonAct.Walk, Vector2.right, DragonWalkSpeed, 5f));
             Strip("D-004_walk_side", walkSide, DragonView.Side, Steps(0.2f, 0.105f));
-            DragonShow walkLeft = Add("walk left", DragonView.Side, _ => Walker(DragonAct.Walk, Vector2.left, DragonWalk, 6f), left: true);
+            DragonShow walkLeft = Add("walk left", DragonView.Side, _ => Walker(DragonAct.Walk, Vector2.left, DragonWalkSpeed, 5f), left: true);
             Strip("D-004_walk_left", walkLeft, DragonView.Side, Steps(0.2f, 0.105f));
-            DragonShow walkFront = Add("walk front", DragonView.Front, _ => Walker(DragonAct.Walk, Vector2.down, DragonWalk, 5f));
+            DragonShow walkFront = Add("walk front", DragonView.Front, _ => Walker(DragonAct.Walk, Vector2.down, DragonWalkSpeed, 4.5f));
             Strip("D-004_walk_front", walkFront, DragonView.Front, Steps(0.2f, 0.105f));
-            DragonShow walkBack = Add("walk back", DragonView.Back, _ => Walker(DragonAct.Walk, Vector2.up, DragonWalk, 5f));
+            DragonShow walkBack = Add("walk back", DragonView.Back, _ => Walker(DragonAct.Walk, Vector2.up, DragonWalkSpeed, 4.5f));
             Strip("D-004_walk_back", walkBack, DragonView.Back, Steps(0.2f, 0.105f));
 
             // бежит (галоп): цикл 1,7 т = 0,425 с
-            DragonShow runSide = Add("run side", DragonView.Side, _ => Walker(DragonAct.Run, Vector2.right, DragonRun, 12f));
+            DragonShow runSide = Add("run side", DragonView.Side, _ => Walker(DragonAct.Run, Vector2.right, DragonRunSpeed, 8f));
             Strip("D-004_run_side", runSide, DragonView.Side, Steps(0.3f, 0.071f));
-            DragonShow runFront = Add("run front", DragonView.Front, _ => Walker(DragonAct.Run, Vector2.down, DragonRun, 10f));
+            DragonShow runFront = Add("run front", DragonView.Front, _ => Walker(DragonAct.Run, Vector2.down, DragonRunSpeed, 6f));
             Strip("D-004_run_front", runFront, DragonView.Front, Steps(0.3f, 0.071f));
 
             // взлёт и зависание

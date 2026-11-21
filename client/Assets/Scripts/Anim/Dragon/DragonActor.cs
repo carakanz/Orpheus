@@ -124,7 +124,7 @@ namespace Orpheus.Client.Anim.Dragon
         readonly float[] _neckRest;
         readonly float[] _tailRest;
         readonly Spring[] _neckE, _neckY, _tailE, _tailY;
-        Spring _headP, _jawS, _height, _bodyDrop, _bodyTilt, _recoilX, _recoilY;
+        Spring _headP, _jawS, _height, _bodyDrop, _bodyTilt, _fold;
 
         // ---- состояние ----
         DragonAct _act = DragonAct.Idle;
@@ -172,7 +172,7 @@ namespace Orpheus.Client.Anim.Dragon
                 if (part != null)
                 {
                     b.R = b.S.gameObject.AddComponent<SpriteRenderer>();
-                    b.R.sprite = parts.Sprite(part);
+                    b.R.sprite = parts.SpriteOf(part);
                     b.R.sharedMaterial = material;
                     b.R.sortingOrder = order;
                     b.R.color = new Color(tint, tint, tint, 1f);
@@ -189,7 +189,7 @@ namespace Orpheus.Client.Anim.Dragon
             {
                 case DragonView.Side:
                     _pr = new Projection { F = new Vector2(1f, 0f), L = new Vector2(0f, -0.42f), U = new Vector2(0f, 0.9f) };
-                    _bodyRest = new Vector2(0f, 0.56f);
+                    _bodyRest = new Vector2(0f, 0.60f);
                     bodyPart = "body_side";
                     headPart = "head_side";
                     neckPrefix = "neck_";
@@ -273,12 +273,12 @@ namespace Orpheus.Client.Anim.Dragon
                 bool front = view == DragonView.Front;
                 // к зрителю: передние лапы ближе (перед телом), задние — за ним; от зрителя — наоборот
                 int foreOrder = front ? 22 : 6, hindOrder = front ? 12 : 26;
-                float foreY = front ? -0.04f : 0.30f, hindY = front ? 0.30f : -0.04f;
+                float foreY = front ? -0.02f : 0.50f, hindY = front ? 0.62f : -0.16f;
                 float foreTint = front ? 1f : 0.86f, hindTint = front ? 0.86f : 1f;
-                _legs[0] = MakeLeg("LegRF", "shoulder_r", "top", new Vector2(0.36f, foreY), 1f, foreTint, foreOrder, 0, Make);
-                _legs[1] = MakeLeg("LegRH", "hip_r", "top", new Vector2(0.36f, hindY), 1f, hindTint, hindOrder, 1, Make);
-                _legs[2] = MakeLeg("LegLF", "shoulder_l", "top", new Vector2(-0.36f, foreY), -1f, foreTint, foreOrder, 2, Make);
-                _legs[3] = MakeLeg("LegLH", "hip_l", "top", new Vector2(-0.36f, hindY), -1f, hindTint, hindOrder, 3, Make);
+                _legs[0] = MakeLeg("LegRF", "shoulder_r", "top", new Vector2(0.44f, foreY), 1f, foreTint, foreOrder, 0, Make);
+                _legs[1] = MakeLeg("LegRH", "hip_r", "top", new Vector2(0.40f, hindY), 1f, hindTint, hindOrder, 1, Make);
+                _legs[2] = MakeLeg("LegLF", "shoulder_l", "top", new Vector2(-0.44f, foreY), -1f, foreTint, foreOrder, 2, Make);
+                _legs[3] = MakeLeg("LegLH", "hip_l", "top", new Vector2(-0.40f, hindY), -1f, hindTint, hindOrder, 3, Make);
                 int wingOrder = front ? 10 : 24;
                 _wings[0] = MakeWing("WingR", "wing_r", new Vector2(1f, 0f), 1f, wingOrder, Make);
                 _wings[1] = MakeWing("WingL", "wing_l", new Vector2(-1f, 0f), 1f, wingOrder, Make);
@@ -301,12 +301,13 @@ namespace Orpheus.Client.Anim.Dragon
 
             foreach (Wing w in _wings)
             {
-                w.ArmE.X = 60f;
-                w.ArmS.X = 70f;
-                w.HandE.X = -35f;
-                w.HandS.X = 150f;
+                w.ArmE.X = FoldArmE;
+                w.ArmS.X = FoldArmS;
+                w.HandE.X = FoldHandE;
+                w.HandS.X = FoldHandS;
             }
 
+            _fold.X = 1f;
             Step(0f, 0f);
         }
 

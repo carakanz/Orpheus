@@ -31,15 +31,15 @@ BUILD = ROOT / "build" / "art_d004"
 PPT = 256            # пикселей на тайл в готовой части (клиент: Sprite.Create с тем же числом)
 SS = 3               # сверхвыборка при рисовании
 S = PPT * SS
-OUTLINE = 6          # толщина контура, px сверхвыборки (≈ 2 px в части)
+OUTLINE = 8          # толщина контура, px сверхвыборки (≈ 2 px в части)
 
 # ---------------------------------------------------------------- палитра (стиль Б: яркая, тёплая)
 INK = (52, 28, 40)
-GREEN = dict(base=(48, 152, 92), shade=(30, 108, 78), deep=(22, 78, 64), light=(96, 196, 112), hi=(176, 236, 150))
-GREEN_TOP = dict(base=(74, 178, 104), shade=(48, 140, 90), deep=(30, 104, 76), light=(124, 214, 124), hi=(196, 244, 168))
+GREEN = dict(base=(32, 124, 108), shade=(22, 90, 90), deep=(15, 62, 72), light=(64, 166, 136), hi=(150, 226, 192))
+GREEN_TOP = dict(base=(48, 150, 122), shade=(30, 112, 104), deep=(20, 80, 84), light=(92, 194, 150), hi=(178, 240, 200))
 BRONZE = dict(base=(200, 142, 62), shade=(146, 94, 42), deep=(104, 62, 32), light=(238, 192, 104), hi=(255, 236, 170))
 GOLD = dict(base=(230, 190, 100), shade=(186, 136, 64), deep=(140, 94, 46), light=(250, 220, 140), hi=(255, 246, 200))
-MEMB = dict(base=(62, 150, 118), shade=(40, 112, 98), deep=(28, 84, 80), light=(96, 184, 134), hi=(150, 220, 160))
+MEMB = dict(base=(186, 104, 56), shade=(140, 70, 44), deep=(100, 46, 36), light=(222, 146, 82), hi=(246, 196, 130))
 HORN = dict(base=(214, 170, 96), shade=(160, 112, 58), deep=(112, 72, 40), light=(244, 214, 150), hi=(255, 244, 210))
 MOUTH = dict(base=(150, 40, 46), shade=(104, 24, 36), deep=(70, 16, 28), light=(190, 70, 70), hi=(220, 110, 100))
 TOOTH = dict(base=(246, 240, 222), shade=(206, 196, 170), deep=(170, 158, 130), light=(255, 255, 245), hi=(255, 255, 255))
@@ -269,10 +269,11 @@ def body_side():
     p.add(body, GREEN, scales=0.075)
     # спина (видна сверху): светлая полоса между верхним контуром и линией гребня
     ridge = [(0.70, 0.18), (0.40, 0.25), (0.05, 0.24), (-0.35, 0.18), (-0.66, 0.08), (-0.84, 0.0)]
-    back = cr(top + ridge[::-1], closed=True, n=6)
+    flank = [(x, y - 0.11 - 0.02 * (x < 0)) for x, y in ridge]
+    back = cr(top + flank[::-1], closed=True, n=6)
     p.add(back, GREEN_TOP, clip=True, no_outline=True, scales=0.07, k=0.5)
     # брюхо — золотые пластины
-    belly = cr([(-0.70, -0.14), (-0.40, -0.22), (0.0, -0.24), (0.40, -0.20), (0.70, -0.06), (0.74, -0.16),
+    belly = cr([(-0.70, -0.19), (-0.40, -0.27), (0.0, -0.29), (0.40, -0.24), (0.70, -0.10), (0.74, -0.16),
                 (0.44, -0.29), (0.10, -0.34), (-0.28, -0.34), (-0.62, -0.26)], n=6)
     p.add(belly, GOLD, clip=True, outline=4, bands=0.075, band_slant=-0.15, k=0.5)
     # гребень: бронзовые шипы вдоль линии хребта
@@ -307,7 +308,7 @@ def neck_seg(name, r0, r1, length, top=False, belly=True):
     else:
         p.add(capsule(0.0, length + over * 0.4, r0 * 0.9, r1 * 0.9, y=r0 * 0.35), GREEN_TOP, clip=True, no_outline=True, k=0.3)
         if belly:
-            p.add(capsule(0.0, length + over * 0.4, r0 * 0.6, r1 * 0.6, y=-r0 * 0.62), GOLD, clip=True, outline=3,
+            p.add(capsule(0.0, length + over * 0.4, r0 * 0.5, r1 * 0.5, y=-r0 * 0.78), GOLD, clip=True, outline=3,
                   bands=max(0.035, r0 * 0.4), k=0.3)
         L = length + over * 0.4
         x = L * 0.45
@@ -474,42 +475,44 @@ def wing_hand(name="wing_hand"):
 
 
 # ---------------------------------------------------------------- вид спереди / сзади (сверху под углом)
+def egg(top, top_w, mid_y, mid_w, bot, bot_w):
+    """Тело сверху: яйцо от y=top (полуширина top_w) через самое широкое место mid_y до y=bot."""
+    right = [(0.0, top), (top_w * 0.75, top - 0.03), (top_w, top - 0.16), ((top_w + mid_w) / 2 + 0.02, (top + mid_y) / 2),
+             (mid_w, mid_y), (mid_w * 0.92, (mid_y + bot) / 2), (bot_w, bot + 0.07), (0.0, bot)]
+    return right + mirror_x(right[1:-1])[::-1]
+
+
 def body_front():
+    """К зрителю, камера сверху: спина уходит вверх по экрану (длинное яйцо), грудь — внизу, у зрителя."""
     p = Part("body_front")
-    shape = cr([(0.0, 0.52), (0.30, 0.46), (0.46, 0.22), (0.50, -0.06), (0.40, -0.30), (0.20, -0.44), (0.0, -0.48),
-                (-0.20, -0.44), (-0.40, -0.30), (-0.50, -0.06), (-0.46, 0.22), (-0.30, 0.46)], n=8)
-    p.add(shape, GREEN, scales=0.075)
-    back = cr([(0.0, 0.50), (0.26, 0.44), (0.36, 0.20), (0.30, -0.02), (0.0, -0.08), (-0.30, -0.02), (-0.36, 0.20), (-0.26, 0.44)], n=6)
-    p.add(back, GREEN_TOP, clip=True, no_outline=True, scales=0.07, k=0.5)
-    chest = cr([(0.0, -0.10), (0.24, -0.16), (0.30, -0.32), (0.16, -0.44), (0.0, -0.47), (-0.16, -0.44), (-0.30, -0.32),
-                (-0.24, -0.16)], n=6)
+    p.add(cr(egg(0.74, 0.24, -0.12, 0.42, -0.50, 0.22), n=6), GREEN, scales=0.075)
+    p.add(cr(egg(0.70, 0.17, -0.02, 0.30, -0.14, 0.18), n=6), GREEN_TOP, clip=True, no_outline=True, scales=0.07, k=0.5)
+    chest = cr([(0.0, -0.12), (0.24, -0.18), (0.30, -0.33), (0.16, -0.45), (0.0, -0.48), (-0.16, -0.45), (-0.30, -0.33),
+                (-0.24, -0.18)], n=6)
     p.add(chest, GOLD, clip=True, outline=4, k=0.5)
-    for y in (-0.20, -0.28, -0.36):
-        p.lines.append((cr([(-0.26 + abs(y + 0.28) * 0.6, y + 0.02), (0.0, y - 0.02), (0.26 - abs(y + 0.28) * 0.6, y + 0.02)],
+    for y in (-0.22, -0.30, -0.38):
+        p.lines.append((cr([(-0.26 + abs(y + 0.30) * 0.6, y + 0.02), (0.0, y - 0.02), (0.26 - abs(y + 0.30) * 0.6, y + 0.02)],
                           closed=False, n=4), GOLD["deep"] + (255,), 4, False))
-    for i in range(5):
-        y = 0.40 - i * 0.11
-        h = 0.07 + 0.02 * (i < 3)
-        p.add([(-0.04, y - 0.05), (0.0, y + h - 0.02), (0.04, y - 0.05), (0.0, y - 0.08)], BRONZE, outline=4, k=0.25, no_hi=True)
-    p.anchors = dict(neck=(0.0, -0.36), tail=(0.0, 0.44), shoulder_r=(0.34, -0.24), shoulder_l=(-0.34, -0.24),
-                     hip_r=(0.32, 0.22), hip_l=(-0.32, 0.22), wing_r=(0.20, 0.06), wing_l=(-0.20, 0.06))
+    for i in range(7):
+        y = 0.64 - i * 0.11
+        p.add([(-0.04, y - 0.05), (0.0, y + 0.06), (0.04, y - 0.05), (0.0, y - 0.08)], BRONZE, outline=4, k=0.25, no_hi=True)
+    p.anchors = dict(neck=(0.0, -0.36), tail=(0.0, 0.66), shoulder_r=(0.34, -0.22), shoulder_l=(-0.34, -0.22),
+                     hip_r=(0.24, 0.42), hip_l=(-0.24, 0.42), wing_r=(0.22, 0.02), wing_l=(-0.22, 0.02))
     return p
 
 
 def body_back():
+    """От зрителя: плечи вверху (дальше), круп внизу (ближе), хвост идёт к зрителю."""
     p = Part("body_back")
-    shape = cr([(0.0, 0.50), (0.26, 0.46), (0.46, 0.26), (0.50, 0.0), (0.44, -0.26), (0.26, -0.44), (0.0, -0.50),
-                (-0.26, -0.44), (-0.44, -0.26), (-0.50, 0.0), (-0.46, 0.26), (-0.26, 0.46)], n=8)
-    p.add(shape, GREEN, scales=0.075)
-    back = cr([(0.0, 0.48), (0.24, 0.42), (0.38, 0.12), (0.34, -0.20), (0.18, -0.36), (0.0, -0.40), (-0.18, -0.36),
-               (-0.34, -0.20), (-0.38, 0.12), (-0.24, 0.42)], n=6)
-    p.add(back, GREEN_TOP, clip=True, no_outline=True, scales=0.07, k=0.5)
-    for i in range(7):
-        y = 0.42 - i * 0.12
-        h = 0.08
-        p.add([(-0.04, y - 0.04), (0.0, y + h - 0.02), (0.04, y - 0.04), (0.0, y - 0.08)], BRONZE, outline=4, k=0.25, no_hi=True)
-    p.anchors = dict(neck=(0.0, 0.40), tail=(0.0, -0.42), shoulder_r=(0.34, 0.24), shoulder_l=(-0.34, 0.24),
-                     hip_r=(0.34, -0.20), hip_l=(-0.34, -0.20), wing_r=(0.20, 0.16), wing_l=(-0.20, 0.16))
+    shape = [(x, -y) for x, y in egg(0.74, 0.24, -0.12, 0.42, -0.50, 0.22)]
+    p.add(cr(shape[::-1], n=6), GREEN, scales=0.075)
+    inner = [(x, -y) for x, y in egg(0.66, 0.16, -0.06, 0.30, -0.40, 0.16)]
+    p.add(cr(inner[::-1], n=6), GREEN_TOP, clip=True, no_outline=True, scales=0.07, k=0.5)
+    for i in range(9):
+        y = 0.40 - i * 0.12
+        p.add([(-0.04, y - 0.04), (0.0, y + 0.06), (0.04, y - 0.04), (0.0, y - 0.08)], BRONZE, outline=4, k=0.25, no_hi=True)
+    p.anchors = dict(neck=(0.0, 0.40), tail=(0.0, -0.68), shoulder_r=(0.34, 0.22), shoulder_l=(-0.34, 0.22),
+                     hip_r=(0.24, -0.42), hip_l=(-0.24, -0.42), wing_r=(0.22, 0.10), wing_l=(-0.22, 0.10))
     return p
 
 
@@ -616,16 +619,71 @@ def build_parts():
     return P
 
 
+SHEET_PX, SHEET_SCALE, SHEET_BG = 1024, 1.5, (206, 204, 192)
+
+
+def make_sheets(items):
+    """Листы частей для прокраски на Маке: части ×1,5 на ровном светлом фоне, полки; раскладка — в sheet_layout.json."""
+    order = sorted(items, key=lambda t: -t[1].height)
+    sheets, layout = [], {}
+    cur, x, y, rowh = None, 0, 0, 0
+    m = 28
+    for name, im in order:
+        w, h = int(im.width * SHEET_SCALE), int(im.height * SHEET_SCALE)
+        if cur is None or x + w + m > SHEET_PX:
+            x, y, rowh = m, y + rowh + m, 0
+        if cur is None or y + h + m > SHEET_PX:
+            cur = Image.new("RGBA", (SHEET_PX, SHEET_PX), SHEET_BG + (255,))
+            sheets.append(cur)
+            x, y, rowh = m, m, 0
+        big = im.resize((w, h), Image.LANCZOS)
+        cur.alpha_composite(big, (x, y))
+        layout[name] = [len(sheets) - 1, x, y, w, h]
+        x += w + m
+        rowh = max(rowh, h)
+    for f in BUILD.glob("sheet_*.png"):
+        f.unlink()
+    for i, sh in enumerate(sheets):
+        sh.convert("RGB").save(BUILD / f"sheet_{i}.png")
+    (BUILD / "sheet_layout.json").write_text(json.dumps(layout, indent=1), encoding="utf-8")
+    return len(sheets)
+
+
+def painted(name, im, layout, denoise):
+    """Заливка части из прокраски Мака (та же раскладка), альфа и форма — свои."""
+    if name not in layout:
+        return im
+    si, x, y, w, h = layout[name]
+    src = BUILD / "raw" / f"paint_{si}_{denoise}.png"
+    if not src.exists():
+        return im
+    sheet = Image.open(src).convert("RGB")
+    if sheet.size != (SHEET_PX, SHEET_PX):
+        sheet = sheet.resize((SHEET_PX, SHEET_PX), Image.LANCZOS)
+    crop = sheet.crop((x, y, x + w, y + h)).resize(im.size, Image.LANCZOS).convert("RGBA")
+    a = im.getchannel("A")
+    # контур — свой: тёмная кайма исходника поверх прокраски
+    ink = Image.new("RGBA", im.size, INK + (255,))
+    edge = ImageChops.subtract(a, a.filter(ImageFilter.MinFilter(5)))
+    crop.putalpha(a)
+    crop.alpha_composite(Image.composite(ink, Image.new("RGBA", im.size, (0, 0, 0, 0)), edge.point(lambda v: 255 if v > 90 else 0)))
+    return crop
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--painted", action="store_true")
+    ap.add_argument("--painted", type=int, default=0, help="denoise×100 прокраски (38, 50); 0 — без неё")
+    ap.add_argument("--sheets", action="store_true", help="листы для прокраски → build/art_d004/sheet_*.png")
     a = ap.parse_args()
+    layout = json.loads((BUILD / "sheet_layout.json").read_text(encoding="utf-8")) if a.painted else {}
     OUT.mkdir(parents=True, exist_ok=True)
     BUILD.mkdir(parents=True, exist_ok=True)
     rig = {"ppt": PPT, "far": FAR, "parts": []}
     sheet_items = []
     for part in build_parts():
         img, pivot = render(part)
+        if a.painted:
+            img = painted(part.name, img, layout, a.painted)
         # пурпурный уголок заглушки (CLAUDE.md): 3×3 px в правом верхнем углу — на теле не виден
         px = img.load()
         for yy in range(3):
@@ -636,6 +694,9 @@ def main():
         rig["parts"].append({"name": part.name, "file": fn[:-4], "pivotX": round(pivot[0], 5), "pivotY": round(pivot[1], 5),
                              "anchors": [{"name": k, "x": round(v[0], 4), "y": round(v[1], 4)} for k, v in part.anchors.items()]})
         sheet_items.append((part.name, img))
+    if a.sheets:
+        clean = [(n, render(p)[0]) for n, p in ((q.name, q) for q in build_parts())]
+        print("листов для прокраски:", make_sheets(clean))
     (OUT / "TEMP_dragon_rig.json").write_text(json.dumps(rig, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
     # лист частей для просмотра
     W = 1800

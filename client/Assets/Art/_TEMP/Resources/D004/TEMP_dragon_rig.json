@@ -205,7 +205,7 @@
    "name": "body_front",
    "file": "TEMP_dragon_body_front",
    "pivotX": 0.5,
-   "pivotY": 0.48148,
+   "pivotY": 0.40909,
    "anchors": [
     {
      "name": "neck",
@@ -215,37 +215,37 @@
     {
      "name": "tail",
      "x": 0.0,
-     "y": 0.44
+     "y": 0.66
     },
     {
      "name": "shoulder_r",
      "x": 0.34,
-     "y": -0.24
+     "y": -0.22
     },
     {
      "name": "shoulder_l",
      "x": -0.34,
-     "y": -0.24
+     "y": -0.22
     },
     {
      "name": "hip_r",
-     "x": 0.32,
-     "y": 0.22
+     "x": 0.24,
+     "y": 0.42
     },
     {
      "name": "hip_l",
-     "x": -0.32,
-     "y": 0.22
+     "x": -0.24,
+     "y": 0.42
     },
     {
      "name": "wing_r",
-     "x": 0.2,
-     "y": 0.06
+     "x": 0.22,
+     "y": 0.02
     },
     {
      "name": "wing_l",
-     "x": -0.2,
-     "y": 0.06
+     "x": -0.22,
+     "y": 0.02
     }
    ]
   },
@@ -253,7 +253,7 @@
    "name": "body_back",
    "file": "TEMP_dragon_body_back",
    "pivotX": 0.5,
-   "pivotY": 0.5,
+   "pivotY": 0.59091,
    "anchors": [
     {
      "name": "neck",
@@ -263,37 +263,37 @@
     {
      "name": "tail",
      "x": 0.0,
-     "y": -0.42
+     "y": -0.68
     },
     {
      "name": "shoulder_r",
      "x": 0.34,
-     "y": 0.24
+     "y": 0.22
     },
     {
      "name": "shoulder_l",
      "x": -0.34,
-     "y": 0.24
+     "y": 0.22
     },
     {
      "name": "hip_r",
-     "x": 0.34,
-     "y": -0.2
+     "x": 0.24,
+     "y": -0.42
     },
     {
      "name": "hip_l",
-     "x": -0.34,
-     "y": -0.2
+     "x": -0.24,
+     "y": -0.42
     },
     {
      "name": "wing_r",
-     "x": 0.2,
-     "y": 0.16
+     "x": 0.22,
+     "y": 0.1
     },
     {
      "name": "wing_l",
-     "x": -0.2,
-     "y": 0.16
+     "x": -0.22,
+     "y": 0.1
     }
    ]
   },
@@ -383,7 +383,7 @@
    "name": "neck_0",
    "file": "TEMP_dragon_neck_0",
    "pivotX": 0.32368,
-   "pivotY": 0.49501,
+   "pivotY": 0.5049,
    "anchors": [
     {
      "name": "next",
@@ -409,7 +409,7 @@
    "name": "neck_1",
    "file": "TEMP_dragon_neck_1",
    "pivotX": 0.31285,
-   "pivotY": 0.49514,
+   "pivotY": 0.50477,
    "anchors": [
     {
      "name": "next",
@@ -435,7 +435,7 @@
    "name": "neck_2",
    "file": "TEMP_dragon_neck_2",
    "pivotX": 0.30012,
-   "pivotY": 0.49531,
+   "pivotY": 0.50461,
    "anchors": [
     {
      "name": "next",
@@ -461,7 +461,7 @@
    "name": "neck_3",
    "file": "TEMP_dragon_neck_3",
    "pivotX": 0.28496,
-   "pivotY": 0.49553,
+   "pivotY": 0.50439,
    "anchors": [
     {
      "name": "next",
@@ -487,7 +487,7 @@
    "name": "tail_0",
    "file": "TEMP_dragon_tail_0",
    "pivotX": 0.31667,
-   "pivotY": 0.49501,
+   "pivotY": 0.5049,
    "anchors": [
     {
      "name": "next",
@@ -513,7 +513,7 @@
    "name": "tail_1",
    "file": "TEMP_dragon_tail_1",
    "pivotX": 0.30732,
-   "pivotY": 0.49512,
+   "pivotY": 0.50479,
    "anchors": [
     {
      "name": "next",
@@ -539,7 +539,7 @@
    "name": "tail_2",
    "file": "TEMP_dragon_tail_2",
    "pivotX": 0.29665,
-   "pivotY": 0.49525,
+   "pivotY": 0.50466,
    "anchors": [
     {
      "name": "next",
@@ -565,7 +565,7 @@
    "name": "tail_3",
    "file": "TEMP_dragon_tail_3",
    "pivotX": 0.28436,
-   "pivotY": 0.49542,
+   "pivotY": 0.50449,
    "anchors": [
     {
      "name": "next",
@@ -591,7 +591,7 @@
    "name": "tail_4",
    "file": "TEMP_dragon_tail_4",
    "pivotX": 0.27005,
-   "pivotY": 0.49565,
+   "pivotY": 0.50428,
    "anchors": [
     {
      "name": "next",

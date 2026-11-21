@@ -70,7 +70,7 @@ namespace Orpheus.Client.Anim.Dragon
         }
 
         /// <summary>Кадр: выпускать (<paramref name="on"/>) из точки по направлению; порядок — поверх дракона.</summary>
-        public void Step(float dt, bool on, Vector2 at, Vector2 dir, int order, float rate = 110f)
+        public void Step(float dt, bool on, Vector2 at, Vector2 dir, int order, float rate = 170f)
         {
             if (on)
             {
@@ -81,14 +81,14 @@ namespace Orpheus.Client.Anim.Dragon
                     _carry -= 1f;
                     int k = _next;
                     _next = (_next + 1) % _p.Length;
-                    float a = baseA + Mathf.Deg2Rad * 11f * (Random.value * 2f - 1f);
-                    float s = 3.4f * (0.75f + 0.25f * Random.value);
+                    float a = baseA + Mathf.Deg2Rad * 8f * (Random.value * 2f - 1f);
+                    float s = 4.4f * (0.75f + 0.25f * Random.value);
                     _p[k] = new P
                     {
                         Pos = at + Random.insideUnitCircle * 0.03f,
                         Vel = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * s,
                         Age = Random.value * dt,
-                        Life = 0.5f + 0.25f * Random.value,
+                        Life = 0.55f + 0.25f * Random.value,
                         Size = 0.10f + 0.05f * Random.value,
                         Spin = Random.value * 360f,
                     };
@@ -123,10 +123,10 @@ namespace Orpheus.Client.Anim.Dragon
                     continue;
                 }
 
-                p.Vel *= Mathf.Exp(-dt * 2.6f);
-                p.Vel.y += dt * 1.4f * u; // остывающий дым поднимается
+                p.Vel *= Mathf.Exp(-dt * 2.0f);
+                p.Vel.y += dt * 0.45f * u; // остывающий дым поднимается
                 p.Pos += p.Vel * dt;
-                float size = p.Size + 0.55f * Mathf.Sqrt(u);
+                float size = p.Size + 0.75f * Mathf.Sqrt(u);
                 r.enabled = true;
                 r.transform.position = new Vector3(p.Pos.x, p.Pos.y, 0f);
                 r.transform.localScale = new Vector3(size, size * 0.85f, 1f);
