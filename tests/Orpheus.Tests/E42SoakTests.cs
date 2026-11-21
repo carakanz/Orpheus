@@ -71,6 +71,18 @@ namespace Orpheus.Tests
                                $"{b.PredMaxDevNoKnockUnits} unit (кадр {b.PredMaxDevNoKnockFrame}), нокбэков принято {b.PredKnockAdopted}, " +
                                $"раздвиганий тел {b.PredBodyPushExcluded}, " +
                                $"ресинков {b.PredResynced}, кадров {b.InputsSent}");
+                // Разбор (E4-2 доводка 10): сколько кадров списано каждой атрибуцией и контекст топ-6 крупных
+                // расхождений «без нокбэка» — по ним видно, какой класс не покрыт. На ворота не влияет.
+                _out.WriteLine($"бот {i}: списано кадров — нокбэк с любой стороны {b.PredKnockRelatedExcluded}, " +
+                               $"выталкивание из нового блока {b.PredPushOutExcluded}, раздвигание тел {b.PredBodyPushExcluded}; " +
+                               $"без нокбэка >½тайла {b.PredNoKnockOverHalfTile}");
+                foreach (LocalPrediction.DevTrace t in b.PredDevTrace)
+                {
+                    _out.WriteLine($"бот {i}: кадр {t.AckFrame}: {t.DevUnits} unit; сервер ({t.ServerPos.X},{t.ServerPos.Y}) " +
+                                   $"пред ({t.PredPos.X},{t.PredPos.Y}); нокбэк серв {t.ServerKnockLeft} / пред {t.PredKnockLeft}; " +
+                                   $"в блоке серв {t.ServerInSolid} / пред {t.PredInSolid}; в полосе тел серв {t.ServerInBodyBand} / " +
+                                   $"пред {t.PredInBodyBand} (чужих тел {t.BodyCount}); труп {t.Dead}; ack в окне {t.Known}");
+                }
                 Assert.Equal("InGame", b.State);
                 Assert.Equal(0, b.PredOverHalfTile);
                 // Норма 68 unit — на чистую ошибку предсказания: кадр, где расхождение задано серверным нокбэком,

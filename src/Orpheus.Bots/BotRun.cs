@@ -75,6 +75,21 @@ namespace Orpheus.Bots
         /// </summary>
         public long PredBodyPushExcluded { get; set; }
 
+        /// <summary>Кадров расхождения «без нокбэка» больше 0,5 тайла (E4-2, доводка 10): их разбирают по <see cref="PredDevTrace"/>.</summary>
+        public long PredNoKnockOverHalfTile { get; set; }
+
+        /// <summary>Кадров, списанных как «отбрасывание живо с любой стороны» (1-001/E4-2). Счётчик против «коврового» исключения.</summary>
+        public long PredKnockRelatedExcluded { get; set; }
+
+        /// <summary>Кадров, списанных как «сервер вытолкнул из блока, появившегося в окне предсказания» (E4-2).</summary>
+        public long PredPushOutExcluded { get; set; }
+
+        /// <summary>
+        /// Топ-6 кадров расхождения «без нокбэка» с контекстом (позиции сервера и предсказания, нокбэк, блок,
+        /// полоса раздвигания с обеих сторон) — по ним ищут класс расхождения, не учтённый атрибуцией (E4-2, доводка 10).
+        /// </summary>
+        public LocalPrediction.DevTrace[] PredDevTrace { get; set; } = System.Array.Empty<LocalPrediction.DevTrace>();
+
         /// <summary>Часы клиента: перестановок вперёд, назад, по «часам после фриза»; перенумераций кадров; owd, мс.</summary>
         public long ClockStepsForward { get; set; }
 
@@ -528,6 +543,10 @@ namespace Orpheus.Bots
                     st.PredMaxDevNoKnockFrame = pred.MaxDevNoKnockFrame;
                     st.PredKnockAdopted = pred.KnockAdopted;
                     st.PredBodyPushExcluded = pred.BodyPushExcluded;
+                    st.PredNoKnockOverHalfTile = pred.NoKnockOverHalfTile;
+                    st.PredKnockRelatedExcluded = pred.KnockRelatedExcluded;
+                    st.PredPushOutExcluded = pred.PushOutExcluded;
+                    st.PredDevTrace = pred.DevTraceTop();
                     st.PredResynced = pred.Resynced;
                 }
 
@@ -895,6 +914,31 @@ namespace Orpheus.Bots
                 w.WriteNumber("predMaxDevNoKnockFrame", b.PredMaxDevNoKnockFrame);
                 w.WriteNumber("predKnockAdopted", b.PredKnockAdopted);
                 w.WriteNumber("predBodyPushExcluded", b.PredBodyPushExcluded);
+                w.WriteNumber("predNoKnockOverHalfTile", b.PredNoKnockOverHalfTile);
+                w.WriteNumber("predKnockRelatedExcluded", b.PredKnockRelatedExcluded);
+                w.WriteNumber("predPushOutExcluded", b.PredPushOutExcluded);
+                w.WriteStartArray("predDevTrace"); // E4-2 доводка 10: разбор крупных расхождений «без нокбэка»
+                foreach (LocalPrediction.DevTrace t in b.PredDevTrace)
+                {
+                    w.WriteStartObject();
+                    w.WriteNumber("ackFrame", t.AckFrame);
+                    w.WriteNumber("devUnits", t.DevUnits);
+                    w.WriteNumber("serverX", t.ServerPos.X);
+                    w.WriteNumber("serverY", t.ServerPos.Y);
+                    w.WriteNumber("predX", t.PredPos.X);
+                    w.WriteNumber("predY", t.PredPos.Y);
+                    w.WriteNumber("serverKnockLeft", t.ServerKnockLeft);
+                    w.WriteNumber("predKnockLeft", t.PredKnockLeft);
+                    w.WriteBoolean("serverInSolid", t.ServerInSolid);
+                    w.WriteBoolean("predInSolid", t.PredInSolid);
+                    w.WriteBoolean("serverInBodyBand", t.ServerInBodyBand);
+                    w.WriteBoolean("predInBodyBand", t.PredInBodyBand);
+                    w.WriteNumber("bodyCount", t.BodyCount);
+                    w.WriteBoolean("dead", t.Dead);
+                    w.WriteBoolean("known", t.Known);
+                    w.WriteEndObject();
+                }
+                w.WriteEndArray();
                 w.WriteNumber("predResynced", b.PredResynced);
                 w.WriteNumber("clockStepsForward", b.ClockStepsForward);
                 w.WriteNumber("clockStepsBack", b.ClockStepsBack);

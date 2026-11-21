@@ -82,6 +82,13 @@ namespace Orpheus.Net.Session
         private bool _dead;         // 1-001: труп — сервер не шагнёт ввод, предсказание стоит
         private byte _slot;         // 1-002: ячейка последнего отправленного кадра — предмет в руках у клиента
 
+        // E4-2 (доводка 10, 21.11): разбор кадров с крупным расхождением «без нокбэка» (соакеры №2–9: 50…102 unit
+        // при норме 68). Метрику и ворота это НЕ меняет: тут только контекст топ-6 таких кадров — позиции сервера
+        // и предсказания, нокбэк с обеих сторон, попадание в блок и в полосу раздвигания с обеих сторон. По этим
+        // строкам видно, какой класс расхождения атрибуция (417–446) не покрыла, и его чинят точечно.
+        const int DevTraceSlots = 6;
+        readonly DevTrace[] _devTrace = new DevTrace[DevTraceSlots];
+
         /// <summary>Порог приёмки 2.13 п. 1: 0,5 тайла = 128 unit.</summary>
         public const int HalfTileUnits = 128;
 
@@ -130,6 +137,52 @@ namespace Orpheus.Net.Session
 
         /// <summary>Кадр подтверждения, на котором получено <see cref="MaxDevNoKnockUnits"/>.</summary>
         public long MaxDevNoKnockFrame { get; private set; }
+
+        /// <summary>
+        /// Кадров расхождения «без нокбэка» больше 0,5 тайла (<see cref="HalfTileUnits"/>) — их в топ-<see cref="DevTraceSlots"/>
+        /// больше всего, и именно они выходят за норму соакера. Счётчик для разбора (E4-2, доводка 10), ворота не трогает.
+        /// </summary>
+        public long NoKnockOverHalfTile { get; private set; }
+
+        /// <summary>Кадров, списанных в «расхождение задано нокбэком с любой стороны» (ветка knockRelated, 1-001/E4-2).</summary>
+        public long KnockRelatedExcluded { get; private set; }
+
+        /// <summary>Кадров, списанных в «расхождение задано выталкиванием из нового блока» (E4-2, соакеры 20.11).</summary>
+        public long PushOutExcluded { get; private set; }
+
+        /// <summary>
+        /// Кадр с крупным расхождением «без нокбэка» и его контекст: видно, был ли нокбэк с одной из сторон,
+        /// стояло ли тело в блоке/в полосе раздвигания на сервере и в предсказании (E4-2, доводка 10).
+        /// </summary>
+        public struct DevTrace
+        {
+            /// <summary>Кадр подтверждения этой сверки.</summary>
+            public uint AckFrame;
+            /// <summary>Расхождение предсказания с сервером, unit.</summary>
+            public int DevUnits;
+            /// <summary>Серверная позиция в кадре ack.</summary>
+            public WorldPos ServerPos;
+            /// <summary>Предсказанная позиция в кадре ack.</summary>
+            public WorldPos PredPos;
+            /// <summary>Серверный остаток отбрасывания (0 — сервер не толкает).</summary>
+            public int ServerKnockLeft;
+            /// <summary>Остаток отбрасывания в предсказании (0, если ack вне окна истории).</summary>
+            public int PredKnockLeft;
+            /// <summary>Серверная позиция в проходимом блоке.</summary>
+            public bool ServerInSolid;
+            /// <summary>Предсказанная позиция в проходимом блоке.</summary>
+            public bool PredInSolid;
+            /// <summary>Серверная позиция в полосе раздвигания чужих тел (2·RadiusUnits).</summary>
+            public bool ServerInBodyBand;
+            /// <summary>Предсказанная позиция в полосе раздвигания чужих тел.</summary>
+            public bool PredInBodyBand;
+            /// <summary>Чужих тел в последнем снимке.</summary>
+            public int BodyCount;
+            /// <summary>Труп (предсказание стоит, сервер не шагнёт ввод).</summary>
+            public bool Dead;
+            /// <summary>Состояние ack найдено в кольце истории (иначе сравнивать не с чем).</summary>
+            public bool Known;
+        }
 
         /// <summary>
         /// Кадров, исключённых из <see cref="MaxDevNoKnockUnits"/> как «расхождение задано раздвиганием тел»
@@ -356,6 +409,55 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
+        /// Топ-<see cref="DevTraceSlots"/> кадров расхождения «без нокбэка» (по убыванию unit) с контекстом —
+        /// для разбора соакера (E4-2, доводка 10). Копия: вызывается один раз на отчёт.
+        /// </summary>
+        public DevTrace[] DevTraceTop()
+        {
+            DevTrace[] copy = new DevTrace[DevTraceSlots];
+            Array.Copy(_devTrace, copy, DevTraceSlots);
+            Array.Sort(copy, static (a, b) => b.DevUnits.CompareTo(a.DevUnits));
+            return copy;
+        }
+
+        /// <summary>
+        /// Записать кадр в топ-<see cref="DevTraceSlots"/> (замена наименьшего, аллокаций в горячем пути нет).
+        /// </summary>
+        void TraceNote(uint ackFrame, int devUnits, in SelfState server, in Mover predicted, bool known)
+        {
+            int worst = 0;
+            for (int i = 1; i < DevTraceSlots; i++)
+            {
+                if (_devTrace[i].DevUnits < _devTrace[worst].DevUnits)
+                {
+                    worst = i;
+                }
+            }
+
+            if (_devTrace[worst].DevUnits >= devUnits)
+            {
+                return; // все слоты крупнее — кадр в топ не попадает
+            }
+
+            _devTrace[worst] = new DevTrace
+            {
+                AckFrame = ackFrame,
+                DevUnits = devUnits,
+                ServerPos = server.Position,
+                PredPos = predicted.Position,
+                ServerKnockLeft = server.KnockLeft,
+                PredKnockLeft = known ? predicted.KnockLeft : 0,
+                ServerInSolid = Collision.TouchesSolid(_map, server.Position, _solid),
+                PredInSolid = Collision.TouchesSolid(_map, predicted.Position, _solid),
+                ServerInBodyBand = _bodyCount > 0 && BodiesTouch(server.Position),
+                PredInBodyBand = _bodyCount > 0 && BodiesTouch(predicted.Position),
+                BodyCount = _bodyCount,
+                Dead = _dead,
+                Known = known,
+            };
+        }
+
+        /// <summary>
         /// Сверка со снимком: <paramref name="ackFrame"/> — последний шагнутый сервером кадр (0 — ещё ни одного),
         /// <paramref name="server"/> — своё состояние после него (без кванта), время — монотонные мкс.
         /// </summary>
@@ -449,6 +551,16 @@ namespace Orpheus.Net.Session
                 BodyPushExcluded++;
             }
 
+            if (knockRelated)
+            {
+                KnockRelatedExcluded++;
+            }
+
+            if (pushOutDriven)
+            {
+                PushOutExcluded++;
+            }
+
             if (known && !initial)
             {
                 long d2 = Torus.Dist2(_map, predicted.Position, server.Position);
@@ -462,10 +574,22 @@ namespace Orpheus.Net.Session
                 // То же без кадров, заданных нокбэком (начало, середина, остаток после конца) и серверным
                 // выталкиванием из нового блока: это и есть ошибка предсказания (норма 68 unit = касание
                 // врага). Нужна для длинных прогонов с боем и стройкой (E4-2).
-                if (!knockDriven && !knockRelated && !pushOutDriven && !bodyPushDriven && LastDevUnits > MaxDevNoKnockUnits)
+                if (!knockDriven && !knockRelated && !pushOutDriven && !bodyPushDriven)
                 {
-                    MaxDevNoKnockUnits = LastDevUnits;
-                    MaxDevNoKnockFrame = ackFrame;
+                    if (LastDevUnits > MaxDevNoKnockUnits)
+                    {
+                        MaxDevNoKnockUnits = LastDevUnits;
+                        MaxDevNoKnockFrame = ackFrame;
+                    }
+
+                    // Разбор (доводка 10): контекст крупных кадров — по нему ищут класс расхождения, не учтённый
+                    // атрибуцией выше. На пороги и счётчики ворот не влияет.
+                    if (LastDevUnits > HalfTileUnits)
+                    {
+                        NoKnockOverHalfTile++;
+                    }
+
+                    TraceNote(ackFrame, LastDevUnits, in server, predicted, known);
                 }
                 Compared++;
                 if (LastDevUnits > HalfTileUnits)
