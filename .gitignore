@@ -32,3 +32,4 @@ art/style/probes/**/*.png
 
 # per-run shot captures in worktrees, only curated strips are committed (C-053 P-note 3)
 work/screens/C-*/
+.venv-seg/
