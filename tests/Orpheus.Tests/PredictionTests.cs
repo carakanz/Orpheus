@@ -458,6 +458,57 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// E4-2 (доводка 15, соак №14, кадр 84801): расхождение задано серверным выталкиванием из блока, о котором
+        /// предсказание в окне не знало, в ОБРАТНОЙ ориентации: сервер вдавлен в твёрдый тайл («в блоке»), предсказание
+        /// стоит на линии среза («не в блоке»). Ход на запад к стене X=300: оба тела упираются в границу тайла
+        /// (граница + RadiusUnits = 102). В такт 60 сервер сдвигают на 77 unit за границу (1-001: правку задаёт
+        /// сервер, предсказать такой шаг нельзя) → кадр списан по признаку «в блоке ровно у одного из двух»
+        /// (PushOutExcluded = 1), MaxDevNoKnockUnits ≤ нормы 68, MaxDevUnits = 77 (правда в отчёте видна),
+        /// правок &gt;½ тайла 0. Контролы: без сдвига — 0 списанных; сдвиг ОТ стены (ни сервер, ни предсказание
+        /// в блоке) — 77 остаётся в норме; сдвиги КАЖДЫЕ 4 такта (сервер уходит вглубь тайла, предсказание
+        /// подтягивается за ним — «оба в блоке», кадр 99353 соакера №14) — списан только первый кадр, остальные
+        /// 77 unit остаются в норме: признак точечный, не «ковёр на любой толчок».
+        /// Числам расхождения судьёй не является: соакер с настоящим сервером и ботами (E42SoakTests).
+        /// </summary>
+        [Fact]
+        public void E42_Model_ServerInBlockPredOutside_ExcludedFromNoKnock()
+        {
+            const int push = 77; // цифра пролома соакера №14 (кадр 84801)
+            MapShape map = MapShape.World(1024);
+            TileSolid wall = (MapShape _, TileCoord t) => t.X == 300 && t.Y >= 380 && t.Y <= 420;
+            Input8 west = new Input8(-1, 0);
+
+            var m = new Model(map, wall, Center(302, 400), _ => west, 41) { Touch = (60, 61, 4, -push) };
+            m.Run(4_000_000);
+            LocalPrediction p = m.Pred;
+            _out.WriteLine($"сервер в блоке: толчков {m.Touches}, выталкивание {p.PushOutExcluded}, макс. расх. {p.MaxDevUnits} u, " +
+                           $"вне нокбэка {p.MaxDevNoKnockUnits} u, правок {p.Resynced}, >½тайла {p.ComparedOverHalfTile}");
+            Assert.Equal(1, m.Touches);
+            Assert.Equal(1, p.PushOutExcluded);
+            Assert.InRange(p.MaxDevUnits, push - 1, push + 1); // сам сдвиг виден в общем максимуме
+            Assert.True(p.MaxDevNoKnockUnits <= 68, $"чистая ошибка предсказания {p.MaxDevNoKnockUnits} > нормы 68 при выдавливании сервера в блок");
+            Assert.Equal(0, p.ComparedOverHalfTile); // гейт 2.13 п. 1 не ослаблен
+
+            var plain = new Model(map, wall, Center(302, 400), _ => west, 41);
+            plain.Run(4_000_000);
+            _out.WriteLine($"без сдвига: выталкивание {plain.Pred.PushOutExcluded}, вне нокбэка {plain.Pred.MaxDevNoKnockUnits} u");
+            Assert.Equal(0, plain.Pred.PushOutExcluded); // упираются в стену ровно оба — списывать нечего
+            Assert.True(plain.Pred.MaxDevNoKnockUnits <= 68, $"ход в стену сам по себе дал {plain.Pred.MaxDevNoKnockUnits} u");
+
+            var away = new Model(map, wall, Center(302, 400), _ => west, 41) { Touch = (60, 61, 4, push) };
+            away.Run(4_000_000);
+            _out.WriteLine($"сдвиг от стены: выталкивание {away.Pred.PushOutExcluded}, вне нокбэка {away.Pred.MaxDevNoKnockUnits} u");
+            Assert.Equal(0, away.Pred.PushOutExcluded); // никто в блоке не стоит — толчок остаётся ошибкой предсказания
+            Assert.True(away.Pred.MaxDevNoKnockUnits > 68, $"сдвиг от стены вышел из нормы ({away.Pred.MaxDevNoKnockUnits}) — признак шире класса");
+
+            var deep = new Model(map, wall, Center(302, 400), _ => west, 41) { Touch = (60, 120, 4, -push) };
+            deep.Run(4_000_000);
+            _out.WriteLine($"сервер в глубине тайла (оба в блоке): выталкивание {deep.Pred.PushOutExcluded}, вне нокбэка {deep.Pred.MaxDevNoKnockUnits} u");
+            Assert.Equal(1, deep.Pred.PushOutExcluded); // списан только первый кадр; «оба в блоке» (кадр 99353) — в норме
+            Assert.True(deep.Pred.MaxDevNoKnockUnits > 68, $"«оба в блоке» вышли из нормы ({deep.Pred.MaxDevNoKnockUnits}) — признак ковёр");
+        }
+
+        /// <summary>
         /// E4-2 (доводка 12, соакер №11): зеркало раздвигания в предсказании включается ровно там, где его включает
         /// сервер (<c>Simulation.StepSeparation</c>): инициатор — ВРАГ С МОЗГОМ (архетип ≠ None), живой
         /// (<c>HealthPct &gt; 0</c>), центры в полосе 2·RadiusUnits (204 unit). Заглушка (архетип None), мёртвое тело
