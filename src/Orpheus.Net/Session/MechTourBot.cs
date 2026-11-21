@@ -61,6 +61,16 @@ namespace Orpheus.Net.Session
         private const int DigR = 48;          // радиус поиска объекта добычи, тайлов
         private const int DigTimeoutFrames = 1200; // кадров на одно копания, дальше — смена цели
 
+        // Доводка 14 (соак №13, 21.11): в зерне 15007751 у самого спавна деревьев почти нет — probe по карте
+        // gen_preview: радиус 20 тайлов от центра мира — 1 ствол, радиус 61 — 258. Крафт-цепочка фазы 1
+        // вырубает ближние стволы, а доводка 9 привязала брождение к старту 16 тайлами: NeedWood фазы
+        // сундука искал ствол в окне DigR от БОТА, находил 0 («поисков 209, последний — 15 276 тайлов»,
+        // «деревьев 5 за 30 мин», «отказ: сундук: фаза встала на NeedWood»). Решение: выход к дальним
+        // деревьям по своему азимуту (у каждого бота он свой, детерминирован), до ForageRadiusTiles тайлов
+        // от лагеря, потом домой; дома — следующий азимут (четверть оборота), так бот облазит все стороны.
+        private const int ForageRadiusTiles = 60;
+        private const int ForageHomeTiles = 6;
+
         private enum ChestStep { NeedWood, CraftChest, PlaceChest, OpenChest, Put, Take, Close, Done }
 
         private enum BowStep { Fiber, Rope, BowAtBench, Arrows, Shoot, Done }
@@ -113,6 +123,18 @@ namespace Orpheus.Net.Session
         private bool _sepValid;
         private WorldPos _sepPos;
         private int _sepBlockFrames;
+
+        // Доводка 14: поход за деревом (азимут по номеру бота) и диагностика поиска — по этим числам
+        // видно, голод ли в окне (hits=0) или все цели отфильтрованы (blocked=hits).
+        private int _forageLeg;
+        private bool _forageHome;
+        private int _forageLegs;
+        private int _forageFrames;
+        private int _findScans;
+        private int _findScanTiles;
+        private int _findHits;
+        private int _findBlocked;
+        private int _findLastTargetTiles = -1;
 
         // заявки изготовления
         private int _craftRecipe;
@@ -173,6 +195,73 @@ namespace Orpheus.Net.Session
             }
 
             return WanderDirs[(_frame / 600 + _index * 3) % WanderDirs.Length];
+        }
+
+        /// <summary>
+        /// Базовый азимут похода по номеру бота — индексы <see cref="WanderDirs"/>: 0 → восток (+X),
+        /// 1 → запад (−X), 2 → юг (+Y), 3 → север (−Y). Четыре бота соака стартованного расходятся по сторонам света.
+        /// </summary>
+        private static readonly int[] ForageBaseDir = { 0, 4, 2, 6 };
+
+        /// <summary>
+        /// Геометрия похода за деревом (E4-2, доводка 14) — чистая функция, проверяется тестом без сети.
+        /// Две фазы с гистерезисом (тест прокрутки поймал лимитный цикл на без гистерезиса: шаг наружу на
+        /// 8 unit у потолка и шаг домой — вечное дрожание на границе 60 тайлов, бот стоит там 57 000 кадров):
+        /// фаза «в полях» (<paramref name="goingHome"/> = false) — идём по азимуту, пока не за
+        /// <see cref="ForageRadiusTiles"/> тайлов; фаза «домой» — идём к лагерю, пока не дома
+        /// (≤ <see cref="ForageHomeTiles"/>), и только дома берём следующий азимут (четверть оборота на каждый
+        /// завершённый поход) и снова выходим. Так бот облазит все стороны и не стоит в вырубленной роще.
+        /// <paramref name="dToStart"/> — кратчайший вектор ОТ бота К лагерю (<c>Torus.Delta(shape, pos, _start)</c>,
+        /// та же конвенция знака, что в <see cref="Wander"/>).
+        /// </summary>
+        public static (Input8 Dir, int Leg, bool Home) ForageStep(Int2 dToStart, int index, int leg, bool goingHome)
+        {
+            long d2 = (long)dToStart.X * dToStart.X + (long)dToStart.Y * dToStart.Y;
+            long far = (long)ForageRadiusTiles * U;
+            long home = (long)ForageHomeTiles * U;
+            if (goingHome)
+            {
+                if (d2 <= home * home)
+                {
+                    int next = leg + 1; // поход завершён
+                    return (ForageBearing(index, next), next, false);
+                }
+
+                return (StepToward(dToStart), leg, true);
+            }
+
+            // в полях: порог «домой» — включительно, иначе шаг наружу на границе даёт лимитный цикл
+            return d2 >= far * far
+                ? (StepToward(dToStart), leg, true)
+                : (ForageBearing(index, leg), leg, false);
+        }
+
+        /// <summary>Азимут похода: свой боту базовый + четверть оборота на каждый завершённый поход.</summary>
+        public static Input8 ForageBearing(int index, int leg) =>
+            WanderDirs[(ForageBaseDir[((index % ForageBaseDir.Length) + ForageBaseDir.Length) % ForageBaseDir.Length]
+                        + (leg % 4) * 2) % WanderDirs.Length];
+
+        /// <summary>Шаг к цели по главной оси (тот же выбор направления, что в <c>WalkToTileNear</c>).</summary>
+        private static Input8 StepToward(Int2 d)
+        {
+            int sx = Math.Abs(d.X) >= Math.Abs(d.Y) ? Math.Sign(d.X) : 0;
+            return new Input8(sx, sx == 0 ? Math.Sign(d.Y) : 0);
+        }
+
+        /// <summary>Шаг похода за деревом (доводка 14): азимут по номеру бота, в пределах 60 тайлов от лагеря.</summary>
+        private Input8 ForageWalk(WorldPos pos)
+        {
+            _forageFrames++;
+            (Input8 Dir, int Leg, bool Home) step =
+                ForageStep(Torus.Delta(_shape, pos, _start), _index, _forageLeg, _forageHome);
+            if (step.Leg != _forageLeg)
+            {
+                _forageLeg = step.Leg;
+                _forageLegs++;
+            }
+
+            _forageHome = step.Home;
+            return step.Dir;
         }
 
         public MechTourBot(MapShape shape, WorldPos spawn, int index = 0)
@@ -267,6 +356,9 @@ namespace Orpheus.Net.Session
                     $"стрел: выстр={Shots}; стройка: пол={floors}, стен={walls}, дверь={door}; " +
                     $"бой: удары={HitsTaken}, смерти={Deaths}, мин. здоровье {MinHealthPct}%; " +
                     $"кадров {Frames}; {(_bagDump.Length > 0 ? _bagDump : "инв: -")}" +
+                    $"; поиск: {_findScans} (последний {_findScanTiles} тайлов, целей в окне {_findHits}, " +
+                    $"помех {_findBlocked}, последняя цель {(_findLastTargetTiles >= 0 ? _findLastTargetTiles.ToString() : "нет")} тайла)" +
+                    $", походов за деревом {_forageLegs} (азимут {_forageLeg % 4}, кадров {_forageFrames})" +
                     $"{(_craft != null ? $"; крафт-цепочка: {_craft.Summary}" : "")}" +
                     $"{(FailReason.Length > 0 ? $"; отказ: {FailReason}" : "")}";
             }
@@ -1036,7 +1128,11 @@ namespace Orpheus.Net.Session
                 _digFindFrom = Torus.TileOf(_shape, pos);
                 if (!FindTile(w, _digFindFrom, obj, out TileCoord t))
                 {
-                    _digFrame = new InputFrame(Wander(pos)); // цели нет в окне — бродим (доводка 7), дальние шаги — к старту (доводка 9)
+                    // Цели нет в окне — бродим (доводка 7), дальние шаги — к старту (доводка 9). Доводка 14
+                    // (соак №13): у дерева этого мало — NeedWood стоял 12 000 кадров в вырубленной роще
+                    // («поисков 209, последний — 15 276 тайлов», «деревьев 5 за 30 мин»); дерево идём искать
+                    // по своему азимуту до 60 тайлов от лагеря, потом домой. Прочие цели — прежнее брождение.
+                    _digFrame = new InputFrame(obj == ObjectId.Tree ? ForageWalk(pos) : Wander(pos));
                     return false;
                 }
 
@@ -1093,18 +1189,24 @@ namespace Orpheus.Net.Session
             TileCoord zoneFound = default;
             bool any = false;
             bool zoneAny = false;
+            // Доводка 14: диагностика поиска в Summary — голод ли в окне (hits = 0 на тысячах тайлов)
+            // или цели есть, но все отфильтрованы (blocked = hits).
+            int tiles = 0, hits = 0, blocked = 0;
             for (int dy = -DigR; dy <= DigR; dy++)
             {
                 for (int dx = -DigR; dx <= DigR; dx++)
                 {
+                    tiles++;
                     var t = Torus.Wrap(_shape, new TileCoord(from.X + dx, from.Y + dy));
                     if (w.IsPredicted(t) || w.World.GetObject(t) != obj)
                     {
                         continue;
                     }
 
+                    hits++;
                     if (_skipUntil.TryGetValue(t, out int until) && _frame < until)
                     {
+                        blocked++;
                         continue;
                     }
 
@@ -1125,6 +1227,13 @@ namespace Orpheus.Net.Session
                 }
             }
 
+            _findScans++;
+            _findScanTiles = tiles;
+            _findHits = hits;
+            _findBlocked = blocked;
+            _findLastTargetTiles = any
+                ? (int)Math.Round(Math.Sqrt((double)(zoneAny ? zoneD2 : bestD2)))
+                : -1;
             best = zoneAny ? zoneFound : found;
             return any;
         }

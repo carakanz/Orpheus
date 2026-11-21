@@ -527,6 +527,131 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// E4-2 (доводка 14): азимуты похода за деревом. Соак №13: у спавна карты 15007751 стволов почти нет
+        /// (проб по карте gen_preview: радиус 20 тайлов от центра мира — 1 ствол, радиус 61 — 258), крафт-цепочка
+        /// фазы 1 вырубает ближние, а брождение доводки 9 привязано к старту 16 тайлами → NeedWood фазы сундука
+        /// голодал 12 000 кадров («деревьев 5 за 30 мин», «отказ: сундук: фаза встала на NeedWood»).
+        /// Азимут свой у каждого бота (4 бота соака расходятся по сторонам света), на каждый завершённый поход —
+        /// четверть оборота. Чистая арифметика: сеть и мир не нужны.
+        /// </summary>
+        [Theory]
+        [InlineData(0, 0, 1, 0)]   // бот 0 — восток
+        [InlineData(1, 0, -1, 0)]  // бот 1 — запад
+        [InlineData(2, 0, 0, 1)]   // бот 2 — юг (ось Y смотрит вниз)
+        [InlineData(3, 0, 0, -1)]  // бот 3 — север
+        [InlineData(4, 0, 1, 0)]   // номер по модулю 4
+        [InlineData(-1, 0, 0, -1)] // отрицательный номер — тот же север, что у бота 3
+        [InlineData(0, 1, 0, 1)]   // четверть оборота: восток → юг
+        [InlineData(0, 2, -1, 0)]  // полуоборот
+        [InlineData(0, 3, 0, -1)]  // три четверти
+        [InlineData(0, 4, 1, 0)]   // полный оборот — снова восток
+        [InlineData(2, 5, -1, 0)]  // юг бота 2 + оборот (5 % 4) = запад
+        public void E42_ForageBearing_PerBotIndexAndLeg(int index, int leg, int ex, int ey)
+        {
+            Input8 d = MechTourBot.ForageBearing(index, leg);
+            Assert.Equal(new Input8(ex, ey), d);
+        }
+
+        /// <summary>
+        /// E4-2 (доводка 14): машина похода — в полях идём по азимуту, за потолком 60 тайлов (порог включительно)
+        /// фаза «домой»; домой идём НЕ поворачивая назад к азимуту (гистерезис: без него на границе 60 тайлов
+        /// шаг наружу и шаг домой по 8 unit дают лимитный цикл — бот стоит у потолка 57 000 кадров);
+        /// дома — следующий азимут и поход +1.
+        /// </summary>
+        [Fact]
+        public void E42_ForageStep_OutHomeAndRotate()
+        {
+            // бот в 30 тайлах к востоку от лагеря (вектор к лагерю — на запад), поход 0, в полях → азимут бота 0
+            var s = MechTourBot.ForageStep(new Int2(-30 * U, 0), index: 0, leg: 0, goingHome: false);
+            Assert.Equal(new Input8(1, 0), s.Dir);
+            Assert.Equal(0, s.Leg);
+            Assert.False(s.Home);
+
+            // за потолком 60 тайлов — фаза «домой» (шаг на запад), номер похода не растёт
+            s = MechTourBot.ForageStep(new Int2(-70 * U, 0), index: 0, leg: 2, goingHome: false);
+            Assert.Equal(new Input8(-1, 0), s.Dir);
+            Assert.Equal(2, s.Leg);
+            Assert.True(s.Home);
+
+            // ровно на потолке — тоже «домой» (иначе шаг наружу на 8 unit и назад = лимитный цикл на границе)
+            s = MechTourBot.ForageStep(new Int2(-60 * U, 0), index: 0, leg: 0, goingHome: false);
+            Assert.Equal(new Input8(-1, 0), s.Dir);
+            Assert.True(s.Home);
+
+            // по диагонали главная ось X (61 &gt; 30)
+            s = MechTourBot.ForageStep(new Int2(-61 * U, 30 * U), index: 0, leg: 1, goingHome: false);
+            Assert.Equal(new Input8(-1, 0), s.Dir);
+            Assert.True(s.Home);
+
+            // дома (3 тайла) на возврате — азимут следующий (четверть оборота), поход +1, фаза «в полях»
+            s = MechTourBot.ForageStep(new Int2(3 * U, 0), index: 0, leg: 0, goingHome: true);
+            Assert.Equal(new Input8(0, 1), s.Dir);
+            Assert.Equal(1, s.Leg);
+            Assert.False(s.Home);
+
+            // в поле на возврате (40 тайлов, нутрь потолка) — НЕ разворачиваемся к азимуту, идём домой
+            s = MechTourBot.ForageStep(new Int2(-40 * U, 0), index: 0, leg: 0, goingHome: true);
+            Assert.Equal(new Input8(-1, 0), s.Dir);
+            Assert.Equal(0, s.Leg);
+            Assert.True(s.Home);
+
+            // стоим в лагере, похода не было — выходим по базовому азимуту, номер не растёт
+            s = MechTourBot.ForageStep(new Int2(0, 0), index: 0, leg: 0, goingHome: false);
+            Assert.Equal(MechTourBot.ForageBearing(0, 0), s.Dir);
+            Assert.Equal(0, s.Leg);
+            Assert.False(s.Home);
+        }
+
+        /// <summary>
+        /// E4-2 (доводка 14): прокрутка машины похода кадр за кадром (шаг героя ~8 unit/кадр, ~2 тайла/с).
+        /// Бот уходит дальше прежней привязки к старту (16 тайлов у доводки 9), доходит до потолка 60,
+        /// возвращается домой, берёт следующий азимут — и не улетает за потолок, то есть НЕ стоит на месте.
+        /// Без этого бот стоит в вырубленной роще у лагеря (соак №13: «деревьев 5 за 30 мин»).
+        /// </summary>
+        [Fact]
+        public void E42_ForageWalk_GoesOutRotatesAndComesHome()
+        {
+            MapShape map = MapShape.World(1024);
+            WorldPos camp = Center(512, 512);
+            WorldPos pos = camp;
+            int leg = 0, legs = 0, maxTiles = 0, homeFrames = 0;
+            bool goingHome = false;
+            var bearings = new HashSet<Input8>();
+            for (int frame = 0; frame < 60_000; frame++) // 17 мин брождения
+            {
+                (Input8 Dir, int Leg, bool Home) s =
+                    MechTourBot.ForageStep(Torus.Delta(map, pos, camp), 0, leg, goingHome);
+                if (s.Leg != leg)
+                {
+                    legs++;
+                }
+
+                leg = s.Leg;
+                goingHome = s.Home;
+                bearings.Add(s.Dir);
+                pos = Torus.Wrap(map, new WorldPos(pos.X + s.Dir.DX * 8, pos.Y + s.Dir.DY * 8));
+
+                int tiles = (int)Math.Sqrt((double)Torus.Dist2(map, pos, camp) / ((long)U * U));
+                if (tiles > maxTiles)
+                {
+                    maxTiles = tiles;
+                }
+
+                if (tiles <= 6)
+                {
+                    homeFrames++;
+                }
+            }
+
+            _out.WriteLine($"походов {legs}, макс. {maxTiles} тайлов, направлений {bearings.Count}, кадров дома {homeFrames}");
+            Assert.True(maxTiles >= 55, $"бот ушёл на {maxTiles} тайлов — не дальше прежней привязки в 16 тайлов");
+            Assert.True(maxTiles <= 62, $"бот ушёл на {maxTiles} тайлов — за потолком 60 (шаг домой не срабатывает)");
+            Assert.True(legs >= 3, $"походов за деревом {legs} — азимут не меняется, бот ходит по одной стороне");
+            Assert.True(bearings.Count >= 4, $"направлений {bearings.Count} — бот облазит меньше четырёх сторон");
+            Assert.True(homeFrames > 2_000, $"кадров дома {homeFrames} — бот не возвращается в лагерь");
+        }
+
+        /// <summary>
         /// Касание врага посреди серии ударов мечом (P-004, сценарий host-smoke: бег на восток с зажатой ЛКМ,
         /// разбойник выталкивает): в снимке своего состояния фазы удара нет, поэтому после правки кадры новее ack
         /// переигрываются с фазой, предсказанной для ack. Если оставить текущую фазу (она уже прошла эти кадры),
