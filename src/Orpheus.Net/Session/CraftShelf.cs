@@ -75,6 +75,10 @@ namespace Orpheus.Net.Session
             ("campfire", "furniture", "stations"),
             ("chest", "furniture", "storage"),
             ("bed", "furniture", "sleep"),
+            // Броня (E3-6): раздел «Броня», подразделы по ячейке снаряжения.
+            ("copper_helmet", "armor", "head"),
+            ("copper_chest", "armor", "body"),
+            ("copper_legs", "armor", "legs"),
         };
 
         private static readonly int[][][] Shelves = Build(out PlaceOf);
@@ -194,7 +198,7 @@ namespace Orpheus.Net.Session
             into.Clear();
             foreach (int r in Recipes(section, sub))
             {
-                if (!onlyAvailable || (r < lines.Length && lines[r].CanMake))
+                if (!onlyAvailable || (r < lines.Length && lines[r].Shown))
                 {
                     into.Add(r);
                 }
@@ -207,7 +211,7 @@ namespace Orpheus.Net.Session
             int n = 0;
             foreach (int r in Recipes(section, sub))
             {
-                if (r < lines.Length && lines[r].CanMake)
+                if (r < lines.Length && lines[r].Shown)
                 {
                     n++;
                 }
@@ -222,6 +226,6 @@ namespace Orpheus.Net.Session
         /// нужен станок». Материалов нет — 0 (значок без числа).
         /// </summary>
         public static int Badge(in CraftLine line) =>
-            line.Recipe == 0 ? 0 : line.Affordable * RecipeTable.Get(line.Recipe).ResultCount;
+            line.Recipe == 0 ? 0 : line.Ready + line.Affordable * RecipeTable.Get(line.Recipe).ResultCount; // C-029: + готовые постройки
     }
 }

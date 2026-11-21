@@ -76,7 +76,7 @@ button:focus-visible,textarea:focus-visible,a:focus-visible,input:focus-visible,
 .chip.static{cursor:default;opacity:.8}
 .chip b{font-weight:700;font-family:var(--f-mono)}
 .tag{font:11px var(--f-mono);text-transform:uppercase;letter-spacing:.06em;border:1px solid currentColor;border-radius:3px;padding:0 5px;white-space:nowrap}
-.tag.prop{color:var(--warn)} .tag.impl{color:var(--ok)} .tag.no{color:var(--muted)}
+.tag.prop{color:var(--warn)} .tag.author{color:var(--accent)} .tag.impl{color:var(--ok)} .tag.no{color:var(--muted)}
 .sec{display:flex;flex-direction:column;gap:6px}
 .sec h4{margin:0;font:700 12px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 ul.plain{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
@@ -104,6 +104,7 @@ td.name{font-weight:700}
 .filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
 .filters button{font:13px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:3px;padding:2px 8px;cursor:pointer}
 .filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.filters select{font:13px var(--f-body);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:3px;padding:2px 4px;max-width:100%}
 .left{display:flex;flex-direction:column;gap:8px;min-width:0}
 .tablewrap{position:relative}
 .left .tablewrap{max-height:none;overflow:visible;border:0}
@@ -149,6 +150,7 @@ const KINDS={
   arch:{list:'archetypes',tab:'Архетипы врагов',one:'Архетип'},
   ore:{list:'ores',tab:'Руды и ресурсы',one:'Ресурс'},
   item:{list:'items',tab:'Предметы',one:'Предмет'},
+  cand:{list:'candidates',tab:'Кандидаты из бестиария',one:'Кандидат из бестиария'},
 };
 const L=k=>(S.cat&&S.cat[KINDS[k].list])||[];
 
@@ -250,7 +252,7 @@ function renderProgress(){ if(!S.cat) return; const all=allKeys(); const c={acce
 
 /* ---------- куски страниц ---------- */
 function flags(o){ const impl=o.implemented===true||o.inGenerator===true, not=o.implemented===false||o.inGenerator===false;
-  return $('span',{class:'chips'}, o.proposal?$('span',{class:'tag prop',title:'в docs нет — предложение'},'предложение'):null, impl?$('span',{class:'tag impl'},'есть в игре'):not?$('span',{class:'tag no'},'пока нет в игре'):null); }
+  return $('span',{class:'chips'}, o.authorIdea?$('span',{class:'tag author',title:'идея Автора из его комментариев'},'слово Автора'):null, o.proposal?$('span',{class:'tag prop',title:'в docs нет — предложение'},'предложение'):null, impl?$('span',{class:'tag impl'},'есть в игре'):not?$('span',{class:'tag no'},'пока нет в игре'):null); }
 function kv(pairs){ const dl=$('dl',{class:'kv'}); for(const[k,v]of pairs){ if(v==null||v===''||(Array.isArray(v)&&!v.length)||(typeof v==='object'&&!v.nodeType&&!Array.isArray(v)&&!Object.keys(v).length)) continue; dl.append($('dt',{},k),$('dd',{},v.nodeType?v:txt(v))); } return dl.children.length?dl:null; }
 function sec(title,body){ if(!body||(Array.isArray(body)&&!body.length)) return null; return $('div',{class:'sec'},$('h3',{},title),body); }
 function proposals(o){ const p=o.proposals||(o.proposedFields?['Предложено (нет в docs): '+txt(o.proposedFields)]:null); if(!p||!p.length) return null; return sec('Предложения (в docs нет)',$('ul',{class:'plain'},p.map(x=>$('li',{},txt(x))))); }
@@ -258,18 +260,26 @@ function head(kind,o){ return $('div',{},$('div',{class:'crumb'},KINDS[kind].one
 
 const PAGES={
   biome(b){ const ens=enemiesOf(b), groups={};
-    for(const e of ens){ const g=(e.act?'Акт '+e.act:'Акт ?')+(e.tier!=null?' · ярус '+e.tier:'')+(e.kind&&e.kind!=='обычный'?' · '+e.kind:''); (groups[g]=groups[g]||[]).push(e); }
+    for(const e of ens){ const g=(e.act?'Акт '+e.act:'Акт ?')+(e.tier!=null?' · ярус '+(String(e.tier).length>6?String(e.tier).match(/\d[–-]\d|\d/)[0]+' (по расстоянию)':e.tier):'')+(e.kind&&e.kind!=='обычный'?' · '+e.kind:''); (groups[g]=groups[g]||[]).push(e); }
     const ores=oresOf(b), bosses=bossesOf(b);
     return [head('biome',b),$('p',{style:'margin:0'},txt(b.description)),
       kv([['Акт',b.act],['Где генерится',b.placement],['Условия',b.conditions],['Местность',b.terrain],['Опасность',b.danger],['Особенности',b.features],['Источник',b.source]]),
-      sec('Враги по ярусам',ens.length?Object.keys(groups).sort().map(g=>$('div',{class:'sec'},$('h4',{},g),$('div',{class:'chips'},groups[g].map(e=>link('enemy',e,e.name+(e.when?' · '+String(e.when).split(' (')[0]:'')))))):$('p',{class:'note',style:'margin:0'},'В docs враги для этого биома не названы.')),
+      sec('Враги по ярусам',ens.length?[$('p',{class:'note',style:'margin:0'},'★ — слово Автора, ✦ — предложение, без значка — из docs. Из docs: '+ens.filter(e=>!e.proposal&&!e.authorIdea).length+', слово Автора: '+ens.filter(e=>e.authorIdea).length+', предложено: '+ens.filter(e=>e.proposal&&!e.authorIdea).length+'.')].concat(Object.keys(groups).sort().map(g=>$('div',{class:'sec'},$('h4',{},g),$('div',{class:'chips'},groups[g].map(e=>link('enemy',e,(e.authorIdea?'★ ':e.proposal?'✦ ':'')+e.name+(e.when?' · '+String(e.when).split(' (')[0]:''))))))):$('p',{class:'note',style:'margin:0'},'В docs враги для этого биома не названы.')),
+      sec('Кандидаты из бестиария',(()=>{ const cs=L('cand').filter(c=>(c.biomes||[]).some(x=>find('biome',x)===b)); return cs.length?$('div',{class:'chips'},cs.map(c=>link('cand',c,c.name+' · '+c.act+' · '+c.tier))):null; })()),
       sec('Боссы и логова',bosses.length?$('div',{class:'chips'},bosses.map(x=>link('boss',x))):null),
       sec('Руды и ресурсы',ores.length?$('div',{class:'chips'},ores.map(o=>link('ore',o))):chipsTo(b.resources,['ore','item'])),
       proposals(b)]; },
   enemy(e){ const a=find('arch',e.archetype);
     return [head('enemy',e),$('p',{style:'margin:0'},txt(e.description)),
-      kv([['Тип',e.kind],['Архетип',a?link('arch',a):e.archetype],['Акт',e.act],['Ярус',e.tier],['Когда',e.when],['Поведение',e.behaviour],['Особенности',e.special],['Здоровье / удар',e.hpDamage],['Источник',e.source]]),
+      kv([['Тип',e.kind],['Архетип',a?link('arch',a):e.archetype],['Акт',e.act],['Ярус',e.tier],['Когда',e.when],['Поведение',e.behaviour],['Как читается',e.howToRead],['Как побеждать',e.counter],['Особенности',e.special],['По мотивам',e.inspiredBy],['Здоровье / удар',e.hpDamage],['Источник',e.source]]),
       sec('Где встречается',chipsTo(e.biomes,['biome'])),sec('Добыча',chipsTo(e.drops,['item','ore'])),proposals(e)]; },
+  cand(c){ const a=find('arch',c.archetype);
+    return [head('cand',c),$('p',{style:'margin:0'},$('span',{class:'tag prop',style:'margin-right:6px'},'кандидат'),txt(c.description)),
+      kv([['Источник',c.source],['Акт',c.act],['Ярус',c.tier],['Архетип',a?link('arch',a):(c.archetypeName?c.archetypeName+' (новый: '+c.archetype+')':c.archetype)],['Роль',c.role],['Только ночью',c.nightOnly?'да':'нет'],['Размер, тайлов',c.sizeTiles],
+        ['По мотивам',c.eng+' — '+txt(c.facts)],['Варианты',c.variants],['Права',c.rights]]),
+      sec('Биомы',chipsTo(c.biomes,['biome'])),
+      sec('Промпт картинки (стиль Б)',$('p',{class:'note',style:'margin:0;font-family:var(--f-mono);font-size:12px'},c.imageSubject||'')),
+      c.sources?sec('Ссылки',$('ul',{class:'plain'},c.sources.map(u=>$('li',{},$('a',{href:u,target:'_blank',rel:'noopener'},u))))):null]; },
   boss(b){ return [head('boss',b),$('p',{style:'margin:0'},txt(b.description)),
       kv([['Вид',b.kind],['Акт',b.act],['Где',b.where],['Как вызвать / встретить',b.summon],['Здоровье',b.hp],['Особые правила',b.mechanics],['Источник',b.source]]),
       sec('Биомы',chipsTo(b.biomes,['biome'])),
@@ -327,17 +337,27 @@ const COLS={
   arch:[['Поведение',o=>o.behaviour]],
   ore:[['Вид',o=>o.kind],['Ярус',o=>o.tier],['Где',o=>o.biomes]],
   item:[['Категория',o=>o.category],['Ярус',o=>o.tier],['Рецепт',o=>o.recipe]],
+  cand:[['Акт',o=>o.act],['Ярус',o=>o.tier],['Биомы',o=>o.biomes]],
 };
+/* несколько фильтров сразу (раздел «Кандидаты из бестиария») */
+const MFILTER={cand:[['source','Источник',v=>v],['biomes','Биом',v=>{ const b=find('biome',v); return b?b.name:v; }],['act','Акт',v=>'акт '+v],['tier','Ярус',v=>v],['archetype','Архетип',v=>{ const a=find('arch',v); return a?a.name:v; }]]};
+function mfilter(kind,items){ const st=S.filter[kind]=(S.filter[kind]&&typeof S.filter[kind]==='object')?S.filter[kind]:{};
+  const all=L(kind), rows=[];
+  for(const [f,label,show] of MFILTER[kind]){ const vals=[...new Set(all.flatMap(o=>[].concat(o[f]??[])).map(String))].sort((a,b)=>show(a).localeCompare(show(b),'ru',{numeric:true}));
+    const sel=$('select',{onchange:e=>{ st[f]=e.target.value||null; render(); }},$('option',{value:''},label+': все'),vals.map(v=>$('option',{value:v,selected:st[f]===v},show(v)+' ('+all.filter(o=>[].concat(o[f]??[]).map(String).includes(v)).length+')')));
+    rows.push(sel); }
+  for(const [f] of MFILTER[kind]) if(st[f]) items=items.filter(o=>[].concat(o[f]??[]).map(String).includes(st[f]));
+  return [items,$('div',{class:'filters'},'Показать:',rows,$('span',{},items.length+' из '+all.length))]; }
 const FILTER={enemy:'act',boss:'act',item:'category',ore:'kind',biome:'act'};
 function listView(kind){
-  let items=L(kind); const ff=FILTER[kind]; const fv=S.filter[kind];
+  let items=L(kind); const ff=FILTER[kind]; const fv=S.filter[kind]; let mf=null; if(MFILTER[kind]) [items,mf]=mfilter(kind,items);
   const vals=ff?[...new Set(items.map(o=>o[ff]).filter(v=>v!=null))].sort():[];
-  if(fv!=null) items=items.filter(o=>String(o[ff])===String(fv));
+  if(ff&&fv!=null) items=items.filter(o=>String(o[ff])===String(fv));
   const sel=S.sel&&S.sel.kind===kind&&L(kind).some(o=>o.id===S.sel.id)?S.sel.id:(items[0]||{}).id;
   const short=v=>{ const s=txt(v); return s.length>110?s.slice(0,107)+'…':s; };
-  const filters=vals.length>1?$('div',{class:'filters'},'Показать:',$('button',{type:'button','aria-pressed':String(fv==null),onclick:()=>{S.filter[kind]=null;render();}},'все'),vals.map(v=>$('button',{type:'button','aria-pressed':String(String(fv)===String(v)),onclick:()=>{S.filter[kind]=v;render();}},ff==='act'?'акт '+v:v))):null;
+  const filters=mf?mf:vals.length>1?$('div',{class:'filters'},'Показать:',$('button',{type:'button','aria-pressed':String(fv==null),onclick:()=>{S.filter[kind]=null;render();}},'все'),vals.map(v=>$('button',{type:'button','aria-pressed':String(String(fv)===String(v)),onclick:()=>{S.filter[kind]=v;render();}},ff==='act'?'акт '+v:v))):null;
   S.list={kind,ids:items.map(o=>o.id)};
-  const rows=items.map(o=>$('tr',{class:'clickable'+(o.id===sel?' cur':''),'data-id':o.id,tabindex:'0',onclick:()=>go(kind,o.id),onkeydown:e=>{if(e.key==='Enter')go(kind,o.id);}},$('td',{},dot(kind,o.id)),$('td',{class:'name'},o.name,o.proposal?$('span',{class:'tag prop',style:'margin-left:6px'},'пред.'):null),null));
+  const rows=items.map(o=>$('tr',{class:'clickable'+(o.id===sel?' cur':''),'data-id':o.id,tabindex:'0',onclick:()=>go(kind,o.id),onkeydown:e=>{if(e.key==='Enter')go(kind,o.id);}},$('td',{},dot(kind,o.id)),$('td',{class:'name'},o.name,o.authorIdea?$('span',{class:'tag author',style:'margin-left:6px'},'Автор'):o.candidate?$('span',{class:'tag prop',style:'margin-left:6px'},'кандидат'):o.proposal?$('span',{class:'tag prop',style:'margin-left:6px'},'пред.'):null),null));
   const tbl=$('div',{class:'tablewrap'},$('table',{},$('tbody',{},rows)));
   return $('div',{class:'split'},$('div',{class:'left col'},filters,tbl),$('div',{class:'pane col',id:'pane'},sel?page(kind,sel):$('p',{class:'note'},'Пусто.')),sideEl());
 }

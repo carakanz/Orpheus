@@ -47,6 +47,12 @@ namespace Orpheus.Core.Movement
         public MeleeAction Melee;
 
         /// <summary>
+        /// Лук (E3-2, `02` 4.1): натяжение/отход, сила, ось; выстрел — флаг <see cref="BowAction.Fired"/>, его забирает
+        /// владелец кадра (такт — снаряд, предсказание — картинка). Шагается только покадрово, вход — <see cref="BowInput"/>.
+        /// </summary>
+        public BowAction Bow;
+
+        /// <summary>
         /// Рывок начат этим кадром (1-003, шаг 3): кадр, в котором нажатие уворота началось рывком.
         /// Хук отмен для 1-004 (замах/отход — <see cref="MeleeAction.CancelByDash"/> реализован) и 1-006 (натяжение):
         /// те карточки по этому флагу в своём кадре гасят замах/стрелу. Гасится в начале следующего кадра
@@ -91,6 +97,7 @@ namespace Orpheus.Core.Movement
             Dodge = default;
             Stamina = Stamina.Full();
             Melee = default;
+            Bow = default;
             DashStarted = false;
             KnockLeft = 0;
             KnockSpeedX10 = 0;
@@ -186,6 +193,14 @@ namespace Orpheus.Core.Movement
         /// Порядок фиксирован: уворот → шаг движения (фаза удара влияет на скорость) → шаг фазы удара → счётчики.
         /// </summary>
         public WorldPos StepFrame(in MapShape map, Input8 input, bool dodgePressed, bool attackPressed, ushort aimRaw, TileSolid solid)
+            => StepFrame(map, input, dodgePressed, attackPressed, aimRaw, 0, solid);
+
+        /// <summary>
+        /// Кадр 60 Гц с уворотом, мечом и луком (E3-2): <paramref name="bowInput"/> — биты <see cref="BowInput"/>
+        /// (лук в руках, ЛКМ, стрелы). Натяжение — бег 60 %; рывок сбрасывает натяжение, ЛКМ в кадре рывка не действует.
+        /// Фаза лука шагает после движения кадра (точка выстрела — позиция кадра), как фаза удара.
+        /// </summary>
+        public WorldPos StepFrame(in MapShape map, Input8 input, bool dodgePressed, bool attackPressed, ushort aimRaw, byte bowInput, TileSolid solid)
         {
             // Выносливость шагает до всех веток: и в беге, и в рывке, и в отбрасывании (2.2: реген прерывается
             // рывком, но не отбрасыванием; трата — только в ветке начала рывка ниже).
@@ -200,11 +215,15 @@ namespace Orpheus.Core.Movement
                 // упёрся в стену — остановка без урона: рывок коротается (приёмка 6.10 п. 5). Фаза удара при
                 // отбрасывании идёт (таймер не замирает), движение — задаёт отбрасывание.
                 StepMelee(attackPressed, aimRaw);
+                Bow.StepFrame(bowInput, aimRaw, Position.X, Position.Y);
                 Input8 kdir = KnockDirection;
-                int kwantX = (Carry.X + kdir.SpeedX10(KnockSpeedX10)) / MovementTick.SpeedScale;
-                int kwantY = (Carry.Y + kdir.SpeedY10(KnockSpeedX10)) / MovementTick.SpeedScale;
+                // C-024: отбрасывание замедляется тайлом под ногами, как бег (стр. 270) и рывок (стр. 278):
+                // в воде цель улетает короче, на траве — как раньше (множитель 256 ничего не меняет).
+                int knockX10 = TileSpeed.Scale(KnockSpeedX10, TileSpeed.At(map, Position, solid));
+                int kwantX = (Carry.X + kdir.SpeedX10(knockX10)) / MovementTick.SpeedScale;
+                int kwantY = (Carry.Y + kdir.SpeedY10(knockX10)) / MovementTick.SpeedScale;
                 WorldPos kfrom = Position;
-                Position = MovementTick.Tick(map, Position, Carry, kdir, KnockSpeedX10, solid, out Carry);
+                Position = MovementTick.Tick(map, Position, Carry, kdir, knockX10, solid, out Carry);
                 Int2 kmoved = Torus.Delta(map, kfrom, Position);
 
                 bool kstuckX = kwantX == 0 || kmoved.X != kwantX;
@@ -229,6 +248,7 @@ namespace Orpheus.Core.Movement
                     Dodge.Direction = (byte)(input.DirectionIndex + 1);
                     DashStarted = true;
                     Melee.CancelByDash(); // «Отмена действий» (`02` 2.2, 2.7 п. 3): из замаха — удар пропал, из отхода — засчитан
+                    Bow.CancelByDash(); // E3-2: натяжение сброшено, стрела цела
                     attack = false; // нажатие удара в кадре рывка не действует
                 }
                 else
@@ -252,6 +272,7 @@ namespace Orpheus.Core.Movement
                 // C-018: бег в воде/кусте медленнее — множитель тайла под ногами до шага.
                 Position = MovementTick.Tick(map, Position, Carry, input, TileSpeed.Scale(FrameSpeedX10(), TileSpeed.At(map, Position, solid)), solid, out Carry);
                 StepMelee(attack, aimRaw);
+                Bow.StepFrame(bowInput, aimRaw, Position.X, Position.Y);
                 return Position;
             }
 
@@ -279,6 +300,7 @@ namespace Orpheus.Core.Movement
             }
 
             StepMelee(attack, aimRaw);
+            Bow.StepFrame((byte)(bowInput & ~BowInput.Pressed), aimRaw, Position.X, Position.Y); // в рывке ЛКМ не действует (`02` 2.2)
             return Position;
         }
 
@@ -302,6 +324,11 @@ namespace Orpheus.Core.Movement
         {
             int v = UnitsPerTickX10 / MovementTick.FramesPerTick;
             int sx10 = Melee.SpeedX10;
+            if (Bow.Phase == BowAction.PhaseDraw)
+            {
+                sx10 = sx10 * BowAction.DrawSpeedX1000 / 1000; // E3-2: натяжение — 60 %
+            }
+
             return sx10 == 1000 ? v : v * sx10 / 1000;
         }
 

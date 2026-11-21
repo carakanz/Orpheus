@@ -433,6 +433,12 @@ namespace Orpheus.Core.Sim
                         RefundPlacement(i, req); // E2-11: предмет-постройка — обратно в ячейку (не влез — кучей у ног)
                     }
 
+                    // C-029: дверь поставлена поверх стены — стена (по предмету на её ячейку) возвращается в сумку ставящего.
+                    if (result == EditResult.Applied && ObjectId.IdOf(_edits[i].Edit.Obj) == ObjectId.Door && BuildCells.IsWall(_preObj[i]))
+                    {
+                        ReturnReplacedWall(i, req);
+                    }
+
                     // Добыча (1-010, E2-1): правка «снять природный объект» применена — материал падает кучей на тайл в том же такте.
                     // Двое копающих один тайл: вторая правка — Busy, добыча ровно одному.
                     if (result == EditResult.Applied && _edits[i].Edit.Obj == ObjectId.Empty)
@@ -552,6 +558,22 @@ namespace Orpheus.Core.Sim
             _preHasBuild[i] = chunkData is not null && chunkData.TryGetBuild(index, out _preBuild[i]);
             _preResult[i] = EditResult.Applied;
             _costPaid[i] = 0;
+
+            // C-040 (хвост C-029): дверь поверх стены — предметы стены возвращаются ставящему (ReturnReplacedWall),
+            // потому в такте нужен заявитель: живой и в радиусе постановки (проверка в такте, как ApplyChestOp).
+            // Заявителя нет (правка процесса мира), труп или далеко — отказ с кодом: стена цела, ничего не списано,
+            // масса мира не меняется (раньше стена сносилась без возврата). Ремонт стены (obj = стена) не трогаем:
+            // там стена остаётся стеной, возврата предметов нет.
+            if (ObjectId.IdOf(e.Edit.Obj) == ObjectId.Door && BuildCells.IsWall(_preObj[i]))
+            {
+                int s = SlotOf(e.Requester);
+                if (s < 0 || !_entities[s].Alive
+                    || !EditRules.InPlaceRadius(_shape, _entities[s].Mover.Position, TileOf(e.Chunk, index)))
+                {
+                    _preResult[i] = EditResult.NoRequester; // в пачку не идёт; в пачке этот случай даёт ReturnReplacedWall (req > 0)
+                    return;
+                }
+            }
 
             if (e.Requester <= 0)
             {

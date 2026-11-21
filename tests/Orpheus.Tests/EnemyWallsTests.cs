@@ -214,6 +214,63 @@ namespace Orpheus.Tests
                 $"враг вошёл в проём на такте {entered} (снятие двери на {removedTick})");
         }
 
+        /// <summary>
+        /// 9.3 «изменился тайл — пересчёт сразу» в погоне с кэшем (усиление П пачки 3, P-006): путь рогая
+        /// к игроку в кармане идёт в обход стен через брешь с севера (буфер Found); игрок снимает дверь
+        /// в проёме — рогай обязан запросить A* в такт правки, не ждать периодического пересчёта (2 с).
+        /// Мутация «revised = false» (Simulation.Enemies.cs, 9.3) красит тест: ни одного поиска за 3 такта.
+        /// </summary>
+        [Fact]
+        public void W13_Chase_WithCachedPath_Repath_On_Edit_Tick()
+        {
+            var sim = new Simulation(Flat(1304));
+            int ch = sim.AddEntity(At(20, 22)); // в глубине кармана
+            for (int x = 19; x <= 23; x++)
+            {
+                for (int y = 21; y <= 23; y++)
+                {
+                    if (x == 23 && y == 22)
+                    {
+                        Door(sim, x, y); // закрытая дверь в проёме (восток)
+                    }
+                    else if (x == 21 && y == 21)
+                    {
+                        // брешь в северной стене: единственный обходной путь входит с севера
+                    }
+                    else if (x == 19 || x == 23 || y == 21 || y == 23)
+                    {
+                        Wall(sim, x, y); // периметр; wnętrze — ряд y = 22
+                    }
+                }
+            }
+
+            sim.Step();
+            int rogue = sim.AddMeleeRogue(At(25, 22)); // в 3 тайлах к востоку от проёма
+
+            int onNorthRow = -1;
+            for (int i = 0; i < 100; i++)
+            {
+                sim.Step();
+                if (TileOf(sim, rogue).Y == 20)
+                {
+                    onNorthRow = i;
+                    break;
+                }
+            }
+            Assert.True(onNorthRow >= 0, "rogue не вышел на северную строку (обходной путь не начался)");
+            EnemyBrain b = sim.GetEntity(rogue).Brain;
+            Assert.Equal(EnemyState.Chase, b.State);
+            Assert.True(b.PathStamp != 0, "нет кэшированного пути (буфер не Found)");
+            Assert.Equal(20, TileOf(sim, rogue).Y); // на северной строке: идёт в обход по кэшу
+
+            // Снятие двери (правка мира) — «изменился тайл» (9.3): новый поиск A* в такт правки.
+            long searchesBefore = sim.PathSearches;
+            sim.RequestEdit(new TileCoord(23, 22), FloorId.Grass, ObjectId.Empty);
+            Steps(sim, 3);
+            Assert.True(sim.PathSearches >= searchesBefore + 1,
+                $"нет пересчёта пути в такт правки (9.3): поисков {searchesBefore} -> {sim.PathSearches}");
+        }
+
         // ------------------------------------------------ з.2: «карман» стоит не дороже одного A*
 
         /// <summary>

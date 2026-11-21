@@ -29,6 +29,7 @@ namespace Orpheus.Tests
     /// бинд на все адреса вызывает окно брандмауэра Windows (ручная проверка Автора). Свои процессы снимаются в
     /// <c>finally</c> по номеру — только свои.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class HostProcessTests : IDisposable
     {
         private const string OpenAddress = "127.0.0.2";
@@ -75,7 +76,7 @@ namespace Orpheus.Tests
         [Fact]
         public void D07_S2_13_9_Launcher_SingleThenOpen_FriendJoins_NoRestart()
         {
-            var launcher = new PcServerLauncher(ServerExe);
+            var launcher = new PcServerLauncher(ServerExe, hiddenDesktop: true);
             var launch = NewLaunch(ServerMode.Single, grace: 60);
             IServerInstance server = launcher.Start(launch);
             _serverPids.Add(server.Endpoint.ProcessId);
@@ -83,8 +84,28 @@ namespace Orpheus.Tests
             NetClient? friend = null;
             try
             {
-                _out.WriteLine($"сервер готов за {server.ReadySeconds:0.000} с (1024², создание мира), порт {server.Endpoint.Port}");
-                Assert.True(server.ReadySeconds <= 5, $"старт {server.ReadySeconds:0.00} с > 5 с (1.9 п. 4)");
+                _out.WriteLine($"лаунчер: сервер готов за {server.ReadySeconds:0.000} с wall-clock (создание процесса + загрузка рантайма), порт {server.Endpoint.Port}");
+                // P-003 (6 падений в `-All`): правило 1.9 п. 4 — секунды ОТ ЗАПУСКА ПРОЦЕССА до готовности, их
+                // меряет сам сервер (лог «готов: принимаю подключения», поле sinceProcessStartSec). Wall-clock
+                // лаунчера включает создание процесса ОС и планировщик — под `-All` это шум, он печатается для
+                // справки; проверка идёт по числу самого процесса, порог 5 с не ослаблен.
+                double readyInProc = -1;
+                SpinWait.SpinUntil(() =>
+                {
+                    foreach (JsonElement e in ReadLog())
+                    {
+                        if (Msg(e) == "готов: принимаю подключения")
+                        {
+                            readyInProc = e.GetProperty("data").GetProperty("sinceProcessStartSec").GetDouble();
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }, 10_000);
+                Assert.True(readyInProc >= 0, "в логе сервера нет строки готовности с sinceProcessStartSec");
+                _out.WriteLine($"сервер: готов за {readyInProc:0.000} с от запуска процесса (1024², создание мира)");
+                Assert.True(readyInProc <= 5, $"старт {readyInProc:0.00} с > 5 с от запуска процесса (1.9 п. 4)");
                 AssertListening(server.Endpoint.Port, a => IPAddress.IsLoopback(a), "до «Открыть для друзей» — только петля");
                 using (Process sp = Process.GetProcessById(server.Endpoint.ProcessId))
                 {
@@ -469,14 +490,15 @@ namespace Orpheus.Tests
             }
         }
 
-        /// <summary>Дочерний процесс теста: строки stdout в очередь; снимается только он сам (не дерево).</summary>
+        /// <summary>Дочерний процесс теста: строки stdout в очередь; снимается только он сам (не дерево).
+        /// C-022: на невидимом рабочем столе (<see cref="HiddenProcess"/>), его сервер (<c>--launch</c>) — там же.</summary>
         private sealed class Child : IDisposable
         {
-            private readonly Process _p;
+            private readonly HiddenProcess _p;
             private readonly BlockingCollection<string> _lines = new BlockingCollection<string>();
             private readonly List<string> _seen = new List<string>();
 
-            private Child(Process p)
+            private Child(HiddenProcess p)
             {
                 _p = p;
             }
@@ -485,41 +507,22 @@ namespace Orpheus.Tests
 
             public static Child Start(string exe, IEnumerable<string> args)
             {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = exe,
-                    WorkingDirectory = AppContext.BaseDirectory,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = new UTF8Encoding(false),
-                    StandardErrorEncoding = new UTF8Encoding(false),
-                };
-                foreach (string a in args)
-                {
-                    psi.ArgumentList.Add(a);
-                }
-
-                var p = new Process { StartInfo = psi };
-                var c = new Child(p);
-                p.OutputDataReceived += (_, e) =>
-                {
-                    if (e.Data != null)
+                var c = new Child(HiddenProcess.Start(exe, args, AppContext.BaseDirectory));
+                c._p.BeginReadLines(
+                    line =>
                     {
-                        c._lines.Add(e.Data);
-                    }
-                };
-                p.ErrorDataReceived += (_, e) =>
-                {
-                    if (e.Data != null)
+                        if (line != null)
+                        {
+                            c._lines.Add(line);
+                        }
+                    },
+                    line =>
                     {
-                        c._lines.Add("stderr: " + e.Data);
-                    }
-                };
-                p.Start();
-                p.BeginOutputReadLine();
-                p.BeginErrorReadLine();
+                        if (line != null)
+                        {
+                            c._lines.Add("stderr: " + line);
+                        }
+                    });
                 return c;
             }
 

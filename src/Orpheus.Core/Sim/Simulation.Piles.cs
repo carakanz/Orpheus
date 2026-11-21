@@ -44,6 +44,37 @@ namespace Orpheus.Core.Sim
 
         private const int TicksPerSecond = 30;
 
+        /// <summary>
+        /// C-031 (`BRIEF` 11n): в мире не больше 10 000 непропавших воткнувшихся стрел — новая сверх предела убирает самую старую
+        /// (меньший номер). Тесты уменьшают предел через <see cref="StuckArrowLimit"/>.
+        /// </summary>
+        public const int MaxStuckArrows = 10_000;
+
+        /// <summary>
+        /// Пол-экрана самого дальнего обзора по X, тайлов: камера 96 × 54 т (`GameBoot.FarViewTiles`, 16:9) плюс запас на
+        /// другие пропорции экрана и сдвиг камеры — 52 × 32 *(прикидка C-031)*. Стрелу старше 10 мин в этом окне вокруг любого
+        /// персонажа в мире не убираем: «в границах экрана никого нет» (`BRIEF` 11n).
+        /// </summary>
+        public const int ScreenHalfTilesX = 52;
+
+        /// <summary>Пол-экрана по Y, тайлов (см. <see cref="ScreenHalfTilesX"/>).</summary>
+        public const int ScreenHalfTilesY = 32;
+
+        private int _stuckArrowLimit = MaxStuckArrows;
+        private int _stuckArrowCount;
+        private int[] _pickers = new int[16];
+        private int _pickerCount;
+
+        /// <summary>Предел воткнувшихся стрел (по умолчанию <see cref="MaxStuckArrows"/>; меньше — только тесты).</summary>
+        internal int StuckArrowLimit
+        {
+            get => _stuckArrowLimit;
+            set => _stuckArrowLimit = Math.Max(1, value);
+        }
+
+        /// <summary>Воткнувшихся стрел в мире (C-031).</summary>
+        public int StuckArrowCount => _stuckArrowCount;
+
         private struct BagRequest
         {
             public int EntityId;
@@ -72,9 +103,10 @@ namespace Orpheus.Core.Sim
         /// <summary>
         /// Положить кучу на землю (тесты, выдача вне такта): позиция сдвигается с непроходимого тайла на соседний,
         /// одинаковая куча рядом принимает добавку. Возвращает номер кучи (новой или принявшей); 0 — нечего класть.
+        /// <paramref name="owner"/> (E3-3b) — номер игрока-владельца личной капли; 0 — общая.
         /// </summary>
-        public int AddPile(byte item, int count, WorldPos position, int pickupDelayTicks = 0) =>
-            SpawnPile(Tick, item, count, position, pickupDelayTicks);
+        public int AddPile(byte item, int count, WorldPos position, int pickupDelayTicks = 0, int owner = 0) =>
+            SpawnPile(Tick, item, count, position, pickupDelayTicks, owner: owner);
 
         /// <summary>Загрузка куч из сохранения: только до первой кучи; строго по возрастанию номера.</summary>
         public void RestorePiles(ReadOnlySpan<GroundPile> piles, int nextPileId)
@@ -87,7 +119,7 @@ namespace Orpheus.Core.Sim
             int maxId = 0;
             for (int i = 0; i < piles.Length; i++)
             {
-                if (piles[i].Id <= maxId || !ItemTable.Exists(piles[i].Item) || piles[i].Count == 0)
+                if (piles[i].Id <= maxId || !ItemTable.Exists(piles[i].Item) || piles[i].Count == 0 || piles[i].Kind > GroundPile.MaxKind)
                 {
                     throw new ArgumentException($"Куча № {i}: {piles[i]} — номер не растёт или предмет/количество неверны.", nameof(piles));
                 }
@@ -103,6 +135,14 @@ namespace Orpheus.Core.Sim
             piles.CopyTo(_piles);
             _pileCount = piles.Length;
             _nextPileId = Math.Max(nextPileId, maxId + 1);
+            _stuckArrowCount = 0;
+            for (int i = 0; i < piles.Length; i++)
+            {
+                if (piles[i].IsStuckArrow)
+                {
+                    _stuckArrowCount++;
+                }
+            }
         }
 
         /// <summary>
@@ -147,18 +187,24 @@ namespace Orpheus.Core.Sim
             }
 
             // Истечение и подбор одним проходом; список сжимается на месте, порядок по номеру сохраняется.
+            CollectPickers();
             int kept = 0;
             for (int i = 0; i < _pileCount; i++)
             {
                 GroundPile p = _piles[i];
-                if (p.ExpireTick <= tick)
+                if (p.ExpireTick <= tick && (!p.IsStuckArrow || !OnAnyScreen(p.Position)))
                 {
+                    if (p.IsStuckArrow)
+                    {
+                        _stuckArrowCount--; // C-031: 10 мин с выстрела и ни у кого на экране
+                    }
+
                     continue;
                 }
 
                 if (p.PickupTick <= tick)
                 {
-                    int taker = NearestPicker(p.Position, p.Item);
+                    int taker = NearestPicker(p.Position, p.Item, p.Owner);
                     if (taker >= 0)
                     {
                         int put = _entities[taker].Inv.Add(p.Item, p.Count);
@@ -175,24 +221,135 @@ namespace Orpheus.Core.Sim
                 {
                     _piles[kept++] = p;
                 }
+                else if (p.IsStuckArrow)
+                {
+                    _stuckArrowCount--; // подобрали — стрела в сумке
+                }
             }
 
             _pileCount = kept;
         }
 
+        /// <summary>Персонажи в мире по месту в списке сущностей — кандидаты подбора и «экраны» (один раз за такт).</summary>
+        private void CollectPickers()
+        {
+            _pickerCount = 0;
+            for (int i = 0; i < _entityCount; i++)
+            {
+                if (!_entities[i].IsCharacter)
+                {
+                    continue;
+                }
+
+                if (_pickerCount == _pickers.Length)
+                {
+                    Array.Resize(ref _pickers, _pickers.Length * 2);
+                }
+
+                _pickers[_pickerCount++] = i;
+            }
+        }
+
+        /// <summary>
+        /// Точка в окне экрана (<see cref="ScreenHalfTilesX"/> × <see cref="ScreenHalfTilesY"/>) вокруг какого-нибудь персонажа
+        /// в мире (живого или мёртвого — камера стоит над телом), по тору. Только после <see cref="CollectPickers"/>.
+        /// </summary>
+        private bool OnAnyScreen(WorldPos pos)
+        {
+            const int hx = ScreenHalfTilesX * Torus.SubTilesPerTile, hy = ScreenHalfTilesY * Torus.SubTilesPerTile;
+            for (int k = 0; k < _pickerCount; k++)
+            {
+                Int2 d = Torus.Delta(_shape, _entities[_pickers[k]].Mover.Position, pos);
+                if (Math.Abs(d.X) <= hx && Math.Abs(d.Y) <= hy)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Воткнувшаяся стрела (C-031, `BRIEF` 11n «стрела не должна около себя оставлять предмет»): сама — предмет на земле
+        /// ровно в точке остановки (не сдвигается на соседний тайл, не сливается), вид <paramref name="kind"/>, ось
+        /// <paramref name="aim"/>. Срок — 10 мин от такта выстрела <paramref name="shotTick"/>, дальше пропадает, только когда
+        /// её нет ни на одном экране. Сверх <see cref="StuckArrowLimit"/> пропадает самая старая. В воде (и на непроходимом
+        /// полу) стрела тонет — 0. Возвращает номер.
+        /// </summary>
+        private int SpawnStuckArrow(long tick, long shotTick, byte item, WorldPos at, ushort aim, byte kind)
+        {
+            WorldPos pos = Torus.Wrap(_shape, at);
+            byte floor = _world.GetFloor(Torus.TileOf(_shape, pos));
+            if (!ItemTable.Exists(item) || !FloorId.IsPassable(floor)) // вода (C-018: проходима только замедлением), лава, пустота
+            {
+                return 0;
+            }
+
+            if (_stuckArrowCount >= _stuckArrowLimit)
+            {
+                EvictOldestStuckArrow();
+            }
+
+            if (_pileCount == _piles.Length)
+            {
+                Array.Resize(ref _piles, _piles.Length * 2);
+            }
+
+            int id = _nextPileId++;
+            _piles[_pileCount++] = new GroundPile
+            {
+                Id = id,
+                Item = item,
+                Count = 1,
+                Position = pos,
+                ExpireTick = shotTick + PileLifetimeTicks,
+                PickupTick = tick + LootPickupDelayTicks,
+                Kind = kind,
+                Aim = aim,
+            };
+            _stuckArrowCount++;
+            return id;
+        }
+
+        /// <summary>Только для тестов (C-031): воткнуть стрелу без выстрела — как <see cref="SpawnStuckArrow"/> в этом такте.</summary>
+        internal int AddStuckArrowForTests(WorldPos at, ushort aim, byte kind, long shotTick) =>
+            SpawnStuckArrow(Tick, shotTick, Items.Arrows, at, aim, kind);
+
+        /// <summary>Убрать самую старую воткнувшуюся стрелу (меньший номер — первая в списке); порядок остальных цел.</summary>
+        private void EvictOldestStuckArrow()
+        {
+            for (int i = 0; i < _pileCount; i++)
+            {
+                if (_piles[i].IsStuckArrow)
+                {
+                    Array.Copy(_piles, i + 1, _piles, i, _pileCount - i - 1);
+                    _pileCount--;
+                    _stuckArrowCount--;
+                    return;
+                }
+            }
+        }
+
         /// <summary>
         /// Ближайший живой персонаж в радиусе подбора, у которого есть место под предмет; равная дальность — меньший
-        /// номер сущности (первый в списке). Нет такого — −1.
+        /// номер сущности (первый в списке). Нет такого — −1. Личная капля (E3-3b, <paramref name="owner"/> ≠ 0) —
+        /// только её владелец.
         /// </summary>
-        private int NearestPicker(WorldPos pos, byte item)
+        private int NearestPicker(WorldPos pos, byte item, int owner)
         {
             int best = -1;
             long bestD2 = (long)PickupRadiusUnits * PickupRadiusUnits + 1;
-            for (int i = 0; i < _entityCount; i++)
+            for (int k = 0; k < _pickerCount; k++)
             {
-                if (!_entities[i].IsCharacter || !_entities[i].Alive)
+                int i = _pickers[k];
+                if (!_entities[i].Alive)
                 {
                     continue;
+                }
+
+                if (owner != 0 && _entities[i].Id != owner)
+                {
+                    continue; // E3-3b: чужую личную каплю не подбираем (`06` 9)
                 }
 
                 long d2 = Torus.Dist2(_shape, _entities[i].Mover.Position, pos);
@@ -229,13 +386,35 @@ namespace Orpheus.Core.Sim
             switch (r.Op)
             {
                 case BagOp.Move:
-                    inv.Move(r.From, r.To);
+                    if (IsEquipCell(r.From) || IsEquipCell(r.To))
+                    {
+                        ApplyEquipMove(tick, slot, r); // E3-6: наделить/снять (обмен с сумкой)
+                    }
+                    else
+                    {
+                        inv.Move(r.From, r.To);
+                    }
+
                     break;
                 case BagOp.Split:
                     inv.Split(r.From, r.To, r.Count);
                     break;
                 case BagOp.Drop:
                     {
+                        if (IsEquipCell(r.From))
+                        {
+                            // E3-6: сброс надетого на землю (стопка 1 — вся штука).
+                            byte worn = GetEquip(_entities[slot], EquipSlotOfCell(r.From));
+                            if (worn != Items.None)
+                            {
+                                SetEquip(ref _entities[slot], EquipSlotOfCell(r.From), Items.None);
+                                RecalcGear(ref _entities[slot]);
+                                SpawnPile(tick, worn, 1, _entities[slot].Mover.Position, DropPickupDelayTicks);
+                            }
+
+                            break;
+                        }
+
                         byte item = inv.ItemAt(r.From);
                         int n = inv.TakeFrom(r.From, r.Count == 0 ? int.MaxValue : r.Count);
                         if (n > 0)
@@ -258,8 +437,9 @@ namespace Orpheus.Core.Sim
             }
         }
 
-        /// <summary>Добыча и возврат материалов — кучей на тайле объекта с небольшим разбросом (E2-1).</summary>
-        private void DropOnTile(long tick, TileCoord tile, byte item, int count)
+        /// <summary>Добыча и возврат материалов — кучей на тайле объекта с небольшим разбросом (E2-1).
+        /// <paramref name="owner"/> (E3-3b) — владелец личной капли; 0 — общая.</summary>
+        private void DropOnTile(long tick, TileCoord tile, byte item, int count, int owner = 0)
         {
             if (count <= 0 || !ItemTable.Exists(item))
             {
@@ -272,10 +452,10 @@ namespace Orpheus.Core.Sim
             int dy = (int)((h >> 20) % (ulong)span) - PileScatterUnits;
             WorldPos center = Torus.CornerOf(tile);
             var pos = new WorldPos(center.X + Torus.SubTilesPerTile / 2 + dx, center.Y + Torus.SubTilesPerTile / 2 + dy);
-            SpawnPile(tick, item, count, pos, LootPickupDelayTicks);
+            SpawnPile(tick, item, count, pos, LootPickupDelayTicks, owner: owner);
         }
 
-        private int SpawnPile(long tick, byte item, int count, WorldPos position, int pickupDelayTicks, bool forever = false)
+        private int SpawnPile(long tick, byte item, int count, WorldPos position, int pickupDelayTicks, bool forever = false, int owner = 0)
         {
             if (count <= 0 || !ItemTable.Exists(item))
             {
@@ -289,10 +469,11 @@ namespace Orpheus.Core.Sim
             while (count > 0)
             {
                 // Слияние: первая по номеру одинаковая куча в пределах тайла, пока в ней есть место.
+                // E3-3b: личная капля сливается только со своей (общая — только с общей).
                 int into = -1;
                 for (int i = 0; i < _pileCount; i++)
                 {
-                    if (_piles[i].Item != item || _piles[i].Count >= PileMaxCount)
+                    if (_piles[i].Item != item || _piles[i].Count >= PileMaxCount || _piles[i].IsStuckArrow || _piles[i].Owner != owner)
                     {
                         continue;
                     }
@@ -313,7 +494,7 @@ namespace Orpheus.Core.Sim
                     }
 
                     into = _pileCount++;
-                    _piles[into] = new GroundPile { Id = _nextPileId++, Item = item, Position = pos };
+                    _piles[into] = new GroundPile { Id = _nextPileId++, Item = item, Position = pos, Owner = owner };
                 }
 
                 ref GroundPile p = ref _piles[into];

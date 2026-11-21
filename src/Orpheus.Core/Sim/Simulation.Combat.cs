@@ -54,7 +54,8 @@ namespace Orpheus.Core.Sim
         /// События «урон» и «смерть» — в буфер такта (0 нет: вне такта, сервер читает по своему счёту).
         /// Возвращает урон после брони.
         /// </summary>
-        public int ApplyStrike(int targetId, int attackerId, int rawDamage, WorldPos knockOrigin = default, bool knockback = false, byte damageKind = 0)
+        public int ApplyStrike(int targetId, int attackerId, int rawDamage, WorldPos knockOrigin = default, bool knockback = false, byte damageKind = 0,
+            bool strong = false)
         {
             int slot = SlotOf(targetId);
             if (slot < 0)
@@ -122,7 +123,7 @@ namespace Orpheus.Core.Sim
             }
 
             AddEvent(new SimEvent(SimEventKind.Damage, Tick, default, -1, EditResult.Applied, 0,
-                requester: attackerId, victim: target.Id, damage: damage, damageType: damageKind));
+                requester: attackerId, tag: strong ? DamageTagStrong : 0, victim: target.Id, damage: damage, damageType: damageKind));
 
             if (target.Health <= 0)
             {
@@ -133,6 +134,11 @@ namespace Orpheus.Core.Sim
                 target.AttackImmune = 0;
                 target.AttackTarget = -1;
                 target.Input = InputFrame.None;
+                if (target.Kind == SimEntity.KindEnemy && target.Brain.Archetype != EnemyArchetype.None)
+                {
+                    SpawnEnemyDrop(ref target); // лут у ног (E3-3b, «06» 1.6): таблица по архетипу, личная капля убийце
+                }
+
                 AddEvent(new SimEvent(SimEventKind.Death, Tick, default, -1, EditResult.Applied, 0,
                     requester: attackerId, victim: target.Id, damage: damage, damageType: damageKind));
                 return damage;
@@ -235,7 +241,8 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
-            int damage = ApplyStrike(_entities[target].Id, e.Id, SwordStrike.DamageFor(m.Index), origin, knockback: true);
+            int damage = ApplyStrike(_entities[target].Id, e.Id, SwordStrike.DamageFor(m.Index), origin, knockback: true,
+                strong: m.Index == MeleeAction.SeriesSize - 1); // E3-1: добивающий удар серии — «сильный» (крупная цифра)
             if (damage > 0)
             {
                 // Третий удар отбрасывает на 2 тайла (`02` 3.2): скорость ставит ApplyStrike (база ÷ масса), множитель удара — здесь.
@@ -389,24 +396,21 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Тайл прерывает линию удара (`02` 3.4): как <see cref="IsBlocked"/> для ходьбы, но
-        /// деревянный забор — преграда для ходьбы, для удара нет (забор бьётся, приёмка 1-004).
+        /// Тайл прерывает линию удара (`02` 3.4): как <see cref="IsBlocked"/> для ходьбы, но деревянный забор — преграда для
+        /// ходьбы, для удара нет (забор бьётся, приёмка 1-004); глубокая вода без объекта — тоже (C-027: только не ходят, `02` 4.2).
         /// </summary>
         private bool StrikeTileBlocked(TileCoord tile)
         {
-            if (IsBlocked(_shape, tile))
+            if (!IsBlocked(_shape, tile))
             {
-                Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_shape, tile));
-                if (chunk != null &&
-                    ObjectId.IdOf(chunk.GetObject(Chunk.IndexOf(tile.X, tile.Y))) == ObjectId.WoodFence)
-                {
-                    return false; // забор — линия удара проходит (`02` 3.1:157)
-                }
-
-                return true;
+                return false;
             }
 
-            return false;
+            Chunk? chunk = _world.FindChunk(Torus.ChunkOf(_shape, tile));
+            int index = Chunk.IndexOf(tile.X, tile.Y);
+            ushort obj = chunk == null ? ObjectId.Empty : chunk.GetObject(index);
+            return chunk == null || (ObjectId.IdOf(obj) != ObjectId.WoodFence // забор — линия удара проходит (`02` 3.1:157)
+                && !(obj == ObjectId.Empty && chunk.GetFloor(index) == FloorId.DeepWater && BuildLayers.OverhangAt(_world, tile, solidOnly: true) == 0));
         }
 
         /// <summary>Точка <paramref name="p"/> лежит в твёрдой ячейке 0,5 × 0,5 тайла <paramref name="tile"/> (E2-12, <see cref="SolidCells"/>).</summary>
@@ -425,37 +429,20 @@ namespace Orpheus.Core.Sim
         }
 
         /// <summary>
-        /// Линия удара чиста (`02` 3.1, 3.4): отрезок «начало удара — центр цели» с шагом
-        /// <see cref="StrikeLosStepUnits"/> unit не пересекает непроходимых тайлов (<see cref="IsBlocked"/>:
-        /// стена, скала, дерево, гранит, закрытая дверь/ворота); тайл атакующего пропускается,
-        /// только если сам проходим (открытая дверь, забор), — стоит врагу на ЗАКРЫТУЮ дверь (закрылась
-        /// под ним, C-001), она перекрывает линию: цель за дверью не под ударом; забор проходим —
-        /// линию не прерывает. Шов тора: разность — <see cref="Torus.Delta"/>.
+        /// Линия удара чиста (`02` 3.1, 3.4): отрезок «начало удара — центр цели» обходом ячеек 0,5
+        /// (<see cref="FirstBlockedCellStep"/>, шаг ≤ <see cref="StrikeLosStepUnits"/> unit, при диагональном
+        /// переходе проверяются обе промежуточные ячейки — стык двух стен углом меч не проходит, как после
+        /// фикса стрелы E3-2; C-023). Твёрдая ячейка — <see cref="CellSolidForStrike"/>: стена, скала, дерево,
+        /// гранит, закрытая дверь/ворота; тайл атакующего сам проходим (открытая дверь, забор) — не преграда;
+        /// стоит врагу на ЗАКРЫТУЮ дверь (закрылась под ним, C-001), она перекрывает линию. endpoints (старт
+        /// и центр цели) не проверяются. Шов тора: разность — <see cref="Torus.Delta"/>.
         /// </summary>
         private bool StrikeLineClear(WorldPos from, WorldPos to, TileCoord own)
         {
             Int2 d = Torus.Delta(_shape, from, to);
-            int steps = (Math.Abs(d.X) + Math.Abs(d.Y) + StrikeLosStepUnits - 1) / StrikeLosStepUnits;
-            for (int i = 1; i < steps; i++)
-            {
-                WorldPos p = new WorldPos(
-                    from.X + (int)((long)d.X * i / steps),
-                    from.Y + (int)((long)d.Y * i / steps));
-                TileCoord tile = Torus.TileOf(_shape, p);
-                if (tile == own && !StrikeTileBlocked(own))
-                {
-                    continue;
-                }
-
-                // E2-12: стена в полтайла — точка гасит удар, только если попала в твёрдую ячейку тайла (у целых тайлов — всегда).
-                if (StrikeTileBlocked(tile) && StrikeCellSolid(tile, p))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            int span = Math.Max(Math.Abs(d.X), Math.Abs(d.Y));
+            int n = (span + StrikeLosStepUnits - 1) / StrikeLosStepUnits; // шаг ≤ 64 unit: ячейку 0,5 по оси не перепрыгнуть
+            return n <= 1 || FirstBlockedCellStep(from, d, n, n - 1, withStart: false) > n - 1;
         }
-
     }
 }

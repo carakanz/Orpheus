@@ -7,9 +7,13 @@ namespace Orpheus.WorldGen
     /// <summary>
     /// Пол и объекты тайлов (карточка E1-2, план 1.2–1.3; вторая половина этапа 11) — после воды, троп и обрывов.
     /// <list type="bullet">
-    /// <item><b>Земля.</b> Луг — трава; пятна сухой травы (верхние <see cref="DryPerMille"/> ‰ шума пятен, ячейки 32, 16) и
-    /// земли (нижние <see cref="DirtPerMille"/> ‰). Лес — подстилка, на полянах — трава. Горы и пещеры — камень, в горах
-    /// пятна земли. Тропы и проходы в обрывах — земля. Берег (песок) и вода положены раньше.</item>
+    /// <item><b>Земля.</b> Луг — трава; пятна сухой травы (верхние <see cref="DryPerMille"/> ‰ шума пятен, ячейки 32, 16).
+    /// C-027 (v9): пятен земли на лугу и троп больше нет (слово Автора 17.11 «коричневые линии… смотрятся стрёмно») — вместо них
+    /// пятна растений рисует клиент (`worldview`, микробиомы). Лес — подстилка своего вида (<see cref="ForestKind"/>), на полянах —
+    /// трава. Горы и пещеры — камень, в горах пятна земли. Проходы в обрывах — пол биома. Берег (песок) и вода положены раньше.</item>
+    /// <item><b>Виды леса</b> (C-027): дубрава — <see cref="FloorId.ForestFloor"/>; сосновый бор (высоко) —
+    /// <see cref="FloorId.PineFloor"/>, реже; тёмный ельник (влажно) — <see cref="FloorId.SpruceFloor"/>, гуще. Зона — по шуму
+    /// «влажности» (ячейки 256, 128, 64) и высоте рельефа; доли — по гистограммам (предварительно).</item>
     /// <item><b>Лес.</b> Плотность деревьев тайла = <see cref="ForestCorePerMille"/> × опушка × поляна: опушка редеет на
     /// <see cref="EdgeTiles"/> тайлов от края леса (и от берега), поляны — верхние <see cref="GladePerMille"/> ‰ шума полян
     /// (ячейки 64, 32) с редеющей каймой, на тропах деревьев нет. Дерево стоит, если «ранг» тайла в шуме куртин
@@ -28,6 +32,9 @@ namespace Orpheus.WorldGen
         public const int FieldClump = 4;
         public const int FieldFineMass = 5;
 
+        /// <summary>C-027: поле «влажности» для вида леса.</summary>
+        public const int FieldDamp = 6;
+
         /// <summary>Потоки хэшей тайла (номер «x» в <see cref="SplitMix64.Hash"/> зерна этапа).</summary>
         private const int StreamJitter = 101;
         private const int StreamGroup = 110;
@@ -36,6 +43,29 @@ namespace Orpheus.WorldGen
         public static readonly int[] CellsPatch = { 32, 16, 8 };
         public static readonly int[] CellsClump = { 8, 4 };
         public static readonly int[] CellsFineMass = { 16, 8 };
+        public static readonly int[] CellsDamp = { 256, 128, 64 };
+
+        /// <summary>Вид леса (C-027): пол и плотность деревьев. Числа предварительные.</summary>
+        public enum ForestKind : byte
+        {
+            /// <summary>Дубрава: подстилка <see cref="FloorId.ForestFloor"/>, плотность <see cref="ForestCorePerMille"/>.</summary>
+            Oak = 0,
+
+            /// <summary>Сосновый бор: рыжая хвоя <see cref="FloorId.PineFloor"/>, светлее и реже (<see cref="PineCorePerMille"/>).</summary>
+            Pine = 1,
+
+            /// <summary>Тёмный ельник: мох <see cref="FloorId.SpruceFloor"/>, гуще (<see cref="SpruceCorePerMille"/>).</summary>
+            Spruce = 2,
+        }
+
+        /// <summary>Ельник — самые влажные ‰ тайлов леса (поле <see cref="FieldDamp"/>).</summary>
+        public const int SprucePerMille = 300;
+
+        /// <summary>Бор — самые высокие ‰ тайлов леса (рельеф), если не ельник.</summary>
+        public const int PinePerMille = 400;
+
+        public const int PineCorePerMille = 470;
+        public const int SpruceCorePerMille = 700;
 
         /// <summary>Плотность деревьев в глубине леса, ‰ тайлов.</summary>
         public const int ForestCorePerMille = 600;
@@ -57,7 +87,6 @@ namespace Orpheus.WorldGen
         /// <summary>Сухая трава — доля тайлов луга, ‰; земля пятнами — луг и горы.</summary>
         public const int DryPerMille = 150;
 
-        public const int DirtPerMille = 30;
         public const int MountainDirtPerMille = 80;
 
         public static void Run(TileWorld t)
@@ -71,7 +100,10 @@ namespace Orpheus.WorldGen
             FieldNoise clump = Field(w, seed, FieldClump, CellsClump);
             FieldNoise massCoarse = TileStage.CreateRockMass(w, seed);
             FieldNoise massFine = Field(w, seed, FieldFineMass, CellsFineMass);
+            ushort[] damp = GridField.Upsample(Field(w, seed, FieldDamp, CellsDamp), w);
             byte[] edge = ForestEdge(t);
+            var dampHist = new int[LatticeNoise.One];
+            var highHist = new int[LatticeNoise.One];
 
             // Проход 1: шумы на тайл и гистограммы по биому.
             var value = new ushort[n]; // лес — шум куртин; биом с массой — шум массы
@@ -98,6 +130,8 @@ namespace Orpheus.WorldGen
                         value[i] = (ushort)v;
                         (hist[b] ??= new int[LatticeNoise.One])[v]++;
                         gladeHist[glade[i]]++;
+                        dampHist[damp[i]]++;
+                        highHist[t.Relief.HeightAt(x, y)]++;
                     }
                     else if (rule.RockSharePercent > 0)
                     {
@@ -115,6 +149,8 @@ namespace Orpheus.WorldGen
             var dirtBelow = new int[Biome.Count];
             ushort[]? rank = null; // ранг значения шума куртин среди тайлов леса, ‰
             int gladeFrom = int.MaxValue;
+            int spruceFrom = int.MaxValue;
+            int pineFrom = int.MaxValue;
             for (int b = 0; b < Biome.Count; b++)
             {
                 rockFrom[b] = int.MaxValue;
@@ -128,7 +164,6 @@ namespace Orpheus.WorldGen
                     if (b == Biome.Meadow)
                     {
                         dryFrom[b] = TileStage.Threshold(patchHist[b]!, total * DryPerMille / 1000);
-                        dirtBelow[b] = GridField.QuantileBelow(patchHist[b]!, total * DirtPerMille / 1000);
                     }
                     else if (b == Biome.Mountain)
                     {
@@ -153,6 +188,8 @@ namespace Orpheus.WorldGen
                     }
 
                     gladeFrom = TileStage.Threshold(gladeHist, count * GladePerMille / 1000);
+                    spruceFrom = TileStage.Threshold(dampHist, count * SprucePerMille / 1000);
+                    pineFrom = TileStage.Threshold(highHist, count * PinePerMille / 1000);
                 }
                 else
                 {
@@ -181,26 +218,26 @@ namespace Orpheus.WorldGen
                     }
 
                     bool wet = t.Floor[i] != FloorId.Empty; // вода или берег
-                    bool path = (t.Marks[i] & (TileWorld.MarkTrail | TileWorld.MarkClear)) != 0;
+                    bool path = (t.Marks[i] & TileWorld.MarkClear) != 0;
                     bool gorge = (t.Marks[i] & TileWorld.MarkGorge) != 0;
                     bool isForest = rule.Biome == Biome.Forest;
                     bool inGlade = isForest && glade[i] >= gladeFrom;
+                    ForestKind kind = !isForest ? ForestKind.Oak
+                        : damp[i] >= spruceFrom ? ForestKind.Spruce
+                        : t.Relief.HeightAt(x, y) >= pineFrom ? ForestKind.Pine
+                        : ForestKind.Oak;
                     if (!wet)
                     {
-                        byte floor = rule.Floor;
-                        if (path)
-                        {
-                            floor = FloorId.Dirt;
-                        }
-                        else if (inGlade)
+                        byte floor = isForest ? KindFloor(kind) : rule.Floor; // C-027: проход в обрыве — пол биома, не земля
+                        if (!path && inGlade)
                         {
                             floor = FloorId.Grass;
                         }
-                        else if (patch[i] >= dryFrom[b])
+                        else if (!path && patch[i] >= dryFrom[b])
                         {
                             floor = FloorId.DryGrass;
                         }
-                        else if (patch[i] < dirtBelow[b])
+                        else if (!path && patch[i] < dirtBelow[b])
                         {
                             floor = FloorId.Dirt;
                         }
@@ -210,7 +247,7 @@ namespace Orpheus.WorldGen
 
                     if (wet || path || gorge || t.Objects[i] != ObjectId.Empty)
                     {
-                        continue; // вода, берег, тропа, проход, обрыв, тайл у скалы
+                        continue; // вода, берег, проход, обрыв, тайл у скалы
                     }
 
                     ushort obj = ObjectId.Empty;
@@ -251,7 +288,8 @@ namespace Orpheus.WorldGen
                     {
                         int gladeF = (int)Math.Min(1000L, ((long)gladeFrom - glade[i]) * 1000 / GladeMargin);
                         int edgeF = edge[i] >= EdgeTiles ? 1000 : EdgeStartPerMille + ((1000 - EdgeStartPerMille) * edge[i] / EdgeTiles);
-                        int density = ForestCorePerMille * edgeF / 1000 * gladeF / 1000;
+                        int core = kind == ForestKind.Pine ? PineCorePerMille : kind == ForestKind.Spruce ? SpruceCorePerMille : ForestCorePerMille;
+                        int density = core * edgeF / 1000 * gladeF / 1000;
                         int jitter = (int)((SplitMix64.Hash(x, y, jitterSeed) >> 40) % (2 * RankJitter + 1)) - RankJitter;
                         if (density > 0 && rank[value[i]] + jitter >= 1000 - density)
                         {
@@ -265,6 +303,10 @@ namespace Orpheus.WorldGen
 
             Groups(t, tileSeed);
         }
+
+        /// <summary>Пол вида леса (C-027).</summary>
+        public static byte KindFloor(ForestKind kind) =>
+            kind == ForestKind.Pine ? FloorId.PineFloor : kind == ForestKind.Spruce ? FloorId.SpruceFloor : FloorId.ForestFloor;
 
         private static FieldNoise Field(int w, ulong seed, int field, int[] cells) =>
             new FieldNoise(MacroGenerator.FieldSeed(seed, TileStage.Stage, field), w, cells, ridged: false);

@@ -478,9 +478,9 @@ namespace Orpheus.Tests
             Assert.All(levels, n => Assert.True(n > W * W / 9 / 20, "уровень почти пуст"));
         }
 
-        /// <summary>В воде и на берегу обрывов нет; тропа и тайл рядом с ней свободны от обрыва (проход по тропе).</summary>
+        /// <summary>В воде (любой глубины) и на берегу обрывов нет. C-027 (v9): троп больше нет — проверка «обрыв не у тропы» снята вместе с тропами.</summary>
         [Fact]
-        public void E16b_Cliffs_NotInWater_NotOnTrails()
+        public void E16b_Cliffs_NotInWater()
         {
             TileWorld t = GeneratorV1.BuildTiles(MapShape.World(W), 2);
             int cliffs = 0;
@@ -494,13 +494,8 @@ namespace Orpheus.Tests
                     }
 
                     cliffs++;
-                    Assert.NotEqual(FloorId.Water, t.Floor[(y * W) + x]);
+                    Assert.False(FloorId.IsWater(t.Floor[(y * W) + x]));
                     Assert.NotEqual(FloorId.Sand, t.Floor[(y * W) + x]);
-                    for (int k = 0; k < 9; k++)
-                    {
-                        int v = (((y + (k / 3) - 1) & (W - 1)) * W) + ((x + (k % 3) - 1) & (W - 1));
-                        Assert.True((t.Marks[v] & TileWorld.MarkTrail) == 0, $"обрыв ({x}, {y}) у тропы");
-                    }
                 }
             }
 
@@ -665,7 +660,7 @@ namespace Orpheus.Tests
                     ushort obj = world.GetObject(t);
                     Assert.Equal(floor, read.GetFloor(t));
                     Assert.Equal(obj, read.GetObject(t));
-                    water += floor == FloorId.Water ? 1 : 0;
+                    water += FloorId.IsWater(floor) ? 1 : 0;
                     dry += floor == FloorId.DryGrass ? 1 : 0;
                     cliff += obj == ObjectId.Cliff ? 1 : 0;
                 }

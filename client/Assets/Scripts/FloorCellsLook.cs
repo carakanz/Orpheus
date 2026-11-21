@@ -129,5 +129,59 @@ namespace Orpheus.Client
                 y -= (rec.OffsetY + h) * 0.5f - 1f;
             }
         }
+
+        /// <summary>
+        /// Старая кровать 1 × 2 / 2 × 1 (записи сохранений до C-030, C-041): окно современных кроватей 2 × 2 — это её
+        /// ячейки; если у записи окно занято — запись старая, и кровать рисуется узкой. Признак: предмет в колонке
+        /// сторон окна (восток у 0°/180°, юг у 90°/270°) — рядом встала мебель; или кровать той же оси по
+        /// другую сторону — пара старых кроватей плечом к плечу (у второй окно свободно, занимает её соседняя).
+        /// Новый стандарт (C-030) резервирует окно ядром — у новой кровати стороны окна свободны, она не узкая.
+        /// Чанка нет (сеть, не пришёл) — не узкая. Пол (объект пуст) окно не занимает.
+        /// </summary>
+        public static bool BedIsNarrow(WorldModel world, MapShape map, int tx, int ty, int rotation)
+        {
+            int size = Torus.ChunkSize;
+            ushort At(int x, int y)
+            {
+                TileCoord t = Torus.Wrap(map, new TileCoord(x, y));
+                Chunk? chunk = world.FindChunk(Torus.ChunkOf(map, t));
+                return chunk == null ? (ushort)0 : chunk.GetObject(Chunk.IndexOf(t.X & (size - 1), t.Y & (size - 1)));
+            }
+
+            bool BedAt(int x, int y)
+            {
+                ushort obj = At(x, y);
+                return obj == ObjectId.Bed && (ObjectId.RotationOf(obj) == rotation || ObjectId.RotationOf(obj) == (rotation + 2) % 4);
+            }
+
+            if (rotation == 0 || rotation == 2)
+            {
+                return At(tx + 1, ty) != ObjectId.Empty || At(tx + 1, ty + 1) != ObjectId.Empty
+                    || BedAt(tx - 1, ty) || BedAt(tx - 1, ty + 1);
+            }
+
+            return At(tx, ty + 1) != ObjectId.Empty || At(tx + 1, ty + 1) != ObjectId.Empty
+                || BedAt(tx, ty - 1) || BedAt(tx + 1, ty - 1);
+        }
+
+        /// <summary>
+        /// Сдвиг опоры для старой узкой кровати 1 × 2 / 2 × 1 (C-041): размер в полуячейках 2 × 4 (стоя) / 4 × 2 (лёжа),
+        /// середина по X и южный край по Y — та же формула, что у <see cref="ShiftFurniture(Chunk, int, ref float, ref float)"/>,
+        /// только размер берётся старый, а не из таблицы (в таблице кровать 2 × 2).
+        /// </summary>
+        public static void ShiftFurniture(Chunk chunk, int index, bool narrow, ref float x, ref float y)
+        {
+            if (!narrow)
+            {
+                ShiftFurniture(chunk, index, ref x, ref y);
+                return;
+            }
+
+            chunk.TryGetBuild(index, out BuildRecord rec);
+            int rot = ObjectId.RotationOf(chunk.GetObject(index));
+            int w = rot == 0 || rot == 2 ? 2 : 4, h = rot == 0 || rot == 2 ? 4 : 2; // половина тайла = 2 полуячейки
+            x += (2 * rec.OffsetX + w - 2) * 0.25f;
+            y -= (rec.OffsetY + h) * 0.5f - 1f;
+        }
     }
 }

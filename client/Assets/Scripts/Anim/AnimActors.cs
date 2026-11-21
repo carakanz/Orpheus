@@ -12,6 +12,18 @@ namespace Orpheus.Client.Anim
         /// <summary>Враги-болванки и манекен — тот же спрайт, тёплый красный оттенок (своих ассетов врагов в клиенте пока нет).</summary>
         public static readonly Color EnemyTint = new Color(1f, 0.55f, 0.45f);
 
+        /// <summary>E3-3: враг-лучник — холодный синий, волк — серый: тот же спрайт, разные тона по архетипу из снимка.</summary>
+        public static readonly Color EnemyArcherTint = new Color(0.6f, 0.75f, 1f);
+        public static readonly Color EnemyBeastTint = new Color(0.8f, 0.8f, 0.72f);
+
+        /// <summary>Тон врага по архетипу из снимка (<see cref="Orpheus.Core.Sim.EnemyBrain.ArchetypeOf"/>).</summary>
+        public static Color EnemyTintFor(byte archetype) => archetype switch
+        {
+            Orpheus.Core.Sim.EnemyArchetype.Ranged => EnemyArcherTint,
+            Orpheus.Core.Sim.EnemyArchetype.Beast => EnemyBeastTint,
+            _ => EnemyTint,
+        };
+
         public static Transform Create(Transform parent, string name, Sprite sprite, Color color)
         {
             var root = new GameObject(name);
@@ -54,7 +66,7 @@ namespace Orpheus.Client.Anim
         public bool Animate(float dt, SwingPhase phase, float progress)
         {
             Vector2 v = Rig.MeasureVelocity(dt);
-            var s = new ActorInput { VelX = v.x, VelY = v.y, Swing = phase, SwingProgress = progress, SwingDirX = Axis.x, SwingDirY = Axis.y };
+            var s = new ActorInput { VelX = v.x, VelY = v.y, Held = Rig.Held, Swing = phase, SwingProgress = progress, SwingDirX = Axis.x, SwingDirY = Axis.y };
             Rig.Apply(Rig.Animator.Step(dt, s));
 
             bool struck = phase == SwingPhase.Strike && _lastPhase != SwingPhase.Strike;
@@ -99,6 +111,13 @@ namespace Orpheus.Client.Anim
             }
 
             return Vector2.Angle(Axis, d) <= HalfArc * Mathf.Rad2Deg + 15f;
+        }
+
+        /// <summary>E3-4: убрать visuals врага вместе с сектором-телеграфом (существо ушло из игры).</summary>
+        public void Destroy()
+        {
+            _sector.Destroy();
+            Object.Destroy(Rig.Root.gameObject);
         }
     }
 }

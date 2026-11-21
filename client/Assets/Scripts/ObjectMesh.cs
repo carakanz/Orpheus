@@ -80,7 +80,8 @@ namespace Orpheus.Client
         }
 
         // Объекты строки ly чанка — в _items от дальнего (выше на экране) к ближнему; возвращает их число.
-        int Collect(Chunk chunk, ChunkCoord c, int ly)
+        // C-049: lowPass — только «низкая полоса» (костёр), иначе — всё, кроме неё.
+        int Collect(Chunk chunk, ChunkCoord c, int ly, bool lowPass = false)
         {
             TileCoord corner = Torus.CornerOf(c);
             int n = 0;
@@ -91,7 +92,7 @@ namespace Orpheus.Client
                 ushort obj = chunk.GetObject(index);
                 bool cell = BuildCells.IsCellBuilding(obj);
                 ObjectLook? look = cell ? CellLook : ObjectTable.Find(obj, chunk.GetFloor(index));
-                if (look == null)
+                if (look == null || look.LowBand != lowPass)
                 {
                     continue;
                 }
@@ -123,10 +124,16 @@ namespace Orpheus.Client
                 }
                 else
                 {
-                    it.Place = ObjectTable.Place(look, corner.X + lx, corner.Y + ly, ObjectId.RotationOf(obj)); // E2-16: вид по повороту
+                    int tx = corner.X + lx, ty = corner.Y + ly;
+                    int rot = ObjectId.RotationOf(obj);
+                    // C-041: запись старой кровати 1 × 2 (окно 2 × 2 занято соседом) — старый рисунок и старый сдвиг.
+                    bool narrow = look.Id == ObjectId.Bed && FloorCellsLook.BedIsNarrow(_world, _map, tx, ty, rot);
+                    it.Place = narrow
+                        ? ObjectTable.PlaceNarrow(look, tx, ty, rot)
+                        : ObjectTable.Place(look, tx, ty, rot); // E2-16: вид по повороту
                     it.X = lx + 0.5f + it.Place.Dx;
                     it.Y = -ly - 1f + ObjectTable.BaseLift + it.Place.Dy;
-                    FloorCellsLook.ShiftFurniture(chunk, index, ref it.X, ref it.Y); // E2-15: мебель со сдвигом на полтайла; E2-16 — и размером
+                    FloorCellsLook.ShiftFurniture(chunk, index, narrow, ref it.X, ref it.Y); // E2-15: сдвиг на полтайла; E2-16 — размером; C-041 — старой узкой
                 }
 
                 int at = n++;
@@ -233,10 +240,10 @@ namespace Orpheus.Client
             look.Sway <= 0f ? 0f : Mathf.Floor(GroundAtlas.Hash(tx, ty, 149) * 63f) + Mathf.Min(look.Sway, 0.99f);
 
         /// <summary>Меш объектов строки ly; возвращает число объектов (0 — меш пуст).</summary>
-        public int BuildRow(Chunk? chunk, ChunkCoord c, int ly, Mesh mesh)
+        public int BuildRow(Chunk? chunk, ChunkCoord c, int ly, Mesh mesh, bool lowPass = false)
         {
             Builds++;
-            int n = chunk == null ? 0 : Collect(chunk, c, ly);
+            int n = chunk == null ? 0 : Collect(chunk, c, ly, lowPass);
             mesh.Clear();
             if (n == 0)
             {

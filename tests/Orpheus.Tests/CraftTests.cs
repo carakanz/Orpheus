@@ -99,10 +99,10 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_RecipeTable_MatchesDesign()
         {
-            Assert.Equal(26, RecipeTable.Count); // 14 рецептов + 11 построек (E2-11, строки — BuildTests.E211_*) + нулевая строка
-            Assert.Equal(32, ItemTable.Count);
+            Assert.Equal(29, RecipeTable.Count); // 14 рецептов + 11 построек (E2-11, строки — BuildTests.E211_*) + 3 брони (E3-6) + нулевая строка
+            Assert.Equal(36, ItemTable.Count);
             Assert.False(RecipeTable.Exists(0));
-            Assert.False(RecipeTable.Exists(26));
+            Assert.False(RecipeTable.Exists(29));
             Assert.Equal(0, RecipeTable.Get(200).Id);
 
             void Row(byte id, byte result, int count, CraftStation station, params (byte Item, int N)[] ins)
@@ -651,7 +651,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_Save_Format8_QueueRoundTrip()
         {
-            Assert.Equal(13u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(17u, SaveModule.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             SaveFixtures.LiveWorld live = SaveFixtures.Create(256, 23, bots: 2);
             Simulation sim = live.Sim;
             int id = sim.Entities[0].Id;
@@ -671,7 +671,7 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "крафт"), 3, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(13u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(17u, f.Header.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(q, st.Entities[0].Craft);
             Assert.True(st.Entities[1].Craft.IsEmpty);
@@ -749,7 +749,7 @@ namespace Orpheus.Tests
 
             // Хэш состояния — тот же, что посчитал код, записавший файл.
             Simulation sim = SaveFixtures.Load(baseBytes, v7);
-            Assert.Equal("d96dbde9cfe7c8ff", StateHash.Compute(sim).Total.ToString("x16"));
+            Assert.Equal("5b706bed9dbf5b21", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 16
 
             // Мир из старого файла живёт: руды 17 → слитки у верстака нет (отказ), верёвка руками — делается.
             int id = st.Entities[0].Id;
@@ -759,7 +759,7 @@ namespace Orpheus.Tests
             Assert.Equal(1, sim.GetEntity(id).Inv.Count(Items.Rope));
 
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат7", st.Characters), 5, 0);
-            Assert.Equal(13u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(17u, SaveContainer.Read(again).Header.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             Assert.Equal(StateHash.Compute(sim).Total, StateHash.Compute(SaveFixtures.Load(baseBytes, again)).Total);
         }
 
@@ -769,7 +769,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E23_Net_GoldenBytes_CraftRequest_Reply_State()
         {
-            Assert.Equal(29, NetModule.ProtocolVersion); // C-013: 29; E2-16: 28
+            Assert.Equal(38, NetModule.ProtocolVersion); // E3-3b: 38 (владелец личной капли в кучах 27); C-036: 37 (действие в снимке); C-035: 36 (пачка 40); E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[64];
 
             int n = new CraftRequestMessage { Op = CraftOp.Make, Arg = RecipeTable.CopperPickaxe, Count = 0x0102 }.Write(buf);
@@ -820,7 +820,9 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => CraftStateMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
             Assert.True(Codec.IsKnown(30) && Codec.IsKnown(31) && Codec.IsKnown(32));
-            Assert.False(Codec.IsKnown(37)); // E2-5: 33–35 заняты (действие, ответ, сундук); E2-10: 36 — сундуки рядом
+            Assert.True(Codec.IsKnown(39)); // C-028: 39 — взмах кирки
+            Assert.True(Codec.IsKnown(40)); // C-035: 40 — пачка событий боя (C-035 поднял протокол до 36, этот assert не обновил — починен в E3-3b)
+            Assert.False(Codec.IsKnown(41)); // E3-2: 38 — снаряд; E3-1: 37 — урон; E2-5: 33–35 заняты (действие, ответ, сундук); E2-10: 36 — сундуки рядом
         }
 
         private static void Give(EditTests.EditRig rig, NetClient c, params (byte Item, int Count)[] items)

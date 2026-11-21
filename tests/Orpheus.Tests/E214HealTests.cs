@@ -358,7 +358,7 @@ namespace Orpheus.Tests
         private static Simulation SaveAndLoad(SaveFixtures.LiveWorld live, Simulation sim, out LoadedWorldState st)
         {
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "восстановление"), 3, 0);
-            Assert.Equal(13u, SaveContainer.Read(save).Header.FormatVersion);
+            Assert.Equal(17u, SaveContainer.Read(save).Header.FormatVersion);
             st = WorldSave.Load(SaveContainer.Read(save), WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(sim.Heals.ToArray(), st.Heals);
             return SaveFixtures.Load(live.BaseBytes, save);
@@ -374,7 +374,7 @@ namespace Orpheus.Tests
             byte[] v10 = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format10_build.save"));
             byte[] baseBytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Golden", "format10_build.base"));
             Simulation sim = SaveFixtures.Load(baseBytes, v10);
-            Assert.Equal("1b6417ad926914f6", StateHash.Compute(sim).Total.ToString("x16"));
+            Assert.Equal("0329ad4c20838f97", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 16
             Assert.True(sim.HealScanPending);
             Assert.True(sim.Heals.IsEmpty);
 

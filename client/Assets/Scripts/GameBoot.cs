@@ -1,10 +1,12 @@
 #nullable enable
 using System;
 using System.Diagnostics;
+using System.IO;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
 using Orpheus.Core.World;
+using Orpheus.Net.Hosting;
 using Orpheus.WorldGen;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -97,16 +99,33 @@ namespace Orpheus.Client
         ScreenshotRun? _screenshot;
         Anim.ActorRig? _heroRig;        // K-001: ходьба и дыхание своего персонажа офлайн
         WadeDemoEnemy? _wadeEnemy;      // C-018: враг-болванка в воде (--wade-demo enemy)
+        TileCoord _bedDemoAnchor;       // C-030: кровать сцены --bed-demo
+        float _bedDemoAge;
+        SpriteRenderer? _bedDemoShade;  // C-030: затемнение «лежит» в сцене снимков
         Anim.AnimShowcase? _showcase;   // K-001: показ анимации и замер (--anim-shots, --anim-bench)
         TileBenchRun? _tileBench;       // 1-022: стенд «48 Tilemap» (--tile-bench): бег через шов + поток правок, замеры
         DayTintView? _dayTint;          // E1-8: тон суток (ночь, сумерки, рассвет; свет факела и костра)
         int _hudFrame;
         PileView? _piles;               // E2-1: кучи на земле без сервера (--demo-piles, сцена снимков)
+        HearthMarkerView? _hearth;      // E3-6b: маркер Очага на тайле центра (спавн) — офлайн-мир и снимки
+        float _hearthClock;             // E3-6b: часы пульса маркера (в снимках кадр фиксированный — детерминированно)
+        CampfireSparkFx? _fireSparks;   // C-049: искры у поставленных костров (часы те же, что у Очага)
         UI.UiDemo? _uiDemo;             // E2-2: интерфейс без сервера (--ui-demo, сцены снимков)
 
         void Awake()
         {
             Args = ClientArgs.Parse(Environment.GetCommandLineArgs());
+            if (_startInMenu)
+            {
+                // E4-1: сцена перезагружена возвратом «в меню»: аргументы прошлого захода сброшены,
+                // стартуем с чистого листа — и ниже открываем меню.
+                // E4-1b: «--auto-menu-click» — настройка запуска процесса, не подключения: автоклик по
+                // «В меню» проверяем как раз после такого возврата, поэтому флаг переживает сброс.
+                bool autoMenuClick = Args.AutoMenuClick;
+                _startInMenu = false;
+                Args = new ClientArgs();
+                Args.AutoMenuClick = autoMenuClick;
+            }
             bool netMode = Args.Connect != null || Args.Mode.HasValue;
             if (Args.Error != null && !netMode)
             {
@@ -115,6 +134,15 @@ namespace Orpheus.Client
 
             CreateInput();
             WorldFx.Init(Camera, Character); // E1-7: слой теней, персонаж за кроной (до первого WorldView)
+
+            // E4-1: главный экран. Если это не скриптовый прогон (снимки, тесты, стенды) и не
+            // сетевой запуск с аргументами, игра стартует в меню: «Новый мир», «Продолжить»,
+            // «Открыть для друзей», «Войти по адресу». Смерть и обрыв связи тоже ведут сюда.
+            if (!netMode && !ScriptedRun())
+            {
+                OpenMenu();
+                return;
+            }
 
             // Сетевой режим (0-012): мир присылает сервер, поэтому здесь только связь; окно — сразу с HUD-текстом.
             // Одиночная и хост (0-024) — тот же сетевой режим: сервер — дочерний процесс, вход через 127.0.0.1 (07, 2.3).
@@ -128,7 +156,7 @@ namespace Orpheus.Client
                     return;
                 }
 
-                ShowDebugLabels(Args.Hud);
+                ShowDebugLabels(Args.Hud); // надпись «TEMP ASSETS» и строка отладки — только с --hud, и в сетевом/одиночном режиме тоже
                 Net = new NetGame(this, Args);
                 Net.StartConnect();
                 return;
@@ -163,6 +191,8 @@ namespace Orpheus.Client
             View.UpdateWindow(Player.Position);
             PlaceCharacterAndCamera();
             _dayTint = new DayTintView(Camera, World, Origin); // E1-8: тон суток (офлайн-часы — Simulation.WorldTime + --day-tick)
+            _hearth = new HearthMarkerView(new GameObject("Hearth").transform, Map, Args.Size / 2, Args.Size / 2); // E3-6b: Очаг = центр, как спавн у ядра
+            _fireSparks = new CampfireSparkFx(new GameObject("FireSparks").transform, World, Map); // C-049: искры у костров
 
             if (Args.Smoke)
             {
@@ -199,6 +229,27 @@ namespace Orpheus.Client
                 View.UpdateWindow(Player.Position);
             }
 
+            if (Args.BedDemoRot >= 0)
+            {
+                // C-030: спальня с двуспальной кроватью; с «l» — персонаж лежит в ней.
+                TileCoord at = Torus.TileOf(Map, Player.Position);
+                PaintDemo.Bed(World, Map, at.X, at.Y, Args.BedDemoRot);
+                _bedDemoAnchor = Torus.Wrap(Map, PaintDemo.BedDemoAnchor(at.X, at.Y));
+                View.Clear();
+                View.UpdateWindow(Player.Position);
+                if (Args.BedDemoLie)
+                {
+                    var tex = Texture2D.whiteTexture;
+                    var go = new GameObject("RestShade");
+                    go.transform.SetParent(Camera.transform, false);
+                    go.transform.localPosition = new Vector3(0f, 0f, 5f); // перед камерой, как DayTintView
+                    go.transform.localScale = new Vector3(600f, 600f, 1f);
+                    _bedDemoShade = go.AddComponent<SpriteRenderer>();
+                    _bedDemoShade.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), tex.width);
+                    _bedDemoShade.sortingOrder = WorldView.TintOrder + 5;
+                }
+            }
+
             if (Args.WadeDemo != null)
             {
                 // C-018: пруд и кусты вокруг персонажа; в сцене enemy — враг-болванка в воде.
@@ -213,11 +264,48 @@ namespace Orpheus.Client
                 }
             }
 
+            if (Args.FireDemo != null)
+            {
+                // C-049: костёр в пяти тайлах севернее старта, персонаж — на заданной стороне огня
+                // (in — в кольце камней, на огне). Снимки проверяют «низкую полосу» строки (LowRowOrderAt):
+                // стоящий у костра — перед огнём, севернее середины — за ним. Факел восточнее — проверка sway.
+                TileCoord at = Torus.TileOf(Map, Player.Position);
+                int fx = at.X, fy = at.Y - 5; // Y мира вниз: меньше Y — севернее (выше на экране)
+                PaintDemo.Put(World, Map, fx, fy, 0);
+                PaintDemo.Put(World, Map, fx, fy - 1, 0);
+                PaintDemo.Put(World, Map, fx, fy + 1, 0);
+                PaintDemo.Put(World, Map, fx - 1, fy, 0);
+                PaintDemo.Put(World, Map, fx + 1, fy, 0);
+                PaintDemo.Put(World, Map, fx, fy, ObjectId.Campfire);
+                PaintDemo.Put(World, Map, fx + 2, fy, ObjectId.Torch);
+                TileCoord hero = Args.FireDemo! switch
+                {
+                    "south" => new TileCoord(fx, fy + 1),
+                    "north" => new TileCoord(fx, fy - 1),
+                    "east" => new TileCoord(fx + 1, fy),
+                    "west" => new TileCoord(fx - 1, fy),
+                    _ => new TileCoord(fx, fy), // "in"
+                };
+                Teleport(TileCenter(Torus.Wrap(Map, hero)));
+                View.Clear();
+                View.UpdateWindow(Player.Position);
+            }
+
             if (Args.UiDemo != null)
             {
                 if (Args.ScreenshotPath != null)
                 {
                     UI.UiRoot.FixedFrame = new Vector2Int(Args.ShotPixelsX, Args.ShotPixelsY); // холст — сразу в размере снимка
+                }
+
+                if (UI.MenuUi.IsMenuDemo(Args.UiDemo))
+                {
+                    // E4-1: снимки меню: мир построен как обычно (кадр снимка идёт по своему сценарию),
+                    // сверху — витрина меню; обычный UiDemo для этих режимов не создаётся.
+                    // E4-1b: onMenu передаём и здесь — витрина menu-notice-click жмёт «В меню» настоящей мышью.
+                    _menu = new UI.MenuUi(Camera, OnMenuStart, OnMenuNoticeBack);
+                    _menu.ShowDemo(Args.UiDemo!);
+                    return;
                 }
 
                 if (UI.UiDemo.IsCraft(Args.UiDemo))
@@ -245,7 +333,154 @@ namespace Orpheus.Client
                 {
                     _uiDemo.BindWorld(Origin, transform);
                 }
+
+                if (UI.UiDemo.IsCombat(Args.UiDemo))
+                {
+                    // E3-1: враги-болванки вокруг персонажа, цифры урона, полоски, экран смерти.
+                    Sprite heroSprite = Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
+                    _uiDemo.BindCombat(Origin, new GameObject("CombatDemo").transform, heroSprite, _heroRig);
+                }
             }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        //  E4-1: главное меню — вход в игру из меню и возврат в меню без рестарта процесса
+        // ──────────────────────────────────────────────────────────────────────
+
+        /// <summary>Меню живо, пока открыт этот экран; кадры игры тогда не идут.</summary>
+        UI.MenuUi? _menu;
+
+        /// <summary>Стартовать в меню после перезагрузки сцены (static: перезагрузка сцены убивает этот компонент).</summary>
+        static bool _startInMenu;
+
+        /// <summary>Экран «Уведомление» с текстом причины для кадра после перезагрузки сцены.</summary>
+        static string? _pendingNotice;
+
+        /// <summary>
+        /// Скриптовый прогон: снимки, тесты, стенды и демо рисуются без игрока в меню,
+        /// поэтому они стартуют сразу, как раньше.
+        /// </summary>
+        bool ScriptedRun() =>
+            Args.Smoke || Args.ScreenshotPath != null || Args.UiDemo != null
+            || Args.AnimShotsDir != null || Args.AnimBenchSeconds > 0 || Args.TileBenchSeconds > 0
+            || Args.PaintDemo || Args.PaintForest || Args.DemoPiles || Args.HomeDemo != null
+            || Args.BedDemoRot >= 0 || Args.WadeDemo != null || Args.FireDemo != null || Args.WalkFrames != 0
+            || Args.NetSmokeSeconds > 0; // E4-1b: net-smoke: обрыв остаётся быстрым «[smoke] FAILED»+выход (NetSmokeCheck), не меню
+
+        /// <summary>Открыть меню (при старте и после каждой перезагрузки сцены).</summary>
+        void OpenMenu()
+        {
+            ShowDebugLabels(false);
+            _startInMenu = false;
+            _menu = new UI.MenuUi(Camera, OnMenuStart, OnMenuNoticeBack);
+            string? notice = _pendingNotice;
+            _pendingNotice = null;
+            if (notice != null)
+            {
+                _menu.ShowNotice(notice);
+                // E4-1b: --auto-menu-click — живая проверка «обрыв → уведомление → «В меню» → меню» без рук:
+                // авто-клик мышью (тот же путь, что витрина menu-notice-click).
+                if (Args.AutoMenuClick)
+                {
+                    // На скрытом столе окно меню не в фокусе (после перезагрузки сцены D3D-контекст теряется),
+                    // и Unity ставит плеер на паузу — кадры меню не идут и авто-клик не досчитывается.
+                    // Под этим тестовым флагом играем в фоне всегда; для обычной игры флаг не ставится.
+                    Application.runInBackground = true;
+                    _menu.ScheduleNoticeClick();
+                }
+
+                Debug.Log($"[boot] E4-1b: меню с уведомлением, авто-клик = {Args.AutoMenuClick}");
+            }
+
+            Debug.Log("[boot] E4-1: главное меню открыто");
+        }
+
+        /// <summary>
+        /// E4-1b: «В меню» на экране «Уведомление» — возврат на главный экран меню без перезагрузки сцены
+        /// (меню уже открыт, обрыв за ним). Тот же путь, что приводит со смерти.
+        /// </summary>
+        void OnMenuNoticeBack()
+        {
+            Debug.Log("[boot] E4-1b: «В меню» на уведомлении нажато — главный экран меню");
+            _menu?.ShowMainFromNotice();
+        }
+
+        /// <summary>
+        /// Клик по кнопкам меню: собрать аргументы захода (тот же путь, что ключи) и войти в игру.
+        /// «Новый мир» и «для друзей» — свежая папка Worlds/world-N и посев с экрана; «Продолжить» —
+        /// самая свежая папка с сохранением; «войти по адресу» — только клиент, сервера здесь нет.
+        /// </summary>
+        void OnMenuStart(UI.MenuUi.Start s)
+        {
+            string? worldDir = null, connect = null;
+            bool friends = false;
+            ulong seed = 0;
+            switch (s.Kind)
+            {
+                case UI.MenuUi.Kind.NewWorld:
+                    worldDir = Path.Combine(UI.MenuUi.WorldsRoot, UI.MenuUi.NextWorldName());
+                    seed = (ulong)s.Seed;
+                    break;
+                case UI.MenuUi.Kind.Continue:
+                    worldDir = Path.Combine(UI.MenuUi.WorldsRoot, UI.MenuUi.LatestWorldName() ?? UI.MenuUi.NextWorldName());
+                    break;
+                case UI.MenuUi.Kind.FriendsNew:
+                    worldDir = Path.Combine(UI.MenuUi.WorldsRoot, UI.MenuUi.NextWorldName());
+                    seed = (ulong)s.Seed;
+                    friends = true;
+                    break;
+                case UI.MenuUi.Kind.FriendsContinue:
+                    worldDir = Path.Combine(UI.MenuUi.WorldsRoot, UI.MenuUi.LatestWorldName() ?? UI.MenuUi.NextWorldName());
+                    friends = true;
+                    break;
+                case UI.MenuUi.Kind.Join:
+                    connect = s.Address;
+                    break;
+            }
+
+            Debug.Log($"[boot] E4-1: меню начинает заход {s.Kind}: мир {worldDir ?? "-"} адрес {connect ?? "-"}");
+            StartNet(worldDir: worldDir, hostForFriends: friends, connect: connect, seed: seed);
+        }
+
+        /// <summary>
+        /// Запуск игры из меню — тот же путь, что ключи: одиночный мир (LocalServer-поток),
+        /// «для друзей» (LocalServer + UDP-подстёжка, как --single --open-for-friends), вход по адресу.
+        /// </summary>
+        void StartNet(string? worldDir = null, bool hostForFriends = false, string? connect = null, ulong seed = 0)
+        {
+            _menu?.Dispose();
+            _menu = null;
+            Args.FromMenu = true;
+            Args.Mode = connect == null ? ServerMode.Single : (ServerMode?)null;
+            Args.WorldDir = worldDir;
+            if (seed != 0)
+            {
+                Args.Seed = seed;
+            }
+
+            Args.OpenForFriends = hostForFriends;
+            Args.OpenAddress = hostForFriends ? UI.MenuUi.FriendsAddress : null;
+            Args.OpenPort = hostForFriends ? UI.MenuUi.FriendsPort : Args.OpenPort;
+            Args.Connect = connect;
+            ShowDebugLabels(Args.Hud);
+            Net = new NetGame(this, Args);
+            Net.StartConnect();
+        }
+
+        /// <summary>
+        /// Возврат в меню без рестарта процесса: экраны в буфере, сервер пишется по Stop
+        /// (OnDestroy → Net.Shutdown), сцена перезагружается — и Awake открывает меню.
+        /// </summary>
+        public void GoToMenu(string? notice)
+        {
+            if (_startInMenu)
+            {
+                return; // перезагрузка сцены уже идёт
+            }
+            Debug.Log("[boot] E4-1: возврат в меню" + (notice != null ? ": " + notice : ""));
+            _startInMenu = true;
+            _pendingNotice = notice;
+            UnityEngine.SceneManagement.SceneManager.LoadScene(gameObject.scene.name);
         }
 
         void OnDestroy()
@@ -361,6 +596,21 @@ namespace Orpheus.Client
 
         void Update()
         {
+            // E4-1: в меню весь кадр принадлежит меню; фатальная сетевая авария — возврат в меню.
+            if (_menu != null)
+            {
+                _menu.Frame();
+                _screenshot?.AfterFrame(); // снимки меню (--ui-demo menu*) снимаются на своём кадре
+                return;
+            }
+            // E4-1b: гейт по скриптовому режиму (замечание 2 П E4-1): в скриптовых прогонах обрыв ведёт себя
+            // как раньше — NetSmokeCheck даёт быстрый «[smoke] FAILED» и выход (код 1), а не меню до таймаута гейта.
+            if (Net != null && Net.Fatal && !ScriptedRun())
+            {
+                GoToMenu(Net.StatusText);
+                return;
+            }
+
             if (Net != null)
             {
                 Net.Frame();
@@ -396,9 +646,30 @@ namespace Orpheus.Client
 
             // 5. Персонаж и камера.
             PlaceCharacterAndCamera();
-            _heroRig?.AnimateWalk(Time.deltaTime);
+            if (Args.BedDemoLie && _heroRig != null)
+            {
+                // C-030: лежит в кровати сцены — поза RestAnim (как у NetAnimation), затемнение — RestAnim.Dim.
+                _bedDemoAge += Time.deltaTime;
+                Vector3 center = Origin.ToUnity(BuildLayers.CenterAt(World, _bedDemoAnchor));
+                Vector3 root = Character.position;
+                float sortY = Origin.ToUnity(TileCenter(_bedDemoAnchor)).y - 0.5f + ObjectTable.BaseLift - 0.25f;
+                _heroRig.AnimateRest(Time.deltaTime, Math.Max(_bedDemoAge, Anim.RestAnim.LieSec), ObjectId.RotationOf(World.GetObject(_bedDemoAnchor)),
+                    center.x - root.x, center.y - root.y, sleeper: 0, sortY);
+                if (_bedDemoShade != null)
+                {
+                    _bedDemoShade.color = new Color(0.02f, 0.03f, 0.09f, Anim.RestAnim.DimMax);
+                }
+            }
+            else
+            {
+                _heroRig?.AnimateWalk(Time.deltaTime);
+            }
+
             _wadeEnemy?.Frame(Time.deltaTime);
             _piles?.Frame(Origin, Time.deltaTime);
+            _hearthClock += Time.deltaTime; // E3-6b
+            _hearth?.Frame(View, Origin, (long)(_hearthClock * 1_000_000.0)); // E3-6b: маркер Очага, пока его чанк в окне
+            _fireSparks?.Frame(View, Origin, _hearthClock); // C-049: искры у поставленных костров в окне
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
             _uiDemo?.Frame(Player.Position);

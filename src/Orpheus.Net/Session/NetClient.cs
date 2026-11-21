@@ -170,6 +170,9 @@ namespace Orpheus.Net.Session
         /// <summary>Форма карты из входа.</summary>
         public MapShape Shape => _layout.Shape;
 
+        /// <summary>Стрелы на клиенте (E3-2): выстрелы и концы с сервера (тип 38) и свои предсказанные.</summary>
+        public ClientProjectiles Projectiles { get; } = new ClientProjectiles(default);
+
         /// <summary>Отказ входа: текст для игрока.</summary>
         public string? RejectText { get; private set; }
 
@@ -272,6 +275,12 @@ namespace Orpheus.Net.Session
 
         /// <summary>Возрождение сущности у центра возрождения (1-001).</summary>
         public Action<RespawnMessage>? RespawnSeen { get; set; }
+
+        /// <summary>Урон по сущности рядом (E3-1, сообщение 37): цифры урона и полоска врага. Повторов нет (канал 2).</summary>
+        public Action<DamageMessage>? DamageSeen { get; set; }
+
+        /// <summary>Сообщений «урон» принято (E3-1).</summary>
+        public long DamagesSeen { get; private set; }
 
         /// <summary>Сумка своего персонажа (1-002): при входе и когда содержимое изменилось. Повторов нет (канал 2).</summary>
         public Action<InventoryMessage>? InventorySeen { get; set; }
@@ -513,6 +522,10 @@ namespace Orpheus.Net.Session
                         DeathsSeen++;
                         DeathSeen?.Invoke(DeathMessage.Read(data)); // 1-001
                         break;
+                    case MessageType.Damage when State == NetClientState.InGame:
+                        DamagesSeen++;
+                        DamageSeen?.Invoke(DamageMessage.Read(data)); // E3-1
+                        break;
                     case MessageType.Respawn when State == NetClientState.InGame:
                         RespawnsSeen++;
                         RespawnSeen?.Invoke(RespawnMessage.Read(data)); // 1-001
@@ -536,6 +549,15 @@ namespace Orpheus.Net.Session
                         break;
                     case MessageType.CraftState when State == NetClientState.InGame:
                         OnCraftState(CraftStateMessage.Read(data)); // E2-3
+                        break;
+                    case MessageType.Projectile when State == NetClientState.InGame:
+                        Projectiles.OnMessage(ProjectileMessage.Read(data), EntityId, _nowUs); // E3-2: выстрел / конец снаряда
+                        break;
+                    case MessageType.Strike when State == NetClientState.InGame:
+                        OnStrike(StrikeMessage.Read(data)); // C-028: удары взмаха кирки
+                        break;
+                    case MessageType.EventBatch when State == NetClientState.InGame:
+                        OnEventBatch(data); // C-035: пачка записей 37/38/39 — тем же разбором, что одиночные
                         break;
                     case MessageType.NearbyStock when State == NetClientState.InGame:
                         NearbyStockMessage.Read(data, NearbyStock); // E2-10: сундуки рядом
@@ -588,6 +610,7 @@ namespace Orpheus.Net.Session
             _piles.Clear(); // кучи сервер пришлёт заново (E2-1)
             InvVersion = 0;
             _layout = new SnapshotLayout(new MapShape(m.MapWidth, m.MapHeight, m.Wraps));
+            Projectiles.Map = _layout.Shape; // E3-2
             ServerTick = m.ServerTick;
 
             // Кадры 60 Гц: два на такт; первый пакет несёт кадры «до входа» — пустые.

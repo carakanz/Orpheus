@@ -28,6 +28,7 @@ namespace Orpheus.Tests
     /// <para>Удаление любого из трёх краснит быстрый CI. Ручная приёмка 6.10 п. 9 (Hyper-V, <c>Stop-VM -TurnOff</c>) — отдельно, перед выпуском.</para>
     /// <para>POSIX-ветки (<c>fsync</c>, <c>rename</c>, сброс папки) тест не касается: CI идёт на Windows; на других ОС тест пуст.</para>
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public sealed class SaveFlushTests : IDisposable
     {
         private const uint MoveFileReplaceExisting = 0x1;

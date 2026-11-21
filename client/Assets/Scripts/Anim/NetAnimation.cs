@@ -8,6 +8,7 @@ using Orpheus.Net.Protocol;
 using Orpheus.Net.Session;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Items = Orpheus.Core.Sim.Items;
 
 namespace Orpheus.Client.Anim
 {
@@ -46,10 +47,17 @@ namespace Orpheus.Client.Anim
         {
             public SwingActor Actor = null!;
             public WorldPos Position;
+            public float Idle; // E3-4: сколько секунд призрак не виден на экране (не из снимка и не труп) — чистка
         }
 
         // E2-7: такт копания своего — по счёту кадров ядра (NetClient.DigProgress) и доле кадра с последнего счёта.
         const float FrameSec = 1f / ActionAnim.FramesPerSecond;
+        /// <summary>C-030: свой персонаж лежит в кровати (ставит <c>NetGame</c>); null — не бывает.</summary>
+        public BedRest? Rest;
+
+        /// <summary>C-030: кадров с позой «лежит» (smoke).</summary>
+        public int RestFrames { get; private set; }
+
         readonly DigTrack _dig = new DigTrack(); // объект тайла с начала копания и часы удара по счёту кадров
         long _requestsSeen = -1;
 
@@ -62,6 +70,33 @@ namespace Orpheus.Client.Anim
             public byte Index;
             public int SeenFrame; // кадр Unity, в котором сущность была в снимке
             public float Age;
+        }
+
+        // E3-2: выстрел чужого — миг и ось (натяжения чужих в снимке нет: видна отдача по событию выстрела).
+        readonly Dictionary<int, RemoteShot> _remoteShots = new Dictionary<int, RemoteShot>();
+
+        struct RemoteShot
+        {
+            public float At;
+            public Vector2 Dir;
+        }
+
+        void OnShot(ProjectileMessage m)
+        {
+            AimMath.AxisOf(m.AimRaw, out float ax, out float ay);
+            _remoteShots[m.Owner] = new RemoteShot { At = Time.time, Dir = new Vector2(ax, ay) };
+        }
+
+        // C-036: действие чужого из снимка (Action): копка киркой — замах по шагам прогресса (квант SnapshotLayout.ActionDigQuantum);
+        // лук — поза «внатяг» по силе натяжения. Осевая линия — куда смотрит (прицела чужого в снимке нет).
+        readonly Dictionary<int, RemoteAct> _remoteAct = new Dictionary<int, RemoteAct>();
+
+        struct RemoteAct
+        {
+            public byte Tool; // SnapshotLayout.ActionToolOf (0 — покой)
+            public int Step;  // прогресс 0…63 (SnapshotLayout.ActionProgressOf)
+            public int SeenFrame; // кадр Unity, в котором сущность была в снимке
+            public float Age;     // секунд с текущего шага прогресса
         }
 
         /// <summary>E2-7: ударов инструментом своего показано (отклик: дерево — встряска и щепки, камень — искры и крошка).</summary>
@@ -88,13 +123,64 @@ namespace Orpheus.Client.Anim
             _sparks = new Sparks(entityRoot);
             client.SwingStarted = OnSwing;
             client.MeleeResolved = OnResult;
+            client.Projectiles.ShotSeen = OnShot; // E3-2: отдача выстрела у чужих
+            client.StrikeSeen += OnStrikeSeen; // C-028: удары чужих взмахов — искры по тайлам
+        }
+
+        long _strikesShown;
+
+        /// <summary>C-028: «взмах» сервера чужого игрока — искры и крошка на каждом задетом тайле (свои — по своему счёту удара).</summary>
+        void OnStrikeSeen(StrikeMessage m)
+        {
+            if (m.Striker == _client.EntityId)
+            {
+                return;
+            }
+
+            for (int k = 0; k < m.Count; k++)
+            {
+                Vector3 c = _origin.ToUnity(TileCenter(m.Get(k).Tile));
+                EmitOnRock(_sparks, c, Vector2.up);
+            }
+        }
+
+        /// <summary>C-028: искры и крошка удара по камню — над валуном его строки (валун «с высотой», рисуется выше плиток).</summary>
+        public static void EmitOnRock(Sparks sparks, Vector3 tileCenter, Vector2 towardPlayer)
+        {
+            sparks.Order = WorldView.RowOrderAt(tileCenter.y - 0.5f + ObjectTable.BaseLift) + 2;
+            Emit(sparks, tileCenter + new Vector3(0f, 0.35f, 0f), towardPlayer, ImpactLook.Stone);
+            sparks.Order = WorldView.ObjectOrder + 2;
+        }
+
+        /// <summary>
+        /// C-028: свой удар взмаха посчитан (<see cref="NetClient.StrikesPredicted"/>, тот же кадр, что удар позы) — отклик на каждом
+        /// задетом тайле: искры и крошка, с той стороны, откуда бьёт персонаж.
+        /// </summary>
+        void ShowOwnStrike()
+        {
+            if (_client.StrikesPredicted == _strikesShown)
+            {
+                return;
+            }
+
+            _strikesShown = _client.StrikesPredicted;
+            for (int k = 0; k < _client.PredictedStrikeCount; k++)
+            {
+                Vector3 c = _origin.ToUnity(TileCenter(_client.PredictedStrikeTile(k)));
+                Vector2 back = (Vector2)(_g.Character.position - c);
+                EmitOnRock(_sparks, c, back.sqrMagnitude > 1e-6f ? back.normalized : Vector2.up);
+                ImpactsShown++;
+            }
         }
 
         /// <summary>
         /// Чужой персонаж поставлен на интерполированное место: ходьба, рывок — по скорости; E2-7: предмет в руке и удар мечом —
-        /// по снимку (<see cref="SnapshotEntity.HeldItem"/>, <see cref="SnapshotEntity.Melee"/>). Копания чужих в снимке нет —
-        /// рубки у них не видно (протокол не менялся, см. карточку E2-7).
+        /// по снимку (<see cref="SnapshotEntity.HeldItem"/>, <see cref="SnapshotEntity.Melee"/>); C-036: копка киркой и
+        /// натяжение лука — по <see cref="SnapshotEntity.Action"/> (<see cref="RemoteAction"/>).
         /// </summary>
+        // E3-4: в каком кадре Unity сущность была нарисована из снимка (корень «Ent {id}») — призрак замаха не дублирует спрайт.
+        readonly Dictionary<int, int> _remoteSeenFrame = new Dictionary<int, int>();
+
         public void Remote(int id, Transform root, in SnapshotEntity e)
         {
             if (!_remotes.TryGetValue(id, out ActorRig? rig))
@@ -103,11 +189,38 @@ namespace Orpheus.Client.Anim
                 _remotes.Add(id, rig);
             }
 
+            // C-053: враг — свои спрайты по архетипу (бок/к зрителю/от зрителя); вид в кадре выбирает поза.
+            byte archetype = (byte)(e.Enemy >> SnapshotLayout.EnemyArchetypeShift);
+            if (e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && archetype != rig.Archetype)
+            {
+                rig.Archetype = archetype;
+                if (EnemyVisuals.TryViews(archetype, out Sprite side, out Sprite? front, out Sprite? back))
+                {
+                    rig.SetViews(side, front, back); // сбрасывает и оттенок: картинка своя
+                }
+            }
+
+            _remoteSeenFrame[id] = Time.frameCount;
             float dt = Time.deltaTime;
             Vector2 v = rig.MeasureVelocity(dt);
-            rig.SetHeld(e.HeldItem);
+            // E3-4: враг-мечник («Ближний», архетип 1) с пустой рукой в снимке держит деревянный меч — как в бою.
+            // C-053: только мечник — волк (зверь) меч не держит.
+            byte held = e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && e.HeldItem == 0
+                && archetype == 1 ? Items.WoodenSword : e.HeldItem;
+            rig.SetHeld(held);
             var s = new ActorInput { VelX = v.x, VelY = v.y, Held = rig.Held };
             RemoteSwing(id, e.Melee, dt, rig, ref s);
+            RemoteAction(id, e.Action, dt, rig, held, ref s);
+            if (_remoteShots.TryGetValue(id, out RemoteShot shot))
+            {
+                float since = Time.time - shot.At;
+                if (since < ActionAnim.BowRecoilSec)
+                {
+                    s.ShotSec = Mathf.Max(1e-4f, since);
+                    s.DrawDirX = shot.Dir.x;
+                    s.DrawDirY = shot.Dir.y;
+                }
+            }
             if (v.magnitude > AnimParams.RemoteDashSpeed)
             {
                 Vector2 d = v.normalized;
@@ -117,7 +230,47 @@ namespace Orpheus.Client.Anim
                 s.DashDirY = d.y;
             }
 
-            rig.Apply(rig.Animator.Step(dt, s));
+            Pose pose = rig.Animator.Step(dt, s);
+            if (e.HealthPct == 0)
+            {
+                // E3-1: труп (сервер держит его 10,5 с) — падает от своего персонажа и растворяется; не мгновенно.
+                _deadAge.TryGetValue(id, out float age);
+                age = _deadAge.ContainsKey(id) ? age + dt : 0f;
+                _deadAge[id] = age;
+                bool right = root.position.x >= _g.Character.position.x;
+                pose = DeathAnim.Apply(pose, age, right, dissolve: e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy);
+            }
+            else
+            {
+                _deadAge.Remove(id);
+            }
+
+            rig.Apply(pose);
+        }
+
+        // E3-1: сколько секунд показа сущность мертва (снимок: доля здоровья 0); свой — отдельно (−1 — жив).
+        readonly Dictionary<int, float> _deadAge = new Dictionary<int, float>();
+        float _selfDeadAge = -1f;
+
+        /// <summary>E3-1: труп врага растворился — не рисовать (и тень).</summary>
+        public bool Gone(int id, byte kind) => _deadAge.TryGetValue(id, out float age) && DeathAnim.Gone(age, kind == Orpheus.Core.Sim.SimEntity.KindEnemy);
+
+        /// <summary>
+        /// E3-1: урон по чужому существу (сообщение 37) — красная вспышка и отдача от атакующего (своё попадание по себе — как
+        /// раньше, «удар решён»).
+        /// </summary>
+        public void OnRemoteHit(int victim, Vector3 victimAt, Vector3 attackerAt)
+        {
+            if (_remotes.TryGetValue(victim, out ActorRig? rig))
+            {
+                Vector2 dir = ((Vector2)(victimAt - attackerAt)).normalized;
+                if (dir.sqrMagnitude < 0.01f)
+                {
+                    dir = Vector2.right;
+                }
+
+                rig.Animator.OnHit(dir.x, dir.y);
+            }
         }
 
         /// <summary>
@@ -156,6 +309,53 @@ namespace Orpheus.Client.Anim
 
         readonly List<int> _gone = new List<int>();
 
+        /// <summary>
+        /// C-036: действие чужого по снимку (<see cref="SnapshotEntity.Action"/>). Кирка: шаги прогресса идут раз в квант
+        /// (<see cref="SnapshotLayout.ActionDigQuantum"/> кадров) — замах считается по шагам: окно = шаг × квант, доля — своим
+        /// таймером от смены шага (снимок идёт реже кадров). Лук: поза «внатяг», сила = прогресс (обратное
+        /// <see cref="BowAction.PowerQ8"/>); отдачу после выстрела даёт <see cref="_remoteShots"/> (сообщение снаряда, E3-2).
+        /// Ось — куда смотрит (прицела чужого в снимке нет).
+        /// </summary>
+        void RemoteAction(int id, byte action, float dt, ActorRig rig, byte held, ref ActorInput s)
+        {
+            byte tool = SnapshotLayout.ActionToolOf(action);
+            int step = SnapshotLayout.ActionProgressOf(action);
+            _remoteAct.TryGetValue(id, out RemoteAct a);
+            if (a.Tool != tool || a.Step != step)
+            {
+                a = new RemoteAct { Tool = tool, Step = step, Age = 0f };
+            }
+            else
+            {
+                a.Age += dt;
+            }
+
+            a.SeenFrame = Time.frameCount;
+            _remoteAct[id] = a;
+            float facing = rig.Animator.FacingRight ? 1f : -1f;
+            if (tool == SnapshotLayout.ActionToolPick)
+            {
+                int q = SnapshotLayout.ActionDigQuantum;
+                int n = Mathf.Max(1, step); // шаг 1 — первое окно (0 только в первый кадр, пока снимок не дошёл)
+                s.Digging = true;
+                s.DigDirX = facing;
+                s.DigDirY = 0f;
+                s.DigPeriod = ProceduralAnimator.DigPeriodFor(q);
+                s.Action = ActionAnim.DigActionOf(held);
+                s.ActionFrames = n * q;
+                s.ActionSec = (n - 1) * q * FrameSec + Mathf.Min(a.Age, q * FrameSec);
+            }
+            else if (tool == SnapshotLayout.ActionToolBow)
+            {
+                s.Drawing = true;
+                s.DrawPower = step / (float)SnapshotLayout.ActionProgressMask;
+                // Сила Q8 ≈ шаг × 4 (квант с сервера); кадры натяжения — обратное BowAction.PowerQ8: 12…36.
+                s.DrawSec = (BowAction.MinDrawFrames + step * 4 * (BowAction.FullDrawFrames - BowAction.MinDrawFrames) / 256) * FrameSec;
+                s.DrawDirX = facing;
+                s.DrawDirY = 0f;
+            }
+        }
+
         /// <summary>E2-7: сущность ушла из снимка (не появлялась больше 60 кадров) — её фаза удара забывается.</summary>
         void ForgetGoneMelee()
         {
@@ -173,10 +373,28 @@ namespace Orpheus.Client.Anim
             {
                 _remoteMelee.Remove(_gone[i]);
             }
+
+            // C-036: действия чужих чистятся тем же счётом.
+            _gone.Clear();
+            foreach (KeyValuePair<int, RemoteAct> kv in _remoteAct)
+            {
+                if (now - kv.Value.SeenFrame > 60)
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _remoteAct.Remove(_gone[i]);
+            }
         }
 
         /// <summary>Фаз удара чужих в памяти (для проверки очистки).</summary>
         public int RemoteMeleeTracked => _remoteMelee.Count;
+
+        /// <summary>C-036: действий чужих в памяти (для проверки очистки).</summary>
+        public int RemoteActionTracked => _remoteAct.Count;
 
         /// <summary>
         /// E2-7: кучу подобрали (сообщение «кучи нет» с поднявшим): свой (<paramref name="self"/>) или чужой
@@ -264,6 +482,25 @@ namespace Orpheus.Client.Anim
                 s.SwingDirY = selfAxis.y;
             }
 
+            // E3-2: лук — фаза из предсказания: натяжение (сила, ось — прицел), отход — отдача выстрела.
+            BowAction bow = pred.Bow;
+            if (bow.Phase == BowAction.PhaseDraw)
+            {
+                AimMath.AxisOf(bow.AimRaw, out float bx, out float by);
+                s.Drawing = true;
+                s.DrawPower = BowAction.PowerQ8(bow.Frames) / 256f;
+                s.DrawSec = bow.Frames * FrameSec;
+                s.DrawDirX = bx;
+                s.DrawDirY = by;
+            }
+            else if (bow.Phase == BowAction.PhaseRecover)
+            {
+                AimMath.AxisOf(bow.ShotAim, out float bx, out float by);
+                s.ShotSec = Mathf.Max(1e-4f, (BowAction.RecoverFrames - bow.Frames) * FrameSec);
+                s.DrawDirX = bx;
+                s.DrawDirY = by;
+            }
+
             // E2-7: предмет в руке — по своему счёту (ячейка последнего кадра).
             byte held = pred.HeldItem;
             _self.SetHeld(held);
@@ -309,10 +546,42 @@ namespace Orpheus.Client.Anim
             _requestsSeen = req;
 
             Pose p = _self.Animator.Step(dt, s);
+            if (pred.Dead)
+            {
+                // E3-1: свой персонаж падает и лежит до возрождения (не растворяется).
+                _selfDeadAge = _selfDeadAge < 0f ? 0f : _selfDeadAge + dt;
+                p = DeathAnim.Apply(p, _selfDeadAge, !_self.Animator.FacingRight, dissolve: false);
+            }
+            else
+            {
+                _selfDeadAge = -1f;
+                if (Rest != null && Rest.Active)
+                {
+                    // C-030: лёжа — спрайт на своей половине кровати (C-032: половина по чётности номера), макушкой к изголовью,
+                    // под одеялом; порядок — сразу за строкой
+                    // объектов якоря кровати (кровать рисуется в строке якоря, ObjectMesh), чтобы тело было поверх кровати.
+                    Vector3 center = _origin.ToUnity(BuildLayers.CenterAt(_world, Rest.Bed));
+                    Vector3 rootAt = _g.Character.position;
+                    p = RestAnim.Apply(p, Rest.Age, Rest.Rotation, center.x - rootAt.x, center.y - rootAt.y, RestAnim.SideOf(_client.EntityId));
+                    float anchorBottom = _origin.ToUnity(TileCenter(Rest.Bed)).y - 0.5f;
+                    p.SortY = anchorBottom + ObjectTable.BaseLift - 0.25f;
+                    p.HasSortY = true;
+                    RestFrames++;
+                }
+            }
+
             _self.Apply(p);
             if (p.DigPokeNow)
             {
-                if (s.Action == ActionKind.Chop || s.Action == ActionKind.Mine || s.Action == ActionKind.Hammer)
+                if (_client.DigStrike)
+                {
+                    // C-028: отклик взмаха — по задетым тайлам (ShowOwnStrike); в воздух — только пыль у прицела.
+                    if (_client.PredictedStrikeCount == 0)
+                    {
+                        EmitDust(digAt, new Vector2(-s.DigDirX, -s.DigDirY), AnimParams.DustLight);
+                    }
+                }
+                else if (s.Action == ActionKind.Chop || s.Action == ActionKind.Mine || s.Action == ActionKind.Hammer)
                 {
                     // Вид отклика — по запомненному объекту (дерево/камень), даже если его уже сняло предсказание.
                     Emit(_sparks, digAt, new Vector2(-s.DigDirX, -s.DigDirY), _dig.Look);
@@ -325,24 +594,110 @@ namespace Orpheus.Client.Anim
 
                 // E1-11: удар по дереву — встряска и листья. На последнем ударе дерева уже нет (предсказание сняло его в этот же
                 // кадр): облачко листьев срубленного даёт WorldView.Fill → LifeFx.TreeGone по тому же изменению тайла — не дублируем.
-                if (_client.Digging && _world.GetObject(_client.DigTile) != ObjectId.Empty)
+                if (_client.Digging && !_client.DigStrike && _world.GetObject(_client.DigTile) != ObjectId.Empty)
                 {
                     LifeFx.HitTile(_client.DigTile, new Vector2(s.DigDirX, s.DigDirY));
                 }
             }
 
-            // Враги по «замах начат».
+            // Враги по «замах начат». E3-4: если существо в этом кадре нарисовано из снимка (корень «Ent {id}»), призрак
+            // показывает только сектор-телеграф от места корня — второй спрайт рядом не нужен; труп — тоже скрыт.
             foreach (KeyValuePair<int, Enemy> kv in _enemies)
             {
                 Enemy e = kv.Value;
-                e.Actor.Rig.Root.position = _origin.ToUnity(e.Position);
-                SwingPhase phase = _swings.Phase(kv.Key, nowUs, out float q);
-                e.Actor.Animate(dt, phase, q);
+                SwingPhase ePhase = _swings.Phase(kv.Key, nowUs, out float eQ);
+                bool drawn = _remoteSeenFrame.TryGetValue(kv.Key, out int seenAt) && seenAt == Time.frameCount;
+                // Труп рисует корень снимка (E3-1); сервер держит его 10,5 с — дольше возрасту не расти, иначе запись
+                // удалённой сущности будет вечно держать призрак.
+                bool corpse = _deadAge.TryGetValue(kv.Key, out float corpseAge) && corpseAge < 12f;
+                if (drawn && _remotes.TryGetValue(kv.Key, out ActorRig? at))
+                {
+                    e.Actor.Rig.SetSpriteVisible(false);
+                    e.Actor.Rig.Root.position = at.Root.position;
+                }
+                else if (corpse)
+                {
+                    e.Actor.Rig.SetSpriteVisible(false);
+                }
+                else
+                {
+                    e.Actor.Rig.SetSpriteVisible(true); // манекен (0-029) — вне игры виден только по сообщениям замаха
+                    e.Actor.Rig.Root.position = _origin.ToUnity(e.Position);
+                }
+
+                e.Actor.Animate(dt, ePhase, eQ);
+                e.Idle = drawn || corpse ? 0f : e.Idle + dt;
             }
 
+            ForgetGoneEnemies();
             _swings.Expire(nowUs);
             ForgetGoneMelee();
+            ShowOwnStrike(); // C-028
             _sparks.Update(dt);
+        }
+
+        /// <summary>
+        /// E3-4: призрак врага, долго не видимый на экране (труп растворился, существо ушло из снимка), убирается;
+        /// записи «нарисована в кадре» застарелых сущностей — снимаются (как фазы удара в <see cref="ForgetGoneMelee"/>).
+        /// C-039: там же вычёркиваются записи смерти <see cref="_deadAge"/> ушедших из снимка существ — иначе словарь
+        /// растёт до конца игры.
+        /// </summary>
+        void ForgetGoneEnemies()
+        {
+            int now = Time.frameCount;
+            _gone.Clear();
+            foreach (KeyValuePair<int, Enemy> kv in _enemies)
+            {
+                if (kv.Value.Idle > 5f)
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _enemies[_gone[i]].Actor.Destroy();
+                _enemies.Remove(_gone[i]);
+            }
+
+            _gone.Clear();
+            foreach (KeyValuePair<int, int> kv in _remoteSeenFrame)
+            {
+                if (now - kv.Value > 60)
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _remoteSeenFrame.Remove(_gone[i]);
+            }
+
+            // C-039: запись о смерти (E3-1) нужна, пока существо в снимке: Remote() идёт из снимка и ведёт
+            // возраст падения/растворения. Снял сервер труп из снимка (10,5 с) — Remote() для id больше не
+            // вызывается и запись остаётся в словаре навсегда. Записи, прошедшие растворение (DeathAnim.Gone)
+            // и не нарисованные в этом кадре, вычёркиваются: дальше они ничего не рисуют, а только держат
+            // скрытый призрак замаха (corpse-проверка :599) — призрак убирается вместе с записью.
+            _gone.Clear();
+            foreach (KeyValuePair<int, float> kv in _deadAge)
+            {
+                bool inSnapshot = _remoteSeenFrame.TryGetValue(kv.Key, out int seenAt) && seenAt == now;
+                if (!inSnapshot && DeathAnim.Gone(kv.Value, true))
+                {
+                    _gone.Add(kv.Key);
+                }
+            }
+
+            for (int i = 0; i < _gone.Count; i++)
+            {
+                _deadAge.Remove(_gone[i]);
+                if (_enemies.TryGetValue(_gone[i], out Enemy? deadGhost))
+                {
+                    deadGhost.Actor.Destroy();
+                    _enemies.Remove(_gone[i]);
+                }
+            }
         }
 
         void OnSwing(SwingStartMessage m)

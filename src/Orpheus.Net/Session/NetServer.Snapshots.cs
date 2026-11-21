@@ -15,7 +15,7 @@ namespace Orpheus.Net.Session
     /// </summary>
     public sealed partial class NetServer
     {
-        private static SnapshotEntity Quantize(in SimEntity e) => new SnapshotEntity
+        private SnapshotEntity Quantize(in SimEntity e) => new SnapshotEntity
         {
             Id = e.Id,
             Kind = e.Kind,
@@ -25,7 +25,34 @@ namespace Orpheus.Net.Session
             HeldItem = e.Inv.Held, // 1-002: предмет в руках — картинка у всех
             Melee = (byte)(e.Mover.Melee.Phase | (e.Mover.Melee.Index << 2)), // 1-004: фаза удара — анимация у чужих
             Enemy = SnapshotLayout.EncodeEnemy(e.Brain.Archetype, e.Brain.SnapshotState), // 1-007: ИИ врага — архетип + состояние
+            Action = ActionOf(e), // C-036: взмах кирки / натяжение лука — анимация у чужих
         };
+
+        /// <summary>
+        /// Действие сущности для снимка (C-036): лук — фаза натяжения (<see cref="BowAction.PhaseDraw"/>), прогресс — сила
+        /// <see cref="BowAction.PowerQ8"/>&gt;&gt;2 (0…63, меняется раз в ~4 кадра — дельта редкая). Копка/взмах кирки —
+        /// окно в <see cref="EditState"/> игрока, квант 16 кадров (как фазы меча 1-004: дельта раз в окно, не каждый такт);
+        /// окно 0 — стоит. Отход лука (PhaseRecover) — 0: отдачу клиент рисует по сообщению снаряда (E3-2).
+        /// Враги без лука и копки — 0.
+        /// </summary>
+        private byte ActionOf(in SimEntity e)
+        {
+            if (e.Mover.Bow.Phase == BowAction.PhaseDraw)
+                return SnapshotLayout.EncodeAction(SnapshotLayout.ActionToolBow, BowAction.PowerQ8(e.Mover.Bow.Frames) >> 2);
+            Player? pl = FindByEntity(e.Id);
+            EditState? s = pl?.Edits;
+            if (s != null && s.Digging)
+            {
+                int frames = DigFramesOf(s, e.Inv.Held); // взмах — SwingFrames, копка — время тайла; ≤ 0 — прогресс стоит
+                if (frames > 0)
+                    return SnapshotLayout.EncodeAction(SnapshotLayout.ActionToolPick, (s.DigProgress + ActionDigQuantum - 1) / ActionDigQuantum);
+            }
+
+            return 0;
+        }
+
+        /// <summary>C-036: квант окна копки/взмаха для прогресса в снимке — <see cref="SnapshotLayout.ActionDigQuantum"/>.</summary>
+        private const int ActionDigQuantum = SnapshotLayout.ActionDigQuantum;
 
         /// <summary>
         /// Обзор игрока (docs/07, 4.4; 0-022) в <paramref name="cur"/>: свой — первым; позиции квантованы; число сущностей.
@@ -157,7 +184,7 @@ namespace Orpheus.Net.Session
             w.SetWorldTime(WorldTimeTicks);
             for (int i = 0; i < curCount; i++)
             {
-                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem, _cur[i].Melee, _cur[i].Enemy))
+                if (!w.TryAdd(_cur[i].Id, _cur[i].Kind, _cur[i].Position, _cur[i].Direction, _cur[i].HealthPct, _cur[i].HeldItem, _cur[i].Melee, _cur[i].Enemy, _cur[i].Action))
                 {
                     break;
                 }
@@ -170,16 +197,29 @@ namespace Orpheus.Net.Session
         /// <summary>
         /// «Сумка» игроку (1-002, тип 26, канал 2): сумка его сущности — при входе и при каждом изменении
         /// (сверка в <see cref="SendSnapshots"/>). Версия растёт при каждой отправке; порядок хранит канал 2.
+        /// E3-6: вместе с сумкой уходит надетое (три ячейки снаряжения) — окно сумки показывает их.
         /// </summary>
-        private void SendInventoryTo(Player pl, in Inventory bag)
+        private void SendInventoryTo(Player pl, in SimEntity e)
         {
             pl.InvVersion = unchecked((ushort)(pl.InvVersion + 1));
-            pl.SentInv = bag;
+            pl.SentInv = e.Inv;
+            pl.SentGear = GearKey(e);
             pl.HasSentInv = true;
-            int len = new InventoryMessage { EntityId = pl.EntityId, Version = pl.InvVersion, Bag = bag }.Write(_buf);
+            int len = new InventoryMessage
+            {
+                EntityId = pl.EntityId,
+                Version = pl.InvVersion,
+                Bag = e.Inv,
+                EquipHead = e.EquipHead,
+                EquipBody = e.EquipBody,
+                EquipLegs = e.EquipLegs,
+            }.Write(_buf);
             _transport.Send(pl.Peer, NetChannel.Facts, new ReadOnlySpan<byte>(_buf, 0, len));
             InventoriesSent++;
         }
+
+        /// <summary>Надетое тремя байтами в одном числе (сверка «сумка изменилась» — вместе с нею, E3-6).</summary>
+        static int GearKey(in SimEntity e) => e.EquipHead | (e.EquipBody << 8) | (e.EquipLegs << 16);
 
         /// <summary>
         /// После такта: снимок каждому игроку в игре (0-014, 4.3). База — снимок, который клиент подтвердил
@@ -191,6 +231,7 @@ namespace Orpheus.Net.Session
         {
             BroadcastPatches(); // правки такта — до окон: вошедшие в окно чанки уйдут уже с ревизией после такта (3.7)
             BroadcastCombatEvents(); // 1-001: смерть/возрождение такта — канал 2 всем в игре
+            BroadcastProjectiles(); // E3-2: выстрелы и концы снарядов такта — канал 2 всем в игре
             SendEditReplies(); // 0-028: «принято» / «отказ» по исходам такта
             FollowAnchorMoves(); // C-011: окна сундуков и кровати вне мира — за перенесённой мебелью
             ReadOnlySpan<SimEntity> entities = _sim.Entities;
@@ -203,6 +244,7 @@ namespace Orpheus.Net.Session
                     SendSnapshotTo(pl, entities, tick);
                     int slot = _sim.SlotOf(pl.EntityId);
                     pl.BagRequestsThisTick = 0; // лимит заявок на сумку — на такт (E2-1)
+                    pl.NewPilesThisTick = 0; // лимит новых куч — на такт (C-035)
                     if (slot >= 0)
                     {
                         SendPilesTo(pl, entities[slot].Mover.Position); // E2-1: кучи на земле в обзоре — разницей
@@ -212,9 +254,9 @@ namespace Orpheus.Net.Session
 
                     SendChestTo(pl, slot); // E2-5: открытый сундук — содержимое, если изменилось, или «закрыт»
 
-                    if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv))
+                    if (slot >= 0 && (!pl.HasSentInv || entities[slot].Inv != pl.SentInv || GearKey(entities[slot]) != pl.SentGear))
                     {
-                        SendInventoryTo(pl, entities[slot].Inv); // 1-002: сумка изменилась (копание, подбор, смена ячейки)
+                        SendInventoryTo(pl, entities[slot]); // 1-002: сумка изменилась (копание, подбор, смена ячейки); E3-6 — и надетое
                         int ci = Characters.FindEntity(pl.EntityId); // 1-004: запись реестра — за сущностью, сейв в мире берёт живую сумку
                         if (ci >= 0)
                         {
@@ -226,6 +268,7 @@ namespace Orpheus.Net.Session
 
             StepEnemyThreats(); // 1-007: замахи врагов с ИИ — телеграф (удар уже решён симуляцией)
             SendSwings();
+            FlushEventBatches(); // C-035: пачки событий (40) такта — до снимков уходят в том же flush, порядок за тактом
             _transport.Flush(); // снимки такта — сразу, а не по таймеру транспорта (0-015)
         }
 
@@ -308,6 +351,11 @@ namespace Orpheus.Net.Session
                         f |= DeltaFields.Enemy; // 1-007
                     }
 
+                    if (_cur[ci].Action != b.Action)
+                    {
+                        f |= DeltaFields.Action; // C-036
+                    }
+
                     if (f == DeltaFields.None)
                     {
                         continue;
@@ -358,13 +406,13 @@ namespace Orpheus.Net.Session
             for (int i = 0; i < updatedN; i++)
             {
                 SnapshotEntity e = _cur[_updCur[i]];
-                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy);
+                truncated |= !w.TryAddUpdated(_updBase[i], _updFields[i], e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy, e.Action);
             }
 
             for (int i = 0; i < addedN; i++)
             {
                 SnapshotEntity e = _cur[_addCur[i]];
-                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy);
+                truncated |= !w.TryAddAdded(e.Id, e.Kind, e.Position, e.Direction, e.HealthPct, e.HeldItem, e.Melee, e.Enemy, e.Action);
             }
 
             int len = w.Finish();

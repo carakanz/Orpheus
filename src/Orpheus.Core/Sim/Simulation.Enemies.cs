@@ -77,8 +77,9 @@ namespace Orpheus.Core.Sim
                 return;
             }
 
-            if (b.State != EnemyState.Chase)
+            if (b.State != EnemyState.Chase && b.State != EnemyState.Pounce)
             {
+                // Pounce (E3-3): рывок волка идёт по той же трассе, что погоня, но состояние и скорость волка.
                 b.State = EnemyState.Chase;
                 b.StateTicks = 0;
                 b.PathStamp = 0;
@@ -243,7 +244,273 @@ namespace Orpheus.Core.Sim
                 IgnoreTargetId = EnemyBrain.NoTarget,
                 CauseId = EnemyBrain.NoTarget,
             };
+             return id;
+         }
+
+        /// <summary>
+        /// Добавить «Дальнего» с мозгом (лучник, архетип <see cref="EnemyArchetype.Ranged"/>, карточка E3-3):
+        /// дом — точка появления, старт в Idle; числа — <see cref="RangedArcher"/>. Возвращает номер.
+        /// </summary>
+        public int AddRangedArcher(WorldPos position, int healthMultX1024 = 1024)
+        {
+            int id = AddEnemy(position);
+            int slot = SlotOf(id);
+            ref SimEntity e = ref _entities[slot];
+            short hp = (short)ScaledByNight(RangedArcher.MaxHealth, healthMultX1024); // ночь ×1,25 → 31 (8.6)
+            e.MaxHealth = hp;
+            e.Health = hp;
+            e.AttackRaw = (byte)RangedArcher.ShotDamage; // урон стрелы; ночь масштабируется при выстреле
+            e.AttackPeriod = RangedArcher.PeriodTicks;
+            e.Mover.UnitsPerTickX10 = RogueWanderSpeedX10;
+            TileCoord home = Torus.TileOf(_shape, e.Mover.Position);
+            e.Brain = new EnemyBrain
+            {
+                Archetype = EnemyArchetype.Ranged,
+                State = EnemyState.Idle,
+                TargetId = EnemyBrain.NoTarget,
+                HomeX = home.X,
+                HomeY = home.Y,
+                GoalX = home.X,
+                GoalY = home.Y,
+                LastHitBy = EnemyBrain.NoTarget,
+                IgnoreTargetId = EnemyBrain.NoTarget,
+                CauseId = EnemyBrain.NoTarget,
+            };
             return id;
+        }
+
+        /// <summary>
+        /// Добавить «Зверя» с мозгом (волк, архетип <see cref="EnemyArchetype.Beast"/>, карточка E3-3):
+        /// дом — точка появления, старт в Idle; числа — <see cref="BeastWolf"/>. Возвращает номер.
+        /// </summary>
+        public int AddBeastWolf(WorldPos position, int healthMultX1024 = 1024)
+        {
+            int id = AddEnemy(position);
+            int slot = SlotOf(id);
+            ref SimEntity e = ref _entities[slot];
+            short hp = (short)ScaledByNight(BeastWolf.MaxHealth, healthMultX1024); // ночь ×1,25 → 26 (8.6)
+            e.MaxHealth = hp;
+            e.Health = hp;
+            e.AttackRaw = (byte)BeastWolf.StrikeDamage; // укус ночью масштабируется в ApplyStrike (8.6)
+            e.AttackPeriod = BeastWolf.PeriodTicks;
+            e.Mover.UnitsPerTickX10 = RogueWanderSpeedX10;
+            TileCoord home = Torus.TileOf(_shape, e.Mover.Position);
+            e.Brain = new EnemyBrain
+            {
+                Archetype = EnemyArchetype.Beast,
+                State = EnemyState.Idle,
+                TargetId = EnemyBrain.NoTarget,
+                HomeX = home.X,
+                HomeY = home.Y,
+                GoalX = home.X,
+                GoalY = home.Y,
+                LastHitBy = EnemyBrain.NoTarget,
+                IgnoreTargetId = EnemyBrain.NoTarget,
+                CauseId = EnemyBrain.NoTarget,
+            };
+            return id;
+        }
+
+        /// <summary>
+        /// Шаг ИИ лучника (E3-3): ближе зоны удержания — отход от цели; дальше 12 тайлов — сближение (Chase
+        /// крейсерской скоростью); в зоне 8–12 стоит и стреляет раз в <see cref="RangedArcher.PeriodTicks"/>
+        /// при чистой линии. Раненый (≤ 50 % HP) держит 10 тайлов вместо 8.
+        /// </summary>
+        private void StepArcher(ref SimEntity e, ref SimEntity target, int slot, long tick, long dist2)
+        {
+            ref EnemyBrain b = ref e.Brain;
+            bool wounded = e.Health * 100 <= e.MaxHealth * RangedArcher.WoundedPct;
+            long keepOut = wounded ? RangedArcher.WoundedKeepOut2 : RangedArcher.KeepOut2;
+
+            if (dist2 <= keepOut)
+            {
+                e.Mover.UnitsPerTickX10 = RangedArcher.RetreatSpeedX10;
+                if (b.State != EnemyState.Retreat)
+                {
+                    b.State = EnemyState.Retreat;
+                    b.StateTicks = 0;
+                    b.PathStamp = 0;
+                    b.BlockedSince = 0;
+                }
+
+                MoveAway(ref e, target.Mover.Position, 6);
+                return;
+            }
+
+            if (dist2 > RangedArcher.KeepIn2)
+            {
+                e.Mover.UnitsPerTickX10 = RangedArcher.CruiseSpeedX10;
+                Chase(ref e, ref target, slot, tick);
+                return;
+            }
+
+            // Зона удержания: стоит; выстрел — по таймеру состояния (фаза боя не трогается: цель дальше зоны удара).
+            e.Mover.UnitsPerTickX10 = RangedArcher.CruiseSpeedX10;
+            if (b.State != EnemyState.Attack)
+            {
+                b.State = EnemyState.Attack;
+                b.StateTicks = 0;
+                b.PathStamp = 0;
+                b.BlockedSince = 0;
+            }
+
+            e.Input = InputFrame.None;
+            if (b.StateTicks > 0 && b.StateTicks % RangedArcher.PeriodTicks == 0 &&
+                dist2 <= RangedArcher.ShootIn2 &&
+                StrikeLineClear(e.Mover.Position, target.Mover.Position,
+                    Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position))))
+            {
+                ushort aim = (ushort)Angle16.FromDirection(Torus.Delta(_shape, e.Mover.Position, target.Mover.Position)).Raw;
+                SpawnProjectile(e.Id, hostile: true, Combat.Projectiles.KindArrow, e.Mover.Position, aim,
+                    RangedArcher.ArrowSpeedX256, RangedArcher.ArrowRangeUnits,
+                    ScaledByNight(RangedArcher.ShotDamage, NightMultX1024), Items.Arrows);
+            }
+        }
+
+        /// <summary>
+        /// Шаг ИИ волка (E3-3): ≤ 4 HP — отход на 4 тайла (упёрся за 60 тактов — принимает бой); цель дальше
+        /// 6 тайлов — рывок на <see cref="BeastWolf.PounceTicks"/>; укус в упор (зона/линия как у ближнего).
+        /// Цикл замаха ведёт фаза боя по состоянию Attack (общий, как у ближнего).
+        /// </summary>
+        private void StepWolf(ref SimEntity e, ref SimEntity target, int slot, long tick, long dist2)
+        {
+            ref EnemyBrain b = ref e.Brain;
+            TileCoord own = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
+
+            if (e.Health <= BeastWolf.FleeHp && b.State != EnemyState.Attack)
+            {
+                if (b.State == EnemyState.Retreat)
+                {
+                    if (b.StateTicks >= BeastWolf.BlockedFightTicks)
+                    {
+                        // Долго убегает и не оторвался (упёрся) — принимает смерть укусом (8.2).
+                        b.State = EnemyState.Chase;
+                        b.StateTicks = 0;
+                        b.PathStamp = 0;
+                        b.BlockedSince = 0;
+                    }
+                    else if (dist2 > BeastWolf.FleeGoal2)
+                    {
+                        // Оторвался на 4 тайла — готов кусаться: погоня подведёт ближе.
+                        b.State = EnemyState.Chase;
+                        b.StateTicks = 0;
+                        b.PathStamp = 0;
+                    }
+                    else
+                    {
+                        e.Mover.UnitsPerTickX10 = BeastWolf.FleeSpeedX10;
+                        MoveAway(ref e, target.Mover.Position, 8);
+                        return;
+                    }
+                }
+                else
+                {
+                    // Малый HP — начинаем отход.
+                    e.Mover.UnitsPerTickX10 = BeastWolf.FleeSpeedX10;
+                    b.State = EnemyState.Retreat;
+                    b.StateTicks = 0;
+                    b.PathStamp = 0;
+                    b.BlockedSince = 0;
+                    MoveAway(ref e, target.Mover.Position, 8);
+                    return;
+                }
+            }
+
+            if (dist2 <= BeastWolf.StrikeRange2 &&
+                (InsideSolid(e.Mover.Position) || StrikeLineClear(e.Mover.Position, target.Mover.Position, own)))
+            {
+                e.Mover.UnitsPerTickX10 = BeastWolf.ChaseSpeedX10;
+                if (b.State != EnemyState.Attack)
+                {
+                    b.State = EnemyState.Attack;
+                    b.StateTicks = 0;
+                    b.PathStamp = 0;
+                    b.BlockedSince = 0;
+                }
+
+                e.Input = InputFrame.None;
+                return;
+            }
+
+            if (b.State == EnemyState.Pounce)
+            {
+                if (b.StateTicks < BeastWolf.PounceTicks)
+                {
+                    Chase(ref e, ref target, slot, tick); // трасса как в погоне (Chase свои поля не сбит: Pounce защищён)
+                    e.Mover.UnitsPerTickX10 = BeastWolf.PounceSpeedX10; // скорость рывка — поверх Chase
+                    return;
+                }
+
+                b.State = EnemyState.Chase;
+                b.StateTicks = 1; // не «свежая» погоня: следующий рывок только после кулдауна
+                b.PathStamp = 0;
+            }
+
+            if (dist2 > BeastWolf.PounceFrom2 &&
+                (b.State != EnemyState.Chase || b.StateTicks == 0 || b.StateTicks >= BeastWolf.PounceCooldownTicks))
+            {
+                // Рывок с 6 тайлов (8.2): бросок на PounceTicks; дальше перерыв — далеко убегающего не догоняет.
+                // Встреча издалека (первый такт погони) — рывок сразу; повторный — только с перерывом.
+                b.State = EnemyState.Pounce;
+                b.StateTicks = 0;
+                b.PathStamp = 0;
+                Chase(ref e, ref target, slot, tick);
+                e.Mover.UnitsPerTickX10 = BeastWolf.PounceSpeedX10;
+                return;
+            }
+
+            e.Mover.UnitsPerTickX10 = BeastWolf.ChaseSpeedX10;
+            Chase(ref e, ref target, slot, tick);
+        }
+
+        /// <summary>
+        /// Отход (E3-3): шаг от цели — прямо к тайлу в <paramref name="tiles"/> тайлах за спиной вдоль линии
+        /// «цель → враг» (целочисленно, детерминизм 11.5). Путь к цели — обычный <see cref="MoveToward"/>.
+        /// </summary>
+        private void MoveAway(ref SimEntity e, WorldPos from, int tiles)
+        {
+            TileCoord st = Torus.Wrap(_shape, Torus.TileOf(_shape, e.Mover.Position));
+            Int2 d = Torus.Delta(_shape, from, e.Mover.Position);
+            int m = Math.Max(Math.Abs(d.X), Math.Abs(d.Y));
+            if (m == 0)
+            {
+                m = 1; // враг в центре цели — отход на восток
+                d = new Int2(1, 0);
+            }
+
+            var goal = new TileCoord(st.X + (int)((long)tiles * d.X / m), st.Y + (int)((long)tiles * d.Y / m));
+            MoveToward(ref e, Torus.Wrap(_shape, goal));
+        }
+
+        /// <summary>
+        /// Лут с врага при смерти (E3-3b, `06` 1.6) — личная капля: дроп только когда убил игрок
+        /// (<see cref="EnemyBrain.LastHitBy"/> — персонаж), владелец кучи = убийца. Зверь (волк): мясо 1–2 (100 %),
+        /// шкура 1 (70 %). Дальний (лучник): стрелы 2–5 (50 %). Ближний (разбойник): дропа нет (у людей по `06` 1.6
+        /// только оболы — валюта, не предмет среза). Шум от (номер, такт, зерно) — детерминизм 11.5.
+        /// </summary>
+        private void SpawnEnemyDrop(ref SimEntity e)
+        {
+            int owner = e.Brain.LastHitBy;
+            int slot = SlotOf(owner);
+            if (slot < 0 || !_entities[slot].IsCharacter)
+            {
+                return; // E3-3b: убило не игроком (деспавн, среда) — не дропаем
+            }
+
+            ulong h = EnemyRng.Hash(e.Id, Tick, _world.Seed);
+            TileCoord tile = Torus.TileOf(_shape, e.Mover.Position);
+            if (e.Brain.Archetype == EnemyArchetype.Beast)
+            {
+                DropOnTile(Tick, tile, Items.Meat, 1 + (int)(h % 2), owner); // мясо 1–2 (100 %)
+                if ((int)((h >> 8) % 100) < 70)
+                {
+                    DropOnTile(Tick, tile, Items.Hide, 1, owner); // шкура (70 %)
+                }
+            }
+            else if (e.Brain.Archetype == EnemyArchetype.Ranged && (int)((h >> 8) % 100) < 50)
+            {
+                DropOnTile(Tick, tile, Items.Arrows, 2 + (int)(h % 4), owner); // стрелы 2–5 (50 %)
+            }
         }
 
         /// <summary>
@@ -271,6 +538,20 @@ namespace Orpheus.Core.Sim
                 {
                     ref SimEntity target = ref _entities[ts];
                     long dist2 = Torus.Dist2(_shape, e.Mover.Position, target.Mover.Position);
+
+                    // Архетипы E3-3: лучник держит дистанцию и стреляет; волк — рывок, укус, отход при 4 HP.
+                    if (b.Archetype == EnemyArchetype.Ranged)
+                    {
+                        StepArcher(ref e, ref target, i, tick, dist2);
+                        continue;
+                    }
+
+                    if (b.Archetype == EnemyArchetype.Beast)
+                    {
+                        StepWolf(ref e, ref target, i, tick, dist2);
+                        continue;
+                    }
+
                     // В атаку — только при чистой линии удара (E2-12, `02` 9.3): сквозь стену 0,5 игрок у внутренней грани в 1,3 т —
                     // в зоне удара, но за стеной; стоять «в атаке» у стены нельзя — погоня, «упёрся» и уход через 20 с. Забор прозрачен.
                     // Враг в закрытой двери (закрыли под ним правкой без выталкивания, C-001) или центром в твёрдой ячейке стоит, как

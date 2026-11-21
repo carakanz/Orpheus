@@ -65,7 +65,7 @@ namespace Orpheus.Client.UI
             // Персонаж — золотая точка с тёмной каймой в центре (поверх остальных).
             UiShape.Create(_body, "SelfRing", Size / 2f - 8f, Size / 2f - 8f, 16f, 16f, UiShape.Shape.Disc, UiStyle.Ink);
             UiShape.Create(_body, "Self", Size / 2f - 6f, Size / 2f - 6f, 12f, 12f, UiShape.Shape.Disc, UiStyle.Gold);
-            UiRoot.Label(_body, "North", Size / 2f - 10f, Size - 26f, 20f, 22f, 18, TextAnchor.MiddleCenter, UiStyle.TextLight, outline: true, bold: true).text = "С";
+            // C-029 (слово Автора 17.11: «С миникарты букву C можно убрать»): метки севера «С» нет.
 
             _collapsed = UiRoot.Label(Rt, "Collapsed", 0f, Size - 26f, Size - 4f, 24f, 18, TextAnchor.MiddleRight, UiStyle.TextLight, outline: true, bold: true);
             _collapsed.text = UiStrings.MapCollapsed;

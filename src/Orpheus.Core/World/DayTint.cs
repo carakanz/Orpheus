@@ -21,7 +21,7 @@ namespace Orpheus.Core.World
         /// k_биома (1/1024) по полу тайла: лесная подстилка → поправка леса (870), остальные полы → 1024.
         /// </summary>
         public static int BiomeKX1024ForFloor(byte floor) =>
-            floor == FloorId.ForestFloor ? DayClock.BiomeKX1024(ForestBiome) : DayClock.LightScale;
+            FloorId.IsForest(floor) ? DayClock.BiomeKX1024(ForestBiome) : DayClock.LightScale;
 
         /// <summary>
         /// L тайла (1/1024) для тона: фон × k(пол) + свет источников тайла.

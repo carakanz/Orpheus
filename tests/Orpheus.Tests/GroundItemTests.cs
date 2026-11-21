@@ -52,7 +52,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_ItemTable_Categories_Stacks_MaterialsAreItems()
         {
-            Assert.Equal(32, ItemTable.Count); // 14 — E2-1; + 7 — E2-3 (слиток, верёвка, медные топор / меч / лук, мясо, жареное мясо); + 11 — E2-11 (постройки)
+            Assert.Equal(36, ItemTable.Count); // 14 — E2-1; + 7 — E2-3 (слиток, верёвка, медные топор / меч / лук, мясо, жареное мясо); + 11 — E2-11 (постройки); + 4 — E3-6 (шлем, доспех, поножи, шкура)
             for (int id = 1; id < ItemTable.Count; id++)
             {
                 ItemDef d = ItemTable.Get((byte)id);
@@ -413,7 +413,7 @@ namespace Orpheus.Tests
             sim.RequestPlayerEdit(rock, FloorId.Grass, ObjectId.Empty, false, default, id, 1);
             sim.Step();
             int n = Assert.Single(sim.Piles.ToArray()).Count;
-            Assert.InRange(n, 1, 2);
+            Assert.InRange(n, 4, 8); // C-028: камень ×4
             for (int t = 1; t < Simulation.LootPickupDelayTicks; t++)
             {
                 sim.Step();
@@ -757,8 +757,8 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "кучи", chars), 3, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(13u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5), 10 — ячейки стен (E2-12); сумка и кучи — как в формате 7
-            Assert.Equal(13u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(17u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // 8 — очередь изготовления (E2-3), 9 — сундуки и кровать (E2-5), 10 — ячейки стен (E2-12); сумка и кучи — как в формате 7
+            Assert.Equal(17u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
 
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(bag, st.Characters[0].Inv);
@@ -924,7 +924,7 @@ namespace Orpheus.Tests
 
             // Пересохранение: формат 7, сумки и кучи те же, хэш состояния тот же.
             byte[] v7 = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), again.Name, again.Characters), 5, 0);
-            Assert.Equal(13u, SaveContainer.Read(v7).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // нынешний формат (10 с E2-12)
+            Assert.Equal(17u, SaveContainer.Read(v7).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11) // нынешний формат (10 с E2-12)
             LoadedWorldState st7 = WorldSave.Load(SaveContainer.Read(v7), WorldSnapshot.LoadBase(baseBytes), WorldSnapshot.StoredHash(baseBytes));
             Assert.Equal(orpheus, st7.Characters[0].Inv);
             Assert.Equal(eurydice, st7.Characters[1].Inv);
@@ -1128,24 +1128,32 @@ namespace Orpheus.Tests
         [Fact]
         public void E21_Net_GoldenBytes_Piles_PileGone_BagRequest()
         {
-            Assert.Equal(29, NetModule.ProtocolVersion); // C-013: 29; E2-16: 28 // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
+            Assert.Equal(38, NetModule.ProtocolVersion); // E3-3b: 38 (владелец личной капли в кучах 27); C-036: 37 (действие в снимке); C-035: 36 (пачка 40); E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28 // байты типов 26–29 те же, что в протоколе 21; 22 добавил типы 30–32 (E2-3), 23 — 33–35 (E2-5), 24 — 36 (E2-10)
 
             var buf = new byte[PilesMessage.MaxBytes];
             var piles = new[]
             {
                 new NetPile { Id = 1, Item = Items.Wood, Count = 3, Position = new WorldPos(0x12345, 0x6789A) },
-                new NetPile { Id = 0x01020304, Item = Items.Arrows, Count = 999, Position = new WorldPos(256, 512) },
+                new NetPile { Id = 0x01020304, Item = Items.Arrows, Count = 999, Position = new WorldPos(256, 512), Kind = GroundPile.KindArrowWall, Aim = 0x1234, Owner = 42 },
             };
             int n = PilesMessage.Write(buf, piles);
             Assert.Equal(2 + 2 * NetPile.Bytes, n);
             Assert.Equal(
-                "1B-02-01-00-00-00-08-03-00-45-23-01-00-9A-78-06-00-04-03-02-01-0D-E7-03-00-01-00-00-00-02-00-00",
+                "1B-02-01-00-00-00-08-03-00-45-23-01-00-9A-78-06-00-00-00-00-00-00-00-00-04-03-02-01-0D-E7-03-00-01-00-00-00-02-00-00-01-34-12-2A-00-00-00", // C-031: + вид 1 и ось u16; E3-3b: + владелец u32
                 BitConverter.ToString(buf, 0, n));
             var read = new NetPile[PilesMessage.MaxPiles];
             Assert.Equal(2, PilesMessage.Read(new ReadOnlySpan<byte>(buf, 0, n), read));
             Assert.Equal(piles[1].Id, read[1].Id);
             Assert.Equal(piles[1].Count, read[1].Count);
             Assert.Equal(piles[0].Position, read[0].Position);
+            Assert.Equal(GroundPile.KindArrowWall, read[1].Kind); // C-031
+            Assert.Equal(0x1234, read[1].Aim);
+            Assert.Equal(GroundPile.KindPlain, read[0].Kind);
+            Assert.Equal(42, read[1].Owner); // E3-3b: личная капля — владелец
+            Assert.Equal(0, read[0].Owner); // общая куча
+            buf[2 + NetPile.Bytes * 2 - 7] = GroundPile.MaxKind + 1; // C-031: нет такого вида (E3-3b: вид за 7 байт до конца кучи)
+            Assert.Throws<ProtocolException>(() => PilesMessage.Read(new ReadOnlySpan<byte>(buf, 0, n), read));
+            buf[2 + NetPile.Bytes * 2 - 7] = GroundPile.KindArrowWall;
             buf[6] = 200; // нет такого предмета
             Assert.Throws<ProtocolException>(() => PilesMessage.Read(new ReadOnlySpan<byte>(buf, 0, n), read));
 
@@ -1162,17 +1170,17 @@ namespace Orpheus.Tests
             BagRequestMessage req = BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n));
             Assert.Equal(BagOp.Split, req.Op);
             Assert.Equal(15, req.Count);
-            buf[2] = 70; // ячейка вне сумки и сундука (E2-5: 40…69 — ячейки открытого сундука)
+            buf[2] = 73; // ячейка вне сумки, сундука и носимого (E2-5: 40…69 — сундук; E3-6: 70…72 — носимое)
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
             buf[2] = 6;
             buf[1] = 0; // нет такой операции
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
 
-            // Сумка (26) ячейками: 7 + 121 байт, начало — тип, сущность, версия, выбранная ячейка, ячейка 0.
+            // Сумка (26) + носимое (E3-6) ячейками: 7 + 124 байта, начало — тип, сущность, версия, выбранная ячейка, ячейка 0.
             var bag = Inventory.StartingKit();
             n = new InventoryMessage { EntityId = 5, Version = 2, Bag = bag }.Write(buf);
             Assert.Equal(InventoryMessage.Bytes, n);
-            Assert.Equal(128, n);
+            Assert.Equal(131, n);
             Assert.Equal("1A-05-00-00-00-02-00-00-01-01-00-02-01-00", BitConverter.ToString(buf, 0, 14));
             Assert.Equal(bag, InventoryMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).Bag);
         }
@@ -1253,7 +1261,7 @@ namespace Orpheus.Tests
             Assert.Equal(Items.None, a.Inv.ItemAt(7));
             Assert.Equal(15, Assert.Single(a.Piles).Count);
             Assert.Equal(15, Assert.Single(b.Piles).Count);
-            Assert.False(a.RequestBagMove(0, 70)); // E2-5: 40…69 — сундук
+            Assert.False(a.RequestBagMove(0, 73)); // E2-5: 40…69 — сундук; E3-6: 70…72 — снаряжение, за ними (73) — отказ
             Assert.Equal(3, rig.Server.BagRequestsReceived);
 
             NetClient late = rig.Join();
@@ -1376,6 +1384,155 @@ namespace Orpheus.Tests
             Assert.Equal(ObjectId.Tree, rig.Sim.World.GetObject(tree)); // мёртвый не срубил
             Assert.Equal(EditReply.Dead, Assert.Single(replies).Reply);
             Assert.Equal("ты мёртв", EditRules.Describe(EditReply.Dead));
+        }
+
+        // ---------- C-038: потолок сообщений куч на игрока за такт ----------
+
+        /// <summary>
+        /// C-038: 200 куч в окне входа — за такт игроку не больше <see cref="NetServer.PileMessagesPerTick"/> сообщений
+        /// куч (27 + 28); за 20 тактов клиент видит все 200 куч, ничего не потеряно и ничего не пропало.
+        /// </summary>
+        [Fact]
+        public void C038_Net_Piles_200InWindow_PerTickLimit_AllKnownInK()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 5);
+            using var rig = new EditTests.EditRig(world, _ => Center(300, 300));
+            for (int x = 305; x < 385; x++)
+                for (int y = 295; y < 355; y++)
+                    rig.Sim.RequestEdit(new TileCoord(x, y), FloorId.Grass, ObjectId.Empty);
+            NetClient c = rig.Join();
+            rig.Run(4);
+            Assert.Equal(NetClientState.InGame, c.State);
+
+            for (int x = 310; x <= 319; x++) // 200 куч в окне входа (80 × 56 тайлов)
+                for (int y = 300; y <= 319; y++)
+                    rig.Sim.AddStuckArrowForTests(Center(x, y), 0, GroundPile.KindArrowGround, rig.Sim.Tick);
+            int added = rig.Sim.Piles.Length;
+            Assert.Equal(200, added);
+
+            var perTick = new List<long>();
+            long prev = c.PileMessagesSeen + c.PileGoneSeen;
+            rig.AfterTick = () =>
+            {
+                long now = c.PileMessagesSeen + c.PileGoneSeen;
+                perTick.Add(now - prev);
+                prev = now;
+            };
+            rig.Run(20);
+            rig.AfterTick = null;
+
+            Assert.All(perTick, d => Assert.InRange(d, 0, NetServer.PileMessagesPerTick)); // потолок за такт
+            Assert.Equal(200, c.Piles.Count); // за 20 тактов выгрузка полная (96 куч за такт)
+            Assert.Equal(0, c.PileGoneSeen); // и ничего не пропало (задержка подбора, в 10 т от игрока)
+            Assert.Equal(added, rig.Sim.Piles.Length); // на земле всё целое
+            Assert.Equal(0, c.BadMessages);
+        }
+
+        /// <summary>
+        /// C-038: 200 куч разом уходят из обзора — «кучи нет» уходит очередью по ≤ 2 за такт; куча не выпадает из
+        /// знания игрока раньше сообщения (нет «призраков»); возврат куч в обзор отменяет очередь.
+        /// </summary>
+        [Fact]
+        public void C038_Net_Piles_BurstOutOfView_GoneQueued_NoGhosts_CancelledOnReturn()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(1024), 5);
+            using var rig = new EditTests.EditRig(world, _ => Center(300, 300));
+            for (int x = 305; x < 385; x++)
+                for (int y = 295; y < 355; y++)
+                    rig.Sim.RequestEdit(new TileCoord(x, y), FloorId.Grass, ObjectId.Empty);
+            NetClient c = rig.Join();
+            rig.Run(4);
+
+            for (int x = 310; x <= 319; x++)
+                for (int y = 300; y <= 319; y++)
+                    rig.Sim.AddStuckArrowForTests(Center(x, y), 0, GroundPile.KindArrowGround, rig.Sim.Tick);
+            Assert.Equal(200, rig.Sim.Piles.Length);
+
+            var perTick = new List<long>();
+            long prev = c.PileMessagesSeen + c.PileGoneSeen;
+            var shown = new HashSet<int>(); // кучи, показанные клиенту («кучи» минус «кучи нет»)
+            var gones = new List<PileGoneMessage>();
+            c.PileSeen = p => shown.Add(p.Id);
+            c.PileGone = (m, was) =>
+            {
+                gones.Add(m);
+                Assert.True(shown.Remove(m.Id), "«кучи нет» на кучу, которую клиент не видел — «призрак»");
+            };
+            rig.AfterTick = () =>
+            {
+                long now = c.PileMessagesSeen + c.PileGoneSeen;
+                perTick.Add(now - prev);
+                prev = now;
+                Assert.Equal(shown.Count, c.Piles.Count);
+            };
+
+            rig.Run(6); // все кучи известны игроку
+            Assert.Equal(200, c.Piles.Count);
+
+            rig.Sim.PlaceForTests(c.EntityId, Center(500, 500)); // кучи далеко за границей обзора
+            rig.Run(7); // ушли все 200; клиент успел опросить доставка 6 тактов по 2
+            Assert.Equal(12, c.PileGoneSeen); // ровно по потолку за такт; два «ушедших» 7-го такта ещё в пути
+
+            rig.Sim.PlaceForTests(c.EntityId, Center(300, 300)); // кучи снова в обзоре — очередь «кучи нет» отменяется
+            rig.Run(10);
+            Assert.Equal(14, c.PileGoneSeen); // +2 — доставка 7-го такта; новых ушедших после возврата нет
+            Assert.Equal(200, c.Piles.Count); // 188 остались в знании (очередь отменена), 12 ушедших пришли заново
+
+            rig.Sim.PlaceForTests(c.EntityId, Center(500, 500));
+            rig.Run(110);
+            Assert.All(perTick, d => Assert.InRange(d, 0, NetServer.PileMessagesPerTick)); // потолок за такт на всём прогоне
+            Assert.Equal(214, c.PileGoneSeen); // 14 ушедших в первом побеге + 200 во втором (188 + 12 вернувшихся)
+            Assert.Empty(c.Piles); // «призраков» не осталось
+            Assert.All(gones, g => Assert.Equal(PileGoneReason.OutOfView, g.Reason));
+            Assert.Equal(200, rig.Sim.Piles.Length); // на земле всё целое
+            Assert.Equal(0, c.BadMessages);
+        }
+
+        /// <summary>
+        /// C-038: 9 куч поднимаются в одном такте — «кучи нет» уходит очередью по ≤ 2 за такт, поднявший и причина
+        /// считаются в такте подбора и не теряются в очереди; клиент видит подбор целиком, сумка пополнена.
+        /// </summary>
+        [Fact]
+        public void C038_Net_Piles_BurstPickup_GoneQueued_TakerKept()
+        {
+            using var rig = new EditTests.EditRig(Flat(), i => i == 0 ? Center(300, 200) : Center(300, 206));
+            NetClient a = rig.Join();
+            NetClient b = rig.Join();
+            for (int x = 302; x <= 306; x++) // поле 5 × 5 куч, игрок «a» в 2 т — не подбирает
+                for (int y = 198; y <= 202; y++)
+                    rig.Sim.AddStuckArrowForTests(Center(x, y), 0, GroundPile.KindArrowGround, rig.Sim.Tick);
+            Assert.Equal(25, rig.Sim.Piles.Length);
+
+            var perTick = new List<long>();
+            long prev = b.PileMessagesSeen + b.PileGoneSeen;
+            rig.AfterTick = () =>
+            {
+                long now = b.PileMessagesSeen + b.PileGoneSeen;
+                perTick.Add(now - prev);
+                prev = now;
+            };
+            rig.Run(15); // кучи известны обоим; задержка подбора (10 тактов) истекла
+            Assert.Equal(25, a.Piles.Count);
+            Assert.Equal(25, b.Piles.Count);
+
+            var gones = new List<PileGoneMessage>();
+            b.PileGone = (m, was) => gones.Add(m);
+            int arrowsBefore = a.Inv.Count(Items.Arrows);
+            rig.Sim.PlaceForTests(a.EntityId, Center(304, 200)); // в середину поля: 9 куч в радиусе подбора — поднимаются в одном такте
+            rig.Run(20);
+
+            Assert.All(perTick, d => Assert.InRange(d, 0, NetServer.PileMessagesPerTick)); // потолок за такт у свидетеля
+            int picked = 25 - rig.Sim.Piles.Length;
+            Assert.Equal(9, picked); // 3 × 3 кучы в 384 единицах (1,5 тайла) от персонажа
+            Assert.Equal(9, b.PileGoneSeen); // все ушли очередью за ≤ 5 тактов
+            Assert.All(gones, g =>
+            {
+                Assert.Equal(PileGoneReason.Picked, g.Reason);
+                Assert.Equal(a.EntityId, g.Taker); // поднявший не потерялся в очереди
+            });
+            Assert.Equal(16, b.Piles.Count);
+            Assert.Equal(arrowsBefore + 9, a.Inv.Count(Items.Arrows));
+            Assert.Equal(0, a.BadMessages + b.BadMessages);
         }
     }
 }

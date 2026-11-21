@@ -41,9 +41,11 @@ namespace Orpheus.Tests
         /// E1-2: у шва нужна полоса без воды и обрывов (бот их не копает и не обходит; у зерна 1 на шве озеро). E2-6 (мир v7):
         /// зерно 7 → 9 — в полосе зерна 7 теперь ядро гранита, каменной киркой бот его не берёт и встаёт;
         /// <see cref="PickBand"/> такие полосы пропускает.
+        /// C-028 [док]: кирка — взмахи, скала снимается третьим ударом (3 × 0,4 с вместо 0,25 с, слово Автора BRIEF 11n) — лимит ×3
+        /// (было ×2: замер 97 скал из 100 за 18 020 тактов при лимите 18 000).
         /// </summary>
         [Fact]
-        public void D17_DigLine_GenV1_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Current, slack: 2, seed: 9);
+        public void D17_DigLine_GenV1_100Rocks_ObserverBytesEqual_RestartLosesNothing() => Run(100, rttMs: 0, WorldGenModule.Current, slack: 3, seed: 9);
 
         /// <summary>
         /// Ночной прогон: 1000 скал, у копающего RTT 100 мс (имитатор связи). Лимит тактов — вдвое: с 1-010 копание идёт
@@ -63,7 +65,7 @@ namespace Orpheus.Tests
             Assert.True(rocks >= target * 5 / 4, $"скал в лучшей полосе {rocks} < {target * 5 / 4}");
 
             // Точка входа копающего — у края полосы (расчищена в снимке генерации), наблюдателя — на шве посреди строк.
-            var digStart = new TileCoord(shape.Width - half - 4, y0 + 1);
+            var digStart = new TileCoord(shape.Width - half - 4, y0 + 2); // C-028: взмах достаёт на 2 строки — первая строка y0 + 2, правки не выходят из окна наблюдателя
             for (int dy = -1; dy <= 1; dy++)
             {
                 for (int dx = -1; dx <= 1; dx++)
@@ -150,7 +152,18 @@ namespace Orpheus.Tests
                 Assert.Equal(stoneWanted, stoneBag + stoneGround); // кучи ещё не истекали — сходится точно
             }
 
-            Assert.True(stoneBag * 10 >= stoneWanted * 9, $"бот подобрал {stoneBag} из {stoneWanted} камня (< 90 %)");
+            // C-028 [док]: камня ×4 — 1000 скал дают ~6000 камня, больше сумки (40 ячеек × 99): мерило «≥ 90 %» — от того, что
+            // влезает (ячейки без других предметов × стопка камня), а не от всех бросков.
+            Inventory bag = rig.Sim.GetEntity(digger.EntityId).Inv;
+            int stoneRoom = 0;
+            for (int cell = 0; cell < Inventory.Cells; cell++)
+            {
+                byte item = bag.ItemAt(cell);
+                stoneRoom += item == Items.None || item == Items.Stone ? ItemTable.MaxStackOf(Items.Stone) : 0;
+            }
+
+            int stoneReachable = Math.Min(stoneWanted, stoneRoom);
+            Assert.True(stoneBag * 10 >= stoneReachable * 9, $"бот подобрал {stoneBag} из {stoneReachable} камня (бросков {stoneWanted}, место в сумке {stoneRoom}; < 90 %)");
             Assert.Equal(0, digger.World!.PredictionsRolledBack); // предсказания копания не откатывались
 
             // У наблюдателя — все снятые скалы, чанки = сервер побайтно.

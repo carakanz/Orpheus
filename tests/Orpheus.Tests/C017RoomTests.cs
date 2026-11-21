@@ -214,6 +214,43 @@ namespace Orpheus.Tests
             Assert.True(sim.IsSpawnTileOk(spot));
         }
 
+        /// <summary>
+        /// Правило «в комнате с факелом враги не появляются» проверяет ВСЮ комнату (ячейки 0,5 тайла), а не одну четверть
+        /// тайла (<see cref="RoomIndex.LitRoomInTile"/>): большая комната 30 × 30 (стены по внешним половинам, внутри
+        /// 58 × 58 ячеек — меньше предела 64) с факелом в дальнем юго-западном углу. Свет ядра (<see cref="LightIndex"/>:
+        /// факел 3 / 6 тайлов) до противоположного угла не достаёт, зато метка LitRoom у комнаты общая — появление запрещено
+        /// по всей комнате, включая противоположный (северо-восточный) угол. Тайлы стены, лишь внутренней половиной лежащие
+        /// в комнате (полутайл у тонкой стены: (700, 715) — западная стена, (715, 700) — северная), — тоже «комната с огнём»
+        /// и появление в них запрещено: <see cref="RoomIndex.LitRoomInTile"/> смотрит все 4 ячейки тайла, а не одну
+        /// (ловит мутацию «одна ячейка из четырёх» — замечание M2 П C-017, M6 П C-019). Снаружи — можно.
+        /// </summary>
+        [Fact]
+        public void S02_Lit_Room_Rule_Covers_Whole_Room()
+        {
+            var sim = new Simulation(Flat());
+            Room(sim, 700, 700, 729, 729, door: 2); // в стороне от точки старта (правило ≥ 16 тайлов)
+            var near = new TileCoord(701, 701);  // северо-западный угол комнаты
+            var far = new TileCoord(728, 701);   // противоположный факелу (северо-восточный) угол той же комнаты
+            Assert.True(sim.IsSpawnTileOk(near));
+            Assert.True(sim.IsSpawnTileOk(far));
+
+            Assert.True(sim.RequestEdit(new TileCoord(701, 728), FloorId.Grass, ObjectId.Torch));
+            sim.Step();
+            WorldModel w = sim.World;
+            // Факел в одном (юго-западном) углу: свет ядра до дальнего угла не доходит, а комната с огнём — вся.
+            Assert.Equal(0, w.Lights.SourceLightX1024(far));
+            Assert.Equal(RoomIndex.LitRoom, Label(w, 728, 701, 0, 0));
+            Assert.Equal(RoomIndex.LitRoom, Label(w, 728, 701, 1, 1));
+            Assert.True(w.Rooms.LitRoomInTile(new TileCoord(715, 715))); // середина комнаты — тоже «комната с огнём»
+            Assert.False(sim.IsSpawnTileOk(far));
+            Assert.False(sim.IsSpawnTileOk(near));
+            // Полутайл у стены: внешняя половина — стена, внутренняя — комната с огнём; первая ячейка тайла (северо-западная) — стена.
+            Assert.True(w.Rooms.LitRoomInTile(new TileCoord(700, 715))); // западная стена, восточная половина — в комнате
+            Assert.True(w.Rooms.LitRoomInTile(new TileCoord(715, 700))); // северная стена, южная половина — в комнате
+            Assert.False(sim.IsSpawnTileOk(new TileCoord(700, 715)));
+            Assert.True(sim.IsSpawnTileOk(new TileCoord(740, 715))); // снаружи комнаты — можно
+        }
+
         // ---------- Свет для картинки ----------
 
         [Fact]
@@ -242,6 +279,29 @@ namespace Orpheus.Tests
             grid = w.Sight.GridOf(Torus.ChunkOf(w.Shape, new TileCoord(101, 102)));
             Assert.True(At(2 * 99 + 1, 2 * 102) > 0); // за открытой дверью — светло
             Assert.Equal(RoomIndex.LitRoom, Label(w, 103, 103)); // а комната с факелом — по-прежнему комната
+        }
+
+        /// <summary>
+        /// Свет не проходит через угол двух стен, сходящихся по диагонали (<see cref="LightSight"/>, шаг луча по диагонали
+        /// через угол двух ячеек-стен закрыт): факел в тайле (98, 98), две одиночные ячейки стены (201, 202) и (202, 201)
+        /// (сетка ячеек 0,5) касаются углом на пути луча к ячейке (203, 203) тайла (101, 101) — там темно. Рядом с факелом
+        /// — полный свет; свет ядра (враги, без стен) через угол проходит.
+        /// </summary>
+        [Fact]
+        public void L04_Light_Stops_At_Diagonal_Wall_Corner()
+        {
+            var sim = new Simulation(Flat());
+            PutCell(sim, 201, 202); // ячейка стены: тайл (100, 101), восточная половина, северная половина ячейки
+            PutCell(sim, 202, 201); // ячейка стены: тайл (101, 100) — касается первой углом
+            Assert.True(sim.RequestEdit(new TileCoord(98, 98), FloorId.Grass, ObjectId.Torch));
+            sim.Step();
+            WorldModel w = sim.World;
+            ushort[] grid = w.Sight.GridOf(Torus.ChunkOf(w.Shape, new TileCoord(98, 98)));
+            int At(int cx, int cy) => grid[(cy & 63) * 64 + (cx & 63)];
+
+            Assert.Equal(1024, At(2 * 99 + 1, 2 * 99 + 1)); // рядом с факелом — полный свет
+            Assert.Equal(0, At(2 * 101 + 1, 2 * 101 + 1));  // за углом двух стен по диагонали — темно
+            Assert.True(w.Lights.SourceLightX1024(new TileCoord(101, 101)) > 0); // свет ядра стен не видит
         }
 
         /// <summary>Тень от огня не длиннее пути до стены: от середины тайла 102 на запад до ячейки стены 200 — 8 четвертей.</summary>

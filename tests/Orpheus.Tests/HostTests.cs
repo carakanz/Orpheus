@@ -25,6 +25,7 @@ namespace Orpheus.Tests
     /// Сервер одиночной игры и хоста без процессов (карточка 0-024; docs/07 2.3, 2.13 п. 9, 7.6, 1.6): протокол хозяина,
     /// два слушающих транспорта под одним сервером, токен и вытеснение, ожидание хозяина, файл-замок, «Process только в ПК-слое».
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public class HostTests
     {
         private const long TickMicros = 1_000_000 / Simulation.TickRate;
@@ -77,7 +78,7 @@ namespace Orpheus.Tests
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 0 }));
             Assert.Throws<ProtocolException>(() => ClosingMessage.Read(new byte[] { 10, 4 }));
             Assert.Equal("Хост вышел. Мир сохранён у него", new ClosingMessage { Reason = ClosingReason.HostLeft }.Describe());
-            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.NearbyStock + 1 })); // последний тип — NearbyStock (E2-10; до него — ChestState, E2-5; до него — CraftState, E2-3; до него — BagRequest, E2-1)
+            Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.EventBatch + 1 })); // последний тип — пачка событий (C-035); до него — Strike (C-028), Projectile (E3-2), Damage (E3-1), NearbyStock (E2-10), ChestState (E2-5), CraftState (E2-3), BagRequest (E2-1)
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.MeleeResult + 1 })); // 15 не занят: после MeleeResult (0-029)
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { 15 }));
             Assert.Throws<ProtocolException>(() => Codec.TypeOf(new byte[] { (byte)MessageType.Chunk - 1 })); // … и до Chunk (0-026)
@@ -451,14 +452,16 @@ namespace Orpheus.Tests
                 host = UdpClient(port, "хост", Token);
                 Assert.True(Pump(() => host.State == NetClientState.InGame, 10_000, host), $"хозяин не вошёл: {host.State}");
                 // Хозяин вошёл впервые — создан персонаж: сохранение сразу (6.4, 0-037); автосохранение — раз в 2 мин, его нет.
-                Assert.True(Pump(() => SavedLine(srv.Text, "игрок вошёл"), 5_000, host), "вход хозяина (новый персонаж) не сохранён");
+                // P-003: событие на фоновом потоке записи, под `-All` он голодает — лимит ожидания щедрее, проверка та же.
+                Assert.True(Pump(() => SavedLine(srv.Text, "игрок вошёл"), 20_000, host), "вход хозяина (новый персонаж) не сохранён");
                 Pump(() => false, 500, host);
                 Assert.False(SavedLine(srv.Text, "автосохранение"));
                 Assert.False(SavedLine(srv.Text, "хозяин ушёл"));
 
                 host.Disconnect();
                 var w = System.Diagnostics.Stopwatch.StartNew();
-                bool saved = SpinWait.SpinUntil(() => SavedLine(srv.Text, "хозяин ушёл"), 10_000);
+                // «Сразу» = событие до истечения grace 60 с, время печатается; под `-All` поток записи голодает — лимит 30 с (P-003).
+                bool saved = SpinWait.SpinUntil(() => SavedLine(srv.Text, "хозяин ушёл"), 30_000);
                 _out.WriteLine($"сохранено через {w.Elapsed.TotalSeconds:0.00} с после ухода хозяина");
                 Assert.True(saved, "хозяин ушёл, других нет — мир не сохранён сразу");
                 Assert.False(srv.Exited); // и ждёт его дальше

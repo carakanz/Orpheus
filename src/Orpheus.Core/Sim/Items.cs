@@ -109,6 +109,20 @@ namespace Orpheus.Core.Sim
         /// <summary>Кровать.</summary>
         public const byte Bed = 31;
 
+        // E3-6: медная броня (`06` 4.7, `02` 6.1) — первое снаряжение с ячейками экипировки.
+
+        /// <summary>Медный шлем (`06` 4.7: броня 1, ячейка «голова»; комплект «Медный»).</summary>
+        public const byte CopperHelmet = 32;
+
+        /// <summary>Медный доспех (`06` 4.7: броня 1, ячейка «тело»).</summary>
+        public const byte CopperChest = 33;
+
+        /// <summary>Медные поножи (`06` 4.7: броня 1, ячейка «ноги»).</summary>
+        public const byte CopperLegs = 34;
+
+        /// <summary>Шкура (`06` 4.7: ингредиент брони; добыча с зверей — допущение E3-6).</summary>
+        public const byte Hide = 35;
+
         /// <summary>Размер таблицы (id 0…<see cref="Count"/>−1) — строк в <see cref="ItemTable"/>.</summary>
         public static int Count => ItemTable.Count;
 
@@ -130,6 +144,27 @@ namespace Orpheus.Core.Sim
         /// <summary>Расходник (факел).</summary>
         public const byte KindConsumable = 5;
 
+        /// <summary>Броня (E3-6): носится в ячейке снаряжения (<see cref="SlotHead"/>…).</summary>
+        public const byte KindArmor = 6;
+
+        /// <summary>Ячейка снаряжения: не броня (у предмета нет ячейки).</summary>
+        public const byte SlotNone = 0;
+
+        /// <summary>Ячейка снаряжения: голова.</summary>
+        public const byte SlotHead = 1;
+
+        /// <summary>Ячейка снаряжения: тело.</summary>
+        public const byte SlotBody = 2;
+
+        /// <summary>Ячейка снаряжения: ноги.</summary>
+        public const byte SlotLegs = 3;
+
+        /// <summary>Комплект: без комплекта (бонуса набора нет).</summary>
+        public const byte SetNone = 0;
+
+        /// <summary>Комплект «Медный» (`06` 4.7: бонус «Устойчивость» — масса ×2, отброс вдвое короче, `02` 6.5).</summary>
+        public const byte SetCopper = 1;
+
         /// <summary>Вид инструмента: не инструмент.</summary>
         public const byte ToolNone = 0;
 
@@ -150,6 +185,15 @@ namespace Orpheus.Core.Sim
 
         /// <summary>Вид предмета; id вне таблицы — <see cref="KindNone"/>.</summary>
         public static byte KindOf(byte id) => ItemTable.Get(id).Kind;
+
+        /// <summary>Броня предмета (единицы формулы `02` 6.1); у неброни — 0 (E3-6).</summary>
+        public static int ArmorOf(byte id) => ItemTable.Get(id).Armor;
+
+        /// <summary>Ячейка снаряжения предмета (<see cref="SlotHead"/>…); у неброни — <see cref="SlotNone"/> (E3-6).</summary>
+        public static byte SlotOf(byte id) => ItemTable.Get(id).Slot;
+
+        /// <summary>Комплект предмета (<see cref="SetCopper"/>); без комплекта — <see cref="SetNone"/> (E3-6).</summary>
+        public static byte SetOf(byte id) => ItemTable.Get(id).SetId;
 
         /// <summary>Вид инструмента (кирка/топор); остального — <see cref="ToolNone"/>.</summary>
         public static byte ToolKindOf(byte id) => ItemTable.Get(id).Tool;

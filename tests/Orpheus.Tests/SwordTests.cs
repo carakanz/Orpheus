@@ -449,6 +449,23 @@ namespace Orpheus.Tests
             Assert.True(hits > 0, "забор между бойцами — удар проходит");
         }
 
+        /// <summary>C-027: глубокая вода между бойцами — не преграда удара (запрещено только ходить, `02` 4.2).</summary>
+        [Fact]
+        public void C027_DeepWater_DoesNotBlockStrike()
+        {
+            var s = new SwordSim(clearLine: false);
+            s.Sim.World.SetBaseTile(new TileCoord(21, 32), FloorId.DeepWater, ObjectId.Empty);
+            Assert.True(s.Sim.IsBlocked(s.Sim.Shape, new TileCoord(21, 32))); // ходить нельзя
+            int hits = 0;
+            for (int t = 1; t <= 40 && hits == 0; t++)
+            {
+                s.Tick(out var now);
+                hits += now.Count;
+            }
+
+            Assert.True(hits > 0, "глубокая вода между бойцами — удар проходит");
+        }
+
         /// <summary>Стена между бойцами глушит удар (docs 02 3.4, приёмка 1-004).</summary>
         [Fact]
         public void D02_S3_4_Wall_BlocksStrikeLine()
@@ -462,6 +479,89 @@ namespace Orpheus.Tests
                 hits += now.Count;
             }
             Assert.Equal(0, hits);
+        }
+
+        /// <summary>
+        /// C-023 (backlog, по аналогии с фиксом стрелы E3-2 п. 1): «лесенка» из стен в полтайла —
+        /// северо-восточная и юго-западная ячейки тайла (21,32) касаются углом в центре. Удар NW→SE
+        /// через этот угол: цель на линии со смещением −16…+16 unit от угла. С стеной попаданий нет
+        /// (меч не проходит стык, как стрела после E3-2); без стены — есть. Красный на текущем коде:
+        /// выборка линии удара шагом 64 unit перепрыгивает стык по диагонали.
+        /// </summary>
+        [Theory]
+        [InlineData(-16)]
+        [InlineData(-5)]
+        [InlineData(0)]
+        [InlineData(7)]
+        [InlineData(16)]
+        public void C023_StrikeLine_HalfCellStaircase_Corner_Blocks(int offset)
+        {
+            Assert.True(StaircaseStrikes(true, offset) == 0, $"смещение {offset}: меч прошёл стык ячеек");
+            Assert.True(StaircaseStrikes(false, offset) > 0, $"смещение {offset}: контроль без стены — удар не прошёл");
+        }
+
+        /// <summary>
+        /// Удар мечом NW→SE через центр тайла (21,32); враг смещён на <paramref name="offset"/> по X.
+        /// Враг запинен на месте (иначе обежит угол по открытой ячейке). Возвращает попадания за 40 тактов.
+        /// </summary>
+        private static int StaircaseStrikes(bool withWall, int offset)
+        {
+            var sim = new Simulation(Flat(7));
+            sim.RequestEdit(new TileCoord(20, 31), FloorId.Grass, ObjectId.Empty);
+            if (!withWall)
+                sim.RequestEdit(new TileCoord(21, 32), FloorId.Grass, ObjectId.Empty); // с стеной — одна правка тайла (Busy 3.7)
+            sim.RequestEdit(new TileCoord(22, 33), FloorId.Grass, ObjectId.Empty);
+            if (withWall)
+            {
+                byte mask = (byte)(BuildCells.Bit(1, 0) | BuildCells.Bit(0, 1)); // СВ + ЮЗ — стык углом в центре
+                Assert.True(sim.RequestEdit(new TileCoord(21, 32), FloorId.Grass, ObjectId.WoodWall,
+                    BuildRecord.OfPlayer(1, FloorId.Grass).WithCells(mask)));
+            }
+
+            var corner = new WorldPos(21 * U + U / 2, 32 * U + U / 2);
+            var enemyPos = new WorldPos(corner.X + 150 + offset, corner.Y + 150);
+            int ch = sim.AddEntity(new WorldPos(corner.X - 150, corner.Y - 150));
+            var inv = Inventory.StartingKit();
+            inv.Selected = 3; // WoodenSword
+            Assert.True(sim.SetInventory(ch, inv));
+            int en = sim.AddEnemy(enemyPos);
+
+            int hits = 0;
+            ushort aim = 8192; // юго-восток
+            Span<InputFrame> frames = stackalloc InputFrame[]
+            {
+                new InputFrame(Input8.None, InputButtons.Attack, aim, SwordSim.SwordSlot),
+                new InputFrame(Input8.None, InputButtons.Attack, aim, SwordSim.SwordSlot),
+            };
+            for (int t = 1; t <= 40; t++)
+            {
+                if (t > 3) // стена применена (правки — первый такт); дальше пин: полная перезапись врага
+                {
+                    SimEntity[] ents = new SimEntity[sim.EntityCount];
+                    sim.Entities.CopyTo(ents);
+                    for (int i = 0; i < ents.Length; i++)
+                        if (ents[i].Id == en)
+                            ents[i].Mover.Position = enemyPos;
+                    var next = new Simulation(sim.World)
+                    {
+                        SpawnEnabled = sim.SpawnEnabled,
+                        DayScale = sim.DayScale,
+                        SpawnCursor = sim.SpawnCursor,
+                        SpawnNextTry = sim.SpawnNextTry,
+                    };
+                    next.Restore(sim.Tick, ents, sim.NextEntityId, sim.WorldTime);
+                    sim = next;
+                }
+
+                int slot = sim.SlotOf(ch);
+                sim.SetFramesAt(slot, frames);
+                sim.Step();
+                foreach (SimEvent ev in sim.Events)
+                    if (ev.Kind == SimEventKind.Damage && ev.Victim == en)
+                        hits++;
+            }
+
+            return hits;
         }
 
         /// <summary>Сектор 120° в симуляции: цель за 90° от прицела не задета (docs 02 3.1).</summary>

@@ -500,13 +500,15 @@ namespace Orpheus.Net.Session
                 if (type == MessageType.BagRequest && channel == NetChannel.Facts)
                 {
                     BagRequestMessage bag = BagRequestMessage.Read(data);
-                    if (bag.From >= Inventory.Cells || bag.To >= Inventory.Cells)
+                    bool chestCell = (uint)(bag.From - Inventory.Cells) < Simulation.ChestCells
+                        || (uint)(bag.To - Inventory.Cells) < Simulation.ChestCells; // 40…69
+                    if (chestCell)
                     {
-                        OnChestBagRequest(p, bag); // E2-5: ячейки открытого сундука
+                        OnChestBagRequest(p, bag); // E2-5: ячейки открытого сундука (40…69)
                     }
                     else
                     {
-                        OnBagRequest(p, bag); // E2-1
+                        OnBagRequest(p, bag); // E2-1; E3-6: снаряжение (70…72) — общий путь сумки
                     }
 
                     return;

@@ -37,8 +37,17 @@ namespace Orpheus.Client
         // (копание, подбор). Выбранная ячейка для руки берётся из своих кадров, пока подтверждение не пришло.
         Inventory _bag = Inventory.StartingKit();
 
-        /// <summary>Сумка от сервера (этап 4): зеркало — серверная сумка целиком, включая выбранную ячейку.</summary>
-        void OnInventory(InventoryMessage m) => _bag = m.Bag;
+        // E3-6: надетое (голова / тело / ноги) — приходит в конце «сумки» (26), показываем в трёх ячейках окна.
+        byte _equipHead, _equipBody, _equipLegs;
+
+        /// <summary>Сумка от сервера (этап 4): зеркало — серверная сумка целиком, включая выбранную ячейку и надетое (E3-6).</summary>
+        void OnInventory(InventoryMessage m)
+        {
+            _bag = m.Bag;
+            _equipHead = m.EquipHead;
+            _equipBody = m.EquipBody;
+            _equipLegs = m.EquipLegs;
+        }
 
         /// <summary>Предмет в руках: ячейка последнего отправленного кадра, содержимое — из зеркала сумки (1-002).</summary>
         byte HeldItem => _bag.SlotAt(HeldCell);
@@ -157,6 +166,7 @@ namespace Orpheus.Client
             if (_ui == null)
             {
                 _ui = new UI.GameUi(_g.Camera, c, c, c);
+                _ui.DeathMenuEnabled = _args.FromMenu; // E4-1b: «В меню» на экране смерти — только в игре из меню (там же и DeathMenuFrame)
                 c.CraftReplied = _ui.CraftReplied; // E2-4: отказ сервера (сообщение 31) — строкой в окне крафта
                 UI.GameUi ui = _ui;
                 c.UseReplied = m =>
@@ -168,13 +178,31 @@ namespace Orpheus.Client
                     }
                     else if (ObjectUse.KindOf(m.Obj) == UseKind.Bed)
                     {
+                        // C-030: точка возрождения поставлена — персонаж ложится на эту кровать (встать — любое движение).
                         ui.Notify(UI.UiStrings.BedSet);
+                        if (_world != null && !(_pred?.Dead ?? false) && _rest.Begin(_world, m.Tile))
+                        {
+                            Debug.Log($"[bed] лёг: кровать {_rest.Bed.X},{_rest.Bed.Y}, поворот {_rest.Rotation}");
+                        }
                     }
                 };
                 _ghost = new BuildGhost(_entityRoot.transform);
             }
 
             UI.UiInput input = _args.NetSmokeSeconds > 0 ? default : _ui.ReadInput();
+
+            // C-041: ПКМ по миру над открытым окном сумки — сначала пробуем открыть объект под курсором (сундук /
+            // кровать), и только если открыть нечего UI увидит нажатие (снять рецепт, взять один, отменить «в руке»).
+            // Порядок одного нажатия: открыть → снять, если не открыли. Молот / постройка из меню в физических руках —
+            // ПКМ принадлежит стройке (снять постройку), мир не открываем.
+            if (input.RightDown && !_rest.Active && !_ui.Hand.Holding
+                && (!_ui.PointerBlocked || _ui.Route == PointerRoute.Idle)
+                && !BuildHand.IsHammer(HeldItem) && !BuildHand.IsBuildItem(HeldItem)
+                && UseUnderCursor(c))
+            {
+                input.RightDown = false; // открыли — окно крафта рецепт не снимает
+            }
+
             LocalPrediction? pr = _pred;
             // E2-4: окно крафта показывает очередь сервера; прогресс первой позиции — по такту сервера, без предсказания.
             var craft = new UI.UiCraftState
@@ -186,8 +214,14 @@ namespace Orpheus.Client
             UI.UiBuildState build = _args.NetSmokeSeconds > 0 ? default : BuildState(c, pr);
             _ui.MapSnapshot = c.HasSnapshot ? c.Latest : null; // C-008: точки игроков и врагов на мини-карте
             _ui.MapSelf = _localId;
+            if (_explored != null && _world != null)
+            {
+                _explored.Update(_world, 2); // C-029: открытые чанки для карты на весь экран — по 2 за кадр
+                _ui.Explored = _explored;
+                _ui.Hearth = CenterOf(_map.Width / 2, _map.Height / 2); // допущение C-029: Очаг — центр мира (точка появления)
+            }
             _ui.Frame(input, _bag, _slot, pr?.Dead ?? false, pr?.Health ?? 0, Simulation.MaxHealthCharacter, pr?.Stamina ?? 0,
-                Orpheus.Core.Movement.Stamina.Max, craft, build);
+                Orpheus.Core.Movement.Stamina.Max, craft, build, _equipHead, _equipBody, _equipLegs); // E3-6: надетое — из «сумки» (26)
             if (_ui.SlotClicked >= 0)
             {
                 _slot = _ui.SlotClicked;
@@ -222,9 +256,45 @@ namespace Orpheus.Client
         TileCoord? _buildLast;
         int _buildLastQuad;
         int _rulerCancelFrame = -1; // E2-13: кадр, в котором Esc отменил протягивание (паузу этот Esc не ставит)
+        int _rmbOpenedFrame = -1;   // C-041: кадр, в котором ПКМ открыл объект в мире (UI-снятие рецепта и UpdateEdits не удваивают открытие)
 
         /// <summary>Esc этого кадра занят линейкой: идёт протягивание или его только что отменили.</summary>
         bool RulerTookEscape => (_ui?.Ruler.Dragging ?? false) || _rulerCancelFrame == Time.frameCount || _menuCancelFrame == Time.frameCount || FromMenu;
+
+        /// <summary>
+        /// Пипетка (C-029, «скопировать предмет»): средняя кнопка мыши или G по постройке под курсором — такая же постройка в руку
+        /// (<see cref="UI.GameUi.Pipette"/>: из сумки, нет — изготовить на месте), с её поворотом. Цель — как у молота
+        /// (<see cref="BuildCursor.Target"/> без постройки: якорь, нарисованная высота). Не постройка — строка «нечего копировать».
+        /// </summary>
+        void PipetteKeys(Mouse mouse, long now)
+        {
+            bool press = mouse.middleButton.wasPressedThisFrame || Keyboard.current?.gKey.wasPressedThisFrame == true;
+            if (!press || _ui == null || _world == null || _origin == null)
+            {
+                return;
+            }
+
+            Vector3 screen = mouse.position.ReadValue();
+            Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
+            TileCoord at = BuildCursor.Target(_world, _map, _origin.FromUnity(v), 0, out _);
+            byte item = BuildCursor.PipetteItem(_world, at, out int rotation);
+            if (item == Items.None)
+            {
+                _lastRefusal = UI.UiStrings.PipetteNothing;
+                _lastRefusalUntilUs = now + FlashUs;
+                return;
+            }
+
+            _ui.Ruler.Cancel();
+            _ui.Pipette(item);
+            _menuSlot = HeldCell;
+            if (BuildHand.IsBuildItem(item, out ushort key) && Turnable(key))
+            {
+                _turns[item] = rotation & 3;
+            }
+
+            Debug.Log($"[build] пипетка: {item} (поворот {rotation * 90}°)");
+        }
 
         /// <summary>Тайл под курсором мыши (нет мыши или мира — null).</summary>
         TileCoord? CursorTile()
@@ -238,24 +308,13 @@ namespace Orpheus.Client
             Vector3 screen = mouse.position.ReadValue();
             Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
             WorldPos p = Torus.Wrap(_map, _origin.FromUnity(v));
-            TileCoord cell = BuildCells.CellAt(_map, p);
+            // C-029: один расчёт цели для призрака и щелчка (мебель — СЗ ячейка от узла 0,5; молот, кирка, F — якорь постройки
+            // под курсором, с поправкой на нарисованную высоту стен и мебели). Раньше щелчок брал простой тайл точки.
             byte held = HandItem;
-            if (BuildHand.IsBuildItem(held, out ushort key) && BuildLayers.IsFurniture(key))
-            {
-                // E2-15: мебель с шагом 0,5 — центром к ближнему узлу сетки 0,5 под курсором; тайл и четверть — её СЗ ячейка.
-                // E2-16: размер — по повороту (кровать 1 × 2, верстак 2 × 2).
-                cell = BuildLayers.FurnitureCellAt(_map, p, HandKey(held));
-                _cursorQuad = BuildCells.QuadOf(cell);
-                return BuildCells.TileOfCell(cell);
-            }
-
-            _cursorQuad = BuildCells.QuadOf(cell);
-            if (!BuildHand.IsBuildItem(held) && _world != null && BuildLayers.TryTopOfCell(_world, cell, out TileCoord top))
-            {
-                return top; // E2-15: молот, F — по постройке под курсором; мебель соседа со сдвигом — её тайл-якорь
-            }
-
-            return Torus.TileOf(_map, p);
+            ushort key = BuildHand.IsBuildItem(held) ? HandKey(held) : (ushort)0;
+            TileCoord t = BuildCursor.Target(_world, _map, p, key, out int quad);
+            _cursorQuad = quad;
+            return t;
         }
 
         /// <summary>
@@ -326,6 +385,58 @@ namespace Orpheus.Client
             return s;
         }
 
+        /// <summary>C-030: свой персонаж в кровати (вид у своего клиента; ядро не знает).</summary>
+        readonly BedRest _rest = new BedRest();
+
+        /// <summary>
+        /// C-030: ПКМ по объекту под курсором — кровать (лечь, точка возрождения) или сундук (открыть); прочее — ничего
+        /// (дверь ПКМ не закрывает: ПКМ по миру без молота раньше ничего не делал, F остаётся общим правилом).
+        /// C-041: true — открытие произошло (кадр помечен, UI-снятие рецепта и <see cref="UpdateEdits"/> этот клик не
+        /// повторяют); верстак ПКМ не открывается (слово Автора по C-013: «F — верстак не нужно»).
+        /// </summary>
+        bool UseUnderCursor(NetClient c)
+        {
+            TileCoord? cursor = CursorTile();
+            if (_world == null || !cursor.HasValue)
+            {
+                return false;
+            }
+
+            UseKind kind = ObjectUse.At(_world, _localPos, cursor.Value, out TileCoord t);
+            if (kind == UseKind.Bed || kind == UseKind.Chest)
+            {
+                c.RequestUse(t);
+                _rmbOpenedFrame = Time.frameCount; // C-041: UpdateEdits в этом кадре тот же клик не открывает
+                Debug.Log($"[use] ПКМ: {kind} на {t.X},{t.Y}");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// C-030, кадр: лежит в кровати — встаёт от <paramref name="wakeClick"/> (F, клик по миру), движения (WASD), уворота,
+        /// смерти, сноса кровати; затемнение экрана по времени лёжа (<see cref="Anim.RestAnim.Dim"/>).
+        /// </summary>
+        void RestFrame(bool wakeClick)
+        {
+            if (_world == null)
+            {
+                return;
+            }
+
+            bool was = _rest.Active;
+            bool move = _g.Move.ReadValue<Vector2>().sqrMagnitude > 0.04f || _g.Dodge.WasPressedThisFrame();
+            bool alive = !(_pred?.Dead ?? false);
+            _rest.Update(_world, alive, wakeClick || move, Time.deltaTime);
+            if (was && !_rest.Active)
+            {
+                Debug.Log("[bed] встал");
+            }
+
+            _ui?.Combat.RestShade(_rest.Active ? Anim.RestAnim.Dim(_rest.Age) : 0f);
+        }
+
         /// <summary>
         /// F (E2-5, общее правило — <see cref="ObjectUse.Find"/>): объект под курсором или ближайший с действием. Дверь —
         /// закрыть (1-012), верстак и костёр — окно крафта на их вкладке, сундук — открыть, кровать — точка возрождения;
@@ -366,7 +477,7 @@ namespace Orpheus.Client
         /// </summary>
         void HookPiles(NetClient client)
         {
-            client.PileSeen = p => _pileView?.Set(p.Id, p.Item, p.Count, p.Position);
+            client.PileSeen = p => _pileView?.Set(p.Id, p.Item, p.Count, p.Position, p.Kind, p.Aim); // C-031: вид и ось воткнувшейся стрелы
             client.PileGone = (m, was) =>
             {
                 Transform? taker = null;
@@ -486,7 +597,7 @@ namespace Orpheus.Client
         ushort UpdateEdits(long now)
         {
             NetClient c = _client!;
-            if (_args.NetSmokeSeconds > 0)
+            if (_args.NetSmokeSeconds > 0 && !_args.NetSmokeBow)
             {
                 SmokeEdit(now, c);
                 // 1-004: в net-smoke удар — скриптом (окно удержания ЛКМ в беге), бит как на настоящей мыши.
@@ -499,16 +610,21 @@ namespace Orpheus.Client
                 return 0;
             }
 
-            Vector3 screen = mouse.position.ReadValue();
-            Vector3 v = _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
-            TileCoord tile = Torus.TileOf(_map, _origin!.FromUnity(v));
+            // C-029: цель щелчка — тот же расчёт, что у призрака (BuildCursor), а не простой тайл под точкой.
+            TileCoord tile = CursorTile() ?? default;
 
             // 1-012: F — закрыть ближайшую открытую дверь (передний фронт здесь, запрос TileOp.CloseDoor — протокол 19;
             // радиус, проём и замок проверяет сервер, предсказание и откат — общие с правками).
-            if (Keyboard.current?.fKey.wasPressedThisFrame == true)
+            bool fPressed = Keyboard.current?.fKey.wasPressedThisFrame == true;
+            if (fPressed && !_rest.Active)
             {
                 UseObject(c); // E2-5: общее правило F (дверь, станки, сундук, кровать)
             }
+
+            // C-030: лёжа — встать от F, движения, уворота, клика по миру; затемнение экрана.
+            bool overUi = _ui != null && _ui.PointerBlocked;
+            bool rested = _rest.Active; // клик, которым встал, не кладёт обратно
+            RestFrame(fPressed || (!overUi && (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame)));
 
             if (_ui != null && _ui.PointerBlocked)
             {
@@ -523,8 +639,14 @@ namespace Orpheus.Client
                 return c.Digging ? InputButtons.Dig : (ushort)0;
             }
 
+            PipetteKeys(mouse, now); // C-029: средняя кнопка / G — пипетка
             TurnAndMenuKeys(HandItem); // E2-16: R — поворот, Tab — линейка, Esc / ПКМ — убрать постройку из меню
             byte held = HandItem;      // E2-16: постройка из меню — как в руке
+            if (mouse.rightButton.wasPressedThisFrame && !rested && Time.frameCount != _rmbOpenedFrame
+                && !BuildHand.IsHammer(held) && !BuildHand.IsBuildItem(held))
+            {
+                UseUnderCursor(c); // C-030: ПКМ по кровати / сундуку — как F (по привычке Terraria)
+            }
             if ((BuildHand.IsHammer(held) || BuildHand.IsBuildItem(held)) && _ui != null && _world != null)
             {
                 return HammerEdits(c, mouse, tile, held, now);
@@ -533,9 +655,56 @@ namespace Orpheus.Client
             // 1-004 (`02` 1.2 «удержание ЛКМ — повтор»): с ближним оружием в руках ЛКМ — удар,
             // бит стоит на всех кадрах удержания (ядро берёт нажатие битом кадра).
             ushort attack = Items.KindOf(held) == Items.KindMelee && mouse.leftButton.isPressed ? InputButtons.Attack : (ushort)0;
+
+            // E3-2 (`02` 1.2 «с луком — натяжение»): с луком ЛКМ — бит удара на всех кадрах удержания (ядро натягивает,
+            // отпускание — выстрел); копания нет. Стрел нет — натяжения нет, подсказка «нет стрел».
+            if (Items.KindOf(held) == Items.KindRanged)
+            {
+                c.StopDig();
+                if (!mouse.leftButton.isPressed)
+                {
+                    return 0;
+                }
+
+                if (_bag.Count(Items.Arrows) == 0)
+                {
+                    if (mouse.leftButton.wasPressedThisFrame)
+                    {
+                        _lastRefusal = "нет стрел";
+                        _lastRefusalUntilUs = now + FlashUs;
+                    }
+
+                    return 0;
+                }
+
+                return InputButtons.Attack;
+            }
             if (!mouse.leftButton.isPressed)
             {
                 c.StopDig(); // отпустил до конца — «копать: конец»; докопанное своим счётом ждёт ответа
+                return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
+            }
+
+            // C-028: кирка к пустому или природному тайлу — взмах к курсору (удар по сектору, несколько ударов на камень). Следующий
+            // взмах — сразу после своего удара, не дожидаясь ответа (зажатая ЛКМ — взмахи подряд). Отказ («нужен топор»,
+            // «нужна кирка: медная») — строкой у курсора на нажатии.
+            c.SelfPosition = _localPos;
+            if (PickStrike.IsStrike(_world!, tile, held))
+            {
+                if (!c.Digging || (c.DigStrike && c.DigPredicted))
+                {
+                    EditReply strike = PickStrike.Check(_world!, _localPos, tile, c.DigTimes, held);
+                    if (strike == EditReply.Accepted)
+                    {
+                        c.StartDig(tile, _localPos);
+                    }
+                    else if (mouse.leftButton.wasPressedThisFrame)
+                    {
+                        _lastRefusal = EditRules.Describe(strike, _world!.GetObject(tile), c.DigTimes);
+                        _lastRefusalUntilUs = now + FlashUs;
+                    }
+                }
+
                 return (ushort)((c.Digging ? InputButtons.Dig : (ushort)0) | attack);
             }
 
@@ -695,6 +864,41 @@ namespace Orpheus.Client
             }
         }
 
+        // ---------- C-030: host-smoke «лечь в кровать» (--smoke-bed → сервер --debug-bed) ----------
+
+        bool _smokeBedAsked;
+        int _smokeBedTries;
+        bool _smokeBedWoke;
+
+        /// <summary>
+        /// Net-smoke (C-030): с 0,15 с до 0,49 с — F тем же путём, что клавиша (<see cref="UseObject"/>: объект рядом —
+        /// <see cref="ObjectUse.Find"/>, кровать → заявка 33); ответ «принято» кладёт персонажа (обработчик ответа в
+        /// <c>UiFrame</c>). Скриптовый бег с 0,5 с — «встал». Кадры позы — <c>NetAnimation.RestFrames</c>.
+        /// </summary>
+        void SmokeBed(long sinceUs, NetClient c)
+        {
+            if (!_smokeBedAsked && sinceUs >= 150_000 && sinceUs < 490_000 && _world != null)
+            {
+                _smokeBedTries++;
+                if (ObjectUse.Find(_world, _localPos, null, out TileCoord t, out UseKind kind) && kind == UseKind.Bed)
+                {
+                    _smokeBedAsked = true;
+                    UseObject(c);
+                    Debug.Log($"[bed] smoke: F по кровати {t.X},{t.Y} (проба {_smokeBedTries})");
+                }
+            }
+
+            bool was = _rest.Active;
+            // ScriptedSmokeFrame: бег с 0,5 с; поднимает не раньше 0,1 с лёжа (ответ мог прийти, когда бег уже начался).
+            bool moving = sinceUs >= 500_000 && _rest.Age >= 0.1f;
+            _rest.Update(_world!, !(_pred?.Dead ?? false), moving, Time.deltaTime);
+            if (was && !_rest.Active)
+            {
+                _smokeBedWoke = true;
+                Debug.Log("[bed] smoke: встал (бег)");
+            }
+        }
+
         // ---------- 1-012: host-smoke проход через дверь (--smoke-door → сервер --debug-door) ----------
 
         TileCoord _smokeDoorTile;
@@ -759,6 +963,11 @@ namespace Orpheus.Client
         void SmokeEdit(long now, NetClient c)
         {
             long sinceUs = now - _inGameSinceUs;
+            if (_args.NetSmokeBed)
+            {
+                SmokeBed(sinceUs, c);
+            }
+
             if (!_smokeEditDone && sinceUs >= 300_000)
             {
                 _smokeEditDone = true;
@@ -851,7 +1060,7 @@ namespace Orpheus.Client
                     }
 
                     byte floor = chunk.GetFloor(index);
-                    if (floor == FloorId.Water || floor == FloorId.Lava || _netRules!.IsBlocked(_map, t) || RemoteNear(t, 3))
+                    if (FloorId.IsLiquid(floor) || _netRules!.IsBlocked(_map, t) || RemoteNear(t, 3))
                     {
                         continue;
                     }

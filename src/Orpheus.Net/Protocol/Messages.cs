@@ -137,6 +137,20 @@ namespace Orpheus.Net.Protocol
 
         /// <summary>Сервер → клиент, канал 2: сколько каждого предмета в сундуках рядом — владельцу, когда изменилось (E2-10).</summary>
         NearbyStock = 36,
+
+        // E3-1, урон цифрами (docs/02 6.8), канал 2. Протокол 30.
+
+        /// <summary>Сервер → клиент, канал 2: урон нанесён — жертва, атакующий, сколько, тип, «сильный» (игрокам рядом с жертвой, E3-1).</summary>
+        Damage = 37,
+
+        /// <summary>Снаряд (E3-2): выстрел и конец полёта — сервер → все в игре, канал 2 (<see cref="ProjectileMessage"/>). Протокол 31.</summary>
+        Projectile = 38,
+
+        /// <summary>Взмах кирки (C-028): удары по тайлам — сервер → ударивший и игроки рядом, канал 2 (<see cref="StrikeMessage"/>). Протокол 32.</summary>
+        Strike = 39,
+
+        /// <summary>Пачка событий (C-035): записи 37/38/39 одним сообщением — сервер → игрокам, канал 2 (<see cref="EventBatchMessage"/>). Протокол 36.</summary>
+        EventBatch = 40,
     }
 
     /// <summary>
@@ -829,17 +843,29 @@ namespace Orpheus.Net.Protocol
     /// <summary>
     /// «Смерть» (1-001, тип 24; `02` 13.5): сущность (#Victim) убила сущность #Attacker (−1 — манекен/неизвестный
     /// атакующий); урон после брони, добивший удар, и его тип. Рассылка — канал 2 всем в игре; дублирует событие
-    /// такта, полоска здоровья приходит снимком.
+    /// такта, полоска здоровья приходит снимком. E3-1 (протокол 30): + тактов до возрождения (персонаж — 150 по
+    /// правилу ядра; враг — 0) и флаги (бит 0 — возродится у своей кровати, иначе у Очага) — для экрана смерти.
     /// </summary>
     public struct DeathMessage
     {
-        /// <summary>Тип 1 + жертва 4 + убийца 4 + урон 1 + тип урона 1.</summary>
-        public const int Bytes = 11;
+        /// <summary>Тип 1 + жертва 4 + убийца 4 + урон 1 + тип урона 1 + тактов до возрождения 2 + флаги 1.</summary>
+        public const int Bytes = 14;
+
+        /// <summary>Флаг: возродится у своей кровати (E3-1).</summary>
+        public const byte FlagAtBed = 1;
 
         public int Victim;
         public int Attacker;
         public byte Damage;
         public byte DamageType;
+
+        /// <summary>Тактов от смерти до возрождения (E3-1): 0 — не возрождается (враг).</summary>
+        public ushort RespawnTicks;
+
+        /// <summary>Флаги (E3-1): <see cref="FlagAtBed"/>.</summary>
+        public byte Flags;
+
+        public bool AtBed => (Flags & FlagAtBed) != 0;
 
         public int Write(Span<byte> dest)
         {
@@ -849,6 +875,8 @@ namespace Orpheus.Net.Protocol
             w.WriteUInt32((uint)Attacker);
             w.WriteByte(Damage);
             w.WriteByte(DamageType);
+            w.WriteUInt16(RespawnTicks);
+            w.WriteByte(Flags);
             return w.BytesWritten;
         }
 
@@ -861,12 +889,82 @@ namespace Orpheus.Net.Protocol
                 Attacker = (int)r.ReadUInt32(),
                 Damage = r.ReadByte(),
                 DamageType = r.ReadByte(),
+                RespawnTicks = r.ReadUInt16(),
+                Flags = r.ReadByte(),
             };
+            if ((m.Flags & ~FlagAtBed) != 0)
+            {
+                throw new ProtocolException($"Смерть: неизвестные флаги 0x{m.Flags:X2}.");
+            }
+
             r.ExpectEnd();
             return m;
         }
 
-        public override string ToString() => $"смерть #{Victim} (убийца #{Attacker}, урон {Damage}, тип {DamageType})";
+        public override string ToString() =>
+            $"смерть #{Victim} (убийца #{Attacker}, урон {Damage}, тип {DamageType}, возрождение через {RespawnTicks} т{(AtBed ? ", у кровати" : "")})";
+    }
+
+    /// <summary>
+    /// «Урон» (E3-1, тип 37; `02` 6.8): сущность #Attacker нанесла сущности #Victim урон после брони (событие такта
+    /// <c>SimEventKind.Damage</c> или решение угрозы сервером). Для цифр урона над головой и полоски здоровья врага — из
+    /// событий сервера, не из предсказания. Рассылка — канал 2 игрокам, чей персонаж в радиусе обзора от жертвы, и самим
+    /// жертве и атакующему.
+    /// </summary>
+    public struct DamageMessage
+    {
+        /// <summary>Тип 1 + жертва 4 + атакующий 4 + урон 2 + тип урона 1 + флаги 1.</summary>
+        public const int Bytes = 13;
+
+        /// <summary>Флаг: сильный удар (добивающий серии меча, <c>Simulation.DamageTagStrong</c>) — цифра крупнее.</summary>
+        public const byte FlagStrong = 1;
+
+        public int Victim;
+        public int Attacker;
+        public ushort Amount;
+        public byte DamageType;
+        public byte Flags;
+
+        public bool Strong => (Flags & FlagStrong) != 0;
+
+        public int Write(Span<byte> dest)
+        {
+            var w = new BitWriter(dest);
+            w.WriteByte((byte)MessageType.Damage);
+            w.WriteUInt32((uint)Victim);
+            w.WriteUInt32((uint)Attacker);
+            w.WriteUInt16(Amount);
+            w.WriteByte(DamageType);
+            w.WriteByte(Flags);
+            return w.BytesWritten;
+        }
+
+        public static DamageMessage Read(ReadOnlySpan<byte> src)
+        {
+            var r = Codec.Begin(src, MessageType.Damage);
+            var m = new DamageMessage
+            {
+                Victim = (int)r.ReadUInt32(),
+                Attacker = (int)r.ReadUInt32(),
+                Amount = r.ReadUInt16(),
+                DamageType = r.ReadByte(),
+                Flags = r.ReadByte(),
+            };
+            if (m.Amount == 0)
+            {
+                throw new ProtocolException("Урон: 0 не шлётся.");
+            }
+
+            if ((m.Flags & ~FlagStrong) != 0)
+            {
+                throw new ProtocolException($"Урон: неизвестные флаги 0x{m.Flags:X2}.");
+            }
+
+            r.ExpectEnd();
+            return m;
+        }
+
+        public override string ToString() => $"урон #{Attacker}→#{Victim} {Amount} (тип {DamageType}{(Strong ? ", сильный" : "")})";
     }
 
     /// <summary>
@@ -903,12 +1001,13 @@ namespace Orpheus.Net.Protocol
     /// «Сумка» (1-002, тип 26; E2-1 — ячейками; docs/06 5.5): сумка персонажа — сервер шлёт <b>владельцу</b> при входе
     /// и когда содержимое изменилось (канал 2, надёжный). Предмет в руках для чужих сущностей —
     /// 8 бит в снимке (<see cref="SnapshotEntity.HeldItem"/>), целиком сумка чужому игроку не нужна.
-    /// Поля: тип 1 + сущность u32 + версия u16 + выбранная ячейка 1 + 40 ячеек × (предмет 1 + количество u16).
+    /// Поля: тип 1 + сущность u32 + версия u16 + выбранная ячейка 1 + 40 ячеек × (предмет 1 + количество u16)
+    /// + снаряжение 3 (предмет в ячейке «голова»/«тело»/«ноги», E3-6; протокол 35).
     /// </summary>
     public struct InventoryMessage
     {
-        /// <summary>Тип 1 + сущность 4 + версия 2 + payload 121.</summary>
-        public const int Bytes = 1 + 4 + 2 + Inventory.PayloadBytes;
+        /// <summary>Тип 1 + сущность 4 + версия 2 + payload 121 + снаряжение 3 (E3-6).</summary>
+        public const int Bytes = 1 + 4 + 2 + Inventory.PayloadBytes + 3;
 
         public int EntityId;
 
@@ -916,6 +1015,15 @@ namespace Orpheus.Net.Protocol
         public ushort Version;
 
         public Inventory Bag;
+
+        /// <summary>Предмет в ячейке снаряжения «голова» (E3-6; 0 — пусто).</summary>
+        public byte EquipHead;
+
+        /// <summary>Предмет в ячейке снаряжения «тело» (E3-6).</summary>
+        public byte EquipBody;
+
+        /// <summary>Предмет в ячейке снаряжения «ноги» (E3-6).</summary>
+        public byte EquipLegs;
 
         public int Write(Span<byte> dest)
         {
@@ -930,6 +1038,9 @@ namespace Orpheus.Net.Protocol
                 w.WriteUInt16((ushort)Bag.CountIn(i));
             }
 
+            w.WriteByte(EquipHead); // E3-6: надетое — окно сумки показывает его в своих трёх ячейках
+            w.WriteByte(EquipBody);
+            w.WriteByte(EquipLegs);
             return w.BytesWritten;
         }
 
@@ -957,38 +1068,64 @@ namespace Orpheus.Net.Protocol
             }
 
             bag.Select(selected);
+            m.EquipHead = GearItemAt(r.ReadByte(), Items.SlotHead); // E3-6: надетое — своя ячейка у каждого предмета
+            m.EquipBody = GearItemAt(r.ReadByte(), Items.SlotBody);
+            m.EquipLegs = GearItemAt(r.ReadByte(), Items.SlotLegs);
             r.ExpectEnd();
             m.Bag = bag;
             return m;
         }
 
-        public override string ToString() => $"сумка #{EntityId} в{Version} {Bag}";
+        /// <summary>Надетый предмет ячейки; предмет не брони своей ячейки — протокольная ошибка (сервер такого не шлёт).</summary>
+        static byte GearItemAt(byte item, byte slot)
+        {
+            if (item != Items.None && ItemTable.Get(item).Slot != slot)
+            {
+                throw new ProtocolException($"Сумка: в ячейке снаряжения {slot} предмет {item}.");
+            }
+
+            return item;
+        }
+
+        public override string ToString() => $"сумка #{EntityId} в{Version} {Bag} броня {EquipHead}/{EquipBody}/{EquipLegs}";
     }
 
     /// <summary>Куча на земле, как её видит клиент (E2-1): номер, предмет, количество, позиция в unit.</summary>
     public struct NetPile
     {
-        /// <summary>Номер 4 + предмет 1 + количество 2 + позиция 4 + 4.</summary>
-        public const int Bytes = 15;
+        /// <summary>Номер 4 + предмет 1 + количество 2 + позиция 4 + 4 + вид 1 + ось 2 (C-031, протокол 32)
+        /// + владелец 4 (E3-3b, протокол 38).</summary>
+        public const int Bytes = 22;
 
         public int Id;
         public byte Item;
         public ushort Count;
         public WorldPos Position;
 
+        /// <summary>Вид (C-031): 0 — куча, 1 — стрела в преграде, 2 — стрела в земле (<see cref="GroundPile.Kind"/>).</summary>
+        public byte Kind;
+
+        /// <summary>Ось воткнувшейся стрелы (u16); у кучи 0.</summary>
+        public ushort Aim;
+
+        /// <summary>Владелец личной капли (E3-3b, `06` 9): номер игрока; 0 — общая. Сервер чужие личные кучи не шлёт,
+        /// поле нужно для порядка и отладки: у всего, что видит клиент, здесь его номер или 0.</summary>
+        public int Owner;
+
         public override readonly string ToString() => $"куча #{Id} предмет {Item} × {Count} {Position}";
     }
 
     /// <summary>
     /// «Кучи» (E2-1, тип 27, канал 2): кучи на земле в обзоре игрока — новые и те, у которых изменилось количество.
-    /// Поля: тип 1 + число 1 + на кучу — номер u32, предмет 1, количество u16 (≥ 1), позиция x, y u32 (unit).
+    /// Поля: тип 1 + число 1 + на кучу — номер u32, предмет 1, количество u16 (≥ 1), позиция x, y u32 (unit), вид 1,
+    /// ось u16 воткнувшейся стрелы (C-031, протокол 32) и владелец u32 личной капли (E3-3b, протокол 38).
     /// </summary>
     public struct PilesMessage
     {
         /// <summary>Куч в одном сообщении.</summary>
         public const int MaxPiles = 48;
 
-        /// <summary>Наибольший размер: тип 1 + число 1 + 48 куч = 722 байта (влезает в один пакет).</summary>
+        /// <summary>Наибольший размер: тип 1 + число 1 + 48 куч = 1058 байт (влезает в один пакет).</summary>
         public const int MaxBytes = 2 + MaxPiles * NetPile.Bytes;
 
         public static int Write(Span<byte> dest, ReadOnlySpan<NetPile> piles)
@@ -1008,6 +1145,9 @@ namespace Orpheus.Net.Protocol
                 w.WriteUInt16(piles[i].Count);
                 w.WriteUInt32((uint)piles[i].Position.X);
                 w.WriteUInt32((uint)piles[i].Position.Y);
+                w.WriteByte(piles[i].Kind);
+                w.WriteUInt16(piles[i].Aim);
+                w.WriteUInt32((uint)piles[i].Owner);
             }
 
             return w.BytesWritten;
@@ -1028,9 +1168,12 @@ namespace Orpheus.Net.Protocol
                 var p = new NetPile { Id = (int)r.ReadUInt32(), Item = r.ReadByte(), Count = r.ReadUInt16() };
                 int x = (int)r.ReadUInt32();
                 int y = (int)r.ReadUInt32();
-                if (p.Id <= 0 || !Items.Exists(p.Item) || p.Count == 0)
+                p.Kind = r.ReadByte();
+                p.Aim = r.ReadUInt16();
+                p.Owner = (int)r.ReadUInt32(); // E3-3b: личная капля
+                if (p.Id <= 0 || !Items.Exists(p.Item) || p.Count == 0 || p.Kind > GroundPile.MaxKind)
                 {
-                    throw new ProtocolException($"Кучи: № {i} — номер {p.Id}, предмет {p.Item} × {p.Count}.");
+                    throw new ProtocolException($"Кучи: № {i} — номер {p.Id}, предмет {p.Item} × {p.Count}, вид {p.Kind}.");
                 }
 
                 p.Position = new WorldPos(x, y);
@@ -1124,8 +1267,8 @@ namespace Orpheus.Net.Protocol
             return w.BytesWritten;
         }
 
-        /// <summary>Ячеек в заявке: сумка (0…39) и открытый сундук (40…69; E2-5).</summary>
-        public const int MaxCell = Inventory.Cells + Simulation.ChestCells;
+        /// <summary>Ячеек в заявке: сумка (0…39), открытый сундук (40…69; E2-5), снаряжение (70…72; E3-6).</summary>
+        public const int MaxCell = Inventory.Cells + Simulation.ChestCells + Simulation.EquipCells;
 
         public static BagRequestMessage Read(ReadOnlySpan<byte> src)
         {
@@ -1167,11 +1310,11 @@ namespace Orpheus.Net.Protocol
         /// <summary>
         /// Известный тип сообщения: 1…14 (до MeleeResult, 0-029), 16…19 (мир, 0-026), 20…21 (правки тайлов, 0-028),
         /// 22…23 (пауза, 0-036), 24…25 (смерть/возрождение, 1-001), 26 (сумка, 1-002) и 27…29 (кучи и заявка на сумку, E2-1;
-        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; последний — NearbyStock); 15 не занят.
+        /// затем 30…32 — крафт, E2-3; 33…35 — действие с объектом и сундук, E2-5; 36 — сундуки рядом, E2-10; 37 — урон, E3-1; 38 — снаряд, E3-2; 39 — взмах кирки, C-028; 40 — пачка событий, C-035; последний — EventBatch); 15 не занят.
         /// </summary>
         public static bool IsKnown(byte t) =>
             (t >= (byte)MessageType.Login && t <= (byte)MessageType.MeleeResult) ||
-            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.NearbyStock);
+            (t >= (byte)MessageType.Chunk && t <= (byte)MessageType.EventBatch);
 
         /// <summary>Читатель после байта типа; тип не тот — <see cref="ProtocolException"/>.</summary>
         public static BitReader Begin(ReadOnlySpan<byte> src, MessageType expected)

@@ -47,6 +47,17 @@ namespace Orpheus.Client.Anim
 
         /// <summary>E2-7: как держится предмет в руке (<see cref="HeldLook.None"/> — руки пусты).</summary>
         public HeldLook Held;
+
+        /// <summary>
+        /// E3-2: лук натягивается (<see cref="DrawPower"/> 0…1 — доля от 0,2 до 0,6 с, <see cref="DrawSec"/> — с начала натяжения),
+        /// ось — <see cref="DrawDirX"/>/<see cref="DrawDirY"/> (единичная, экран). <see cref="ShotSec"/> &gt; 0 — секунд с выстрела
+        /// (отдача), 0 — выстрела не было.
+        /// </summary>
+        public bool Drawing;
+        public float DrawPower;
+        public float DrawSec;
+        public float DrawDirX, DrawDirY;
+        public float ShotSec;
     }
 
     /// <summary>Поза спрайта: сдвиг от опоры (тайлов), поворот, масштаб, зеркало, цвет-множитель, след уворота.</summary>
@@ -71,8 +82,21 @@ namespace Orpheus.Client.Anim
         /// <summary>E2-7: предмет поднят за голову — рисовать позади спрайта.</summary>
         public bool HandBehind;
 
+        /// <summary>C-053: вид существа (к/от зрителя, вбок). Без набора видов у rig игнорируется — фигура как раньше.</summary>
+        public ActorView View;
+
         /// <summary>E2-7: рука вытянута от плеча — вперёд (по взгляду) и вверх, тайлов.</summary>
         public float HandReachX, HandReachY;
+
+        /// <summary>C-030: низ спрайта под одеялом, тайлов (обрез, как в воде C-018); 0 — нет. Тень у ног тогда не рисуется.</summary>
+        public float Cover;
+
+        /// <summary>C-030: предмет в руке не рисовать (лежит).</summary>
+        public bool HideHand;
+
+        /// <summary>C-030: порядок отрисовки — как у существа с ногами на этой высоте Unity (<see cref="HasSortY"/>), а не по корню.</summary>
+        public float SortY;
+        public bool HasSortY;
 
         public static Pose Identity => new Pose { ScaleX = 1f, ScaleY = 1f, TintR = 1f, TintG = 1f, TintB = 1f, Alpha = 1f };
     }
@@ -90,6 +114,7 @@ namespace Orpheus.Client.Anim
         float _speed;       // сглаженная скорость, т/с
         float _stepPhase;   // шагов пройдено (дробная часть — фаза шага)
         bool _facingRight = true;
+        ActorView _view; // C-053: текущий вид (к/от зрителя, вбок), с гистерезисом
         float _hitAge = float.MaxValue;
         float _hitDirX, _hitDirY;
         float _digTime;
@@ -211,36 +236,57 @@ namespace Orpheus.Client.Anim
             p.ScaleY *= 1f + breath;
             p.ScaleX *= 1f - breath * 0.5f;
 
-            // --- направление: удар, копание, рывок, затем движение ---
+            // --- направление: удар, копание, рывок, затем движение (X и Y — C-053 даёт 4 вида) ---
             float faceX = 0f;
+            float faceY = 0f;
+            bool shooting = s.Drawing || (s.ShotSec > 0f && s.ShotSec < ActionAnim.BowRecoilSec);
             if (s.Swing != SwingPhase.None)
             {
                 faceX = s.SwingDirX;
+                faceY = s.SwingDirY;
+            }
+            else if (shooting)
+            {
+                faceX = s.DrawDirX; // E3-2: при натяжении и выстреле — к прицелу (`02` 1.2)
+                faceY = s.DrawDirY;
             }
             else if (s.Digging)
             {
                 faceX = s.DigDirX;
+                faceY = s.DigDirY;
             }
             else if (s.Dashing)
             {
                 faceX = s.DashDirX;
+                faceY = s.DashDirY;
             }
             else if (_gesture != GestureKind.None && _gestureDirX != 0f)
             {
                 faceX = _gestureDirX;
+                faceY = _gestureDirY;
             }
             else if (_speed > AnimParams.WalkMinSpeed && Math.Abs(s.VelX) > AnimParams.WalkMinSpeed)
             {
                 faceX = s.VelX;
+                faceY = s.VelY;
             }
 
-            bool aimed = s.Swing != SwingPhase.None || s.Digging || s.Dashing || _gesture != GestureKind.None;
+            bool aimed = s.Swing != SwingPhase.None || shooting || s.Digging || s.Dashing || _gesture != GestureKind.None;
             if (faceX != 0f && Math.Abs(faceX) > (aimed ? AnimParams.FacingDeadZone : 0f))
             {
                 _facingRight = faceX > 0f;
             }
 
             p.FlipX = _facingRight != AnimParams.SpriteFacesRight;
+
+            // C-053: вид (к/от зрителя, вбок) — по тому же направлению; вид сзади НЕ зеркалится.
+            float viewDead = aimed ? AnimParams.FacingDeadZone : AnimParams.WalkMinSpeed;
+            _view = ViewPick.Pick(faceX, faceY, _view, viewDead);
+            p.View = _view;
+            if (_view != ActorView.Side)
+            {
+                p.FlipX = false; // лицевые виды симметричны — зеркало только у бокового
+            }
 
             // --- уворот ---
             if (s.Dashing)
@@ -298,7 +344,7 @@ namespace Orpheus.Client.Anim
                 p.RotationDeg += -sw.LeanDeg * face;
                 p.ScaleY *= 1f - sw.Squash;
                 p.ScaleX *= 1f + sw.Squash * 0.5f;
-                handTarget = sw.HandDeg + ActionAnim.AimDeg(s.DigDirX, s.DigDirY) * ActionAnim.AimFollow;
+                handTarget = sw.HandDeg + ActionAnim.AimDeg(s.DigDirX, s.DigDirY) * ActionAnim.AimFollowOf(s.Action); // C-028: кирка — вся ось
                 handDirect = true;
                 p.DigPokeNow = ActionAnim.ImpactsBetween(_actionPrevSec, s.ActionSec, s.ActionFrames) > 0;
                 _actionPrevSec = s.ActionSec;
@@ -340,6 +386,23 @@ namespace Orpheus.Client.Anim
                     ? ActionAnim.SwordHandDeg(p, s.Swing, Clamp01(s.SwingProgress), aimDeg)
                     : ActionAnim.SwordDeg(s.Swing, Clamp01(s.SwingProgress), aimDeg);
                 handDirect = true;
+            }
+
+            // --- лук (E3-2): натяжение — лук к прицелу, корпус откинут назад по силе; выстрел — короткая отдача ---
+            if (shooting && !toolAction && s.Swing == SwingPhase.None)
+            {
+                ActionAnim.Swing b = s.Drawing
+                    ? ActionAnim.BowDraw(s.DrawPower, s.DrawSec)
+                    : ActionAnim.BowRelease(s.ShotSec / ActionAnim.BowRecoilSec);
+                p.OffsetX += s.DrawDirX * b.Forward;
+                p.OffsetY += s.DrawDirY * b.Forward * 0.6f;
+                p.RotationDeg += -b.LeanDeg * face;
+                p.ScaleY *= 1f - b.Squash;
+                p.ScaleX *= 1f + b.Squash * 0.5f;
+                handTarget = ActionAnim.AimDeg(s.DrawDirX, s.DrawDirY) + b.HandDeg;
+                handDirect = true;
+                p.HandReachX = b.ReachX;
+                p.HandReachY = b.ReachY;
             }
 
             if (!_handInit || handDirect)

@@ -53,6 +53,14 @@ namespace Orpheus.Server
         /// <summary>Запас сверх такта, после которого промежуток между тактами — простой (как в Big UDP, 0-032), мкс.</summary>
         public const long StallSlackMicros = 5000;
 
+        /// <summary>
+        /// Порог длинного промежутка (P-005, п. 4), мкс: зазор между началами тактов от 100 мс — это
+        /// СОБЫТИЕ (заморозка потока, долгая сборка мусора), а не шум планировщика. Простой по 0-032
+        /// (такт + 5 мс) на слабых машинах считает шум десятками — событийный счётчик годится для
+        /// годности машины (зазоры 38 мс — зелено, деградация тика — красная).
+        /// </summary>
+        public const long LongGapMicros = 100_000;
+
         /// <summary>Имена частей для лога и отчёта.</summary>
         public static readonly string[] PartNames = { "input", "ai", "sim", "net", "save", "other" };
 
@@ -169,6 +177,9 @@ namespace Orpheus.Server
         /// <summary>Наибольший промежуток между началами тактов, мкс.</summary>
         public long MaxGapMicros { get; private set; }
 
+        /// <summary>Из них длинных промежутков ≥ LongGapMicros (100 мс) — событий (P-005, п. 4).</summary>
+        public long LongGaps { get; private set; }
+
         /// <summary>Байт выделено потоком такта внутри тактов.</summary>
         public long AllocatedInTicks { get; private set; }
 
@@ -266,6 +277,11 @@ namespace Orpheus.Server
                 Stalls++;
             }
 
+            if (micros >= TickMetrics.LongGapMicros)
+            {
+                LongGaps++;
+            }
+
             if (micros > MaxGapMicros)
             {
                 MaxGapMicros = micros;
@@ -279,6 +295,7 @@ namespace Orpheus.Server
             MaxMicros = 0;
             Gaps = 0;
             Stalls = 0;
+            LongGaps = 0;
             MaxGapMicros = 0;
             AllocatedInTicks = 0;
             TicksWithAllocations = 0;

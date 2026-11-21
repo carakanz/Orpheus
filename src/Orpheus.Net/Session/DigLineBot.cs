@@ -39,6 +39,8 @@ namespace Orpheus.Net.Session
         private bool _shifting;
         private bool _entered;
         private int _frame;
+        private const int SlotSettleFrames = 6;
+        private int _slotSince = int.MinValue / 2;
         private byte _slot; // ячейка быстрой панели текущего копания (топор для дерева, кирка для скалы — 1-010)
         private WorldPos _lastPos;
         private int _stillFrames;
@@ -110,6 +112,11 @@ namespace Orpheus.Net.Session
             _digs.Remove(m.RequestId);
             _digTile.Remove(m.RequestId);
             _digRaw.Remove(m.RequestId);
+            if (m.Reply == EditReply.Accepted && (m.Mask & StrikeMessage.ReplySwingBit) != 0)
+            {
+                return; // C-028: взмах кирки — снятые тайлы приходят «взмахом» (CountBroken), удар может не снять ни одного
+            }
+
             if (m.Reply != EditReply.Accepted)
             {
                 Refused++;
@@ -122,6 +129,45 @@ namespace Orpheus.Net.Session
                 return;
             }
 
+            Count(t, raw, rock);
+        }
+
+        private readonly List<(TileCoord Tile, ushort Obj)> _broken = new List<(TileCoord Tile, ushort Obj)>();
+
+        /// <summary>C-028: тайлы, снятые своими взмахами (скала в полосе — по X тайла от шва), — в счёт, как снятые копанием.</summary>
+        private ushort _strikeReq;
+        private TileCoord _strikeTile;
+
+        /// <summary>
+        /// C-028 (П): взмах не задел цель (линия до неё перекрыта — стена, дверь, дерево, угол) — тайл пропускается 4 с, иначе бот
+        /// бил бы его вечно (ответ «принято», но удара нет).
+        /// </summary>
+        private void SkipMissed(NetClient client)
+        {
+            if (client.OwnStrikeResolved(_strikeReq, _strikeTile, out bool hit))
+            {
+                if (!hit)
+                {
+                    _skipUntil[_strikeTile] = _frame + 240;
+                }
+
+                _strikeReq = 0;
+            }
+        }
+
+        private void CountBroken(NetClient client)
+        {
+            _broken.Clear();
+            client.DrainBrokenByMe(_broken);
+            foreach ((TileCoord t, ushort raw) in _broken)
+            {
+                bool band = Math.Abs(Torus.DeltaX(_shape, 0, t.X * U + U / 2)) <= HalfLength * U;
+                Count(t, raw, band && ObjectId.IdOf(raw) == ObjectId.Rock);
+            }
+        }
+
+        private void Count(TileCoord t, ushort raw, bool rock)
+        {
             if (DigLoot.TryGetDrop(ObjectId.IdOf(raw), out Material mat, out _, out _) && mat == Material.Stone)
             {
                 StoneTiles.Add((t, raw)); // скала в полосе, вне полосы или гранит — в сумку идёт камень
@@ -142,6 +188,8 @@ namespace Orpheus.Net.Session
         public InputFrame Next(NetClient client, WorldPos pos)
         {
             _frame++;
+            CountBroken(client);
+            SkipMissed(client);
             ClientWorld? world = client.World;
             if (world == null || Done)
             {
@@ -317,13 +365,32 @@ namespace Orpheus.Net.Session
                 return false;
             }
 
-            ushort id = client.StartDig(t);
+            // C-028: сначала взять инструмент и дать кадрам с ним дойти до сервера (предмет в руках такта — им сервер решает
+            // «взмах или копание» и «нужен инструмент»), потом запрос. Иначе запрос уходит со старым предметом — отказ или не тот вид.
+            if (slot != _slot)
+            {
+                _slot = slot;
+                _slotSince = _frame;
+                return true;
+            }
+
+            if (_frame - _slotSince < SlotSettleFrames)
+            {
+                return true;
+            }
+
+            ushort id = client.StartDig(t, pos);
             if (id == 0)
             {
                 return false;
             }
 
-            _slot = slot;
+            if (client.DigStrike)
+            {
+                _strikeReq = id;
+                _strikeTile = t;
+            }
+
             _digs[id] = inBand && ObjectId.IdOf(obj) == ObjectId.Rock;
             _digTile[id] = t;
             _digRaw[id] = obj;

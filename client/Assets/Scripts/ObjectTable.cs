@@ -66,6 +66,9 @@ namespace Orpheus.Client
         /// </summary>
         public bool Block;
 
+        /// <summary>C-049: объект рисуют в «низкой полосе» строки — перед существом той же четверти (костёр).</summary>
+        public bool LowBand;
+
         /// <summary>Высота блока, тайлов (у обрыва — нижний ярус, C-016).</summary>
         public float Height = 1f;
 
@@ -98,6 +101,11 @@ namespace Orpheus.Client
         public bool[] TurnFlip = new bool[0];
         internal int[] TurnSprites = new int[0];
 
+        /// <summary>C-041: картинки старого размера кровати 1 × 2 / 2 × 1 (записы сохранений до C-030) по повороту;
+        /// зеркало 270° — то же <see cref="TurnFlip"/>. Пусто — узкого вида нет.</summary>
+        public string[] NarrowTurns = new string[0];
+        internal int[] NarrowTurnSprites = new int[0];
+
         // Заполняет ObjectTable при сборке: номера картинок листа и суммарный вес.
         internal int[] Sprites = new int[0];
         internal float[] Weights = new float[0];
@@ -120,13 +128,32 @@ namespace Orpheus.Client
 
         public static readonly ObjectLook[] Looks =
         {
-            // Лес (лесная подстилка): дуб и сосна рощами, изредка осенний дуб.
+            // C-027 (слово Автора 17.11 «Леса разбей на несколько разных видов по типам деревьев»): вид леса — пол генератора v9.
+            // Дубрава (лесная подстилка): дубы, рощицами осенний дуб.
             new ObjectLook
             {
                 Id = ObjectId.Tree, Ground = GroundTable.Forest, Patch = 9f,
-                Variants = new[] { V("tree_oak_a", 3), V("tree_oak_b", 3), V("tree_oak_autumn", 0.5f), V("tree_pine_a", 3), V("tree_pine_b", 3) },
-                ScaleMin = 0.85f, ScaleMax = 1.15f, Jitter = 0.2f, Flip = true, Tall = true,
+                Variants = new[] { V("tree_oak_a", 3), V("tree_oak_b", 3), V("tree_oak_autumn", 0.7f) },
+                ScaleMin = 0.9f, ScaleMax = 1.2f, Jitter = 0.2f, Flip = true, Tall = true,
                 Sway = 0.028f, LeavesMin = 6, LeavesMax = 10,
+            },
+            // Сосновый бор (рыжая хвоя): сосны, светлее и теплее, выше.
+            new ObjectLook
+            {
+                Id = ObjectId.Tree, Ground = GroundTable.Pine, Patch = 9f,
+                Variants = new[] { V("tree_pine_a", 3), V("tree_pine_b", 3) },
+                Tint = new Color32(255, 246, 214, 255),
+                ScaleMin = 0.95f, ScaleMax = 1.25f, Jitter = 0.25f, Flip = true, Tall = true,
+                Sway = 0.022f, LeavesMin = 3, LeavesMax = 6,
+            },
+            // Тёмный ельник (мох): тёмные холодные ели (сосна и кипарис с тоном), плотнее.
+            new ObjectLook
+            {
+                Id = ObjectId.Tree, Ground = GroundTable.Spruce, Patch = 6f,
+                Variants = new[] { V("tree_pine_a", 3), V("tree_pine_b", 3), V("tree_cypress_a", 2), V("tree_cypress_b", 2) },
+                Tint = new Color32(150, 178, 168, 255),
+                ScaleMin = 0.9f, ScaleMax = 1.2f, Jitter = 0.15f, Flip = true, Tall = true,
+                Sway = 0.02f, LeavesMin = 3, LeavesMax = 6,
             },
             // Луг и всё остальное: олива и кипарис, изредка осенний дуб.
             new ObjectLook
@@ -182,6 +209,8 @@ namespace Orpheus.Client
             {
                 Id = ObjectId.Campfire, Variants = new[] { V("obj_campfire") },
                 Shadow = 0f,
+                LowBand = true, // C-049: огонь костра не перекрывает персонажа — низкая полоса строки
+                Sway = 0.07f,   // C-049: пламя колышет ветром (верх спрайта; шейдерный «живой мир», без покадровой анимации)
             },
             new ObjectLook
             {
@@ -193,6 +222,7 @@ namespace Orpheus.Client
             {
                 Id = ObjectId.Torch, Variants = new[] { V("obj_torch") },
                 Shadow = 0.3f,
+                Sway = 0.05f, // C-049: пламя факела колышет ветром (мерцание света и теней — DayTint/ShadowComposite)
             },
             new ObjectLook
             {
@@ -203,13 +233,16 @@ namespace Orpheus.Client
             new ObjectLook
             {
                 Id = ObjectId.Bed, Variants = new[] { V("obj_bed") },
-                Turns = new[] { "obj_bed", "obj_bed_e", "obj_bed_s", "obj_bed_e" }, TurnFlip = Mirror270, // E2-16: 1 × 2
+                Turns = new[] { "obj_bed", "obj_bed_e", "obj_bed_s", "obj_bed_e" }, TurnFlip = Mirror270, // C-030: двуспальная 2 × 2 (E2-16: 1 × 2)
+                NarrowTurns = new[] { "obj_bed_1x2", "obj_bed_1x2_e", "obj_bed_1x2_s", "obj_bed_1x2_e" }, // C-041: старый 1 × 2 — вид, когда окно занято соседом
                 Shadow = 0.35f,
             },
         };
 
-        /// <summary>Опора объекта в своём тайле: по центру, на этой высоте от нижнего края тайла.</summary>
-        public const float BaseLift = 0.3f;
+        /// <summary>Опора объекта в своём тайле: по центру, на этой высоте от нижнего края тайла.
+        /// Число живёт в <see cref="DrawOrder.RowBaseLift"/> — там же, где правило порядка костра
+        /// (C-049), чтобы правка не разъехала геометрию сортировки (тест держит её по DrawOrder).</summary>
+        public const float BaseLift = DrawOrder.RowBaseLift;
 
         // Строки по номеру объекта (по порядку таблицы); null — номера в таблице нет.
         static ObjectLook[]?[] _byId = new ObjectLook[0][];
@@ -230,6 +263,14 @@ namespace Orpheus.Client
                 }
 
                 foreach (string t in look.Turns)
+                {
+                    if (seen.Add(t))
+                    {
+                        yield return t;
+                    }
+                }
+
+                foreach (string t in look.NarrowTurns) // C-041: старый 1 × 2 — набор картинок при импорте
                 {
                     if (seen.Add(t))
                     {
@@ -273,6 +314,12 @@ namespace Orpheus.Client
                 for (int t = 0; t < look.Turns.Length; t++)
                 {
                     look.TurnSprites[t] = ObjectAtlas.Find(look.Turns[t]); // E2-16: −1 — обычный вид
+                }
+
+                look.NarrowTurnSprites = new int[look.NarrowTurns.Length];
+                for (int t = 0; t < look.NarrowTurns.Length; t++)
+                {
+                    look.NarrowTurnSprites[t] = ObjectAtlas.Find(look.NarrowTurns[t]); // C-041: −1 — узкого вида нет
                 }
 
                 look.Weights = weights.ToArray();
@@ -395,6 +442,20 @@ namespace Orpheus.Client
             if (rotation < look.TurnSprites.Length && look.TurnSprites[rotation] >= 0)
             {
                 p.Sprite = look.TurnSprites[rotation];
+                p.Flip = rotation < look.TurnFlip.Length && look.TurnFlip[rotation];
+            }
+
+            return p;
+        }
+
+        /// <summary>Вид старой узкой кровати 1 × 2 / 2 × 1 (C-041): картинка <see cref="ObjectLook.NarrowTurns"/>,
+        /// зеркало 270° — как у поворота.</summary>
+        public static Placement PlaceNarrow(ObjectLook look, int tx, int ty, int rotation)
+        {
+            Placement p = Place(look, tx, ty);
+            if (rotation < look.NarrowTurnSprites.Length && look.NarrowTurnSprites[rotation] >= 0)
+            {
+                p.Sprite = look.NarrowTurnSprites[rotation];
                 p.Flip = rotation < look.TurnFlip.Length && look.TurnFlip[rotation];
             }
 

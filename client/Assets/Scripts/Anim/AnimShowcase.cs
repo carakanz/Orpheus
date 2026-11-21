@@ -18,12 +18,13 @@ namespace Orpheus.Client.Anim
     /// заданные миги кадр снимается, вырезается кусок вокруг действия и кладётся в ленту из 6 кадров:
     /// <c>K-001_walk.png</c>, <c>_dodge</c>, <c>_swing_hit</c>, <c>_swing_dodge</c>, <c>_dig</c>, плюс общий <c>K-001_overview.png</c>;
     /// E2-7 — <c>E2-7_chop</c>, <c>_mine</c>, <c>_build</c>, <c>_pickup</c>, <c>_carry</c>, <c>_sword</c> (рубка, кирка по камню, стройка, подбор, несение, меч в руке).</item>
+    /// <item>C-036 — <c>C-036_pick</c>, <c>C-036_bow</c> (чужие действие по снимку: шаги кирки и сила натяжения лука).</item>
     /// <item><c>--anim-bench &lt;сек&gt;</c>: 8 персонажей (ходьба, увороты) и 40 врагов-болванок (замах с сектором по кругу) на
     /// экране при зуме ×1,0, без вертикальной синхронизации; в лог — средний fps и 1 % худших кадров, выход 0.</item>
     /// </list>
     /// Нужен вывод на экран — запускать без <c>-batchmode -nographics</c>.
     /// </summary>
-    public sealed class AnimShowcase
+    public sealed partial class AnimShowcase
     {
         const float WalkSpeed = 6f;     // т/с, базовая скорость (`02` 2.1)
         const float DashSpeed = 12f;    // 3 т за 0,25 с (`02` 2.2)
@@ -69,7 +70,7 @@ namespace Orpheus.Client.Anim
         bool _rockReal;
         int _builds = -1, _picks = -1;
         const int ChopFrames = 54;  // 0,9 с на тайл — 2 замаха (такт ядра)
-        const int MineFrames = 75;  // 1,25 с — 3 замаха
+        const int MineFrames = PickStrike.SwingFrames; // C-028: кирка — взмахи по 24 кадра (0,4 с), удар в конце каждого
         const float ActionGap = 0.35f; // пауза между тайлами (ответ сервера)
         float _ortho = ShotsOrtho;
 
@@ -350,12 +351,14 @@ namespace Orpheus.Client.Anim
                 LifeFx.HitTile(_treeTile, Vector2.right);
             }
 
-            // E2-7: кирка по камню к востоку — искры и крошка.
+            // E2-7 → C-028: кирка по камню к востоку — горизонтальный взмах, удар по тайлам сектора, искры и трещины.
             _miner.Root.position = MinerPos;
             if (ToolDig(_miner, ActionKind.Mine, MineFrames, _t + 0.2f, dt, Vector2.right))
             {
-                NetAnimation.Emit(_sparks, _rock, Vector2.left, ImpactLook.Stone);
+                PickImpact();
             }
+
+            PickFrame(dt);
 
             // E2-7: стройка — жест к месту постановки (вправо-вниз) раз в 1,1 с.
             _builder.Root.position = BuilderPos;
@@ -408,6 +411,10 @@ namespace Orpheus.Client.Anim
                 // чтобы контур был ровно зоной ядра, с которой сверяется кончик меча.
                 _aimSectors[i].Show(AimFencerPos(i) - new Vector3(0f, AnimParams.SectorGroundY, 0f), d, reach, halfArc, 0f, 0f, 1f);
             }
+
+            BowFrame(dt); // E3-2: лучники, стрелы, кольцо силы
+            FoeFrame(dt); // E3-4: враг с мечом, ответ героя, лучник-враг, смерть (с 25 с)
+            ActionFrame(dt); // C-036: чужой с киркой (шаги прогресса) и чужой лучник (сила натяжения) — с 42,2 с
         }
 
         static SwingPhase PhaseAt(float su, out float q)
@@ -517,7 +524,7 @@ namespace Orpheus.Client.Anim
                     new Shot { Name = "E2-7_chop", Focus = () => (DiggerPos + _tree) * 0.5f, Ortho = ShotsOrtho,
                         Times = new[] { 8.88f, 9.00f, 9.10f, 9.17f, 9.21f, 9.28f }, CropW = 560, CropH = 600 },
                     new Shot { Name = "E2-7_mine", Focus = () => (MinerPos + _rock) * 0.5f, Ortho = ShotsOrtho,
-                        Times = new[] { 11.05f, 11.20f, 11.32f, 11.39f, 11.43f, 11.50f }, CropW = 560, CropH = 600 },
+                        Times = new[] { 11.05f, 11.20f, 11.32f, 11.40f, 11.45f, 11.52f } /* C-028: взмах 0,4 с, удар в 11,45 */, CropW = 560, CropH = 600 },
                     new Shot { Name = "E2-7_build", Focus = () => BuilderPos + new Vector3(0.5f, 0f, 0f), Ortho = ShotsOrtho,
                         Times = new[] { 12.10f, 12.16f, 12.22f, 12.27f, 12.33f, 12.42f }, CropW = 480, CropH = 560 },
                     new Shot { Name = "E2-7_pickup", Focus = () => PickerPos, Ortho = ShotsOrtho,
@@ -532,6 +539,31 @@ namespace Orpheus.Client.Anim
                 };
 
                 foreach (Shot s in shots)
+                {
+                    yield return Strip(s);
+                }
+
+                foreach (Shot s in BowShots()) // E3-2: лук — после C-012 (с 18 с)
+                {
+                    yield return Strip(s);
+                }
+
+                foreach (Shot s in ArrowShots()) // C-031: стрелы-предметы, непрерывная стрельба, подбор — с 24 с
+                {
+                    yield return Strip(s);
+                }
+
+                foreach (Shot s in PickShots()) // C-028: взмах кирки и трещины — после стрел C-031 (с 30,6 с)
+                {
+                    yield return Strip(s);
+                }
+
+                foreach (Shot s in FoeShots()) // E3-4: враги — после кирки C-028 (с 34 с)
+                {
+                    yield return Strip(s);
+                }
+
+                foreach (Shot s in ActionShots()) // C-036: действие чужого по снимку — после врагов E3-3/E3-4 (с 42,2 с)
                 {
                     yield return Strip(s);
                 }
@@ -602,7 +634,11 @@ namespace Orpheus.Client.Anim
             }
 
             strip.Apply();
-            Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
+            Save(s.Name.StartsWith("E2-7", StringComparison.Ordinal) || s.Name.StartsWith("C-012", StringComparison.Ordinal) ||
+                 s.Name.StartsWith("E3-2", StringComparison.Ordinal) || s.Name.StartsWith("C-031", StringComparison.Ordinal) ||
+                 s.Name.StartsWith("C-028", StringComparison.Ordinal) || s.Name.StartsWith("E3-4", StringComparison.Ordinal) ||
+                 s.Name.StartsWith("E3-3", StringComparison.Ordinal)
+                 ? $"{s.Name}.png" : $"K-001_{s.Name}.png", strip);
             UnityEngine.Object.Destroy(strip);
         }
 

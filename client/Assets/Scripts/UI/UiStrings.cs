@@ -17,6 +17,28 @@ namespace Orpheus.Client.UI
         public const string BagDead = "Вы погибли: сумка откроется для действий после возрождения";
         public const string BagKeys = "Q / I";
 
+        // ---------- E4-1: главное меню и возврат в него ----------
+
+        public const string MenuTitle = "Orpheus";
+        public const string MenuNewWorld = "Новый мир";
+        public const string MenuContinue = "Продолжить";
+        public const string MenuFriends = "Открыть для друзей";
+        public const string MenuJoin = "Войти по адресу";
+        public const string MenuBack = "Назад";
+        public const string MenuCreate = "Создать";
+        public const string MenuConnect = "Подключиться";
+        public const string MenuToMenu = "В меню";
+        public const string MenuNoticeTitle = "Уведомление";
+        public const string MenuNoSaves = "нет сохранённых миров";
+        public const string MenuJoinPrompt = "Введите адрес сервера (хост:порт):";
+        public static string MenuSeed(long seed) => $"посев: 0x{seed:X16}";
+        public static string MenuWorld(string folder) => $"папка мира: {folder}";
+        public static string MenuFriendsAddr(string addr, int port) => $"гости подключаются по адресу  {addr}:{port}";
+        public static string MenuJoinAddr(string addr) => addr.Length == 0 ? "_" : addr;
+        public static string FriendsOpen(string addr) => $"Открыто для друзей: {addr} (UDP)";
+        public const string MenuFriendsFail = "Открыть для друзей не удалось";
+        public const string MenuDeathButton = "В меню";
+
         // ---------- C-008: окна как в Terraria ----------
 
         /// <summary>Подсказка клавиш сумки — одной строкой мелко под сеткой (полная — <see cref="BagHint"/>, при наведении).</summary>
@@ -44,13 +66,33 @@ namespace Orpheus.Client.UI
         public static string ArmedNote(byte item) => $"{ItemName(item)}: щёлкни по ячейке сумки   (ПКМ / Esc — снять)";
         public const string AbilityLocked = "Способность — откроется позже";
         public const string PassiveLocked = "Пассивная способность — откроется позже";
-        public const string MapCollapsed = "Карта (M)";
+        public const string MapCollapsed = "Карта (Shift+M)"; // C-029: M — карта на весь экран
         public const string CraftEmptyShort = "Здесь пока нет рецептов";
         public const string CraftEmptyFilteredShort = "Сейчас ничего не сделать — Ins: показать все";
 
         public static string FilterTip(bool on) => on ? "Только доступные: вкл (Ins)" : "Только доступные: выкл (Ins)";
 
         public static string HealthTip(int cur, int max) => $"Здоровье {cur} / {max}";
+
+        // ---------- E3-1: смерть и возрождение ----------
+
+        public const string DeathTitle = "Вы погибли";
+
+        /// <summary>Кто убил: враг по архетипу, другой игрок, неизвестно.</summary>
+        public static string KilledBy(bool known, bool character, byte archetype) =>
+            !known ? "Причина смерти неизвестна"
+            : character ? "Вас убил другой игрок"
+            : archetype == EnemyArchetype.Melee ? "Вас убил разбойник"
+            : "Вас убил враг";
+
+        /// <summary>Таймер возрождения: «Возрождение у Очага через 4 с»; 0 — «Возрождение…».</summary>
+        public static string RespawnIn(int seconds, bool atBed) =>
+            seconds > 0 ? $"Возрождение {(atBed ? "у кровати" : "у Очага")} через {seconds} с" : $"Возрождение {(atBed ? "у кровати" : "у Очага")}…";
+
+        public static string Respawned(bool atBed) => atBed ? "Вы возродились у кровати" : "Вы возродились у Очага";
+
+        /// <summary>Имя элитного врага над полоской (в срезе элитных нет — стенд снимков, E3-1).</summary>
+        public const string EliteRogue = "Главарь разбойников";
 
         public static string StaminaTip(int cur, int max) => $"Выносливость {cur} / {max}";
 
@@ -88,6 +130,11 @@ namespace Orpheus.Client.UI
             ["workbench"] = "Верстак",
             ["chest"] = "Сундук",
             ["bed"] = "Кровать",
+            // E3-6: медная броня и шкура.
+            ["copper_helmet"] = "Медный шлем",
+            ["copper_chest"] = "Медный доспех",
+            ["copper_legs"] = "Медные поножи",
+            ["hide"] = "Шкура",
         };
 
         // ---------- окно крафта (E2-4) ----------
@@ -107,6 +154,58 @@ namespace Orpheus.Client.UI
 
         public const string CraftKeyInv = "Q · C · Esc";
         public const string CraftOnlyAvailable = "Только доступные";
+
+        /// <summary>C-029: карта на весь экран.</summary>
+        public const string WorldMapTitle = "Карта";
+
+        public const string WorldMapHelp = "M / Esc — закрыть · колесо — масштаб · ЛКМ — тянуть · ПКМ — к себе · золотая — вы, белое кольцо — Очаг, оранжевые — кровати";
+
+        public static string WorldMapCoords(int x, int y, double tilesPerPixel) =>
+            $"{x}, {y} · {(tilesPerPixel < 1 ? $"×{1 / tilesPerPixel:0}" : $"1:{tilesPerPixel:0}")}";
+
+        /// <summary>
+        /// C-029: подсказка ингредиента — название, описание; базовый — «Где взять:» и строки источников («?» — не открыто),
+        /// небазовый — «ЛКМ — открыть рецепт».
+        /// </summary>
+        public static string IngredientTip(byte item, string description, bool isBase, List<string>? where)
+        {
+            var sb = new System.Text.StringBuilder(ItemName(item));
+            if (description.Length > 0)
+            {
+                sb.Append('\n').Append(description);
+            }
+
+            if (!isBase)
+            {
+                sb.Append("\nЛКМ — открыть рецепт");
+            }
+            else
+            {
+                sb.Append("\nГде взять:");
+                if (where == null || where.Count == 0)
+                {
+                    sb.Append(" ?");
+                }
+                else
+                {
+                    foreach (string w in where)
+                    {
+                        sb.Append("\n  ").Append(w);
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>C-029: остаток ингредиента после изготовления (красным у значка).</summary>
+        public static string IngredientLeft(int left) => $"→{left}";
+
+        /// <summary>C-029: пипетка не по постройке (трава, валун, дерево).</summary>
+        public const string PipetteNothing = "Пипетка: здесь нет постройки";
+
+        /// <summary>C-029: постройка уже есть в сумке — из меню ставится она, не изготавливается новая.</summary>
+        public static string ReadyInBag(int n) => $"В сумке: {n} — ставится из сумки";
         public const string CraftFlat = "Все рецепты раздела";
         public const string CraftEmptySub = "Здесь пока нет рецептов";
         public const string CraftEmptyFiltered = "Сейчас здесь ничего не сделать\nснимите «Только доступные» (Ins)";
@@ -167,7 +266,9 @@ namespace Orpheus.Client.UI
             }
 
             sb.Append('\n').Append(def.Station == CraftStation.None ? "Руками, где угодно" : "Станок: " + StationName(def.Station).ToLowerInvariant());
-            sb.Append('\n').Append(CraftState(line.State, def.Station, line.Affordable));
+            // C-032 (хвост C-029): готовая постройка в сумке — ставится из сумки, не изготавливается: последней строкой
+            // только «В сумке: N», без «что мешает» («не хватает» и «в сумке» одновременно писать нельзя).
+            sb.Append('\n').Append(line.CanPlace ? ReadyInBag(line.Ready) : CraftState(line.State, def.Station, line.Affordable));
             return sb.ToString();
         }
 
@@ -283,9 +384,9 @@ namespace Orpheus.Client.UI
         public static string PlaceHint(int inHand) => $"ЛКМ — поставить, зажать — подряд (в руке {inHand})";
 
         /// <summary>E2-13: подпись режима постановки у панели.</summary>
-        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (Tab или значок у панели — поштучно)" : "Поштучно   (Tab или значок у панели — линейка)"; // E2-16: R — поворот
+        public static string PlaceModeLabel(bool ruler) => ruler ? "Линейка   (Tab — поштучно, G — пипетка)" : "Поштучно   (Tab — линейка, G — пипетка)"; // E2-16: R — поворот; C-029: G / средняя кнопка — пипетка
 
-        /// <summary>C-015: подсказка значка режима у быстрой панели (линейка / зигзаг).</summary>
+        /// <summary>C-015: подсказка значка режима у быстрой панели (линейка / шахматка).</summary>
         public static string PlaceModeTip(bool ruler) => ruler
             ? "Линейка: зажать ЛКМ и протянуть — стены и заборы линией, пол прямоугольником\nЩелчок или Tab — поштучно"
             : "Поштучно: щелчок — одна постройка, зажать — по ячейкам под курсором\nЩелчок или Tab — линейка";
@@ -334,12 +435,12 @@ namespace Orpheus.Client.UI
         {
             Orpheus.Net.Session.UseKind.Door => "F — закрыть дверь",
             // C-013: «F — верстак не нужно» — у станков действия F нет (ObjectUse.KindOf), подсказки тоже.
-            Orpheus.Net.Session.UseKind.Chest => "F — сундук",
-            Orpheus.Net.Session.UseKind.Bed => "F — кровать",
+            Orpheus.Net.Session.UseKind.Chest => "F / ПКМ — сундук", // C-030: ПКМ по сундуку и кровати — как F
+            Orpheus.Net.Session.UseKind.Bed => "F / ПКМ — лечь в кровать", // C-030
             _ => string.Empty,
         };
 
-        public const string BedSet = "Кровать: здесь вы возродитесь";
+        public const string BedSet = "Точка возрождения установлена"; // C-030 (было «Кровать: здесь вы возродитесь»)
 
         /// <summary>Отказ сервера на действие с объектом.</summary>
         public static string UseRefusal(string reason) => $"Нельзя: {reason}";

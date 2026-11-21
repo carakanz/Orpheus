@@ -1,0 +1,88 @@
+using System;
+using System.IO;
+using Orpheus.Core.Geometry;
+using Orpheus.Core.Movement;
+using Orpheus.Core.Sim;
+using Orpheus.Core.World;
+using Orpheus.Save;
+using Xunit;
+
+namespace Orpheus.Tests
+{
+    /// <summary>
+    /// Разовый генератор файла формата 13 для теста C-031 (запускается на коде main 45fce53 — лук E3-2: остановленная стрела с
+    /// шансом 50 % ложится обычной кучей «стрелы», до стрел-предметов C-031): плоский мир 256², зерно 1; ряд y = 100 очищен,
+    /// каменная стена в 110,100; персонаж в 100,100 с луком стреляет 6 раз в стену и 6 раз на север (дальность), стоит; рядом
+    /// выброшено 7 древесины. Пишет <c>format13_arrows.save</c> / <c>.base</c> и печатает хэш состояния после загрузки (счётчик
+    /// номеров снарядов E3-2 в файл не идёт — хэш «до записи» после загрузки не повторить). Запуск: копия кода
+    /// (git archive) + этот файл как .cs, <c>GOLD_OUT=папка dotnet test --filter Make_Format13_Arrows_File</c>.
+    /// </summary>
+    public class MakeV13Arrows
+    {
+        private const int U = Torus.SubTilesPerTile;
+
+        private static WorldPos At(int x, int y) => new WorldPos(x * U + U / 2, y * U + U / 2);
+
+        [Fact]
+        public void Make_Format13_Arrows_File()
+        {
+            WorldModel world = FlatWorldGenerator.Instance.Generate(MapShape.World(256), 1);
+            byte[] baseBytes = WorldSnapshot.WriteBase(world);
+            var sim = new Simulation(world);
+            for (int x = 90; x < 140; x++)
+            {
+                for (int y = 70; y <= 101; y++)
+                {
+                    sim.RequestEdit(new TileCoord(x, y), FloorId.Grass, ObjectId.Empty);
+                }
+            }
+
+            sim.Step();
+            sim.RequestEdit(new TileCoord(110, 100), FloorId.Grass, ObjectId.StoneWall, BuildRecord.OfPlayer(1, FloorId.Grass));
+            int ch = sim.AddEntity(At(100, 100));
+            var inv = Inventory.StartingKit();
+            inv.Selected = 4; // лук; стрелы × 50 — в ячейке 8
+            Assert.True(sim.SetInventory(ch, inv));
+            sim.Step();
+
+            void Tick(bool pressed, ushort aim)
+            {
+                ushort b = pressed ? InputButtons.Attack : (ushort)0;
+                Span<InputFrame> frames = stackalloc InputFrame[]
+                {
+                    new InputFrame(Input8.None, b, aim, 4),
+                    new InputFrame(Input8.None, b, aim, 4),
+                };
+                sim.SetFramesAt(sim.SlotOf(ch), frames);
+                sim.Step();
+            }
+
+            foreach (ushort aim in new ushort[] { 0, 0, 200, 65336, 100, 65436, 49152, 49152, 49500, 48800, 49152, 49300 })
+            {
+                for (int t = 0; t < 18; t++)
+                    Tick(true, aim);
+                for (int t = 0; t < 40; t++)
+                    Tick(false, aim);
+            }
+
+            Assert.True(sim.RequestBagOp(ch, BagOp.Drop, 0, 0, 0)); // кирка из ячейки 0 — обычная куча рядом
+            for (int t = 0; t < 5; t++)
+                Tick(false, 0);
+            sim.AddPile(Items.Wood, 7, At(104, 97));
+
+            int arrows = 0;
+            foreach (GroundPile p in sim.Piles)
+                if (p.Item == Items.Arrows)
+                    arrows += p.Count;
+            Assert.True(arrows > 0, "ни одной кучи стрел — зерно не то");
+
+            byte[] save = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат 13, кучи стрел"), 7, 0);
+            Assert.Equal(13u, SaveContainer.Read(save).Header.FormatVersion);
+            string dir = Environment.GetEnvironmentVariable("GOLD_OUT") ?? ".";
+            File.WriteAllBytes(Path.Combine(dir, "format13_arrows.save"), save);
+            File.WriteAllBytes(Path.Combine(dir, "format13_arrows.base"), baseBytes);
+            File.WriteAllText(Path.Combine(dir, "format13_arrows.hash.txt"),
+                $"{StateHash.Compute(SaveFixtures.Load(baseBytes, save)).Total:x16} куч {sim.Piles.Length}, стрел в кучах {arrows}, такт {sim.Tick}"); // хэш загруженного: номер снаряда не сохраняется (E3-2)
+        }
+    }
+}

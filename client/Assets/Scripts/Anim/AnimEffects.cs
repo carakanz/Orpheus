@@ -85,6 +85,13 @@ namespace Orpheus.Client.Anim
 
         public void Hide() => _go.SetActive(false);
 
+        /// <summary>E3-4: убрать visuals существа вместе с сектором-телеграфом.</summary>
+        public void Destroy()
+        {
+            Object.Destroy(_go);
+            Object.Destroy(_mesh);
+        }
+
         /// <summary>
         /// Показать: центр (Unity), ось (единичная, экранные оси), радиус (тайлов), половина дуги (радианы), доля заливки 0…1,
         /// вспышка 0…1 (1 — миг удара), общая прозрачность (гаснет в отходе).
@@ -204,6 +211,12 @@ namespace Orpheus.Client.Anim
         /// <summary>Живых частиц.</summary>
         public int Alive { get; private set; }
 
+        /// <summary>
+        /// C-028: порядок отрисовки следующих выброшенных частиц (по умолчанию — над плоскими плитками объектов). Отклик удара по
+        /// валуну ставит порядок его строки (+2), иначе искры прячутся под высоким валуном.
+        /// </summary>
+        public int Order { get; set; } = WorldView.ObjectOrder + 2;
+
         /// <summary>Выбросить <paramref name="count"/> частиц из точки веером ±<paramref name="spreadDeg"/> вокруг направления.</summary>
         public void Emit(Vector2 at, Vector2 dir, int count, float speed, float life, float spreadDeg, bool fall, params float[][] colors)
         {
@@ -224,6 +237,7 @@ namespace Orpheus.Client.Anim
                     Col = new Color(c[0], c[1], c[2], 1f),
                     Fall = fall,
                 };
+                _r[k].sortingOrder = Order;
                 _r[k].enabled = true;
             }
         }

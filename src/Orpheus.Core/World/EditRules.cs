@@ -187,6 +187,7 @@ namespace Orpheus.Core.World
                 case EditResult.NoResources: return EditReply.NoResources;
                 case EditResult.NoStation: return EditReply.NoStation;
                 case EditResult.BagFull: return EditReply.BagFull;
+                case EditResult.NoRequester: return EditReply.OutOfReach; // C-040: ставящий мёртв/не в радиусе — «далеко»
                 default: return EditReply.NotAllowed;
             }
         }
@@ -389,7 +390,7 @@ namespace Orpheus.Core.World
             }
 
             byte floor = world.GetFloor(t);
-            if (floor == FloorId.Water || floor == FloorId.Lava)
+            if (FloorId.IsLiquid(floor))
             {
                 return EditReply.NeedPlatform;
             }

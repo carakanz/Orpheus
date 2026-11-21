@@ -43,7 +43,7 @@ namespace Orpheus.Client.UI
         public bool Ctrl;
         public bool CancelLast;
 
-        /// <summary>C-008: M — свернуть / развернуть мини-карту.</summary>
+        /// <summary>C-008: M — свернуть / развернуть мини-карту; C-029: M — карта на весь экран, Shift+M — свернуть мини-карту.</summary>
         public bool Map;
 
     }
@@ -76,41 +76,56 @@ namespace Orpheus.Client.UI
         public static readonly float GridW = UiSlotGrid.WidthOf(Inventory.Slots);
         static readonly int Rows = (Inventory.Cells - Inventory.Slots) / Inventory.Slots;
         public static readonly float GridH = UiSlotGrid.WidthOf(Rows);
-        public static readonly float Width = GridW;
+        public static readonly float EquipW = UiSlotGrid.WidthOf(1); // E3-6: колонка «голова / тело / ноги» слева от сумки
+        public static readonly float Width = EquipW + Gap + GridW;
         public static readonly float Height = HintH + Gap + GridH;
         static readonly float GridY = HintH + Gap;
 
         readonly UiSlotGrid _main;
+        readonly UiSlotGrid _equip; // E3-6: ячейки снаряжения (70…72), сверху вниз — голова, тело, ноги
         readonly Text _hint;
         bool _dead;
 
         public BagWindow(UiRoot root)
             : base(root, "Bag", new Vector2(0f, 1f), new Vector2(HudLayout.Margin, -HudLayout.BagTop - Height), new Vector2(Width, Height))
         {
-            _main = new UiSlotGrid(Rt, 0f, GridY, Inventory.Slots, Rows, Inventory.Slots, UiCellLook.Glass);
-            _hint = UiRoot.Label(Rt, "Hint", 2f, 0f, Width - 2f, HintH, 18, TextAnchor.UpperLeft, UiStyle.TextLight, outline: true);
+            _equip = new UiSlotGrid(Rt, 0f, GridY, 1, Simulation.EquipCells, Simulation.EquipBase, UiCellLook.Glass);
+            _main = new UiSlotGrid(Rt, EquipW + Gap, GridY, Inventory.Slots, Rows, Inventory.Slots, UiCellLook.Glass);
+            _hint = UiRoot.Label(Rt, "Hint", EquipW + Gap, 0f, GridW - 2f, HintH, 18, TextAnchor.UpperLeft, UiStyle.TextLight, outline: true);
             _hint.horizontalOverflow = HorizontalWrapMode.Wrap; // C-015: не заходит под сундук справа
             _hint.text = HintText(false);
             Visible = false;
         }
 
-        /// <summary>Ячейка сумки (8…39) под точкой окна; мимо — −1.</summary>
+        /// <summary>Ячейка сумки (8…39) или снаряжения (70…72, E3-6) под точкой окна; мимо — −1.</summary>
         public int CellAt(Vector2 local)
         {
-            int i = _main.Hit(local);
+            int i = _equip.Hit(local);
+            if (i >= 0)
+            {
+                return _equip.First + i;
+            }
+
+            i = _main.Hit(local);
             return i >= 0 ? _main.First + i : -1;
         }
 
-        /// <summary>C-008: прямоугольник сетки — интерфейс; подписи над и под ней — мир.</summary>
-        public void AddZones(UiPointer p, Vector2 canvas) => Zone(p, canvas, 0f, GridY, GridW, GridH);
+        /// <summary>C-008: прямоугольник сетки — интерфейс; подписи над и под ней — мир. E3-6: колонка снаряжения — тоже.</summary>
+        public void AddZones(UiPointer p, Vector2 canvas)
+        {
+            Zone(p, canvas, 0f, GridY, EquipW, GridH);
+            Zone(p, canvas, EquipW + Gap, GridY, GridW, GridH);
+        }
 
         /// <summary>Курсор над сеткой (в зазоре тоже) — колесо и Shift в игру не уходят.</summary>
-        public bool Covers(Vector2 local) => Visible && _main.Covers(local);
+        public bool Covers(Vector2 local) => Visible && (_main.Covers(local) || _equip.Covers(local));
 
-        /// <summary>Середина ячейки 8…39 в координатах окна (скрипт стенда снимков).</summary>
-        public Vector2 CellCenter(int cell) => _main.CenterOf(cell - Inventory.Slots);
+        /// <summary>Середина ячейки 8…39 или снаряжения 70…72 в координатах окна (скрипт стенда снимков).</summary>
+        public Vector2 CellCenter(int cell) => Simulation.IsEquipCell(cell)
+            ? _equip.CenterOf(cell - Simulation.EquipBase)
+            : _main.CenterOf(cell - Inventory.Slots);
 
-        /// <summary>Показать сумку: числа — без того, что «в руке»; ячейка под курсором.</summary>
+        /// <summary>Показать сумку: числа — без того, что «в руке»; ячейка под курсором. E3-6: надетое — из руки (оно приходит в «сумке» 26).</summary>
         public void Show(in Inventory bag, BagHand hand, int hover, bool dead)
         {
             for (int i = Inventory.Slots; i < Inventory.Cells; i++)
@@ -118,7 +133,14 @@ namespace Orpheus.Client.UI
                 _main.Set(i - Inventory.Slots, bag.ItemAt(i), hand.ShownCount(i));
             }
 
+            for (byte s = 0; s < Simulation.EquipCells; s++)
+            {
+                int cell = Simulation.EquipBase + s;
+                _equip.Set(s, hand.ItemAt(cell), hand.ShownCount(cell));
+            }
+
             _main.Hover(hover >= Inventory.Slots && hover < Inventory.Cells ? hover - Inventory.Slots : -1);
+            _equip.Hover(Simulation.IsEquipCell(hover) ? hover - Simulation.EquipBase : -1);
             if (dead != _dead)
             {
                 _dead = dead;
@@ -144,6 +166,16 @@ namespace Orpheus.Client.UI
         readonly HotbarView _hotbar;
         readonly BagWindow _bag;
         readonly MiniMapView _map;
+        readonly WorldMapView _bigMap;
+
+        /// <summary>C-029: открытые области для карты на весь экран (ведёт клей клиента по пришедшим чанкам).</summary>
+        public ExploredMap? Explored { get; set; }
+
+        /// <summary>C-029: где Очаг (возрождение без кровати); null — неизвестно.</summary>
+        public WorldPos? Hearth { get; set; }
+
+        /// <summary>C-029: карта на весь экран открыта (мышь и колесо — ей).</summary>
+        public bool WorldMapOpen => _bigMap.Open;
         readonly CraftWindow _craft;
         readonly UiTooltip _tip;
         readonly UiCarry _carry;
@@ -153,6 +185,7 @@ namespace Orpheus.Client.UI
         readonly CraftLine[] _lines = new CraftLine[RecipeTable.Count];
         readonly UiGroup _stationHint;
         readonly Text _stationHintText;
+        readonly UiButton _deathMenu; // E4-1: «В меню» на экране смерти — выход в меню без перезапуска процесса
         bool _capture;
         CraftStation _near;
         int _nearAge;
@@ -173,6 +206,7 @@ namespace Orpheus.Client.UI
             _root = new UiRoot(camera);
             _hand = new BagHand(requests);
             _desk = new CraftDesk(craft);
+            Combat = new CombatHud(_root); // E3-1: цифры урона и полоски врагов — под всеми окнами
 
             _bar = new BottomBar(_root); // C-015: внизу по центру — сферы и способности между ними
             _hotbar = new HotbarView(_root); // C-015: быстрая панель — левый верхний угол
@@ -188,10 +222,33 @@ namespace Orpheus.Client.UI
             _map = new MiniMapView(_root); // C-008 п. 8: мини-карта справа вверху
             _craft = new CraftWindow(_root);
             CreateBuild(_root, build, BarTop); // E2-5: окно сундука, строка у курсора, сообщение, подпись линейки
+            _bigMap = new WorldMapView(_root); // C-029: карта на весь экран (M) — поверх окон, под подсказкой
             _tip = new UiTooltip(_root);
             _carry = new UiCarry(_root);
+            Combat.CreateOverlay(); // E3-1: экран смерти — поверх всего
+            // E4-1: «В меню» на экране смерти — в меню без перезапуска процесса (поверх экрана смерти).
+            _deathMenu = new UiButton(_root.Transform, 0f, 0f, 340f, 56f, UiStrings.MenuDeathButton, 22,
+                TextAnchor.MiddleCenter, glass: true);
+            _deathMenu.Visible = false;
             Layout();
         }
+
+        /// <summary>E3-1: цифры урона, полоски врагов, экран смерти (рисует NetGame / стенд по <c>CombatFeed</c>).</summary>
+        public CombatHud Combat { get; }
+
+        /// <summary>E4-1: на экране смерти нажата кнопка «В меню» (NetGame забирает это и уходит в меню).</summary>
+        public bool DeathMenuClicked { get; private set; }
+
+        /// <summary>
+        /// E4-1b (замечание 3 П E4-1): показывать ли «В меню» на экране смерти: кнопка работает только
+        /// в игре из меню (NetGame.DeathMenuFrame гейтит по FromMenu), в запусках по ключам и витринах
+        /// клик был пустой — гасим её, когда меню недоступно.
+        /// </summary>
+        public bool DeathMenuEnabled { get; set; } = true;
+
+        /// <summary>E4-1: корень холста и его размер — для надписи адреса «для друзей» (NetGame).</summary>
+        public Transform RootTransform => _root.Transform;
+        public Vector2 RootSize => _root.Size;
 
         /// <summary>Окно сумки открыто.</summary>
         public bool BagOpen => _bag.Visible;
@@ -300,13 +357,30 @@ namespace Orpheus.Client.UI
         /// <summary>
         /// Кадр интерфейса: сумка сервера, выбранная ячейка панели, жив ли, здоровье и выносливость (0…max), состояние
         /// крафта (очередь сервера, мир и место — для «станок рядом»). Звать до чтения мыши миром (<see cref="PointerBlocked"/>).
+        /// E3-6: надетое (голова / тело / ноги) приходит вместе с сумкой — в конце.
         /// </summary>
-        public void Frame(in UiInput input, in Inventory bag, int selected, bool dead, int health, int maxHealth, int stamina, int maxStamina,
-            in UiCraftState craft, in UiBuildState build = default)
+        public void Frame(in UiInput input0, in Inventory bag, int selected, bool dead, int health, int maxHealth, int stamina, int maxStamina,
+            in UiCraftState craft, in UiBuildState build = default, byte equipHead = Items.None, byte equipBody = Items.None, byte equipLegs = Items.None)
         {
             _root.FitToScreen();
+            // E4-1: «В меню» на экране смерти (поверх затемнения). E4-1b: только когда меню доступно (из меню играем).
+            _deathMenu.Visible = dead && DeathMenuEnabled;
+            DeathMenuClicked = false;
+            if (dead && DeathMenuEnabled)
+            {
+                Vector2 dsize = _root.Size;
+                _deathMenu.Rt.anchoredPosition = new Vector2(dsize.x / 2f - 170f, dsize.y * 0.26f);
+                bool overMenu = input0.HasPointer && _deathMenu.Contains(input0.Pointer);
+                _deathMenu.Set(overMenu, false, true);
+                if (overMenu && input0.LeftDown)
+                {
+                    DeathMenuClicked = true;
+                }
+            }
+
             _hand.Sync(bag, dead);
             _hand.SyncChest(build.ChestOpen, build.Chest); // E2-5: ячейки 40…69 — открытый сундук
+            _hand.SyncEquip(equipHead, equipBody, equipLegs); // E3-6: надетое — ячейки 70…72
             _hand.Pump(Time.unscaledTimeAsDouble); // C-008: «Взять / Положить всё» — пачками по 8 за такт сервера
             if (_hand.LastStop != _moveAllStop)
             {
@@ -322,6 +396,28 @@ namespace Orpheus.Client.UI
             SyncChestWindow(build, craft);
             EscapeUsed = false;
             SlotClicked = -1;
+            UiInput input = input0;
+            if (_bigMap.Open)
+            {
+                // C-029: карта на весь экран забирает ввод: M / Esc — закрыть, колесо — масштаб, ЛКМ — тянуть, ПКМ — к себе.
+                if (input.Escape || (input.Map && !input.Shift))
+                {
+                    _bigMap.Close();
+                    EscapeUsed = input.Escape;
+                }
+                else
+                {
+                    if (input.RightDown)
+                    {
+                        _bigMap.Recenter();
+                    }
+
+                    _bigMap.Input(input.LeftDown, input.LeftHeld, input.Pointer, input.Wheel);
+                }
+
+                input = new UiInput { HasPointer = input.HasPointer, Pointer = input.Pointer };
+            }
+
             if (!input.LeftHeld)
             {
                 _capture = false;
@@ -374,9 +470,18 @@ namespace Orpheus.Client.UI
             _chest.AddZones(_pointer, size);
             _craft.AddZones(_pointer, size);
             _map.AddZones(_pointer, size);
+            _bigMap.AddZones(_pointer, size); // C-029: открыта — весь экран интерфейс
             if (input.Map)
             {
-                _map.Toggle();
+                // C-029: M — карта на весь экран (слово Автора 17.11), Shift+M — свернуть / развернуть мини-карту (было M, C-008).
+                if (input.Shift)
+                {
+                    _map.Toggle();
+                }
+                else
+                {
+                    _bigMap.Toggle();
+                }
             }
             bool overUi = input.HasPointer && _pointer.Over(p.x, p.y);
 
@@ -417,7 +522,7 @@ namespace Orpheus.Client.UI
 
             // C-008 проверка п. 2: любая нарисованная часть (и нижняя панель — верхний ряд сумки, и сферы, и карта) —
             // интерфейс для правил «колесо над окном — не обзор» и «Shift над окном — не уворот».
-            if (overUi)
+            if (overUi || _bigMap.Open)
             {
                 OverWindow = true;
             }
@@ -575,6 +680,10 @@ namespace Orpheus.Client.UI
             {
                 tip = RecipeTip(_craft.RecipeInCell(hit.Index), bag, craft.Stock);
             }
+            else if (hit.Part == CraftPart.Ingredient && CraftOpen && _craft.Recipe > 0)
+            {
+                tip = IngredientTip(RecipeTable.Get(_craft.Recipe).IngredientItem(hit.Index)); // C-029
+            }
             else if (hit.Part == CraftPart.Button && CraftOpen)
             {
                 tip = RecipeTip(_craft.Recipe, bag, craft.Stock) + "\n"
@@ -603,7 +712,7 @@ namespace Orpheus.Client.UI
                 };
             }
 
-            _tip.Show(tip, size, p);
+            _tip.Show(_bigMap.Open ? null : tip, size, p); // C-029: под картой на весь экран подсказок нет
             if (!_hand.Holding && _armed != 0 && (overUi || !armedBuilds))
             {
                 // C-013: выбранный рецепт «в руке» — значок результата у курсора (у постройки над миром — призрак на земле).
@@ -616,13 +725,33 @@ namespace Orpheus.Client.UI
             }
             _bar.Set(health, maxHealth, stamina, maxStamina);
             _map.Frame(craft.World, craft.Position, MapSnapshot, MapSelf);
+            if (craft.World != null)
+            {
+                _bigMap.Frame(Explored, craft.World.Shape, craft.Position, Hearth, MapSnapshot, MapSelf);
+            }
+        }
+
+        /// <summary>C-029: что открыл игрок (биомы, враги) — для «где взять» в подсказке ингредиента; ведёт клей клиента.</summary>
+        public Discovery Known { get; set; } = new Discovery();
+
+        // C-029: подсказка ингредиента — название, описание; небазовый — «ЛКМ — открыть рецепт», базовый — где взять («?» — не открыто).
+        string IngredientTip(byte item)
+        {
+            bool isBase = ItemSources.IsBase(item);
+            return UiStrings.IngredientTip(item, ItemSources.Description(item), isBase, isBase ? ItemSources.Where(item, Known) : null);
         }
 
         // Подсказка значка рецепта: название, «есть / нужно», станок, что мешает.
         string? RecipeTip(int recipe, in Inventory bag, ChestStock? stock)
         {
-            return recipe == 0 ? null : UiStrings.RecipeTip(recipe, _lines[recipe], CraftDesk.Have(recipe, 0, bag, stock),
+            if (recipe == 0)
+            {
+                return null;
+            }
+
+            string tip = UiStrings.RecipeTip(recipe, _lines[recipe], CraftDesk.Have(recipe, 0, bag, stock),
                 CraftDesk.Have(recipe, 1, bag, stock), CraftDesk.Have(recipe, 2, bag, stock));
+            return tip; // C-032: «В сумке: N» (CanPlace) склеивалась с «что мешает» — теперь внутри RecipeTip, по одной строке
         }
 
         // Щелчок по окну изготовления: раздел, подраздел, галочка, значок рецепта, полоса прокрутки, крупный значок
@@ -658,6 +787,19 @@ namespace Orpheus.Client.UI
                     break;
                 case CraftPart.Button:
                     Arm(_craft.Recipe); // C-013: кнопок нет — крупный значок тоже только выбирает
+                    break;
+                case CraftPart.Ingredient:
+                    if (_craft.Recipe > 0)
+                    {
+                        // C-029: ЛКМ по небазовому ингредиенту — открыть его рецепт (раздел, подраздел, выбран «в руку»).
+                        byte item = RecipeTable.Get(_craft.Recipe).IngredientItem(hit.Index);
+                        int recipe = ItemSources.IsBase(item) ? 0 : CraftRules.RecipeFor(item);
+                        if (recipe > 0 && _craft.ShowRecipe(recipe, _lines))
+                        {
+                            Arm(recipe);
+                        }
+                    }
+
                     break;
                 case CraftPart.Queue:
                     if (!dead)
@@ -805,6 +947,7 @@ namespace Orpheus.Client.UI
         public UiDemo(Camera camera, string mode, WorldModel? world = null)
         {
             _ui = new GameUi(camera, this, this, this);
+            _ui.DeathMenuEnabled = false; // E4-1b: в витрине меню нет — на экране смерти кнопки «В меню» нет
             _mode = mode;
             _world = world;
             _bag.SetCell(5, Items.Torch, 12);
@@ -825,15 +968,26 @@ namespace Orpheus.Client.UI
                 _bag.SetCell(17, Items.Meat, 3);
                 _bag.SetCell(18, Items.CopperAxe, 1);
             }
+
+            if (mode == "inv-ready")
+            {
+                // C-029 п. 1: камня нет, готовые каменные стены в сумке — рецепт стены виден при «только доступные».
+                _bag.SetCell(10, Items.None, 0);
+                _bag.SetCell(21, Items.None, 0);
+                _bag.SetCell(22, Items.StoneWall, 10);
+            }
+
+            _ui.Known.NoteFloor(FloorId.Grass); // C-029: стенд — открыты только луга (остальное в подсказках «?»)
         }
 
         /// <summary>Сцена с окном крафта (нужен верстак рядом с персонажем).</summary>
         public static bool IsCraft(string? mode) => mode == "craft" || mode == "craft+bag" || mode == "craft-hint" || mode == "craft-chest" || IsInv(mode);
 
         /// <summary>Сцены окна «сумка + изготовление» (E2-9).</summary>
-        public static bool IsInv(string? mode) => mode == "inv" || mode == "inv-weapons" || mode == "inv-buildings" || mode == "inv-stone";
+        public static bool IsInv(string? mode) => mode == "inv" || mode == "inv-weapons" || mode == "inv-buildings" || mode == "inv-stone"
+            || mode == "inv-ingredient" || mode == "inv-ingredient-open" || mode == "inv-ready"; // C-029
 
-        public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || IsCraft(mode) || IsBuild(mode);
+        public static bool IsMode(string? mode) => mode == "bag" || mode == "hotbar" || mode == "worldmap" || IsCraft(mode) || IsBuild(mode) || IsCombat(mode);
 
         public bool RequestBagMove(int from, int to) =>
             from >= BagHand.ChestBase || to >= BagHand.ChestBase ? ChestMove(from, to) : _bag.Move(from, to);
@@ -909,6 +1063,12 @@ namespace Orpheus.Client.UI
         public void Frame(WorldPos position)
         {
             _frame++;
+            if (IsCombat(_mode))
+            {
+                CombatDemoFrame(position); // E3-1: UiDemo.Combat.cs
+                return;
+            }
+
             if (IsBuild(_mode))
             {
                 BuildFrame(position); // E2-5: UiDemo.Build.cs
@@ -930,6 +1090,32 @@ namespace Orpheus.Client.UI
             else if (IsCraft(_mode))
             {
                 CraftScript(ref input);
+            }
+            else if (_mode == "worldmap" && _world != null)
+            {
+                // C-029 п. 8: карта на весь экран — открыты чанки в 5 вокруг персонажа, Очаг — правее и ниже, M на 2-м кадре.
+                if (_frame == 1)
+                {
+                    var explored = new ExploredMap(_world.Shape);
+                    ChunkCoord me = Torus.ChunkOf(_world.Shape, position);
+                    for (int dy = -4; dy <= 4; dy++)
+                    {
+                        for (int dx = -6; dx <= 6; dx++)
+                        {
+                            if (dx * dx + dy * dy <= 26)
+                            {
+                                explored.Record(_world, Torus.Wrap(_world.Shape, new ChunkCoord(me.X + dx, me.Y + dy)));
+                            }
+                        }
+                    }
+
+                    _ui.Explored = explored;
+                    _ui.Hearth = Torus.Offset(_world.Shape, position, new Int2(40 * Torus.SubTilesPerTile, 25 * Torus.SubTilesPerTile));
+                }
+
+                input.Map = _frame == 2;
+                // масштаб по умолчанию — 1 тайл на пиксель картинки: видно и открытое, и тёмное неоткрытое вокруг
+                input.Pointer = new Vector2(1500f, 300f);
             }
             else
             {
@@ -981,6 +1167,27 @@ namespace Orpheus.Client.UI
             (5, CraftPart.Section, 2), (8, CraftPart.Sub, 0), (11, CraftPart.Cell, 1), (99, CraftPart.Button, 0),
         };
 
+        // C-029 inv-ingredient: Инструменты → Кирки → каменная кирка; курсор над камнем (базовый): подсказка «где взять», у
+        // ингредиентов красным — сколько останется.
+        static readonly (int Frame, CraftPart Part, int Index)[] IngredientSteps =
+        {
+            (5, CraftPart.Section, 2), (8, CraftPart.Sub, 0), (11, CraftPart.Cell, 0), (99, CraftPart.Ingredient, 0),
+        };
+
+        // C-029 inv-ingredient-open: снять галочку → медная кирка → ЛКМ по слитку (небазовый) — открылся рецепт слитка;
+        // курсор над его рудой — «где взять: ?».
+        static readonly (int Frame, CraftPart Part, int Index)[] IngredientOpenSteps =
+        {
+            (5, CraftPart.Filter, 0), (8, CraftPart.Section, 2), (11, CraftPart.Sub, 0), (14, CraftPart.Cell, 1), (17, CraftPart.Ingredient, 0),
+            (99, CraftPart.Ingredient, 0),
+        };
+
+        // C-029 inv-ready: Здания → Камень при «только доступные» — каменная стена видна (готовые в сумке), «В сумке: 10».
+        static readonly (int Frame, CraftPart Part, int Index)[] ReadySteps =
+        {
+            (5, CraftPart.Section, 0), (8, CraftPart.Sub, 1), (11, CraftPart.Cell, 0), (99, CraftPart.Cell, 0),
+        };
+
         static ChestStock DemoStock()
         {
             var stock = new ChestStock();
@@ -1009,7 +1216,8 @@ namespace Orpheus.Client.UI
             }
 
             var steps = _mode == "inv-weapons" ? WeaponSteps : _mode == "inv-buildings" ? BuildingSteps : _mode == "inv-stone" ? StoneSteps
-                : _mode == "craft-chest" ? ChestSteps : InvSteps;
+                : _mode == "craft-chest" ? ChestSteps : _mode == "inv-ingredient" ? IngredientSteps
+                : _mode == "inv-ingredient-open" ? IngredientOpenSteps : _mode == "inv-ready" ? ReadySteps : InvSteps;
             int k = 0;
             while (k < steps.Length - 1 && f > steps[k].Frame)
             {

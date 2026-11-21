@@ -26,6 +26,15 @@ namespace Orpheus.Net.Session
         {
             public int Id;
             public ushort Count;
+
+            /// <summary>
+            /// C-038: «кучи нет» (28) перенесено на следующий такт — на такте не хватило потолка сообщений.
+            /// Куча остаётся в знании игрока, пока сообщение не отправлено (иначе у клиента останется «призрак»).
+            /// Причина и поднявший считаются при постановке в очередь (события такта на следующий такт не действуют).
+            /// </summary>
+            public bool PendingGone;
+            public PileGoneReason Reason;
+            public int Taker;
         }
 
         private sealed class Player
@@ -100,12 +109,26 @@ namespace Orpheus.Net.Session
             public bool HasSentInv;
             public ushort InvVersion;
 
+            /// <summary>Надетое в последней «сумке» игрока (E3-6): три байта в одном числе (<c>GearKey</c>) — сверяется вместе с сумкой.</summary>
+            public int SentGear;
+
             /// <summary>Кучи на земле, которые игрок знает (E2-1), по номеру; вторая — рабочая для сверки после такта.</summary>
             public List<KnownPile> KnownPiles = new List<KnownPile>();
             public List<KnownPile> KnownPilesNext = new List<KnownPile>();
 
             /// <summary>Заявок на сумку (29) принято от игрока с прошлой рассылки снимков (лимит на такт, E2-1).</summary>
             public int BagRequestsThisTick;
+
+            /// <summary>
+            /// C-035: набор «пачки событий» (40) на этот такт: байты записей (вид 1 + тело) в <see cref="EventStaging"/>,
+            /// байт набрано в <see cref="EventStaged"/>, записей в <see cref="EventRecords"/>; переполнение — пачка уходит сразу.
+            /// </summary>
+            public readonly byte[] EventStaging = new byte[EventBatchMessage.MaxBodyBytes + 40];
+            public int EventStaged;
+            public int EventRecords;
+
+            /// <summary>Новых куч (27) отправлено игроку с прошлой рассылки снимков (лимит на такт, C-035).</summary>
+            public int NewPilesThisTick;
 
             /// <summary>Очередь изготовления, отправленная игроку (E2-3), и признак «идёт»; <see cref="HasSentCraft"/> — слана хоть раз.</summary>
             public CraftQueue SentCraft;

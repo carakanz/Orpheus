@@ -79,9 +79,16 @@ namespace Orpheus.Client.Anim
         public const float ChopTopDeg = 115f;
         public const float ChopHitDeg = -80f;
 
-        /// <summary>Кирка: верх и удар (ниже и дальше вперёд, чем топор).</summary>
-        public const float MineTopDeg = 100f;
-        public const float MineHitDeg = -100f;
+        /// <summary>
+        /// Кирка (C-028, BRIEF 11n «удары кирки горизонтальные»): взмах вбок, как меч, — дуга вокруг прицела, а не пробив сверху.
+        /// Головка (рука + 45°) идёт от прицел + 75° к прицел − 75° (сектор удара ядра ±45° с запасом); угол руки следует прицелу
+        /// целиком (<see cref="AimFollowOf"/>).
+        /// </summary>
+        public const float MineTopDeg = 30f;
+        public const float MineHitDeg = -120f;
+
+        /// <summary>C-028: доля угла прицела в угле руки у кирки — вся (взмах вокруг оси удара).</summary>
+        public const float MineAimFollow = 1f;
 
         /// <summary>Молот: короткий замах.</summary>
         public const float HammerTopDeg = 45f;
@@ -477,6 +484,52 @@ namespace Orpheus.Client.Anim
             float e = u < 0.4f ? Smooth(u / 0.4f) : 1f - Smooth((u - 0.4f) / 0.6f);
             return new Swing { HandDeg = Lerp(CarryItemDeg, -60f, e), LeanDeg = 20f * e, Forward = 0.05f * e, Squash = 0.12f * e, ReachX = 0.06f * e, ReachY = -0.28f * e };
         }
+
+        /// <summary>Отдача лука после выстрела, секунд (E3-2).</summary>
+        public const float BowRecoilSec = 0.18f;
+
+        /// <summary>Рука с луком вытянута к прицелу, тайлов.</summary>
+        public const float BowReach = 0.16f;
+
+        /// <summary>
+        /// Поза натяжения лука (E3-2, `02` 4 «как играется»): лук вытянут к прицелу, корпус откидывается назад и чуть
+        /// приседает по силе натяжения <paramref name="power"/> (0…1); на полном натяжении — мелкая дрожь (держит тетиву).
+        /// Угол руки — добавка к оси прицела.
+        /// </summary>
+        public static Swing BowDraw(float power, float sec)
+        {
+            power = power < 0f ? 0f : power > 1f ? 1f : power;
+            float ease = Smooth(Math.Min(1f, sec / 0.12f)); // подъём лука к прицелу за 0,12 с
+            float tremble = power >= 1f ? (float)Math.Sin(sec * 46.0) * 0.6f : 0f;
+            return new Swing
+            {
+                HandDeg = tremble,
+                LeanDeg = -10f * power * ease,
+                Forward = -0.1f * power * ease,
+                Squash = 0.035f * power * ease,
+                ReachX = BowReach * ease,
+                ReachY = 0f,
+            };
+        }
+
+        /// <summary>Отдача выстрела в доле <paramref name="u"/> (0…1) от <see cref="BowRecoilSec"/>: лук подскакивает, корпус возвращается.</summary>
+        public static Swing BowRelease(float u)
+        {
+            u = u < 0f ? 0f : u > 1f ? 1f : u;
+            float kick = (float)Math.Sin(Math.PI * u) * (1f - u * 0.5f);
+            return new Swing
+            {
+                HandDeg = 10f * kick,
+                LeanDeg = -10f * (1f - Smooth(u)) + 3f * kick,
+                Forward = -0.1f * (1f - Smooth(u)) + 0.04f * kick,
+                Squash = 0f,
+                ReachX = BowReach * (1f - u * u),
+                ReachY = 0.02f * kick,
+            };
+        }
+
+        /// <summary>Доля угла цели в угле руки: кирка — вся (C-028, взмах вокруг прицела), прочее — <see cref="AimFollow"/>.</summary>
+        public static float AimFollowOf(ActionKind kind) => kind == ActionKind.Mine ? MineAimFollow : AimFollow;
 
         /// <summary>Угол цели над горизонталью «вперёд», градусов (−90…90): цель выше — плюс.</summary>
         public static float AimDeg(float dirX, float dirY)

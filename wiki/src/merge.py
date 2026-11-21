@@ -27,9 +27,17 @@ for z in b['zones']:
     biomes.append(alias(z))
 
 bosses = [alias(x) for x in bo.get('bosses', [])]
+if os.path.exists(os.path.join(D, 'bosses_author.json')):
+    bosses += [alias(x) for x in J('bosses_author.json')['bosses']]
 bnames = {norm(x['name']) for x in bosses} | {norm(a) for x in bosses for a in x.get('aliases', [])}
 enemies = []
-for x in e['enemies']:
+# предложения 16.11 (слово Автора о разнообразии мобов): новые архетипы и мобы актов II–III
+extra_arch = J('archetypes_more.json')['archetypes'] if os.path.exists(os.path.join(D, 'archetypes_more.json')) else []
+extra_en = []
+for n in ('enemies_author.json', 'enemies_more_act2.json', 'enemies_more_act3.json'):
+    if os.path.exists(os.path.join(D, n)):
+        extra_en += J(n)['enemies']
+for x in e['enemies'] + extra_en:
     if norm(x['name']) in bnames:
         continue
     if x.get('kind') in ('босс', 'мини-босс') and bosses:
@@ -57,16 +65,21 @@ for lst in (biomes, enemies, bosses, ores, items):
         if k in seen: seen[k] += 1; x['id'] = f"{k}_{seen[k]}"
         else: seen[k] = 1
 
+# D-001: кандидаты в мобы из бестиария (разметка Мак-Qwen, work/design/bestiary) — отдельный раздел с меткой «кандидат»
+bst = J('bestiary.json') if os.path.exists(os.path.join(D, 'bestiary.json')) else {'candidates': [], 'notes': []}
+candidates = [alias(dict(x, candidate=True)) for x in bst['candidates']]
+
 L = b['layout']
 layout = {'grid': L['grid32'], 'hearth': [15.5, 15.5],
           'description': L['summary'] + ' ' + L['gridNote'] + ' Сейчас в игре (срез): ' + L['sliceSummary']}
 
 cat = {
-    'biomes': biomes, 'enemies': enemies, 'bosses': bosses, 'archetypes': e['archetypes'],
-    'ores': ores, 'items': items, 'layout': layout,
+    'biomes': biomes, 'enemies': enemies, 'bosses': bosses, 'archetypes': e['archetypes'] + extra_arch,
+    'ores': ores, 'items': items, 'candidates': candidates, 'layout': layout,
     'notes': {'Биомы и генератор': b['notes'], 'Враги': e['notes'], 'Боссы': bo.get('notes', []),
               'Руды и ресурсы': o['notes'], 'Предметы': i['notes'],
-              'Буквы архетипов в docs/01': [b.get('archetypeLegend')]},
+              'Буквы архетипов в docs/01': [b.get('archetypeLegend')],
+              'Бестиарий: права и отбор (D-001)': bst.get('notes', [])},
 }
 json.dump(cat, open(OUT, 'w', encoding='utf-8', newline=chr(10)), ensure_ascii=False)
 print({k: len(v) for k, v in cat.items() if isinstance(v, list)})

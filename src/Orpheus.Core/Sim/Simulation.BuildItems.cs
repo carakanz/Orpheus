@@ -110,7 +110,8 @@ namespace Orpheus.Core.Sim
         /// <summary>
         /// Постановка из меню (E2-16): <paramref name="units"/> предметов <paramref name="item"/> — сначала готовые из сумки,
         /// недостающее изготавливается здесь же: ⌈недостаёт ÷ выход⌉ изготовлений, ингредиенты — <see cref="TakeIngredients"/>
-        /// (сумка → сундуки рядом), лишнее от выхода рецепта (стена — по 2, пол — по 4) — в сумку (не влезло — кучей у ног).
+        /// (сумка → сундуки рядом), лишнее от выхода рецепта (стена — по 2, пол — по 4) — в сумку (не влезло — отказ,
+        /// сумка полна; кучей у ног не высыпается, см. C-013 ниже).
         /// Масса — как у изготовления: ингредиенты превращаются в предметы рецепта, предмет-постройка уходит в постройку.
         /// C-013: остаток не влезает в сумку — отказ «сумка полна» до списания (<see cref="CraftRules.MenuLeftoverFits"/>);
         /// без остатка (выход 1) свободная ячейка не нужна.
@@ -204,6 +205,19 @@ namespace Orpheus.Core.Sim
             if (PlacementOf(i, out BuildDef def, out _) && def.Item != Items.None)
             {
                 ReturnBuildItem(requester, _edits[i].Cell, def.Item, _costPaid[i]); // E2-12: столько, сколько снято (по ячейке)
+            }
+        }
+
+        /// <summary>
+        /// C-029: дверь заменила стену (<see cref="BuildCells.CheckPlace"/>) — предметы стены, по одному на её ячейку до замены,
+        /// в сумку ставящего (не влезли — кучей у ног). Масса сохраняется: стена в мире стала предметами.
+        /// </summary>
+        private void ReturnReplacedWall(int i, int requester)
+        {
+            if (BuildDefs.TryGet(ObjectId.IdOf(_preObj[i]), out BuildDef wall) && wall.Item != Items.None)
+            {
+                int units = Math.Max(1, BuildCells.Count(BuildCells.MaskOf(_preObj[i], _preHasBuild[i], _preBuild[i])));
+                ReturnBuildItem(requester, AnyCell, wall.Item, units);
             }
         }
 

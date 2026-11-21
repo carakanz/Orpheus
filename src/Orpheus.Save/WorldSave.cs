@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Orpheus.Core.Combat;
 using Orpheus.Core.Geometry;
 using Orpheus.Core.Movement;
 using Orpheus.Core.Sim;
@@ -86,6 +87,12 @@ namespace Orpheus.Save
 
         /// <summary>Очередь истечений обломков и флагов урона (формат 13, E2-14) — по порядку.</summary>
         public BuildExpiry[] Expiries { get; internal set; } = Array.Empty<BuildExpiry>();
+
+        /// <summary>Летящие снаряды по номеру (формат 15, E3-3) — копия списка симуляции.</summary>
+        public Projectile[] Projectiles { get; internal set; } = Array.Empty<Projectile>();
+
+        /// <summary>Следующий номер снаряда (формат 15, E3-3); 1 — выстрелов не было.</summary>
+        public int NextProjectileId { get; internal set; } = 1;
     }
 
     /// <summary>Загруженное из сохранения состояние такта (мир уже положен в <see cref="WorldModel"/>).</summary>
@@ -156,6 +163,12 @@ namespace Orpheus.Save
         /// <summary>Очередь истечений обломков и флагов урона (формат 13, E2-14); у старых файлов — пусто (поиск первым тактом).</summary>
         public BuildExpiry[] Expiries { get; internal set; } = Array.Empty<BuildExpiry>();
 
+        /// <summary>Летящие снаряды по номеру (формат 15, E3-3); у файлов ≤ 14 — пусто.</summary>
+        public Projectile[] Projectiles { get; internal set; } = Array.Empty<Projectile>();
+
+        /// <summary>Следующий номер снаряда (формат 15, E3-3); у файлов ≤ 14 — 1.</summary>
+        public int NextProjectileId { get; internal set; } = 1;
+
         /// <summary>Версия формата прочитанного файла.</summary>
         public uint FormatVersion { get; }
 
@@ -175,6 +188,7 @@ namespace Orpheus.Save
             sim.RestoreChests(ChestTiles, Chests); // E2-5: сундуки (формат 9; у старых файлов — пусто)
             sim.RestoreExpiries(Expiries); // E2-14: обломки и флаги урона снимутся в срок и после загрузки
             sim.RestoreHeals(Heals, scanWorld: HealScan); // E2-14: старый файл — повреждённые найдутся первым тактом
+            sim.RestoreProjectiles(Projectiles, NextProjectileId); // E3-3 (формат 15): полёт стрел переживает сохранение
         }
     }
 
@@ -235,6 +249,8 @@ namespace Orpheus.Save
                 Heals = sim.Heals.ToArray(), // E2-14
                 HealScan = sim.HealScanPending,
                 Expiries = sim.CopyExpiries(),
+                Projectiles = sim.Projectiles.ToArray(), // E3-3 (формат 15): летящие стрелы — в сейв, полёт продолжается после загрузки
+                NextProjectileId = sim.NextProjectileId,
             };
         }
 
@@ -301,6 +317,11 @@ namespace Orpheus.Save
             if (d.NextPileId > 1)
             {
                 w.WriteUInt(SaveSections.WorldField.NextPileId, (ulong)d.NextPileId); // E2-1: куч не было — поля нет
+            }
+
+            if (d.NextProjectileId > 1)
+            {
+                w.WriteUInt(SaveSections.WorldField.NextProjectileId, (ulong)d.NextProjectileId); // E3-3: выстрелов не было — поля нет
             }
 
             if (d.WorldTime != 0)
@@ -374,6 +395,12 @@ namespace Orpheus.Save
                 e.WriteInt(SaveSections.EntityField.MaxHealth, x.MaxHealth);
                 e.WriteUInt(SaveSections.EntityField.Armor, x.Armor);
                 e.WriteUInt(SaveSections.EntityField.Mass, x.Mass);
+                if (x.EquipHead != 0 || x.EquipBody != 0 || x.EquipLegs != 0) // E3-6: снаряжение — только ненулевое
+                {
+                    e.WriteUInt(SaveSections.EntityField.EquipHead, x.EquipHead);
+                    e.WriteUInt(SaveSections.EntityField.EquipBody, x.EquipBody);
+                    e.WriteUInt(SaveSections.EntityField.EquipLegs, x.EquipLegs);
+                }
                 e.WriteUInt(SaveSections.EntityField.InvulnTicks, (ulong)x.InvulnTicks);
                 e.WriteUInt(SaveSections.EntityField.RegenTicks, (ulong)x.RegenTicks);
                 e.WriteInt(SaveSections.EntityField.RegenCarryX100, x.RegenCarryX100);
@@ -478,6 +505,17 @@ namespace Orpheus.Save
                 e.WriteInt(SaveSections.PileField.Y, gp.Position.Y);
                 e.WriteInt(SaveSections.PileField.ExpireTick, gp.ExpireTick);
                 e.WriteInt(SaveSections.PileField.PickupTick, gp.PickupTick);
+                if (gp.Kind != GroundPile.KindPlain)
+                {
+                    e.WriteUInt(SaveSections.PileField.Kind, gp.Kind); // формат 14 (C-031): воткнувшаяся стрела — вид и ось
+                    e.WriteUInt(SaveSections.PileField.Aim, gp.Aim);
+                }
+
+                if (gp.Owner != 0)
+                {
+                    e.WriteInt(SaveSections.PileField.Owner, gp.Owner); // формат 17 (E3-3b): личная капля — владелец
+                }
+
                 e.EndRecord(mark);
             }
 
@@ -524,6 +562,40 @@ namespace Orpheus.Save
                     e.WriteUInt(SaveSections.ExpireField.Clear, (ulong)x.Clear);
                 }
 
+                e.EndRecord(mark);
+            }
+
+            // Летящие снаряды (формат 15, E3-3) — после истечений, по номеру: полёт стрел переживает сохранение.
+            for (int i = 0; i < d.Projectiles.Length; i++)
+            {
+                Projectile p = d.Projectiles[i];
+                int mark = e.BeginRecord(SaveSections.CreaturesField.Projectile);
+                e.WriteUInt(SaveSections.ProjectileField.Id, (ulong)(uint)p.Id);
+                e.WriteInt(SaveSections.ProjectileField.Owner, p.Owner);
+                if (p.Hostile)
+                {
+                    e.WriteBool(SaveSections.ProjectileField.Hostile, true);
+                }
+
+                e.WriteUInt(SaveSections.ProjectileField.Kind, p.Kind);
+                e.WriteUInt(SaveSections.ProjectileField.Damage, p.Damage);
+                if (p.DropItem != 0)
+                {
+                    e.WriteUInt(SaveSections.ProjectileField.DropItem, p.DropItem);
+                }
+
+                if (p.Strong)
+                {
+                    e.WriteBool(SaveSections.ProjectileField.Strong, true);
+                }
+
+                e.WriteInt(SaveSections.ProjectileField.SpawnTick, p.SpawnTick);
+                e.WriteInt(SaveSections.ProjectileField.X, p.Origin.X);
+                e.WriteInt(SaveSections.ProjectileField.Y, p.Origin.Y);
+                e.WriteUInt(SaveSections.ProjectileField.Aim, p.AimRaw);
+                e.WriteInt(SaveSections.ProjectileField.Speed, p.SpeedX256);
+                e.WriteInt(SaveSections.ProjectileField.Range, p.RangeUnits);
+                e.WriteInt(SaveSections.ProjectileField.Age, p.Age);
                 e.EndRecord(mark);
             }
 
@@ -612,6 +684,7 @@ namespace Orpheus.Save
             byte[] sha = Array.Empty<byte>();
             int nextId = 1;
             int nextPileId = 1;
+            int nextProjectileId = 1;
             int worldTime = 0;
             bool healScan = file.Header.FormatVersion < 13; // E2-14: в старых файлах списка восстановления нет
             var r = new RecordReader(file.Section(SaveSections.World));
@@ -648,6 +721,9 @@ namespace Orpheus.Save
                         break;
                     case SaveSections.WorldField.HealScan:
                         healScan |= r.Bool();
+                        break;
+                    case SaveSections.WorldField.NextProjectileId:
+                        nextProjectileId = r.UIntAsInt();
                         break;
                     case SaveSections.WorldField.WorldTime:
                     {
@@ -769,6 +845,7 @@ namespace Orpheus.Save
             var heals = new List<BuildHeal>();
             var healTiles = new HashSet<TileCoord>();
             var expiries = new List<BuildExpiry>();
+            var projectiles = new List<Projectile>(); // E3-3, формат 15
             var overflow = new int[ItemTable.Count];
             var legacy = new LegacyOverflow();
             r = new RecordReader(file.Section(SaveSections.Creatures));
@@ -814,6 +891,18 @@ namespace Orpheus.Save
                 if (r.Field == SaveSections.CreaturesField.Expire)
                 {
                     expiries.Add(ReadExpire(r.Record(), shape)); // E2-14, формат 13
+                    continue;
+                }
+
+                if (r.Field == SaveSections.CreaturesField.Projectile)
+                {
+                    Projectile p = ReadProjectile(r.Record(), shape, file.Header.WorldTick); // E3-3, формат 15
+                    if (projectiles.Count > 0 && p.Id <= projectiles[projectiles.Count - 1].Id)
+                    {
+                        throw new InvalidDataException($"Снаряд #{p.Id}: номер не больше предыдущего #{projectiles[projectiles.Count - 1].Id}.");
+                    }
+
+                    projectiles.Add(p);
                     continue;
                 }
 
@@ -879,6 +968,8 @@ namespace Orpheus.Save
                 Heals = heals.ToArray(),
                 HealScan = healScan,
                 Expiries = expiries.ToArray(),
+                Projectiles = projectiles.ToArray(),
+                NextProjectileId = nextProjectileId,
             };
         }
 
@@ -955,6 +1046,95 @@ namespace Orpheus.Save
             }
 
             return new BuildExpiry(new TileCoord(x, y), end, debris, (BuildFlags)clear);
+        }
+
+        /// <summary>
+        /// Летящий снаряд (E3-3, формат 15): номер, владелец, полёт. Проверки: скорость и дальность положительные,
+        /// такт выстрела не позже такта сохранения + 1, возраст [1; MaxFlightTicks), полёт на момент сохранения ещё не
+        /// кончился (путь <c>Speed × Age</c> меньше дальности) — иначе файл описывает уже несуществующий полёт.
+        /// </summary>
+        private static Projectile ReadProjectile(RecordReader r, MapShape shape, long tick)
+        {
+            int id = 0, owner = 0;
+            bool hostile = false, strong = false;
+            int kind = 0, damage = 0, dropItem = 0;
+            long spawn = long.MinValue;
+            int x = 0, y = 0, aim = 0, speed = 0, range = 0, age = -1;
+            while (r.Next())
+            {
+                switch (r.Field)
+                {
+                    case SaveSections.ProjectileField.Id:
+                        id = r.UIntAsInt();
+                        break;
+                    case SaveSections.ProjectileField.Owner:
+                        owner = r.IntAsInt();
+                        break;
+                    case SaveSections.ProjectileField.Hostile:
+                        hostile = r.Bool();
+                        break;
+                    case SaveSections.ProjectileField.Kind:
+                        kind = r.UIntAsInt(255);
+                        break;
+                    case SaveSections.ProjectileField.Damage:
+                        damage = r.UIntAsInt(255);
+                        break;
+                    case SaveSections.ProjectileField.DropItem:
+                        dropItem = r.UIntAsInt(255);
+                        break;
+                    case SaveSections.ProjectileField.Strong:
+                        strong = r.Bool();
+                        break;
+                    case SaveSections.ProjectileField.SpawnTick:
+                        spawn = r.Int();
+                        break;
+                    case SaveSections.ProjectileField.X:
+                        x = r.IntAsInt();
+                        break;
+                    case SaveSections.ProjectileField.Y:
+                        y = r.IntAsInt();
+                        break;
+                    case SaveSections.ProjectileField.Aim:
+                        aim = r.UIntAsInt(ushort.MaxValue);
+                        break;
+                    case SaveSections.ProjectileField.Speed:
+                        speed = r.IntAsInt();
+                        break;
+                    case SaveSections.ProjectileField.Range:
+                        range = r.IntAsInt();
+                        break;
+                    case SaveSections.ProjectileField.Age:
+                        age = r.IntAsInt();
+                        break;
+                }
+            }
+
+            bool kindOk = kind == Projectiles.KindArrow || kind == Projectiles.KindCopperArrow;
+            bool boundsOk = (uint)x < (uint)(shape.Width * Torus.SubTilesPerTile) && (uint)y < (uint)(shape.Height * Torus.SubTilesPerTile);
+            bool flyOk = speed >= 1 && range >= 1 && age >= 1 && age < Simulation.MaxFlightTicks
+                && (long)speed * age < (long)range * 256;
+            if (id <= 0 || !kindOk || !boundsOk || !flyOk || spawn < 1 || spawn > tick + 1 || (dropItem != 0 && !ItemTable.Exists((byte)dropItem)))
+            {
+                throw new InvalidDataException($"Снаряд #{id}: вид {kind}, точка ({x}, {y}), скорость {speed}, дальность {range}, "
+                    + $"возраст {age}, такт {spawn} при такте {tick} — полёт вне правил.");
+            }
+
+            return new Projectile
+            {
+                Id = id,
+                Owner = owner,
+                Hostile = hostile,
+                Kind = (byte)kind,
+                Damage = (byte)damage,
+                DropItem = (byte)dropItem,
+                Strong = strong,
+                SpawnTick = spawn,
+                Origin = new WorldPos(x, y),
+                AimRaw = (ushort)aim,
+                SpeedX256 = speed,
+                RangeUnits = range,
+                Age = age,
+            };
         }
 
         private static long ChestOrder(TileCoord t) => ((long)t.Y << 32) | (uint)t.X;
@@ -1085,12 +1265,21 @@ namespace Orpheus.Save
                     case SaveSections.PileField.PickupTick:
                         p.PickupTick = r.Int();
                         break;
+                    case SaveSections.PileField.Kind:
+                        p.Kind = (byte)r.UIntAsInt(GroundPile.MaxKind); // формат 14 (C-031)
+                        break;
+                    case SaveSections.PileField.Aim:
+                        p.Aim = (ushort)r.UIntAsInt(ushort.MaxValue);
+                        break;
+                    case SaveSections.PileField.Owner:
+                        p.Owner = r.IntAsInt(); // формат 17 (E3-3b): личная капля — владелец; поля нет — общая
+                        break;
                 }
             }
 
-            if (p.Id <= 0 || !ItemTable.Exists(p.Item) || p.Count == 0)
+            if (p.Id <= 0 || !ItemTable.Exists(p.Item) || p.Count == 0 || (p.IsStuckArrow && p.Count != 1))
             {
-                throw new InvalidDataException($"Куча #{p.Id}: предмет {p.Item} × {p.Count} — такого нет.");
+                throw new InvalidDataException($"Куча #{p.Id}: предмет {p.Item} × {p.Count} (вид {p.Kind}) — такого нет.");
             }
 
             p.Position = Torus.Wrap(shape, new WorldPos(x, y));
@@ -1269,6 +1458,7 @@ namespace Orpheus.Save
             bool hasBrain = false;
             // Бой (формат 6, 1-007): в форматах 1–5 полей нет — нули, Simulation.RestoreDefaults подставит дефолты спавна.
             int health = 0, maxHealth = 0, armor = 0, mass = 0, invuln = 0, regen = 0, regenCarry = 0, combat = 0, dead = 0;
+            int equipHead = 0, equipBody = 0, equipLegs = 0; // E3-6: снаряжение (формат 16)
             int windup = 0, recover = 0, immune = 0, atkTarget = 0, atkRaw = 0, period = 0, atkOriginX = 0, atkOriginY = 0, atkFacing = 0;
             int knockLeft = 0, knockSpeed = 0, knockDir = 0, aimAngle = 0, inputSlot = 0;
             while (r.Next())
@@ -1383,7 +1573,7 @@ namespace Orpheus.Save
                         hasBrain = true;
                         break;
                     case SaveSections.EntityField.BrainState:
-                        brain.State = (EnemyState)r.UIntAsInt((int)EnemyState.Interest); // 1-009: «Интерес» = 7 — верх границы
+                        brain.State = (EnemyState)r.UIntAsInt((int)EnemyState.Pounce); // E3-3: «Рывок» = 9 — верх границы (был «Интерес» = 7)
                         break;
                     case SaveSections.EntityField.BrainTargetId:
                         brain.TargetId = r.IntAsInt();
@@ -1444,6 +1634,15 @@ namespace Orpheus.Save
                         break;
                     case SaveSections.EntityField.Mass:
                         mass = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.EquipHead:
+                        equipHead = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.EquipBody:
+                        equipBody = r.UIntAsInt(byte.MaxValue);
+                        break;
+                    case SaveSections.EntityField.EquipLegs:
+                        equipLegs = r.UIntAsInt(byte.MaxValue);
                         break;
                     case SaveSections.EntityField.InvulnTicks:
                         invuln = r.UIntAsInt(int.MaxValue);
@@ -1538,6 +1737,9 @@ namespace Orpheus.Save
                 MaxHealth = (short)maxHealth,
                 Armor = (byte)armor,
                 Mass = (byte)mass,
+                EquipHead = (byte)equipHead,
+                EquipBody = (byte)equipBody,
+                EquipLegs = (byte)equipLegs,
                 InvulnTicks = invuln,
                 RegenTicks = regen,
                 RegenCarryX100 = regenCarry,

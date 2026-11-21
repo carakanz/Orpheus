@@ -13,7 +13,7 @@ Simulation.Combat.cs: StartAttack :21 · ApplyStrike :57 · BeginWindup :151 · 
 Simulation.Enemies.cs: Chase :24 · AddMeleeRogue :240 · StepAI :273 · UpdateTarget :393
 Simulation.Movement.cs: ISqrt :18 · StepSeparation :50 · MoveToward :98 · NewPathScheduler :112 · ResetPathCaches :119 · IsBlocked :138
 Simulation.Restore.cs: Restore :23/:32 · NextEntityId :~75 · RestoreDefaults :83
-Simulation.Piles.cs (E2-1): константы :18-42 · Piles :58 · AddPile :67 · RestorePiles :71 · RequestBagOp :101 · StepItems :119 (фаза 5.2 такта) · NearestPicker :166 · ApplyBagOp :188 · DropOnTile :222 · SpawnPile :238 · FreeGroundNear :296
+Simulation.Piles.cs (E2-1, E3-3b): константы :18-42 · Piles :58 · AddPile :108 (+owner E3-3b) · RequestBagOp :153 · StepItems :175 (фаза 5.2 такта, автоподбор :207) · NearestPicker :338 (пропуск чужих личных :350) · DropOnTile :442 · SpawnPile :458 (+owner) · FreeGroundNear :~296
 
 ## Spawner.cs - partial Simulation (спавн)
 Волны, точки появления, очередь спавна: методы по grep (класс Simulation :34).
@@ -25,7 +25,7 @@ NetServer.Types.cs: PlayerState :18 · Player :24 · ViewState :166 · SentRing 
 NetServer.Input.cs: PlanFrames :15 · TrimTo :145 · TakeSticky :169 · UpdateLeadStats :187 · Advance :201 · DropSilentConnections :211 · StopStaleInputs :234 · OnInput :343
 NetServer.Snapshots.cs: SendSnapshots :15 · SendInventoryTo :51 · SendSnapshotTo :62 · TryWriteDelta :148 · WriteFull :290 · BuildView :323 · Quantize :422 (IndexIn в ядре)
 NetServer.Chunks.cs: CopyHeldChunks :15 · SyncChunks :43 · SendChunk :68 · BroadcastPatches :90 · OnChunkRequest :233
-NetServer.Events.cs: BroadcastDeath :15 · BroadcastCombatEvents :42 · BroadcastClock :103
+NetServer.Events.cs: BroadcastClock · BroadcastCombatEvents · DeathOf (E3-1) · BroadcastDamage (E3-1, сообщение 37) · BroadcastDeath — grep
 NetServer.Login.cs: CloseAll :15 · EntityOf :29 · TryGetLastFrame :40 · CreditsOf :87 · BacklogOf :103 · CountHostsInGame :142 · OnLogin :157 · LeaveWorld :319 · PlaceFor :338 · OnOpenForFriends :397 · Reject (grep)
 
 ## NetServer* (парциальные)
@@ -102,8 +102,8 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - Sim/Simulation.Craft.cs (E2-3): CheckCraft · RequestCraft · RequestCraftCancel · RefundCraftQueue · ApplyCraft · ApplyCraftCancel · StepCraft (фаза 5.2 такта, после заявок на сумку). Sim/Simulation.CraftChests.cs (E2-10): CollectNearChests (порядок снятия) · AffordableNear · TakeIngredients (сумка → сундуки) · FillChestStock.
 
 ## Сеть и клиент предметов (E2-1)
-- NetServer.Items.cs: OnBagRequest · SendPilesTo (разница куч игроку) · TakerOf. NetClient.Items.cs: Piles · RequestBagMove/Split/Drop · OnPiles · OnPileGone.
-- Protocol/Messages.cs: InventoryMessage (ячейки), NetPile, PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
+- NetServer.Items.cs: OnBagRequest · SendPilesTo :231 (разница куч игроку; фильтр чужих личных :262, E3-3b) · TakerOf. NetClient.Items.cs: Piles · RequestBagMove/Split/Drop · OnPiles · OnPileGone.
+- Protocol/Messages.cs: InventoryMessage (ячейки), NetPile (+Owner u32, 22 байта, E3-3b), PilesMessage (27), PileGoneMessage (28), BagRequestMessage (29).
 - BotPiles.cs: бот идёт к куче и ждёт подбора (dig_line, build_room).
 - Крафт (E2-3): Protocol/CraftMessages.cs — CraftRequestMessage (30), CraftReplyMessage (31), CraftStateMessage (32), NearbyStockMessage (36, E2-10). NetServer.Items.cs: OnCraftRequest · SendCraftTo · SendStockTo (E2-10, раз в 5 тактов и после своего изготовления). NetClient.Items.cs: Craft · CraftRunning · CraftProgressAt · RequestCraft · RequestCraftCancel. CraftDesk.cs: `ICraftRequests`, `CraftLine`, `ICraftCancelChecked`, `CraftDesk` (LineOf · Missing · Have · InChests · Make · Cancel; E2-10 — со сводкой `NetClient.NearbyStock`) — путь окна крафта и ботов.
 - Полки окна изготовления (E2-9): `src/Orpheus.Net/Session/CraftShelf.cs` — Sections (разделы и подразделы), Rows (ключ результата → раздел / подраздел), Place · Recipes · CountIn · Shown (фильтр «только доступные») · Available · Badge (число на значке); тесты `CraftShelfTests`.
@@ -174,3 +174,36 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 ## Замедляющая местность (C-018)
 - World/TerrainSlow.cs: One · WaterQ8 · BushQ8 · FloorQ8 · ObjectQ8 · TileQ8 · WalkFloor · WalkObject · PathFactor. Movement/TileSpeed.cs: ITileSpeed · TileSpeed.At/Scale (Mover.Step/StepFrame). Simulation.Movement.cs: SpeedQ8, SolidCellsIn (WalkFloor/WalkObject). SimulationPathTerrain.WalkerFactor. Spawner.IsSpawnTileOk (не в воде). Simulation.Piles.PileGroundOk. Клиент: WadeFx.cs (At, Cropped, Ring, Emit, Frame) · ActorRig.ApplyWade · LifeFx.TryTileAt · PaintDemo.Wade.cs (--wade-demo, WadeDemoEnemy). Тесты — C018TerrainSlowTests.
 - C-016: client ObjectMesh.Cliffs.cs (partial ObjectMesh): Tiers · Run/LevelAt/TiersAt (ярус обрыва) · Block (грани массива) · FaceMarks/TopMarks · BlockInfo · BlockDeco · BlockShadow · BlockReach; ObjectMesh.cs: Item.Tier, Collect; WorldView.RebuildEdgeBlocks/BlockNearEdge; ScreenshotRun.BenchRender (ORPH_SHOT_BENCH).
+## Починки хрупких тестов (P-003, 16–17.11)
+- Pathing/PathScheduler.cs: `DefaultBudgetMicroseconds` :57 (3000 мкс) · ctor budgetMicroseconds :82 · `_budgetTicks` :113 · `RunTick` :181 (проверка предела :191, `MaxWaitTicks` :211).
+- tests/PathTests.cs: Bench1024 :410 · ThinHouses :443 (пороги MeanTickUs/MaxWaitTicks :432–434, только Release) · `ThreadCpuClock` :646 (`QueryThreadCycleTime`) · `PathBench` :709 (`RunDirect`/`RunScheduler`, `PerTick`=40).
+- tests/MetricsTests.cs: `ReadyMaxSeconds` :131 · `D07_S1_9_4_Big_Server1024_ReadyWithin5s_Under128Mb` :144 · `StartServer` (парсит `sinceProcessStartSec` из stdout) :198..225.
+- Bots/BotRun.cs: `EntryGraceSeconds` :248 · `allInAt`/`windowEnd` ~:340 (окно `--seconds` от события «все в игре»).
+- P-003d (19.11, гонка UDP-порта): tests/InterpolationTests.cs `D00_GenerationHash_LoadedWorldWithEdits_LoginSendsGenerationHash` :559 (--port 0 + цикл `orpheus-ready port=(\d+)`) · guard `D00_GenerationHash_BusyPort_ServerFaultsAtBind` после `FreeUdpPort` :638 · ServerHost.cs `Ready` :540 (строка :560, после bind) · UDP `Listen` :344-346 · фильтр исключений `Run` :187-197 (`SocketException` не ловится) · LiteNetTransport.cs `Listen` :70-81 (bind → AddressAlreadyInUse).
+
+## Бой на экране (E3-1)
+- Net/Protocol/Messages.cs: DamageMessage (37), DeathMessage (24, + RespawnTicks, FlagAtBed). Net/Session/CombatFeed.cs: DamageTone · DamageNumber · CombatFeed (OnDamage / OnDeath / OnRespawn / Expire · Rise / Alpha / Scale / LaneOffset / LaneLift · BarVisible · RespawnLeft / Fade / RespawnNote). HudLayout: EnemyBar*, Damage*, Death*.
+- client: UI/CombatHud.cs (EnemyMark, Frame, CreateOverlay) · NetGame.Combat.cs (HookCombat, OnDamage, OnDeath, CombatFrame) · Anim/Pose/DeathAnim.cs · NetAnimation (Gone, OnRemoteHit, поза трупа в Remote) · UI/UiDemo.Combat.cs (--ui-demo combat-*). Тесты — tests/E31CombatFeedTests.cs.
+## Лук и снаряды (E3-2)
+- Movement/BowAction.cs: BowInput.Of (вход кадра) · BowAction.StepFrame · PowerQ8 · TakeShot · CancelByDash. Mover.Bow, StepFrame(…, bowInput, solid), FrameSpeedX10 (60 %).
+- Combat/Projectile.cs: BowDef (DamageAt, SpeedX256At), Projectiles (таблица луков, константы, TryGetBow), ProjectileEnd, Projectile (PositionAt/PositionAtTravel).
+- Sim/Simulation.Projectiles.cs: ProjectileStop · SpawnProjectile (общий, и для врагов) · FireBow · BowInputOf · BowFrames30 · StepProjectiles (фаза 4.2) · FlyOneTick · ProjectileVictim · Stop (куча 50 %). Буферы ShotsThisTick / StopsThisTick.
+- Net: Protocol/ProjectileMessages.cs (38), NetServer.Events.BroadcastProjectiles, Session/ClientProjectiles.cs (полёт на клиенте, подмена предсказанной), LocalPrediction.HasArrows/Bow/TryTakeShot, NetServer.Threats (BowInput в копиях Mover).
+- Клиент: ArrowView.cs (стрелы, след, кольцо силы), NetGame (бит удара с луком в NetGame.Edits, «нет стрел», AddPredicted, CursorPoint), ActionAnim.BowDraw/BowRelease, ProceduralAnimator (слой лука), NetAnimation (свой лук из предсказания, отдача чужих OnShot), Anim/AnimShowcase.Bow.cs (ленты E3-2_*).
+
+## tools/ci.ps1 (HiddenCi, C-025/C-026, 17.11)
+- Param: `-StepTimeoutSec` (3600) :16 · `-TimeLimitSec` (60) :15 · `-SelfTest`.
+- HiddenCi (Add-Type): STARTUPINFO/STARTUPINFOEX :47-56 · импорты (CreateProcessW, ProcThreadAttributeList, job, ResumeThread) ~60-115 · EnvBlock (ANSI) :121 · Run (стол, 3 трубы, handle list inR/outW/errW, job+suspended+resume, таймаут→TerminateJobObject+258, грейс Task.WaitAll 60 с) :141-272 · Drain :275.
+- PowerShell: Join-CmdLine (MSVC-экранирование) :309 · Invoke-Step (зов Run) :343 · Invoke-SelfTest :356 (таблицы, stdin-гард powershell ReadToEnd, таймаут-гард 258).
+- C-028: World/PickStrike.cs — IsStrike, Check, HitsOf, Targets (сектор ±45°, ≤ 3 тайла); World/TileWear.cs — Hit, Set, HitsOn, Expire; DigTimes.HitsFor.
+- C-028: NetServer.Strike.cs — DigFramesOf, Strike, OnStrikeEdit, FlushStrikes (в конце SendEditReplies), BroadcastStrike; NetServer.Edits.cs ApplyPendingDig (ветка взмаха), AdvanceEdits.
+- C-028: NetClient.Strike.cs — StartDig(tile, self), PredictStrike, OnStrike, WearOf, DrainBrokenByMe (боты); Protocol/StrikeMessages.cs (тип 39, ReplySwingBit).
+- C-028: client TileCracksView.cs (трещины), NetAnimation.ShowOwnStrike/OnStrikeSeen, AnimShowcase.Pick.cs, NetGame.Edits.UpdateEdits (ветка PickStrike.IsStrike).
+- C-035: Protocol/EventBatchMessage.cs - EventBatchMessage (тип 40), EventRecord (Kind 0/1/2), DamageRecord/ProjectileRecord/StrikeRecord, Encode/Decode, HeaderSize; NetServer.Events.cs - EventBatchAccumulator (Add/Flush, 255/1024), SendAoeDamageEvent пачка; NetServer.Items.cs - SendProjectileSpawnEvent пачка; NetServer.Strike.cs - SendStrikeEvent пачка; NetServer.Snapshots.cs - EndOfTick -> Flush; NetClient.EventBatch.cs - OnEventBatch; NetClient.Facts.cs - EventFrameId + Skip (48); C035EventBatchTests (5).
+- C-036: Protocol/Snapshot.cs - DeltaFields.Action=64, MaskBits=7, EncodeAction/ActionToolOf/ActionProgressOf (маска 0x3F, сдвиг 2), ActionDigQuantum=16; NetServer.Snapshots.cs - ActionOf (кирка ceil/16, лук PowerQ8>>2 только PhaseDraw, отход 0), WriteFull/WriteDelta + бит 64; NetAnimation.cs - RemoteAction(id,action,...,held): SwingFromAction/OwnStrikeFromAction/DigActionOf(byte id); AnimShowcase.Action.cs - ряд y=-32, ленты C-036_pick (42,26-42,92) и C-036_bow (44,50-45,30); C036ActionTests (3: кодек, кирка через сеть, лук через сеть; parity с витриной).
+- C-037: client/Assets/Shaders/Objects.shader(86) - литералы только 2.0/1.0/0.0 (суффикс f не HLSL: dx11 «syntax error: unexpected token 'f'» → шейдер вне сборки → маджента); UiShape.shader(56) #pragma target 3.0.
+- C-040: Sim/Simulation.Edits.cs - PreEdit (~553, проверка «заявитель жив и в радиусе» для дверь-на-стене/стена, код NoRequester, до списания билда), ApplyEditBatches (~419, возврат стены только при Requester>0 — источник дефекта); World/TileEdit.cs - EditResult.NoRequester=9; World/EditRules.cs - FromResult (NoRequester→OutOfReach); tests C040DoorOwnerlessTests (3).
+## Главное меню (E4-1, 19.11) - client/Assets/Scripts
+- UI/MenuUi.cs: `MenuUi` — экраны Main/NewWorld/Friends/Join/Notice; Build (кнопки, `_all`), Show (гасит `_historyButtons` на всех экранах), ShowNewWorld/ShowFriends/ShowJoin (ставит `_addrLine.text`), ShowNotice/ShowDemo (витрина `--ui-demo menu*`, `IsMenuDemo`), ReadAddressInput (`Keyboard.current.onTextInput`, `enterKey`/`numpadEnterKey`), Layout; история адресов `persistentDataPath/connections.txt`.
+- GameBoot.cs: Awake — меню при `!netMode && !ScriptedRun()` (`_startInMenu` → `Args = new ClientArgs()`); OnMenuStart (Mode=Single/WorldDir/Seed/OpenForFriends 127.0.0.2:7788/Connect); GoToMenu(notice) = static `_startInMenu`/`_pendingNotice` + `SceneManager.LoadScene`; Update: `_menu.Frame()` + снимок, `Net.Fatal` → GoToMenu(Net.StatusText).
+- NetGame.cs: `Fatal` :309, `StatusText` :315, ShowFriendsAddress ~:295 (UiStrings.FriendsOpen); NetGame.Pause.cs: `DeathMenuFrame` (конец файла) — смерть + FromMenu → GoToMenu. GameUi.cs: `_deathMenu` :188/:230, `DeathMenuClicked` :240. ClientArgs.cs: `FromMenu` ~:142. UiStrings.cs: блок E4-1 :20-40. Сцены `E4-1_*` в tools/shots.json; приёмка входа — build/logs/e41_join_test.ps1.

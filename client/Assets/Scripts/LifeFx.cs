@@ -593,8 +593,9 @@ namespace Orpheus.Client
 
             Shader.SetGlobalVectorArray(PushId, _pushData);
             Shader.SetGlobalVectorArray(PushDirId, _pushDirData);
-            // Дальний обзор (шире 64 тайлов): часть пучков плавно скрывается — до 65 % на обзоре 96 (мелкие, сливаются в рябь).
-            float hide = Mathf.Clamp01((viewTiles - 64f) / 32f) * 0.65f;
+            // C-046 (слово Автора «при отдалении не пропадает графика»): прореживания нет —
+            // GrassLod.HideFraction всегда 0, и _OrphGrass.x в шейдер больше на что не влияет.
+            float hide = GrassLod.HideFraction(viewTiles);
             Shader.SetGlobalVector(GrassId, new Vector4(hide, active, 0f, 0f));
         }
     }

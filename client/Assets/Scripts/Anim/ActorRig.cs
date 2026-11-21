@@ -17,7 +17,7 @@ namespace Orpheus.Client.Anim
         readonly Transform _sprite;
         readonly SpriteRenderer _sr;
         readonly Vector3 _basePos;
-        readonly Color _baseColor;
+        Color _baseColor; // C-053: не readonly — SetViews сбрасывает оттенок (свой спрайт уже раскрашен)
         readonly SpriteRenderer[] _ghosts;
         Vector3 _lastRoot;
         bool _hasLast;
@@ -100,6 +100,19 @@ namespace Orpheus.Client.Anim
             _handIcon!.localPosition = new Vector3(ix, iy, 0f);
         }
 
+        /// <summary>
+        /// E3-4: спрятать тело существа и предмет в руке (у призрака «Enemy {id}», когда враг рисуется корнем снимка,
+        /// остаётся только сектор-телеграф). Поза продолжает применяться — сектор стоит по корню.
+        /// </summary>
+        public void SetSpriteVisible(bool on)
+        {
+            _sr.enabled = on;
+            if (_handSr != null)
+            {
+                _handSr.enabled = on && _handSr.sprite != null;
+            }
+        }
+
         void ApplyHand(in Pose p, int order)
         {
             if (_hand == null || _handSr == null || !_handSr.enabled)
@@ -118,7 +131,7 @@ namespace Orpheus.Client.Anim
             _hand.localRotation = Quaternion.Euler(0f, 0f, p.HandDeg * sign);
             _hand.localScale = new Vector3(k * sign, k, 1f);
             _handSr.sortingOrder = p.HandBehind ? order - 1 : order + 1;
-            _handSr.color = new Color(p.TintR, p.TintG, p.TintB, _baseColor.a * p.Alpha);
+            _handSr.color = new Color(p.TintR, p.TintG, p.TintB, p.HideHand ? 0f : _baseColor.a * p.Alpha); // C-030: лёжа — без предмета
         }
 
         public Transform Root => _root;
@@ -147,6 +160,20 @@ namespace Orpheus.Client.Anim
             return _vel;
         }
 
+        /// <summary>
+        /// C-030 (сцена снимков <c>--bed-demo</c>): поза «лежит в кровати» поверх дыхания — <see cref="RestAnim"/>; до центра
+        /// кровати (<paramref name="toBedX"/>, <paramref name="toBedY"/>) от корня, половина спящего (<paramref name="sleeper"/>,
+        /// C-032), порядок — <paramref name="sortY"/>.
+        /// </summary>
+        public void AnimateRest(float dt, float age, int rotation, float toBedX, float toBedY, int sleeper, float sortY)
+        {
+            MeasureVelocity(dt);
+            Pose p = RestAnim.Apply(Animator.Step(dt, new ActorInput { Held = _look }), age, rotation, toBedX, toBedY, RestAnim.SideOf(sleeper));
+            p.SortY = sortY;
+            p.HasSortY = true;
+            Apply(p);
+        }
+
         /// <summary>Только ходьба по измеренной скорости (офлайн, чужие без уворота).</summary>
         public void AnimateWalk(float dt)
         {
@@ -162,7 +189,30 @@ namespace Orpheus.Client.Anim
         Transform? _shadow;
         bool _shadowLooked;
 
-        void ApplyWade(int order)
+        // C-053: спрайты по виду ([Side, Front, Back]) — null, пока набор не задан (герой, болванки без видов).
+        Sprite?[]? _views;
+
+        /// <summary>C-053: архетип врага из снимка (0 — не задан): набор видов переставлять только при смене.</summary>
+        public byte Archetype;
+
+        /// <summary>
+        /// C-053: набор спрайтов существа по виду (бок / к зрителю / от зрителя; влево — отражение бокового).
+        /// Поза (<see cref="Pose.View"/>) выбирает картинку в <see cref="Apply"/>. Нулевой спрайт вида — остаётся прежний.
+        /// </summary>
+        public void SetViews(Sprite side, Sprite? front, Sprite? back)
+        {
+            _views = new Sprite?[] { side, front, back };
+            _sr.sprite = side;
+            _baseColor = Color.white; // C-053: картинка своя — оттенок E3-3/E3-4 из базового цвета уходит
+            _sr.color = Color.white;
+            _baseSprite = null;
+            for (int i = 0; i < _ghosts.Length; i++)
+            {
+                _ghosts[i].sprite = side;
+            }
+        }
+
+        void ApplyWade(int order, float cover)
         {
             float dt = Mathf.Min(Time.deltaTime, 0.1f);
             WadeFx.Ground g = WadeFx.At(_root.position);
@@ -173,7 +223,7 @@ namespace Orpheus.Client.Anim
                 _baseSprite = _sr.sprite;
             }
 
-            float cut = Mathf.Max(_sink, _hide);
+            float cut = Mathf.Max(Mathf.Max(_sink, _hide), cover); // C-030: лёжа — низ под одеялом
             if (_baseSprite != null)
             {
                 // Обрез — в точках листа, шагом 2 (кэш спрайтов мал); опускание — в воде.
@@ -191,7 +241,7 @@ namespace Orpheus.Client.Anim
 
             if (_shadow != null)
             {
-                bool dry = _sink < 0.05f; // тени в воде нет
+                bool dry = _sink < 0.05f && cover <= 0f; // тени в воде нет; C-030: лёжа в кровати — тоже
                 if (_shadow.gameObject.activeSelf != dry)
                 {
                     _shadow.gameObject.SetActive(dry);
@@ -238,18 +288,33 @@ namespace Orpheus.Client.Anim
 
         public void Apply(in Pose p)
         {
+            // C-053: свои спрайты по виду (к/от зрителя, вбок). Без набора видов (герой) — картинка как раньше.
+            if (_views != null)
+            {
+                Sprite? want = _views[(int)p.View];
+                if (want != null && _sr.sprite != want)
+                {
+                    _sr.sprite = want;
+                    _baseSprite = null; // ApplyWade перекеширует обрез под новый вид
+                    for (int i = 0; i < _ghosts.Length; i++)
+                    {
+                        _ghosts[i].sprite = want;
+                    }
+                }
+            }
+
             _sprite.localPosition = _basePos + new Vector3(p.OffsetX, p.OffsetY, 0f);
             _sprite.localRotation = Quaternion.Euler(0f, 0f, p.RotationDeg);
             _sprite.localScale = new Vector3(p.ScaleX, p.ScaleY, 1f);
             _sr.flipX = p.FlipX;
             // E1-7: существо сортируется с объектами «с высотой» по нижней кромке (ноги — опора спрайта без сдвига позы).
-            int order = WorldView.SortOrderAt(_root.position.y + _basePos.y);
+            int order = p.HasSortY ? WorldView.SortOrderAt(p.SortY) : WorldView.SortOrderAt(_root.position.y + _basePos.y); // C-030: лёжа — над кроватью
             _sr.sortingOrder = order;
             // E1-11: существо приминает траву под ногами и задевает деревья рядом (только вид).
             LifeFx.Touch(_lifeId, new Vector2(_root.position.x, _root.position.y + _basePos.y));
             _sr.color = new Color(_baseColor.r * p.TintR, _baseColor.g * p.TintG, _baseColor.b * p.TintB, _baseColor.a * p.Alpha);
             ApplyHand(p, order);
-            ApplyWade(order);
+            ApplyWade(order, p.Cover);
 
             for (int i = 0; i < _ghosts.Length; i++)
             {

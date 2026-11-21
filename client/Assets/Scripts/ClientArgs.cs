@@ -105,6 +105,27 @@ namespace Orpheus.Client
         /// </summary>
         public bool NetSmokeDoor;
 
+        /// <summary>
+        /// C-030: net-smoke ложится в кровать — сервер получает <c>--debug-bed</c> (ряд кроватей под точками появления);
+        /// в 0,15 с — F тем же путём, что клавиша (<c>ObjectUse.Find</c> → заявка 33), ответ «принято» кладёт персонажа,
+        /// скриптовый бег с 0,5 с поднимает. Проверка — в <c>NetSmokeCheck</c>.
+        /// </summary>
+        public bool NetSmokeBed;
+
+        /// <summary>
+        /// C-048: net-smoke на ЖИВОМ пути ввода (не скриптованные кадры): synthetic-мышь и клавиатура
+        /// (<c>NetGame.SmokeBow</c>) держат ЛКМ 5,0–10,0 с с луком в руках (ячейка 5) — проверка, что
+        /// удержание даёт серию выстрелов («лук при зажатии стреляет нонстопом», слово Автора 21.11).
+        /// </summary>
+        public bool NetSmokeBow;
+
+        /// <summary>
+        /// C-048: тот же лук, но курсор — над нижней панелью (низ экрана, где сферы и способности: Автор целится
+        /// в моба у ног, курсор оказывается над панелью, и E2-2 «мир не отвечает» глушит выстрелы). Проверка, что
+        /// с боевым оружием в руках ЛКМ уходит в мир даже над панелью.
+        /// </summary>
+        public bool NetSmokeBowBar;
+
         public bool Hud;
 
         /// <summary>Одиночная / хост: сервер дочерним процессом (0-024); null — офлайн или <see cref="Connect"/>.</summary>
@@ -127,6 +148,18 @@ namespace Orpheus.Client
         public readonly List<string> ServerArgs = new List<string>();
 
         public bool OpenForFriends;
+
+        /// <summary>
+        /// Игра запущена из главного меню (E4-1): после смерти героя или обрыва
+        /// связи игрок возвращается в меню, а не остаётся на чёрном экране.
+        /// </summary>
+        public bool FromMenu;
+
+        /// <summary>
+        /// E4-1b: <c>--auto-menu-click</c> — автоклик по кнопке «В меню» на экране «Уведомление»
+        /// (живая проверка «хост убит → уведомление → возврат в меню» без рук; тот же путь, что мышь).
+        /// </summary>
+        public bool AutoMenuClick;
 
         /// <summary>
         /// K-001, офлайн: <c>--anim-shots &lt;папка&gt;</c> — показ процедурной анимации (ходьба, уворот, замах с сектором, попадание,
@@ -168,10 +201,24 @@ namespace Orpheus.Client
         public string? HomeDemo;
 
         /// <summary>
+        /// C-030, только для снимков без сервера: спальня с двуспальной кроватью (<see cref="global::Orpheus.Client.PaintDemo.Bed"/>);
+        /// слово — поворот кровати 0…3, с буквой <c>l</c> — персонаж лежит в ней (поза и затемнение), напр. <c>0</c>, <c>1l</c>.
+        /// </summary>
+        public int BedDemoRot = -1;
+        public bool BedDemoLie;
+
+        /// <summary>
         /// C-018, только для снимков без сервера: пруд и кусты вокруг персонажа (<see cref="global::Orpheus.Client.PaintDemo.Wade"/>);
         /// слово — <c>water</c> (персонаж в воде), <c>bush</c> (в кустах), <c>enemy</c> (враг-болванка в воде).
         /// </summary>
         public string? WadeDemo;
+
+        /// <summary>
+        /// C-049, только для снимков без сервера: костёр в пяти тайлах севернее старта, персонаж на заданной
+        /// стороне огня — <c>in</c> (в кольце камней, на огне), <c>south</c>, <c>north</c>, <c>east</c>, <c>west</c>;
+        /// проверяет порядок отрисовки «низкой полосы» (LowRowOrderAt) и живое пламя.
+        /// </summary>
+        public string? FireDemo;
 
         /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
         public bool PaintForest;
@@ -207,9 +254,9 @@ namespace Orpheus.Client
         /// <summary>Текст подсказки для логов и подсказки при ошибке.</summary>
         public static string Usage =>
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
-            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
+            "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--auto-menu-click] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|turn|cursor-place|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence|torches|room|wall] [--day-tick 0…35999]";
+            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|turn|oldbeds|rmb-open|rmb-disarm|cursor-place|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence|torches|room|wall] [--day-tick 0…35999]";
 
         static bool TryParseWalk(string? text, ClientArgs a)
         {
@@ -317,6 +364,20 @@ namespace Orpheus.Client
                     case "--smoke-door":
                         a.NetSmokeDoor = true;
                         a.ServerArgs.Add("--debug-door"); // дверь ставит сервер у точки появления (1-012)
+                        break;
+                    case "--smoke-bed":
+                        a.NetSmokeBed = true;
+                        a.ServerArgs.Add("--debug-bed"); // C-030: кровать ставит сервер у точки появления
+                        break;
+                    case "--smoke-bow":
+                        a.NetSmokeBow = true;
+                        break;
+                    case "--smoke-bow-bar": // C-048: лучник целится в моба у ног — курсор над нижней панелью
+                        a.NetSmokeBow = true;
+                        a.NetSmokeBowBar = true;
+                        break;
+                    case "--auto-menu-click": // E4-1b: автоклик «В меню» на «Уведомлении» (живая проверка возврата в меню)
+                        a.AutoMenuClick = true;
                         break;
                     case "--hud":
                         a.Hud = true;
@@ -486,9 +547,9 @@ namespace Orpheus.Client
                         break;
                     case "--ui-demo":
                         i++;
-                        if (!UI.UiDemo.IsMode(next))
+                        if (!UI.UiDemo.IsMode(next) && !UI.MenuUi.IsMenuDemo(next))
                         {
-                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, half, turn, cursor-place, ruler-wall или ruler-floor, дано '{next}'";
+                            a.Error = $"--ui-demo: нужно bag, hotbar, craft, craft+bag, craft-hint, craft-chest, inv, inv-weapons, inv-buildings, inv-stone, build, build-open, chest, house, thin, half, turn, oldbeds, rmb-open, rmb-disarm, cursor-place, ruler-wall, ruler-floor, menu|menu-new|menu-host|menu-join|menu-notice или combat-hit|hurt|kill|death|respawn, дано '{next}'";
                         }
                         else
                         {
@@ -508,6 +569,19 @@ namespace Orpheus.Client
                         }
 
                         break;
+                    case "--bed-demo":
+                        i++;
+                        if (next == null || next.Length < 1 || next[0] < '0' || next[0] > '3' || (next.Length > 1 && next.Substring(1) != "l"))
+                        {
+                            a.Error = $"--bed-demo: нужно 0…3 или 0l…3l, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.BedDemoRot = next[0] - '0';
+                            a.BedDemoLie = next.Length > 1;
+                        }
+
+                        break;
                     case "--wade-demo":
                         i++;
                         if (!global::Orpheus.Client.PaintDemo.IsWadeMode(next))
@@ -517,6 +591,18 @@ namespace Orpheus.Client
                         else
                         {
                             a.WadeDemo = next;
+                        }
+
+                        break;
+                    case "--fire-demo":
+                        i++;
+                        if (next != "in" && next != "south" && next != "north" && next != "east" && next != "west")
+                        {
+                            a.Error = $"--fire-demo: нужно in, south, north, east или west, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.FireDemo = next;
                         }
 
                         break;

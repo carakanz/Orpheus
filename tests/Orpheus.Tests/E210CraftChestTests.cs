@@ -297,7 +297,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E210_Codec_GoldenBytes_NearbyStock()
         {
-            Assert.Equal(29, NetModule.ProtocolVersion); // C-013: 29; E2-16: 28
+            Assert.Equal(38, NetModule.ProtocolVersion); // E3-3b: 38 (владелец личной капли в кучах 27); C-036: 37 (действие в снимке); C-035: 36 (пачка 40); E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             Assert.Equal(36, (int)MessageType.NearbyStock);
             Assert.True(Codec.IsKnown(36));
             var buf = new byte[256];

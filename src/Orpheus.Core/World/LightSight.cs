@@ -62,6 +62,9 @@ namespace Orpheus.Core.World
         /// <summary>Сколько раз сетка чанка пересчитана.</summary>
         public long Rebuilds { get; private set; }
 
+        /// <summary>C-034: убрать запись сетки чанка (выгрузка чанка у клиента) — пересчитается при следующем запросе.</summary>
+        public void Drop(ChunkCoord chunk) => _entries.Remove(Torus.Wrap(_world.Shape, chunk));
+
         /// <summary>Лучей прослежено за всё время (замер).</summary>
         public long Rays { get; private set; }
 

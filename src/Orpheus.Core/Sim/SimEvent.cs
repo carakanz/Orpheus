@@ -13,7 +13,8 @@ namespace Orpheus.Core.Sim
         ChunkRevised = 2,
 
         /// <summary>Урон нанесён (1-001): <see cref="SimEvent.Requester"/> — кто, <see cref="SimEvent.Victim"/> — кому,
-        /// <see cref="SimEvent.Damage"/> — сколько (после брони), <see cref="SimEvent.DamageType"/> — тип.</summary>
+        /// <see cref="SimEvent.Damage"/> — сколько (после брони), <see cref="SimEvent.DamageType"/> — тип;
+        /// <see cref="SimEvent.Tag"/> — <see cref="Simulation.DamageTagStrong"/>, если удар сильный (E3-1).</summary>
         Damage = 3,
 
         /// <summary>Смерть (1-001, 13.5/8.3): <see cref="SimEvent.Victim"/> умер (<see cref="SimEvent.Requester"/> — убийца).</summary>

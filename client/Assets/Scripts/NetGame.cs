@@ -84,8 +84,12 @@ namespace Orpheus.Client
 
         readonly Dictionary<int, GameObject> _ents = new Dictionary<int, GameObject>();
         readonly HashSet<int> _seen = new HashSet<int>();
+        // E3-4: корни чужих существ этого кадра для силуэта за кроной (WorldFx.SetActors) — 8 ближайших к своему.
+        readonly List<Vector3> _actorRoots = new List<Vector3>();
+        readonly List<float> _actorDist = new List<float>();
         GameObject _entityRoot = null!;
         PileView? _pileView; // E2-1: кучи на земле (сообщения 27 и 28)
+        ArrowView? _arrowView; // E3-2: стрелы (сообщение 38 и свои предсказанные), прицел натяжения
         UI.GameUi? _ui;      // E2-2: быстрая панель, окно сумки, полосы
         Sprite _heroSprite = null!;
 
@@ -99,6 +103,7 @@ namespace Orpheus.Client
         WorldPos _serverLast;
         WorldModel? _world;
         MapShape _map;
+        ExploredMap? _explored; // C-029
         FloatingOrigin? _origin;
         WorldView? _view;
         DayTintView? _tint; // E1-8: тон суток; время — WorldClock клиента (приходит в заголовке снимков)
@@ -108,6 +113,9 @@ namespace Orpheus.Client
         int _localId;
         ScreenshotRun? _screenshot;
         Anim.NetAnimation? _anim; // K-001: процедурная анимация — только отображение
+        TileCracksView? _cracks; // C-028: трещины на камнях от взмахов кирки
+        HearthMarkerView? _hearth; // E3-6b: маркер Очага на тайле центра мира
+        int _hearthFrames; // E3-6b: кадров, в которых маркер Очага был виден (проверка в net-smoke)
         long _inGameSinceUs;
         long _hudSnaps;
         long _hudTimeUs;
@@ -149,6 +157,7 @@ namespace Orpheus.Client
             _heroSprite = _g.Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
             _entityRoot = new GameObject("Entities");
             _pileView = new PileView(new GameObject("Piles").transform);
+            _arrowView = new ArrowView(new GameObject("Arrows").transform); // E3-2: стрелы и прицел натяжения
         }
 
         /// <summary>
@@ -162,6 +171,13 @@ namespace Orpheus.Client
                 // Как игра: 60 кадров/с, а не ~80 000 в пакетном режиме (замечание 9 проверки 0-012).
                 QualitySettings.vSyncCount = 0;
                 Application.targetFrameRate = 60;
+
+                // C-048: на живом пути в -batchmode -nographics мыши нет (Mouse.current == null) —
+                // заводим synthetic-мышь и клавиатуру, кадры гонит InjectSmokeInput.
+                if (_args.NetSmokeBow)
+                {
+                    SetupSmokeInput();
+                }
             }
 
             if (StartThreadServer())
@@ -275,10 +291,37 @@ namespace Orpheus.Client
                 Debug.Log(r.Opened
                     ? $"[host] открыто для друзей: UDP-порт {r.Port} ({_args.OpenAddress ?? "все адреса"})"
                     : "[host] открыть для друзей не удалось");
+                ShowFriendsAddress(r);
             }
         }
 
+        /// <summary>
+        /// E4-1: полоска сверху «открыто для друзей: адрес порт» — без неё хост не знает,
+        /// куда звать гостей. Адрес даёт игрок (--open-address), порт — сервер в ответе.
+        /// </summary>
+        void ShowFriendsAddress(OpenResultMessage r)
+        {
+            if (_ui == null)
+            {
+                return;
+            }
+            string text = r.Opened
+                ? UI.UiStrings.FriendsOpen((_args.OpenAddress ?? "IP-адрес этого ПК") + ":" + r.Port)
+                : UI.UiStrings.MenuFriendsFail;
+            var label = UI.UiRoot.Label(_ui.RootTransform, "friends-addr",
+                0, _ui.RootSize.y - 70f, _ui.RootSize.x, 48f, 24,
+                TextAnchor.UpperCenter, UI.UiStyle.Gold, outline: true, bold: true);
+            label.text = text;
+            Debug.Log("[host] E4-1: адрес для друзей показан: " + text);
+        }
+
         public bool InGame => _view != null && _client?.State == NetClientState.InGame;
+
+        /// <summary>Статус окончательный (мир не совпал, соединения нет) — кадр выше ведёт обратно в меню (E4-1).</summary>
+        public bool Fatal => _fatal;
+
+        /// <summary>Текст окончательного статуса — причина для экрана «Упс!» (E4-1).</summary>
+        public string StatusText => _status;
 
         /// <summary>Один кадр: разбор связи, состояние, ввод, интерполяция, окно, камера, HUD, smoke/снимок.</summary>
         /// <summary>Секунд с входа в игру (0 до входа).</summary>
@@ -288,6 +331,7 @@ namespace Orpheus.Client
         {
             long now = NowUs();
             _pollUs = now;
+            InjectSmokeInput(); // C-048: synthetic-мышь/клавиатура для живого пути в --smoke-bow
             PollLocalServer(now);
             PollThreadServer(now);
             if (_client != null)
@@ -362,6 +406,7 @@ namespace Orpheus.Client
             if (_view != null && state == NetClientState.InGame && !_fatal)
             {
                 UiFrame(); // E2-2: до чтения мыши миром — интерфейс забирает щелчки по себе
+                DeathMenuFrame(); // E4-1: «В меню» на экране смерти — возврат в меню (только для игры из меню)
                 SendInput(now);
                 Render(now);
                 if (_screenshot == null && _args.ScreenshotPath != null)
@@ -409,16 +454,24 @@ namespace Orpheus.Client
             _world = cw.World;
             _localId = accept.EntityId;
             _pileView?.Clear(); // E2-1: кучи нового входа сервер пришлёт заново
+            _client.Projectiles.Clear(); // E3-2: стрелы прежнего входа
             WorldPos spawn = CenterOf(accept.MapWidth / 2, accept.MapHeight / 2);
             _origin = new FloatingOrigin(_map, Torus.ChunkOf(_map, spawn));
             _view = new WorldView(_world, _origin, _g.Grid, _g.TileMeadow, _g.TileStone, _g.TileTree, _g.TileRock);
             WorldView view = _view;
+            var explored = new ExploredMap(_map); // C-029: открытые области — карта на весь экран
+            _explored = explored;
             foreach (ChunkCoord c in _world.GetChunkCoords().ToArray())
             {
                 view.ShowChunk(c); // чанки, пришедшие в том же Poll, что и «вход принят»
+                explored.MarkDirty(c);
             }
 
-            cw.ChunkChanged = c => view.ShowChunk(c);
+            cw.ChunkChanged = c =>
+            {
+                view.ShowChunk(c);
+                explored.MarkDirty(c);
+            };
             cw.ChunkRemoved = c => view.HideChunk(c);
             cw.RolledBack = OnRolledBack; // 0-028: откат правки — красная вспышка с причиной
             _tint = new DayTintView(_g.Camera, _world!, _origin!); // E1-8: тон суток (время мира — часы из заголовка снимков)
@@ -430,6 +483,15 @@ namespace Orpheus.Client
             _remote = new RemoteInterpolation(_map);
             _client!.ClockReset = _remote.OnClockReset; // «часы после фриза» (2.4): окно медианы показа — заново (0-025)
             _anim = new Anim.NetAnimation(_g, _client, _origin, _world, _entityRoot.transform);
+            _anim.Rest = _rest; // C-030: лечь в кровать — поза своего персонажа
+            _cracks = new TileCracksView(_entityRoot.transform); // C-028
+            _hearth?.Dispose();
+            _hearth = new HearthMarkerView(_entityRoot.transform, _map, accept.MapWidth / 2, accept.MapHeight / 2); // E3-6b: Очаг = центр, как RespawnCenter у ядра
+            NetClient strikeClient = _client!;
+            Simulation lineRules = _netRules!;
+            strikeClient.StrikeLine = (from, t) => lineRules.PickLineClear(from, t, // C-028 (П): линия взмаха — как у сервера
+                c => PickStrike.IsTarget(strikeClient.DigTimes, lineRules.World.GetObject(c), strikeClient.HeldItem));
+            HookCombat(_client); // E3-1: урон цифрами, смерть и возрождение на экране
             Debug.Log($"[net] вход: сущ #{_localId}, мир {_map.Width}×{_map.Height}, такт {accept.ServerTick}; " +
                       $"мир — чанки от сервера (генератора у клиента нет), пришло уже {cw.ChunksReceived}");
             _g.Character.gameObject.SetActive(true);
@@ -489,9 +551,11 @@ namespace Orpheus.Client
             int n = c.FramesDue(now);
             ushort editButtons = UpdateEdits(now); // 0-028: копание под курсором, стена по ПКМ; 1-004: бит удара ЛКМ
             // 1-002: прицел и ячейка — в каждый кадр ввода (журнал 2.4); в net-smoke кадр скриптованный, без мыши.
-            ushort aim = _args.NetSmokeSeconds > 0 ? (ushort)0 : ComputeAim();
-            byte slot = _args.NetSmokeSeconds > 0 ? SmokeMeleeSlot(now) : (byte)_slot;
-            bool dodgePress = _args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame() && !ShiftForWindow();
+            // C-048: --smoke-bow — живой путь (aim/ячейка/уворот/движение — как в игре, мышь synthetic-устройства).
+            bool live = _args.NetSmokeSeconds == 0 || _args.NetSmokeBow;
+            ushort aim = live ? ComputeAim() : (ushort)0;
+            byte slot = live ? (byte)_slot : SmokeMeleeSlot(now);
+            bool dodgePress = live ? _g.Dodge.WasPressedThisFrame() && !ShiftForWindow() : ScriptedSmokeDodge(now);
             if (dodgePress && _args.NetSmokeSeconds == 0 && ShiftOnlyPressed() && RulerMayTakeShift())
             {
                 _shiftDodgeHold = DodgeWaitFrames; // E2-13: Shift со стеной в руке ждёт ЛКМ (диагональ линейки) до 6 кадров
@@ -518,7 +582,7 @@ namespace Orpheus.Client
 
             for (int k = 0; k < n; k++)
             {
-                InputFrame frame = _args.NetSmokeSeconds > 0 ?
+                InputFrame frame = _args.NetSmokeSeconds > 0 && !_args.NetSmokeBow ?
                     WithAimSlot(ScriptedSmokeFrame(now), aim, slot) : // 1-004: в окне — ячейка меча, иначе кирка
                     WithAimSlot(GameBoot.ToFrame(_g.Move.ReadValue<Vector2>()), aim, slot);
                 ushort buttons = editButtons;
@@ -544,6 +608,7 @@ namespace Orpheus.Client
                 // 1-004: удар предсказывается только с ближним оружием в руках — предмет берётся по ячейке этого
                 // кадра, как сервер в такте (ячейка и кнопки применяются в одном кадре, 1-002).
                 _pred!.HeldItem = HeldItemAt(frame.Slot);
+                _pred.HasArrows = _bag.Count(Items.Arrows) > 0; // E3-2: гейт натяжения — как в такте сервера
                 if (frame.AttackPressed)
                 {
                     AttacksSent++;
@@ -551,6 +616,11 @@ namespace Orpheus.Client
 
                 c.SendFrame(frame);
                 _pred!.Sent(c.Frame, frame);
+                while (_pred.TryTakeShot(out BowAction shot))
+                {
+                    c.Projectiles.AddPredicted(shot, _pred.HeldItem, now); // E3-2: своя стрела — сразу по отпусканию
+                    ShotsPredicted++;
+                }
 
                 // 1-004 (net-smoke): замахы предсказания — входы в фазу замаха (в серии фаза не бывает покоем).
                 byte phase = _pred.Melee.Phase;
@@ -588,6 +658,27 @@ namespace Orpheus.Client
         }
 
         ushort _lastAim;
+
+        /// <summary>Точка плоскости земли под курсором (E3-2: прицел натяжения); мыши нет или она вне окна — null.</summary>
+        Vector3? CursorPoint()
+        {
+            Mouse? mouse = Mouse.current;
+            if (mouse == null)
+            {
+                return null;
+            }
+
+            Vector3 screen = mouse.position.ReadValue();
+            if (screen.x < 0f || screen.y < 0f || screen.x > Screen.width || screen.y > Screen.height)
+            {
+                return null;
+            }
+
+            return _g.Camera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -GameBoot.CameraOffset.z));
+        }
+
+        /// <summary>Своих выстрелов нарисовано по предсказанию (E3-2).</summary>
+        public long ShotsPredicted { get; private set; }
 
         /// <summary>Кадр движения + прицел и ячейка быстрой панели (1-002).</summary>
         static InputFrame WithAimSlot(InputFrame f, ushort aim, byte slot) => new InputFrame(f.Direction, f.Buttons, aim, slot);
@@ -703,6 +794,8 @@ namespace Orpheus.Client
 
             // Чужие: набор — новейший снимок, позиция — RemoteInterpolation на время показа этого кадра.
             _seen.Clear();
+            _actorRoots.Clear(); // E3-4: силуэты за кроной — собирается заново каждый кадр
+            _actorDist.Clear();
             RemoteInterpolation r = _remote!;
             if (r.BeginFrame(now))
             {
@@ -716,12 +809,23 @@ namespace Orpheus.Client
                     }
 
                     _seen.Add(id);
-                    GameObject go = GetEntity(id);
+                    GameObject go = GetEntity(id, snap.Entities[i].Kind,
+                        (byte)(snap.Entities[i].Enemy >> SnapshotLayout.EnemyArchetypeShift)); // E3-3: тон по архетипу
                     go.SetActive(true);
                     go.transform.position = _origin.ToUnity(at) + new Vector3(edx / sub, -edy / sub, 0f);
                     _anim?.Remote(id, go.transform, snap.Entities[i]); // E2-7: предмет в руке и удар мечом чужих — из снимка
+                    if (_anim != null && _anim.Gone(id, snap.Entities[i].Kind))
+                    {
+                        _seen.Remove(id); // E3-1: труп врага растворился — не рисуется до удаления сервером
+                    }
+                    else
+                    {
+                        AddActorSlot(go.transform.position); // E3-4: существо видно сквозь крону
+                    }
                 }
             }
+
+            WorldFx.SetActors(_actorRoots); // E3-4: свободные слоты шейдер выключает
 
             foreach (KeyValuePair<int, GameObject> kv in _ents)
             {
@@ -732,7 +836,16 @@ namespace Orpheus.Client
             }
 
             _anim?.Frame(now, _pred!);
-            _pileView?.Frame(_origin!, Time.deltaTime); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему
+            _cracks?.Frame(_client!, _origin!, Time.deltaTime); // C-028: трещины на камнях
+            _hearth?.Frame(_view!, _origin!, now); // E3-6b: маркер Очага, пока его чанк в окне
+            if ((_hearth?.Visible ?? 0) > 0)
+            {
+                _hearthFrames++;
+            }
+            CombatFrame(); // E3-1: цифры урона, полоски врагов, экран смерти
+            _pileView?.Frame(_origin!, Time.deltaTime, _client!.Projectiles.Covers); // E2-1: кучи на земле — покачивание и «прыжок» к поднявшему; C-031: стрелу-предмет закрывает снаряд
+            _arrowView?.Frame(_client!.Projectiles, now, _origin!, _pred!.Bow, _g.Character.position,
+                _args.NetSmokeSeconds > 0 ? null : CursorPoint()); // E3-2: стрелы и кольцо силы у курсора
             if (_args.NetSmokeSeconds > 0)
             {
                 SmokeFrame(me, dx, dy);
@@ -790,7 +903,7 @@ namespace Orpheus.Client
             _measureSelf = true;
         }
 
-        GameObject GetEntity(int id)
+        GameObject GetEntity(int id, byte kind, byte archetype = 0)
         {
             if (_ents.TryGetValue(id, out GameObject? existing))
             {
@@ -803,13 +916,51 @@ namespace Orpheus.Client
             spriteGo.transform.SetParent(root.transform, false);
             spriteGo.transform.localPosition = new Vector3(0f, -0.4f, 0f);
             var sr = spriteGo.AddComponent<SpriteRenderer>();
-            sr.sprite = _heroSprite;
-            sr.color = new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
+            // C-053: у врага — свой спрайт по архетипу (бок; к/от зрителя подбирает поза в ActorRig.Apply).
+            // E3-4/E3-3 (запас): своих картинок нет — спрайт героя с оттенком: лучник синий, волк серый, ближний красный.
+            if (kind == SimEntity.KindEnemy && Anim.EnemyVisuals.TryViews(archetype, out Sprite side, out _, out _))
+            {
+                sr.sprite = side;
+                sr.color = Color.white;
+            }
+            else
+            {
+                sr.sprite = _heroSprite;
+                sr.color = kind == SimEntity.KindEnemy ? Anim.ActorFactory.EnemyTintFor(archetype) : new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
+            }
+
             sr.sortingOrder = WorldView.ObjectOrder;
             sr.spriteSortPoint = SpriteSortPoint.Pivot;
             WorldFx.AddActorShadow(root.transform, 0.8f); // E1-7: пятно-тень под существом
             _ents[id] = root;
             return root;
+        }
+
+        /// <summary>
+        /// E3-4: существо в слот силуэта за кроной (шейдер _OrphActors): держим <see cref="WorldFx.MaxActorSilhouettes"/>
+        /// ближайших к своему персонажу.
+        /// </summary>
+        void AddActorSlot(Vector3 root)
+        {
+            float d2 = (root - _g.Character.position).sqrMagnitude;
+            if (_actorRoots.Count == WorldFx.MaxActorSilhouettes && d2 >= _actorDist[WorldFx.MaxActorSilhouettes - 1])
+            {
+                return; // дальше восьми ближайших
+            }
+
+            int at = _actorDist.BinarySearch(d2);
+            if (at < 0)
+            {
+                at = ~at;
+            }
+
+            _actorRoots.Insert(at, root);
+            _actorDist.Insert(at, d2);
+            if (_actorRoots.Count > WorldFx.MaxActorSilhouettes)
+            {
+                _actorRoots.RemoveAt(WorldFx.MaxActorSilhouettes);
+                _actorDist.RemoveAt(WorldFx.MaxActorSilhouettes);
+            }
         }
 
         // E1-1 (план, шаг 1.1): колесо мыши — обзор от 40 до 96 тайлов в ширину, как офлайн; на геймпаде — плечи.
@@ -984,7 +1135,7 @@ namespace Orpheus.Client
 
                 // Уворот (0-034): скриптовое нажатие ушло одним кадром с направлением; что сервер его повторил — проверка выше.
                 Debug.Log($"[smoke] уворот: нажатий {DodgePresses}, кадров с битом {DodgesSent}");
-                if (SmokeDodges && (DodgePresses != 1 || DodgesSent != 1))
+                if (SmokeDodges && !_args.NetSmokeBow && (DodgePresses != 1 || DodgesSent != 1))
                 {
                     Fail($"[smoke] FAILED: уворот — нажатий {DodgePresses}, кадров с битом {DodgesSent} (нужно 1 и 1)");
                     return;
@@ -995,10 +1146,34 @@ namespace Orpheus.Client
                 // все кадры окна отправлены. На прогонах короче 6 с (есть такие) окно не проверяется.
                 double meleeT = (now - _inGameSinceUs) / 1_000_000.0;
                 Debug.Log($"[smoke] меч: кадров с битом {AttacksSent}, замахов {MeleeStrikes} (t {meleeT:0.0} с)");
-                if (SmokeMelee && meleeT >= SmokeMeleeEndSec && (AttacksSent < 60 || MeleeStrikes < 2))
+                if (SmokeMelee && !_args.NetSmokeBow && meleeT >= SmokeMeleeEndSec && (AttacksSent < 60 || MeleeStrikes < 2))
                 {
                     Fail($"[smoke] FAILED: меч — кадров с битом {AttacksSent} (нужно ≥ 60), замахов {MeleeStrikes} (нужно ≥ 2)");
                     return;
+                }
+
+                // C-048 (живой путь, synthetic-мышь): лук в руках, ЛКМ зажат 5,0–10,0 с — выстрелы ИДУТ СЕРИЕЙ
+                // («лук при зажатии должен нонстопом стрелять», слово Автора 21.11). Считаем подтверждённые сервером
+                // свои выстрелы: за 5 с удержания ≥ 5 (натяжение MinDrawFrames=12 кадров + полёт, ждём ~6).
+                // Стрелы: расход сервером при приёмке выстрела, списание в клиентском сумке приходит подтверждением
+                // с задержкой до ~1,5 с (последний выстрел — в конце окна), поэтому в smokegate инвариант
+                // «стрел ≤ 50 и не больше расхода»; точный расход (50→44) проверяет net-тест
+                // C048_Net_HoldLmb_FiveSeconds_ContinuousShots ([док] в карточке C-048).
+                if (_args.NetSmokeBow)
+                {
+                    long shots = _client.Projectiles.OwnConfirmed;
+                    int arrows = _bag.Count(Items.Arrows);
+                    string bowLine = $"лук: зажатие 5 с — выстрелов {shots}, кадров с битом {AttacksSent}, " +
+                                     $"предсказано {ShotsPredicted}, отказов {_client.Projectiles.RefusedSeen}, стрел {arrows}, " +
+                                     $"панель {(_args.NetSmokeBowBar ? 1 : 0)}, экр {Screen.width}x{Screen.height}, " +
+                                     $"поз {_smokePointerPos.x:0}x{_smokePointerPos.y:0}, блок {(_ui != null && _ui.PointerBlocked ? 1 : 0)}, " +
+                                     $"маршрут {(_ui == null ? "нет" : _ui.Route.ToString())}";
+                    Debug.Log("[smoke] " + bowLine);
+                    if (shots < 5 || arrows > 50)
+                    {
+                        Fail($"[smoke] FAILED: {bowLine} (нужно: выстрелов ≥ 5, стрел ≤ 50)");
+                        return;
+                    }
                 }
 
                 if (_client.DeltasApplied == 0 || _client.DeltasUnmerged * 10 > _client.SnapshotsApplied)
@@ -1063,6 +1238,14 @@ namespace Orpheus.Client
                     Fail($"[smoke] FAILED: тайлы — расхождений {tileErrors}, образцов {samples} (нужно ≥ {needSamples}), чанков {cw.ChunkCount}");
                     return;
                 }
+
+                // E3-6b: маркер Очага у спавна (центр мира) обязан быть в окне с первого кадра.
+                Debug.Log($"[smoke] hearth: маркер Очага виден {_hearthFrames} кадров из {_renderFrames}");
+                if (_hearth == null || _hearth.Visible <= 0)
+                {
+                    Fail($"[smoke] FAILED: маркер Очага (E3-6b) не виден (кадров с маркером {_hearthFrames})");
+                    return;
+                }
                 // 1-022, шаг 4: правка в сети — ковёр (бесплатная постройка 1-011) на свободный тайл с молотом в руках:
                 // предсказание видно в Tilemap в тот же кадр, сервер ответил «принято», тайл в чанке — ковёр.
                 // Путь отката (ковёр на свой тайл) проверяется строкой «[edit] откат»; отказы с ресурсами — в EditTests.
@@ -1070,7 +1253,7 @@ namespace Orpheus.Client
                                   $"принято сервером {(_smokeWallConfirmed ? "да" : "нет")}, откатов по пробе {_smokeWallRollbacks}, " +
                                   $"всего откатов {Rollbacks}";
                 Debug.Log("[smoke] " + wallLine);
-                if (!_smokeWallConfirmed || _smokeWallFrameOk == 0)
+                if (!_args.NetSmokeBow && (!_smokeWallConfirmed || _smokeWallFrameOk == 0))
                 {
                     Fail($"[smoke] FAILED: {wallLine} (нужно: принято да, Tilemap в тот же кадр ≥ 1)");
                     return;
@@ -1085,6 +1268,20 @@ namespace Orpheus.Client
                     if (!_smokeDoorOpenSeen || !_smokeDoorPassed || !_smokeDoorClosedSeen)
                     {
                         Fail($"[smoke] FAILED: {doorLine} (нужно: открыта, пройден, закрылась — да)");
+                        return;
+                    }
+                }
+
+                // C-030: «лечь в кровать» (--smoke-bed): F нашёл кровать, сервер принял, персонаж лёг (поза в кадрах), бег поднял.
+                if (_args.NetSmokeBed)
+                {
+                    int restFrames = _anim?.RestFrames ?? 0;
+                    string bedLine = $"кровать (C-030): F {(_smokeBedAsked ? "да" : "нет")}, лёг {_rest.Lay}, кадров позы {restFrames}, " +
+                                     $"встал {(_smokeBedWoke ? "да" : "нет")}";
+                    Debug.Log("[smoke] " + bedLine);
+                    if (!_smokeBedAsked || _rest.Lay < 1 || restFrames < 1 || !_smokeBedWoke)
+                    {
+                        Fail($"[smoke] FAILED: {bedLine} (нужно: F да, лёг ≥ 1, кадров позы ≥ 1, встал да)");
                         return;
                     }
                 }

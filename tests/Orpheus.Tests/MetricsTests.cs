@@ -15,6 +15,7 @@ namespace Orpheus.Tests
     /// Метрики такта сервера (0-030, docs/07 11.6): процентили по гистограмме, части такта, простои по часам, итог и отчёт
     /// <c>--report</c>. Без выделений в такте — <see cref="AllocationTests"/>.
     /// </summary>
+    [Collection(HeavyCollection.Name)]
     public sealed class MetricsTests : IDisposable
     {
         private readonly ITestOutputHelper _out;
@@ -110,12 +111,23 @@ namespace Orpheus.Tests
                 null);
             Assert.Equal(0, r.ExitCode);
             MetricsSample m = r.Metrics!;
-            _out.WriteLine($"тактов {m.Ticks}, промежутков {m.Gaps}, простоев {m.Stalls} ({m.StallPercent:F1} %), промежуток max {m.MaxGapMs:F1} мс, такт max {m.TickMaxMs:F2} мс");
+            _out.WriteLine($"тактов {m.Ticks}, промежутков {m.Gaps}, простоев {m.Stalls} ({m.StallPercent:F1} %), длинных (≥100 мс) {m.LongGaps}, промежуток max {m.MaxGapMs:F1} мс, такт max {m.TickMaxMs:F2} мс");
             Assert.Equal(30, m.Ticks);
             Assert.Equal(29, m.Gaps);
-            Assert.InRange(m.Stalls, 1, 3); // после заморозки — догон (такты подряд), не простои; запас на планировщик машины
+            // P-003 (08.11, «время хрупко под нагрузкой»): правило 0-030 — заморозка = простой, промежуток ≥ 150 мс,
+            // в время такта не входит. Прежние проверки считали МОЛЧАНИЕ ПЛАНИРОВЩИКА машины: порог простоя =
+            // такт (33 мс) + 5 мс, под `-All` в 30-секундном прогоне зазоры > 38 мс случаются десятки раз →
+            // «простоев > 3» краснел без дефекта продукта. Теперь — событие: заморозка посчитана простым (≥ 1);
+            // число посторонних простоев печатается. Порог времени такта = длина заморозки (150 мс): во время такта
+            // она попадает только при дефекте учёта (такт ≈ 151+ мс); шум планировщика 100–150 мс — не дефект.
+            Assert.True(m.Stalls >= 1, $"простоев {m.Stalls} — заморозка не посчитана простым");
             Assert.True(m.MaxGapMs >= 150, $"{m.MaxGapMs}");
-            Assert.True(m.TickMaxMs < 100, $"заморозка попала во время такта: {m.TickMaxMs} мс");
+            Assert.True(m.TickMaxMs < 150, $"заморозка попала во время такта: {m.TickMaxMs} мс");
+            // P-005, п. 4 (17.11): событийный порог — зазор ≥ 100 мс (LongGapMicros) считается событием,
+            // их число за прогон ограничено. Шум планировщика dev-ПК (38–100 мс) в счётчик не попадает;
+            // заморозка 150 мс даёт ровно одно событие. Верхняя граница = шум 100–150 мс под нагрузкой.
+            Assert.True(m.LongGaps >= 1, $"длинных промежутков {m.LongGaps} — заморозка не посчитана событием (≥ 100 мс)");
+            Assert.True(m.LongGaps <= 3, $"длинных промежутков {m.LongGaps} за прогон — деградация тика (заморозка даёт 1)");
         }
 
         // ---------- Приёмка 0.8: старт и память сервера (07 1.9 п. 4) ----------
@@ -128,9 +140,9 @@ namespace Orpheus.Tests
 
         /// <summary>
         /// Приёмка 0.8, серверная часть (0-030): собранный <c>OrpheusServer</c> отдельным процессом на 1024² — новый мир
-        /// (<c>--create</c>) и загрузка того же мира; от запуска процесса до строки готовности ≤ 5 с, рабочий набор через 3 с
-        /// после готовности ≤ 128 МБ. Пик рабочего набора (создание мира) и загрузка машины — в вывод. Процесс без сети
-        /// наружу (петля), снимается по своему объекту процесса.
+        /// (<c>--create</c>) и загрузка того же мира; от запуска процесса до готовности ≤ 5 с (секунды меряет сам сервер —
+        /// <c>sinceProcessStartSec</c> в логе, P-003), рабочий набор через 3 с после готовности ≤ 128 МБ. Пик рабочего набора
+        /// (создание мира) и загрузка машины — в вывод. Процесс без сети наружу (петля), снимается по своему объекту процесса.
         /// </summary>
         [Fact]
         [Trait("Category", "Big")]
@@ -138,53 +150,77 @@ namespace Orpheus.Tests
         {
             string world = Path.Combine(_dir, "w1024");
             using var cpu = new CpuLoad();
-            (double createSec, double createWs, double createPeak) = StartServer($"--world \"{world}\" --create --seed 42 --size 1024 --port 0 --metrics 0");
-            (double loadSec, double loadWs, double loadPeak) = StartServer($"--world \"{world}\" --port 0 --metrics 0");
+            (double createWall, double createSec, double createWs, double createPeak) = StartServer("--world", world, "--create", "--seed", "42", "--size", "1024", "--port", "0", "--metrics", "0");
+            (double loadWall, double loadSec, double loadWs, double loadPeak) = StartServer("--world", world, "--port", "0", "--metrics", "0");
             CpuLoad.Summary load = cpu.Stop();
-            _out.WriteLine($"новый мир: готов за {createSec:F2} с, рабочий набор {createWs:F0} МБ, пик {createPeak:F0} МБ");
-            _out.WriteLine($"загрузка мира: готов за {loadSec:F2} с, рабочий набор {loadWs:F0} МБ, пик {loadPeak:F0} МБ");
+            _out.WriteLine($"новый мир: сервер готов за {createSec:F3} с (wall-clock {createWall:F2} с), рабочий набор {createWs:F0} МБ, пик {createPeak:F0} МБ");
+            _out.WriteLine($"загрузка мира: сервер готов за {loadSec:F3} с (wall-clock {loadWall:F2} с), рабочий набор {loadWs:F0} МБ, пик {loadPeak:F0} МБ");
             _out.WriteLine($"загрузка: {load}");
-            Assert.True(createSec <= ReadyMaxSeconds, $"новый мир: старт {createSec:F2} с > {ReadyMaxSeconds} с; {load}");
-            Assert.True(loadSec <= ReadyMaxSeconds, $"загрузка: старт {loadSec:F2} с > {ReadyMaxSeconds} с; {load}");
+            // P-003: проверяется серверное число (от запуска процесса, его меряет сам сервер), порог 5 с не ослаблен.
+            Assert.True(createSec <= ReadyMaxSeconds, $"новый мир: серверный старт {createSec:F2} с > {ReadyMaxSeconds} с (wall-clock {createWall:F2} с); {load}");
+            Assert.True(loadSec <= ReadyMaxSeconds, $"загрузка: серверный старт {loadSec:F2} с > {ReadyMaxSeconds} с (wall-clock {loadWall:F2} с); {load}");
             Assert.True(createWs <= MemoryMaxMb, $"новый мир: {createWs:F0} МБ > {MemoryMaxMb} МБ");
             Assert.True(loadWs <= MemoryMaxMb, $"загрузка: {loadWs:F0} МБ > {MemoryMaxMb} МБ");
         }
 
-        /// <summary>Запустить сервер, дождаться «orpheus-ready», через 3 с снять память и снять процесс.</summary>
-        private static (double ReadySeconds, double WorkingSetMb, double PeakMb) StartServer(string args)
+        /// <summary>Запустить сервер, дождаться строки готовности (маркер + серверные секунды), через 3 с снять память и снять процесс.</summary>
+        /// <remarks>
+        /// P-003 (Big, случай 13.11 «ReadyWithin5s»): правило 1.9 п. 4 — секунды ОТ ЗАПУСКА ПРОЦЕССА до готовности, их меряет
+        /// сам сервер и пишет в лог «готов: принимаю подключения» (<c>sinceProcessStartSec</c>, см. <c>ServerHost.ReadyMetrics</c>).
+        /// Wall-clock от <c>Process.Start</c> до маркера включает создание процесса ОС и планировщик — под <c>-All</c> это шум;
+        /// он печатается для справки, проверка идёт по числу самого процесса, порог 5 с не ослаблен.
+        /// </remarks>
+        private static (double WallClockSec, double ServerReadySec, double WorkingSetMb, double PeakMb) StartServer(params string[] args)
         {
             string exe = PcServerLauncher.DefaultPath(AppContext.BaseDirectory);
-            var psi = new ProcessStartInfo
-            {
-                FileName = exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? "dotnet" : exe,
-                Arguments = exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? $"\"{exe}\" {args}" : args,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-            };
+            bool dll = exe.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
             using var ready = new ManualResetEventSlim();
             var watch = Stopwatch.StartNew();
             double readySec = -1;
-            using Process p = Process.Start(psi)!;
-            p.OutputDataReceived += (_, e) =>
+            double serverSec = -1;
+            // C-022: на невидимом рабочем столе (не мигать экраном Автора).
+            using HiddenProcess p = HiddenProcess.Start(dll ? "dotnet" : exe, dll ? new[] { exe }.Concat(args) : args, AppContext.BaseDirectory);
+            p.BeginReadLines(data =>
             {
-                if (e.Data != null && e.Data.StartsWith(ServerRun.ReadyMarker, StringComparison.Ordinal) && readySec < 0)
+                if (data == null)
                 {
-                    readySec = watch.Elapsed.TotalSeconds;
-                    ready.Set();
+                    return;
                 }
-            };
-            p.ErrorDataReceived += (_, e) => { };
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
+
+                if (data.StartsWith(ServerRun.ReadyMarker, StringComparison.Ordinal) && readySec < 0)
+                {
+                    readySec = watch.Elapsed.TotalSeconds; // справка: wall-clock лаунчера (не проверяется)
+                }
+
+                // P-003: строка «готов: принимаю подключения» — JSON-строка JsonLog в консоли (ServerRun.cs:41), поле
+                // data.sinceProcessStartSec — секунды от запуска процесса, их меряет сам сервер (ServerHost.ReadyMetrics).
+                if (data.Contains("sinceProcessStartSec", StringComparison.Ordinal) && serverSec < 0)
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(data);
+                        if (doc.RootElement.TryGetProperty("data", out JsonElement d) &&
+                            d.TryGetProperty("sinceProcessStartSec", out JsonElement v) &&
+                            v.TryGetDouble(out double s))
+                        {
+                            serverSec = s;
+                            ready.Set();
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // строка не JSON (например, маркер готовности) — пропускаем
+                    }
+                }
+            }, _ => { });
             try
             {
                 Assert.True(ready.Wait(TimeSpan.FromSeconds(60)) || p.HasExited, "сервер не готов за 60 с");
                 Assert.False(p.HasExited && readySec < 0, $"сервер вышел до готовности, код {(p.HasExited ? p.ExitCode : 0)}");
+                Assert.True(serverSec >= 0, $"сервер не написал sinceProcessStartSec (wall-clock {readySec:F2} с)");
                 Thread.Sleep(3000);
-                p.Refresh();
-                return (readySec, p.WorkingSet64 / 1048576.0, p.PeakWorkingSet64 / 1048576.0);
+                using Process mem = Process.GetProcessById(p.Id); // ручка процесса у нас — PID не переиспользован
+                return (readySec, serverSec, mem.WorkingSet64 / 1048576.0, mem.PeakWorkingSet64 / 1048576.0);
             }
             finally
             {

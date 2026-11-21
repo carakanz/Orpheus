@@ -788,6 +788,105 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// C-021 (хвост П C-009, замечание 1): порог <see cref="MeleeRogue.EpisodeClosePathPoints"/> = 4 обоснован тестом.
+        /// Раскачиваемый у косяка враг с переспросом пути (толкотня + штатный цикл Blocked «застрял» → Chase → новый запрос)
+        /// проходит за цикл 1–2 точки нового пути — меньше порога, эпизод не закрыт, сдача за 20 с. В П мутация «порог 1
+        /// вместо 4» выжила: в старом тесте «RockedAtJamb» враг не проходил ни одной точки (переспроса не было).
+        /// Мутация «1» — эпизод закрывается на каждой точке, сдачи нет — красный.
+        /// </summary>
+        [Fact]
+        public void C021_RockedWithRepaths_Passes1_2PathPoints_GivesUpIn20s()
+        {
+            var sim = DoorRoom(false, 1226, out int ch);
+            sim.SteerOffForTests = true;
+            int rogue = sim.AddMeleeRogue(At(16.5, 27.5));
+            int guard = 0;
+            while (sim.GetEntity(rogue).Brain.BlockedSince == 0)
+            {
+                sim.Step();
+                Assert.True(++guard < 900, "враг не упёрся");
+            }
+
+            long since = sim.GetEntity(rogue).Brain.BlockedSince;
+            int maxPathPos = 0;
+            long gaveUp = -1;
+            for (int i = 1; i <= 1500 && gaveUp < 0; i++)
+            {
+                if (i % 40 == 0)
+                {
+                    WorldPos p = sim.GetEntity(rogue).Mover.Position;
+                    sim.PlaceForTests(rogue, new WorldPos(p.X - 4 * U / 5, p.Y));
+                }
+
+                sim.Step();
+                maxPathPos = Math.Max(maxPathPos, sim.GetEntity(rogue).Brain.PathPos);
+                if (sim.GetEntity(rogue).Brain.IgnoreTargetId == ch)
+                {
+                    gaveUp = sim.Tick;
+                }
+            }
+
+            _out.WriteLine($"эпизод с {since}, сдался на {gaveUp}, макс. точек пути {maxPathPos}");
+            Assert.True(maxPathPos >= 1, $"враг не прошёл ни одной точки пути (макс {maxPathPos}) — порог 1 не проверяется");
+            Assert.True(maxPathPos < MeleeRogue.EpisodeClosePathPoints,
+                $"пройдено {maxPathPos} точек — на пороге {MeleeRogue.EpisodeClosePathPoints}: сценарий не про порог");
+            Assert.True(gaveUp > 0, "раскачиваемый враг (1–2 точки за цикл) не сдался за 50 с — порог 4 не отличается от 1");
+            Assert.True(gaveUp - since <= MeleeRogue.BlockedGiveUpTicks + 120, $"сдался через {gaveUp - since} тактов");
+        }
+
+        /// <summary>
+        /// C-021 (хвост П C-009): враг, циклически проходящий ≥ 4 точки пути, не сдаётся. Цикл: толкотня у косяка при
+        /// выключенном подруливании — открывается эпизод «застрял»; отпуск подруливания + отброс на 3 тайла запад проёма —
+        /// враг идёт по пути и проходит ≥ 4 точки, точки закрывают эпизод; возврат к косяку — новый эпизод. Шесть циклов
+        /// (суммарно больше 20 с): каждый эпизод закрыт точками, сдачи нет. Мутация «эпизод закрывает только путь
+        /// появился» (без точек пути) — первый эпизод длится 600 тактов, сдача — красный.
+        /// </summary>
+        [Fact]
+        public void C021_CyclicPathPoints_EpisodesKeepClosing_NoGiveUp()
+        {
+            var sim = DoorRoom(false, 1226, out int ch);
+            int rogue = sim.AddMeleeRogue(At(16.5, 27.5));
+            int closed = 0;
+            long gaveUp = -1;
+            for (int cycle = 0; cycle < 6 && gaveUp < 0; cycle++)
+            {
+                // Эпизод открывается у косяка: подруливание выключено, враг сам упинается (как в RockedAtJamb).
+                sim.SteerOffForTests = true;
+                sim.PlaceForTests(rogue, At(16.5, 27.5));
+                int guard = 0;
+                while (sim.GetEntity(rogue).Brain.BlockedSince == 0)
+                {
+                    sim.Step();
+                    Assert.True(++guard < 700, $"эпизод не открылся в цикле {cycle}: {sim.GetEntity(rogue).Brain.State}");
+                }
+
+                // Проход по пути: отброс на 3 тайла запад проёма, подруливание включено — точки закрывают эпизод.
+                sim.SteerOffForTests = false;
+                sim.PlaceForTests(rogue, At(17.0, 30.5));
+                guard = 0;
+                while (sim.GetEntity(rogue).Brain.BlockedSince != 0)
+                {
+                    sim.Step();
+                    Assert.True(++guard < 90, $"эпизод не закрыт точками пути в цикле {cycle} — враг идёт по пути");
+                }
+
+                closed++;
+                for (int i = 0; i < 40; i++)
+                {
+                    sim.Step();
+                    if (sim.GetEntity(rogue).Brain.IgnoreTargetId == ch)
+                    {
+                        gaveUp = sim.Tick;
+                    }
+                }
+            }
+
+            _out.WriteLine($"эпизодов закрыто {closed}, сдался {gaveUp}, состояние {sim.GetEntity(rogue).Brain.State}");
+            Assert.True(gaveUp < 0, $"циклический враг (≥ 4 точки за цикл) сдался на {gaveUp}");
+            Assert.True(closed >= 4, $"закрыто эпизодов {closed} — не цикл");
+        }
+
+        /// <summary>
         /// C-009 (замечание 4): подруливание у диагонали. Мутация «у диагонали не подруливать» выжила у проверяющего — она
         /// эквивалентна: столкновения раздельные по осям (сначала X, потом Y) и не откатывают за старт, так что диагональный
         /// шаг не приближает, только если оба его осевых сдвига нулевые, — тогда и чисто осевые шаги стоят. Ветка удалена;

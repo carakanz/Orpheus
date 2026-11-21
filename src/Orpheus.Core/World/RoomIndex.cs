@@ -55,6 +55,15 @@ namespace Orpheus.Core.World
         /// <summary>Сколько раз метки чанка пересчитаны (тест кэша).</summary>
         public long Rebuilds { get; private set; }
 
+        /// <summary>
+        /// C-034: убрать запись меток чанка (выгрузка чанка у клиента, <c>WorldModel.RemoveChunk</c>).
+        /// Запись — чистая функция окна 3 × 3, при следующем запросе пересчитается детерминированно.
+        /// </summary>
+        public void Drop(ChunkCoord chunk) => _entries.Remove(Torus.Wrap(_world.Shape, chunk));
+
+        /// <summary>Число записей кэша (тест C-034: при выгрузке чанков не должен расти за пределы видимого окна).</summary>
+        public int EntryCount => _entries.Count;
+
         /// <summary>Метки ячеек чанка (64 × 64, индекс cy × 64 + cx; Y вниз): <see cref="Outside"/>, <see cref="Room"/>, <see cref="LitRoom"/>.</summary>
         public byte[] LabelsOf(ChunkCoord chunk)
         {

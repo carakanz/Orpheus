@@ -5,53 +5,6 @@ using Orpheus.Core.World;
 namespace Orpheus.WorldGen
 {
     /// <summary>
-    /// Тропы (карточка E1-2, план 1.3): линии проходов шириной 2–3 тайла через весь мир — линии уровня ½ двух независимых
-    /// гладких полей (ячейки 128, 64). Ширина постоянная: тайл на тропе, если расстояние до линии |v − ½| / |∇v| ≤ 1,3.
-    /// Тропы вычитаются из леса и обрывов (там — проход), пол на них — земля.
-    /// </summary>
-    public static class TrailStage
-    {
-        public const int Stage = 16;
-
-        /// <summary>Сколько полей троп (линии разных полей пересекаются — получается сеть).</summary>
-        public const int Fields = 2;
-
-        public static readonly int[] Cells = { 256, 128 };
-
-        /// <summary>Полуширина тропы, сотые тайла.</summary>
-        public const int HalfWidth100 = 130;
-
-        /// <summary>Пометить тропы в <see cref="TileWorld.Marks"/> (<see cref="TileWorld.MarkTrail"/>).</summary>
-        public static void Run(TileWorld t)
-        {
-            int w = t.WorldSize;
-            int mask = w - 1;
-            ulong seed = t.Macro.Map.Seed;
-            for (int f = 0; f < Fields; f++)
-            {
-                ushort[] v = GridField.Upsample(new FieldNoise(MacroGenerator.FieldSeed(seed, Stage, f + 1), w, Cells, ridged: false), w);
-                for (int y = 0; y < w; y++)
-                {
-                    int row = y * w;
-                    int up = ((y - 1) & mask) * w;
-                    int down = ((y + 1) & mask) * w;
-                    for (int x = 0; x < w; x++)
-                    {
-                        long d = v[row + x] - (LatticeNoise.One >> 1);
-                        long gx = v[row + ((x + 1) & mask)] - v[row + ((x - 1) & mask)]; // 2 × градиент
-                        long gy = v[down + x] - v[up + x];
-                        // |d| ≤ hw · |∇v|, |∇v| = √(gx² + gy²) / 2  ⇔  4·d²·100² ≤ hw100² · (gx² + gy²)
-                        if (4 * d * d * 10000 <= (long)HalfWidth100 * HalfWidth100 * ((gx * gx) + (gy * gy)))
-                        {
-                            t.Marks[row + x] |= TileWorld.MarkTrail;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// <summary>
     /// Горы-лабиринт (карточки E1-2, E1-6b, C-016; генератор v8): непроходимые и неломаемые скальные массивы 12–20 тайлов
     /// поперёк с узкими ущельями (2–3 тайла), хребтами, тупиками и долинами.
     /// <para>
@@ -552,30 +505,8 @@ namespace Orpheus.WorldGen
             return s < -WarpTiles ? -WarpTiles : (s > WarpTiles ? WarpTiles : s);
         }
 
-        // Вода, берег, тропа или тайл рядом с тропой — обрыва нет.
-        private static bool Busy(TileWorld t, int x, int y)
-        {
-            int w = t.WorldSize;
-            int mask = w - 1;
-            if (t.Floor[(y * w) + x] != FloorId.Empty)
-            {
-                return true;
-            }
-
-            for (int dy = -1; dy <= 1; dy++)
-            {
-                int row = ((y + dy) & mask) * w;
-                for (int dx = -1; dx <= 1; dx++)
-                {
-                    if ((t.Marks[row + ((x + dx) & mask)] & TileWorld.MarkTrail) != 0)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
+        // Вода или берег — обрыва нет (C-027, v9: троп больше нет).
+        private static bool Busy(TileWorld t, int x, int y) => t.Floor[(y * t.WorldSize) + x] != FloorId.Empty;
 
         private static bool[] Not(bool[] a)
         {

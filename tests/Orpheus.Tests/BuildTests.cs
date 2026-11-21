@@ -172,7 +172,9 @@ namespace Orpheus.Tests
                 Assert.True(BuildHand.IsBuildItem(item));
                 Assert.Equal(ItemCategory.Building, ItemTable.Get(item).Category);
                 // E2-16: верстак 2 × 2 тайла — рядом с остальными не влезает, ставим рядом выше.
-                var t = key == BuildDefs.PlatformKey ? new TileCoord(306, 199) : key == ObjectId.Workbench ? new TileCoord(295 + k, 194) : new TileCoord(295 + k, 197);
+                // C-030: кровать двуспальная 2 × 2 — тоже выше, западнее верстака (в досягаемости).
+                var t = key == BuildDefs.PlatformKey ? new TileCoord(306, 199) : key == ObjectId.Workbench ? new TileCoord(295 + k, 194)
+                    : key == ObjectId.Bed ? new TileCoord(300, 194) : new TileCoord(295 + k, 197);
                 BuildCheck chk = Build(rig, c, hand, key, t);
                 Assert.True(chk.Ok, $"постройка {key}: {chk.Reason}");
                 Assert.Equal(BuildAction.Place, chk.Action);
@@ -1054,7 +1056,8 @@ namespace Orpheus.Tests
             Kill(rig, c);
             e = rig.Sim.GetEntity(c.EntityId);
             Assert.True(e.Alive);
-            Assert.True(Torus.Dist2(rig.Sim.Shape, e.Mover.Position, EditRules.CenterOf(bed)) <= 2L * U * 2L * U, $"возродился в {e.Mover.Position}");
+            // C-030: кровать двуспальная 2 × 2 — возрождение на свободном тайле рядом: до центра кровати не дальше 2 тайлов.
+            Assert.True(Torus.Dist2(rig.Sim.Shape, e.Mover.Position, BuildLayers.CenterAt(rig.Sim.World, bed)) <= 2L * U * 2L * U, $"возродился в {e.Mover.Position}");
             Assert.NotEqual(bed, Torus.TileOf(rig.Sim.Shape, e.Mover.Position));
 
             // Снесли кровать (правка мира) — возрождение у старта, точка снята.
@@ -1085,7 +1088,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Save_Format9_Chests_Beds_RoundTrip_ServerRestart()
         {
-            Assert.Equal(13u, SaveModule.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(17u, SaveModule.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             SaveFixtures.LiveWorld live = SaveFixtures.Create(256, 25, bots: 0);
             Simulation sim = live.Sim;
             WorldPos at = Orpheus.Server.ServerRun.SpawnPoint(sim.Shape, 0);
@@ -1116,7 +1119,7 @@ namespace Orpheus.Tests
             byte[] save = WorldSave.Build(WorldSave.Capture(sim, live.BaseSha, "сундуки", chars), 2, 0);
             SaveFile f = SaveContainer.Read(save);
             Assert.True(f.IsOk, f.Error);
-            Assert.Equal(13u, f.Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(17u, f.Header.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             LoadedWorldState st = WorldSave.Load(f, WorldSnapshot.LoadBase(live.BaseBytes), live.BaseSha);
             Assert.Equal(2, st.ChestTiles.Length);
             Assert.Equal(c1, st.ChestTiles[0]); // по (Y, X): c2 южнее (Y больше) — второй
@@ -1184,7 +1187,7 @@ namespace Orpheus.Tests
             Assert.Equal(77, st.Characters[1].Inv.Count(Items.Stone));
 
             Simulation sim = SaveFixtures.Load(baseBytes, v8);
-            Assert.Equal("e09eff630b0899ff", StateHash.Compute(sim).Total.ToString("x16"));
+            Assert.Equal("514e925be82bb377", StateHash.Compute(sim).Total.ToString("x16")); // E3-6: формат 16 (надетое в записи сущности)
             var chest = new TileCoord(124, 127);
             var bed = new TileCoord(124, 129);
             Assert.Equal(ObjectId.Chest, Obj(sim, chest));
@@ -1199,7 +1202,7 @@ namespace Orpheus.Tests
             int id = st.Entities[0].Id;
             Assert.Equal(EditReply.Accepted, sim.RequestSetBed(id, bed));
             byte[] again = WorldSave.Build(WorldSave.Capture(sim, WorldSnapshot.StoredHash(baseBytes), "формат8", st.Characters), 7, 0);
-            Assert.Equal(13u, SaveContainer.Read(again).Header.FormatVersion); // E2-14: 13, E2-16: 12 (E2-15: 11)
+            Assert.Equal(17u, SaveContainer.Read(again).Header.FormatVersion); // C-031: 14, E2-14: 13, E2-16: 12 (E2-15: 11)
             Simulation re = SaveFixtures.Load(baseBytes, again);
             Assert.Equal(StateHash.Compute(sim).Total, StateHash.Compute(re).Total);
             Assert.True(re.TryGetChest(chest, out Inventory back));
@@ -1223,7 +1226,7 @@ namespace Orpheus.Tests
             Assert.True(f.IsOk, f.Error);
             Assert.Equal(8u, f.Header.FormatVersion);
             Simulation sim = SaveFixtures.Load(baseBytes, v8);
-            Assert.Equal("5b86237e5673c26d", StateHash.Compute(sim).Total.ToString("x16")); // хэш, записанный генератором
+            Assert.Equal("4bfc5e59ad33151f", StateHash.Compute(sim).Total.ToString("x16")); // хэш, записанный генератором; E3-6: формат 16
 
             int id = sim.Entities[0].Id;
             var cases = new List<(TileCoord Tile, byte Floor, ushort Obj, byte Natural, int Integrity, byte Item, int Refund)>();
@@ -1275,7 +1278,7 @@ namespace Orpheus.Tests
         [Fact]
         public void E25_Net_GoldenBytes_Use_Reply_Chest_Repair()
         {
-            Assert.Equal(29, NetModule.ProtocolVersion); // C-013: 29; E2-16: 28
+            Assert.Equal(38, NetModule.ProtocolVersion); // E3-3b: 38 (владелец личной капли в кучах 27); C-036: 37 (действие в снимке); C-035: 36 (пачка 40); E3-6: 35 (надетое тремя байтами в сумке 26) // C-028: 34 (взмах, тип 39); C-030: 33; C-031: 32; E3-2: 31; E3-1: 30; C-013: 29; E2-16: 28
             var buf = new byte[256];
             int n = new UseRequestMessage { Op = UseOp.Use, Tile = new TileCoord(0x0102, 0x0304) }.Write(buf);
             Assert.Equal(UseRequestMessage.Bytes, n);
@@ -1315,7 +1318,7 @@ namespace Orpheus.Tests
             Assert.Equal(5, buf[3]);
             n = new BagRequestMessage { Op = BagOp.Move, From = 69, To = 0 }.Write(buf);
             Assert.Equal(69, BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)).From);
-            buf[2] = 70;
+            buf[2] = 73; // E3-6: MaxCell = 40 + 30 + 3 = 73
             Assert.Throws<ProtocolException>(() => BagRequestMessage.Read(new ReadOnlySpan<byte>(buf, 0, n)));
         }
 

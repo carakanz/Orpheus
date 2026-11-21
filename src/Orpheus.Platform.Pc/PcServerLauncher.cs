@@ -29,12 +29,21 @@ namespace Orpheus.Platform.Pc
         /// <c>OrpheusServer.exe</c> (рядом со сборкой клиента — <c>tools/build_client.ps1</c>) или <c>OrpheusServer.dll</c>
         /// (тогда через <c>dotnet</c>).
         /// </param>
-        public PcServerLauncher(string serverPath)
+        /// <param name="hiddenDesktop">
+        /// C-022: сервер — на невидимом рабочем столе (<see cref="HiddenProcess"/>; тесты и инструменты — всегда так, чтобы не
+        /// мигать экраном Автора). Игра (<c>LocalServer</c>) — <c>false</c>: сервер переживает игру (2.3), а стол живёт,
+        /// пока его держит игра или кто-то на нём; сервер без окна (<c>CreateNoWindow</c>) на столе игрока.
+        /// </param>
+        public PcServerLauncher(string serverPath, bool hiddenDesktop = false)
         {
             ServerPath = Path.GetFullPath(serverPath ?? throw new ArgumentNullException(nameof(serverPath)));
+            HiddenDesktop = hiddenDesktop && HiddenProcess.IsSupported;
         }
 
         public string ServerPath { get; }
+
+        /// <summary>Запуск на невидимом столе (только Windows).</summary>
+        public bool HiddenDesktop { get; }
 
         /// <summary><c>OrpheusServer.exe</c> (или <c>.dll</c>) в папке <paramref name="dir"/>; нет ни того, ни другого — путь к .exe.</summary>
         public static string DefaultPath(string dir)
@@ -128,7 +137,15 @@ namespace Orpheus.Platform.Pc
             psi.Arguments = JoinArguments(args);
 
             var instance = new Instance(token);
-            instance.Begin(psi);
+            if (HiddenDesktop)
+            {
+                instance.BeginHidden(psi.FileName, args, psi.WorkingDirectory);
+            }
+            else
+            {
+                instance.Begin(psi);
+            }
+
             try
             {
                 instance.WaitReady(launch.ReadyTimeoutMs);
@@ -223,6 +240,7 @@ namespace Orpheus.Platform.Pc
             private readonly Queue<string> _recent = new Queue<string>();
             private readonly ManualResetEventSlim _readyOrExit = new ManualResetEventSlim(false);
             private Process? _process;
+            private HiddenProcess? _hidden;
             private Stopwatch _since = new Stopwatch();
             private int _port = -1;
             private int _pid;
@@ -242,7 +260,7 @@ namespace Orpheus.Platform.Pc
                 {
                     try
                     {
-                        return _process == null || _process.HasExited;
+                        return _hidden != null ? _hidden.HasExited : _process == null || _process.HasExited;
                     }
                     catch (InvalidOperationException)
                     {
@@ -251,7 +269,7 @@ namespace Orpheus.Platform.Pc
                 }
             }
 
-            public int? ExitCode => HasExited && _process != null ? _process.ExitCode : (int?)null;
+            public int? ExitCode => !HasExited ? (int?)null : _hidden != null ? _hidden.ExitCode : _process?.ExitCode;
 
             public IReadOnlyList<string> RecentOutput
             {
@@ -282,6 +300,41 @@ namespace Orpheus.Platform.Pc
                 p.BeginErrorReadLine();
             }
 
+            /// <summary>C-022: то же на невидимом столе.</summary>
+            public void BeginHidden(string fileName, IEnumerable<string> args, string workingDirectory)
+            {
+                _since = Stopwatch.StartNew();
+                HiddenProcess p;
+                try
+                {
+                    p = HiddenProcess.Start(fileName, args, workingDirectory);
+                }
+                catch (System.ComponentModel.Win32Exception e)
+                {
+                    throw new ServerLaunchException($"Сервер не запустился: {fileName}: {e.Message}");
+                }
+
+                _hidden = p;
+                _pid = p.Id;
+                p.Exited += () =>
+                {
+                    try
+                    {
+                        _readyOrExit.Set();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // ручки уже отпущены (Dispose) — ждать некому
+                    }
+                };
+                if (p.HasExited)
+                {
+                    _readyOrExit.Set();
+                }
+
+                p.BeginReadLines(l => OnLine(l, stdout: true), l => OnLine(l, stdout: false));
+            }
+
             public void WaitReady(int timeoutMs)
             {
                 if (!_readyOrExit.Wait(timeoutMs))
@@ -291,9 +344,9 @@ namespace Orpheus.Platform.Pc
 
                 if (_port < 0)
                 {
-                    _process!.WaitForExit(); // дочитать вывод
+                    WaitForExit(Timeout.Infinite); // дочитать вывод
                     throw new ServerLaunchException(
-                        $"Сервер вышел до готовности (код {_process.ExitCode}):{Environment.NewLine}{string.Join(Environment.NewLine, RecentOutput)}");
+                        $"Сервер вышел до готовности (код {ExitCode}):{Environment.NewLine}{string.Join(Environment.NewLine, RecentOutput)}");
                 }
             }
 
@@ -331,8 +384,9 @@ namespace Orpheus.Platform.Pc
 
                 try
                 {
-                    _process!.StandardInput.WriteLine("stop");
-                    _process.StandardInput.Flush();
+                    StreamWriter input = _hidden != null ? _hidden.StandardInput : _process!.StandardInput;
+                    input.WriteLine("stop");
+                    input.Flush();
                 }
                 catch (IOException)
                 {
@@ -347,6 +401,13 @@ namespace Orpheus.Platform.Pc
 
             public void Kill()
             {
+                if (_hidden != null)
+                {
+                    _hidden.Kill();
+                    _hidden.WaitForExit(5000);
+                    return;
+                }
+
                 try
                 {
                     if (_process != null && !_process.HasExited)
@@ -363,6 +424,17 @@ namespace Orpheus.Platform.Pc
 
             public bool WaitForExit(int timeoutMs)
             {
+                if (_hidden != null)
+                {
+                    if (!_hidden.WaitForExit(timeoutMs))
+                    {
+                        return false;
+                    }
+
+                    _hidden.WaitForExit(); // дочитать вывод
+                    return true;
+                }
+
                 if (_process == null)
                 {
                     return true;
@@ -380,6 +452,15 @@ namespace Orpheus.Platform.Pc
             /// <summary>Отпустить ручки. Работающий сервер останавливается штатно (игра закрывается — мир сохраняется).</summary>
             public void Dispose()
             {
+                if (_hidden != null)
+                {
+                    Stop(10_000);
+                    _hidden.Dispose();
+                    _hidden = null;
+                    _readyOrExit.Dispose();
+                    return;
+                }
+
                 if (_process == null)
                 {
                     return;
