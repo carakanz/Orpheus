@@ -115,6 +115,16 @@ namespace Orpheus.Client
             /// <summary>Объектов в строке сейчас.</summary>
             public readonly int[] RowCounts = new int[Size];
 
+            /// <summary>
+            /// C-054 (хвост C-049 П-2.3): ячейки (<see cref="Chunk.IndexOf"/>) костров чанка — список
+            /// собирается в <see cref="Fill"/> (при добавлении узла и при сетевой правке тайла) и читается
+            /// <c>CampfireSparkFx</c>: искры смотрят только на костры, а не сканируют все 1024 тайла кадра.
+            /// </summary>
+            public readonly ushort[] FireCells = new ushort[Size * Size];
+
+            /// <summary>Заполненных ячеек в <see cref="FireCells"/>.</summary>
+            public int FireCount;
+
             /// <summary>В строке есть блоки (обрыв): их вид зависит от соседей, в том числе в соседнем чанке.</summary>
             public readonly bool[] RowBlocks = new bool[Size];
 
@@ -802,6 +812,7 @@ namespace Orpheus.Client
             Chunk? chunk = _world.FindChunk(c);
             bool fresh = !node.HasFloors; // узел из пула: копии полов нет, меш собирается целиком
             bool built = false;
+            node.FireCount = 0; // C-054: список костров пересобирается вместе с тайлами (узел из пула — старый недействителен)
             int minX = Size, minY = Size, maxX = -1, maxY = -1; // рамка тайлов, где сменился пол
             byte[] shown = node.Floors;
             ushort[] objs = node.Objs;
@@ -814,6 +825,10 @@ namespace Orpheus.Client
                     int index = Chunk.IndexOf(lx, ly);
                     byte floor = chunk == null ? FloorId.Grass : chunk.GetFloor(index);
                     ushort obj = chunk == null ? ObjectId.Empty : chunk.GetObject(index);
+                    if (obj == ObjectId.Campfire)
+                    {
+                        node.FireCells[node.FireCount++] = (ushort)index; // C-054: костры чанка — их читают искры (цикл и так по всем тайлам)
+                    }
                     byte part = FloorCellsLook.PartialMask(chunk, index, floor); // E2-15: пол частью тайла — четвертями
                     if (FloorCellsLook.Sync(node.FloorCells, node.FloorMasks, node.FloorMaskFloors, lx, ly, floor, part) && !fresh)
                     {

@@ -20,19 +20,18 @@ namespace Orpheus.Client
         const int MaxFires = 8;
         const int SparksPerFire = 4;
 
-        readonly WorldModel _world;
         readonly MapShape _map;
         readonly GameObject _root;
         readonly SpriteRenderer[] _spark = new SpriteRenderer[MaxFires * SparksPerFire];
         readonly TileCoord[] _fires = new TileCoord[MaxFires];
+        readonly bool[] _fireKnown = new bool[MaxFires]; // C-054 (П C-049, п. 6): костёр на тайле (0,0) не отличался от пустого слота (default) — фаза не задавалась
         readonly float[] _phase = new float[MaxFires * SparksPerFire];
         readonly List<TileCoord> _found = new List<TileCoord>(MaxFires);
 
         int _pooled; // рендереров создано (ленивая пул)
 
-        public CampfireSparkFx(Transform parent, WorldModel world, MapShape map)
+        public CampfireSparkFx(Transform parent, MapShape map)
         {
-            _world = world;
             _map = map;
             _root = new GameObject("CampfireSparks");
             _root.transform.SetParent(parent, false);
@@ -41,38 +40,30 @@ namespace Orpheus.Client
         /// <summary>Сколько костров с искрами видно в кадре (для smoke и снимков).</summary>
         public int FiresVisible { get; private set; }
 
+        /// <summary>Ячеек костров осмотрено в последнем кадре (гейт smoke: это число, а не 1024×чанков). C-054.</summary>
+        public int ScanCellsLastFrame { get; private set; }
+
         /// <summary>
-        /// Кадр игры: найти костры в построенных узлах окна и поднять искры.
-        /// <paramref name="nowSec"/> — часы прогона (в снимках шагают по 1/60: лента повторяема).
+        /// Кадр игры: взять костры из списков <see cref="WorldView.ChunkNode.FireCells"/> (C-054, хвост
+        /// C-049 П-2.3: прежний код сканировал все 1024 тайла каждого узла кадра) и поднять искры.
+        /// Список чанка собирается в <c>WorldView.Fill</c> — при показе чанка и при каждой сетевой правке
+        /// тайла, поэтому мир в нём всегда актуален. <paramref name="nowSec"/> — часы прогона (в снимках
+        /// шагают по 1/60: лента повторяема).
         /// </summary>
         public void Frame(WorldView view, FloatingOrigin origin, float nowSec)
         {
             _found.Clear();
+            int scan = 0;
             foreach (WorldView.ChunkNode node in view.Nodes)
             {
-                Chunk? chunk = _world.FindChunk(node.Coord);
-                if (chunk == null)
-                {
-                    continue;
-                }
-
                 TileCoord corner = Torus.CornerOf(node.Coord);
-                for (int ly = 0; ly < Torus.ChunkSize; ly++)
+                for (int k = 0; k < node.FireCount; k++)
                 {
-                    for (int lx = 0; lx < Torus.ChunkSize; lx++)
-                    {
-                        if (chunk.GetObject(Chunk.IndexOf(lx, ly)) != ObjectId.Campfire)
-                        {
-                            continue;
-                        }
-
-                        _found.Add(Torus.Wrap(_map, new TileCoord(corner.X + lx, corner.Y + ly)));
-                        if (_found.Count == MaxFires)
-                        {
-                            break;
-                        }
-                    }
-
+                    scan++;
+                    int cell = node.FireCells[k];
+                    int lx = cell & (Torus.ChunkSize - 1);
+                    int ly = cell >> Torus.ChunkBits;
+                    _found.Add(Torus.Wrap(_map, new TileCoord(corner.X + lx, corner.Y + ly)));
                     if (_found.Count == MaxFires)
                     {
                         break;
@@ -84,6 +75,8 @@ namespace Orpheus.Client
                     break;
                 }
             }
+
+            ScanCellsLastFrame = scan;
 
             for (int f = 0; f < _found.Count; f++)
             {
@@ -97,8 +90,9 @@ namespace Orpheus.Client
                     int slot = f * SparksPerFire + i;
                     SpriteRenderer sr = Renderer(slot);
                     float ph = _phase[slot];
-                    if (_fires[f] != t)
+                    if (!_fireKnown[f] || _fires[f] != t)
                     {
+                        _fireKnown[f] = true;
                         _fires[f] = t;
                         for (int j = 0; j < SparksPerFire; j++)
                         {

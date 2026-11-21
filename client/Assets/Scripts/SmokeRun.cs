@@ -298,6 +298,14 @@ namespace Orpheus.Client
             }
 
             CheckWindow();
+            // C-054 (хвост C-049 П-2.3): искры за кадр смотрят только на список костров. Полный скан
+            // (1024 тайла × чанков окна) при 0 видимых кострах дал бы десятки тысяч просмотров → FAIL.
+            CampfireSparkFx? fx = _g.FireSparks;
+            if (fx != null && fx.ScanCellsLastFrame > fx.FiresVisible)
+            {
+                Fail($"кадр {_frames}: искры осмотрели {fx.ScanCellsLastFrame} ячеек при видимых кострах {fx.FiresVisible} — скан окна полным проходом");
+            }
+
             WorldPos ch = DrawnCharacter(out bool okChar);
             WorldPos cam = DrawnCamera(out bool okCam);
             if (!okChar || !okCam)

@@ -110,6 +110,9 @@ namespace Orpheus.Client
         HearthMarkerView? _hearth;      // E3-6b: маркер Очага на тайле центра (спавн) — офлайн-мир и снимки
         float _hearthClock;             // E3-6b: часы пульса маркера (в снимках кадр фиксированный — детерминированно)
         CampfireSparkFx? _fireSparks;   // C-049: искры у поставленных костров (часы те же, что у Очага)
+
+        /// <summary>Искры костров (C-054: smoke следит, что за кадр они смотрят только на костры, а не на все тайла окна).</summary>
+        public CampfireSparkFx? FireSparks => _fireSparks;
         UI.UiDemo? _uiDemo;             // E2-2: интерфейс без сервера (--ui-demo, сцены снимков)
 
         void Awake()
@@ -192,7 +195,7 @@ namespace Orpheus.Client
             PlaceCharacterAndCamera();
             _dayTint = new DayTintView(Camera, World, Origin); // E1-8: тон суток (офлайн-часы — Simulation.WorldTime + --day-tick)
             _hearth = new HearthMarkerView(new GameObject("Hearth").transform, Map, Args.Size / 2, Args.Size / 2); // E3-6b: Очаг = центр, как спавн у ядра
-            _fireSparks = new CampfireSparkFx(new GameObject("FireSparks").transform, World, Map); // C-049: искры у костров
+            _fireSparks = new CampfireSparkFx(new GameObject("FireSparks").transform, Map); // C-049: искры у костров (C-054: мир больше не сканирует, список костров у узлов WorldView)
 
             if (Args.Smoke)
             {
