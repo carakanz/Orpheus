@@ -90,6 +90,12 @@ namespace Orpheus.Bots
         /// </summary>
         public LocalPrediction.DevTrace[] PredDevTrace { get; set; } = System.Array.Empty<LocalPrediction.DevTrace>();
 
+        /// <summary>Первый кадр «без нокбэка» выше нормы 68 unit с контекстом (E4-2, доводка 13): момент рождения расхождения.</summary>
+        public LocalPrediction.DevTrace PredNoKnockFirstBreach { get; set; }
+
+        /// <summary>Был ли превышение нормы «без нокбэка» (иначе <see cref="PredNoKnockFirstBreach"/> не заполнен).</summary>
+        public bool PredNoKnockFirstBreachKnown { get; set; }
+
         /// <summary>Часы клиента: перестановок вперёд, назад, по «часам после фриза»; перенумераций кадров; owd, мс.</summary>
         public long ClockStepsForward { get; set; }
 
@@ -547,6 +553,8 @@ namespace Orpheus.Bots
                     st.PredKnockRelatedExcluded = pred.KnockRelatedExcluded;
                     st.PredPushOutExcluded = pred.PushOutExcluded;
                     st.PredDevTrace = pred.DevTraceTop();
+                    st.PredNoKnockFirstBreach = pred.NoKnockFirstBreach;
+                    st.PredNoKnockFirstBreachKnown = pred.NoKnockFirstBreachKnown;
                     st.PredResynced = pred.Resynced;
                 }
 
@@ -917,6 +925,13 @@ namespace Orpheus.Bots
                 w.WriteNumber("predNoKnockOverHalfTile", b.PredNoKnockOverHalfTile);
                 w.WriteNumber("predKnockRelatedExcluded", b.PredKnockRelatedExcluded);
                 w.WriteNumber("predPushOutExcluded", b.PredPushOutExcluded);
+                w.WriteBoolean("predNoKnockFirstBreachKnown", b.PredNoKnockFirstBreachKnown); // E4-2 доводка 13: момент рождения расхождения
+                if (b.PredNoKnockFirstBreachKnown)
+                {
+                    LocalPrediction.DevTrace fb = b.PredNoKnockFirstBreach;
+                    w.WriteNumber("predNoKnockFirstBreachFrame", fb.AckFrame);
+                    w.WriteNumber("predNoKnockFirstBreachUnits", fb.DevUnits);
+                }
                 w.WriteStartArray("predDevTrace"); // E4-2 доводка 10: разбор крупных расхождений «без нокбэка»
                 foreach (LocalPrediction.DevTrace t in b.PredDevTrace)
                 {

@@ -143,6 +143,20 @@ namespace Orpheus.Net.Session
         /// <summary>Кадр подтверждения, на котором получено <see cref="MaxDevNoKnockUnits"/>.</summary>
         public long MaxDevNoKnockFrame { get; private set; }
 
+        /// <summary>Норма расхождения «без нокбэка», unit (68 = такт серверного раздвигания; гейт соакера E4-2).</summary>
+        public const int NoKnockBreachUnits = 68;
+
+        /// <summary>
+        /// Первый кадр «без нокбэка» с расхождением выше <see cref="NoKnockBreachUnits"/> и его контекст
+        /// (E4-2, доводка 13): соак №12 — пик 77 стоит кадрами 97251–97273 уже «осевшим» смещением
+        /// (сервер X 29466 / пред 29543, Y равны, полосы и нокбэка нет), т.е. пик — не момент рождения
+        /// расхождения. Этот трейс показывает МОМЕНТ, где смещение возникло, — по нему ищут причину.
+        /// </summary>
+        public DevTrace NoKnockFirstBreach { get; private set; }
+
+        /// <summary>Был ли кадр с превышением нормы «без нокбэка» (иначе <see cref="NoKnockFirstBreach"/> не заполнен).</summary>
+        public bool NoKnockFirstBreachKnown { get; private set; }
+
         /// <summary>
         /// Кадров расхождения «без нокбэка» больше 0,5 тайла (<see cref="HalfTileUnits"/>) — их в топ-<see cref="DevTraceSlots"/>
         /// больше всего, и именно они выходят за норму соакера. Счётчик для разбора (E4-2, доводка 10), ворота не трогает.
@@ -516,6 +530,26 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
+        /// Контекст кадра сверки для разбора (общая сборка для топ-трейса и первого превышения).
+        /// </summary>
+        DevTrace TraceOf(uint ackFrame, int devUnits, in SelfState server, in Mover predicted, bool known) => new DevTrace
+        {
+            AckFrame = ackFrame,
+            DevUnits = devUnits,
+            ServerPos = server.Position,
+            PredPos = predicted.Position,
+            ServerKnockLeft = server.KnockLeft,
+            PredKnockLeft = known ? predicted.KnockLeft : 0,
+            ServerInSolid = Collision.TouchesSolid(_map, server.Position, _solid),
+            PredInSolid = Collision.TouchesSolid(_map, predicted.Position, _solid),
+            ServerInBodyBand = _bodyCount > 0 && BodiesTouch(server.Position),
+            PredInBodyBand = _bodyCount > 0 && BodiesTouch(predicted.Position),
+            BodyCount = _bodyCount,
+            Dead = _dead,
+            Known = known,
+        };
+
+        /// <summary>
         /// Записать кадр в топ-<see cref="DevTraceSlots"/> (замена наименьшего, аллокаций в горячем пути нет).
         /// </summary>
         void TraceNote(uint ackFrame, int devUnits, in SelfState server, in Mover predicted, bool known)
@@ -534,22 +568,7 @@ namespace Orpheus.Net.Session
                 return; // все слоты крупнее — кадр в топ не попадает
             }
 
-            _devTrace[worst] = new DevTrace
-            {
-                AckFrame = ackFrame,
-                DevUnits = devUnits,
-                ServerPos = server.Position,
-                PredPos = predicted.Position,
-                ServerKnockLeft = server.KnockLeft,
-                PredKnockLeft = known ? predicted.KnockLeft : 0,
-                ServerInSolid = Collision.TouchesSolid(_map, server.Position, _solid),
-                PredInSolid = Collision.TouchesSolid(_map, predicted.Position, _solid),
-                ServerInBodyBand = _bodyCount > 0 && BodiesTouch(server.Position),
-                PredInBodyBand = _bodyCount > 0 && BodiesTouch(predicted.Position),
-                BodyCount = _bodyCount,
-                Dead = _dead,
-                Known = known,
-            };
+            _devTrace[worst] = TraceOf(ackFrame, devUnits, in server, in predicted, known);
         }
 
         /// <summary>
@@ -675,6 +694,12 @@ namespace Orpheus.Net.Session
                     {
                         MaxDevNoKnockUnits = LastDevUnits;
                         MaxDevNoKnockFrame = ackFrame;
+                    }
+
+                    if (!NoKnockFirstBreachKnown && LastDevUnits > NoKnockBreachUnits)
+                    {
+                        NoKnockFirstBreachKnown = true;
+                        NoKnockFirstBreach = TraceOf(ackFrame, LastDevUnits, in server, predicted, known);
                     }
 
                     // Разбор (доводка 10): контекст крупных кадров — по нему ищут класс расхождения, не учтённый

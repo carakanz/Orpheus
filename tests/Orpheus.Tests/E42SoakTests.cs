@@ -83,6 +83,15 @@ namespace Orpheus.Tests
                                    $"в блоке серв {t.ServerInSolid} / пред {t.PredInSolid}; в полосе тел серв {t.ServerInBodyBand} / " +
                                    $"пред {t.PredInBodyBand} (чужих тел {t.BodyCount}); труп {t.Dead}; ack в окне {t.Known}");
                 }
+                // Доводка 13: пик может «осесть» (соак №12: 77 стоит кадрами 97251–97273 готовым смещением),
+                // поэтому печатаем и МОМЕНТ первого превышения нормы — по нему видно, где смещение родилось.
+                LocalPrediction.DevTrace fb = b.PredNoKnockFirstBreach;
+                _out.WriteLine(b.PredNoKnockFirstBreachKnown
+                    ? $"бот {i}: первый пролом нормы {LocalPrediction.NoKnockBreachUnits}: кадр {fb.AckFrame}: {fb.DevUnits} unit; " +
+                      $"сервер ({fb.ServerPos.X},{fb.ServerPos.Y}) пред ({fb.PredPos.X},{fb.PredPos.Y}); нокбэк серв {fb.ServerKnockLeft} / " +
+                      $"пред {fb.PredKnockLeft}; в блоке серв {fb.ServerInSolid} / пред {fb.PredInSolid}; в полосе тел серв {fb.ServerInBodyBand} / " +
+                      $"пред {fb.PredInBodyBand} (чужих тел {fb.BodyCount}); труп {fb.Dead}; ack в окне {fb.Known}"
+                    : $"бот {i}: первый пролом нормы {LocalPrediction.NoKnockBreachUnits}: не было");
                 Assert.Equal("InGame", b.State);
                 Assert.Equal(0, b.PredOverHalfTile);
                 // Норма 68 unit — на чистую ошибку предсказания: кадр, где расхождение задано серверным нокбэком,
