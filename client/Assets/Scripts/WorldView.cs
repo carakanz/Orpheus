@@ -61,6 +61,12 @@ namespace Orpheus.Client
         /// </summary>
         public static int LowRowOrderAt(float y) => DrawOrder.LowRowOrderAt(y);
 
+        /// <summary>
+        /// C-049: опора порядка строки ly (нижний край строки + подъём объекта). В мире это центр
+        /// переворота правила: полоса квантования кончается в центре тайла костра.
+        /// </summary>
+        public static float RowAnchorY(float rootY, int ly) => DrawOrder.RowAnchorY(rootY, ly);
+
         public sealed class ChunkNode
         {
             public ChunkCoord Coord;
@@ -212,16 +218,18 @@ namespace Orpheus.Client
         /// <summary>Мешей строк объектов и теней собрано за всё время (E1-7).</summary>
         public int ObjectBuilds => _objects.Builds;
 
-        /// <summary>Объектов «с высотой» в окне сейчас (квадратов в мешах строк).</summary>
+        /// <summary>Объектов «с высотой» в окне сейчас (квадратов в мешах строк). C-049: считает и низкую полосу (костёр),
+        /// иначе квады костра выпадали из замера (до C-049 они сидели в <see cref="Chunk.RowCounts"/>).</summary>
         public int ObjectQuads()
         {
             int n = 0;
             for (int i = 0; i < _count; i++)
             {
                 int[] rows = _nodes[_current[i]].RowCounts;
+                int[] low = _nodes[_current[i]].LowRowCounts;
                 for (int r = 0; r < Size; r++)
                 {
-                    n += rows[r];
+                    n += rows[r] + low[r];
                 }
             }
 
@@ -508,13 +516,13 @@ namespace Orpheus.Client
                 MeshRenderer? mr = node.Rows[ly];
                 if (mr != null)
                 {
-                    mr.sortingOrder = RowOrderAt(y - ly - 1f + ObjectTable.BaseLift);
+                    mr.sortingOrder = RowOrderAt(RowAnchorY(y, ly));
                 }
 
                 MeshRenderer? low = node.LowRows[ly]; // C-049: низкая полоса — перед существом той же четверти
                 if (low != null)
                 {
-                    low.sortingOrder = LowRowOrderAt(y - ly - 1f + ObjectTable.BaseLift);
+                    low.sortingOrder = LowRowOrderAt(RowAnchorY(y, ly));
                 }
             }
         }

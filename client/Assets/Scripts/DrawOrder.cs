@@ -19,6 +19,21 @@ namespace Orpheus.Client
         /// <summary>Предел полосы: ±2800 шагов по четверти тайла (полоса TallOrder ± 2·2800).</summary>
         public const int SortClamp = 2800;
 
+        /// <summary>
+        /// C-049: опора рисунка строки — на этой высоте от нижнего края тайла (в тайлах). Правило
+        /// Автора («южнее середины костра — перед ним, севернее — за») держится на этом числе:
+        /// полоса квантования (шаг — четверть тайла) у опоры 0,3 кончается ровно в центре тайла,
+        /// поэтому переворот «перед/за» происходит в центре тайла костра. Правка числа красит
+        /// C049DrawOrderTests (клиентский `ObjectTable.BaseLift` = это же число).
+        /// </summary>
+        public const float RowBaseLift = 0.3f;
+
+        /// <summary>
+        /// C-049: опора порядка строки ly чанка с корнем на <paramref name="rootY"/> (Unity Y):
+        /// нижний край строки = rootY − ly − 1, плюс подъём объекта <see cref="RowBaseLift"/>.
+        /// </summary>
+        public static float RowAnchorY(float rootY, int ly, float baseLift = RowBaseLift) => rootY - ly - 1f + baseLift;
+
         /// <summary>Порядок существа с ногами на высоте y: ниже на экране — позже; шаг — четверть тайла.</summary>
         public static int SortOrderAt(float y)
         {

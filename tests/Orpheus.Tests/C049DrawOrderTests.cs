@@ -12,11 +12,12 @@ namespace Orpheus.Tests
     /// </summary>
     public class C049DrawOrderTests
     {
-        // Опора строки объектов — нижний край тайла + BaseLift (0,3). Персонаж в тайле костра —
-        // ноги у центра тайла (+0,5 от края); севернее — на тайл выше (+1,5); южнее — на тайл ниже (−0,5).
+        // Опора строки объектов — нижний край тайла + подъём объекта (DrawOrder.RowBaseLift = 0,3;
+        // клиентский ObjectTable.BaseLift = это же число, поэтому правка правила красит тест, а не
+        // только снимки). Персонаж в тайле костра — ноги у центра тайла (+0,5 от края); севернее —
+        // на тайл выше (+1,5); южнее — на тайл ниже (−0,5).
         const float Edge = 100f;          // нижний край тайла костра (условная высота Unity)
-        static readonly float Row = Edge + ObjectTableBaseLift; // опора рисунка строки
-        const float ObjectTableBaseLift = 0.3f; // ObjectTable.BaseLift — синхронизировано с клиентом
+        static readonly float Row = DrawOrder.RowAnchorY(Edge + 1f, 0); // корень чанка на Edge+1, строка ly=0 → край = Edge
 
         [Fact]
         public static void Standing_Actors_In_Front_Of_Fire()
@@ -70,6 +71,30 @@ namespace Orpheus.Tests
             // Прежний порядок (общая строка): существо той же четверти — позади строки → огонь поверх ног.
             Assert.True(DrawOrder.RowOrderAt(Row) > DrawOrder.SortOrderAt(Edge + 0.5f),
                 "общая строка больше не перекрывает стоящего — тест дефекта надо пересматривать");
+        }
+
+        [Fact]
+        public static void Rule_Flips_At_Fire_Tile_Centre()
+        {
+            // Слово Автора: южнее середины костра — перед ним, севернее — за ним. Середина огня — центр
+            // тайла (Edge + 0,5): переворот «перед/за» обязан стоять ровно там, а не на краю полосы.
+            // Шаг квантования — четверть тайла, поэтому ε берём меньше четверти.
+            float centre = Edge + 0.5f;
+            const float eps = 0.05f;
+            Assert.True(DrawOrder.LowRowOrderAt(Row) < DrawOrder.SortOrderAt(centre - eps),
+                "ноги чуть южнее центра костра рисуются за огнём — правило перевернулось раньше центра");
+            Assert.True(DrawOrder.SortOrderAt(centre + eps) < DrawOrder.LowRowOrderAt(Row),
+                "ноги чуть севернее центра костра рисуются перед огнём — правило перевернулось позже центра");
+        }
+
+        [Fact]
+        public static void Row_Anchor_Band_Ends_At_Fire_Tile_Centre()
+        {
+            // Геометрия правила: опора строки стоит на подъёме от нижнего края тайла так, что полоса
+            // квантования (шаг — четверть тайла) кончается ровно в центре тайла костра. Правка
+            // DrawOrder.RowBaseLift (на ней держится правило) красит этот тест.
+            Assert.True(Row < Edge + 0.5f && Row >= Edge + 0.25f,
+                $"опора строки {Row} вне своей полосы (край {Edge}, центр тайла {Edge + 0.5f}) — переворот правила не в центре костра");
         }
     }
 }

@@ -239,8 +239,10 @@ namespace Orpheus.Client
             },
         };
 
-        /// <summary>Опора объекта в своём тайле: по центру, на этой высоте от нижнего края тайла.</summary>
-        public const float BaseLift = 0.3f;
+        /// <summary>Опора объекта в своём тайле: по центру, на этой высоте от нижнего края тайла.
+        /// Число живёт в <see cref="DrawOrder.RowBaseLift"/> — там же, где правило порядка костра
+        /// (C-049), чтобы правка не разъехала геометрию сортировки (тест держит её по DrawOrder).</summary>
+        public const float BaseLift = DrawOrder.RowBaseLift;
 
         // Строки по номеру объекта (по порядку таблицы); null — номера в таблице нет.
         static ObjectLook[]?[] _byId = new ObjectLook[0][];
