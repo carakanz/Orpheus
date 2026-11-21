@@ -155,6 +155,7 @@ namespace Orpheus.Client
                     return;
                 }
 
+                ShowDebugLabels(Args.Hud); // надпись «TEMP ASSETS» и строка отладки — только с --hud, и в сетевом/одиночном режиме тоже
                 Net = new NetGame(this, Args);
                 Net.StartConnect();
                 return;
