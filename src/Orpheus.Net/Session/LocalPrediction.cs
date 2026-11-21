@@ -57,6 +57,13 @@ namespace Orpheus.Net.Session
 
         private readonly MapShape _map;
         private readonly TileSolid _solid;
+
+        // E4-2 (соакер №8, 21.11): чужие тела последнего снимка (враги, напарники) — метрика «расхождение
+        // задано раздвиганием тел» (1-007 8.5: сервер раздвигает до 2·RadiusUnits, предсказание этого не имеет).
+        const int BodyBandUnits = 2 * Collision.RadiusUnits;
+        const long BodyBand2 = (long)BodyBandUnits * BodyBandUnits;
+        readonly WorldPos[] _bodies = new WorldPos[Snapshot.MaxEntities];
+        int _bodyCount;
         private readonly Slot[] _slots = new Slot[BufferSize];
         private readonly Slot[] _replay = new Slot[BufferSize];
         private Mover _mover;
@@ -123,6 +130,14 @@ namespace Orpheus.Net.Session
 
         /// <summary>Кадр подтверждения, на котором получено <see cref="MaxDevNoKnockUnits"/>.</summary>
         public long MaxDevNoKnockFrame { get; private set; }
+
+        /// <summary>
+        /// Кадров, исключённых из <see cref="MaxDevNoKnockUnits"/> как «расхождение задано раздвиганием тел»
+        /// (E4-2, соакер №8 21.11): предсказание в полосе касания чужого тела (враг/напарник), серверная позиция —
+        /// вне полосы, т.е. сервер уже раздвинул тела (<c>Simulation.Movement.StepSeparation</c>, 1-007 8.5).
+        /// Счётчик виден в отчёте: исключение точечное, а не «ковровое». MaxDevUnits и ComparedOverHalfTile не тронуты.
+        /// </summary>
+        public long BodyPushExcluded { get; private set; }
 
         /// <summary>
         /// Сверок со сравнением (11.3, 0-025): предсказанная позиция в кадре ack против серверной в тот же кадр — каждый
@@ -308,6 +323,39 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
+        /// E4-2 (соакер №8): чужие тела последнего снимка (враги и напарники) — для метрики «расхождение задано
+        /// раздвиганием тел» (<see cref="BodyPushExcluded"/>). Позиции чужих тел серверные: своего шага врага
+        /// предсказание не знает, поэтому кадры раздвигания не пишутся в «ошибку предсказания без нокбэка».
+        /// Пустой снимок (нет снимка) — тел нет, метрика работает как раньше.
+        /// </summary>
+        public void SetBodies(in Snapshot snap, int selfId)
+        {
+            _bodyCount = 0;
+            for (int i = 0; i < snap.Count && _bodyCount < _bodies.Length; i++)
+            {
+                SnapshotEntity e = snap.Entities[i];
+                if (e.Id != selfId && (e.Kind == SimEntity.KindEnemy || e.Kind == SimEntity.KindCharacter))
+                {
+                    _bodies[_bodyCount++] = e.Position;
+                }
+            }
+        }
+
+        /// <summary>Тело в полосе раздвигания (центр ближе 2·<see cref="Collision.RadiusUnits"/> к чужому телу).</summary>
+        bool BodiesTouch(WorldPos p)
+        {
+            for (int i = 0; i < _bodyCount; i++)
+            {
+                if (Torus.Dist2(_map, p, _bodies[i]) < BodyBand2)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Сверка со снимком: <paramref name="ackFrame"/> — последний шагнутый сервером кадр (0 — ещё ни одного),
         /// <paramref name="server"/> — своё состояние после него (без кванта), время — монотонные мкс.
         /// </summary>
@@ -388,6 +436,19 @@ namespace Orpheus.Net.Session
                 Collision.TouchesSolid(_map, predicted.Position, _solid) &&
                 !Collision.TouchesSolid(_map, server.Position, _solid);
 
+            // Кадры, где расхождение задано РАЗДВИГАНИЕМ ТЕЛ (1-007, 8.5 «расталкивание»: сервер раздвигает
+            // тела до 2·RadiusUnits = 204 unit со скоростью 68 unit/такт, Simulation.Movement.StepSeparation).
+            // Предсказание этих шагов иметь не может: позиции чужих тел авторитетны на сервере, шага врага
+            // в окне предсказания нет. Тот же класс 1-001, что нокбэк (решает сервер) и выталкивание из нового
+            // блока. Соакеры 21.11: «noKnock 77 > 68, кадр 97267» (старт ночи) = 68 (такт раздвигания) + 9 (шаг).
+            // Счётчик BodyPushExcluded — в отчёт, чтобы исключение не было «ковровым».
+            bool bodyPushDriven = known && !knockRelated && !pushOutDriven && !_dead &&
+                _bodyCount > 0 && BodiesTouch(predicted.Position) && !BodiesTouch(server.Position);
+            if (bodyPushDriven)
+            {
+                BodyPushExcluded++;
+            }
+
             if (known && !initial)
             {
                 long d2 = Torus.Dist2(_map, predicted.Position, server.Position);
@@ -401,7 +462,7 @@ namespace Orpheus.Net.Session
                 // То же без кадров, заданных нокбэком (начало, середина, остаток после конца) и серверным
                 // выталкиванием из нового блока: это и есть ошибка предсказания (норма 68 unit = касание
                 // врага). Нужна для длинных прогонов с боем и стройкой (E4-2).
-                if (!knockDriven && !knockRelated && !pushOutDriven && LastDevUnits > MaxDevNoKnockUnits)
+                if (!knockDriven && !knockRelated && !pushOutDriven && !bodyPushDriven && LastDevUnits > MaxDevNoKnockUnits)
                 {
                     MaxDevNoKnockUnits = LastDevUnits;
                     MaxDevNoKnockFrame = ackFrame;

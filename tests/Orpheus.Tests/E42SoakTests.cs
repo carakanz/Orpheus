@@ -69,6 +69,7 @@ namespace Orpheus.Tests
                 _out.WriteLine($"бот {i}: состояние {b.State}, предсказаний {b.PredCompared}, правок >½тайла {b.PredOverHalfTile}, " +
                                $"макс. отклонение {b.PredMaxDevUnits} unit (кадр {b.PredMaxDevFrame}), вне нокбэка " +
                                $"{b.PredMaxDevNoKnockUnits} unit (кадр {b.PredMaxDevNoKnockFrame}), нокбэков принято {b.PredKnockAdopted}, " +
+                               $"раздвиганий тел {b.PredBodyPushExcluded}, " +
                                $"ресинков {b.PredResynced}, кадров {b.InputsSent}");
                 Assert.Equal("InGame", b.State);
                 Assert.Equal(0, b.PredOverHalfTile);

@@ -224,6 +224,7 @@ namespace Orpheus.Net.Session
             {
                 _reconciledAny = true;
                 _reconciledTick = Client.Latest.Tick;
+                _pred.SetBodies(Client.Latest, Client.EntityId); // E4-2 (21.11): чужие тела снимка — метрика раздвигания тел
                 _pred.Reconcile(Client.Latest.AckFrame, Client.Latest.Self, nowMicros);
             }
 

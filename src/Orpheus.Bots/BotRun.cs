@@ -69,6 +69,12 @@ namespace Orpheus.Bots
         /// <summary>Сверок, где расхождение задал серверный нокбэк (приём серверного состояния, 1-001).</summary>
         public long PredKnockAdopted { get; set; }
 
+        /// <summary>
+        /// Сверок, исключённых из «чистой ошибки предсказания» как «расхождение задано раздвиганием тел»
+        /// (E4-2, соакер №8 21.11): сервер раздвинул тела (1-007 8.5), предсказание шага врага не знает.
+        /// </summary>
+        public long PredBodyPushExcluded { get; set; }
+
         /// <summary>Часы клиента: перестановок вперёд, назад, по «часам после фриза»; перенумераций кадров; owd, мс.</summary>
         public long ClockStepsForward { get; set; }
 
@@ -521,6 +527,7 @@ namespace Orpheus.Bots
                     st.PredMaxDevNoKnockUnits = pred.MaxDevNoKnockUnits;
                     st.PredMaxDevNoKnockFrame = pred.MaxDevNoKnockFrame;
                     st.PredKnockAdopted = pred.KnockAdopted;
+                    st.PredBodyPushExcluded = pred.BodyPushExcluded;
                     st.PredResynced = pred.Resynced;
                 }
 
@@ -887,6 +894,7 @@ namespace Orpheus.Bots
                 w.WriteNumber("predMaxDevNoKnockUnits", b.PredMaxDevNoKnockUnits);
                 w.WriteNumber("predMaxDevNoKnockFrame", b.PredMaxDevNoKnockFrame);
                 w.WriteNumber("predKnockAdopted", b.PredKnockAdopted);
+                w.WriteNumber("predBodyPushExcluded", b.PredBodyPushExcluded);
                 w.WriteNumber("predResynced", b.PredResynced);
                 w.WriteNumber("clockStepsForward", b.ClockStepsForward);
                 w.WriteNumber("clockStepsBack", b.ClockStepsBack);

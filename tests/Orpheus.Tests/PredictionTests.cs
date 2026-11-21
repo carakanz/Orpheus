@@ -72,6 +72,8 @@ namespace Orpheus.Tests
             private uint _ack;
             private long _lastArrive;
             private long _latestTick = -1;
+            private readonly WorldPos _spawn;
+            private readonly Snapshot _bodySnap = new Snapshot();
 
             public Model(MapShape map, TileSolid solid, WorldPos spawn, Func<long, Input8> script, ulong seed)
             {
@@ -79,6 +81,7 @@ namespace Orpheus.Tests
                 _solid = solid;
                 _script = script;
                 _rng = new DetRandom(seed);
+                _spawn = spawn;
                 _server = Mover.At(map, spawn);
                 Pred = new LocalPrediction(map, solid, new WorldPos(map.WidthUnits / 2, map.HeightUnits / 2)); // спавна не знает
             }
@@ -103,6 +106,13 @@ namespace Orpheus.Tests
             /// [From; To) каждый Period-й такт сервер сдвигает персонажа на Dx unit — предсказать это клиент не может.
             /// </summary>
             public (long From, long To, int Period, int Dx)? Touch { get; set; }
+
+            /// <summary>
+            /// E4-2 (соакер №8, 21.11): тело врага в смещении от точки старта; в каждом снимке передаётся в
+            /// <see cref="LocalPrediction.SetBodies"/> (свой id 1, враг id 2) — метрика «расхождение задано
+            /// раздвиганием тел». null — чужих тел нет, метрика выключена (как в живом клиенте без довода тел).
+            /// </summary>
+            public (int Dx, int Dy)? Body { get; set; }
 
             /// <summary>Меч в руках (1-004): бит удара кадра начинает замах и у сервера, и у предсказания.</summary>
             public bool Sword { get; set; }
@@ -218,6 +228,17 @@ namespace Orpheus.Tests
                     if (s.Tick > _latestTick)
                     {
                         _latestTick = s.Tick;
+                        if (Body.HasValue)
+                        {
+                            // Снимок с телом врага (id 2) впереди: предсказание знает чужие тела — как NetBot в E4-2.
+                            ref SnapshotEntity be = ref _bodySnap.Entities[0];
+                            be.Id = 2;
+                            be.Kind = SimEntity.KindEnemy;
+                            be.Position = Torus.Offset(_map, _spawn, new Int2(Body.Value.Dx, Body.Value.Dy));
+                            _bodySnap.Count = 1;
+                            Pred.SetBodies(_bodySnap, selfId: 1);
+                        }
+
                         Pred.Reconcile(s.Ack, s.Self, t);
                     }
                 }
@@ -379,6 +400,48 @@ namespace Orpheus.Tests
             var still = new Model(map, Collision.Empty, Center(300, 400), East, 21) { OneWayMs = oneWayMs, JitterMs = jitterMs, Hitches = hitches, Touch = (60, 120, 3, -push) };
             still.Run(6_000_000); // ещё 2 с после касания: новых правок нет
             Assert.Equal(during, still.Pred.Resynced);
+        }
+
+        /// <summary>
+        /// E4-2 (соакер №8, 21.11): расхождение задано РАЗДВИГАНИЕМ ТЕЛ (1-007, 8.5 «расталкивание»).
+        /// Бег на восток; сервер в тактах [84;92) каждый 2-й такт сдвигает персонажа на 102 unit назад
+        /// (102 = раздвигание + подталкивание о стену в одном такте — цифра соакера №5; 102 ≈ двум кадрам
+        /// ходьбы 102,4, поэтому предсказание стоит в плато ≈ 4220 u от старта). Тело врага — впереди по
+        /// курсу; полоса раздвигания 2·RadiusUnits = 204 unit. Окно исключения — тело в (плато+102, плато+204).
+        /// 1) Тело в полосе у ПРЕДСКАЗАНИЯ, серверная позиция уже вне полосы (сервер раздвинул тела):
+        ///    кадры исключены из «чистой ошибки» (BodyPushExcluded ≥ 4), MaxDevNoKnockUnits ≤ нормы 68,
+        ///    MaxDevUnits = 102 (правда в отчёте видна), правок &gt;½ тайла 0.
+        /// 2) Сервер ещё ВНУТРИ полосы (оба тела в касании, «выбросить» ещё нечего): кадры НЕ исключаются,
+        ///    расхождение 102 считается в норму — метрика точечная, не «ковровая».
+        /// 3) Чужих тел нет (снимок пуст, как в живом клиенте): 102 &gt; 68 — класс провала соакера №8 воспроизведён.
+        /// </summary>
+        [Fact]
+        public void E42_Model_BodySeparation_ExcludedOnlyWhenServerLeavesBand()
+        {
+            const int push = 102; // раздвигание + подталкивание о стену в такте (соакер №5); ≈ 2 кадра ходьбы
+            MapShape map = MapShape.World(1024);
+            var m = new Model(map, Collision.Empty, Center(300, 400), East, 31) { Touch = (84, 92, 2, -push), Body = (4380, 0) };
+            m.Run(4_000_000);
+            LocalPrediction p = m.Pred;
+            _out.WriteLine($"раздвигание тел: толчков {m.Touches}, исключено {p.BodyPushExcluded}, макс. расх. {p.MaxDevUnits} u, " +
+                           $"вне нокбэка {p.MaxDevNoKnockUnits} u, правок {p.Resynced}, >½тайла {p.ComparedOverHalfTile}");
+            Assert.Equal(4, m.Touches);
+            Assert.InRange(p.BodyPushExcluded, 4, 8); // ровно кадры раздвигания (по числу толчков), не «ковёр» на все кадры
+            Assert.InRange(p.MaxDevUnits, push - 1, push + 1); // сам толчок виден в общем максимуме
+            Assert.True(p.MaxDevNoKnockUnits <= 68, $"чистая ошибка предсказания {p.MaxDevNoKnockUnits} > нормы 68 при раздвигании тел");
+            Assert.Equal(0, p.ComparedOverHalfTile); // гейт 2.13 п. 1 не ослаблен
+
+            var inside = new Model(map, Collision.Empty, Center(300, 400), East, 31) { Touch = (84, 92, 2, -push), Body = (4300, 0) };
+            inside.Run(4_000_000);
+            _out.WriteLine($"оба тела в полосе: исключено {inside.Pred.BodyPushExcluded}, вне нокбэка {inside.Pred.MaxDevNoKnockUnits} u");
+            Assert.Equal(0, inside.Pred.BodyPushExcluded); // сервер ещё внутри полосы — исключать нечего
+            Assert.True(inside.Pred.MaxDevNoKnockUnits > 68, $"расхождение {inside.Pred.MaxDevNoKnockUnits} ушло из нормы при сервере внутри полосы");
+
+            var plain = new Model(map, Collision.Empty, Center(300, 400), East, 31) { Touch = (84, 92, 2, -push) };
+            plain.Run(4_000_000);
+            _out.WriteLine($"без тел: исключено {plain.Pred.BodyPushExcluded}, вне нокбэка {plain.Pred.MaxDevNoKnockUnits} u");
+            Assert.Equal(0, plain.Pred.BodyPushExcluded);
+            Assert.True(plain.Pred.MaxDevNoKnockUnits > 68, $"без довода тел норма не превышена ({plain.Pred.MaxDevNoKnockUnits}) — сценарий не воспроизводит провал");
         }
 
         /// <summary>
