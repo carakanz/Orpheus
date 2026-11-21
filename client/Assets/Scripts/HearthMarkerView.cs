@@ -163,6 +163,9 @@ namespace Orpheus.Client
 
         static Sprites? _assets;
 
+        /// <summary>Спрайт искры (C-049: им же рисуются искры у поставленного костра, CampfireSparkFx).</summary>
+        public static Sprite SparkAsset() => Assets().Spark;
+
         static Sprites Assets()
         {
             if (_assets != null)

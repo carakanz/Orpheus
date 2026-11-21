@@ -58,6 +58,9 @@ Shader "Orpheus/ShadowComposite"
         float2 cell = (floor(i.grid * _OrphLightSize.xy) + 0.5) * _OrphLightSize.zw;
         half room = SAMPLE_TEXTURE2D_LOD(_OrphLightGrid, sampler_OrphLightGrid, cell, 0).b;
         half light = SAMPLE_TEXTURE2D_LOD(_OrphLightGrid, sampler_OrphLightGrid, i.grid, 0).g;
+        // C-049: тень огня дышит вместе со светом — та же формула мерцания, что в DayTint (синхронны,
+        // несоизмеримые частоты, без анимации по кадрам симуляции).
+        light *= 1.0 + 0.05 * sin(_Time.y * 9.0) + 0.035 * sin(_Time.y * 14.7 + 1.3);
         half sun = m.r * _OrphSun.z * (1 - room);
         half fire = m.g * _OrphSun.w * saturate(light * 4) * (_Fire / max(_Color.a, 0.01));
         half a = max(max(sun, fire), m.b);
