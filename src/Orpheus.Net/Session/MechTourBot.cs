@@ -148,8 +148,25 @@ namespace Orpheus.Net.Session
         /// Прежний цикл 2 с × 8 направлений кружил на месте: probe31 20.11 — бот в фазе Chest сидел
         /// в NeedWood 5400+ кадров, крафт-цепочка уже вырубила деревья в окне поиска (`DigR` = 48 тайлов),
         /// а брождение не выводило за окрестность (квадрат ±24 тайла). За 10 с бот проходит 20+ тайлов.
+        /// Доводка 9 (соакер №9 21.11): замкнутый восьмиугольник из 8 направлений — это ОБХОД вокруг
+        /// одной точки (сумма векторов = 0): крафт-цепочка уводит бота за рощу, в NeedWood он кружит
+        /// в пустоте и домой не возвращается (деревьев 5 за 30 мин, «последний поиск — 20836 тайлов»).
+        /// Дальше 16 тайлов от старта — идём к старту (в тестовом мире роща у старта); внутри 16 —
+        /// прежний восьмиугольник, чтобы локально облазить окно поиска.
         /// </summary>
-        private Input8 Wander() => WanderDirs[(_frame / 600 + _index * 3) % WanderDirs.Length];
+        private Input8 Wander(WorldPos pos)
+        {
+            Int2 d = Torus.Delta(_shape, pos, _start);
+            const int home = 16 * U;
+            if ((long)d.X * d.X + (long)d.Y * d.Y > (long)home * home)
+            {
+                // Знак по главной оси — тот же выбор шага, что в WalkToTileNear.
+                int sx = Math.Abs(d.X) >= Math.Abs(d.Y) ? Math.Sign(d.X) : 0;
+                return new Input8(sx, sx == 0 ? Math.Sign(d.Y) : 0);
+            }
+
+            return WanderDirs[(_frame / 600 + _index * 3) % WanderDirs.Length];
+        }
 
         public MechTourBot(MapShape shape, WorldPos spawn, int index = 0)
         {
@@ -1012,7 +1029,7 @@ namespace Orpheus.Net.Session
                 _digFindFrom = Torus.TileOf(_shape, pos);
                 if (!FindTile(w, _digFindFrom, obj, out TileCoord t))
                 {
-                    _digFrame = new InputFrame(Wander()); // цели нет в окне — бродим длинными шагами (доводка 7)
+                    _digFrame = new InputFrame(Wander(pos)); // цели нет в окне — бродим (доводка 7), дальние шаги — к старту (доводка 9)
                     return false;
                 }
 
