@@ -597,7 +597,7 @@ namespace Orpheus.Client
         ushort UpdateEdits(long now)
         {
             NetClient c = _client!;
-            if (_args.NetSmokeSeconds > 0)
+            if (_args.NetSmokeSeconds > 0 && !_args.NetSmokeBow)
             {
                 SmokeEdit(now, c);
                 // 1-004: в net-smoke удар — скриптом (окно удержания ЛКМ в беге), бит как на настоящей мыши.
