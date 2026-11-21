@@ -12,7 +12,8 @@ namespace Orpheus.Editor
 {
     /// <summary>
     /// Картинки объектов «с высотой» (E1-7): <c>Assets/Art/**/[TEMP_]tree_*.png</c>, <c>bush_*</c>, <c>boulder_*</c>,
-    /// <c>ore_*</c>, <c>stump*</c>, а также верх и лицо обрыва <c>cliff_top</c>, <c>cliff_face</c> (шаг 1.6).
+    /// <c>ore_*</c>, <c>stump*</c>, а также верх и лицо обрыва <c>cliff_top</c>, <c>cliff_face</c> (шаг 1.6)
+    /// и существа <c>char_*</c> (C-053: враги по архетипу, три вида — бок/к зрителю/от зрителя).
     /// <list type="bullet">
     /// <item>Импорт — всегда одинаковый, и для новых/заменённых файлов с Мака: спрайт, 128 px на единицу, опора внизу по
     /// центру, без сжатия, читаемый (клиент при запуске собирает из них один лист — <see cref="ObjectAtlas"/>).</item>
@@ -27,7 +28,8 @@ namespace Orpheus.Editor
         const string ShaderDir = "Assets/Shaders/";
         static readonly string[] Prefixes = { "tree_", "bush_", "boulder_", "ore_", "stump", "cliff_top", "cliff_face", "item_", // item_ — значки предметов на земле (E2-1)
             "obj_workbench", "obj_campfire", "obj_torch", // E2-4: станки и факел (obj_tree / obj_rock — старые плитки, сюда не входят)
-            "obj_chest", "obj_bed", "obj_wall_", "obj_fence", "obj_door", "floor_" }; // E2-5: сундук, кровать, плитки построек
+            "obj_chest", "obj_bed", "obj_wall_", "obj_fence", "obj_door", "floor_", // E2-5: сундук, кровать, плитки построек
+            "char_" }; // C-053: существа (враги по архетипу: char_bandit_sword_side, char_wolf_front и т. п.)
         static readonly string[] Shaders = { "Objects.shader", "Shadow.shader", "ShadowComposite.shader" };
 
         /// <summary>Перед сборкой набор собирается заново; без шейдеров сборка падает, а не выходит без леса и теней.</summary>

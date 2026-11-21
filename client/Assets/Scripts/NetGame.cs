@@ -906,10 +906,19 @@ namespace Orpheus.Client
             spriteGo.transform.SetParent(root.transform, false);
             spriteGo.transform.localPosition = new Vector3(0f, -0.4f, 0f);
             var sr = spriteGo.AddComponent<SpriteRenderer>();
-            sr.sprite = _heroSprite;
-            // E3-4: враг выглядит врагом — тёплый красный, как манекены (своих ассетов врагов в клиенте пока нет).
-            // E3-3: тон по архетипу из снимка — лучник синий, волк серый, ближний красный.
-            sr.color = kind == SimEntity.KindEnemy ? Anim.ActorFactory.EnemyTintFor(archetype) : new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
+            // C-053: у врага — свой спрайт по архетипу (бок; к/от зрителя подбирает поза в ActorRig.Apply).
+            // E3-4/E3-3 (запас): своих картинок нет — спрайт героя с оттенком: лучник синий, волк серый, ближний красный.
+            if (kind == SimEntity.KindEnemy && Anim.EnemyVisuals.TryViews(archetype, out Sprite side, out _, out _))
+            {
+                sr.sprite = side;
+                sr.color = Color.white;
+            }
+            else
+            {
+                sr.sprite = _heroSprite;
+                sr.color = kind == SimEntity.KindEnemy ? Anim.ActorFactory.EnemyTintFor(archetype) : new Color(0.55f, 0.8f, 1f); // чужие — голубоватые, свой — родной цвет
+            }
+
             sr.sortingOrder = WorldView.ObjectOrder;
             sr.spriteSortPoint = SpriteSortPoint.Pivot;
             WorldFx.AddActorShadow(root.transform, 0.8f); // E1-7: пятно-тень под существом

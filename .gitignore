@@ -29,3 +29,6 @@ client/Assets/Plugins/Orpheus/*.dll
 client/Assets/Plugins/Orpheus/*.pdb
 # Пробы стиля с Мака (A-001): картинки большие, в git — промпты, учёт и страница
 art/style/probes/**/*.png
+
+# per-run shot captures in worktrees, only curated strips are committed (C-053 P-note 3)
+work/screens/C-*/

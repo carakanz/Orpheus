@@ -189,11 +189,24 @@ namespace Orpheus.Client.Anim
                 _remotes.Add(id, rig);
             }
 
+            // C-053: враг — свои спрайты по архетипу (бок/к зрителю/от зрителя); вид в кадре выбирает поза.
+            byte archetype = (byte)(e.Enemy >> SnapshotLayout.EnemyArchetypeShift);
+            if (e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && archetype != rig.Archetype)
+            {
+                rig.Archetype = archetype;
+                if (EnemyVisuals.TryViews(archetype, out Sprite side, out Sprite? front, out Sprite? back))
+                {
+                    rig.SetViews(side, front, back); // сбрасывает и оттенок: картинка своя
+                }
+            }
+
             _remoteSeenFrame[id] = Time.frameCount;
             float dt = Time.deltaTime;
             Vector2 v = rig.MeasureVelocity(dt);
             // E3-4: враг-мечник («Ближний», архетип 1) с пустой рукой в снимке держит деревянный меч — как в бою.
-            byte held = e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && e.HeldItem == 0 ? Items.WoodenSword : e.HeldItem;
+            // C-053: только мечник — волк (зверь) меч не держит.
+            byte held = e.Kind == Orpheus.Core.Sim.SimEntity.KindEnemy && e.HeldItem == 0
+                && archetype == 1 ? Items.WoodenSword : e.HeldItem;
             rig.SetHeld(held);
             var s = new ActorInput { VelX = v.x, VelY = v.y, Held = rig.Held };
             RemoteSwing(id, e.Melee, dt, rig, ref s);
