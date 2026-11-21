@@ -22,6 +22,10 @@ namespace Orpheus.Client.Anim
             public float Start;            // время сценария, с которого идёт своё действие
             public Action<DragonShow, float, float> Script = null!; // (сам, своё время, dt)
             public Vector3 Last;
+            public bool CheckFeet;                       // считать скольжение стоп в опоре
+            public readonly Vector3?[] PlantAt = new Vector3?[4];
+            public float MaxSlide;
+            public Vector3 Prev;
         }
 
         sealed class DragonStrip
@@ -50,6 +54,23 @@ namespace Orpheus.Client.Anim
                 float moved = (pos - d.Last).magnitude;
                 d.Last = pos;
                 d.Actor.Step(dt, moved);
+                bool jumped = (pos - d.Prev).magnitude > 0.5f; // перенос в начало дорожки
+                d.Prev = pos;
+                if (d.CheckFeet)
+                {
+                    for (int i = 0; i < 4; i++)
+                    {
+                        if (d.Actor.FootPlanted(i, out Vector3 at) && !jumped)
+                        {
+                            d.PlantAt[i] ??= at;
+                            d.MaxSlide = Mathf.Max(d.MaxSlide, (at - d.PlantAt[i]!.Value).magnitude);
+                        }
+                        else
+                        {
+                            d.PlantAt[i] = null;
+                        }
+                    }
+                }
             }
 
             foreach ((DragonShow show, FireFx fx) in _fires)
@@ -176,14 +197,14 @@ namespace Orpheus.Client.Anim
             Vector3 Body(DragonShow d, DragonView v) => d.Actor.Root.position + new Vector3(v == DragonView.Side ? (d.Actor.Root.localScale.x < 0f ? -0.3f : 0.3f) : 0f,
                 v == DragonView.Side ? 0.8f : v == DragonView.Front ? 0.55f : 0.75f, 0f);
 
-            void Strip(string name, DragonShow d, DragonView v, float[] rel, int w = 0, int h = 0, float ortho = 2.4f)
+            void Strip(string name, DragonShow d, DragonView v, float[] rel, int w = 0, int h = 0, float ortho = 2.4f, float lift = 0f)
             {
                 d.Start = clock;
                 var s = new DragonStrip
                 {
                     Name = name, Rel = rel, Start = clock, Ortho = ortho,
                     W = w > 0 ? w : v == DragonView.Side ? 1000 : 820, H = h > 0 ? h : 720,
-                    Focus = _ => Body(d, v),
+                    Focus = _ => Body(d, v) + new Vector3(0f, lift, 0f),
                 };
                 strips.Add(s);
                 clock += rel[rel.Length - 1] + 0.35f;
@@ -216,9 +237,9 @@ namespace Orpheus.Client.Anim
 
             // взлёт и зависание
             DragonShow flySide = Add("fly side", DragonView.Side, _ => Once(DragonAct.Fly));
-            Strip("D-004_fly_side", flySide, DragonView.Side, new[] { 0.15f, 0.45f, 0.9f, 1.5f, 1.62f, 1.73f }, 960, 820, 2.6f);
+            Strip("D-004_fly_side", flySide, DragonView.Side, new[] { 0.15f, 0.45f, 0.9f, 1.5f, 1.62f, 1.73f }, 960, 900, 2.6f, 0.45f);
             DragonShow flyFront = Add("fly front", DragonView.Front, _ => Once(DragonAct.Fly));
-            Strip("D-004_fly_front", flyFront, DragonView.Front, new[] { 0.15f, 0.45f, 0.9f, 1.5f, 1.62f, 1.73f }, 1000, 820, 2.6f);
+            Strip("D-004_fly_front", flyFront, DragonView.Front, new[] { 0.15f, 0.45f, 0.9f, 1.5f, 1.62f, 1.73f }, 1000, 900, 2.6f, 0.45f);
 
             // укус, огонь
             DragonShow biteSide = Add("bite side", DragonView.Side, _ => Once(DragonAct.Bite));
@@ -255,10 +276,23 @@ namespace Orpheus.Client.Anim
                 Focus = i => Body(views[i], viewKinds[i]),
             });
 
+            foreach (DragonShow d in new[] { walkSide, walkLeft, walkFront, walkBack, runSide, runFront })
+            {
+                d.CheckFeet = true;
+            }
+
             Debug.Log($"[dragon] драконов {_dragons.Count}, лент {strips.Count}, сценарий до {vt + 1f:0.0} с");
             foreach (DragonStrip s in strips)
             {
                 yield return DragonStripRun(s);
+            }
+
+            foreach (DragonShow d in _dragons)
+            {
+                if (d.CheckFeet)
+                {
+                    Debug.Log($"[dragon] {d.Actor.Root.name}: скольжение стопы в опоре — до {d.MaxSlide * 1000f:0.0} мтайла");
+                }
             }
 
             // общий вид

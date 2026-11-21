@@ -63,6 +63,8 @@ namespace Orpheus.Client.Anim.Dragon
             public Vector2 Sole;       // подошва от сустава стопы
             public int Role;           // 0 — ближняя/правая передняя, 1 — ближняя/правая задняя, 2, 3 — дальняя/левая
             public Vector2 Hang;       // в полёте стопа висит: от бедра
+            public Vector2 SoleRoot;   // где подошва в этом кадре (от корня)
+            public bool Planted;       // стоит на земле (фаза опоры)
         }
 
         sealed class Wing
@@ -148,6 +150,13 @@ namespace Orpheus.Client.Anim.Dragon
         public int Order => _group.sortingOrder;
 
         public DragonAct Act => _act;
+
+        /// <summary>Проверка «лапы не скользят»: стоит ли стопа <paramref name="i"/> на земле и где подошва (мир).</summary>
+        public bool FootPlanted(int i, out Vector3 world)
+        {
+            world = Root.TransformPoint(_legs[i].SoleRoot);
+            return _legs[i].Planted;
+        }
 
         public DragonActor(Transform parent, string name, DragonParts parts, DragonView view, Material material)
         {

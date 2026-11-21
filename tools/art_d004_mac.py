@@ -52,8 +52,8 @@ VIEWS = {
 }
 
 PAINT = ("a game sprite sheet of separate body parts of one fairy-tale dragon laid out apart on a flat green background, "
-         "each part a separate isolated piece, emerald green scales, bronze and gold belly plates, bronze horns, spines and "
-         "claws, bronze wing bones and green leathery membranes, fine scale texture, crisp thin dark plum-brown outline "
+         "each part a separate isolated piece, deep emerald teal-green scales, gold belly plates, bronze horns, spines "
+         "and claws, bronze wing bones and rust-orange leathery wing membranes, fine scale texture, crisp thin dark plum-brown outline "
          "around every piece, rich saturated vivid fantasy colors like Terraria, light from the upper left, clean digital "
          "painting, precise shapes")
 PAINT_NEG = ("text, letters, numbers, watermark, frame, grid lines, merged pieces, extra pieces, blurry, photo, 3d render, "
@@ -67,7 +67,7 @@ def jobs():
             J.append(dict(key=f"concept_{v}_{i + 1}", group="concept", prompt=f"{STYLE}, {DRAGON}, {txt}, {CAM}",
                           neg=NEG, w=1152, h=896, seed=seed + 10 * list(VIEWS).index(v)))
     for p in sorted(BUILD.glob("sheet_*.png")):
-        for dn in (0.38, 0.5):
+        for dn in (0.45, 0.6):
             J.append(dict(key=f"paint_{p.stem[6:]}_{int(dn * 100)}", group="paint", prompt=PAINT, neg=PAINT_NEG,
                           w=0, h=0, seed=5150, sketch=str(p), denoise=dn))
     return J
@@ -89,7 +89,7 @@ def cmd_queue(groups, keys):
     led = load_ledger()
     for j in jobs():
         k = j["key"]
-        if groups and j["group"] not in groups and k not in keys:
+        if (groups or keys) and j["group"] not in groups and k not in keys:
             continue
         if (RAW / f"{k}.png").exists() or led.get(k, {}).get("status") == "queued":  # lost — перепоставить
             print(f"{k}: уже есть или в очереди")
