@@ -109,6 +109,7 @@ namespace Orpheus.Client
         PileView? _piles;               // E2-1: кучи на земле без сервера (--demo-piles, сцена снимков)
         HearthMarkerView? _hearth;      // E3-6b: маркер Очага на тайле центра (спавн) — офлайн-мир и снимки
         float _hearthClock;             // E3-6b: часы пульса маркера (в снимках кадр фиксированный — детерминированно)
+        CampfireSparkFx? _fireSparks;   // C-049: искры у поставленных костров (часы те же, что у Очага)
         UI.UiDemo? _uiDemo;             // E2-2: интерфейс без сервера (--ui-demo, сцены снимков)
 
         void Awake()
@@ -191,6 +192,7 @@ namespace Orpheus.Client
             PlaceCharacterAndCamera();
             _dayTint = new DayTintView(Camera, World, Origin); // E1-8: тон суток (офлайн-часы — Simulation.WorldTime + --day-tick)
             _hearth = new HearthMarkerView(new GameObject("Hearth").transform, Map, Args.Size / 2, Args.Size / 2); // E3-6b: Очаг = центр, как спавн у ядра
+            _fireSparks = new CampfireSparkFx(new GameObject("FireSparks").transform, World, Map); // C-049: искры у костров
 
             if (Args.Smoke)
             {
@@ -260,6 +262,33 @@ namespace Orpheus.Client
                     Sprite heroSprite = Character.GetChild(0).GetComponent<SpriteRenderer>().sprite;
                     _wadeEnemy = new WadeDemoEnemy(new GameObject("WadeDemo").transform, heroSprite, Origin, TileCenter(et));
                 }
+            }
+
+            if (Args.FireDemo != null)
+            {
+                // C-049: костёр в пяти тайлах севернее старта, персонаж — на заданной стороне огня
+                // (in — в кольце камней, на огне). Снимки проверяют «низкую полосу» строки (LowRowOrderAt):
+                // стоящий у костра — перед огнём, севернее середины — за ним. Факел восточнее — проверка sway.
+                TileCoord at = Torus.TileOf(Map, Player.Position);
+                int fx = at.X, fy = at.Y - 5; // Y мира вниз: меньше Y — севернее (выше на экране)
+                PaintDemo.Put(World, Map, fx, fy, 0);
+                PaintDemo.Put(World, Map, fx, fy - 1, 0);
+                PaintDemo.Put(World, Map, fx, fy + 1, 0);
+                PaintDemo.Put(World, Map, fx - 1, fy, 0);
+                PaintDemo.Put(World, Map, fx + 1, fy, 0);
+                PaintDemo.Put(World, Map, fx, fy, ObjectId.Campfire);
+                PaintDemo.Put(World, Map, fx + 2, fy, ObjectId.Torch);
+                TileCoord hero = Args.FireDemo! switch
+                {
+                    "south" => new TileCoord(fx, fy + 1),
+                    "north" => new TileCoord(fx, fy - 1),
+                    "east" => new TileCoord(fx + 1, fy),
+                    "west" => new TileCoord(fx - 1, fy),
+                    _ => new TileCoord(fx, fy), // "in"
+                };
+                Teleport(TileCenter(Torus.Wrap(Map, hero)));
+                View.Clear();
+                View.UpdateWindow(Player.Position);
             }
 
             if (Args.UiDemo != null)
@@ -335,7 +364,7 @@ namespace Orpheus.Client
             Args.Smoke || Args.ScreenshotPath != null || Args.UiDemo != null
             || Args.AnimShotsDir != null || Args.AnimBenchSeconds > 0 || Args.TileBenchSeconds > 0
             || Args.PaintDemo || Args.PaintForest || Args.DemoPiles || Args.HomeDemo != null
-            || Args.BedDemoRot >= 0 || Args.WadeDemo != null || Args.WalkFrames != 0
+            || Args.BedDemoRot >= 0 || Args.WadeDemo != null || Args.FireDemo != null || Args.WalkFrames != 0
             || Args.NetSmokeSeconds > 0; // E4-1b: net-smoke: обрыв остаётся быстрым «[smoke] FAILED»+выход (NetSmokeCheck), не меню
 
         /// <summary>Открыть меню (при старте и после каждой перезагрузки сцены).</summary>
@@ -640,6 +669,7 @@ namespace Orpheus.Client
             _piles?.Frame(Origin, Time.deltaTime);
             _hearthClock += Time.deltaTime; // E3-6b
             _hearth?.Frame(View, Origin, (long)(_hearthClock * 1_000_000.0)); // E3-6b: маркер Очага, пока его чанк в окне
+            _fireSparks?.Frame(View, Origin, _hearthClock); // C-049: искры у поставленных костров в окне
             _dayTint?.Update(DayClock.Wrap(Rules.WorldTime + Args.DayTick)); // E1-8: фон тона — часы мира (Simulation) + сдвиг ключа
 
             _uiDemo?.Frame(Player.Position);
