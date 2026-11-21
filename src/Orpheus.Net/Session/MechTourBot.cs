@@ -45,6 +45,13 @@ namespace Orpheus.Net.Session
         // 690–1080 с (дерево 8 в густой роще ~150 с + постановка у верстака), лук 1080–1410 с (волокно в густых
         // кустах + верёвка/лук/стрелы у верстака + стрельба), стройка 1410–1620 с, ночь 1620–1800 с (охота с мечом).
         public const int CraftEndFrame = 41_400;     // 690 с (цепочка + затычка: каменный топор)
+
+        /// <summary>
+        /// Дерево для фазы сундука (сбор + склад/взятие). Общее число для заготовки
+        /// в хвосте фазы 1 (<see cref="AxeStepFrame"/>) и шага NeedWood (доводка 11, 21.11):
+        /// заготовленное впрок не считается заново — <c>DigFor</c> видит сумку.
+        /// </summary>
+        public const int ChestWoodNeed = 8;
         public const int ChestEndFrame = 64_800;     // 1080 с (с топором NeedWood ~60–90 с + постановка у верстака)
         public const int BowEndFrame = 84_600;       // 1410 с (волокно/верёвка/лук/стрелы + стрельба)
         public const int BuildEndFrame = 97_200;     // 1620 с (комната 5 × 5: пол, стены, дверь)
@@ -538,7 +545,7 @@ namespace Orpheus.Net.Session
             switch (_chest)
             {
                 case ChestStep.NeedWood:
-                    if (DigFor(client, pos, ObjectId.Tree, Items.Wood, 8, () => TreesDug++))
+                    if (DigFor(client, pos, ObjectId.Tree, Items.Wood, ChestWoodNeed, () => TreesDug++))
                     {
                         _chest = ChestStep.CraftChest;
                         _chestStepFrame = _frame;
@@ -1275,7 +1282,18 @@ namespace Orpheus.Net.Session
             if (client.Inv.Count(Items.StoneAxe) > 0)
             {
                 AxeCrafted = true;
-                return InputFrame.None;
+
+                // Доводка 11 (соакер №10, 21.11): с топором фаза 1 простаивала до 41 400
+                // (AxeStepFrame возвращал None с ~22 474), а фаза сундука голодала на
+                // NeedWood: общие кучи дерева разбирает напарник (забС=5, забД=5, кучевид=0,
+                // финальное дерево=2) — «отказ: сундук: фаза встала на NeedWood». Хвост
+                // фазы 1 (~315 с живого времени) — заготовить дерево впрок под сундук.
+                if (DigFor(client, pos, ObjectId.Tree, Items.Wood, ChestWoodNeed, () => TreesDug++))
+                {
+                    return InputFrame.None; // дерево на сундук в сумке, фаза 1 дожидается края
+                }
+
+                return _digFrame;
             }
 
             if (client.Inv.Count(Items.Stone) < 3)
