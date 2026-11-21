@@ -56,10 +56,13 @@ namespace Orpheus.Tests
         /// прогона), сервер в процессе теста на 127.0.0.1. В логе — счётчики фаз (добыто, изготовлено, сундук,
         /// выстрелов, построек, ударов, смертей); у обоих: правок предсказания сверх нормы 0, отклонение ≤ 68 unit,
         /// <c>PredResynced</c> — в лог. Оба к концу живы (автореспавн), State = InGame.
+        /// Имя без слова «Prediction»: соакер (30 мин) не должен попадать в точечные прогоны набора предсказания
+        /// (`--filter "FullyQualifiedName~Prediction"`) — там он съедал полчаса и вставал в общий `bin\Debug`
+        /// (зажатые `testhost` dll, MSB3026/3027). Для набора — `~Prediction`, для соакера — `~E42Soak`.
         /// </summary>
         [Fact]
         [Trait("Category", "Soak")]
-        public void E42_Soak_TwoBots_30Min_AllMechanics_NoPredictionDivergence()
+        public void E42_Soak_TwoBots_30Min_AllMechanics_NoDivergence()
         {
             BotReport report = RunSoak(seconds: 1800);
             Assert.Equal(2, report.Bots.Count);
