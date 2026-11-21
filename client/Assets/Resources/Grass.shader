@@ -49,11 +49,7 @@ Shader "Orpheus/Grass"
             float4 tr = SAMPLE_TEXTURE2D_LOD(_OrphTrail, sampler_OrphTrail, (base + _OrphOrigin.xy) / 128.0, 0);
             float a = smoothstep(0.0, 0.7, tr.b);
             color.rgb *= 1.0 - 0.3 * a; // примятая трава темнее: след читается и издали
-            if (v.info.z < _OrphGrass.x)
-            {
-                wp.xy = base; // дальний обзор: часть пучков скрыта (квадрат схлопнут в точку)
-            }
-            else if (h > 0.01)
+            if (h > 0.01)
             {
                 float2 dir = tr.rg * 2.0 - 1.0;
                 float2 wind = OrphWind(base, v.info.z) * (0.30 * h);

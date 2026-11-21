@@ -14,7 +14,7 @@ float4 _OrphWind;
 float4 _OrphOrigin;
 float4 _OrphPush[ORPH_PUSH_COUNT];
 float4 _OrphPushDir[ORPH_PUSH_COUNT];
-float4 _OrphGrass; // x — доля пучков, скрытых на дальнем обзоре (0…1), y — число активных толчков (первые в массиве)
+float4 _OrphGrass; // x — доля пучков, скрытых на дальнем обзоре (0…1): C-046 — убрана, всегда 0 (растительность не прореживается), y — число активных толчков (первые в массиве)
 
 TEXTURE2D(_OrphTrail);
 SAMPLER(sampler_OrphTrail);
