@@ -45,7 +45,7 @@ NetServer.Login.cs: CloseAll :15 · EntityOf :29 · TryGetLastFrame :40 · Credi
 ## NetClient* (парциальные)
 - Edits (.Edits.cs): Digging :68 · DigPredicted :71 · DigProgress :77 · StartDig :99 · StopDig :120 · Place :138 · CloseDoor :211 · NextRequest :236 · SendRequest :247 · OnFrameSent :256 · OnTileReply :337 · DigKeyOf :403 · NeededFrames :416
 - Pause (.Pause.cs): Paused :22 · PauseTick :25 · PausedBy :28 · RequestPause :52 · OnPauseState :64 · ResumeIfSnapshotNewer :104 · Resume :113
-- Предсказание: LocalPrediction.cs: ctor :89 · Sent :190 · Teleport :238 · Reconcile :255 (состояние для переигровки :366-386: с сервера — позиция, уворот, нокбэк; предсказанное для ack — удар, таймеры выносливости) · RenderDelta :416 · ErrorUnits :440 · счётчики :98-131
+- Предсказание: LocalPrediction.cs: ctor :89 · Sent :190 · Teleport :238 · Reconcile :255 (состояние для переигровки :366-386: с сервера — позиция, уворот, нокбэк; предсказанное для ack — удар, таймеры выносливости) · RenderDelta :416 · ErrorUnits :440 · счётчики :98-131 · E4-2: `ApplySeparation` (зеркало серверного `StepSeparation`, полоса 2·RadiusUnits, целочисленный √) · `NoKnockFirstBreach`/`NoKnockFirstBreachKnown`/`NoKnockBreachUnits` (доводка 13: первый кадр «без нокбэка» выше нормы 68 + контекст)
 - Часы: WorldClock.cs: класс :21 · EstimateX256 :67 · TicksAt :86 · PhaseAt :89 (это WorldTimeClock клиента). ClientClock.cs: класс :21 · Estimate :82 · Hold :97 · OwdUs :58 · Rate :64.
 
 ## Snapshot.cs - src/Orpheus.Net/Protocol (формат снимов)
@@ -79,6 +79,7 @@ DeltaWriter: TryAddRemoved :965 · TryAddUpdated :979 · TryAddAdded :1030 · Fi
 - BuildRoomBot.cs :30 (build_room): Next :218 (главный цикл, этапы Phase), OnReply :155 (ответы постановки), Stage :86, метрики GatherTicks/BuildTicks/DamageThroughDoor :95–131 (метрика урона :242); TryDigObstacle :385, PlaceArmed :945. Обходы пина (13.11): WarmupTicks 120, пин Close >45 т → диагональ, Enter >45 т + cheb 1 → F снаружи. Самооборона (13.11): ThreatFrame :795 (меч, слот 3, сектор Reach.SwordStrikeUnits) в Enter :677 / Close :716 / WaitDawn :761; F в Close каждый кадр; AttacksIssued :128. C-004: смерть — `Health == 0`, самооборона до Enter, `Inside` (закрыта только изнутри); трасса попаданий сервера — `tests/Orpheus.Tests/StrikeTrace.cs`. E2-11: CraftItems (этап Craft: стены / полы / дверь через CraftDesk) · HammerSlot (предмет этапа в руке, StockMove).
 - NightCampBot.cs :15 (night_camp): Next :57, TicksToDeath :29, KillerId :32.
 - DigLineBot.cs :23 (dig_line, образец), DodgeBot.cs :25 (dodge).
+- MechTourBot.cs (mech_tour, E4-2): `Next` :426 (главный цикл фаз) · `DigFor` :1076 (копает цель; без цели-дерева → поход) · `FindTile` :1184 (ближайший тайл + счётчики диагностики) · `Wander` :186 (брождение, привязка к старту 16 тайлов) · поход за деревом (доводка 14): `ForageBaseDir` :204 (азимуты ботов 0..3 = восток/запад/юг/север) · `ForageStep` :217 (чистая машина: фазы «в полях»/«домой», гистерезис, порог 60 тайлов включительно) · `ForageBearing` :240 (азимут = базовый + четверть оборота на поход) · `ForageWalk` :252 (состояние `_forageLeg`/`_forageHome`) · `Summary` :340 (строка отчёта: добыча, поиск, походы). Тесты: `PredictionTests` `E42_Forage*`.
 
 ## Остальное в src/Orpheus.Core/Sim/ (по одной строке)
 - StateHash.cs: хэш состояния (контрольные суммы сверки реплеев).
