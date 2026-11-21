@@ -114,6 +114,17 @@ namespace Orpheus.Tests
             /// </summary>
             public (int Dx, int Dy)? Body { get; set; }
 
+            /// <summary>
+            /// E4-2 (доводка 12): у тела врага в снимке есть мозг (архетип ≠ <c>None</c>, бит <c>Enemy &gt;&gt; 3</c>).
+            /// Только такой враг сервер делает инициатором раздвигания (1-007, <c>Simulation.StepSeparation</c>),
+            /// и только такое тело берёт зеркало предсказания (<c>LocalPrediction.ApplySeparation</c>).
+            /// false — заглушка (архетип None): зеркало молчит, как в тестах до доводки 12.
+            /// </summary>
+            public bool BodyBrain { get; set; }
+
+            /// <summary>Здоровье тела врага в снимке (0…100). 0 — мёртвый: сервер его не толкает, зеркало молчит.</summary>
+            public byte BodyHp { get; set; } = 100;
+
             /// <summary>Меч в руках (1-004): бит удара кадра начинает замах и у сервера, и у предсказания.</summary>
             public bool Sword { get; set; }
 
@@ -234,6 +245,8 @@ namespace Orpheus.Tests
                             ref SnapshotEntity be = ref _bodySnap.Entities[0];
                             be.Id = 2;
                             be.Kind = SimEntity.KindEnemy;
+                            be.HealthPct = BodyHp; // мёртвое тело сервер не толкает — зеркало тоже
+                            be.Enemy = BodyBrain ? (byte)(1 << SnapshotLayout.EnemyArchetypeShift) : (byte)0; // архетип 1 (разбойник) = инициатор раздвигания
                             be.Position = Torus.Offset(_map, _spawn, new Int2(Body.Value.Dx, Body.Value.Dy));
                             _bodySnap.Count = 1;
                             Pred.SetBodies(_bodySnap, selfId: 1);
@@ -442,6 +455,75 @@ namespace Orpheus.Tests
             _out.WriteLine($"без тел: исключено {plain.Pred.BodyPushExcluded}, вне нокбэка {plain.Pred.MaxDevNoKnockUnits} u");
             Assert.Equal(0, plain.Pred.BodyPushExcluded);
             Assert.True(plain.Pred.MaxDevNoKnockUnits > 68, $"без довода тел норма не превышена ({plain.Pred.MaxDevNoKnockUnits}) — сценарий не воспроизводит провал");
+        }
+
+        /// <summary>
+        /// E4-2 (доводка 12, соакер №11): зеркало раздвигания в предсказании включается ровно там, где его включает
+        /// сервер (<c>Simulation.StepSeparation</c>): инициатор — ВРАГ С МОЗГОМ (архетип ≠ None), живой
+        /// (<c>HealthPct &gt; 0</c>), центры в полосе 2·RadiusUnits (204 unit). Заглушка (архетип None), мёртвое тело
+        /// и тело вне полосы — зеркало молчит (0 кадров, 0 unit). Числам расхождения судьёй не является: соакер
+        /// с настоящим сервером и ботами (E42SoakTests).
+        /// Ход на восток 4 с ≈ 12 000 unit: тело в 2000 unit — персонаж входит в полосу (кадры зеркала есть);
+        /// тело в 20 000 unit — за ход до него минимум 7 700 unit, полосы нет.
+        /// </summary>
+        [Theory]
+        [InlineData(2000, true, 100, true)]   // мозг, жив, в полосе — зеркало идёт
+        [InlineData(2000, false, 100, false)] // заглушка (архетип None) — сервер таких не толкает, зеркало молчит
+        [InlineData(2000, true, 0, false)]    // мёртвый враг — не толкает
+        [InlineData(20000, true, 100, false)] // 7 700 unit — вне полосы 204
+        public void E42_Model_SeparationMirror_FiresOnlyForLiveBrainInBand(int dx, bool brain, byte hp, bool expectFired)
+        {
+            MapShape map = MapShape.World(1024);
+            var m = new Model(map, Collision.Empty, Center(300, 400), East, 31) { Body = (dx, 0), BodyBrain = brain, BodyHp = hp };
+            m.Run(4_000_000);
+
+            _out.WriteLine($"dx {dx}, мозг {brain}, hp {hp}: кадров зеркала {m.Pred.SeparationFrames}, unit {m.Pred.SeparationUnits}");
+            if (expectFired)
+            {
+                Assert.True(m.Pred.SeparationFrames >= 4, $"зеркало сработало {m.Pred.SeparationFrames} кадров — ждём ≥ 4 (полоса 408 unit проходится за ~14 кадров)");
+                Assert.True(m.Pred.SeparationUnits >= 34, $"зеркало сдвинуло на {m.Pred.SeparationUnits} unit — меньше одного кадра (34)");
+            }
+            else
+            {
+                Assert.Equal(0, m.Pred.SeparationFrames);
+                Assert.Equal(0, m.Pred.SeparationUnits);
+            }
+        }
+
+        /// <summary>
+        /// E4-2 (доводка 12): арифметика шага зеркала совпадает с серверной (<c>Simulation.StepSeparation</c>:
+        /// 68 unit/такт по оси <c>d = Delta(a, b)</c>, целочисленно, √ целочисленный). Кадры предсказания — 2 такта
+        /// по 34 unit: сумма двух кадров равна серверному такту с точностью до целочисленного усечения (1 unit).
+        /// Полоса 204 unit: вне неё — нулевой шаг; совпавшие позиции — ось по +X.
+        /// </summary>
+        [Theory]
+        [InlineData(160, 0)]
+        [InlineData(0, -150)]
+        [InlineData(120, 120)]
+        [InlineData(-96, 40)]
+        [InlineData(203, 0)]
+        [InlineData(204, 0)]
+        [InlineData(900, 0)]
+        [InlineData(0, 0)]
+        public void E42_SeparationStep_SameMathAsServer(int dx, int dy)
+        {
+            var d = new Int2(dx, dy);
+            long d2 = (long)dx * dx + (long)dy * dy;
+            var one = LocalPrediction.SeparationStep(d, d2, 34); // кадр предсказания
+            int band = 2 * Collision.RadiusUnits;
+
+            if (d2 >= (long)band * band)
+            {
+                Assert.Equal(0, one.X);
+                Assert.Equal(0, one.Y);
+                return;
+            }
+
+            int len = d2 == 0 ? band - 1 : Math.Max(1, (int)Math.Sqrt(d2)); // серверный целочисленный √
+            int ex = (d2 == 0 ? band - 1 : dx) * 68 / len;
+            int ey = (d2 == 0 ? 0 : dy) * 68 / len;
+            Assert.InRange(2 * one.X - ex, -1, 1);
+            Assert.InRange(2 * one.Y - ey, -1, 1);
         }
 
         /// <summary>

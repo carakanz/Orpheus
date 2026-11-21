@@ -64,6 +64,11 @@ namespace Orpheus.Net.Session
         const long BodyBand2 = (long)BodyBandUnits * BodyBandUnits;
         readonly WorldPos[] _bodies = new WorldPos[Snapshot.MaxEntities];
         int _bodyCount;
+
+        // E4-2 (соакер №11): зеркало серверного раздвигания тел — позиции врагов с мозгом из последнего снимка.
+        const int PushUnitsPerFrame = 34; // 68 unit/такт (Simulation.Movement.StepSeparation) ÷ FramesPerTick (2)
+        readonly WorldPos[] _pushers = new WorldPos[Snapshot.MaxEntities];
+        int _pushCount;
         private readonly Slot[] _slots = new Slot[BufferSize];
         private readonly Slot[] _replay = new Slot[BufferSize];
         private Mover _mover;
@@ -333,6 +338,7 @@ namespace Orpheus.Net.Session
                     {
                         _mover.StepFrame(_map, input.Direction, input.DodgePressed, AttackOf(input), input.Angle16, BowOf(input), _solid); // копии — с кнопками, как шлёт клиент (0-029, 1-004)
                         NoteShot();
+                        ApplySeparation(); // E4-2: зеркало серверного раздвигания тел (шаг 34 unit/кадр)
                     }
 
                     Push(frame - k, input);
@@ -356,6 +362,7 @@ namespace Orpheus.Net.Session
             {
                 _mover.StepFrame(_map, input.Direction, input.DodgePressed, AttackOf(input), input.Angle16, BowOf(input), _solid); // 1-001: труп стоит — сервер не шагнёт ввод; 1-004: удар — с melee-гейтом, как в такте
                 NoteShot(); // E3-2: свой выстрел — картинка сразу
+                ApplySeparation(); // E4-2: зеркало серверного раздвигания тел (шаг 34 unit/кадр)
             }
 
             Push(frame, input);
@@ -384,12 +391,17 @@ namespace Orpheus.Net.Session
         public void SetBodies(in Snapshot snap, int selfId)
         {
             _bodyCount = 0;
+            _pushCount = 0;
             for (int i = 0; i < snap.Count && _bodyCount < _bodies.Length; i++)
             {
                 SnapshotEntity e = snap.Entities[i];
                 if (e.Id != selfId && (e.Kind == SimEntity.KindEnemy || e.Kind == SimEntity.KindCharacter))
                 {
                     _bodies[_bodyCount++] = e.Position;
+                    if (e.Kind == SimEntity.KindEnemy && (e.Enemy >> 3) != 0 && e.HealthPct > 0)
+                    {
+                        _pushers[_pushCount++] = e.Position; // враг с мозгом — инициатор раздвигания (E4-2 зеркало)
+                    }
                 }
             }
         }
@@ -406,6 +418,89 @@ namespace Orpheus.Net.Session
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// E4-2 (соакер №11): ЗЕРКАЛО серверного раздвигания тел (<c>Simulation.Movement.StepSeparation</c>,
+        /// 1-007 8.5 «толкаются») в предсказании. Сервер: инициатор — враг с мозгом, пара «враг↔свой» в полосе
+        /// 2·RadiusUnits разъезжается по 68 unit/такт вдоль оси, целочисленно и с упором в твёрдое
+        /// (<c>Collision.Move</c>). Смещение СВОЕГО тела при этом повторяемо: та же ось (позиции врага из
+        /// последнего снимка), та же целочисленная арифметика, только шаг дробится на кадры (34 unit/кадр).
+        /// Соакер №11: все top-6 расхождений «без нокбэка» (80 &gt; 68 — такт раздвигания + шаг) — кадры, где
+        /// и предсказание, и сервер в полосе тела: сервер раздвинул, предсказание стояло. Остаток (снимок врага
+        /// устарел на такт, шаг самого врага) — в пределах нормы 68 unit.
+        /// </summary>
+        void ApplySeparation()
+        {
+            for (int i = 0; i < _pushCount; i++)
+            {
+                Int2 d = Torus.Delta(_map, _pushers[i], _mover.Position); // ось «враг → свой», как d = Delta(a, b) на сервере
+                Int2 step = SeparationStep(d, d.LengthSquared, PushUnitsPerFrame);
+                if (step.X == 0 && step.Y == 0)
+                {
+                    continue;
+                }
+
+                _mover.Position = Collision.Move(_map, _mover.Position, step.X, step.Y, _solid);
+                SeparationFrames++;
+                SeparationUnits += Math.Abs(step.X) + Math.Abs(step.Y);
+            }
+        }
+
+        /// <summary>Кадры, в которых сработало зеркало раздвигания (0 — чужих тел с мозгом в полосе не было).</summary>
+        public int SeparationFrames { get; private set; }
+
+        /// <summary>Сумма unit, на которую зеркало сдвинуло предсказание (для тестов и разбора соакера).</summary>
+        public int SeparationUnits { get; private set; }
+
+        /// <summary>
+        /// Шаг раздвигания за один кадр предсказания: та же ось и та же целочисленная арифметика, что у сервера
+        /// (<c>Simulation.Movement.StepSeparation</c>), только <paramref name="pushUnits"/> = 34 (68/такт ÷ 2 кадра).
+        /// Вне полосы 2·RadiusUnits — нулевой шаг; совпавшие позиции — ось по +X (детерминированно, как на сервере).
+        /// </summary>
+        public static Int2 SeparationStep(Int2 d, long d2, int pushUnits)
+        {
+            if (d2 >= BodyBand2)
+            {
+                return default;
+            }
+
+            if (d2 == 0)
+            {
+                d = new Int2(BodyBandUnits - 1, 0); // позиции совпали — ось по X (детерминированно, как на сервере)
+                d2 = (long)(BodyBandUnits - 1) * (BodyBandUnits - 1);
+            }
+
+            int dist = ISqrt(d2); // ≥ 1, т.к. d2 ≥ 1
+            return new Int2(d.X * pushUnits / dist, d.Y * pushUnits / dist);
+        }
+
+        /// <summary>Целочисленный √ — тот же метод по разрядам, что у сервера (<c>Simulation.ISqrt</c>): без float, детерминирован.</summary>
+        static int ISqrt(long n)
+        {
+            long res = 0;
+            long bit = 1L << 62;
+            while (bit > n)
+            {
+                bit >>= 2;
+            }
+
+            while (bit != 0)
+            {
+                if (n >= res + bit)
+                {
+                    n -= res + bit;
+                    res = (res >> 1) + bit;
+                }
+                else
+                {
+                    res >>= 1;
+                }
+
+                bit >>= 2; // как на сервере (Simulation.ISqrt): без сдвига разряда цикл не завершается
+            }
+
+            return (int)res;
         }
 
         /// <summary>
@@ -668,6 +763,7 @@ namespace Orpheus.Net.Session
                 {
                     _mover.StepFrame(_map, _replay[k].Input.Direction, _replay[k].Input.DodgePressed, AttackOf(_replay[k].Input), _replay[k].Input.Angle16, BowOf(_replay[k].Input), _solid);
                     _mover.Bow.Fired = false; // E3-2: выстрел переигровки уже нарисован
+                    ApplySeparation(); // E4-2: зеркало серверного раздвигания тел (шаг 34 unit/кадр)
                 }
 
                 Push(_replay[k].Frame, _replay[k].Input);
