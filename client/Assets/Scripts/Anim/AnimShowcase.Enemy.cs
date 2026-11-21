@@ -25,6 +25,7 @@ namespace Orpheus.Client.Anim
         const float FoeDeathAt = 38.2f;  // смерть врага: падение и растворение
         const float FoeWolfDashStart = 39.5f, WolfDashSec = 0.5f;  // E3-3: рывок волка (8.2): 4 тайла за полсекунды
         const float FoeWolfBiteStart = 40f, FoeWolfHeroStart = 40.7f, FoeWolfDeathAt = 41.2f; // укус, ответ героя, смерть
+        const float FoeViewsStart = 42.5f, FoeViewsSec = 2.2f; // C-053: трое врагов идут: к зрителю / от зрителя / вбок
 
         SwingActor? _foe, _foeWolf;
         ActorRig? _foeHero, _foeArcher, _foeWolfHero;
@@ -39,6 +40,7 @@ namespace Orpheus.Client.Anim
         Vector3 FoeWolfStartPos => _c + new Vector3(8.5f, -24f, 0f);   // волк: восток, 4 тайла от жертвы; ряд y=-24 — ниже ряда врага E3-4 (y=-16), кадры чистые
         Vector3 FoeWolfPos => _c + new Vector3(4.5f, -24f, 0f);
         Vector3 FoeWolfHeroPos => _c + new Vector3(3.2f, -24f, 0f);
+        Vector3 FoeViewsHome => _c + new Vector3(0f, -44f, 0f); // C-053: ряд прохода видов (ниже сцены C-036, y=-32)
 
         void BuildFoe()
         {
@@ -52,6 +54,19 @@ namespace Orpheus.Client.Anim
             _foeWolf.Axis = Vector2.left;
             _foeWolfHero = new ActorRig(Make("Wolf hero", Color.white));
             _foeWolfHero.SetHeld(Items.WoodenSword);
+            // C-053: свои спрайты по архетипу (как в игре через NetAnimation.Remote); нет картинок — тинт E3-3/E3-4.
+            ApplyFoeViews(_foe.Rig, 1);
+            ApplyFoeViews(_foeArcher, 2);
+            ApplyFoeViews(_foeWolf.Rig, 3);
+        }
+
+        /// <summary>C-053: набор видов врага в сцене снимков — тот же <see cref="EnemyVisuals.TryViews"/>, что в игре.</summary>
+        static void ApplyFoeViews(ActorRig rig, byte archetype)
+        {
+            if (EnemyVisuals.TryViews(archetype, out Sprite side, out Sprite? front, out Sprite? back))
+            {
+                rig.SetViews(side, front, back);
+            }
         }
 
         /// <summary>Кадр сцены врага: фазы замахов, попадания со вспышками, смерть, выстрел лучника.</summary>
@@ -69,8 +84,10 @@ namespace Orpheus.Client.Anim
             hero.Root.position = heroPos;
             archer.Root.position = archerPos;
 
+            bool views = _t >= FoeViewsStart; // C-053: финальный прогон — свои спрайты и виды
+
             // 1) Замах врага (сектор-телеграф наполняется, в ударе — вспышка, попадание по герою).
-            if (_t < FoeDeathAt)
+            if (!views && _t < FoeDeathAt)
             {
                 float q = 0f;
                 SwingPhase ph = _t >= FoeStart && _t < FoeStart + SwingCycle ? PhaseAt(_t - FoeStart, out q) : SwingPhase.None;
@@ -101,7 +118,7 @@ namespace Orpheus.Client.Anim
             }
 
             // 3) Смерть врага: падает от героя и растворяется (E3-1) — сектор гаснет (фаза None).
-            if (_t >= FoeDeathAt)
+            if (!views && _t >= FoeDeathAt)
             {
                 foe.Animate(dt, SwingPhase.None, 0f);
                 foe.Rig.Apply(DeathAnim.Apply(foe.Rig.Animator.Step(dt, new ActorInput()), _t - FoeDeathAt,
@@ -131,7 +148,17 @@ namespace Orpheus.Client.Anim
                 }
             }
 
-            archer.Apply(archer.Animator.Step(dt, a));
+            if (views)
+            {
+                // C-053: лучник идёт вбок (на восток) — боковой спрайт без зеркала.
+                float vp = Mathf.Clamp01((_t - FoeViewsStart) / FoeViewsSec);
+                archer.Root.position = FoeViewsHome + new Vector3(-1f + 6f * vp, 0f, 0f);
+                archer.AnimateWalk(dt);
+            }
+            else
+            {
+                archer.Apply(archer.Animator.Step(dt, a));
+            }
             if (_foeArrowHitAt >= 0f && _t >= _foeArrowHitAt)
             {
                 _foeArrowHitAt = -1f;
@@ -149,13 +176,13 @@ namespace Orpheus.Client.Anim
             wolf.Rig.Root.position = wolfPos;
             wolfHero.Root.position = wolfHeroPos;
 
-            if (_t >= FoeWolfDeathAt)
+            if (!views && _t >= FoeWolfDeathAt)
             {
                 wolf.Animate(dt, SwingPhase.None, 0f);
                 wolf.Rig.Apply(DeathAnim.Apply(wolf.Rig.Animator.Step(dt, new ActorInput()), _t - FoeWolfDeathAt,
                     fallRight: false, dissolve: true));
             }
-            else
+            else if (!views)
             {
                 float wq = 0f;
                 SwingPhase wph = _t >= FoeWolfBiteStart && _t < FoeWolfBiteStart + SwingCycle ? PhaseAt(_t - FoeWolfBiteStart, out wq) : SwingPhase.None;
@@ -183,6 +210,16 @@ namespace Orpheus.Client.Anim
                 wolf.Rig.Animator.OnHit(-1f, 0f); // удар пришёл с запада
                 _sparks.Emit((Vector2)wolfPos + new Vector2(0.35f, 0.35f), Vector2.left, AnimParams.HitSparks, AnimParams.HitSparkSpeed,
                     AnimParams.HitSparkLife, 80f, false, AnimParams.StrikeFlash, AnimParams.SparkLight);
+            }
+
+            // 6) C-053: трое врагов своим видом идут к камере / от камеры / вбок — мечник, волк, лучник.
+            if (views)
+            {
+                float vp = Mathf.Clamp01((_t - FoeViewsStart) / FoeViewsSec);
+                foe.Rig.Root.position = FoeViewsHome + new Vector3(-4f, -4.5f * vp, 0f);   // на юг — вид к зрителю
+                foe.Animate(dt, SwingPhase.None, 0f);
+                wolf.Rig.Root.position = FoeViewsHome + new Vector3(0f, -4.5f * (1f - vp), 0f); // на север — вид от зрителя
+                wolf.Animate(dt, SwingPhase.None, 0f);
             }
 
             // Стрелу рисует тот же ArrowView, что у лука (список выстрелов общий): перерисовываем после BowFrame — якорь наш лучник.
@@ -224,6 +261,9 @@ namespace Orpheus.Client.Anim
             // E3-3: укус со вспышкой на герое, ответ героя (красная вспышка на волке), падение и растворение.
             new Shot { Name = "E3-3_wolf_bite", Focus = () => (FoeWolfPos + FoeWolfHeroPos) * 0.5f, Ortho = ShotsOrtho,
                 Times = new[] { 40.44f, 40.56f, 40.80f, 41.10f, 41.30f, 41.75f }, CropW = 640, CropH = 560 },
+            // C-053: трое врагов своим спрайтом идут: мечник — к зрителю, волк — от зрителя, лучник — вбок.
+            new Shot { Name = "C-053_views", Focus = () => FoeViewsHome + new Vector3(0f, -2.2f, 0f), Ortho = 4.5f,
+                Times = new[] { 42.62f, 42.95f, 43.30f, 43.62f, 43.95f, 44.30f }, CropW = 1100, CropH = 520 },
         };
     }
 }
