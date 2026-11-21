@@ -23,9 +23,11 @@ namespace Orpheus.Tests
         public void C053_Pick_Threshold_ExactlyAtWeight_IsSide()
         {
             // Граница сектора точная: |dirY| = |dirX|·FrontWeight — ещё «вбок», чуть выше — «к нам».
-            Assert.Equal(ActorView.Side, ViewPick.Pick(1f, ViewPick.FrontWeight, ActorView.Back, 0.001f));
-            Assert.Equal(ActorView.Front, ViewPick.Pick(1f, -(ViewPick.FrontWeight + 0.01f), ActorView.Back, 0.001f));
-            Assert.Equal(ActorView.Back, ViewPick.Pick(-1f, ViewPick.FrontWeight + 0.01f, ActorView.Front, 0.001f));
+            // Порог закрепления литералом (П 21.11): завышение FrontWeight без правки теста — красный.
+            Assert.Equal(1.2f, ViewPick.FrontWeight);
+            Assert.Equal(ActorView.Side, ViewPick.Pick(1f, 1.2f, ActorView.Back, 0.001f));
+            Assert.Equal(ActorView.Front, ViewPick.Pick(1f, -1.21f, ActorView.Back, 0.001f));
+            Assert.Equal(ActorView.Back, ViewPick.Pick(-1f, 1.21f, ActorView.Front, 0.001f));
             // Диагональ 45° (|x|=|y|) ближе к вертикали порога 1,2 — остаётся боковой.
             Assert.Equal(ActorView.Side, ViewPick.Pick(0.7f, 0.7f, ActorView.Front, 0.001f));
         }
