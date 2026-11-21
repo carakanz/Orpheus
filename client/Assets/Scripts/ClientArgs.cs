@@ -199,6 +199,13 @@ namespace Orpheus.Client
         /// </summary>
         public string? WadeDemo;
 
+        /// <summary>
+        /// C-049, только для снимков без сервера: костёр в пяти тайлах севернее старта, персонаж на заданной
+        /// стороне огня — <c>in</c> (в кольце камней, на огне), <c>south</c>, <c>north</c>, <c>east</c>, <c>west</c>;
+        /// проверяет порядок отрисовки «низкой полосы» (LowRowOrderAt) и живое пламя.
+        /// </summary>
+        public string? FireDemo;
+
         /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
         public bool PaintForest;
 
@@ -563,6 +570,18 @@ namespace Orpheus.Client
                         else
                         {
                             a.WadeDemo = next;
+                        }
+
+                        break;
+                    case "--fire-demo":
+                        i++;
+                        if (next != "in" && next != "south" && next != "north" && next != "east" && next != "west")
+                        {
+                            a.Error = $"--fire-demo: нужно in, south, north, east или west, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.FireDemo = next;
                         }
 
                         break;

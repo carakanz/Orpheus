@@ -39,7 +39,7 @@ namespace Orpheus.Client
         /// Середина полосы порядков для всего «с высотой» (E1-7): строки объектов и существа сортируются по нижней кромке —
         /// <see cref="SortOrderAt"/>. Плоские плитки Tilemap (стены, двери — <see cref="ObjectOrder"/>) лежат ниже.
         /// </summary>
-        public const int TallOrder = 6000;
+        public const int TallOrder = DrawOrder.TallOrder;
 
         /// <summary>Тон суток (E1-8) — поверх всего мира.</summary>
         public const int TintOrder = 30000;
@@ -47,11 +47,25 @@ namespace Orpheus.Client
         /// <summary>
         /// Порядок отрисовки существа с ногами на высоте y (координата Unity): ниже на экране — позже, шаг — четверть
         /// тайла. Существа получают чётные порядки, строки объектов — нечётные (<see cref="RowOrderAt"/>).
+        /// C-049: математика вынесена в <see cref="DrawOrder"/> (чистая, linked в тесты).
         /// </summary>
-        public static int SortOrderAt(float y) => TallOrder + 2 * Mathf.Clamp(Mathf.FloorToInt(-y * 4f), -2800, 2800);
+        public static int SortOrderAt(float y) => DrawOrder.SortOrderAt(y);
 
         /// <summary>Порядок строки объектов с опорой на высоте y: существо в той же четверти тайла — позади строки.</summary>
-        public static int RowOrderAt(float y) => SortOrderAt(y) + 1;
+        public static int RowOrderAt(float y) => DrawOrder.RowOrderAt(y);
+
+        /// <summary>
+        /// C-049: порядок «низкой полосы» строки (костёр — слова Автора «почему костёр надо мной оказался»):
+        /// камни и низ пламени рисуются на два шага ПЕРЕД существом той же четверти, чтобы персонаж,
+        /// стоящий у костра, был поверх огня; севернее костра — за ним, южнее — перед ним.
+        /// </summary>
+        public static int LowRowOrderAt(float y) => DrawOrder.LowRowOrderAt(y);
+
+        /// <summary>
+        /// C-049: опора порядка строки ly (нижний край строки + подъём объекта). В мире это центр
+        /// переворота правила: полоса квантования кончается в центре тайла костра.
+        /// </summary>
+        public static float RowAnchorY(float rootY, int ly) => DrawOrder.RowAnchorY(rootY, ly);
 
         public sealed class ChunkNode
         {
@@ -92,6 +106,11 @@ namespace Orpheus.Client
             /// <summary>Строки объектов «с высотой»: меш и отрисовщик на строку тайлов; создаются, когда в строке что-то появилось.</summary>
             public readonly Mesh?[] RowMeshes = new Mesh?[Size];
             public readonly MeshRenderer?[] Rows = new MeshRenderer?[Size];
+
+            /// <summary>C-049: «низкая полоса» строки (костёр) — отдельный меш/отрисовщик перед существом той же четверти.</summary>
+            public readonly Mesh?[] LowRowMeshes = new Mesh?[Size];
+            public readonly MeshRenderer?[] LowRows = new MeshRenderer?[Size];
+            public readonly int[] LowRowCounts = new int[Size];
 
             /// <summary>Объектов в строке сейчас.</summary>
             public readonly int[] RowCounts = new int[Size];
@@ -174,6 +193,9 @@ namespace Orpheus.Client
 
         public bool TryGetNode(ChunkCoord c, out ChunkNode node) => _nodes.TryGetValue(c, out node!);
 
+        /// <summary>Построенные узлы окна (для систем, которым нужен обзор: искры костров C-049).</summary>
+        public IEnumerable<ChunkNode> Nodes => _nodes.Values;
+
         /// <summary>Мешей земли собрано за всё время (вход чанка в окно и правки пола).</summary>
         public int GroundBuilds => _ground.Builds;
 
@@ -196,16 +218,18 @@ namespace Orpheus.Client
         /// <summary>Мешей строк объектов и теней собрано за всё время (E1-7).</summary>
         public int ObjectBuilds => _objects.Builds;
 
-        /// <summary>Объектов «с высотой» в окне сейчас (квадратов в мешах строк).</summary>
+        /// <summary>Объектов «с высотой» в окне сейчас (квадратов в мешах строк). C-049: считает и низкую полосу (костёр),
+        /// иначе квады костра выпадали из замера (до C-049 они сидели в <see cref="Chunk.RowCounts"/>).</summary>
         public int ObjectQuads()
         {
             int n = 0;
             for (int i = 0; i < _count; i++)
             {
                 int[] rows = _nodes[_current[i]].RowCounts;
+                int[] low = _nodes[_current[i]].LowRowCounts;
                 for (int r = 0; r < Size; r++)
                 {
-                    n += rows[r];
+                    n += rows[r] + low[r];
                 }
             }
 
@@ -455,6 +479,28 @@ namespace Orpheus.Client
             return mesh;
         }
 
+        // C-049: то же для «низкой полосы» строки (костёр) — отдельный меш перед существом той же четверти.
+        Mesh LowRowMesh(ChunkNode node, int ly)
+        {
+            Mesh? mesh = node.LowRowMeshes[ly];
+            if (mesh != null)
+            {
+                return mesh;
+            }
+
+            mesh = ObjectMesh.Create("Objects low");
+            var go = new GameObject("Row low " + ly);
+            go.transform.SetParent(node.Root.transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var mr = go.AddComponent<MeshRenderer>();
+            Plain(mr, ObjectAtlas.Material);
+            mr.enabled = false;
+            node.LowRowMeshes[ly] = mesh;
+            node.LowRows[ly] = mr;
+            node.OrderedY = float.NaN; // новой строке нужен порядок
+            return mesh;
+        }
+
         // Порядок отрисовки строк — по высоте их опоры на экране; пересчёт, только когда узел сдвинулся.
         void ApplyRowOrders(ChunkNode node)
         {
@@ -470,7 +516,13 @@ namespace Orpheus.Client
                 MeshRenderer? mr = node.Rows[ly];
                 if (mr != null)
                 {
-                    mr.sortingOrder = RowOrderAt(y - ly - 1f + ObjectTable.BaseLift);
+                    mr.sortingOrder = RowOrderAt(RowAnchorY(y, ly));
+                }
+
+                MeshRenderer? low = node.LowRows[ly]; // C-049: низкая полоса — перед существом той же четверти
+                if (low != null)
+                {
+                    low.sortingOrder = LowRowOrderAt(RowAnchorY(y, ly));
                 }
             }
         }
@@ -514,6 +566,11 @@ namespace Orpheus.Client
             node.RowCounts[ly] = n;
             node.RowBlocks[ly] = n > 0 && _objects.RowHadBlocks;
             node.Rows[ly]!.enabled = n > 0 && ObjectAtlas.Material != null && !WorldFx.Off("norows");
+
+            // C-049: «низкая полоса» (костёр) строки — своим мешом, перед существом той же четверти.
+            int low = _objects.BuildRow(chunk, node.Coord, ly, LowRowMesh(node, ly), lowPass: true);
+            node.LowRowCounts[ly] = low;
+            node.LowRows[ly]!.enabled = low > 0 && ObjectAtlas.Material != null && !WorldFx.Off("norows");
         }
 
         // Пришёл чанк-сосед (dx, dy от near): строки near с блоками у общего края собрать заново — контур, лицо и ярус
