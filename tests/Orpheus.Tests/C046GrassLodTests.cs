@@ -49,6 +49,8 @@ namespace Orpheus.Tests
         /// <summary>
         /// Шейдер рисует каждый пучок на любом обзоре: ветки, схлопывающей квадрат пучка в точку
         /// опоры, в <c>Grass.shader</c> нет (проверка на исходник — правка шейдера красит тест).
+        /// По замечанию П 1 (21.11) проверка держит и перефразировку: доли скрытия в шейдере нет вовсе
+        /// (ни одного <c>_OrphGrass</c>) и точке опоре позиция не присваивается.
         /// </summary>
         [Fact]
         public void Shader_Draws_Every_Tuft_Quad_At_Any_View()
@@ -56,6 +58,8 @@ namespace Orpheus.Tests
             string shader = File.ReadAllText(Path.Combine(ClientRes, "Grass.shader"));
             Assert.DoesNotMatch(@"v\.info\.z\s*<\s*_OrphGrass\.x", shader);
             Assert.DoesNotMatch(@"wp\.xy\s*=\s*base", shader);
+            Assert.DoesNotContain("_OrphGrass", shader); // доля скрытия не читается ни в каком виде
+            Assert.DoesNotMatch(@"=\s*base\s*[;,)]", shader); // позицию не приравнивают к опоре
             // Ветровой изгиб пучка остался (иначе проверка «нет скрытия» ничего не стоит):
             Assert.Contains("OrphWind(base, v.info.z)", shader);
         }
