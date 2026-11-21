@@ -169,6 +169,10 @@ namespace Orpheus.Client
         public string? AnimShotsDir;
         public int AnimBenchSeconds;
 
+        /// <summary>D-004: <c>--dragon-shots &lt;папка&gt;</c> — показ дракона «вырезкой» (части на костях) и ленты <c>D-004_*.png</c>
+        /// вместо лент героя; папка — та же, что у <see cref="AnimShotsDir"/>.</summary>
+        public bool AnimDragon;
+
         /// <summary>
         /// 1-022: <c>--tile-bench &lt;сек&gt;</c> — стенд «48 Tilemap»: бег через шов на самом дальнем обзоре (96 тайлов) и поток правок
         /// (20 тайлов/с + пачки 32 тайла), замеры fps и стоимости правок (шаг 1–2; приёмка 1.11).
@@ -256,7 +260,7 @@ namespace Orpheus.Client
             "Orpheus [--seed N] [--size N] [--smoke] [--connect хост:порт] [--name N] " +
             "[--net-smoke [сек]] [--net-smoke-seam] [--net-sim RTT,σ,потери%[,зерно]] [--hud] [--auto-menu-click] [--screenshot путь [--shot-tile X,Y] [--shot-width 40…96] [--shot-size ШxВ]] [--gen v1|stub] " +
             "[--single|--host] [--server-thread] [--world папка] [--server путь] [--server-arg A]… [--open-for-friends] [--open-address IPv4] [--open-port P] " +
-            "[--anim-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|turn|oldbeds|rmb-open|rmb-disarm|cursor-place|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence|torches|room|wall] [--day-tick 0…35999]";
+            "[--anim-shots папка] [--dragon-shots папка] [--anim-bench сек] [--tile-bench сек [--bench-render]] [--paint-demo] [--demo-piles] [--ui-demo bag|hotbar|craft|craft+bag|craft-hint|craft-chest|inv|inv-weapons|inv-buildings|inv-stone|build|build-open|chest|house|thin|half|turn|oldbeds|rmb-open|rmb-disarm|cursor-place|ruler-wall|ruler-floor] [--home-demo overview|south|north|behind|door|camp|fence|torches|room|wall] [--day-tick 0…35999]";
 
         static bool TryParseWalk(string? text, ClientArgs a)
         {
@@ -653,6 +657,19 @@ namespace Orpheus.Client
                         else
                         {
                             a.AnimShotsDir = next;
+                        }
+
+                        break;
+                    case "--dragon-shots":
+                        i++;
+                        if (string.IsNullOrEmpty(next))
+                        {
+                            a.Error = "--dragon-shots: нет папки";
+                        }
+                        else
+                        {
+                            a.AnimShotsDir = next;
+                            a.AnimDragon = true;
                         }
 
                         break;

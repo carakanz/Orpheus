@@ -207,7 +207,7 @@ namespace Orpheus.Client
             }
             else if (Args.AnimShotsDir != null || Args.AnimBenchSeconds > 0)
             {
-                _showcase = new Anim.AnimShowcase(this, Args.AnimShotsDir, Args.AnimBenchSeconds);
+                _showcase = new Anim.AnimShowcase(this, Args.AnimShotsDir, Args.AnimBenchSeconds, Args.AnimDragon);
             }
             else if (Args.TileBenchSeconds > 0)
             {

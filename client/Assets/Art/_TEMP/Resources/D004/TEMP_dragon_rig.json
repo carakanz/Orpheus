@@ -1,0 +1,669 @@
+{
+ "ppt": 256,
+ "far": 0.68,
+ "parts": [
+  {
+   "name": "body_side",
+   "file": "TEMP_dragon_body_side",
+   "pivotX": 0.51485,
+   "pivotY": 0.46821,
+   "anchors": [
+    {
+     "name": "neck",
+     "x": 0.7,
+     "y": 0.14
+    },
+    {
+     "name": "tail",
+     "x": -0.78,
+     "y": 0.02
+    },
+    {
+     "name": "shoulder_near",
+     "x": 0.44,
+     "y": -0.1
+    },
+    {
+     "name": "shoulder_far",
+     "x": 0.5,
+     "y": 0.06
+    },
+    {
+     "name": "hip_near",
+     "x": -0.46,
+     "y": -0.1
+    },
+    {
+     "name": "hip_far",
+     "x": -0.4,
+     "y": 0.06
+    },
+    {
+     "name": "wing_near",
+     "x": 0.22,
+     "y": 0.22
+    },
+    {
+     "name": "wing_far",
+     "x": 0.3,
+     "y": 0.3
+    }
+   ]
+  },
+  {
+   "name": "head_side",
+   "file": "TEMP_dragon_head_side",
+   "pivotX": 0.35067,
+   "pivotY": 0.23112,
+   "anchors": [
+    {
+     "name": "jaw",
+     "x": 0.06,
+     "y": -0.06
+    },
+    {
+     "name": "mouth",
+     "x": 0.66,
+     "y": -0.06
+    }
+   ]
+  },
+  {
+   "name": "mouth_side",
+   "file": "TEMP_dragon_mouth_side",
+   "pivotX": 0.10706,
+   "pivotY": 0.55935,
+   "anchors": []
+  },
+  {
+   "name": "jaw_side",
+   "file": "TEMP_dragon_jaw_side",
+   "pivotX": 0.11027,
+   "pivotY": 0.60902,
+   "anchors": []
+  },
+  {
+   "name": "mouth_front",
+   "file": "TEMP_dragon_mouth_front",
+   "pivotX": 0.5,
+   "pivotY": 0.69558,
+   "anchors": []
+  },
+  {
+   "name": "tail_tip",
+   "file": "TEMP_dragon_tail_tip",
+   "pivotX": 0.16832,
+   "pivotY": 0.43618,
+   "anchors": []
+  },
+  {
+   "name": "tail_tip_top",
+   "file": "TEMP_dragon_tail_tip_top",
+   "pivotX": 0.16832,
+   "pivotY": 0.5,
+   "anchors": []
+  },
+  {
+   "name": "fore_upper",
+   "file": "TEMP_dragon_fore_upper",
+   "pivotX": 0.27184,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.26,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "fore_lower",
+   "file": "TEMP_dragon_fore_lower",
+   "pivotX": 0.23656,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.26,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "fore_foot",
+   "file": "TEMP_dragon_fore_foot",
+   "pivotX": 0.32609,
+   "pivotY": 0.55298,
+   "anchors": [
+    {
+     "name": "sole",
+     "x": 0.04,
+     "y": -0.065
+    }
+   ]
+  },
+  {
+   "name": "hind_upper",
+   "file": "TEMP_dragon_hind_upper",
+   "pivotX": 0.33441,
+   "pivotY": 0.45212,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.26,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "hind_lower",
+   "file": "TEMP_dragon_hind_lower",
+   "pivotX": 0.22917,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.28,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "hind_foot",
+   "file": "TEMP_dragon_hind_foot",
+   "pivotX": 0.32329,
+   "pivotY": 0.5549,
+   "anchors": [
+    {
+     "name": "sole",
+     "x": 0.044,
+     "y": -0.0715
+    }
+   ]
+  },
+  {
+   "name": "wing_arm",
+   "file": "TEMP_dragon_wing_arm",
+   "pivotX": 0.10615,
+   "pivotY": 0.80819,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.7,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "wing_hand",
+   "file": "TEMP_dragon_wing_hand",
+   "pivotX": 0.10882,
+   "pivotY": 0.8125,
+   "anchors": []
+  },
+  {
+   "name": "body_front",
+   "file": "TEMP_dragon_body_front",
+   "pivotX": 0.5,
+   "pivotY": 0.48148,
+   "anchors": [
+    {
+     "name": "neck",
+     "x": 0.0,
+     "y": -0.36
+    },
+    {
+     "name": "tail",
+     "x": 0.0,
+     "y": 0.44
+    },
+    {
+     "name": "shoulder_r",
+     "x": 0.34,
+     "y": -0.24
+    },
+    {
+     "name": "shoulder_l",
+     "x": -0.34,
+     "y": -0.24
+    },
+    {
+     "name": "hip_r",
+     "x": 0.32,
+     "y": 0.22
+    },
+    {
+     "name": "hip_l",
+     "x": -0.32,
+     "y": 0.22
+    },
+    {
+     "name": "wing_r",
+     "x": 0.2,
+     "y": 0.06
+    },
+    {
+     "name": "wing_l",
+     "x": -0.2,
+     "y": 0.06
+    }
+   ]
+  },
+  {
+   "name": "body_back",
+   "file": "TEMP_dragon_body_back",
+   "pivotX": 0.5,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "neck",
+     "x": 0.0,
+     "y": 0.4
+    },
+    {
+     "name": "tail",
+     "x": 0.0,
+     "y": -0.42
+    },
+    {
+     "name": "shoulder_r",
+     "x": 0.34,
+     "y": 0.24
+    },
+    {
+     "name": "shoulder_l",
+     "x": -0.34,
+     "y": 0.24
+    },
+    {
+     "name": "hip_r",
+     "x": 0.34,
+     "y": -0.2
+    },
+    {
+     "name": "hip_l",
+     "x": -0.34,
+     "y": -0.2
+    },
+    {
+     "name": "wing_r",
+     "x": 0.2,
+     "y": 0.16
+    },
+    {
+     "name": "wing_l",
+     "x": -0.2,
+     "y": 0.16
+    }
+   ]
+  },
+  {
+   "name": "head_front",
+   "file": "TEMP_dragon_head_front",
+   "pivotX": 0.5,
+   "pivotY": 0.56845,
+   "anchors": [
+    {
+     "name": "jaw",
+     "x": 0.0,
+     "y": -0.4
+    },
+    {
+     "name": "mouth",
+     "x": 0.0,
+     "y": -0.5
+    }
+   ]
+  },
+  {
+   "name": "jaw_front",
+   "file": "TEMP_dragon_jaw_front",
+   "pivotX": 0.5,
+   "pivotY": 0.88084,
+   "anchors": []
+  },
+  {
+   "name": "head_back",
+   "file": "TEMP_dragon_head_back",
+   "pivotX": 0.5,
+   "pivotY": 0.29032,
+   "anchors": [
+    {
+     "name": "jaw",
+     "x": 0.0,
+     "y": 0.3
+    },
+    {
+     "name": "mouth",
+     "x": 0.0,
+     "y": 0.4
+    }
+   ]
+  },
+  {
+   "name": "leg_top_upper",
+   "file": "TEMP_dragon_leg_top_upper",
+   "pivotX": 0.28283,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.24,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "leg_top_lower",
+   "file": "TEMP_dragon_leg_top_lower",
+   "pivotX": 0.24719,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.24,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "foot_front",
+   "file": "TEMP_dragon_foot_front",
+   "pivotX": 0.5,
+   "pivotY": 0.67114,
+   "anchors": [
+    {
+     "name": "sole",
+     "x": 0.0,
+     "y": -0.08
+    }
+   ]
+  },
+  {
+   "name": "neck_0",
+   "file": "TEMP_dragon_neck_0",
+   "pivotX": 0.32368,
+   "pivotY": 0.49501,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.2,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "neck_top_0",
+   "file": "TEMP_dragon_neck_top_0",
+   "pivotX": 0.32368,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.2,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "neck_1",
+   "file": "TEMP_dragon_neck_1",
+   "pivotX": 0.31285,
+   "pivotY": 0.49514,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.2,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "neck_top_1",
+   "file": "TEMP_dragon_neck_top_1",
+   "pivotX": 0.31285,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.2,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "neck_2",
+   "file": "TEMP_dragon_neck_2",
+   "pivotX": 0.30012,
+   "pivotY": 0.49531,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.2,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "neck_top_2",
+   "file": "TEMP_dragon_neck_top_2",
+   "pivotX": 0.30012,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.2,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "neck_3",
+   "file": "TEMP_dragon_neck_3",
+   "pivotX": 0.28496,
+   "pivotY": 0.49553,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.2,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "neck_top_3",
+   "file": "TEMP_dragon_neck_top_3",
+   "pivotX": 0.28496,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.2,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_0",
+   "file": "TEMP_dragon_tail_0",
+   "pivotX": 0.31667,
+   "pivotY": 0.49501,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_top_0",
+   "file": "TEMP_dragon_tail_top_0",
+   "pivotX": 0.31667,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_1",
+   "file": "TEMP_dragon_tail_1",
+   "pivotX": 0.30732,
+   "pivotY": 0.49512,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_top_1",
+   "file": "TEMP_dragon_tail_top_1",
+   "pivotX": 0.30732,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_2",
+   "file": "TEMP_dragon_tail_2",
+   "pivotX": 0.29665,
+   "pivotY": 0.49525,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_top_2",
+   "file": "TEMP_dragon_tail_top_2",
+   "pivotX": 0.29665,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_3",
+   "file": "TEMP_dragon_tail_3",
+   "pivotX": 0.28436,
+   "pivotY": 0.49542,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_top_3",
+   "file": "TEMP_dragon_tail_top_3",
+   "pivotX": 0.28436,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_4",
+   "file": "TEMP_dragon_tail_4",
+   "pivotX": 0.27005,
+   "pivotY": 0.49565,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_top_4",
+   "file": "TEMP_dragon_tail_top_4",
+   "pivotX": 0.27005,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_5",
+   "file": "TEMP_dragon_tail_5",
+   "pivotX": 0.2532,
+   "pivotY": 0.46409,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_top_5",
+   "file": "TEMP_dragon_tail_top_5",
+   "pivotX": 0.2532,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_6",
+   "file": "TEMP_dragon_tail_6",
+   "pivotX": 0.23303,
+   "pivotY": 0.46809,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  },
+  {
+   "name": "tail_top_6",
+   "file": "TEMP_dragon_tail_top_6",
+   "pivotX": 0.23303,
+   "pivotY": 0.5,
+   "anchors": [
+    {
+     "name": "next",
+     "x": 0.21,
+     "y": 0.0
+    }
+   ]
+  }
+ ]
+}

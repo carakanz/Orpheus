@@ -80,9 +80,10 @@ namespace Orpheus.Client.Anim
         readonly List<Vector3> _benchHomes = new List<Vector3>();
         bool _bench;
 
-        public AnimShowcase(GameBoot g, string? dir, int benchSec)
+        public AnimShowcase(GameBoot g, string? dir, int benchSec, bool dragon = false)
         {
             _g = g;
+            _dragonMode = dragon;
             _dir = dir == null ? null : Path.GetFullPath(dir);
             _benchSec = benchSec;
             if (_dir != null)
@@ -283,6 +284,10 @@ namespace Orpheus.Client.Anim
             else if (_walker != null)
             {
                 ShowFrame(dt);
+            }
+            else if (_dragons != null)
+            {
+                DragonFrame(dt); // D-004
             }
 
             _sparks.Update(dt);
@@ -504,6 +509,13 @@ namespace Orpheus.Client.Anim
 
         IEnumerator Run()
         {
+            if (_dragonMode && _dir != null)
+            {
+                yield return DragonRun(); // D-004: только дракон
+                Application.Quit(0);
+                yield break;
+            }
+
             if (_dir != null)
             {
                 Time.captureDeltaTime = 1f / 60f; // время игры — ровно кадр за кадром, снимки не сбивают сценарий
