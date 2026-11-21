@@ -17,7 +17,7 @@ namespace Orpheus.Client.Anim
         readonly Transform _sprite;
         readonly SpriteRenderer _sr;
         readonly Vector3 _basePos;
-        readonly Color _baseColor;
+        Color _baseColor; // C-053: не readonly — SetViews сбрасывает оттенок (свой спрайт уже раскрашен)
         readonly SpriteRenderer[] _ghosts;
         Vector3 _lastRoot;
         bool _hasLast;
@@ -189,6 +189,29 @@ namespace Orpheus.Client.Anim
         Transform? _shadow;
         bool _shadowLooked;
 
+        // C-053: спрайты по виду ([Side, Front, Back]) — null, пока набор не задан (герой, болванки без видов).
+        Sprite?[]? _views;
+
+        /// <summary>C-053: архетип врага из снимка (0 — не задан): набор видов переставлять только при смене.</summary>
+        public byte Archetype;
+
+        /// <summary>
+        /// C-053: набор спрайтов существа по виду (бок / к зрителю / от зрителя; влево — отражение бокового).
+        /// Поза (<see cref="Pose.View"/>) выбирает картинку в <see cref="Apply"/>. Нулевой спрайт вида — остаётся прежний.
+        /// </summary>
+        public void SetViews(Sprite side, Sprite? front, Sprite? back)
+        {
+            _views = new Sprite?[] { side, front, back };
+            _sr.sprite = side;
+            _baseColor = Color.white; // C-053: картинка своя — оттенок E3-3/E3-4 из базового цвета уходит
+            _sr.color = Color.white;
+            _baseSprite = null;
+            for (int i = 0; i < _ghosts.Length; i++)
+            {
+                _ghosts[i].sprite = side;
+            }
+        }
+
         void ApplyWade(int order, float cover)
         {
             float dt = Mathf.Min(Time.deltaTime, 0.1f);
@@ -265,6 +288,21 @@ namespace Orpheus.Client.Anim
 
         public void Apply(in Pose p)
         {
+            // C-053: свои спрайты по виду (к/от зрителя, вбок). Без набора видов (герой) — картинка как раньше.
+            if (_views != null)
+            {
+                Sprite? want = _views[(int)p.View];
+                if (want != null && _sr.sprite != want)
+                {
+                    _sr.sprite = want;
+                    _baseSprite = null; // ApplyWade перекеширует обрез под новый вид
+                    for (int i = 0; i < _ghosts.Length; i++)
+                    {
+                        _ghosts[i].sprite = want;
+                    }
+                }
+            }
+
             _sprite.localPosition = _basePos + new Vector3(p.OffsetX, p.OffsetY, 0f);
             _sprite.localRotation = Quaternion.Euler(0f, 0f, p.RotationDeg);
             _sprite.localScale = new Vector3(p.ScaleX, p.ScaleY, 1f);

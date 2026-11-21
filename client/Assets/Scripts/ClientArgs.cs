@@ -112,6 +112,20 @@ namespace Orpheus.Client
         /// </summary>
         public bool NetSmokeBed;
 
+        /// <summary>
+        /// C-048: net-smoke на ЖИВОМ пути ввода (не скриптованные кадры): synthetic-мышь и клавиатура
+        /// (<c>NetGame.SmokeBow</c>) держат ЛКМ 5,0–10,0 с с луком в руках (ячейка 5) — проверка, что
+        /// удержание даёт серию выстрелов («лук при зажатии стреляет нонстопом», слово Автора 21.11).
+        /// </summary>
+        public bool NetSmokeBow;
+
+        /// <summary>
+        /// C-048: тот же лук, но курсор — над нижней панелью (низ экрана, где сферы и способности: Автор целится
+        /// в моба у ног, курсор оказывается над панелью, и E2-2 «мир не отвечает» глушит выстрелы). Проверка, что
+        /// с боевым оружием в руках ЛКМ уходит в мир даже над панелью.
+        /// </summary>
+        public bool NetSmokeBowBar;
+
         public bool Hud;
 
         /// <summary>Одиночная / хост: сервер дочерним процессом (0-024); null — офлайн или <see cref="Connect"/>.</summary>
@@ -198,6 +212,13 @@ namespace Orpheus.Client
         /// слово — <c>water</c> (персонаж в воде), <c>bush</c> (в кустах), <c>enemy</c> (враг-болванка в воде).
         /// </summary>
         public string? WadeDemo;
+
+        /// <summary>
+        /// C-049, только для снимков без сервера: костёр в пяти тайлах севернее старта, персонаж на заданной
+        /// стороне огня — <c>in</c> (в кольце камней, на огне), <c>south</c>, <c>north</c>, <c>east</c>, <c>west</c>;
+        /// проверяет порядок отрисовки «низкой полосы» (LowRowOrderAt) и живое пламя.
+        /// </summary>
+        public string? FireDemo;
 
         /// <summary>E1-7, только для замера <c>--tile-bench</c>: плотный лес вдоль полос бега стенда (<c>PaintDemo.ApplyBenchForest</c>).</summary>
         public bool PaintForest;
@@ -347,6 +368,13 @@ namespace Orpheus.Client
                     case "--smoke-bed":
                         a.NetSmokeBed = true;
                         a.ServerArgs.Add("--debug-bed"); // C-030: кровать ставит сервер у точки появления
+                        break;
+                    case "--smoke-bow":
+                        a.NetSmokeBow = true;
+                        break;
+                    case "--smoke-bow-bar": // C-048: лучник целится в моба у ног — курсор над нижней панелью
+                        a.NetSmokeBow = true;
+                        a.NetSmokeBowBar = true;
                         break;
                     case "--auto-menu-click": // E4-1b: автоклик «В меню» на «Уведомлении» (живая проверка возврата в меню)
                         a.AutoMenuClick = true;
@@ -563,6 +591,18 @@ namespace Orpheus.Client
                         else
                         {
                             a.WadeDemo = next;
+                        }
+
+                        break;
+                    case "--fire-demo":
+                        i++;
+                        if (next != "in" && next != "south" && next != "north" && next != "east" && next != "west")
+                        {
+                            a.Error = $"--fire-demo: нужно in, south, north, east или west, дано '{next}'";
+                        }
+                        else
+                        {
+                            a.FireDemo = next;
                         }
 
                         break;

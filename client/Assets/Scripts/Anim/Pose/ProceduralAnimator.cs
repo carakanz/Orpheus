@@ -82,6 +82,9 @@ namespace Orpheus.Client.Anim
         /// <summary>E2-7: предмет поднят за голову — рисовать позади спрайта.</summary>
         public bool HandBehind;
 
+        /// <summary>C-053: вид существа (к/от зрителя, вбок). Без набора видов у rig игнорируется — фигура как раньше.</summary>
+        public ActorView View;
+
         /// <summary>E2-7: рука вытянута от плеча — вперёд (по взгляду) и вверх, тайлов.</summary>
         public float HandReachX, HandReachY;
 
@@ -111,6 +114,7 @@ namespace Orpheus.Client.Anim
         float _speed;       // сглаженная скорость, т/с
         float _stepPhase;   // шагов пройдено (дробная часть — фаза шага)
         bool _facingRight = true;
+        ActorView _view; // C-053: текущий вид (к/от зрителя, вбок), с гистерезисом
         float _hitAge = float.MaxValue;
         float _hitDirX, _hitDirY;
         float _digTime;
@@ -232,32 +236,39 @@ namespace Orpheus.Client.Anim
             p.ScaleY *= 1f + breath;
             p.ScaleX *= 1f - breath * 0.5f;
 
-            // --- направление: удар, копание, рывок, затем движение ---
+            // --- направление: удар, копание, рывок, затем движение (X и Y — C-053 даёт 4 вида) ---
             float faceX = 0f;
+            float faceY = 0f;
             bool shooting = s.Drawing || (s.ShotSec > 0f && s.ShotSec < ActionAnim.BowRecoilSec);
             if (s.Swing != SwingPhase.None)
             {
                 faceX = s.SwingDirX;
+                faceY = s.SwingDirY;
             }
             else if (shooting)
             {
                 faceX = s.DrawDirX; // E3-2: при натяжении и выстреле — к прицелу (`02` 1.2)
+                faceY = s.DrawDirY;
             }
             else if (s.Digging)
             {
                 faceX = s.DigDirX;
+                faceY = s.DigDirY;
             }
             else if (s.Dashing)
             {
                 faceX = s.DashDirX;
+                faceY = s.DashDirY;
             }
             else if (_gesture != GestureKind.None && _gestureDirX != 0f)
             {
                 faceX = _gestureDirX;
+                faceY = _gestureDirY;
             }
             else if (_speed > AnimParams.WalkMinSpeed && Math.Abs(s.VelX) > AnimParams.WalkMinSpeed)
             {
                 faceX = s.VelX;
+                faceY = s.VelY;
             }
 
             bool aimed = s.Swing != SwingPhase.None || shooting || s.Digging || s.Dashing || _gesture != GestureKind.None;
@@ -267,6 +278,15 @@ namespace Orpheus.Client.Anim
             }
 
             p.FlipX = _facingRight != AnimParams.SpriteFacesRight;
+
+            // C-053: вид (к/от зрителя, вбок) — по тому же направлению; вид сзади НЕ зеркалится.
+            float viewDead = aimed ? AnimParams.FacingDeadZone : AnimParams.WalkMinSpeed;
+            _view = ViewPick.Pick(faceX, faceY, _view, viewDead);
+            p.View = _view;
+            if (_view != ActorView.Side)
+            {
+                p.FlipX = false; // лицевые виды симметричны — зеркало только у бокового
+            }
 
             // --- уворот ---
             if (s.Dashing)

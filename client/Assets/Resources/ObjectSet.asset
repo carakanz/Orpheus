@@ -21,6 +21,16 @@ MonoBehaviour:
   - boulder_c
   - bush_a
   - bush_b
+  - char_bandit_bow_back
+  - char_bandit_bow_front
+  - char_bandit_bow_side
+  - char_bandit_sword_back
+  - char_bandit_sword_front
+  - char_bandit_sword_side
+  - char_orpheus
+  - char_wolf_back
+  - char_wolf_front
+  - char_wolf_side
   - cliff_face
   - cliff_top
   - floor_platform
@@ -95,6 +105,16 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 143dec2dead50a444a4e9c21c448431f, type: 3}
   - {fileID: 21300000, guid: d813ac3c1c4892f40956e52738e84d23, type: 3}
   - {fileID: 21300000, guid: 61448e6c5fd0bc84c9e73a3e43610cf6, type: 3}
+  - {fileID: 21300000, guid: fe374c0ef8edf0c4c862543880f13035, type: 3}
+  - {fileID: 21300000, guid: b64c1399ae62dce46a5a21f6c2858ebd, type: 3}
+  - {fileID: 21300000, guid: 0fde8f191d2542445a221f3d7099b4d3, type: 3}
+  - {fileID: 21300000, guid: b0802a3e77c3a564e942d606418267f5, type: 3}
+  - {fileID: 21300000, guid: b6130962706f5af4d9e53a3a29dcc4d1, type: 3}
+  - {fileID: 21300000, guid: a52929a96177ea745b8fdf6ae71cee5e, type: 3}
+  - {fileID: 21300000, guid: 60f5b49c100c6f044b7ae2f9da03c095, type: 3}
+  - {fileID: 21300000, guid: b75529d7c75547a47897d4f4ca465dff, type: 3}
+  - {fileID: 21300000, guid: 5dcd0498793566c47a81d93077147664, type: 3}
+  - {fileID: 21300000, guid: 5585955a5ba53724d835e4ad163287aa, type: 3}
   - {fileID: 21300000, guid: a05fa683b66cd30438a1e0f467512e18, type: 3}
   - {fileID: 21300000, guid: efac622f0f8e3e945bb837b4673c9ad3, type: 3}
   - {fileID: 21300000, guid: 6fbd6130171a5ae47b57e5b96af2c548, type: 3}

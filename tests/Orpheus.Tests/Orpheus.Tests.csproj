@@ -18,6 +18,10 @@
     <Compile Include="..\..\client\Assets\Scripts\Anim\Pose\*.cs" Link="ClientAnim\%(Filename)%(Extension)" />
     <!-- C-032 (хвост C-029): строки интерфейса — чистый C#, тесты проверяют подсказку рецепта. -->
     <Compile Include="..\..\client\Assets\Scripts\UI\UiStrings.cs" Link="ClientUI\UiStrings.cs" />
+    <!-- C-049: чистая математика порядка отрисовки (без UnityEngine) — тест сортировки костра. -->
+    <Compile Include="..\..\client\Assets\Scripts\DrawOrder.cs" Link="ClientDraw\DrawOrder.cs" />
+    <!-- C-046: чистая математика LOD растительности (без UnityEngine) — тест «не прореживать». -->
+    <Compile Include="..\..\client\Assets\Scripts\GrassLod.cs" Link="ClientDraw\GrassLod.cs" />
   </ItemGroup>
 
   <ItemGroup>

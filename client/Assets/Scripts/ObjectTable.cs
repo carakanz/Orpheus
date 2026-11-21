@@ -66,6 +66,9 @@ namespace Orpheus.Client
         /// </summary>
         public bool Block;
 
+        /// <summary>C-049: объект рисуют в «низкой полосе» строки — перед существом той же четверти (костёр).</summary>
+        public bool LowBand;
+
         /// <summary>Высота блока, тайлов (у обрыва — нижний ярус, C-016).</summary>
         public float Height = 1f;
 
@@ -206,6 +209,8 @@ namespace Orpheus.Client
             {
                 Id = ObjectId.Campfire, Variants = new[] { V("obj_campfire") },
                 Shadow = 0f,
+                LowBand = true, // C-049: огонь костра не перекрывает персонажа — низкая полоса строки
+                Sway = 0.07f,   // C-049: пламя колышет ветром (верх спрайта; шейдерный «живой мир», без покадровой анимации)
             },
             new ObjectLook
             {
@@ -217,6 +222,7 @@ namespace Orpheus.Client
             {
                 Id = ObjectId.Torch, Variants = new[] { V("obj_torch") },
                 Shadow = 0.3f,
+                Sway = 0.05f, // C-049: пламя факела колышет ветром (мерцание света и теней — DayTint/ShadowComposite)
             },
             new ObjectLook
             {
@@ -233,8 +239,10 @@ namespace Orpheus.Client
             },
         };
 
-        /// <summary>Опора объекта в своём тайле: по центру, на этой высоте от нижнего края тайла.</summary>
-        public const float BaseLift = 0.3f;
+        /// <summary>Опора объекта в своём тайле: по центру, на этой высоте от нижнего края тайла.
+        /// Число живёт в <see cref="DrawOrder.RowBaseLift"/> — там же, где правило порядка костра
+        /// (C-049), чтобы правка не разъехала геометрию сортировки (тест держит её по DrawOrder).</summary>
+        public const float BaseLift = DrawOrder.RowBaseLift;
 
         // Строки по номеру объекта (по порядку таблицы); null — номера в таблице нет.
         static ObjectLook[]?[] _byId = new ObjectLook[0][];
