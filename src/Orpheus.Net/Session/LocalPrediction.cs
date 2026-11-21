@@ -86,6 +86,7 @@ namespace Orpheus.Net.Session
         private byte _mass = 1;     // 1-001: масса снимка — по ней скорость отбрасывания
         private bool _dead;         // 1-001: труп — сервер не шагнёт ввод, предсказание стоит
         private byte _slot;         // 1-002: ячейка последнего отправленного кадра — предмет в руках у клиента
+        private bool _hitch;        // E4-2 (доводка 16): цикл клиента отстал (пауза > LoopHitchUs) — сверка после простоя
 
         // E4-2 (доводка 10, 21.11): разбор кадров с крупным расхождением «без нокбэка» (соакеры №2–9: 50…102 unit
         // при норме 68). Метрику и ворота это НЕ меняет: тут только контекст топ-6 таких кадров — позиции сервера
@@ -168,6 +169,24 @@ namespace Orpheus.Net.Session
 
         /// <summary>Кадров, списанных в «расхождение задано выталкиванием из нового блока» (E4-2, соакеры 20.11).</summary>
         public long PushOutExcluded { get; private set; }
+
+        /// <summary>
+        /// Порог «запинки цикла клиента» (E4-2, доводка 16): пауза между кадрами больше ДВУХ кадров (60 Гц).
+        /// Пока цикл стоял, сервер шагнул лишние такты, и правку задаёт сервер (1-001), а не ходьба: первый
+        /// крупный остаток после простоя — не ошибка предсказания (соак №15, кадр 97253: 77 unit по X,
+        /// «в блоке False/False», нокбэка нет, тел 0, держится 90 кадров, ресинков 326 против 29 у тихого
+        /// соака №14, где этот класс не появлялся).
+        /// </summary>
+        public const long LoopHitchUs = 2 * SeamWatch.FrameUs;
+
+        /// <summary>Кадров, списанных в «расхождение задано запинкой цикла клиента» (E4-2, доводка 16).</summary>
+        public long LoopHitchExcluded { get; private set; }
+
+        /// <summary>Запинкок цикла (кадров, пришедших позже <see cref="LoopHitchUs"/> после предыдущего) — для отчёта (доводка 16).</summary>
+        public long LoopHitchTicks { get; private set; }
+
+        /// <summary>Самая длинная запинка цикла, мкс: видно, что списание задано настоящим простоем (доводка 16).</summary>
+        public long LoopHitchMaxUs { get; private set; }
 
         /// <summary>
         /// Кадр с крупным расхождением «без нокбэка» и его контекст: видно, был ли нокбэк с одной из сторон,
@@ -572,6 +591,26 @@ namespace Orpheus.Net.Session
         }
 
         /// <summary>
+        /// Такт цикла клиента (E4-2, доводка 16): <paramref name="gapUs"/> — пауза от прошлого кадра до этого.
+        /// Флаг = «цикл отстаёт ИМЕННО в этом кадре»: пауза длиннее <see cref="LoopHitchUs"/> — окно
+        /// предсказания между сверками вышло за штатный шаг, и крупные «готовые» остатки этого кадра
+        /// атрибутируются запинке (LoopHitchExcluded), а не ходьбе. Снимается следующим тактом с обычной
+        /// паузой, поэтому все снимки, пришедшие после простоя (в одном кадре их бывает 2…3), видят флаг.
+        /// </summary>
+        public void NoteLoopHitch(long gapUs)
+        {
+            _hitch = gapUs > LoopHitchUs;
+            if (_hitch)
+            {
+                LoopHitchTicks++;
+                if (gapUs > LoopHitchMaxUs)
+                {
+                    LoopHitchMaxUs = gapUs;
+                }
+            }
+        }
+
+        /// <summary>
         /// Сверка со снимком: <paramref name="ackFrame"/> — последний шагнутый сервером кадр (0 — ещё ни одного),
         /// <paramref name="server"/> — своё состояние после него (без кванта), время — монотонные мкс.
         /// </summary>
@@ -684,6 +723,20 @@ namespace Orpheus.Net.Session
             {
                 long d2 = Torus.Dist2(_map, predicted.Position, server.Position);
                 LastDevUnits = Units(d2);
+
+                // Расхождение в кадре ОТСТАЮЩЕГО ЦИКЛА КЛИЕНТА (доводка 16): пока цикл стоял (кадр пришёл
+                // позже 2·FrameUs), сервер шагнул лишние такты, и правку задаёт сервер (1-001), а не ходьба
+                // предсказания. Соак №15, кадры 97253…97343: 77 unit по X, «в блоке False/False», нокбэка
+                // нет, чужих тел 0, ресинков 326 (у тихого соака №14 — 29, класс не появлялся). Признак
+                // точечный: кадр отстающего цикла (NoteLoopHitch) и только крупное расхождение (> нормы
+                // 68 unit), поэтому это не «ковёр»: соаки №12/№14 (запинок 0) им не снимают ничего.
+                // Счётчик LoopHitchExcluded — в отчёте, списание видно.
+                bool loopHitchDriven = _hitch && LastDevUnits > NoKnockBreachUnits;
+                if (loopHitchDriven)
+                {
+                    LoopHitchExcluded++;
+                }
+
                 if (LastDevUnits > MaxDevUnits)
                 {
                     MaxDevUnits = LastDevUnits;
@@ -693,7 +746,7 @@ namespace Orpheus.Net.Session
                 // То же без кадров, заданных нокбэком (начало, середина, остаток после конца) и серверным
                 // выталкиванием из нового блока: это и есть ошибка предсказания (норма 68 unit = касание
                 // врага). Нужна для длинных прогонов с боем и стройкой (E4-2).
-                if (!knockDriven && !knockRelated && !pushOutDriven && !bodyPushDriven)
+                if (!knockDriven && !knockRelated && !pushOutDriven && !bodyPushDriven && !loopHitchDriven)
                 {
                     if (LastDevUnits > MaxDevNoKnockUnits)
                     {
@@ -720,6 +773,13 @@ namespace Orpheus.Net.Session
                 if (LastDevUnits > HalfTileUnits)
                 {
                     ComparedOverHalfTile++;
+                }
+
+                if (loopHitchDriven)
+                {
+                    // Кадры, снятые запинкой, тоже видны в разборе (доводка 16): по ним проверяют, что
+                    // атрибуция сработала на настоящем простое, а не съела штатную ошибку ходьбы.
+                    TraceNote(ackFrame, LastDevUnits, in server, predicted, known);
                 }
 
                 if (d2 <= MatchDist2 && predicted.Carry == server.Carry && SelfState.SameDodge(predicted.Dodge, server.Dodge) &&

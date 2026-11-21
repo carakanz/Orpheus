@@ -84,6 +84,15 @@ namespace Orpheus.Bots
         /// <summary>Кадров, списанных как «сервер вытолкнул из блока, появившегося в окне предсказания» (E4-2).</summary>
         public long PredPushOutExcluded { get; set; }
 
+        /// <summary>Кадров, списанных как «расхождение задано запинкой цикла клиента» (пауза > 2 кадров, E4-2, доводка 16).</summary>
+        public long PredLoopHitchExcluded { get; set; }
+
+        /// <summary>Запинкок цикла клиента (кадров, пришедших позже 2·FrameUs после предыдущего) — E4-2, доводка 16.</summary>
+        public long PredLoopHitchTicks { get; set; }
+
+        /// <summary>Самая длинная запинка цикла клиента, мкс (E4-2, доводка 16).</summary>
+        public long PredLoopHitchMaxUs { get; set; }
+
         /// <summary>
         /// Топ-6 кадров расхождения «без нокбэка» с контекстом (позиции сервера и предсказания, нокбэк, блок,
         /// полоса раздвигания с обеих сторон) — по ним ищут класс расхождения, не учтённый атрибуцией (E4-2, доводка 10).
@@ -552,6 +561,9 @@ namespace Orpheus.Bots
                     st.PredNoKnockOverHalfTile = pred.NoKnockOverHalfTile;
                     st.PredKnockRelatedExcluded = pred.KnockRelatedExcluded;
                     st.PredPushOutExcluded = pred.PushOutExcluded;
+                    st.PredLoopHitchExcluded = pred.LoopHitchExcluded;
+                    st.PredLoopHitchTicks = pred.LoopHitchTicks;
+                    st.PredLoopHitchMaxUs = pred.LoopHitchMaxUs;
                     st.PredDevTrace = pred.DevTraceTop();
                     st.PredNoKnockFirstBreach = pred.NoKnockFirstBreach;
                     st.PredNoKnockFirstBreachKnown = pred.NoKnockFirstBreachKnown;
@@ -925,6 +937,9 @@ namespace Orpheus.Bots
                 w.WriteNumber("predNoKnockOverHalfTile", b.PredNoKnockOverHalfTile);
                 w.WriteNumber("predKnockRelatedExcluded", b.PredKnockRelatedExcluded);
                 w.WriteNumber("predPushOutExcluded", b.PredPushOutExcluded);
+                w.WriteNumber("predLoopHitchExcluded", b.PredLoopHitchExcluded);
+                w.WriteNumber("predLoopHitchTicks", b.PredLoopHitchTicks);
+                w.WriteNumber("predLoopHitchMaxUs", b.PredLoopHitchMaxUs);
                 w.WriteBoolean("predNoKnockFirstBreachKnown", b.PredNoKnockFirstBreachKnown); // E4-2 доводка 13: момент рождения расхождения
                 if (b.PredNoKnockFirstBreachKnown)
                 {

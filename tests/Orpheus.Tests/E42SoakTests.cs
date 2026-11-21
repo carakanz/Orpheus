@@ -70,12 +70,13 @@ namespace Orpheus.Tests
                                $"макс. отклонение {b.PredMaxDevUnits} unit (кадр {b.PredMaxDevFrame}), вне нокбэка " +
                                $"{b.PredMaxDevNoKnockUnits} unit (кадр {b.PredMaxDevNoKnockFrame}), нокбэков принято {b.PredKnockAdopted}, " +
                                $"раздвиганий тел {b.PredBodyPushExcluded}, " +
-                               $"ресинков {b.PredResynced}, кадров {b.InputsSent}");
+                               $"ресинков {b.PredResynced}, кадров {b.InputsSent}, запинок цикла {b.PredLoopHitchTicks} " +
+                               $"(макс. пауза {b.PredLoopHitchMaxUs / 1000} мс)");
                 // Разбор (E4-2 доводка 10): сколько кадров списано каждой атрибуцией и контекст топ-6 крупных
                 // расхождений «без нокбэка» — по ним видно, какой класс не покрыт. На ворота не влияет.
                 _out.WriteLine($"бот {i}: списано кадров — нокбэк с любой стороны {b.PredKnockRelatedExcluded}, " +
-                               $"выталкивание из нового блока {b.PredPushOutExcluded}, раздвигание тел {b.PredBodyPushExcluded}; " +
-                               $"без нокбэка >½тайла {b.PredNoKnockOverHalfTile}");
+                               $"выталкивание из нового блока {b.PredPushOutExcluded}, раздвигание тел {b.PredBodyPushExcluded}, " +
+                               $"запинка цикла {b.PredLoopHitchExcluded}; без нокбэка >½тайла {b.PredNoKnockOverHalfTile}");
                 foreach (LocalPrediction.DevTrace t in b.PredDevTrace)
                 {
                     _out.WriteLine($"бот {i}: кадр {t.AckFrame}: {t.DevUnits} unit; сервер ({t.ServerPos.X},{t.ServerPos.Y}) " +

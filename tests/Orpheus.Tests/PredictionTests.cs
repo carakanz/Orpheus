@@ -95,6 +95,16 @@ namespace Orpheus.Tests
             /// <summary>Кадры Unity неровные (8–50 мс), ввод догоняется пачками до 4 кадров.</summary>
             public bool Hitches { get; set; }
 
+            /// <summary>
+            /// E4-2 (доводка 16): кадровый цикл клиента периодически встаёт — каждый <c>N</c>-й кадр Unity идёт
+            /// дольше <see cref="LoopHitchGapUs"/> (0 — выключено, кадры как раньше: тесты до доводки не меняются).
+            /// Паузу предсказание получает так же, как в живом клиенте (<c>NetBot.Frame</c> → <c>NoteLoopHitch</c>).
+            /// </summary>
+            public int LoopHitchEveryFrames { get; set; }
+
+            /// <summary>Длительность «запинки цикла» (кадр Unity), мкс. Порог LocalPrediction.LoopHitchUs = 2 кадра = 33 332.</summary>
+            public long LoopHitchGapUs { get; set; } = 50_000;
+
             /// <summary>Кнопки кадра по времени (уворот, 0-029); null — без кнопок.</summary>
             public Func<long, ushort>? Buttons { get; set; }
 
@@ -148,6 +158,7 @@ namespace Orpheus.Tests
                 long nextUnity = 0;
                 long accum = 0;
                 long tick = 0;
+                int unityFrames = 0; // доводка 16: нумерация кадров Unity для ручки «запинка цикла»
                 for (long t = 0; t <= durationUs; t += 1000)
                 {
                     if (t >= tick * TickUs)
@@ -162,6 +173,12 @@ namespace Orpheus.Tests
                     }
 
                     long dt = Hitches ? Pick() : FrameUs;
+                    if (LoopHitchEveryFrames > 0 && ++unityFrames % LoopHitchEveryFrames == 0)
+                    {
+                        dt = LoopHitchGapUs;
+                        Pred.NoteLoopHitch(dt); // доводка 16: паузу цикла предсказание видит так же, как в NetBot.Frame
+                    }
+
                     nextUnity = t + dt;
                     DeliverSnapshots(t);
                     accum += dt;
@@ -506,6 +523,59 @@ namespace Orpheus.Tests
             _out.WriteLine($"сервер в глубине тайла (оба в блоке): выталкивание {deep.Pred.PushOutExcluded}, вне нокбэка {deep.Pred.MaxDevNoKnockUnits} u");
             Assert.Equal(1, deep.Pred.PushOutExcluded); // списан только первый кадр; «оба в блоке» (кадр 99353) — в норме
             Assert.True(deep.Pred.MaxDevNoKnockUnits > 68, $"«оба в блоке» вышли из нормы ({deep.Pred.MaxDevNoKnockUnits}) — признак ковёр");
+        }
+
+        /// <summary>
+        /// E4-2 (доводка 16): расхождение, рождённое ЗАПИНКОЙ ЦИКЛА КЛИЕНТА (кадр Unity идёт дольше двух кадров,
+        /// сервер за это время шагает лишние такты), — не ошибка предсказания: правку задаёт сервер (1-001).
+        /// Соак №15, кадры 97253…97343: 77 unit по X, «в блоке False/False», нокбэка нет, чужих тел 0,
+        /// держится кадрами, ресинков 326 (у тихого соака №14 — 29, и там этот класс не появлялся).
+        /// Признак точечный: сверка после паузы и только крупное расхождение (&gt; нормы 68 unit). Контролы:
+        /// без запинок те же 77 остаются в норме (признак не ковёр); с запинками, но без смещения — 0 списанных.
+        /// Числам расхождения судьёй не является: соакер с настоящим сервером и ботами (E42SoakTests).
+        /// </summary>
+        [Fact]
+        public void E42_Model_LoopHitch_ExcludedFromNoKnock()
+        {
+            const int push = 77; // цифра пролома соакера №15 (кадр 97253)
+            const long gap = 35_000; // кадр клиента 35 мс = 2,1 такта сервера (порог 2·FrameUs = 33 332 мкс)
+            MapShape map = MapShape.World(1024);
+            Input8 still = new Input8(0, 0);
+
+            var stalled = new Model(map, Collision.Empty, Center(300, 400), _ => still, 51)
+            {
+                Touch = (60, 120, 4, push),
+                LoopHitchEveryFrames = 1,
+                LoopHitchGapUs = gap,
+            };
+            stalled.Run(4_000_000);
+            LocalPrediction p = stalled.Pred;
+            _out.WriteLine($"запинки цикла: кадров {p.LoopHitchTicks}, макс. {p.LoopHitchMaxUs} мкс, списано {p.LoopHitchExcluded}, " +
+                           $"толчков {stalled.Touches}, макс. расх. {p.MaxDevUnits} u, вне нокбэка {p.MaxDevNoKnockUnits} u, " +
+                           $"правок {p.Resynced}, >½тайла {p.ComparedOverHalfTile}");
+            Assert.Equal(15, stalled.Touches); // толчок каждые 4-е такты окна 60…120
+            Assert.True(p.LoopHitchTicks > 0, "запинок цикла не замерено");
+            Assert.Equal(gap, p.LoopHitchMaxUs);
+            Assert.Equal(stalled.Touches, p.LoopHitchExcluded); // каждый толчок в кадре отстающего цикла — списан
+            Assert.InRange(p.MaxDevUnits, push - 1, push + 1); // само смещение видно в общем максимуме
+            Assert.True(p.MaxDevNoKnockUnits <= 68, $"чистая ошибка предсказания {p.MaxDevNoKnockUnits} > нормы 68 при запинках цикла");
+            Assert.Equal(0, p.ComparedOverHalfTile); // гейт 2.13 п. 1 не ослаблен
+
+            var quiet = new Model(map, Collision.Empty, Center(300, 400), _ => still, 51) { Touch = (60, 120, 4, push) };
+            quiet.Run(4_000_000);
+            _out.WriteLine($"без запинок: запинок {quiet.Pred.LoopHitchTicks}, списано {quiet.Pred.LoopHitchExcluded}, " +
+                           $"вне нокбэка {quiet.Pred.MaxDevNoKnockUnits} u");
+            Assert.Equal(0, quiet.Pred.LoopHitchTicks);
+            Assert.Equal(0, quiet.Pred.LoopHitchExcluded); // без пауз цикла списывать нечего: 77 остаются ошибкой предсказания
+            Assert.True(quiet.Pred.MaxDevNoKnockUnits > 68, $"смещение без запинок вышло из нормы ({quiet.Pred.MaxDevNoKnockUnits}) — признак ковёр");
+
+            var clean = new Model(map, Collision.Empty, Center(300, 400), _ => still, 51) { LoopHitchEveryFrames = 1, LoopHitchGapUs = gap };
+            clean.Run(4_000_000);
+            _out.WriteLine($"запинки без смещения: запинок {clean.Pred.LoopHitchTicks}, списано {clean.Pred.LoopHitchExcluded}, " +
+                           $"вне нокбэка {clean.Pred.MaxDevNoKnockUnits} u");
+            Assert.True(clean.Pred.LoopHitchTicks > 0, "запинок цикла не замерено");
+            Assert.Equal(0, clean.Pred.LoopHitchExcluded); // малое расхождение в окне запинки остаётся в норме
+            Assert.True(clean.Pred.MaxDevNoKnockUnits <= 68, $"стояние с запинками само дало {clean.Pred.MaxDevNoKnockUnits} u");
         }
 
         /// <summary>

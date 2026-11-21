@@ -44,6 +44,8 @@ namespace Orpheus.Net.Session
         private uint _predLateFrame; // последний кадр, отправленный без предсказания
         private SeamWatch? _watch;
         private long _pollUs;
+        private long _lastFrameUs = -1; // E4-2 (доводка 16): пауза между кадрами цикла — признак запинки предсказания
+
         private uint _lastMoveFrame;
         private bool _moved;
         private uint _checkedTick;
@@ -122,6 +124,14 @@ namespace Orpheus.Net.Session
         /// <summary>Кадр бота: разобрать пришедшее, сверить, решить, отправить ввод по часам.</summary>
         public void Frame(long nowMicros)
         {
+            if (_lastFrameUs >= 0)
+            {
+                // Доводка 16: цикл клиента (Unity/BotRun) пришёл позже двух кадров — окно предсказания между
+                // сверками длиннее штатного шага, и это отмечают ворота LocalPrediction.LoopHitchExcluded.
+                _pred?.NoteLoopHitch(nowMicros - _lastFrameUs);
+            }
+
+            _lastFrameUs = nowMicros;
             _pollUs = nowMicros;
             Client.Poll(nowMicros);
             if (Client.State != NetClientState.InGame)

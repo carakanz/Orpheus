@@ -110,6 +110,7 @@ namespace Orpheus.Client
         WorldPos _localPos;
         Simulation? _netRules;
         LocalPrediction? _pred;
+        long _predFrameUs = -1; // E4-2 (доводка 16): пауза между кадрами Unity — окно предсказания длиннее штатного шага
         int _localId;
         ScreenshotRun? _screenshot;
         Anim.NetAnimation? _anim; // K-001: процедурная анимация — только отображение
@@ -322,6 +323,19 @@ namespace Orpheus.Client
         {
             long now = NowUs();
             _pollUs = now;
+            if (_pred != null)
+            {
+                // Доводка 16: Unity-кадр длиннее двух кадров (60 Гц) — пока цикл стоял, сервер шагнул лишние
+                // такты, и правку задаёт он (1-001). LocalPrediction помечает такие расхождения запинкой цикла
+                // (LoopHitchExcluded), метрика «ошибка предсказания без нокбэка» остаётся про чистое движение.
+                if (_predFrameUs >= 0)
+                {
+                    _pred.NoteLoopHitch(now - _predFrameUs);
+                }
+
+                _predFrameUs = now;
+            }
+
             PollLocalServer(now);
             PollThreadServer(now);
             if (_client != null)
