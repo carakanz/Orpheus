@@ -120,6 +120,43 @@ namespace Orpheus.Tests
         }
 
         /// <summary>
+        /// C-048 (слово Автора 21.11: «лук при зажатии должен нонстопом стрелять»): игрок держит ЛКМ с луком в руках 5 с
+        /// (300 кадров) — выстрелы идут непрерывно, темпом ядра (<see cref="C031ArrowTests.C031_HoldLmb_ContinuousFire_UntilArrowsRunOut" />:
+        /// кадры 36, 84, 132, 180, 228, 276 — 6 выстрелов за 5 с), сервер подтверждает все 6, стрелы списаны по одной
+        /// на выстрел (50 → 44); отпускание добирает дотянутое натяжение (7-й выстрел, 43 стрелы) и все стрелы долетают.
+        /// Отдельные выстрелы по клику, а не серия, — эта проверка красная.
+        /// </summary>
+        [Fact]
+        public void C048_Net_HoldLmb_FiveSeconds_ContinuousShots()
+        {
+            var shape = MapShape.World(1024);
+            WorldModel world = FlatWorldGenerator.Instance.Generate(shape, 3);
+            using var rig = new EditTests.EditRig(world, _ => new WorldPos(500 * U + U / 2, 500 * U + U / 2));
+            NetClient c = rig.Join();
+            rig.Run(20);
+            Assert.Equal(NetClientState.InGame, c.State);
+            Assert.Equal(50, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Arrows)); // старт: лук в ячейке 4, 50 стрел
+
+            int frame = 0;
+            rig.InputOf = _ =>
+            {
+                frame++;
+                ushort b = frame <= 300 ? InputButtons.Attack : (ushort)0; // держим 5 с
+                return new InputFrame(Input8.None, b, 0, 4); // ячейка 4 — простой лук
+            };
+            rig.Run(150); // ровно 300 кадров удержания
+
+            Assert.Equal(6, c.Projectiles.ShotsSeen); // серия: 6 выстрелов сервера, темпом 1,25/с
+            Assert.Equal(44, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Arrows)); // списаны ровно по стреле на выстрел
+
+            rig.Run(120); // отпустил: дотянутое натяжение (13 кадров ≥ минимума) — 7-й выстрел, полёт последних стрел
+
+            Assert.Equal(7, c.Projectiles.ShotsSeen);
+            Assert.Equal(43, rig.Sim.GetEntity(c.EntityId).Inv.Count(Items.Arrows));
+            Assert.Equal(7, c.Projectiles.StopsSeen); // все долетели (дальность 30 т, мир плоский)
+        }
+
+        /// <summary>
         /// E3-1 × E3-2 (просьба проверяющего E3-1): стрелок дальше 56 тайлов от жертвы всё равно получает событие «урон» своего
         /// попадания (атакующему — всегда); посторонний игрок у стрелка (тоже дальше 56 т от жертвы) — не получает. Общий механизм
         /// снаряда с дальностью 90 т (у лука 30 т — так далеко стрелок оказывается, только убежав за время полёта).

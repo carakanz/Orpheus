@@ -112,6 +112,20 @@ namespace Orpheus.Client
         /// </summary>
         public bool NetSmokeBed;
 
+        /// <summary>
+        /// C-048: net-smoke на ЖИВОМ пути ввода (не скриптованные кадры): synthetic-мышь и клавиатура
+        /// (<c>NetGame.SmokeBow</c>) держат ЛКМ 5,0–10,0 с с луком в руках (ячейка 5) — проверка, что
+        /// удержание даёт серию выстрелов («лук при зажатии стреляет нонстопом», слово Автора 21.11).
+        /// </summary>
+        public bool NetSmokeBow;
+
+        /// <summary>
+        /// C-048: тот же лук, но курсор — над нижней панелью (низ экрана, где сферы и способности: Автор целится
+        /// в моба у ног, курсор оказывается над панелью, и E2-2 «мир не отвечает» глушит выстрелы). Проверка, что
+        /// с боевым оружием в руках ЛКМ уходит в мир даже над панелью.
+        /// </summary>
+        public bool NetSmokeBowBar;
+
         public bool Hud;
 
         /// <summary>Одиночная / хост: сервер дочерним процессом (0-024); null — офлайн или <see cref="Connect"/>.</summary>
@@ -354,6 +368,13 @@ namespace Orpheus.Client
                     case "--smoke-bed":
                         a.NetSmokeBed = true;
                         a.ServerArgs.Add("--debug-bed"); // C-030: кровать ставит сервер у точки появления
+                        break;
+                    case "--smoke-bow":
+                        a.NetSmokeBow = true;
+                        break;
+                    case "--smoke-bow-bar": // C-048: лучник целится в моба у ног — курсор над нижней панелью
+                        a.NetSmokeBow = true;
+                        a.NetSmokeBowBar = true;
                         break;
                     case "--auto-menu-click": // E4-1b: автоклик «В меню» на «Уведомлении» (живая проверка возврата в меню)
                         a.AutoMenuClick = true;

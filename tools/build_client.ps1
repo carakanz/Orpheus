@@ -237,6 +237,68 @@ if ($HostSmoke) {
     Say 'host-smoke: код 0'
 }
 
+# --- 4b. C-048: лук на ЖИВОМ пути ввода (synthetic-мышь держит ЛКМ 5 с) -------------------------
+if ($HostSmoke) {
+    $bowLog = Join-Path $LogDir 'host-smoke-bow.log'
+    $bowWorld = Join-Path $LogDir 'host-smoke-bow-world'
+    foreach ($p in @($bowLog, $bowWorld)) { if (Test-Path $p) { Remove-Item -Recurse -Force $p } }
+    Say 'host-smoke-bow: Orpheus.exe --host --net-smoke 13 --smoke-bow (живой путь ввода, synthetic-мышь: ЛКМ зажат 5 с)'
+    $bp = Start-Process -FilePath $Exe -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $LogDir 'host-smoke-bow.stdout.txt') -ArgumentList @(
+        '-batchmode', '-nographics', '--host', '--world', "`"$bowWorld`"", '--net-smoke', '13', '--smoke-bow',
+        '--open-for-friends', '--open-address', '127.0.0.2', '--open-port', '0',
+        '--server-arg', '--bots', '--server-arg', '2:wander', '-logFile', "`"$bowLog`"")
+    $null = $bp.Handle
+    if (-not $bp.WaitForExit(120 * 1000)) { try { $bp.Kill() } catch { }; Fail 'host-smoke-bow: Orpheus.exe не вышел за 120 с' }
+    $bp.WaitForExit()
+    Select-String -Path $bowLog -Pattern '^\[(smoke|host)\]' | ForEach-Object { Write-Host "  $($_.Line)" }
+    $bowReady = Select-String -Path $bowLog -Pattern '^\[host\] сервер готов .* процесс (\d+)' | Select-Object -First 1
+    if ($bowReady) {
+        $bowPid = [int]$bowReady.Matches[0].Groups[1].Value
+        $left = Get-Process -Id $bowPid -ErrorAction SilentlyContinue
+        if ($left -and $left.ProcessName -eq 'OrpheusServer') {
+            Stop-Process -Id $bowPid -Force
+            Fail "host-smoke-bow: сервер (процесс $bowPid) пережил клиента — снят"
+        }
+    }
+    if ($bp.ExitCode -ne 0) { Fail "host-smoke-bow: код выхода $($bp.ExitCode), лог: $bowLog" }
+    if (-not (Select-String -Path $bowLog -Pattern '^\[smoke\] done' -Quiet)) { Fail "host-smoke-bow: нет строки '[smoke] done' в $bowLog" }
+    if (-not (Select-String -Path $bowLog -Pattern '^\[smoke\] лук: зажатие 5 с — выстрелов ([5-9]|[1-9][0-9]+)' -Quiet)) { Fail "host-smoke-bow: нет строки '[smoke] лук: зажатие 5 с — выстрелов N' (N >= 5) в $bowLog" }
+    if (-not $bowReady) { Fail "host-smoke-bow: клиент не запускал сервер (нет строки '[host] сервер готов')" }
+    if (-not (Select-String -Path $bowLog -Pattern '^\[host\] сервер остановлен: код 0' -Quiet)) { Fail 'host-smoke-bow: сервер не вышел штатно с кодом 0' }
+    Say 'host-smoke-bow: код 0'
+}
+
+# --- 4c. C-048: лук, курсор НАД НИЖНЕЙ ПАНЕЛЬЮ (Автор целится в моба у ног) ----------------------
+if ($HostSmoke) {
+    $barLog = Join-Path $LogDir 'host-smoke-bow-bar.log'
+    $barWorld = Join-Path $LogDir 'host-smoke-bow-bar-world'
+    foreach ($p in @($barLog, $barWorld)) { if (Test-Path $p) { Remove-Item -Recurse -Force $p } }
+    Say 'host-smoke-bow-bar: Orpheus.exe --host --net-smoke 13 --smoke-bow-bar (курсор над панелью: ЛКМ зажат 5 с)'
+    $bp = Start-Process -FilePath $Exe -PassThru -NoNewWindow -RedirectStandardOutput (Join-Path $LogDir 'host-smoke-bow-bar.stdout.txt') -ArgumentList @(
+        '-batchmode', '-nographics', '--host', '--world', "`"$barWorld`"", '--net-smoke', '13', '--smoke-bow-bar',
+        '--open-for-friends', '--open-address', '127.0.0.2', '--open-port', '0',
+        '--server-arg', '--bots', '--server-arg', '2:wander', '-logFile', "`"$barLog`"")
+    $null = $bp.Handle
+    if (-not $bp.WaitForExit(120 * 1000)) { try { $bp.Kill() } catch { }; Fail 'host-smoke-bow-bar: Orpheus.exe не вышел за 120 с' }
+    $bp.WaitForExit()
+    Select-String -Path $barLog -Pattern '^\[(smoke|host)\]' | ForEach-Object { Write-Host "  $($_.Line)" }
+    $barReady = Select-String -Path $barLog -Pattern '^\[host\] сервер готов .* процесс (\d+)' | Select-Object -First 1
+    if ($barReady) {
+        $barPid = [int]$barReady.Matches[0].Groups[1].Value
+        $left = Get-Process -Id $barPid -ErrorAction SilentlyContinue
+        if ($left -and $left.ProcessName -eq 'OrpheusServer') {
+            Stop-Process -Id $barPid -Force
+            Fail "host-smoke-bow-bar: сервер (процесс $barPid) пережил клиента — снят"
+        }
+    }
+    if ($bp.ExitCode -ne 0) { Fail "host-smoke-bow-bar: код выхода $($bp.ExitCode), лог: $barLog" }
+    if (-not (Select-String -Path $barLog -Pattern '^\[smoke\] done' -Quiet)) { Fail "host-smoke-bow-bar: нет строки '[smoke] done' в $barLog" }
+    if (-not (Select-String -Path $barLog -Pattern '^\[smoke\] лук: зажатие 5 с — выстрелов ([5-9]|[1-9][0-9]+).*панель 1' -Quiet)) { Fail "host-smoke-bow-bar: нет строки '[smoke] лук: зажатие 5 с — выстрелов N' (N >= 5, панель 1) в $barLog" }
+    if (-not $barReady) { Fail "host-smoke-bow-bar: клиент не запускал сервер (нет строки '[host] сервер готов')" }
+    if (-not (Select-String -Path $barLog -Pattern '^\[host\] сервер остановлен: код 0' -Quiet)) { Fail 'host-smoke-bow-bar: сервер не вышел штатно с кодом 0' }
+    Say 'host-smoke-bow-bar: код 0'
+}
+
 # --- 5. «Сервер в потоке» (0-031) ------------------------------------------------------------
 if ($ThreadSmoke) {
     $threadWorld = Join-Path $LogDir 'thread-smoke-world'

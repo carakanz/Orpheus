@@ -171,6 +171,13 @@ namespace Orpheus.Client
                 // Как игра: 60 кадров/с, а не ~80 000 в пакетном режиме (замечание 9 проверки 0-012).
                 QualitySettings.vSyncCount = 0;
                 Application.targetFrameRate = 60;
+
+                // C-048: на живом пути в -batchmode -nographics мыши нет (Mouse.current == null) —
+                // заводим synthetic-мышь и клавиатуру, кадры гонит InjectSmokeInput.
+                if (_args.NetSmokeBow)
+                {
+                    SetupSmokeInput();
+                }
             }
 
             if (StartThreadServer())
@@ -324,6 +331,7 @@ namespace Orpheus.Client
         {
             long now = NowUs();
             _pollUs = now;
+            InjectSmokeInput(); // C-048: synthetic-мышь/клавиатура для живого пути в --smoke-bow
             PollLocalServer(now);
             PollThreadServer(now);
             if (_client != null)
@@ -543,9 +551,11 @@ namespace Orpheus.Client
             int n = c.FramesDue(now);
             ushort editButtons = UpdateEdits(now); // 0-028: копание под курсором, стена по ПКМ; 1-004: бит удара ЛКМ
             // 1-002: прицел и ячейка — в каждый кадр ввода (журнал 2.4); в net-smoke кадр скриптованный, без мыши.
-            ushort aim = _args.NetSmokeSeconds > 0 ? (ushort)0 : ComputeAim();
-            byte slot = _args.NetSmokeSeconds > 0 ? SmokeMeleeSlot(now) : (byte)_slot;
-            bool dodgePress = _args.NetSmokeSeconds > 0 ? ScriptedSmokeDodge(now) : _g.Dodge.WasPressedThisFrame() && !ShiftForWindow();
+            // C-048: --smoke-bow — живой путь (aim/ячейка/уворот/движение — как в игре, мышь synthetic-устройства).
+            bool live = _args.NetSmokeSeconds == 0 || _args.NetSmokeBow;
+            ushort aim = live ? ComputeAim() : (ushort)0;
+            byte slot = live ? (byte)_slot : SmokeMeleeSlot(now);
+            bool dodgePress = live ? _g.Dodge.WasPressedThisFrame() && !ShiftForWindow() : ScriptedSmokeDodge(now);
             if (dodgePress && _args.NetSmokeSeconds == 0 && ShiftOnlyPressed() && RulerMayTakeShift())
             {
                 _shiftDodgeHold = DodgeWaitFrames; // E2-13: Shift со стеной в руке ждёт ЛКМ (диагональ линейки) до 6 кадров
@@ -572,7 +582,7 @@ namespace Orpheus.Client
 
             for (int k = 0; k < n; k++)
             {
-                InputFrame frame = _args.NetSmokeSeconds > 0 ?
+                InputFrame frame = _args.NetSmokeSeconds > 0 && !_args.NetSmokeBow ?
                     WithAimSlot(ScriptedSmokeFrame(now), aim, slot) : // 1-004: в окне — ячейка меча, иначе кирка
                     WithAimSlot(GameBoot.ToFrame(_g.Move.ReadValue<Vector2>()), aim, slot);
                 ushort buttons = editButtons;
@@ -1125,7 +1135,7 @@ namespace Orpheus.Client
 
                 // Уворот (0-034): скриптовое нажатие ушло одним кадром с направлением; что сервер его повторил — проверка выше.
                 Debug.Log($"[smoke] уворот: нажатий {DodgePresses}, кадров с битом {DodgesSent}");
-                if (SmokeDodges && (DodgePresses != 1 || DodgesSent != 1))
+                if (SmokeDodges && !_args.NetSmokeBow && (DodgePresses != 1 || DodgesSent != 1))
                 {
                     Fail($"[smoke] FAILED: уворот — нажатий {DodgePresses}, кадров с битом {DodgesSent} (нужно 1 и 1)");
                     return;
@@ -1136,10 +1146,34 @@ namespace Orpheus.Client
                 // все кадры окна отправлены. На прогонах короче 6 с (есть такие) окно не проверяется.
                 double meleeT = (now - _inGameSinceUs) / 1_000_000.0;
                 Debug.Log($"[smoke] меч: кадров с битом {AttacksSent}, замахов {MeleeStrikes} (t {meleeT:0.0} с)");
-                if (SmokeMelee && meleeT >= SmokeMeleeEndSec && (AttacksSent < 60 || MeleeStrikes < 2))
+                if (SmokeMelee && !_args.NetSmokeBow && meleeT >= SmokeMeleeEndSec && (AttacksSent < 60 || MeleeStrikes < 2))
                 {
                     Fail($"[smoke] FAILED: меч — кадров с битом {AttacksSent} (нужно ≥ 60), замахов {MeleeStrikes} (нужно ≥ 2)");
                     return;
+                }
+
+                // C-048 (живой путь, synthetic-мышь): лук в руках, ЛКМ зажат 5,0–10,0 с — выстрелы ИДУТ СЕРИЕЙ
+                // («лук при зажатии должен нонстопом стрелять», слово Автора 21.11). Считаем подтверждённые сервером
+                // свои выстрелы: за 5 с удержания ≥ 5 (натяжение MinDrawFrames=12 кадров + полёт, ждём ~6).
+                // Стрелы: расход сервером при приёмке выстрела, списание в клиентском сумке приходит подтверждением
+                // с задержкой до ~1,5 с (последний выстрел — в конце окна), поэтому в smokegate инвариант
+                // «стрел ≤ 50 и не больше расхода»; точный расход (50→44) проверяет net-тест
+                // C048_Net_HoldLmb_FiveSeconds_ContinuousShots ([док] в карточке C-048).
+                if (_args.NetSmokeBow)
+                {
+                    long shots = _client.Projectiles.OwnConfirmed;
+                    int arrows = _bag.Count(Items.Arrows);
+                    string bowLine = $"лук: зажатие 5 с — выстрелов {shots}, кадров с битом {AttacksSent}, " +
+                                     $"предсказано {ShotsPredicted}, отказов {_client.Projectiles.RefusedSeen}, стрел {arrows}, " +
+                                     $"панель {(_args.NetSmokeBowBar ? 1 : 0)}, экр {Screen.width}x{Screen.height}, " +
+                                     $"поз {_smokePointerPos.x:0}x{_smokePointerPos.y:0}, блок {(_ui != null && _ui.PointerBlocked ? 1 : 0)}, " +
+                                     $"маршрут {(_ui == null ? "нет" : _ui.Route.ToString())}";
+                    Debug.Log("[smoke] " + bowLine);
+                    if (shots < 5 || arrows > 50)
+                    {
+                        Fail($"[smoke] FAILED: {bowLine} (нужно: выстрелов ≥ 5, стрел ≤ 50)");
+                        return;
+                    }
                 }
 
                 if (_client.DeltasApplied == 0 || _client.DeltasUnmerged * 10 > _client.SnapshotsApplied)
@@ -1219,7 +1253,7 @@ namespace Orpheus.Client
                                   $"принято сервером {(_smokeWallConfirmed ? "да" : "нет")}, откатов по пробе {_smokeWallRollbacks}, " +
                                   $"всего откатов {Rollbacks}";
                 Debug.Log("[smoke] " + wallLine);
-                if (!_smokeWallConfirmed || _smokeWallFrameOk == 0)
+                if (!_args.NetSmokeBow && (!_smokeWallConfirmed || _smokeWallFrameOk == 0))
                 {
                     Fail($"[smoke] FAILED: {wallLine} (нужно: принято да, Tilemap в тот же кадр ≥ 1)");
                     return;
